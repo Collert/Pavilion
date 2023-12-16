@@ -1,0 +1,11 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+<form id="login" method="post" action="{% url 'login_view' %}">
+    {% csrf_token %}
+    <input type="text" name="username"/>
+    <input type="password" name="password"/>
+    <button>Log in</button>
+</form>
+{% endblock %}

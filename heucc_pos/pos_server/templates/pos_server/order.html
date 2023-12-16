@@ -1,0 +1,121 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<div id="items-wrapper">
+    <div id="items">
+        {% for item in menu %}
+            <button data-id="{{item.id}}" class="dish tight">
+                <span class="dish-title">{{item.title}}</span>
+                <div>
+                    <span class="price">${{item.price|floatformat:0}}</span>
+                    <span class="material-symbols-outlined">add_shopping_cart</span>
+                </div>
+            </button>
+        {% endfor %}
+    </div>
+</div>
+<div id="cart-wrapper">
+    <div id="cart">
+        
+    </div>
+    <div id="total-button" class="hidden">
+        Total: $<span></span>
+    </div>
+    <button data-actionLink="{% url 'pos' %}" class="hidden" id="send-button">Confirm and send to kitchen</button>
+</div>
+
+<script>
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    let order = []
+    const dishes = JSON.parse('{{json|safe}}')
+    console.log(dishes)
+    const checkoutButton = document.querySelector("#send-button");
+    const totalDisplay = document.querySelector("#total-button");
+    
+    document.querySelectorAll(".dish").forEach(button => {
+        button.addEventListener("click", e => {
+            let dishId = e.currentTarget.dataset.id
+            e.stopPropagation()
+            order.push(dishId)
+            updateCheckoutButton()
+            let dish = getDish(dishId)
+            let existingDishCard = document.querySelector(`#dish-${dishId}`);
+            if (!existingDishCard) {
+                let cartItem = document.createElement("div")
+                let cart = document.querySelector("#cart")
+                cartItem.className = "cart-item";
+                cartItem.dataset.dishId = dishId;
+                cartItem.id = `dish-${dishId}`;
+                cartItem.innerHTML = `<div class="cart-item-title"><span><span class="item-qty"></span> X ${dish.fields.title}</span></div>
+                                      <button class="error remove-cart-item"><span class="material-symbols-outlined">remove</span></button>`
+                cart.appendChild(cartItem);
+                existingDishCard = cartItem;
+                cartItem.querySelector(".error.remove-cart-item").addEventListener("click", e => {
+                    e.stopPropagation()
+                    order.splice(order.indexOf(dishId), 1);
+                    updateCheckoutButton()
+                    let itemQty = getQuantity(order, dishId)
+                    if (!itemQty) {
+                        cart.removeChild(existingDishCard)
+                    } else {
+                        existingDishCard.querySelector(".item-qty").innerHTML = itemQty
+                    }
+                })
+            }
+            existingDishCard.querySelector(".item-qty").innerHTML = getQuantity(order, dishId)
+        })
+    })
+
+    checkoutButton.addEventListener("click", e => {
+        let table;
+        do {
+            table = prompt("Please enter the table number (leave empty for takeout):")
+            if (isNaN(table)) {
+                alert("That's not a number. Please try again.");
+            }
+        } while (isNaN(table));
+        if (table !== null) {
+            fetch(event.currentTarget.dataset.actionlink, {
+                headers: {"X-CSRFToken": csrftoken },
+                method:'POST',
+                body: JSON.stringify({
+                    order:order,
+                    table:table
+                })
+            }).then(()=>{
+    
+                alert(`Order sent! Please charge customer $${getTotal(order)}`)
+                order = []
+                updateCheckoutButton()
+                document.querySelector("#cart").innerHTML = ''
+            })
+        }
+    })
+
+    
+    function getDish(id) {
+        dish = dishes.find(obj => obj.pk === parseInt(id))
+        return dish
+    }
+    function updateCheckoutButton() {
+        totalDisplay.className = order.length ? "" : "hidden"
+        totalDisplay.querySelector("span").innerHTML = getTotal(order)
+        checkoutButton.className = order.length ? "" : "hidden"
+        checkoutButton.disabled = order.length === 0
+    }
+    function getQuantity(array, valueToFind) {
+        return array.reduce((accumulator, currentValue) => {
+                    return currentValue === valueToFind ? accumulator + 1 : accumulator;
+                }, 0);
+    }
+    function getTotal(order) {
+        let total = 0;
+        order.forEach(item => {
+            total += getDish(item).fields.price;
+        })
+        return total
+    }
+</script>
+{% endblock %}
