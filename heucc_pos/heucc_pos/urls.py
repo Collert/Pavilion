@@ -19,5 +19,6 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('webrtc/', include("webrtc.urls")),
     path('', include("pos_server.urls")),
 ]

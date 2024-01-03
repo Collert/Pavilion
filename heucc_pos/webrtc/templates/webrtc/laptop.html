@@ -1,0 +1,47 @@
+{% extends "webrtc/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<script>
+    const peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    // Create data channel (optional, if you need to send data)
+    const dataChannel = peerConnection.createDataChannel("dataChannel");
+
+    let sessionId = null;
+
+    peerConnection.createOffer().then(offer => {
+        return peerConnection.setLocalDescription(offer);
+    }).then(() => {
+        // Send the offer to the Django server using AJAX
+        return fetch("{% url 'post_offer' %}", {
+            method: 'POST',
+            body: JSON.stringify({ offer: peerConnection.localDescription }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+    }).then(response => response.json()).then(data => {
+        sessionId = data.session_id;
+        console.log(sessionId);
+        // checkForAnswer();
+    });
+
+    function checkForAnswer() {
+        // Periodically check for the answer
+        fetch(`{% url 'get_offer' ${sessionId} %}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.answer) {
+                    peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                } else {
+                    // Repeat after a delay if the answer is not yet available
+                    setTimeout(checkForAnswer, 5000); // Check every 5 seconds
+                }
+            });
+    }
+    </script>
+{% endblock %}

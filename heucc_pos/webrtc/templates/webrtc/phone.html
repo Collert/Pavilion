@@ -1,0 +1,51 @@
+{% extends "webrtc/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<script>
+    const peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    // Assume we have a function to get the offer from the server
+    getOfferFromServer().then(offer => {
+        return peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    }).then(() => {
+        return peerConnection.createAnswer();
+    }).then(answer => {
+        return peerConnection.setLocalDescription(answer);
+    }).then(() => {
+        // Send the answer back to the server
+        fetch("{% url 'post_answer' %}", {
+            method: 'POST',
+            body: JSON.stringify({ answer: peerConnection.localDescription, session_id: sessionId }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+    });
+
+    // Implement getOfferFromServer to retrieve the offer
+    function getOfferFromServer() {
+        return fetch(`{% url 'get_offer' ${sessionId} %}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.offer) {
+                return new RTCSessionDescription(data.offer);
+            } else {
+                throw new Error('No offer found');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching the offer:', error);
+        });
+    }
+
+</script>
+{% endblock %}
