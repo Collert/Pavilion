@@ -25,9 +25,21 @@ SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["a02b-2001-569-7c3d-9100-659b-18ae-7cbd-f21e.ngrok-free.app", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    "127.0.0.1", 
+    "localhost", 
+    "server.uahelp.ca", 
+    "internal.uahelp.ca", 
+    "local.internal.uahelp.ca"
+    ]
 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000", "https://a02b-2001-569-7c3d-9100-659b-18ae-7cbd-f21e.ngrok-free.app"]
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000", 
+    "http://server.uahelp.ca", 
+    "http://internal.uahelp.ca", 
+    "http://local.internal.uahelp.ca"
+    ]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
