@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'pos_server.apps.PosServerConfig',
     'webrtc',
+    'landing',
 ]
 
 MIDDLEWARE = [
