@@ -1,10 +1,17 @@
 from django.db import models
 
 # Create your models here.
+    
+class Menu(models.Model):
+    title = models.CharField(max_length=140)
+
+    def __str__(self) -> str:
+        return f"Menu: {self.title}"
 
 class Dish(models.Model):
     title = models.CharField(max_length=140)
     price = models.FloatField()
+    menu = models.ForeignKey("Menu", on_delete = models.CASCADE, related_name = "dishes")
 
     def __str__(self) -> str:
         return self.title

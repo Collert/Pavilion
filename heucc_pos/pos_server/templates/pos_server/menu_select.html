@@ -1,0 +1,11 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+<h1>Select a menu:</h1>
+{% for menu in menus %}
+<a href="{% url 'pos' menu.title %}" class="button">
+    {{menu.title|title}}
+</a>
+{% endfor %}
+{% endblock %}

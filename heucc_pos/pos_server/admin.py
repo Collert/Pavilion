@@ -5,4 +5,5 @@ from .models import *
 
 admin.site.register(Dish)
 admin.site.register(Order)
-admin.site.register(OrderDish)
+admin.site.register(Menu)
+# admin.site.register(OrderDish)

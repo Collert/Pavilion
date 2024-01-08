@@ -246,3 +246,10 @@ a.button:focus-visible:not(.no-style) span,
 a.button:active:not(.no-style) span {
     color: var(--primary-background)!important;
 }
+
+#menu_select {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-direction: column;
+}

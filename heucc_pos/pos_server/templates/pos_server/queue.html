@@ -107,4 +107,10 @@
         }
     }
 </script>
+
+{% if portrait %}
+<script>
+    document.querySelector("body").classList.add("portrait");
+</script>
+{% endif %}
 {% endblock %}

@@ -13,6 +13,8 @@ from .globals import new_data_queue
 # Create your views here.
 
 def index(request):
+    if request.user and request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("menu_select"))
     return render(request, "pos_server/index.html", {
         "route":"login"
     })
@@ -43,20 +45,31 @@ def kitchen(request):
         # print(orders_data)
         return render(request, "pos_server/queue.html", {
             "route":"kitchen",
-            'orders': orders_data
+            'orders': orders_data,
+            "portrait" : request.GET.get('portrait', 'false') == 'true'
         })
     elif request.method == "DELETE":
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.delete()
         return JsonResponse({"status":"Order deleted"}, status=200)
+    
+def menu_select(request):
+    menus = Menu.objects.all()
+    return render(request, "pos_server/menu_select.html", {
+            "route":"menu_select",
+            "menus":menus
+        })
 
-def pos(request):
+def pos(request, menu):
     if request.method == "GET":
-        dishes = Dish.objects.all()
+        print(menu)
+        dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
+        print(dishes)
         return render(request, "pos_server/order.html", {
             "route":"pos",
             "menu": dishes,
+            "menu_title": menu,
             "json": serializers.serialize('json', dishes)
         })
     elif request.method == "POST":

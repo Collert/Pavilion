@@ -26,6 +26,9 @@
     <header>
         <nav class="button-row">
             <button id="rotate-screen" class="icon"><span class="material-symbols-outlined">screen_rotation</span></button>
+            {% if request.user.is_staff %}
+            <button class="icon"><span class="material-symbols-outlined">person_add</span></button>
+            {% endif %}
             {% if user.is_authenticated %}
             <button>Lock POS</button>
             {% else %}
