@@ -18,7 +18,8 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
+    path('', include("landing.urls")),
     path('admin/', admin.site.urls),
     path('webrtc/', include("webrtc.urls")),
-    path('', include("pos_server.urls")),
+    path('pos/', include("pos_server.urls")),
 ]
