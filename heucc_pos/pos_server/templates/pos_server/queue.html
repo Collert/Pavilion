@@ -30,16 +30,12 @@
     let cards = document.querySelectorAll(".order");
     cards = [...cards]
     let selectedIndex = cards.findIndex(element => element.classList.contains('selected'));
-    eventSource.onopen = function(e) {
-        console.log("opened")
-    }
     eventSource.onmessage = function(e) {
         if (!cards.length) {
             kitchenDiv.innerHTML = '';
             selectedIndex = 0;
         }
-        const data = JSON.parse(e.data)
-        console.log(data);
+        const data = JSON.parse(e.data);
         const newOrder = document.createElement("div");
         const orderId = data.order_id;
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
@@ -63,7 +59,6 @@
     };
 
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-    // console.log(cards.length)
     let freezeDeletion = false;
     document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowDown' || e.key == "2") {
