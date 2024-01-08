@@ -25,7 +25,11 @@ def login_view(request):
         if user is not None:
             login(request, user)
             return HttpResponseRedirect(reverse("pos"))
-    return render(request, "pos_server/index.html")
+        else:
+            return render(request, "pos_server/index.html", {
+                "route":"login",
+                "failed_login":True
+            })
 
 def kitchen(request):
     if request.method == "GET":

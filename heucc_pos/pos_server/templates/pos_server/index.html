@@ -4,8 +4,11 @@
 {% block body %}
 <form id="login" method="post" action="{% url 'login_view' %}">
     {% csrf_token %}
-    <input type="text" name="username"/>
-    <input type="password" name="password"/>
-    <button>Log in</button>
+    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
+    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
+    <button {% if failed_login %}class="error"{% endif %}>Log in</button>
+    {% if failed_login %}
+    <span>Failed to authenticate, please try again</span>
+    {% endif %}
 </form>
 {% endblock %}
