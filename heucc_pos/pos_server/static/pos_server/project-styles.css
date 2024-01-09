@@ -253,3 +253,21 @@ a.button:active:not(.no-style) span {
     gap: 1rem;
     flex-direction: column;
 }
+
+#dashboard {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 2rem;
+}
+
+#dashboard iframe {
+    border: none;
+    width: 100%;
+    height: 99%;
+}
+
+#day-stat {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+}

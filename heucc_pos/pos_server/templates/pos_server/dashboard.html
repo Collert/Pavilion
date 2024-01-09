@@ -1,0 +1,25 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<h1>Select a business day</h1>
+{% for day in dates %}
+    <button data-day="{{day}}" class="business-day">{{day}}</button>
+{% endfor %}
+<dialog class="full">
+    <iframe src="{% url 'day_stats' %}?date={{day}}"></iframe>
+</dialog>
+
+<script>
+    const buttons = document.querySelectorAll(".business-day");
+    const dialog = document.querySelector("dialog")
+    const frame = dialog.querySelector("iframe");
+    buttons.forEach(button => {
+        button.addEventListener("click", e => {
+            frame.src = frame.src.replace("?date=", `?date=${e.currentTarget.dataset.day.replaceAll(" ", "%20")}`) // Crazy i know
+            dialog.showModal()
+        })
+    })
+</script>
+{% endblock %}

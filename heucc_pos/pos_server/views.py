@@ -10,6 +10,7 @@ import json
 import time
 from django.utils import timezone
 from .globals import new_data_queue
+import datetime
 
 # Create your views here.
 
@@ -108,6 +109,22 @@ def pos(request, menu):
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
         return JsonResponse({"Message":"Sent to kitchen"}, status=200)
+    
+def dashboard(request):
+    unique_days = Order.objects.dates('timestamp', 'day')
+    for day in unique_days:
+        print(day.strftime("%Y-%m-%d"))
+    return render(request, "pos_server/dashboard.html", {
+        "route":"dashboard",
+        "dates":unique_days
+    })
+
+def day_stats(request):
+    if request.GET.get('date'):
+        day = datetime.datetime.strptime(request.GET.get('date'), '%b. %d, %Y')
+        stats = {}
+        print(day)
+    return render(request, "pos_server/day_stats.html")
 
 def event_stream():
     while True:
