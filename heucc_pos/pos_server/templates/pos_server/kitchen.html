@@ -1,0 +1,145 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block body %}
+{% csrf_token %}
+{% for order in orders %}
+    {% if order.dishes|has_kitchen_item %}
+        <div data-orderId="{{order.order_id}}" class="order">
+            <div class="summary">
+                <h2>Order #{{order.order_id}}</h2>
+                <span>
+                    {% if order.table %}
+                        Ticket #{{order.table}}
+                    {% else %}
+                        Pick up at the window
+                    {% endif %}
+                </span>
+            </div>
+            <ul>
+                {% for item in order.dishes %}
+                    {% if item.station == "kitchen" %}
+                        <li>{{item.quantity}} X {{item.name}}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+{% empty %}
+<h1 style="text-align: center;">No orders yet</h1>
+{% endfor %}
+<script>
+    const eventSource = new EventSource("{% url 'order_updates' %}");
+    document.addEventListener("DOMContentLoaded", () => {
+        try {document.querySelector(".order").classList.add("selected");} catch (error) {}
+        
+        console.log(eventSource)
+        const kitchenDiv = document.querySelector("#kitchen");
+        let cards = document.querySelectorAll(".order");
+        cards = [...cards]
+        let selectedIndex = cards.findIndex(element => element.classList.contains('selected'));
+        let isFirstLoad = true;
+        setTimeout(() => {
+            isFirstLoad = false;
+        }, 1000);
+        eventSource.onmessage = function(e) {
+            console.log(e)
+            if (isFirstLoad) {
+                return;
+            }
+            const data = JSON.parse(e.data);
+            console.log(data)
+            if (!checkRightDishes(data.dishes)) {return}
+            if (!cards.length) {
+                kitchenDiv.innerHTML = '';
+                selectedIndex = 0;
+            }
+            const newOrder = document.createElement("div");
+            const orderId = data.order_id;
+            newOrder.className = `order ${!cards.length ? "selected" : ""}`;
+            newOrder.dataset.orderid = orderId;
+            newOrder.innerHTML = `<div class="summary">
+                                        <h2>Order #${data.order_id}</h2>
+                                        <span>${data.table ? `Table #${data.table}` : "Pick up at the window"}</span>
+                                    </div>
+                                    <ul id="order${data.order_id}ul">
+                                        
+                                    </ul>`
+            kitchenDiv.appendChild(newOrder)
+            const list = document.querySelector(`#order${data.order_id}ul`);
+            for (const dish of data.dishes) {
+                console.log(dish)
+                if (dish.station === "kitchen") {
+                    const item = document.createElement("li");
+                    item.innerHTML = `${dish.quantity} X ${dish.name}`;
+                    list.appendChild(item);
+                }
+            }
+            cards = document.querySelectorAll(".order");
+            cards = [...cards]
+        };
+
+        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        let freezeDeletion = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key == "2") {
+                updateSelection(selectedIndex + 1);
+            } else if (e.key === 'ArrowUp' || e.key === "8") {
+                updateSelection(selectedIndex - 1);
+            } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
+                const orderId = cards[selectedIndex].dataset.orderid;
+                freezeDeletion = true;
+                fetch("{% url 'kitchen' %}",{
+                    headers:{
+                        "X-CSRFToken": csrftoken,
+                        "Content-Type": "application/json"
+                    },
+                    method:'DELETE',
+                    body: JSON.stringify({
+                        orderId:orderId
+                    })
+                }).then(response => {
+                    if (response.ok) {
+                        cards[selectedIndex].classList.add("disappear");
+                        setTimeout(() => {
+                            document.querySelector("#kitchen").removeChild(cards[selectedIndex])
+                            cards = document.querySelectorAll(".order");
+                            cards = [...cards]
+                            selectedIndex = 0;
+                            updateSelection(selectedIndex);
+                            freezeDeletion = false;
+                        }, 400);
+                    }
+                })
+            }
+        });
+
+        function updateSelection(newIndex) {
+            if (newIndex < cards.length && newIndex >= 0) {
+                cards[selectedIndex].classList.remove('selected');
+                cards[newIndex].classList.add('selected');
+                document.querySelector(".selected").scrollIntoView({ behavior: 'smooth' });
+                selectedIndex = newIndex;
+            }
+        }
+
+        function checkRightDishes(dishes) {
+            let hasRightDishes = false;
+            for (const dish of dishes) {
+                if (dish.station === "kitchen") {
+                    hasRightDishes = true
+                    break
+                }
+            }
+            return hasRightDishes;
+        }
+    })
+</script>
+
+{% if portrait %}
+<script>
+    document.querySelector("body").classList.add("portrait");
+</script>
+{% endif %}
+{% endblock %}

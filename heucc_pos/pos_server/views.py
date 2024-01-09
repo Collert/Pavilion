@@ -8,6 +8,7 @@ from collections import Counter
 from .models import *
 import json
 import time
+from django.utils import timezone
 from .globals import new_data_queue
 
 # Create your views here.
@@ -35,15 +36,16 @@ def login_view(request):
 
 def kitchen(request):
     if request.method == "GET":
+        today = timezone.localdate()
         # Fetch all orders
-        orders = Order.objects.all()
+        orders = Order.objects.filter(kitchen_done=False, timestamp__date=today)
 
         # Prepare data for each order
         orders_data = []
         for order in orders:
             orders_data.append(collect_order(order))
         # print(orders_data)
-        return render(request, "pos_server/queue.html", {
+        return render(request, "pos_server/kitchen.html", {
             "route":"kitchen",
             'orders': orders_data,
             "portrait" : request.GET.get('portrait', 'false') == 'true'
@@ -51,8 +53,32 @@ def kitchen(request):
     elif request.method == "DELETE":
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
-        order.delete()
-        return JsonResponse({"status":"Order deleted"}, status=200)
+        order.kitchen_done = True
+        order.save()
+        return JsonResponse({"status":"Order marked done"}, status=200)
+
+def bar(request):
+    if request.method == "GET":
+        today = timezone.localdate()
+        # Fetch all orders
+        orders = Order.objects.filter(bar_done=False, timestamp__date=today)
+
+        # Prepare data for each order
+        orders_data = []
+        for order in orders:
+            orders_data.append(collect_order(order))
+        # print(orders_data)
+        return render(request, "pos_server/bar.html", {
+            "route":"kitchen",
+            'orders': orders_data,
+            "portrait" : request.GET.get('portrait', 'false') == 'true'
+        })
+    elif request.method == "DELETE":
+        order_id = json.loads(request.body)["orderId"]
+        order = Order.objects.get(id=order_id)
+        order.bar_done = True
+        order.save()
+        return JsonResponse({"status":"Order marked done"}, status=200)
     
 def menu_select(request):
     menus = Menu.objects.all()
@@ -63,9 +89,7 @@ def menu_select(request):
 
 def pos(request, menu):
     if request.method == "GET":
-        print(menu)
         dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
-        print(dishes)
         return render(request, "pos_server/order.html", {
             "route":"pos",
             "menu": dishes,
@@ -88,10 +112,15 @@ def pos(request, menu):
 def event_stream():
     while True:
         while new_data_queue:
-            data = new_data_queue.pop(0)
+            data = new_data_queue[0]
             order_data_json = json.dumps(collect_order(data))
             print("sending dish")
             yield f"data: {order_data_json}\n\n"
+            time.sleep(2)
+            try:
+                new_data_queue.remove(data)
+            except:
+                pass
         # Send a heartbeat every X seconds
         yield "\n"
         time.sleep(1)
@@ -109,7 +138,8 @@ def collect_order(order):
     # Prepare dish details for this order
     dishes_data = [{
         'name': od.dish.title,
-        'quantity': od.quantity
+        'quantity': od.quantity,
+        'station': od.dish.station
     } for od in order_dishes]
 
     # Add the order and its dishes to the orders_data list
