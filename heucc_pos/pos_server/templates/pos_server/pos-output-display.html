@@ -1,0 +1,40 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'pos_server/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'pos_server/project-styles.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>HEUCC Restaurant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+    </style>
+</head>
+<body class="portrait" style="gap: 0;">
+    <main id="pos-output-display">
+        <div style="padding: 1rem;">
+            <div id="cart"></div>
+            <div style="text-align: end;" id="total-button" class="hidden">
+                Total: $<span></span>
+            </div>
+        </div>
+    </main>
+    <main id="thank-you">
+        <h1>Thank you!</h1>
+    </main>
+    <script>const dishes = JSON.parse('{{dishes|safe}}');</script>
+    <script type="module" src="{% static 'pos_server/pos-output-screen.js' %}"></script>
+</body>
+</html>

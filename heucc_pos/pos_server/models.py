@@ -20,7 +20,7 @@ class Dish(models.Model):
 class Order(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
-    table = models.IntegerField(null=True)
+    table = models.CharField(null=True, max_length = 140)
     kitchen_done = models.BooleanField(default=False)
     bar_done = models.BooleanField(default=False)
 

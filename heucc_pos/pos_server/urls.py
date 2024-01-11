@@ -6,6 +6,7 @@ urlpatterns = [
     path("", views.index, name="pos_login"),
     path("login", views.login_view, name="login_view"),
     path("register/<str:menu>", views.pos, name="pos"),
+    path("pos-output", views.pos_out_display, name="pos_output"),
     path("kitchen", views.kitchen, name="kitchen"),
     path("bar", views.bar, name="bar"),
     path('order_updates', views.order_updates, name='order_updates'),

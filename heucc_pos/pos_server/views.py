@@ -126,6 +126,13 @@ def day_stats(request):
         print(day)
     return render(request, "pos_server/day_stats.html")
 
+def pos_out_display(request):
+    menu = request.GET.get('menu')
+    dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
+    return render(request, "pos_server/pos-output-display.html", {
+        "dishes": serializers.serialize('json', dishes)
+    })
+
 def event_stream():
     while True:
         while new_data_queue:
@@ -141,7 +148,6 @@ def event_stream():
         # Send a heartbeat every X seconds
         yield "\n"
         time.sleep(1)
-
 
 def order_updates(request):
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
