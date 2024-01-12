@@ -1,4 +1,5 @@
 {% load static %}
+{% load custom_filters %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -10,6 +11,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <!-- Include Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>HEUCC Restaurant</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
@@ -24,24 +27,90 @@
 </head>
 <body style="gap: 0;">
     <main id="day-stat">
-        <div>
+        <div class="stat-cell">
             <h1>Menu items stats:</h1>
+            <ul>
+                {% for item, quantity in stats.item_stats.items %}
+                <li>{{item}} X {{quantity}}</li>
+                {% endfor %}
+            </ul>
         </div>
-        <div>
+        <div class="stat-cell">
             <h1>Components used:</h1>
         </div>
-        <div>
+        <div class="stat-cell">
             <h1>Ingredients used:</h1>
         </div>
-        <div>
+        <div class="stat-cell" id="stations">
             <h1>Stations mix:</h1>
+            <canvas style="width: 80%;" id="stationsPieChart"></canvas>
         </div>
-        <div>
+        <div class="stat-cell" id="customer-occasions">
             <h1>Customer occasions:</h1>
+            <table>
+                <tr>
+                    <th>Time</th>
+                    <th>Orders</th>
+                    <th>Earnings</th>
+                </tr>
+                {% for time_window, summary in stats.order_occasions.items %}
+                    <tr>
+                        <td>{{ time_window }}</td>
+                        <td>{{ summary.count }}</td>
+                        <td>${{ summary.total_earnings|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </table>            
         </div>
-        <div>
+        <div class="stat-cell" id="prep-times">
             <h1>Average prep times:</h1>
+            <table>
+                <tr>
+                    <th>Time</th>
+                    <th>Avg prep time</th>
+                </tr>
+                {% for time_window, prep_time in stats.prep_times.items %}
+                    <tr>
+                        <td>{{ time_window }}</td>
+                        <td>{{ prep_time|format_duration }} min</td>
+                    </tr>
+                {% endfor %}
+            </table> 
         </div>
     </main>
+    {{ stats.stations|json_script:"stations-data" }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            function getCssVariable(variableName) {
+                return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+            }
+
+            const accent1 = getCssVariable('--accent-1');
+            const accent2 = getCssVariable('--accent-2');
+            const accent3 = getCssVariable('--primary-contrast');
+
+            // Get data from the JSON script tag
+            const rawData = JSON.parse(document.getElementById('stations-data').textContent);
+    
+            // Prepare the data for the chart
+            const data = {
+                labels: Object.keys(rawData),
+                datasets: [{
+                    label: 'Station distributions',
+                    data: Object.values(rawData),
+                    backgroundColor: [accent1, accent2, accent3], // You can customize colors
+                    hoverOffset: 4
+                }]
+            };
+    
+            // Configure and render the chart
+            const ctx = document.getElementById('stationsPieChart').getContext('2d');
+            const myPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: data,
+            });
+        });
+    </script>    
 </body>
 </html>

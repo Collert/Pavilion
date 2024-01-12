@@ -270,4 +270,22 @@ a.button:active:not(.no-style) span {
 #day-stat {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+#prep-times table,
+#customer-occasions table {
+    border-spacing: .5rem;
+    border-collapse: separate;
+}
+#prep-times table td,
+#customer-occasions table td {
+    text-align: center;
+}
+
+.stat-cell {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
 }

@@ -11,6 +11,8 @@ import time
 from django.utils import timezone
 from .globals import new_data_queue
 import datetime
+from collections import defaultdict
+import math
 
 # Create your views here.
 
@@ -55,6 +57,8 @@ def kitchen(request):
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.kitchen_done = True
+        if order.bar_done and order.kitchen_done:
+            order.prep_time = datetime.datetime.now() - order.timestamp
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
 
@@ -78,6 +82,8 @@ def bar(request):
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.bar_done = True
+        if order.bar_done and order.kitchen_done:
+            order.prep_time = datetime.datetime.now() - order.timestamp
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     
@@ -120,11 +126,68 @@ def dashboard(request):
     })
 
 def day_stats(request):
-    if request.GET.get('date'):
+    if request.GET.get('date') and request.GET.get('menu'):
         day = datetime.datetime.strptime(request.GET.get('date'), '%b. %d, %Y')
-        stats = {}
-        print(day)
-    return render(request, "pos_server/day_stats.html")
+        menu = Menu.objects.filter(title=request.GET.get('menu')).first().dishes.all()
+        orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
+        stats = {
+            "item_stats":{
+
+            },
+            "stations":{
+
+            },
+            "order_occasions":{
+
+            },
+            "prep_times":{
+                
+            }
+        }
+        # Function to round down time to the nearest 15 minutes
+        def get_15_min_window(dt):
+            # Round down to the nearest 15 minutes for the start of the window
+            start_minute = 15 * math.floor(dt.minute / 15)
+            start_time = dt.replace(minute=start_minute, second=0, microsecond=0)
+
+            # Calculate the end of the window
+            end_time = start_time + datetime.timedelta(minutes=15)
+
+            return f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
+        stats["order_occasions"] = defaultdict(lambda: {'count': 0, 'total_earnings': 0.0})
+        prep_time_data = defaultdict(lambda: {'total_prep_time': datetime.timedelta(0), 'count': 0})
+        for order in orders:
+            # Group order occasions by 15 minute intervals
+            time_window = get_15_min_window(order.timestamp)
+            order_price = sum(od.quantity * od.dish.price for od in order.orderdish_set.all())
+            # Update the count and total earnings in the dictionary
+            stats["order_occasions"][time_window]['count'] += 1
+            stats["order_occasions"][time_window]['total_earnings'] += order_price
+            # Get averages of order prep times
+            prep_time_data[time_window]['total_prep_time'] += order.prep_time
+            prep_time_data[time_window]['count'] += 1
+            for window, data in prep_time_data.items():
+                count = data['count']
+                if count > 0:
+                    average_prep = data['total_prep_time'] / count
+                    stats['prep_times'][window] = average_prep
+            for item in order.dishes.all():
+                # Getting quantity of each dish
+                if item.title not in stats["item_stats"]:
+                    stats["item_stats"][item.title] = 1
+                else:
+                    stats["item_stats"][item.title] += 1
+                # Getting station distributions
+                if item.station not in stats["stations"]:
+                    stats["stations"][item.station] = 1
+                else:
+                    stats["stations"][item.station] += 1
+        print(stats)
+        stats["order_occasions"] = dict(stats["order_occasions"])
+    return render(request, "pos_server/day_stats.html",{
+        "menu":menu,
+        "stats":stats
+    })
 
 def event_stream():
     while True:
