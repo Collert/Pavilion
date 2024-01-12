@@ -182,7 +182,6 @@ def day_stats(request):
                     stats["stations"][item.station] = 1
                 else:
                     stats["stations"][item.station] += 1
-        print(stats)
         stats["order_occasions"] = dict(stats["order_occasions"])
     return render(request, "pos_server/day_stats.html",{
         "menu":menu,
