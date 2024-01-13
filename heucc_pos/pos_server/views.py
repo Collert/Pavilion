@@ -30,7 +30,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            return HttpResponseRedirect(reverse("pos"))
+            return HttpResponseRedirect(reverse("menu_select"))
         else:
             return render(request, "pos_server/index.html", {
                 "route":"login",
