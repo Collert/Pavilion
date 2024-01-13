@@ -159,3 +159,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 heucc_pos/heucc_pos/__pycache__/settings.cpython-39.pyc
+*.sqlite3
