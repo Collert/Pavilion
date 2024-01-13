@@ -305,3 +305,69 @@ a.button:active:not(.no-style) span {
     align-items: center;
     flex-direction: column;
 }
+
+#pos-output-display {
+    height: 100vh;
+    align-items: end;
+}
+
+#pos-output-display #cart,
+#summary {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+#pos-output-display #cart .cart-item,
+#summary .cart-item {
+    border: none;
+    padding: 0;
+    height: 5vh;
+    justify-items: start;
+}
+
+main#thank-you {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    height: 100vh;
+    width: 100vw;
+    place-items: center;
+    background-color: var(--primary-background);
+}
+
+main#thank-you h1 {
+    text-align: center;
+}
+
+main#thank-you.anim {
+    animation: thank-anim 4s ease both;
+}
+
+@keyframes thank-anim {
+    from, to {
+        opacity: 0;
+    }
+    25%, 75% {
+        opacity: 1;
+    }
+
+}
+
+#tender > div,
+#cash-in form {
+    display: grid;
+    gap: 1rem;
+}
+
+#pos dialog nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+#pos dialog nav h1,
+#pos dialog nav h2 {
+    margin: 0;
+}
