@@ -126,9 +126,9 @@ def dashboard(request):
     })
 
 def day_stats(request):
-    if request.GET.get('date') and request.GET.get('menu'):
+    if request.GET.get('date'):
         day = datetime.datetime.strptime(request.GET.get('date'), '%b. %d, %Y')
-        menu = Menu.objects.filter(title=request.GET.get('menu')).first().dishes.all()
+        menu = Dish.objects.all()
         orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
         stats = {
             "item_stats":{
@@ -142,6 +142,12 @@ def day_stats(request):
             },
             "prep_times":{
                 
+            },
+            "components":{
+
+            },
+            "ingredients":{
+
             }
         }
         # Function to round down time to the nearest 15 minutes
@@ -182,6 +188,22 @@ def day_stats(request):
                     stats["stations"][item.station] = 1
                 else:
                     stats["stations"][item.station] += 1
+                # Get quantity of each items component
+                for dc in item.dishcomponent_set.all():
+                    if dc.component.title not in stats["components"]:
+                        stats["components"][dc.component.title] = [None] * 2
+                        stats["components"][dc.component.title][1] = dc.component.unit_of_measurement
+                        stats["components"][dc.component.title][0] = dc.quantity
+                    else:
+                        stats["components"][dc.component.title][0] += dc.quantity
+                    # Get quantity of each components ingredient
+                    for ci in dc.component.componentingredient_set.all():
+                        if ci.ingredient.title not in stats["ingredients"]:
+                            stats['ingredients'][ci.ingredient.title] = [None] * 2
+                            stats['ingredients'][ci.ingredient.title][1] = ci.ingredient.unit_of_measurement
+                            stats['ingredients'][ci.ingredient.title][0] = ci.quantity
+                        else:
+                            stats['ingredients'][ci.ingredient.title][0] += ci.quantity
         stats["order_occasions"] = dict(stats["order_occasions"])
     return render(request, "pos_server/day_stats.html",{
         "menu":menu,

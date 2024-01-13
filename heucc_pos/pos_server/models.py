@@ -42,9 +42,17 @@ class OrderDish(models.Model):
         return f"{self.quantity} X {self.dish.title} in order {self.order.id}"
     
 class Component(models.Model):
+    units = (
+        ("kg", "Kilogram"),
+        ("g", "Gram"),
+        ("l", "Liter"),
+        ("ml", "Milliliter"),
+        ("ea", "Each")
+    )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
     inventory = models.PositiveIntegerField(default = 0, null = True)
+    unit_of_measurement = models.CharField(max_length=10, choices=units)
 
     def __str__(self) -> str:
         qty = self.inventory
@@ -52,19 +60,27 @@ class Component(models.Model):
             inventory = "Inventory not tracked"
         else:
             inventory = f"{qty} X in inventory"
-        return f"Component: {self.title}. {inventory}"
+        return f"{self.title} ({self.unit_of_measurement.title()})"
     
 class DishComponent(models.Model):
     dish = models.ForeignKey('Dish', on_delete=models.CASCADE)
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
+    quantity = models.FloatField()
 
     def __str__(self):
-        return f"{self.quantity} x {self.component.name} in {self.dish.name}"
+        return f"{self.quantity} x {self.component.title} in {self.dish.title}"
 
 class Ingredient(models.Model):
+    units = (
+        ("kg", "Kilogram"),
+        ("g", "Gram"),
+        ("l", "Liter"),
+        ("ml", "Milliliter"),
+        ("ea", "Each")
+    )
     title = models.CharField(max_length=140)
     inventory = models.PositiveIntegerField(default = 0, null = True)
+    unit_of_measurement = models.CharField(max_length=10, choices=units)
 
     def __str__(self) -> str:
         qty = self.inventory
@@ -72,12 +88,12 @@ class Ingredient(models.Model):
             inventory = "Inventory not tracked"
         else:
             inventory = f"{qty} X in inventory"
-        return f"Ingredient: {self.title}. {inventory}"
+        return f"{self.title} ({self.unit_of_measurement.title()})"
     
 class ComponentIngredient(models.Model):
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
     ingredient = models.ForeignKey('Ingredient', on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
+    quantity = models.FloatField()
 
     def __str__(self):
-        return f"{self.quantity} x {self.ingredient.name} in {self.component.name}"
+        return f"{self.quantity} x {self.ingredient.title} in {self.component.title}"

@@ -8,7 +8,13 @@
     <button data-day="{{day}}" class="business-day">{{day}}</button>
 {% endfor %}
 <dialog class="full">
-    <iframe src="{% url 'day_stats' %}?date={{day}}"></iframe>
+    <div>
+        <nav>
+            <h1 id="title"></h1>
+            <button id="close" class="icon"><span class="material-symbols-outlined">close</span></button>
+        </nav>
+        <iframe></iframe>
+    </div>
 </dialog>
 
 <script>
@@ -17,9 +23,14 @@
     const frame = dialog.querySelector("iframe");
     buttons.forEach(button => {
         button.addEventListener("click", e => {
-            frame.src = frame.src.replace("?date=", `?date=${e.currentTarget.dataset.day.replaceAll(" ", "%20")}`) // Crazy i know
+            frame.src = `{% url 'day_stats' %}?date=${e.currentTarget.dataset.day.replaceAll(" ", "%20")}`
+            // frame.src = frame.src.replace("?date=", `?date=${e.currentTarget.dataset.day.replaceAll(" ", "%20")}`) // Crazy i know
             dialog.showModal()
+            document.querySelector("#title").textContent = e.currentTarget.dataset.day
         })
+    })
+    document.querySelector("#close").addEventListener("click", () => {
+        dialog.close()
     })
 </script>
 {% endblock %}

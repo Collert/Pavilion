@@ -259,6 +259,23 @@ a.button:active:not(.no-style) span {
     flex-direction: column;
     align-items: flex-start;
     padding: 2rem;
+    gap: 1rem;
+}
+
+#dashboard dialog>div {
+    height: 95%;
+    display: flex;
+    gap: 1rem;
+    flex-direction: column;
+}
+
+#dashboard dialog nav {
+    display: flex;
+    justify-content: space-between;
+}
+
+#dashboard dialog h1 {
+    margin: 0;
 }
 
 #dashboard iframe {
@@ -273,13 +290,12 @@ a.button:active:not(.no-style) span {
     gap: 1rem;
 }
 
-#prep-times table,
-#customer-occasions table {
+.stat-cell table {
     border-spacing: .5rem;
     border-collapse: separate;
 }
-#prep-times table td,
-#customer-occasions table td {
+
+.stat-cell table td {
     text-align: center;
 }
 

@@ -29,17 +29,56 @@
     <main id="day-stat">
         <div class="stat-cell">
             <h1>Menu items stats:</h1>
-            <ul>
+            <table>
+                <tr>
+                    <th>Dish</th>
+                    <th>Quantity</th>
+                </tr>
                 {% for item, quantity in stats.item_stats.items %}
-                <li>{{item}} X {{quantity}}</li>
+                <tr>
+                    <td>{{item}}</td>
+                    <td>{{quantity}}</td>
+                </tr>
                 {% endfor %}
-            </ul>
+            </table>
         </div>
         <div class="stat-cell">
             <h1>Components used:</h1>
+            <table>
+                <tr>
+                    <th>Component</th>
+                    <th>Quantity</th>
+                </tr>
+                {% for item, quantity in stats.components.items %}
+                <tr>
+                    <td>{{item}}</td>
+                    {% if quantity.1 == "ea" %}
+                    <td>{{quantity.0|floatformat:0}} {{quantity.1|title}}</td>
+                    {% else %}
+                    <td>{{quantity.0|floatformat:2}} {{quantity.1|title}}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </table>
         </div>
         <div class="stat-cell">
             <h1>Ingredients used:</h1>
+            <table>
+                <tr>
+                    <th>Ingredient</th>
+                    <th>Quantity</th>
+                </tr>
+                {% for item, quantity in stats.ingredients.items %}
+                <tr>
+                    <td>{{item}}</td>
+                    {% if quantity.1 == "ea" %}
+                    <td>{{quantity.0|floatformat:0}} {{quantity.1|title}}</td>
+                    {% else %}
+                    <td>{{quantity.0|floatformat:2}} {{quantity.1|title}}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </table>
         </div>
         <div class="stat-cell" id="stations">
             <h1>Stations mix:</h1>
