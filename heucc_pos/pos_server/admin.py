@@ -3,8 +3,6 @@ from .models import *
 
 # Register your models here.
 
-# admin.site.register(Dish)
-# admin.site.register(Component)
 admin.site.register(Ingredient)
 admin.site.register(Order)
 admin.site.register(Menu)
