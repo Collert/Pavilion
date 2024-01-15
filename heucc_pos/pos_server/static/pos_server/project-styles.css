@@ -4,6 +4,14 @@ html {
     font-family: 'Noto Sans Display', sans-serif;
 }
 
+textarea {
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    padding: .5rem;
+}
+
 body.portrait {
     transform: rotate(90deg);
     transform-origin: right top;
@@ -180,9 +188,12 @@ main#pos {
     font-size: xx-large;
 }
 
-.order .summary > span {
+.order .summary .name-time {
     font-size: large;
     font-weight: 600;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: .5rem;
 }
 
 .order ul {

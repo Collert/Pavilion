@@ -106,8 +106,9 @@ def pos(request, menu):
     elif request.method == "POST":
         body = json.loads(request.body)
         order = body["order"]
+        instructions = body["instructions"]
         dish_counts = Counter(order)
-        new_order = Order()
+        new_order = Order(special_instructions=instructions)
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save()
         for dish_id, quantity in dish_counts.items():
@@ -253,5 +254,7 @@ def collect_order(order):
     return({
         'order_id': order.id,
         'dishes': dishes_data,
-        'table':order.table
+        'table':order.table,
+        "special_instructions": order.special_instructions,
+        "timestamp":order.timestamp.replace(tzinfo=timezone.utc).astimezone(tz=None).isoformat()
     })

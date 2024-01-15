@@ -43,8 +43,9 @@ cashInDialog.querySelector("form").addEventListener("submit", e => {
     cashInDialog.close()
     changeDialog.showModal()
     const customerName = document.querySelector("[name='customer-name']").value;
+    const specialInstructions = document.querySelector("[name='special-instructions']").value;
     const link = e.currentTarget.action;
-    sendOrder(link, customerName);
+    sendOrder(link, customerName, specialInstructions);
     document.querySelector("[name='customer-name']").value = '';
     e.currentTarget.querySelector("[name='cash-provided']").value = '';
     setTimeout(() => {
@@ -72,13 +73,14 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
     })
 })
 
-function sendOrder(actionLink, customerName) {
+function sendOrder(actionLink, customerName, instructions) {
     fetch(actionLink, {
         headers: {"X-CSRFToken": csrftoken },
         method:'POST',
         body: JSON.stringify({
             order:order,
-            table:customerName
+            table:customerName,
+            instructions:instructions
         })
     }).then(()=>{
         order = []

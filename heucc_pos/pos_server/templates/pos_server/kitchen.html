@@ -1,6 +1,7 @@
 {% extends "pos_server/layout.html" %}
 {% load static %}
 {% load custom_filters %}
+{% load tz %}
 
 {% block body %}
 {% csrf_token %}
@@ -9,21 +10,32 @@
         <div data-orderId="{{order.order_id}}" class="order">
             <div class="summary">
                 <h2>Order #{{order.order_id}}</h2>
-                <span>
-                    {% if order.table %}
-                        Ticket #{{order.table}}
-                    {% else %}
-                        Pick up at the window
-                    {% endif %}
-                </span>
+                <div class="name-time">
+                    <span>
+                        {% if order.table %}
+                            Name: {{order.table}}
+                        {% else %}
+                            No name
+                        {% endif %}
+                    </span>
+                    <span data-timestamp="{{order.timestamp}}" class="timestamp">
+                        Elapsed time: <span>{{order.timestamp}}</span>
+                    </span>
+                </div>
             </div>
-            <ul>
-                {% for item in order.dishes %}
-                    {% if item.station == "kitchen" %}
-                        <li>{{item.quantity}} X {{item.name}}</li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
+            <div>
+                <ul>
+                    {% for item in order.dishes %}
+                        {% if item.station == "kitchen" %}
+                            <li>{{item.quantity}} X {{item.name}}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+                {% if order.special_instructions %}
+                <h3>Special instructions:</h3>
+                <p>{{order.special_instructions}}</p>
+                {% endif %}
+            </div>
         </div>
     {% endif %}
 {% empty %}
@@ -61,12 +73,21 @@
             newOrder.dataset.orderid = orderId;
             newOrder.innerHTML = `<div class="summary">
                                         <h2>Order #${data.order_id}</h2>
-                                        <span>${data.table ? `Table #${data.table}` : "Pick up at the window"}</span>
+                                        <div class="name-time">
+                                            <span>${data.table ? `Name: ${data.table}` : "No name"}</span>
+                                            <span data-timestamp="${data.timestamp}" class="timestamp">
+                                                Elapsed time: <span>${data.timestamp}</span>
+                                            </span>
+                                        </div>
                                     </div>
-                                    <ul id="order${data.order_id}ul">
-                                        
-                                    </ul>`
+                                    <div>
+                                        <ul id="order${data.order_id}ul">
+                                            
+                                        </ul>
+                                        ${data.special_instructions ? '<h3>Special instructions:</h3><p>'+data.special_instructions+'</p>' : ''}
+                                    </div>`
             kitchenDiv.appendChild(newOrder)
+            trackTime(newOrder.querySelector(".timestamp"))
             const list = document.querySelector(`#order${data.order_id}ul`);
             for (const dish of data.dishes) {
                 console.log(dish)
@@ -79,6 +100,8 @@
             cards = document.querySelectorAll(".order");
             cards = [...cards]
         };
+
+        document.querySelectorAll(".timestamp").forEach(node => trackTime(node))
 
         const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
         let freezeDeletion = false;
@@ -119,9 +142,30 @@
             if (newIndex < cards.length && newIndex >= 0) {
                 cards[selectedIndex].classList.remove('selected');
                 cards[newIndex].classList.add('selected');
-                document.querySelector(".selected").scrollIntoView({ behavior: 'smooth' });
+                const node = document.querySelector(".selected")
+                node.scrollIntoView({ behavior: 'smooth' });
                 selectedIndex = newIndex;
             }
+        }
+
+        function trackTime(node) {
+            var startTime = new Date(node.getAttribute('data-timestamp'));
+
+            function updateCounter() {
+                var now = new Date();
+                var differenceInSeconds = Math.floor((now - startTime) / 1000);
+
+                var minutes = Math.floor(differenceInSeconds / 60);
+                var seconds = differenceInSeconds % 60;
+
+                // Formatting minutes and seconds to always have two digits
+                minutes = minutes.toString().padStart(2, '0');
+                seconds = seconds.toString().padStart(2, '0');
+
+                node.children[0].innerHTML = minutes + ':' + seconds;
+            }
+
+            setInterval(updateCounter, 1000);
         }
 
         function checkRightDishes(dishes) {

@@ -33,7 +33,8 @@
         </nav>
         <div id="summary"></div>
         <h2>Total: $<span id="tender-total"></span></h2>
-        <input type="text" name="customer-name" required placeholder="Customer name">
+        <input type="text" name="customer-name" placeholder="Customer name">
+        <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
         <button data-actionLink="{% url 'pos' menu_title %}" id="cash-button">Cash</button>
         <button disabled data-actionLink="{% url 'pos' menu_title %}" id="card-button">Card</button>
     </div>
