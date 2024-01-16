@@ -1,17 +1,16 @@
 const pathSegments = new URL(window.location.href).pathname.split('/');
 const station = pathSegments[pathSegments.length-1];
 
-console.log(station)
-
 document.addEventListener("DOMContentLoaded", () => {
     try {document.querySelector(".order").classList.add("selected");} catch (error) {}
     
-    console.log(eventSource)
     const kitchenDiv = document.querySelector("#kitchen");
     let cards = document.querySelectorAll(".order");
     cards = [...cards]
     let selectedIndex = cards.findIndex(element => element.classList.contains('selected'));
     let isFirstLoad = true;
+    
+    checkActiveOrders();
     setTimeout(() => {
         isFirstLoad = false;
     }, 1000);
@@ -49,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
         newOrder.addEventListener("click", e => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
         })
+        attachSwipability(newOrder)
         kitchenDiv.appendChild(newOrder)
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
@@ -80,32 +80,37 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (e.key === 'ArrowUp' || e.key === "8") {
             updateSelection(selectedIndex - 1);
         } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
-            const orderId = cards[selectedIndex].dataset.orderid;
-            freezeDeletion = true;
-            fetch(`{% url '${station}' %}`,{
-                headers:{
-                    "X-CSRFToken": csrftoken,
-                    "Content-Type": "application/json"
-                },
-                method:'DELETE',
-                body: JSON.stringify({
-                    orderId:orderId
-                })
-            }).then(response => {
-                if (response.ok) {
-                    cards[selectedIndex].classList.add("disappear");
-                    setTimeout(() => {
-                        document.querySelector("#kitchen").removeChild(cards[selectedIndex])
-                        cards = document.querySelectorAll(".order");
-                        cards = [...cards]
-                        selectedIndex = 0;
-                        updateSelection(selectedIndex);
-                        freezeDeletion = false;
-                    }, 400);
-                }
-            })
+            markOrderDone()
         }
     });
+
+    function markOrderDone() {
+        const orderId = cards[selectedIndex].dataset.orderid;
+        freezeDeletion = true;
+        fetch(window.location.href, {
+            headers:{
+                "X-CSRFToken": csrftoken,
+                "Content-Type": "application/json"
+            },
+            method:'DELETE',
+            body: JSON.stringify({
+                orderId:orderId
+            })
+        }).then(response => {
+            if (response.ok) {
+                cards[selectedIndex].classList.add("disappear");
+                setTimeout(() => {
+                    document.querySelector("#kitchen").removeChild(cards[selectedIndex])
+                    cards = document.querySelectorAll(".order");
+                    cards = [...cards]
+                    selectedIndex = 0;
+                    updateSelection(selectedIndex);
+                    freezeDeletion = false;
+                    checkActiveOrders();
+                }, 400);
+            }
+        })
+    }
 
     function updateSelection(newIndex) {
         if (newIndex < cards.length && newIndex >= 0) {
@@ -136,6 +141,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setInterval(updateCounter, 1000);
     }
+    
+    function checkActiveOrders() {
+        if (!kitchenDiv.querySelector(".order")) {
+            const noOrderSign = document.createElement("h1");
+            noOrderSign.textContent = "No new orders";
+            noOrderSign.style = "text-align: center;"
+            kitchenDiv.appendChild(noOrderSign);
+        }
+    }
 
     function checkRightDishes(dishes) {
         let hasRightDishes = false;
@@ -146,5 +160,61 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         return hasRightDishes;
+    }
+
+    // Functions to swipe away orders
+
+    cards.forEach(card => { attachSwipability(card) })
+
+    function attachSwipability(card) {
+        let startX;
+
+        function handleStart(e) {
+            if (card.classList.contains('selected')) {
+                startX = e.touches ? e.touches[0].clientX : e.clientX;
+            }
+        }
+    
+        function handleMove(e) {
+            if (card.classList.contains('selected')) {
+                const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+                const deltaX = currentX - startX;
+        
+                // Add your logic to move the element on the screen
+                card.style.transform = `translateX(${deltaX}px)`;
+            }
+        }
+
+        function handleEnd() {
+            if (card.classList.contains('selected')) {
+                const screenWidth = window.innerWidth;
+                const threshold = screenWidth * 0.5;
+                const deltaX = parseInt(card.style.transform.replace('translateX(', '').replace('px)', ''), 10);
+    
+                if (Math.abs(deltaX) > threshold) {
+                    card.style.transition = 'transform 0.5s ease-in-out';
+                    card.style.transform = `translateX(${deltaX > 0 ? screenWidth : -screenWidth}px)`;
+                    setTimeout(() => {
+                        // card.style.display = 'none';
+                        markOrderDone()
+                    }, 500);
+                } else {
+                    card.style.transition = 'transform 0.5s ease-in-out';
+                    card.style.transform = 'translateX(0px)';
+                }
+            }
+        }
+
+        // I don't think the mouse ones are needed but they are here just in case
+
+        card.addEventListener('touchstart', handleStart);
+        // card.addEventListener('mousedown', handleStart);
+
+        card.addEventListener('touchmove', handleMove);
+        // card.addEventListener('mousemove', handleMove);
+
+        card.addEventListener('touchend', handleEnd);
+        // card.addEventListener('mouseup', handleEnd);
+
     }
 })
