@@ -53,9 +53,10 @@ cashInDialog.querySelector("form").addEventListener("submit", e => {
     }, 15000);
 })
 
-cardButton.addEventListener("click", () => {
+cardButton.addEventListener("click", e => {
     confirmDialog.close();
     cardInDialog.showModal();
+    createSquarePayment(getTotal(order), e.currentTarget.dataset.actionlink);
 })
 
 preCheckoutButton.addEventListener("click", () => {
@@ -92,5 +93,17 @@ function sendOrder(actionLink, customerName, instructions) {
             message : "paid",
             name: customerName
         });
+    })
+}
+
+function createSquarePayment(amount, actionLink) {
+    fetch(actionLink, {
+        headers: {"X-CSRFToken": csrftoken },
+        method:'PUT',
+        body: JSON.stringify({
+            amount:parseFloat(amount).toFixed(2)
+        })
+    }).then(response => response.json()).then(data => {
+        console.log(data.message)
     })
 }

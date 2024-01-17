@@ -13,6 +13,15 @@ from .globals import new_data_queue
 import datetime
 from collections import defaultdict
 import math
+from django.conf import settings
+from square.client import Client
+import uuid
+
+# Initialize the Square client
+square_client = Client(
+    access_token=settings.SQUARE_ACCESS_TOKEN,
+    environment=settings.SQUARE_ENVIRONMENT
+)
 
 # Create your views here.
 
@@ -115,7 +124,19 @@ def pos(request, menu):
             dish = Dish.objects.get(id=dish_id)
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
-        return JsonResponse({"Message":"Sent to kitchen"}, status=200)
+        return JsonResponse({"message":"Sent to kitchen"}, status=200)
+    elif request.method == "PUT":
+        body = json.loads(request.body)
+        amount = float(body["amount"])
+        print(amount)
+        response = create_terminal_checkout(amount)
+        print(response)
+        if response.is_success():
+            checkout = response.body
+            return JsonResponse({"message":checkout}, status=200)
+        elif response.is_error():
+            errors = response.errors
+            return JsonResponse({"message":errors}, status=500)
     
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
@@ -258,3 +279,25 @@ def collect_order(order):
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.replace(tzinfo=timezone.utc).astimezone(tz=None).isoformat()
     })
+
+def create_terminal_checkout(amount:float):
+    # Convert amount to the smallest currency unit, e.g., cents
+    amount_money = {"amount": amount * 100, "currency": "CAD"}
+
+    checkout_request = {
+        "idempotency_key": str(uuid.uuid4()),  # Unique identifier for the request
+        "checkout": {
+            "amount_money": amount_money,
+            "note": "Transaction through HEUCC POS",
+            "device_options": {
+                "device_id": settings.SQUARE_DEVICE_ID,  # Replace with your device ID
+                "tip_settings": {
+                    "allow_tipping": True  # Or True, as per your requirement
+                }
+            }
+            # Add other necessary fields according to your requirements
+        }
+    }
+
+    api_response = square_client.terminal.create_terminal_checkout(checkout_request)
+    return api_response
