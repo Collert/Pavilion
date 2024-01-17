@@ -19,6 +19,13 @@ import datetime
 from collections import defaultdict
 import math
 from . import square
+import configparser
+import os
+
+# Create a configparser object
+file_dir = os.path.dirname(os.path.abspath(__file__))
+config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
+config.read(os.path.join(file_dir, 'config.cfg'))
 
 # Create your views here.
 
@@ -227,8 +234,21 @@ def pos_out_display(request):
     })
 
 def pair_square_terminal(request):
-    code = square.create_device_code()
-    return JsonResponse({"code":code})
+    if request.method == "GET":
+        code = config.get('POS_device_codes', 'POS_device_code')
+        return render(request, "pos_server/pair_pos.html", {
+            "code":code,
+            "route":"terminal-setup",
+        })
+    elif request.method == "PUT":
+        code = square.create_device_code()
+        config.set('POS device codes', 'POS_device_code', code)
+        with open('config.cfg', 'w') as configfile:
+            config.write(configfile)
+        return render(request, "pos_server/pair_pos.html", {
+            "code":code,
+            "route":"terminal-setup"
+        })
 
 @require_POST
 @csrf_exempt  # Disable CSRF for this view as it's an external API
