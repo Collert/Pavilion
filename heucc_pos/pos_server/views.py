@@ -1,9 +1,14 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
 from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import hmac
+import hashlib
+import base64
 from collections import Counter
 from .models import *
 import json
@@ -13,15 +18,7 @@ from .globals import new_data_queue
 import datetime
 from collections import defaultdict
 import math
-from django.conf import settings
-from square.client import Client
-import uuid
-
-# Initialize the Square client
-square_client = Client(
-    access_token=settings.SQUARE_ACCESS_TOKEN,
-    environment=settings.SQUARE_ENVIRONMENT
-)
+from . import square
 
 # Create your views here.
 
@@ -126,17 +123,7 @@ def pos(request, menu):
             order_dish.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
-        body = json.loads(request.body)
-        amount = float(body["amount"])
-        print(amount)
-        response = create_terminal_checkout(amount)
-        print(response)
-        if response.is_success():
-            checkout = response.body
-            return JsonResponse({"message":checkout}, status=200)
-        elif response.is_error():
-            errors = response.errors
-            return JsonResponse({"message":errors}, status=500)
+        return square.terminal_checkout(request, False)
     
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
@@ -239,6 +226,35 @@ def pos_out_display(request):
         "dishes": serializers.serialize('json', dishes)
     })
 
+def pair_square_terminal(request):
+    code = square.create_device_code()
+    return JsonResponse({"code":code})
+
+@require_POST
+@csrf_exempt  # Disable CSRF for this view as it's an external API
+def square_webhook(request):
+    # Your Square webhook signing secret
+    webhook_secret = b'your_square_webhook_secret'
+
+    # Get the signature from Square in the request headers
+    square_signature = request.headers.get('X-Square-Signature')
+
+    # Prepare the string to be hashed
+    string_to_sign = request.build_absolute_uri() + request.body.decode('utf-8')
+
+    # Hash the string
+    hashed = hmac.new(webhook_secret, string_to_sign.encode(), hashlib.sha1)
+    calculated_signature = base64.b64encode(hashed.digest()).decode()
+
+    # Verify the signature
+    if hmac.compare_digest(calculated_signature, square_signature):
+        # Process the webhook data
+        square.terminal_checkout(request, True)
+        return HttpResponse('Webhook processed', status=200)
+    else:
+        # Invalid signature, return forbidden
+        return HttpResponseForbidden('Invalid signature')
+
 def event_stream():
     while True:
         while new_data_queue:
@@ -280,24 +296,3 @@ def collect_order(order):
         "timestamp":order.timestamp.replace(tzinfo=timezone.utc).astimezone(tz=None).isoformat()
     })
 
-def create_terminal_checkout(amount:float):
-    # Convert amount to the smallest currency unit, e.g., cents
-    amount_money = {"amount": amount * 100, "currency": "CAD"}
-
-    checkout_request = {
-        "idempotency_key": str(uuid.uuid4()),  # Unique identifier for the request
-        "checkout": {
-            "amount_money": amount_money,
-            "note": "Transaction through HEUCC POS",
-            "device_options": {
-                "device_id": settings.SQUARE_DEVICE_ID,  # Replace with your device ID
-                "tip_settings": {
-                    "allow_tipping": True  # Or True, as per your requirement
-                }
-            }
-            # Add other necessary fields according to your requirements
-        }
-    }
-
-    api_response = square_client.terminal.create_terminal_checkout(checkout_request)
-    return api_response
