@@ -29,6 +29,16 @@
             {% if request.user.is_staff %}
             <button class="icon"><span class="material-symbols-outlined">person_add</span></button>
             {% endif %}
+            {% if route == "pos" %}
+            <button>
+                <div class="dropdown-content">
+                    <a href="#">Link 1</a>
+                    <a href="#">Link 2</a>
+                    <a href="#">Link 3</a>
+                </div>
+                <!-- <a href="{% url 'pos_output' %}">Display</a> -->
+            </button>
+            {% endif %}
             {% if user.is_authenticated %}
             <button>Lock POS</button>
             {% else %}

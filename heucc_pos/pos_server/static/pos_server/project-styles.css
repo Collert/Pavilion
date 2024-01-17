@@ -323,7 +323,8 @@ a.button:active:not(.no-style) span {
 }
 
 #pos-output-display {
-    height: 100vh;
+    width: 100vh;
+    height: 100vw;
     align-items: end;
 }
 
@@ -346,8 +347,8 @@ main#thank-you {
     top: 0;
     left: 0;
     opacity: 0;
-    height: 100vh;
-    width: 100vw;
+    width: 100vh;
+    height: 100vw;
     place-items: center;
     background-color: var(--primary-background);
 }
