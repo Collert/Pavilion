@@ -1,0 +1,12 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<h1>Square terminal device code:</h1>
+<span>{{code}}</span>
+<div>
+    <button>Send test transaction</button>
+    <button>Generate new code</button>
+</div>
+{% endblock %}

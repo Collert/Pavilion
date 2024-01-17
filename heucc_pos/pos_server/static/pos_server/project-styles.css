@@ -388,3 +388,20 @@ main#thank-you.anim {
 #pos dialog nav h2 {
     margin: 0;
 }
+
+#terminal-setup {
+    grid-template-rows: auto 1fr auto;
+    padding: 1rem;
+}
+#terminal-setup > * {
+    display: grid;
+    place-items: center;
+}
+#terminal-setup > span {
+    font-size: 40vh;
+    font-weight: 700;
+}
+#terminal-setup > div {
+    display: flex;
+    justify-content: center;
+}

@@ -1,9 +1,14 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
 from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import hmac
+import hashlib
+import base64
 from collections import Counter
 from .models import *
 import json
@@ -13,6 +18,14 @@ from .globals import new_data_queue
 import datetime
 from collections import defaultdict
 import math
+from . import square
+import configparser
+import os
+
+# Create a configparser object
+file_dir = os.path.dirname(os.path.abspath(__file__))
+config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
+config.read(os.path.join(file_dir, 'config.cfg'))
 
 # Create your views here.
 
@@ -115,7 +128,9 @@ def pos(request, menu):
             dish = Dish.objects.get(id=dish_id)
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
-        return JsonResponse({"Message":"Sent to kitchen"}, status=200)
+        return JsonResponse({"message":"Sent to kitchen"}, status=200)
+    elif request.method == "PUT":
+        return square.terminal_checkout(request, False)
     
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
@@ -218,6 +233,48 @@ def pos_out_display(request):
         "dishes": serializers.serialize('json', dishes)
     })
 
+def pair_square_terminal(request):
+    if request.method == "GET":
+        code = config.get('POS_device_codes', 'POS_device_code')
+        return render(request, "pos_server/pair_pos.html", {
+            "code":code,
+            "route":"terminal-setup",
+        })
+    elif request.method == "PUT":
+        code = square.create_device_code()
+        config.set('POS device codes', 'POS_device_code', code)
+        with open('config.cfg', 'w') as configfile:
+            config.write(configfile)
+        return render(request, "pos_server/pair_pos.html", {
+            "code":code,
+            "route":"terminal-setup"
+        })
+
+@require_POST
+@csrf_exempt  # Disable CSRF for this view as it's an external API
+def square_webhook(request):
+    # Your Square webhook signing secret
+    webhook_secret = b'your_square_webhook_secret'
+
+    # Get the signature from Square in the request headers
+    square_signature = request.headers.get('X-Square-Signature')
+
+    # Prepare the string to be hashed
+    string_to_sign = request.build_absolute_uri() + request.body.decode('utf-8')
+
+    # Hash the string
+    hashed = hmac.new(webhook_secret, string_to_sign.encode(), hashlib.sha1)
+    calculated_signature = base64.b64encode(hashed.digest()).decode()
+
+    # Verify the signature
+    if hmac.compare_digest(calculated_signature, square_signature):
+        # Process the webhook data
+        square.terminal_checkout(request, True)
+        return HttpResponse('Webhook processed', status=200)
+    else:
+        # Invalid signature, return forbidden
+        return HttpResponseForbidden('Invalid signature')
+
 def event_stream():
     while True:
         while new_data_queue:
@@ -258,3 +315,4 @@ def collect_order(order):
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.replace(tzinfo=timezone.utc).astimezone(tz=None).isoformat()
     })
+

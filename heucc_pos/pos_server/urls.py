@@ -13,4 +13,6 @@ urlpatterns = [
     path('menu_select', views.menu_select, name='menu_select'),
     path('dashboard', views.dashboard, name='dashboard'),
     path('day_stats', views.day_stats, name='day_stats'),
+    path('pair-terminal', views.pair_square_terminal, name='pair-terminal'),
+    path('webhook/square/', views.square_webhook, name='square_webhook'),
 ]
