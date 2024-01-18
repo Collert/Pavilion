@@ -47,6 +47,7 @@ cashInDialog.querySelector("form").addEventListener("submit", e => {
     const link = e.currentTarget.action;
     sendOrder(link, customerName, specialInstructions);
     document.querySelector("[name='customer-name']").value = '';
+    document.querySelector("[name='special-instructions']").value = '';
     e.currentTarget.querySelector("[name='cash-provided']").value = '';
     setTimeout(() => {
         changeDialog.close()
@@ -56,7 +57,28 @@ cashInDialog.querySelector("form").addEventListener("submit", e => {
 cardButton.addEventListener("click", e => {
     confirmDialog.close();
     cardInDialog.showModal();
-    createSquarePayment(getTotal(order), e.currentTarget.dataset.actionlink);
+    const actionLink = e.currentTarget.dataset.actionlink
+    createSquarePayment(getTotal(order), actionLink)
+    .then(response => {
+        const status = response.status
+        fetch("/pos/webhook/square/check_card_status", {
+            headers: {"X-CSRFToken": csrftoken },
+            method:'DELETE'
+        })
+        cardInDialog.close();
+        cardDoneDialog.querySelector("#transaction-status").textContent = `Transaction ${status.toLowerCase()}!`
+        cardDoneDialog.showModal();
+        setTimeout(() => {
+            cardDoneDialog.close();
+            if (status === "COMPLETED") {
+                const customerName = document.querySelector("[name='customer-name']").value;
+                const specialInstructions = document.querySelector("[name='special-instructions']").value;
+                sendOrder(actionLink, customerName, specialInstructions);
+                document.querySelector("[name='customer-name']").value = '';
+                document.querySelector("[name='special-instructions']").value = '';
+            }
+        }, 4000);
+    });
 })
 
 preCheckoutButton.addEventListener("click", () => {
@@ -97,13 +119,45 @@ function sendOrder(actionLink, customerName, instructions) {
 }
 
 function createSquarePayment(amount, actionLink) {
-    fetch(actionLink, {
-        headers: {"X-CSRFToken": csrftoken },
-        method:'PUT',
-        body: JSON.stringify({
-            amount:parseFloat(amount).toFixed(2)
+    return new Promise((resolve, reject) => {
+        // Initial payment request
+        fetch(actionLink, {
+            headers: { "X-CSRFToken": csrftoken },
+            method: 'PUT',
+            body: JSON.stringify({
+                amount: parseFloat(amount).toFixed(2)
+            })
         })
-    }).then(response => response.json()).then(data => {
-        console.log(data.message)
-    })
+        .then(response => response.json())
+        .then(data => {
+            // console.log(data)
+            if (data.message.checkout.status === "PENDING") {
+                // Start checking for data from the different route
+                checkResponse();
+            } else {
+                reject(new Error('Payment failed'));
+            }
+        })
+        .catch(error => {
+            reject(error);
+        });
+
+        function checkResponse() {
+            fetch("/pos/webhook/square/check_card_status")
+            .then(response => response.json())
+            .then(data => {
+                console.log(data)
+                if (data.status === "COMPLETED") {
+                    resolve(data);
+                } else if (data.status === "CANCELED") {
+                    resolve(data);
+                } else {
+                    setTimeout(checkResponse, 1000); // Retry after 1 second
+                }
+            })
+            .catch(error => {
+                reject(error);
+            });
+        }
+    });
 }

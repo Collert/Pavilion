@@ -163,3 +163,4 @@ heucc_pos/heucc_pos/__pycache__/settings.cpython-39.pyc
 *.sqlite3
 heucc_pos/db.sqlite3
 *.cfg
+.vscode

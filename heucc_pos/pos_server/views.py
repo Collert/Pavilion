@@ -4,23 +4,23 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpRe
 from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
-import hmac
-import hashlib
-import base64
 from collections import Counter
 from .models import *
 import json
 import time
 from django.utils import timezone
 from .globals import new_data_queue
+from . import globals
 import datetime
 from collections import defaultdict
 import math
 from . import square
 import configparser
 import os
+from square.utilities.webhooks_helper import is_valid_webhook_event_signature
+from django.conf import settings
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -130,7 +130,7 @@ def pos(request, menu):
             order_dish.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
-        return square.terminal_checkout(request, False)
+        return square.terminal_checkout(request)
     
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
@@ -254,33 +254,43 @@ def pair_square_terminal(request):
 @csrf_exempt  # Disable CSRF for this view as it's an external API
 def square_webhook(request):
     # Your Square webhook signing secret
-    webhook_secret = b'your_square_webhook_secret'
+    signature_key = settings.SQUARE_WEBHOOK_SIGNATURE_KEY
 
-    # Get the signature from Square in the request headers
-    square_signature = request.headers.get('X-Square-Signature')
+    # The URL where event notifications are sent (your webhook endpoint)
+    notification_url = "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app/pos/webhook/square"
+    # notification_url = request.build_absolute_uri()
 
-    # Prepare the string to be hashed
-    string_to_sign = request.build_absolute_uri() + request.body.decode('utf-8')
+    # Read the raw request body and signature
+    body = request.body.decode('utf-8')
+    square_signature = request.headers.get('x-square-hmacsha256-signature')
 
-    # Hash the string
-    hashed = hmac.new(webhook_secret, string_to_sign.encode(), hashlib.sha1)
-    calculated_signature = base64.b64encode(hashed.digest()).decode()
+    # Validate the webhook event signature
+    is_from_square = is_valid_webhook_event_signature(body, square_signature, signature_key, notification_url)
 
     # Verify the signature
-    if hmac.compare_digest(calculated_signature, square_signature):
+    if is_from_square:
         # Process the webhook data
-        square.terminal_checkout(request, True)
+        webhook_data = json.loads(request.body.decode('utf8'))
+        globals.checkout_card_status = webhook_data["data"]["object"]["checkout"]["status"]
         return HttpResponse('Webhook processed', status=200)
     else:
+        print("invalid signature")
         # Invalid signature, return forbidden
         return HttpResponseForbidden('Invalid signature')
+    
+def check_card_status(request):
+    if request.method == "GET":
+        return JsonResponse({"status":globals.checkout_card_status})
+    elif request.method == "DELETE":
+        globals.checkout_card_status = ''
+        return JsonResponse({"status":globals.checkout_card_status})
+
 
 def event_stream():
     while True:
         while new_data_queue:
             data = new_data_queue[0]
             order_data_json = json.dumps(collect_order(data))
-            print("sending dish")
             yield f"data: {order_data_json}\n\n"
             time.sleep(2)
             try:

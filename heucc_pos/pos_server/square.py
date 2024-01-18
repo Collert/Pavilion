@@ -1,8 +1,9 @@
 from django.conf import settings
 from square.client import Client
 import uuid
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import json
+from . import globals
 
 # Initialize the Square client
 square_client = Client(
@@ -51,12 +52,13 @@ def create_device_code():
     except Exception as e:
         print(f"Error occurred: {e}")
 
-def terminal_checkout(request, webhook:bool):
+def terminal_checkout(request):
     body = json.loads(request.body)
     amount = float(body["amount"])
     response = gather_terminal_checkout(amount)
     if response.is_success():
         checkout = response.body
+        globals.checkout_card_status = checkout["checkout"]["status"]
         return JsonResponse({"message":checkout}, status=200)
     elif response.is_error():
         errors = response.errors

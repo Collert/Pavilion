@@ -14,5 +14,6 @@ urlpatterns = [
     path('dashboard', views.dashboard, name='dashboard'),
     path('day_stats', views.day_stats, name='day_stats'),
     path('pair-terminal', views.pair_square_terminal, name='pair-terminal'),
-    path('webhook/square/', views.square_webhook, name='square_webhook'),
+    path('webhook/square', views.square_webhook, name='square_webhook'),
+    path('webhook/square/check_card_status', views.check_card_status, name='check_card_status'),
 ]
