@@ -257,8 +257,8 @@ def square_webhook(request):
     signature_key = settings.SQUARE_WEBHOOK_SIGNATURE_KEY
 
     # The URL where event notifications are sent (your webhook endpoint)
-    notification_url = "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app/pos/webhook/square"
-    # notification_url = request.build_absolute_uri()
+    # notification_url = "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app/pos/webhook/square"
+    notification_url = request.build_absolute_uri()
 
     # Read the raw request body and signature
     body = request.body.decode('utf-8')
