@@ -23,6 +23,7 @@ SQUARE_ACCESS_TOKEN = os.getenv('SQUARE_ACCESS_TOKEN')
 SQUARE_ENVIRONMENT = os.getenv('SQUARE_ENVIRONMENT')
 SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
+SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -38,7 +39,8 @@ ALLOWED_HOSTS = [
     "localhost", 
     "server.uahelp.ca", 
     "internal.uahelp.ca", 
-    "local.internal.uahelp.ca"
+    "local.internal.uahelp.ca",
+    "be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app"
     ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -46,7 +48,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000", 
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
-    "http://local.internal.uahelp.ca"
+    "http://local.internal.uahelp.ca",
+    "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app"
     ]
 
 CORS_ALLOW_ALL_ORIGINS = True
