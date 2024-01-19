@@ -36,6 +36,9 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+MEDIA_ROOT = ''
+MEDIA_URL = ''
+
 ALLOWED_HOSTS = [
     "127.0.0.1", 
     "localhost", 

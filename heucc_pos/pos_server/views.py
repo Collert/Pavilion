@@ -4,7 +4,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpRe
 from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from collections import Counter
 from .models import *
@@ -21,6 +21,9 @@ import configparser
 import os
 from square.utilities.webhooks_helper import is_valid_webhook_event_signature
 from django.conf import settings
+from misc_tools import funcs
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -249,6 +252,29 @@ def pair_square_terminal(request):
             "code":code,
             "route":"terminal-setup"
         })
+    
+def create_menu(request):
+    if request.method == "GET":
+        return render(request, "pos_server/create-menu.html")
+    elif request.method == "POST":
+        num_colors = 3
+        header_image = request.FILES['header']
+        footer_image = request.FILES['footer']
+        image_path = default_storage.save('temp_image.jpg', ContentFile(header_image.read()))
+        color_dict = funcs.get_image_colors(image_path, num_colors)
+        default_storage.delete(image_path)
+        title = request.POST["title"]
+        Menu.objects.create(
+            title=title,
+            header_image=header_image,
+            footer_image=footer_image,
+            background_color=color_dict['Color 1'],
+            accent_1=color_dict['Color 2'],
+            accent_2=color_dict['Color 3'],
+            accent_3=color_dict['Color 4'],
+        )
+        return render(request, "pos_server/create-menu.html", {"done":True})
+        
 
 @require_POST
 @csrf_exempt  # Disable CSRF for this view as it's an external API

@@ -7,3 +7,4 @@ cloudinary
 opencv-python 
 scikit-learn 
 numpy
+Pillow

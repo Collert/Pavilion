@@ -1,0 +1,19 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+<form action="{% url 'create_menu' %}" method="post" id="menu-create" enctype="multipart/form-data">
+    {% csrf_token %}
+    <h1>Create a new menu:</h1>
+    <label for="title">Menu title</label>
+    <input type="text" name="title" id="title">
+    <label for="header-img">Header image</label>
+    <input type="file" name="header" id="header-img">
+    <label for="footer-img">Footer image</label>
+    <input type="file" name="footer" id="footer-img">
+    <button type="submit">Create</button>
+    {% if done %}
+    <h1>Menu created!</h1>
+    {% endif %}
+</form>
+{% endblock %}
