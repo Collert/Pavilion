@@ -2,3 +2,4 @@ Django
 gunicorn
 squareup
 python-dotenv
+psycopg2
