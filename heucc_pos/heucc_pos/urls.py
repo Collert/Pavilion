@@ -22,4 +22,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('webrtc/', include("webrtc.urls")),
     path('pos/', include("pos_server.urls")),
+    path('utils/', include("misc_tools.urls")),
 ]

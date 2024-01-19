@@ -3,3 +3,7 @@ gunicorn
 squareup
 python-dotenv
 psycopg2
+cloudinary
+opencv-python 
+scikit-learn 
+numpy
