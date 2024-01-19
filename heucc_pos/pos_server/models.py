@@ -4,6 +4,12 @@ from django.db import models
     
 class Menu(models.Model):
     title = models.CharField(max_length=140)
+    header_image = models.ImageField(upload_to='files/menu_decorations', null=True)
+    footer_image = models.ImageField(upload_to='files/menu_decorations', null=True)
+    background_color = models.CharField(max_length=7, default="#ffffff")
+    accent_1 = models.CharField(max_length=7, default="#ffffff")
+    accent_2 = models.CharField(max_length=7, default="#ffffff")
+    accent_3 = models.CharField(max_length=7, default="#ffffff")
 
     def __str__(self) -> str:
         return f"Menu: {self.title}"

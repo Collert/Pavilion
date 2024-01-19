@@ -1,0 +1,10 @@
+{% extends "misc_tools/layout.html" %}
+{% load static %}
+
+{% block body %}
+<form action="{% url 'utils_get_image_colors' %}" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="image">
+    <button type="submit">Submit</button>
+</form>
+{% endblock %}

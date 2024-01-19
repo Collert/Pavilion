@@ -405,3 +405,13 @@ main#thank-you.anim {
     display: flex;
     justify-content: center;
 }
+
+main:has(form#menu-create) {
+    display: grid;
+    place-items: center;
+}
+
+form#menu-create {
+    display: grid;
+    gap: 1rem;
+}
