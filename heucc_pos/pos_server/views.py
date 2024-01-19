@@ -233,7 +233,8 @@ def pos_out_display(request):
     menu = request.GET.get('menu')
     dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
     return render(request, "pos_server/pos-output-display.html", {
-        "dishes": serializers.serialize('json', dishes)
+        "dishes": serializers.serialize('json', dishes),
+        "menu":Menu.objects.filter(title=menu).first()
     })
 
 def pair_square_terminal(request):

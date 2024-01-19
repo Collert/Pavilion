@@ -24,6 +24,12 @@
             width: 100vh;
             height: 100vw;
         }
+        :root {
+            --primary-background: "{{menu.background_color}}";
+            --accent-1: "{{menu.accent_1}}";
+            --accent-2: "{{menu.accent_2}}";
+            --accent-3: "{{menu.accent_3}}";
+        }
     </style>
 </head>
 <body class="portrait" style="gap: 0;">
@@ -38,7 +44,41 @@
     <main id="thank-you">
         <h1>Thank you!</h1>
     </main>
-    <script>const dishes = JSON.parse('{{dishes|safe}}');</script>
+    <script>
+        const dishes = JSON.parse('{{dishes|safe}}');
+        
+        const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');
+
+        document.documentElement.style.setProperty('--primary-contrast', invertColor(bg));
+
+        console.log(invertColor(bg))
+
+        function invertColor(hex) {
+            console.log(hex)
+            if (hex.indexOf('#') === 1) {
+                hex = hex.slice(2, 8);
+            }
+            // convert 3-digit hex to 6-digits.
+            if (hex.length === 3) {
+                hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            }
+            if (hex.length !== 6) {
+                throw new Error('Invalid HEX color.');
+            }
+            // invert color components
+            var r = (255 - parseInt(hex.slice(0, 2), 16)).toString(16),
+                g = (255 - parseInt(hex.slice(2, 4), 16)).toString(16),
+                b = (255 - parseInt(hex.slice(4, 6), 16)).toString(16);
+            // pad each with zeros and return
+            return '#' + padZero(r) + padZero(g) + padZero(b);
+        }
+
+        function padZero(str, len) {
+            len = len || 2;
+            var zeros = new Array(len).join('0');
+            return (zeros + str).slice(-len);
+        }
+    </script>
     <script type="module" src="{% static 'pos_server/pos-output-screen.js' %}"></script>
 </body>
 </html>
