@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'pos_server.apps.PosServerConfig',
     'webrtc',
     'landing',
+    'misc_tools',
 ]
 
 MIDDLEWARE = [
