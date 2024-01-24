@@ -30,27 +30,57 @@
             <button class="icon"><span class="material-symbols-outlined">person_add</span></button>
             {% endif %}
             {% if route == "pos" %}
-            <button>
-                <div class="dropdown-content">
-                    <a href="#">Link 1</a>
-                    <a href="#">Link 2</a>
-                    <a href="#">Link 3</a>
+            <button id="dropdown">
+                <span id="drop-but">Menu</span>
+                <div id="dropdown-content">
+                    <a href="#" id="utils-link">Utilities</a>
+                    <a href="#" id="discounts-link">Discounts</a>
                 </div>
                 <!-- <a href="{% url 'pos_output' %}">Display</a> -->
             </button>
             {% endif %}
             {% if user.is_authenticated %}
-            <button>Lock POS</button>
+            <a class="button" href="{% url 'logout_view' %}">Lock POS</a>
             {% else %}
             <button>Login</button>
             {% endif %}
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>
+    <dialog id="utils">
+        <div>
+            <button id="open-menu">Open menu</button>
+            <button id="open-pairing">Pair terminal</button>
+        </div>
+    </dialog>
 </body>
 <script>
+    const isSuperuser = "{{user.is_superuser}}" == "True";
+    let suAuthorized = isSuperuser;
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
     document.querySelector("#rotate-screen").addEventListener("click", () => {
         document.querySelector("body").classList.toggle("portrait");
     })
+
+    const utilsLink = document.querySelector("#utils-link");
+    const utilsDialog = document.querySelector("#utils");
+    const openMenuButton = document.querySelector("#open-menu");
+    const pairTerminalButton = document.querySelector("#open-pairing");
+
+    utilsLink.addEventListener("click", e => {
+        e.preventDefault()
+        utilsDialog.showModal()
+    })
+    openMenuButton.addEventListener("click", () => {
+        openInNewTab("{% url 'pos_output' %}")
+    })
+    pairTerminalButton.addEventListener("click", () => {
+        openInNewTab("{% url 'pair-terminal' %}")
+    })
+    function openInNewTab(url) {
+        window.open(url, '_blank');
+        utilsDialog.close();
+    }
 </script>
 </html>

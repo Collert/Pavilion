@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from django.urls import reverse_lazy
 
 load_dotenv()
 
@@ -38,6 +39,8 @@ DEBUG = True
 
 MEDIA_ROOT = ''
 MEDIA_URL = ''
+
+LOGIN_URL = reverse_lazy('login_view')
 
 ALLOWED_HOSTS = [
     "127.0.0.1", 

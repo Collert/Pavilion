@@ -25,10 +25,10 @@
             height: 100vw;
         }
         :root {
-            --primary-background: "{{menu.background_color}}";
-            --accent-1: "{{menu.accent_1}}";
-            --accent-2: "{{menu.accent_2}}";
-            --accent-3: "{{menu.accent_3}}";
+            --primary-background: {{menu.background_color}};
+            --accent-1: {{menu.accent_1}};
+            --accent-2: {{menu.accent_2}};
+            --accent-3: {{menu.accent_3}};
         }
     </style>
 </head>
@@ -37,7 +37,7 @@
         <div style="padding: 1rem;">
             <div id="cart"></div>
             <div style="text-align: end;" id="total-button" class="hidden">
-                Total: $<span></span>
+                Total: $<span></span><span id="discount-display"></span>
             </div>
         </div>
     </main>
@@ -51,12 +51,10 @@
 
         document.documentElement.style.setProperty('--primary-contrast', invertColor(bg));
 
-        console.log(invertColor(bg))
-
         function invertColor(hex) {
             console.log(hex)
-            if (hex.indexOf('#') === 1) {
-                hex = hex.slice(2, 8);
+            if (hex.indexOf('#') === 0) {
+                hex = hex.slice(1, 7);
             }
             // convert 3-digit hex to 6-digits.
             if (hex.length === 3) {

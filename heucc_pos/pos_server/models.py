@@ -4,6 +4,7 @@ from django.db import models
     
 class Menu(models.Model):
     title = models.CharField(max_length=140)
+    is_active = models.BooleanField(default=False)
     header_image = models.ImageField(upload_to='files/menu_decorations', null=True)
     footer_image = models.ImageField(upload_to='files/menu_decorations', null=True)
     background_color = models.CharField(max_length=7, default="#ffffff")

@@ -1,7 +1,13 @@
 import { addCartItem, updateCheckoutButton, getTotal, compileSummary } from './pos-utils.js';
 
 const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+// There's a isSuperuser declaration in layout.html
 let order = []
+
+let discounts = {
+    discountPercent : 0,
+    discountAmount : 0
+}
 
 const cashButton = document.querySelector("#cash-button");
 const cardButton = document.querySelector("#card-button");
@@ -15,30 +21,36 @@ const cashInDialog = document.querySelector("#cash-in");
 const changeDialog = document.querySelector("#cash-change");
 const cardInDialog = document.querySelector("#card-in");
 const cardDoneDialog = document.querySelector("#card-done");
+const adminAuthorizeForm = document.querySelector("#authorize form");
+const adminAuthorizeModal = document.querySelector("#authorize");
+const discountForm = document.querySelector("#discounts form");
+const discountsLink = document.querySelector("#discounts-link");
+const discountModal = document.querySelector("#discounts");
 
 document.querySelectorAll(".dish").forEach(button => {
     button.addEventListener("click", e => { 
         let dishId = e.currentTarget.dataset.id;
         e.stopPropagation();
         order.push(dishId)
-        addCartItem(dishId, order, cartChannel);
+        addCartItem(dishId, order, cartChannel, false, discounts);
         cartChannel.postMessage({
             id : dishId, 
             orderArr : order,
-            message : "add"
+            message : "add",
+            discounts : discounts
         });
     })
 })
 
 cashButton.addEventListener("click", e => {
     confirmDialog.close();
-    cashInDialog.querySelector("[name='cash-provided']").min = getTotal(order);
+    cashInDialog.querySelector("[name='cash-provided']").min = getTotal(order, discounts);
     cashInDialog.showModal();
 })
 
 cashInDialog.querySelector("form").addEventListener("submit", e => {
     e.preventDefault()
-    const change = parseFloat(e.currentTarget.querySelector("[name='cash-provided']").value) - getTotal(order);
+    const change = parseFloat(parseFloat(e.currentTarget.querySelector("[name='cash-provided']").value) - getTotal(order, discounts)).toFixed(2);
     changeDialog.querySelector("#change-to-give").textContent = change;
     cashInDialog.close()
     changeDialog.showModal()
@@ -82,8 +94,58 @@ cardButton.addEventListener("click", e => {
 })
 
 preCheckoutButton.addEventListener("click", () => {
-    compileSummary(order)
+    compileSummary(order, discounts)
     confirmDialog.showModal()
+})
+
+
+discountsLink.addEventListener("click", e => {
+    e.preventDefault()
+    if (suAuthorized) {
+        discountModal.showModal();
+    } else {
+        adminAuthorizeModal.showModal();
+    }
+})
+adminAuthorizeForm.addEventListener("submit", e => {
+    e.preventDefault();
+    fetch("{% url 'check_su' %}", {
+        headers: {"X-CSRFToken": csrftoken },
+        method:'POST',
+        body: JSON.stringify({
+            username:adminAuthorizeForm.querySelector("[name='man-user']").value,
+            password:adminAuthorizeForm.querySelector("[name='man-pass']").value,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.superuser) {
+            suAuthorized = true;
+            adminAuthorizeModal.close();
+            discountModal.showModal();                
+        } else {
+            adminAuthorizeForm.querySelector("span").style.display = "block";
+            adminAuthorizeForm.querySelectorAll("*").forEach(element => {
+                element.classList.add("error")
+            })
+        }
+    })
+})
+discountForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const discountAmountInp = discountForm.querySelector("[name='discount-amount']");
+    const discountPercentInp = discountForm.querySelector("[name='discount-percentage']");
+    discounts.discountAmount = parseFloat(discountAmountInp.value) || 0;
+    discounts.discountPercent = parseFloat(discountPercentInp.value) || 0;
+    updateCheckoutButton(order, discounts);
+    cartChannel.postMessage({
+        orderArr : order,
+        message : "modifyDiscount",
+        discounts : discounts
+    });
+    discountModal.close();
+    discountAmountInp.value = ''
+    discountPercentInp.value = ''
 })
 
 window.addEventListener("beforeunload", () => {
@@ -115,6 +177,11 @@ function sendOrder(actionLink, customerName, instructions) {
             message : "paid",
             name: customerName
         });
+        suAuthorized = isSuperuser;
+        discounts = {
+            discountPercent : 0,
+            discountAmount : 0
+        }
     })
 }
 

@@ -415,3 +415,40 @@ form#menu-create {
     display: grid;
     gap: 1rem;
 }
+
+#dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+#dropdown-content {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: -40%;
+    background-color: var(--primary-contrast);
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 1rem;
+}
+
+#dropdown-content a {
+    color: var(--primary-background);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+/* #dropdown-content a:hover {background-color: #ddd;} */
+
+#dropdown:hover #dropdown-content {display: block;}
+
+#utils > div,
+#authorize > form,
+#discounts > form,
+#login > form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}

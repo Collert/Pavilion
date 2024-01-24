@@ -7,7 +7,7 @@ cartChannel.addEventListener("message", e => {
     console.log(e.data)
     if (e.data.message === "add") {
         thank.className = "";
-        addCartItem(e.data.id, e.data.orderArr, null, true);
+        addCartItem(e.data.id, e.data.orderArr, null, true, e.data.discounts);
     } else if (e.data.message === "remove") {
         let dishCard = document.querySelector(`#dish-${e.data.id}`);
         removeCartItem(e.data.id, e.data.orderArr, dishCard)
@@ -19,9 +19,11 @@ cartChannel.addEventListener("message", e => {
         }
         thank.className = "anim";
         setTimeout(() => {
-            updateCheckoutButton(e.data.orderArr)
+            updateCheckoutButton(e.data.orderArr, e.data.discounts)
             document.querySelector("#cart").innerHTML = ''
         }, 1000);
+    } else if (e.data.message === "modifyDiscount") {
+        updateCheckoutButton(e.data.orderArr, e.data.discounts)
     }
 })
 

@@ -1,5 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
 from django.http import StreamingHttpResponse
 from django.urls import reverse
@@ -33,26 +35,35 @@ config.read(os.path.join(file_dir, 'config.cfg'))
 # Create your views here.
 
 def index(request):
-    if request.user and request.user.is_authenticated:
-        return HttpResponseRedirect(reverse("menu_select"))
-    return render(request, "pos_server/index.html", {
-        "route":"login"
-    })
+    return HttpResponseRedirect(reverse("pos"))
 
 def login_view(request):
-    if request.method == "POST":
+    if request.method == "GET":
+        return render(request, "pos_server/login.html", {
+            "route":"login"
+        })
+    elif request.method == "POST":
         username = request.POST["username"]
         password = request.POST["password"]
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            return HttpResponseRedirect(reverse("menu_select"))
+            next_url = request.POST.get('next')  # Get the next parameter
+            if next_url:
+                return redirect(next_url)
+            return HttpResponseRedirect(reverse("pos"))
         else:
-            return render(request, "pos_server/index.html", {
+            return render(request, "pos_server/login.html", {
                 "route":"login",
                 "failed_login":True
             })
 
+@login_required
+def logout_view(request):
+    logout(request)
+    return redirect(reverse("login_view"))
+
+@login_required
 def kitchen(request):
     if request.method == "GET":
         today = timezone.localdate()
@@ -78,6 +89,7 @@ def kitchen(request):
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
 
+@login_required
 def bar(request):
     if request.method == "GET":
         today = timezone.localdate()
@@ -110,13 +122,15 @@ def menu_select(request):
             "menus":menus
         })
 
-def pos(request, menu):
+@login_required
+def pos(request):
     if request.method == "GET":
-        dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
+        menu = Menu.objects.filter(is_active = True).first()
+        dishes = Dish.objects.filter(menu=menu)
         return render(request, "pos_server/order.html", {
             "route":"pos",
             "menu": dishes,
-            "menu_title": menu,
+            "menu_title": menu.title,
             "json": serializers.serialize('json', dishes)
         })
     elif request.method == "POST":
@@ -134,7 +148,8 @@ def pos(request, menu):
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
         return square.terminal_checkout(request)
-    
+
+@login_required
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
     for day in unique_days:
@@ -144,6 +159,7 @@ def dashboard(request):
         "dates":unique_days
     })
 
+@login_required
 def day_stats(request):
     if request.GET.get('date'):
         day = datetime.datetime.strptime(request.GET.get('date'), '%b. %d, %Y')
@@ -229,14 +245,16 @@ def day_stats(request):
         "stats":stats
     })
 
+@login_required
 def pos_out_display(request):
-    menu = request.GET.get('menu')
-    dishes = Dish.objects.filter(menu=Menu.objects.filter(title = menu).first())
+    menu = Menu.objects.get(is_active = True)
+    dishes = Dish.objects.filter(menu=menu)
     return render(request, "pos_server/pos-output-display.html", {
         "dishes": serializers.serialize('json', dishes),
-        "menu":Menu.objects.filter(title=menu).first()
+        "menu":menu
     })
 
+@login_required
 def pair_square_terminal(request):
     if request.method == "GET":
         code = config.get('POS_device_codes', 'POS_device_code')
@@ -254,6 +272,7 @@ def pair_square_terminal(request):
             "route":"terminal-setup"
         })
     
+@login_required
 def create_menu(request):
     if request.method == "GET":
         return render(request, "pos_server/create-menu.html")
@@ -276,6 +295,24 @@ def create_menu(request):
         )
         return render(request, "pos_server/create-menu.html", {"done":True})
         
+@csrf_exempt
+@require_POST
+def check_superuser_status(request):
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        password = data.get('password')
+    except (ValueError, KeyError):
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    user = authenticate(username=username, password=password)
+
+    if user is not None and user.is_superuser:
+        return JsonResponse({'superuser': True})
+    elif user is not None:
+        return JsonResponse({'superuser': False})
+    else:
+        return JsonResponse({'error': 'Authentication failed'}, status=401)
 
 @require_POST
 @csrf_exempt  # Disable CSRF for this view as it's an external API

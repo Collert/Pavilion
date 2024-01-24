@@ -21,9 +21,9 @@
         
     </div>
     <div id="total-button" class="hidden">
-        Total: $<span></span>
+        Total: $<span></span><span id="discount-display"></span>
     </div>
-    <button data-actionLink="{% url 'pos' menu_title %}" class="hidden" id="checkout-button">Tender order</button>
+    <button data-actionLink="{% url 'pos' %}" class="hidden" id="checkout-button">Tender order</button>
 </div>
 <dialog id="tender">
     <div>
@@ -35,18 +35,18 @@
         <h2>Total: $<span id="tender-total"></span></h2>
         <input type="text" name="customer-name" placeholder="Customer name">
         <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
-        <button data-actionLink="{% url 'pos' menu_title %}" id="cash-button">Cash</button>
-        <button data-actionLink="{% url 'pos' menu_title %}" id="card-button">Card</button>
+        <button data-actionLink="{% url 'pos' %}" id="cash-button">Cash</button>
+        <button data-actionLink="{% url 'pos' %}" id="card-button">Card</button>
     </div>
 </dialog>
 <dialog id="cash-in">
-    <form action="{% url 'pos' menu_title %}">
+    <form action="{% url 'pos' %}">
         <nav>
             <h1>Change</h1>
             <button type="button" class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <h1 style="text-align: center;">How much money<br>did customer give?</h1>
-        <input name="cash-provided" placeholder="$" type="number"/>
+        <input name="cash-provided" step="0.01" placeholder="$" type="number"/>
         <button>Accept cash</button>
     </form>   
 </dialog>
@@ -68,6 +68,23 @@
         <h2 id="transaction-status"></h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
+</dialog>
+<dialog id="authorize">
+    <form>
+        <input type="text" name="man-user" placeholder="Manager username">
+        <input type="password" name="man-pass" placeholder="Manager password">
+        <button type="submit">Authorize</button>
+        <span style="color: var(--error-color); display: none;">Authorization failed</span>
+    </form>
+</dialog>
+<dialog id="discounts">
+    <form>
+        <h2>Apply whole order discount</h2>
+        <input min="1" max="100" type="number" name="discount-percentage" placeholder="%">
+        <span style="text-align: center;">or</span>
+        <input type="number" name="discount-amount" placeholder="$ amount">
+        <button>Apply</button>
+    </form>
 </dialog>
 <script>const dishes = JSON.parse('{{json|safe}}');</script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>

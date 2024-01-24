@@ -3,9 +3,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.index, name="pos_login"),
+    path("", views.index, name="index"),
     path("login", views.login_view, name="login_view"),
-    path("register/<str:menu>", views.pos, name="pos"),
+    path("logout", views.logout_view, name="logout_view"),
+    path("register", views.pos, name="pos"),
     path("pos-output", views.pos_out_display, name="pos_output"),
     path("kitchen", views.kitchen, name="kitchen"),
     path("bar", views.bar, name="bar"),
@@ -17,4 +18,5 @@ urlpatterns = [
     path('pair-terminal', views.pair_square_terminal, name='pair-terminal'),
     path('webhook/square', views.square_webhook, name='square_webhook'),
     path('webhook/square/check_card_status', views.check_card_status, name='check_card_status'),
+    path('check-su', views.check_superuser_status, name='check_su'),
 ]

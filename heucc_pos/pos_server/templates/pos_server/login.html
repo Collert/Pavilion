@@ -6,6 +6,9 @@
     {% csrf_token %}
     <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
     <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
+    {% if request.GET.next %}
+    <input type="hidden" name="next" value="{{ request.GET.next }}">
+    {% endif %}
     <button {% if failed_login %}class="error"{% endif %}>Log in</button>
     {% if failed_login %}
     <span>Failed to authenticate, please try again</span>
