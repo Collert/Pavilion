@@ -446,6 +446,7 @@ form#menu-create {
 
 #utils > div,
 #authorize > form,
+#menus > form,
 #discounts > form,
 #login > form {
     display: flex;

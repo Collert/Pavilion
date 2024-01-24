@@ -47,26 +47,49 @@
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>
+    {% if route == "pos" %}
     <dialog id="utils">
         <div>
             <button id="open-menu">Open menu</button>
             <button id="open-pairing">Pair terminal</button>
+            <a class="button" href="{% url 'create_menu' %}">Create menu</a>
+            <button id="select-menu">Select menu</button>
         </div>
     </dialog>
+    <dialog id="menus">
+        <form action="{% url 'menu_select' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="menu-title">
+            {% for menu in menus %}
+            <button data-menu="{{menu.title}}">{{menu.title|title}}</button>
+            {% endfor %}
+        </form>
+    </dialog>
+    {% endif %}
 </body>
 <script>
     const isSuperuser = "{{user.is_superuser}}" == "True";
     let suAuthorized = isSuperuser;
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
+    
     document.querySelector("#rotate-screen").addEventListener("click", () => {
         document.querySelector("body").classList.toggle("portrait");
     })
-
+</script>
+{% if route == "pos" %}
+<script>    
     const utilsLink = document.querySelector("#utils-link");
     const utilsDialog = document.querySelector("#utils");
     const openMenuButton = document.querySelector("#open-menu");
     const pairTerminalButton = document.querySelector("#open-pairing");
+    const selectMenuButton = document.querySelector("#select-menu");
+    const selectMenuDialog = document.querySelector("#menus");
+
+    selectMenuDialog.querySelectorAll("form button").forEach(button => {
+        button.addEventListener("click", e => {
+            selectMenuDialog.querySelector("form input[name='menu-title']").value = e.currentTarget.dataset.menu;
+        })
+    })
 
     utilsLink.addEventListener("click", e => {
         e.preventDefault()
@@ -78,9 +101,13 @@
     pairTerminalButton.addEventListener("click", () => {
         openInNewTab("{% url 'pair-terminal' %}")
     })
+    selectMenuButton.addEventListener("click", () => {
+        selectMenuDialog.showModal()
+    })
     function openInNewTab(url) {
         window.open(url, '_blank');
         utilsDialog.close();
     }
 </script>
+{% endif %}
 </html>

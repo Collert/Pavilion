@@ -116,11 +116,14 @@ def bar(request):
         return JsonResponse({"status":"Order marked done"}, status=200)
     
 def menu_select(request):
-    menus = Menu.objects.all()
-    return render(request, "pos_server/menu_select.html", {
-            "route":"menu_select",
-            "menus":menus
-        })
+    if request.method == "POST":
+        cur_menu = Menu.objects.get(is_active = True)
+        cur_menu.is_active = False
+        cur_menu.save()
+        menu = Menu.objects.get(title=request.POST["menu-title"])
+        menu.is_active = True 
+        menu.save()
+        return redirect(reverse("pos"))
 
 @login_required
 def pos(request):
@@ -131,7 +134,8 @@ def pos(request):
             "route":"pos",
             "menu": dishes,
             "menu_title": menu.title,
-            "json": serializers.serialize('json', dishes)
+            "json": serializers.serialize('json', dishes),
+            "menus": Menu.objects.all()
         })
     elif request.method == "POST":
         body = json.loads(request.body)
