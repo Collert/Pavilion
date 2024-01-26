@@ -26,6 +26,7 @@ from django.conf import settings
 from misc_tools import funcs
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from pos_server.decorators import local_network_only
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +64,7 @@ def logout_view(request):
     logout(request)
     return redirect(reverse("login_view"))
 
+@local_network_only
 @login_required
 def kitchen(request):
     if request.method == "GET":
@@ -89,6 +91,7 @@ def kitchen(request):
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
 
+@local_network_only
 @login_required
 def bar(request):
     if request.method == "GET":
@@ -125,6 +128,7 @@ def menu_select(request):
         menu.save()
         return redirect(reverse("pos"))
 
+@local_network_only
 @login_required
 def pos(request):
     if request.method == "GET":
@@ -249,6 +253,7 @@ def day_stats(request):
         "stats":stats
     })
 
+@local_network_only
 @login_required
 def pos_out_display(request):
     menu = Menu.objects.get(is_active = True)
@@ -294,6 +299,7 @@ def compile_menu(menu):
         categories[dish.station].append(final_dish)
     return categories
 
+@local_network_only
 @login_required
 def pair_square_terminal(request):
     if request.method == "GET":
