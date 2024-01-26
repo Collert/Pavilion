@@ -1,6 +1,7 @@
 /* I swear to god that i will organize this into different files one day... */
 
 @import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
 
 html {
     font-family: 'Noto Sans Display', sans-serif;
@@ -325,7 +326,83 @@ a.button:active:not(.no-style) span {
 #pos-output-display {
     width: 100vh;
     height: 100vw;
+    /* background: navajowhite; */
+    grid-template-rows: auto calc(100vw - var(--_header-img-height) - var(--_footer-img-height) - var(--_header-title-height)) auto;
+
+    --_header-img-height: 18vw;
+    --_header-title-height: 60px;
+    --_footer-img-height: 5vw;
+}
+
+#out-cart-wrapper {
+    grid-template-rows: 1fr;
+    transition: all 300ms ease;
+    position: absolute;
+    box-sizing: border-box;
+    bottom: 0;
+    width: 100%;
+    display: grid;
     align-items: end;
+    background: linear-gradient(0deg, var(--primary-background) 0%, var(--primary-background) 75%, transparent 100%);
+}
+
+#out-cart-wrapper > div {
+    overflow: hidden;
+}
+
+#pos-output-display header {
+    padding: 0;
+    place-items: start center;
+}
+
+#menu-actual .divider {
+    background-color: var(--primary-contrast);
+    height: 2px;
+}
+
+#pos-output-display header img {
+    max-height: var(--_header-img-height);
+}
+
+#pos-output-display footer img {
+    max-height: var(--_footer-img-height);
+}
+
+#pos-output-display header h1 {
+    font-family: 'Satisfy', cursive;
+    max-height: var(--_header-title-height);
+    color: var(--accent-2);
+    margin: 0;
+    font-size: var(--_header-title-height);
+}
+
+#pos-output-display footer {
+    display: grid;
+    place-items: end center;
+}
+
+#pos-output-display header img,
+#pos-output-display footer img {
+    width: 100vh;
+}
+
+#pos-output-display h2 {
+    color: var(--accent-3);
+    font-size: 35px;
+}
+
+.menu-item-info h3 {
+    color: var(--accent-2);
+    font-size: 25px;
+}
+
+#out-cart-wrapper.tucked {
+    transform: translateY(40px);
+    grid-template-rows: 0fr;
+}
+
+#out-cart-wrapper.tucked > div {
+    opacity: 0;
 }
 
 #pos-output-display #cart,
@@ -340,6 +417,31 @@ a.button:active:not(.no-style) span {
     padding: 0;
     height: 5vh;
     justify-items: start;
+}
+
+#menu-actual {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0 1rem 0 1rem;
+}
+
+.menu-item {
+    grid-template-columns: auto auto;
+    width: fit-content;
+    gap: 1rem;
+}
+.menu-item,
+.menu-item > div {
+    display: grid;
+    place-items: end start;
+}
+
+.menu-item .price {
+    color: var(--accent-1);
+    font-weight: 700;
+    font-size: 24px;
 }
 
 main#thank-you {

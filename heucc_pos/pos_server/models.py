@@ -18,7 +18,8 @@ class Menu(models.Model):
 class Dish(models.Model):
     stations = (
         ("bar", "Bar"),
-        ("kitchen", "Kitchen")
+        ("kitchen", "Kitchen"),
+        ("gng", "Grab & Go")
     )
     title = models.CharField(max_length=140)
     price = models.FloatField()
@@ -57,10 +58,15 @@ class Component(models.Model):
         ("ml", "Milliliter"),
         ("ea", "Each")
     )
+    food_types = (
+        ("food", "Food"),
+        ("beverage", "Beverage")
+    )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
     inventory = models.PositiveIntegerField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
+    type = models.CharField(max_length=10, choices=food_types)
 
     def __str__(self) -> str:
         qty = self.inventory

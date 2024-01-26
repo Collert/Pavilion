@@ -255,8 +255,44 @@ def pos_out_display(request):
     dishes = Dish.objects.filter(menu=menu)
     return render(request, "pos_server/pos-output-display.html", {
         "dishes": serializers.serialize('json', dishes),
-        "menu":menu
+        "menu":menu,
+        "compiled_menu":compile_menu(menu)
     })
+
+def compile_menu(menu):
+    categories = {
+        "kitchen":[],
+        "bar":[],
+        "gng":[],
+    }
+    for dish in menu.dishes.all():
+        final_dish = {
+            "title":dish.title,
+            "components":"",
+            "price":int(dish.price)
+        }
+        dcs = dish.dishcomponent_set.all()
+        for index, dc in enumerate(dcs):
+            if dc.component.type == "food":
+                if dc.quantity == 1:
+                    quantity_str = ""
+                elif dc.quantity < 1:
+                    quantity_str = "a piece of "
+                else:
+                    quantity_str = f"{int(dc.quantity)} "
+            else:
+                if dc.quantity == 1:
+                    quantity_str = "a cup of "
+                else:
+                    quantity_str = f"{int(dc.quantity)} cups of "
+            final_dish["components"] += f"{quantity_str}"
+            final_dish["components"] += f"{dc.component.title.lower()}"
+            if dc.quantity > 1 and not dc.component.type == 'beverage':
+                final_dish["components"] += "s"
+            if index != len(dcs) - 1:
+                final_dish["components"] += ", "
+        categories[dish.station].append(final_dish)
+    return categories
 
 @login_required
 def pair_square_terminal(request):
@@ -281,7 +317,7 @@ def create_menu(request):
     if request.method == "GET":
         return render(request, "pos_server/create-menu.html")
     elif request.method == "POST":
-        num_colors = 3
+        num_colors = 4
         header_image = request.FILES['header']
         footer_image = request.FILES['footer']
         image_path = default_storage.save('temp_image.jpg', ContentFile(header_image.read()))

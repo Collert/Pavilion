@@ -34,12 +34,48 @@
 </head>
 <body class="portrait" style="gap: 0;">
     <main id="pos-output-display">
-        <div style="padding: 1rem;">
-            <div id="cart"></div>
-            <div style="text-align: end;" id="total-button" class="hidden">
-                Total: $<span></span><span id="discount-display"></span>
+        <div id="out-cart-wrapper" class="tucked" style="padding: 1rem;">
+            <div>
+                <div id="cart"></div>
+                <div style="text-align: end;" id="total-button" class="hidden">
+                    Total: $<span></span><span id="discount-display"></span>
+                </div>
             </div>
         </div>
+        <header>
+            <img src="/{{menu.header_image}}" alt="{{menu.title}} header image">
+            <h1>{{menu.title|title}}</h1>
+        </header>
+        <div id="menu-actual">
+            {% for category, dishes in compiled_menu.items %}
+                {% if dishes %}
+                {% if category == "kitchen" %}
+                <h2>Hot meals</h2>
+                {% elif category == "bar" %}
+                <h2>Drinks and snacks</h2>
+                {% elif category == "gng" %}
+                <h2>Pre-packaged food</h2>
+                {% endif %}
+                {% for dish in dishes %}
+                    <div class="menu-item">
+                        <div class="menu-item-info">
+                            <h3>{{dish.title}}</h3>
+                            <div class="components">
+                                {{dish.components}}
+                            </div>
+                        </div>
+                        <div class="price">
+                            ${{dish.price}}
+                        </div>
+                    </div>
+                {% endfor %}
+                {% if not forloop.last %}<div class="divider"></div>{% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        <footer>
+            <img src="/{{menu.footer_image}}" alt="{{menu.title}} footer image">
+        </footer>
     </main>
     <main id="thank-you">
         <h1>Thank you!</h1>

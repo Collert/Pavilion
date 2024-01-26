@@ -26,6 +26,7 @@ const adminAuthorizeModal = document.querySelector("#authorize");
 const discountForm = document.querySelector("#discounts form");
 const discountsLink = document.querySelector("#discounts-link");
 const discountModal = document.querySelector("#discounts");
+const toggleOrderSummary = document.querySelector("#toggle-summary");
 
 document.querySelectorAll(".dish").forEach(button => {
     button.addEventListener("click", e => { 
@@ -131,6 +132,7 @@ adminAuthorizeForm.addEventListener("submit", e => {
         }
     })
 })
+
 discountForm.addEventListener("submit", e => {
     e.preventDefault();
     const discountAmountInp = discountForm.querySelector("[name='discount-amount']");
@@ -146,6 +148,13 @@ discountForm.addEventListener("submit", e => {
     discountModal.close();
     discountAmountInp.value = ''
     discountPercentInp.value = ''
+})
+
+toggleOrderSummary.addEventListener("click", e => {
+    e.preventDefault()
+    cartChannel.postMessage({
+        message: "toggleOrderSummary"
+    })
 })
 
 window.addEventListener("beforeunload", () => {
