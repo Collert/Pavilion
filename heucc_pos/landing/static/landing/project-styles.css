@@ -33,6 +33,6 @@ main {
     text-align: center;
 }
 
-span.material-symbols-outlined {
+.card > span.material-symbols-outlined {
     font-size: 100px;
 }
