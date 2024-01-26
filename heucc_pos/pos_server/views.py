@@ -160,8 +160,6 @@ def pos(request):
 @login_required
 def dashboard(request):
     unique_days = Order.objects.dates('timestamp', 'day')
-    for day in unique_days:
-        print(day.strftime("%Y-%m-%d"))
     return render(request, "pos_server/dashboard.html", {
         "route":"dashboard",
         "dates":unique_days
