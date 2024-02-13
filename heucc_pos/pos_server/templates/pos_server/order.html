@@ -33,7 +33,7 @@
         </nav>
         <div id="summary"></div>
         <h2>Total: $<span id="tender-total"></span></h2>
-        <input type="text" name="customer-name" placeholder="Customer name">
+        <input autocomplete="off" type="text" name="customer-name" placeholder="Customer name">
         <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
         <button data-actionLink="{% url 'pos' %}" id="cash-button">Cash</button>
         <button data-actionLink="{% url 'pos' %}" id="card-button">Card</button>
@@ -46,7 +46,7 @@
             <button type="button" class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <h1 style="text-align: center;">How much money<br>did customer give?</h1>
-        <input name="cash-provided" step="0.01" placeholder="$" type="number"/>
+        <input autocomplete="off" name="cash-provided" step="0.01" placeholder="$" type="number"/>
         <button>Accept cash</button>
     </form>   
 </dialog>
@@ -71,8 +71,8 @@
 </dialog>
 <dialog id="authorize">
     <form>
-        <input type="text" name="man-user" placeholder="Manager username">
-        <input type="password" name="man-pass" placeholder="Manager password">
+        <input autocomplete="off" type="text" name="man-user" placeholder="Manager username">
+        <input autocomplete="off" type="password" name="man-pass" placeholder="Manager password">
         <button type="submit">Authorize</button>
         <span style="color: var(--error-color); display: none;">Authorization failed</span>
     </form>
@@ -80,9 +80,9 @@
 <dialog id="discounts">
     <form>
         <h2>Apply whole order discount</h2>
-        <input min="1" max="100" type="number" name="discount-percentage" placeholder="%">
+        <input autocomplete="off" min="1" max="100" type="number" name="discount-percentage" placeholder="%">
         <span style="text-align: center;">or</span>
-        <input type="number" name="discount-amount" placeholder="$ amount">
+        <input autocomplete="off" type="number" name="discount-amount" placeholder="$ amount">
         <button>Apply</button>
     </form>
 </dialog>
