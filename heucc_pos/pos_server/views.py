@@ -118,6 +118,7 @@ def bar(request):
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     
+@login_required
 def menu_select(request):
     if request.method == "POST":
         cur_menu = Menu.objects.get(is_active = True)
@@ -272,7 +273,8 @@ def compile_menu(menu):
         final_dish = {
             "title":dish.title,
             "components":"",
-            "price":int(dish.price)
+            "price":int(dish.price),
+            "available":dish.in_stock
         }
         dcs = dish.dishcomponent_set.all()
         for index, dc in enumerate(dcs):

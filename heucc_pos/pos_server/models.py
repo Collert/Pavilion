@@ -26,6 +26,7 @@ class Dish(models.Model):
     components = models.ManyToManyField("Component", through='DishComponent')
     menu = models.ForeignKey("Menu", on_delete = models.CASCADE, related_name = "dishes")
     station = models.CharField(max_length=50, choices=stations)
+    in_stock = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.title
@@ -67,6 +68,10 @@ class Component(models.Model):
     inventory = models.PositiveIntegerField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
+    in_stock = models.BooleanField(default=True)
+
+    def recipe(self):
+        return self.componentingredient_set.all()
 
     def __str__(self) -> str:
         qty = self.inventory

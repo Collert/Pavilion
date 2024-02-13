@@ -38,9 +38,11 @@
             </div>
         </div>
     {% endif %}
-{% empty %}
-<h1 style="text-align: center;">No orders yet</h1>
 {% endfor %}
+<dialog class="full" id="availability">
+    <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
+</dialog>
+
 <script> const eventSource = new EventSource("{% url 'order_updates' %}"); </script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
 

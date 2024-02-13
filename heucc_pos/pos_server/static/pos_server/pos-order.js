@@ -4,6 +4,8 @@ const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').va
 // There's a isSuperuser declaration in layout.html
 let order = []
 
+console.log(dishes)
+
 let discounts = {
     discountPercent : 0,
     discountAmount : 0

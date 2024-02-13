@@ -57,6 +57,7 @@
                 <h2>Pre-packaged food</h2>
                 {% endif %}
                 {% for dish in dishes %}
+                {% if dish.available %}
                     <div class="menu-item">
                         <div class="menu-item-info">
                             <h3>{{dish.title}}</h3>
@@ -68,6 +69,7 @@
                             ${{dish.price}}
                         </div>
                     </div>
+                {% endif %}
                 {% endfor %}
                 {% if not forloop.last %}<div class="divider"></div>{% endif %}
                 {% endif %}
@@ -82,13 +84,13 @@
     </main>
     <script>
         const dishes = JSON.parse('{{dishes|safe}}');
+        console.log(dishes)
         
         const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');
 
         document.documentElement.style.setProperty('--primary-contrast', invertColor(bg));
 
         function invertColor(hex) {
-            console.log(hex)
             if (hex.indexOf('#') === 0) {
                 hex = hex.slice(1, 7);
             }

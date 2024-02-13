@@ -1,0 +1,28 @@
+{% extends "inventory/layout.html" %}
+{% load static %}
+
+{% block body %}
+    {% for occasion in history %}
+    <button data-id="{{occasion.id}}" class="shopping-occasion icon">
+        <span>{{occasion.date}}</span>
+    </button>
+    {% endfor %}
+
+    <dialog class="full" id="day-display">
+        <iframe src="" frameborder="0"></iframe>
+    </dialog>
+
+    <script>
+        const dialog = document.querySelector("#day-display")
+        const frame = dialog.querySelector("iframe")
+        const days = document.querySelectorAll("button.shopping-occasion")
+
+        days.forEach(day => {
+            day.addEventListener("click", e => {
+                const dayId = e.currentTarget.dataset.id
+                frame.src = `day-display/${dayId}`
+                dialog.showModal()
+            })
+        })
+    </script>
+{% endblock %}

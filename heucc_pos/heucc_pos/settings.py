@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'webrtc',
     'landing',
     'misc_tools',
+    'inventory',
 ]
 
 MIDDLEWARE = [

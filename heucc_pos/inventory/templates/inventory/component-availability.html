@@ -1,0 +1,74 @@
+{% extends "inventory/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+    <h1>Components: </h1>
+    <section>
+        {% for component in components %}
+        <button data-id="{{component.id}}" class="component icon {% if not component.in_stock %}error{% endif %}">
+            <h2>{{component.title}}</h2>
+            <span>Available: {{component.inventory}} {{component.unit_of_measurement|title}}</span>
+        </button>
+        {% endfor %}
+    </section>
+    <h1>Individual dishes:</h1>
+    <section>
+        {% for component in dishes %}
+        <button data-id="{{component.id}}" class="dish icon {% if not component.in_stock %}error{% endif %}">
+            <h2>{{component.title}}</h2>
+        </button>
+        {% endfor %}
+    </section>
+
+    <script>
+        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        let buttons = document.querySelectorAll("button.icon");
+        buttons = [...buttons];
+        let selectedIndex = buttons.findIndex(element => element.classList.contains('selected'));
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                updateSelection(selectedIndex + 1);
+            } else if (e.key === 'ArrowLeft') {
+                updateSelection(selectedIndex - 1);
+            } else if (e.key === "Enter") {
+                toggleItem(buttons[selectedIndex].dataset.id, buttons[selectedIndex].classList.contains('dish') ? "dish" : "component")
+            } else if (e.key === "1") {
+                parent.postMessage('closeDialog', '*'); // Send message to main page
+            }
+        });
+        
+        buttons.forEach(button => {
+            button.addEventListener("click", e => {
+                toggleItem(button.dataset.id, button.classList.contains('dish') ? "dish" : "component")
+            })
+        })
+        
+        function toggleItem(id, type) {
+            const button = document.querySelector(`[data-id="${id}"].${type}`)
+            fetch("{% url 'component_availability' %}", {
+                headers: {"X-CSRFToken": csrftoken },
+                method:'PUT',
+                body:JSON.stringify({
+                    id:id,
+                    type:type
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    button.classList.toggle("error")
+                }
+            })
+        }
+        
+        function updateSelection(newIndex) {
+            if (selectedIndex < 0) {selectedIndex = 0};
+            if (newIndex < buttons.length && newIndex >= 0) {
+                buttons[selectedIndex].classList.remove('selected');
+                buttons[newIndex].classList.add('selected');
+                selectedIndex = newIndex;
+            };
+        };
+    </script>
+{% endblock %}

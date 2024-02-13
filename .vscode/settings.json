@@ -4,6 +4,7 @@
         "componentingredient",
         "dishcomponent",
         "hmacsha",
+        "multis",
         "mvvs",
         "orderdish",
         "Swipability",

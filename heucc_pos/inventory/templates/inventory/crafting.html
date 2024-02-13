@@ -1,0 +1,249 @@
+{% extends "inventory/layout.html" %}
+{% load static %}
+
+{% block body %}
+<button id="play-music" class="icon">
+    <span class="material-symbols-outlined">music_note</span>
+</button>
+<div>
+    <audio id="pop-sound" src="{% static 'inventory/sounds/pop.mp3' %}"></audio>
+    <audio id="level-sound" src="{% static 'inventory/sounds/Level XP.mp3' %}"></audio>
+    <audio id="music" src="{% static 'inventory/sounds/C418 - Sweden - Minecraft Volume Alpha.mp3' %}"></audio>
+    <h1>Craft single items</h1>
+    <div class="singles">
+        {% for component in components %}
+        <button data-id="{{component.id}}" data-title="{{component.title}}" class="icon">+1 {% if component.unit_of_measurement != "ea" %}{{component.unit_of_measurement|title}}{% endif %} {{component.title}}</button>
+        {% endfor %}
+    </div>
+</div>
+<div>
+    <h1>Ingredients inventory:</h1>
+    <ul>
+        {% for ingredient in ingredients %}
+        <li id="top-{{ingredient.id}}">
+            <span>{{ingredient.inventory}}</span>
+            {% if ingredient.unit_of_measurement != "ea" %}
+                {{ingredient.unit_of_measurement|title}}
+                {{ingredient.title}}
+            {% else %}    
+                {{ingredient.title}}{% if ingredient.inventory != 1 %}s{% endif %}
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    <h1>Craft multiple items</h1>
+    <form action="{% url 'crafting' %}" method="post" class="multis" id="multi-form">
+        {% csrf_token %}
+        {% for component in components %}
+            <div data-id="{{component.id}}" id="component-{{component.id}}" class="multi-component" data-ingredients='
+            {
+            {% for ci in component.recipe %}
+            {% with ingredient=ci.ingredient %}
+            "{{ingredient.id}}":{{ci.quantity}}{%if not forloop.last %},{% endif %}
+            {% endwith %}
+            {% endfor %}
+            }
+            '>
+                <span>{{component.title}}</span>
+                <span class="qty">
+                    <input min="0" step="0.001" type="number" placeholder="Q-ty to craft">
+                    <span>{{component.unit_of_measurement|title}}</span>
+                </span>
+                <span class="inventory">Currently in inventory: <span>{{component.inventory}}</span> {{component.unit_of_measurement|title}}</span>
+                <ul>
+                    Needed:
+                    {% for ci in component.recipe %}
+                    {% with ingredient=ci.ingredient %}
+                    {% with quantity=ci.quantity %}
+                    <li id="n-{{component.id}}-{{ingredient.id}}">
+                        <span>{{quantity}}</span>
+                        {% if ingredient.unit_of_measurement != "ea" %}
+                            {{ingredient.unit_of_measurement|title}}
+                            {{ingredient.title}}
+                        {% else %}    
+                            {{ingredient.title}}{% if ingredient.inventory != 1 %}s{% endif %}
+                        {% endif %}
+                    </li>
+                    {% endwith %}
+                    {% endwith %}
+                    {% endfor %}
+                </ul>
+                <ul>
+                    Available:
+                    {% for ingredient in component.ingredients.all %}
+                    <li id="a-{{component.id}}-{{ingredient.id}}">
+                        <span>{{ingredient.inventory}}</span>
+                        {% if ingredient.unit_of_measurement != "ea" %}
+                            {{ingredient.unit_of_measurement|title}}
+                            {{ingredient.title}}
+                        {% else %}    
+                            {{ingredient.title}}{% if ingredient.inventory != 1 %}s{% endif %}
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+        <button>Submit</button>
+    </form>
+</div>
+
+<script>
+    const eventSource = new EventSource("{% url 'inventory_updates' %}");
+
+    const singleButtons = document.querySelectorAll(".singles button");
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const popSound = document.querySelector("#pop-sound");
+    const levelSound = document.querySelector("#level-sound");
+    const form = document.querySelector("#multi-form");
+    let inventory = JSON.parse('{{ingredient_inventory|safe}}');
+
+    const countAnimDuration = 1000;
+    console.log(inventory)
+
+    eventSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        for (const ingredient in data) {
+            const topVal = document.querySelector(`#top-${ingredient} span`);
+            animateValue(
+                topVal,
+                parseFloat(topVal.innerHTML),
+                parseFloat(data[ingredient].toFixed(1)),
+            )
+            for (const nodeList of [document.querySelectorAll(`[id^="a-"][id$="-${ingredient}"] span`)]) {
+                for (const span of nodeList) {
+                    animateValue(
+                        span,
+                        parseFloat(span.innerHTML),
+                        parseFloat(data[ingredient].toFixed(1)),
+                    )
+                }
+            }
+        }
+        inventory = data;
+    };
+
+    document.querySelector("#play-music").addEventListener("click", () => {
+        document.querySelector("#music").play();
+    })
+
+    singleButtons.forEach(button => {
+        button.addEventListener("click", e => {
+            popSound.play();
+            const itemId = e.currentTarget.dataset.id;
+            const ingredientList = JSON.parse(document.querySelector(`#component-${itemId}`).dataset.ingredients) // I know this is weird and kinda dumb but it works and maybe one day i will get to passing a proper json from the server (probably not tho)
+            for (const ingredient in ingredientList) {
+                if (!checkAvailability(ingredient, ingredientList[ingredient])) {
+                    e.currentTarget.classList.add("error")
+                    throw new Error(`Not enough ingredients to craft ${e.currentTarget.dataset.title}`)
+                }
+            }
+            const compQtyDisplay = document.querySelector(`#component-${itemId} .inventory span`);
+            const curCompQty = parseInt(compQtyDisplay.innerHTML);
+
+            animateValue(compQtyDisplay, curCompQty, curCompQty + 1, countAnimDuration);
+            animateSubtractIngredients(ingredientList);
+            fetch("{% url 'crafting' %}", {
+                headers: {"X-CSRFToken": csrftoken },
+                method:'PUT',
+                body: itemId
+            })
+        })
+    })
+
+    function animateSubtractIngredients(ingredients, multiplier = 1) {
+        for (const ingredient in ingredients) {
+            const curTopIng = document.querySelector(`#top-${ingredient} span`);
+            animateValue(
+                curTopIng,
+                parseFloat(curTopIng.innerHTML),
+                parseFloat((parseFloat(curTopIng.innerHTML) - ingredients[ingredient] * multiplier).toFixed(1)),
+                countAnimDuration
+            )
+            for (const il of document.querySelectorAll(`[id^="a-"][id$="-${ingredient}"] span`)) {
+                animateValue(
+                    il,
+                    parseFloat(il.innerHTML),
+                    parseFloat((parseFloat(il.innerHTML) - ingredients[ingredient] * multiplier).toFixed(1)),
+                    countAnimDuration
+                )
+            }
+        }
+    }
+
+    form.addEventListener("submit", e => {
+        e.preventDefault()
+        levelSound.play()
+        try {
+            const formFields = {}
+            for (const component of document.querySelectorAll(`.multi-component`)) {
+                const qtyField = component.querySelector("input[type='number']")
+                if (qtyField.value){
+                    formFields[component.dataset.id] = Number(qtyField.value);
+                    const ingredientList = JSON.parse(component.dataset.ingredients) // I know this is weird and kinda dumb but it works and maybe one day i will get to passing a proper json from the server (probably not tho)
+                    const compsToCraft = parseFloat(qtyField.value);
+                    for (const ingredient in ingredientList) {
+                        if (!checkAvailability(ingredient, ingredientList[ingredient])) {
+                            qtyField.classList.add("error")
+                            throw new Error(`Not enough ingredients to craft ${compsToCraft} ${component.querySelector("span").innerHTML}`)
+                        }
+                    }
+                    const itemId = e.currentTarget.dataset.id;
+                    const compQtyDisplay = component.querySelector(`.inventory span`);
+                    const curCompQty = parseFloat(compQtyDisplay.innerHTML)
+                    animateValue(compQtyDisplay, curCompQty, curCompQty + compsToCraft, countAnimDuration);
+                    animateSubtractIngredients(ingredientList, compsToCraft);
+                }
+                qtyField.value = '';
+            }
+            fetch("{% url 'crafting' %}", {
+                headers: {"X-CSRFToken": csrftoken },
+                method:'POST',
+                body: JSON.stringify(formFields)
+            })
+        } catch (e) {
+            alert(e)
+        }
+    })
+
+    form.querySelectorAll("input[type='number']").forEach(field => {
+        field.addEventListener("input", e => {
+            const parent = e.currentTarget.parentNode.parentNode;
+            const ingredientList = JSON.parse(parent.dataset.ingredients);
+            for (const ingredient in ingredientList) {
+                parent.querySelector(`[id^="n-"][id$="-${ingredient}"] span`).innerHTML = parseFloat(ingredientList[ingredient] * e.currentTarget.value).toFixed(1);
+            }
+        })
+    })
+
+    function animateValue(obj, start, end, duration = countAnimDuration) {
+        let startTime = null;
+
+        // The easing function
+        function easeOutQuad(t, b, c, d) {
+            t /= d;
+            return -c * t*(t-2) + b;
+        }
+
+        function animation(currentTime) {
+            if (startTime === null) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const nextValue = easeOutQuad(timeElapsed, start, end - start, duration);
+
+            obj.innerHTML = Math.round(nextValue);
+
+            if (timeElapsed < duration) {
+                requestAnimationFrame(animation);
+            } else {
+                obj.innerHTML = end; // Ensure it ends on exactly the target value
+            }
+        }
+
+        requestAnimationFrame(animation);
+    }
+    
+    function checkAvailability(id, qty) {
+        return inventory[id] >= qty
+    }
+</script>
+{% endblock %}

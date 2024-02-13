@@ -1,0 +1,78 @@
+{% extends "inventory/layout.html" %}
+{% load static %}
+
+{% block body %}
+<h2>Shopping logging</h2>
+<form id="add-ingredients" action="{% url 'log_shopping' %}" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <button type="button" id="add-item" class="icon"><span class="material-symbols-outlined">add</span></button>
+    <input type="hidden" name="items-total" value="1">
+    <div><span style="width: fit-content;">Receipt: </span><input type="file" name="receipt" accept="image/png, image/jpeg, application/pdf"></div>
+    <div class="items">
+        <div id="item-0" class="item">
+            <div>
+                <select required name="item-0-title" id="item-0-title" class="item-title">
+                    <option value="" disabled hidden selected>Ingredient</option>
+                    {% for ingredient in ingredients %}
+                    <option value="{{ingredient.title}}">{{ingredient.title}}</option>
+                    {% endfor %}
+                </select>
+                <input step="0.001" min="0" type="number" class="no-style" placeholder="Quantity" name="item-0-quantity" id="">
+                <span id="ingredient-0-unit_of_measurement"></span>
+            </div>
+            <button class="icon error" type="button"><span class="material-symbols-outlined">delete</span></button>
+        </div>
+    </div>
+    <button id="submit">Submit</button>
+</form>
+
+<script>
+    const addButton = document.querySelector("#add-item");
+    const form = document.querySelector("form");
+    const ingredients = JSON.parse('{{json|safe}}');
+    let itemsCounter = 1;
+
+    addButton.addEventListener("click", () => {
+        const newItem = document.createElement("div");
+        
+        
+        newItem.classList.add("item");
+        newItem.id = `item-${itemsCounter}`
+        newItem.innerHTML = `
+        <div>
+            <select required name="item-${itemsCounter}-title" id="item-${itemsCounter}-title" class="item-title">
+                <option value="" disabled hidden selected>Ingredient</option>
+                {% for ingredient in ingredients %}
+                <option value="{{ingredient.title}}">{{ingredient.title}}</option>
+                {% endfor %}
+            </select>
+            <input step="0.001" min="0" type="number" class="no-style" placeholder="Quantity" name="item-${itemsCounter}-quantity" id="">
+            <span id="ingredient-${itemsCounter}-unit_of_measurement"></span>
+        </div>
+        <button class="icon error" type="button"><span class="material-symbols-outlined">delete</span></button>
+        `
+        form.querySelector(".items").appendChild(newItem);
+        newItem.querySelector("select").addEventListener("change", e => {changeUOM(e)})
+        newItem.querySelector(".icon.error").addEventListener("click", e => {deleteItem(e)})
+        itemsCounter ++;
+        document.querySelector("input[name='items-total']").value = itemsCounter;
+    })
+
+    form.querySelector(".icon.error").addEventListener("click", e => {deleteItem(e)})
+
+    document.querySelector(".item select.item-title").addEventListener("change", e => {changeUOM(e)})
+
+    function changeUOM(event) {
+        const element = event.currentTarget.parentNode.parentNode;
+        const elementId = parseInt(element.id.slice(5));
+        const ingredientTitle = element.querySelector(".item-title").value;
+        const ingredient = ingredients.find(e => e.fields.title === ingredientTitle)
+        element.querySelector(`#ingredient-${elementId}-unit_of_measurement`).innerHTML = ingredient.fields.unit_of_measurement.toUpperCase()
+    }
+    
+    function deleteItem(event) {
+        const element = event.currentTarget.parentNode;
+        form.querySelector(".items").removeChild(element);
+    }
+</script>
+{% endblock %}

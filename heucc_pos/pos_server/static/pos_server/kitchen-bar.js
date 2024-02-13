@@ -74,13 +74,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     let freezeDeletion = false;
-    document.addEventListener('keydown', (e) => {
+    const availabilityDialog = document.querySelector("#availability");
+    window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowDown' || e.key == "2") {
             updateSelection(selectedIndex + 1);
         } else if (e.key === 'ArrowUp' || e.key === "8") {
             updateSelection(selectedIndex - 1);
         } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
             markOrderDone()
+        } else if (e.key === "1") {
+            if (availabilityDialog.open) {
+                availabilityDialog.querySelector("iframe").contentWindow.postMessage('closeDialog', '*');
+            } else {
+                availabilityDialog.showModal()
+            }
+        }
+    });
+
+    window.addEventListener('message', event => {
+        if (event.data === 'closeDialog' && event.origin === window.location.origin) {
+            availabilityDialog.close();
         }
     });
 
