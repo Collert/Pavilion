@@ -60,6 +60,10 @@ form#login {
     gap: 1rem;
 }
 
+body:has(main#pos) {
+    overflow-y: hidden;
+}
+
 main#pos {
     grid-template-columns: 2fr 1fr;
     gap: 1rem;
