@@ -87,7 +87,7 @@ def kitchen(request):
         order = Order.objects.get(id=order_id)
         order.kitchen_done = True
         if order.bar_done and order.kitchen_done:
-            order.prep_time = datetime.datetime.now() - order.timestamp
+            order.prep_time = timezone.now() - order.timestamp
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
 
@@ -114,7 +114,7 @@ def bar(request):
         order = Order.objects.get(id=order_id)
         order.bar_done = True
         if order.bar_done and order.kitchen_done:
-            order.prep_time = datetime.datetime.now() - order.timestamp
+            order.prep_time = timezone.now() - order.timestamp
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     

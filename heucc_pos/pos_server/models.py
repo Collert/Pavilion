@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 # Create your models here.
     
@@ -32,7 +33,7 @@ class Dish(models.Model):
         return self.title
 
 class Order(models.Model):
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
