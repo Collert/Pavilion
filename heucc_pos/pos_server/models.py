@@ -88,7 +88,10 @@ class Component(models.Model):
         for dc in self.dishcomponent_set.all():
             if self.inventory < dc.quantity or not self.in_stock:
                 dc.dish.in_stock = False
-                dc.dish.save()
+            elif self.inventory >= dc.quantity and dc.dish.force_in_stock:
+                dc.dish.in_stock = True
+                dc.dish.force_in_stock = False
+            dc.dish.save()
 
         # Call the original save method
         super().save()
