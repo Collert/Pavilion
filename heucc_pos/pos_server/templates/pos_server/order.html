@@ -9,7 +9,7 @@
             <button 
                 data-id="{{item.id}}" 
                 class="dish tight" 
-                {% if not item.in_stock %} disabled {% endif %}
+                {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}
             >
                 <span class="dish-title">{{item.title}}</span>
                 <div>

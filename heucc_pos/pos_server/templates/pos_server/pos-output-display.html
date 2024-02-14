@@ -68,6 +68,7 @@
                         <div class="price">
                             ${{dish.price}}
                         </div>
+                        {% if dish.components_out %}<small>* We might be out of this component.<br>Check in with your cashier.</small>{% endif %}
                     </div>
                 {% endif %}
                 {% endfor %}

@@ -152,6 +152,9 @@ def pos(request):
         new_order.save()
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
+            for dc in dish.dishcomponent_set.all():
+                dc.component.inventory -= dc.quantity
+                dc.component.save()
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
@@ -274,7 +277,8 @@ def compile_menu(menu):
             "title":dish.title,
             "components":"",
             "price":int(dish.price),
-            "available":dish.in_stock
+            "available":dish.in_stock or dish.force_in_stock,
+            "components_out":False
         }
         dcs = dish.dishcomponent_set.all()
         for index, dc in enumerate(dcs):
@@ -294,6 +298,9 @@ def compile_menu(menu):
             final_dish["components"] += f"{dc.component.title.lower()}"
             if dc.quantity > 1 and not dc.component.type == 'beverage':
                 final_dish["components"] += "s"
+            if dc.component.inventory < dc.quantity:
+                final_dish["components"] += "*"
+                final_dish["components_out"] = True
             if index != len(dcs) - 1:
                 final_dish["components"] += ", "
         categories[dish.station].append(final_dish)
@@ -419,9 +426,9 @@ def order_updates(request):
 def stock_update_stream():
     while True:
         while globals.stock_updated:
-            yield "data: Item availability updated, the page will now refresh...\n\n"
+            yield f"data: {globals.stock_updated}\n\n"
+            globals.stock_updated = ''
             time.sleep(2)
-            globals.stock_updated = False
         # Send a heartbeat every X seconds
         yield "\n"
         time.sleep(1)

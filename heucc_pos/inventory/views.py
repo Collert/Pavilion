@@ -84,9 +84,10 @@ def crafting(request):
 
 @login_required
 def component_availability(request):
+    menu = Menu.objects.get(is_active=True)
+    dishes = Dish.objects.filter(menu=menu)
     if request.method == "GET":
         components = Component.objects.all()
-        dishes = Dish.objects.all()
         return render(request, "inventory/component-availability.html", {
             "components":components,
             "dishes":dishes,
@@ -97,12 +98,19 @@ def component_availability(request):
         if body["type"] == "component":
             component = Component.objects.get(pk=body["id"])
             component.in_stock = not component.in_stock
-            component.save()
+            component.save(force_update_stock = True)
         else:
             dish = Dish.objects.get(pk=body["id"])
-            dish.in_stock = not dish.in_stock
+            was_forced = dish.force_in_stock
+            for dc in dish.dishcomponent_set.all():
+                if dc.component.inventory < dc.quantity:
+                    dish.force_in_stock = not dish.force_in_stock
+                    break
+            if not dish.force_in_stock:
+                if not was_forced:
+                    dish.in_stock = not dish.in_stock
             dish.save()
-        return JsonResponse({"message":"Toggled availability"})
+        return JsonResponse({"dishes":serializers.serialize('json', dishes)})
     
 
 def event_stream():

@@ -28,6 +28,7 @@ class Dish(models.Model):
     menu = models.ForeignKey("Menu", on_delete = models.CASCADE, related_name = "dishes")
     station = models.CharField(max_length=50, choices=stations)
     in_stock = models.BooleanField(default=True)
+    force_in_stock = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return self.title
@@ -66,20 +67,33 @@ class Component(models.Model):
     )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
-    inventory = models.PositiveIntegerField(default = 0, null = True)
+    inventory = models.FloatField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
-    in_stock = models.BooleanField(default=True)
+    in_stock = models.BooleanField(default=False)
 
     def recipe(self):
         return self.componentingredient_set.all()
 
+    def save(self, *args, **kwargs):
+        try:
+            if kwargs['force_update_stock']:
+                pass
+        except KeyError:
+            if self.inventory <= 0:
+                self.in_stock = False
+            else:
+                self.in_stock = True
+
+        for dc in self.dishcomponent_set.all():
+            if self.inventory < dc.quantity or not self.in_stock:
+                dc.dish.in_stock = False
+                dc.dish.save()
+
+        # Call the original save method
+        super().save()
+
     def __str__(self) -> str:
-        qty = self.inventory
-        if qty is None:
-            inventory = "Inventory not tracked"
-        else:
-            inventory = f"{qty} X in inventory"
         return f"{self.title} ({self.unit_of_measurement.title()})"
     
 class DishComponent(models.Model):

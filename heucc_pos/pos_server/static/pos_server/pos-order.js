@@ -169,9 +169,12 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
 
 eventSource.onmessage = function(e) {
     if (order.length) {
-        alert(e.data)
+        alert("Item availability updated, the page will now refresh...")
     }
-    location.reload()
+    console.log(e.data)
+    if (e.data === "DISH") {
+        location.reload()
+    }
 };
 
 function sendOrder(actionLink, customerName, instructions) {

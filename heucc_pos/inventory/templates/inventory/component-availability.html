@@ -15,7 +15,7 @@
     <h1>Individual dishes:</h1>
     <section>
         {% for component in dishes %}
-        <button data-id="{{component.id}}" class="dish icon {% if not component.in_stock %}error{% endif %}">
+        <button data-id="{{component.id}}" class="dish icon {% if not component.in_stock and not component.force_in_stock %}error{% elif component.force_in_stock %}success{% endif %}">
             <h2>{{component.title}}</h2>
         </button>
         {% endfor %}
@@ -58,6 +58,19 @@
             .then(response => {
                 if (response.ok) {
                     button.classList.toggle("error")
+                    return response.json()
+                }
+            })
+            .then(data => {
+                const dishes = JSON.parse(data.dishes);
+                for (const dish of dishes) {
+                    if (!dish.fields.in_stock && !dish.fields.force_in_stock) {
+                        document.querySelector(`[data-id="${dish.pk}"].dish`).classList.add("error")
+                    } else if (dish.fields.force_in_stock) {
+                        document.querySelector(`[data-id="${dish.pk}"].dish`).classList.add("success")
+                    } else {
+                        document.querySelector(`[data-id="${dish.pk}"].dish`).classList.remove("error")
+                    }
                 }
             })
         }

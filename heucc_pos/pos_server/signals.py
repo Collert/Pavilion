@@ -14,5 +14,6 @@ def inv_updated(sender, instance, **kwargs):
     if sender == Component:
         previous = Component.objects.get(id=instance.id)
         if previous.in_stock == instance.in_stock:
+            globals.stock_updated = "COMPONENT"
             return
-    globals.stock_updated = True
+    globals.stock_updated = "DISH"
