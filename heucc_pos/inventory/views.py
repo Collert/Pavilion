@@ -22,7 +22,10 @@ def log_shopping(request):
         })
     elif request.method == "POST":
         total_quantity = int(request.POST["items-total"])
-        receipt = request.FILES['receipt']
+        try:
+            receipt = request.FILES['receipt']
+        except:
+            receipt = None
         new_update = StockUpdate(receipt=receipt)
         new_update.save()
         for item in range(total_quantity):
