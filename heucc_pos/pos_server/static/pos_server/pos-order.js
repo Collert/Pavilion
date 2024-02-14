@@ -4,8 +4,6 @@ const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').va
 // There's a isSuperuser declaration in layout.html
 let order = []
 
-console.log(dishes)
-
 let discounts = {
     discountPercent : 0,
     discountAmount : 0
@@ -168,6 +166,13 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
         document.querySelector("dialog[open]").close()
     })
 })
+
+eventSource.onmessage = function(e) {
+    if (order.length) {
+        alert(e.data)
+    }
+    location.reload()
+};
 
 function sendOrder(actionLink, customerName, instructions) {
     fetch(actionLink, {

@@ -6,7 +6,11 @@
 <div id="items-wrapper">
     <div id="items">
         {% for item in menu %}
-            <button data-id="{{item.id}}" class="dish tight">
+            <button 
+                data-id="{{item.id}}" 
+                class="dish tight" 
+                {% if not item.in_stock %} disabled {% endif %}
+            >
                 <span class="dish-title">{{item.title}}</span>
                 <div>
                     <span class="price">${{item.price|floatformat:0}}</span>
@@ -86,6 +90,9 @@
         <button>Apply</button>
     </form>
 </dialog>
+<script> 
+    const eventSource = new EventSource("{% url 'stock_updates' %}"); 
+</script>
 <script>const dishes = JSON.parse('{{json|safe}}');</script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
 {% endblock %}

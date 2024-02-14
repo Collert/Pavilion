@@ -416,6 +416,21 @@ def order_updates(request):
     # response['Cache-Control'] = 'no-cache'
     return response
 
+def stock_update_stream():
+    while True:
+        while globals.stock_updated:
+            yield "data: Item availability updated, the page will now refresh...\n\n"
+            time.sleep(2)
+            globals.stock_updated = False
+        # Send a heartbeat every X seconds
+        yield "\n"
+        time.sleep(1)
+
+def stock_updates(request):
+    response = StreamingHttpResponse(stock_update_stream(), content_type='text/event-stream')
+    # response['Cache-Control'] = 'no-cache'
+    return response
+
 def collect_order(order):
     # Fetch related OrderDish instances for each order
     order_dishes = OrderDish.objects.filter(order=order)
