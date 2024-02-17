@@ -455,6 +455,6 @@ def collect_order(order):
         'dishes': dishes_data,
         'table':order.table,
         "special_instructions": order.special_instructions,
-        "timestamp":order.timestamp.replace(tzinfo=timezone.utc).astimezone(tz=None).isoformat()
+        "timestamp":order.timestamp.isoformat()
     })
 
