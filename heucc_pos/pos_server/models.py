@@ -76,23 +76,23 @@ class Component(models.Model):
         return self.componentingredient_set.all()
 
     def save(self, *args, **kwargs):
-        try:
-            if kwargs['force_update_stock']:
-                pass
-        except KeyError:
-            if self.inventory <= 0:
-                self.in_stock = False
-            else:
-                self.in_stock = True
+        if self.pk is not None:
+            try:
+                if kwargs['force_update_stock']:
+                    pass
+            except KeyError:
+                if self.inventory <= 0:
+                    self.in_stock = False
+                else:
+                    self.in_stock = True
 
-        for dc in self.dishcomponent_set.all():
-            if self.inventory < dc.quantity or not self.in_stock:
-                dc.dish.in_stock = False
-            elif self.inventory >= dc.quantity and dc.dish.force_in_stock:
-                dc.dish.in_stock = True
-                dc.dish.force_in_stock = False
-            dc.dish.save()
-
+            for dc in self.dishcomponent_set.all():
+                if self.inventory < dc.quantity or not self.in_stock:
+                    dc.dish.in_stock = False
+                elif self.inventory >= dc.quantity and dc.dish.force_in_stock:
+                    dc.dish.in_stock = True
+                    dc.dish.force_in_stock = False
+                dc.dish.save()
         # Call the original save method
         super().save()
 
