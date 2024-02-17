@@ -12,7 +12,10 @@ def model_saved(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Dish)
 def inv_updated(sender, instance, **kwargs):
     if sender == Component:
-        previous = Component.objects.get(id=instance.id)
+        try:
+            previous = Component.objects.get(id=instance.id)
+        except:
+            return
         if previous.in_stock == instance.in_stock:
             globals.stock_updated = "COMPONENT"
             return
