@@ -330,12 +330,15 @@ a.button:active:not(.no-style) span {
 #pos-output-display {
     width: 100vh;
     height: 100vw;
+    box-sizing: border-box;
     /* background: navajowhite; */
     grid-template-rows: auto calc(100vw - var(--_header-img-height) - var(--_footer-img-height) - var(--_header-title-height)) auto;
+    padding: var(--_padding-compensation) 0 var(--_padding-compensation) 0;
 
     --_header-img-height: 18vw;
     --_header-title-height: 60px;
     --_footer-img-height: 5vw;
+    --_padding-compensation: 2%;
 }
 
 #out-cart-wrapper {
@@ -347,6 +350,8 @@ a.button:active:not(.no-style) span {
     width: 100%;
     display: grid;
     align-items: end;
+    padding: 1rem;
+    padding-bottom: calc(1rem + var(--_padding-compensation));
     background: linear-gradient(0deg, var(--primary-background) 0%, var(--primary-background) 75%, transparent 100%);
 }
 

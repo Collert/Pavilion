@@ -34,7 +34,7 @@
 </head>
 <body class="portrait" style="gap: 0;">
     <main id="pos-output-display">
-        <div id="out-cart-wrapper" class="tucked" style="padding: 1rem;">
+        <div id="out-cart-wrapper" class="tucked">
             <div>
                 <div id="cart"></div>
                 <div style="text-align: end;" id="total-button" class="hidden">
@@ -84,6 +84,10 @@
         <h1>Thank you!</h1>
     </main>
     <script>
+        if (sessionStorage.getItem("fsReminderDone") !== "true") {
+            alert("Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)");
+            sessionStorage.setItem("fsReminderDone", "true");
+        } 
         const dishes = JSON.parse('{{dishes|safe}}');
         console.log(dishes)
         
