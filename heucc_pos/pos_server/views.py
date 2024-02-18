@@ -262,7 +262,7 @@ def day_stats(request):
 @login_required
 def pos_out_display(request):
     menu = Menu.objects.get(is_active = True)
-    dishes = Dish.objects.filter(menu=menu).order_by("id")
+    dishes = Dish.objects.filter(menu=menu).order_by("-id")
     return render(request, "pos_server/pos-output-display.html", {
         "dishes": serializers.serialize('json', dishes),
         "menu":menu,
