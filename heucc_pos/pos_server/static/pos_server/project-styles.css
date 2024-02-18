@@ -60,10 +60,6 @@ form#login {
     gap: 1rem;
 }
 
-body:has(main#pos) {
-    overflow-y: hidden;
-}
-
 main#pos {
     grid-template-columns: 2fr 1fr;
     gap: 1rem;
@@ -106,8 +102,8 @@ main#pos {
 #cart-wrapper {
     display: grid;
     grid-template-rows: 1fr auto;
-    padding-bottom: 3rem;
     gap: 1rem;
+    height: fit-content;
 }
 
 #cart {

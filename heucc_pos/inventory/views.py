@@ -14,7 +14,7 @@ from django.contrib.auth.decorators import login_required
 @login_required
 def log_shopping(request):
     if request.method == "GET":
-        ingredients = Ingredient.objects.all()
+        ingredients = Ingredient.objects.filter(unlimited=False)
         return render(request, "inventory/log-shopping.html", {
             "ingredients":ingredients,
             "route":"log_shopping",
@@ -137,5 +137,6 @@ def craft_component(component_id:int, qty:int):
     component.inventory += qty
     component.save()
     for ci in component.componentingredient_set.all():
-        ci.ingredient.inventory -= ci.quantity * qty
-        ci.ingredient.save()
+        if not ci.ingredient.unlimited:
+            ci.ingredient.inventory -= ci.quantity * qty
+            ci.ingredient.save()
