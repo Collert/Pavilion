@@ -56,7 +56,7 @@ def day_display(request, day_id):
 @login_required
 def crafting(request):
     if request.method == "GET":
-        components = Component.objects.all()
+        components = Component.objects.filter(self_crafting=False)
         ingredients = Ingredient.objects.all()
         return render(request, "inventory/crafting.html", {
             "route":"crafting",
@@ -68,21 +68,11 @@ def crafting(request):
         body = json.loads(request.body)
         for component_id in body:
             if body[component_id]:
-                component = Component.objects.get(pk=component_id)
-                component.inventory += body[component_id]
-                component.save()
-                for ci in component.componentingredient_set.all():
-                    ci.ingredient.inventory -= ci.quantity * body[component_id]
-                    ci.ingredient.save()
+                craft_component(component_id, body[component_id])
         return JsonResponse({"message":"crafted"})
     elif request.method == "PUT":
         component_id = int(request.body)
-        component = Component.objects.get(pk=component_id)
-        component.inventory += 1
-        component.save()
-        for ci in component.componentingredient_set.all():
-            ci.ingredient.inventory -= ci.quantity
-            ci.ingredient.save()
+        craft_component(component_id, 1)
         return JsonResponse({"message":"crafted"})
 
 @login_required
@@ -141,3 +131,11 @@ def inventory_updates(request):
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
     # response['Cache-Control'] = 'no-cache'
     return response
+
+def craft_component(component_id:int, qty:int):
+    component = Component.objects.get(pk=component_id)
+    component.inventory += qty
+    component.save()
+    for ci in component.componentingredient_set.all():
+        ci.ingredient.inventory -= ci.quantity * qty
+        ci.ingredient.save()

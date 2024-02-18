@@ -440,6 +440,7 @@ a.button:active:not(.no-style) span {
     grid-template-columns: auto auto;
     width: fit-content;
     gap: 1rem;
+    width: 45vh;
 }
 .menu-item,
 .menu-item > div {

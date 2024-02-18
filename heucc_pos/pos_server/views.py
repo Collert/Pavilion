@@ -27,6 +27,7 @@ from misc_tools import funcs
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from pos_server.decorators import local_network_only
+from inventory.views import craft_component
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -153,6 +154,8 @@ def pos(request):
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             for dc in dish.dishcomponent_set.all():
+                if dc.dish.self_crafting:
+                    craft_component(dc.component.id, 1)
                 dc.component.inventory -= dc.quantity
                 dc.component.save()
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
@@ -259,7 +262,7 @@ def day_stats(request):
 @login_required
 def pos_out_display(request):
     menu = Menu.objects.get(is_active = True)
-    dishes = Dish.objects.filter(menu=menu)
+    dishes = Dish.objects.filter(menu=menu).order_by("id")
     return render(request, "pos_server/pos-output-display.html", {
         "dishes": serializers.serialize('json', dishes),
         "menu":menu,
@@ -283,12 +286,15 @@ def compile_menu(menu):
         dcs = dish.dishcomponent_set.all()
         for index, dc in enumerate(dcs):
             if dc.component.type == "food":
-                if dc.quantity == 1:
-                    quantity_str = ""
-                elif dc.quantity < 1:
-                    quantity_str = "a piece of "
+                if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
+                    quantity_str = "a bowl of "
                 else:
-                    quantity_str = f"{int(dc.quantity)} "
+                    if dc.quantity == 1:
+                        quantity_str = ""
+                    elif dc.quantity < 1:
+                        quantity_str = "a piece of "
+                    else:
+                        quantity_str = f"{int(dc.quantity)} "
             else:
                 if dc.quantity == 1:
                     quantity_str = "a cup of "

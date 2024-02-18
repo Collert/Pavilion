@@ -21,12 +21,16 @@
     <ul>
         {% for ingredient in ingredients %}
         <li id="top-{{ingredient.id}}">
-            <span>{{ingredient.inventory}}</span>
-            {% if ingredient.unit_of_measurement != "ea" %}
-                {{ingredient.unit_of_measurement|title}}
-                {{ingredient.title}}
-            {% else %}    
-                {{ingredient.title}}{% if ingredient.inventory != 1 %}s{% endif %}
+            {% if ingredient.unlimited %}
+            Unlimited {{ingredient.title}}
+            {% else %}
+                <span>{{ingredient.inventory}}</span>
+                {% if ingredient.unit_of_measurement != "ea" %}
+                    {{ingredient.unit_of_measurement|title}}
+                    {{ingredient.title}}
+                {% else %}    
+                    {{ingredient.title}}{% if ingredient.inventory != 1 %}s{% endif %}
+                {% endif %}
             {% endif %}
         </li>
         {% endfor %}
