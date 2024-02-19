@@ -279,7 +279,7 @@ def compile_menu(menu):
         final_dish = {
             "title":dish.title,
             "components":"",
-            "price":int(dish.price),
+            "price":format_float(dish.price),
             "available":dish.in_stock or dish.force_in_stock,
             "components_out":False
         }
@@ -311,6 +311,13 @@ def compile_menu(menu):
                 final_dish["components"] += ", "
         categories[dish.station].append(final_dish)
     return categories
+
+def format_float(num:float) -> str:
+    if num.is_integer():
+        return f"{int(num)}"
+    # Otherwise, format the number to remove trailing zeros.
+    else:
+        return f"{num:.10f}".rstrip("0").rstrip(".")
 
 # @local_network_only
 @login_required

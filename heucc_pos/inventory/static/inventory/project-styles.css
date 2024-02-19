@@ -32,6 +32,13 @@ nav {
     flex-wrap: wrap;
 }
 
+nav a {
+    max-width: 10ch;
+    overflow-y: visible;
+    text-align: center;
+    word-break: break-word;
+}
+
 header h1 {
     font-family: 'Nabla', system-ui;
     font-size: 48px;
