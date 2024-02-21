@@ -28,6 +28,8 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from pos_server.decorators import local_network_only
 from inventory.views import craft_component
+from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.forms import UserCreationForm
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -360,6 +362,29 @@ def create_menu(request):
             accent_3=color_dict['Color 4'],
         )
         return render(request, "pos_server/create-menu.html", {"done":True})
+    
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def register_staff(request):
+    if request.method == "GET":
+        form = UserCreationForm()
+        return render(request, "pos_server/register-staff.html", {
+            "route":"register_staff",
+            "form":form
+        })
+    elif request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.email = request.POST["email"]
+            user.first_name = request.POST["first_name"]
+            user.last_name = request.POST["last_name"]
+            user.is_staff = True
+            user.save()
+        return render(request, "pos_server/register-staff.html", {
+            "route":"register_staff",
+            "form":form
+        })
         
 @csrf_exempt
 @require_POST

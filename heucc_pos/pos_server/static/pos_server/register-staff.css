@@ -1,0 +1,31 @@
+#register_staff {
+    place-items: center;
+}
+
+#register_staff form {
+    display: grid;
+}
+
+#register_staff form p {
+    display: grid;
+    place-items: center;
+    gap: .5rem;
+}
+#register_staff form .helptext,
+#register_staff form ul:not(.errorlist) {
+    font-size: small;
+}
+
+#register_staff form .errorlist li {
+    color: var(--error-color);
+    animation: flash-error 1.5s ease 5;
+}
+
+@keyframes flash-error {
+    from, to {
+        text-shadow: 0px 0px 0px #d19494;
+    }
+    50% {
+        text-shadow: 0px 0px 20px #d19494;
+    }
+}
