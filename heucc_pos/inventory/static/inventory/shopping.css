@@ -1,0 +1,101 @@
+.item {
+    --_item-height: 10vh;
+
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    height: var(--_item-height);
+    justify-content: space-between;
+    grid-auto-flow: column;
+}
+
+form#add-ingredients input[type="file"] {
+    width: auto;
+}
+
+form#add-ingredients div:has(input[type="file"]) {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+}
+
+form#add-ingredients div:has(input[type="file"]),
+.item,
+form #submit {
+    width: 60%;
+}
+
+form#add-ingredients div:has(input[type="file"]),
+.item {
+    display: grid;
+    margin: 0;
+}
+
+.item > div {
+    display: grid;
+    grid-auto-flow: column;
+    gap: .5rem;
+    align-items: center;
+}
+.item > div > select,
+.item > div > input {
+    height: 98%;
+}
+
+.item > div > input[type="number"] {
+    width: 6rem;
+}
+
+.item > div > span {
+    font-size: larger;
+}
+
+.item select {
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    font-size: larger;
+    border-radius: 10px;
+}
+
+.item input[type="number"] {
+    background-color: var(--primary-background);
+    border: none;
+    font-size: larger;
+}
+
+form#add-ingredients,
+form#add-ingredients .items{
+    display: grid;
+    gap: 1rem;
+}
+
+.item > button.icon {
+    height: var(--_item-height);
+    padding: 0;
+    border: 0;
+    border-left: 2px solid;
+    border-radius: 0 10px 10px 0;
+}
+
+#shopping_history{
+    margin: 3rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+#shopping_history .shopping-occasion {
+    display: grid;
+    place-items: center;
+    height: 10rem;
+    aspect-ratio: 1;
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+}
+
+#shopping_history .shopping-occasion span{
+    text-align: center;
+}
+
+#shopping_history iframe {
+    width: 100%;
+    height: 99%;
+}

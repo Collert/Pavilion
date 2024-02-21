@@ -1,0 +1,71 @@
+#crafting {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+#crafting .singles,
+#crafting .multis,
+#component_availability > section{
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+#crafting .multis{
+    flex-direction: column;
+}
+
+#crafting .singles button {
+    height: 40vh;
+    font-size: 50px;
+}
+
+#crafting .multis .multi-component {
+    display: grid;
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    grid-template-columns: 1fr 2fr 2fr 1.5fr 1.5fr;
+    font-size: 24px;
+    align-items: center;
+    padding: 2rem 1rem;
+    gap: 1rem;
+}
+
+#crafting .multis .multi-component input {
+    height: fit-content;
+}
+
+#crafting .multis .multi-component .qty {
+    display: grid;
+    place-items: center;
+    gap: .5rem;
+    grid-auto-flow: column;
+    justify-content: start;
+}
+
+#crafting .multis .multi-component li {
+    font-size: 16px;
+}
+
+@media (orientation:portrait) {
+    #crafting {
+        grid-template-columns: none;
+    }
+    #crafting .multis .multi-component ul {
+        margin: 0;
+    }
+    #crafting .multis .multi-component {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: auto auto 1fr;
+        justify-items: center;
+    }
+    #crafting .multis .multi-component > span.inventory {
+        text-align: center;
+        grid-area: 2 / 1 / 3 / 3; 
+    }
+    #crafting .multis .multi-component input {
+        width: 5rem;
+    }
+}

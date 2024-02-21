@@ -1,0 +1,137 @@
+main#pos {
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+
+#items {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    flex: 0 1 300px;
+    justify-content: center;
+}
+
+#items-wrapper {
+    display: grid;
+    place-items: center;
+}
+
+.dish {
+    display: grid;
+    aspect-ratio: 1;
+    font-size: x-large;
+    height: 200px;
+    width: 200px;
+    grid-template-rows: 1fr auto;
+    padding: 2rem;
+}
+
+.dish > div {
+    display: flex;
+    justify-content: space-around;
+}
+
+.dish-title {
+    height: 100%;
+    display: grid;
+    place-items: center;
+}
+
+#cart-wrapper {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 1rem;
+    height: fit-content;
+}
+
+#cart {
+    /* align-content: center; */
+    overflow-y: auto;
+    height: 69vh;
+}
+
+#send-button,
+#total-button {
+    transition: opacity 300ms ease;
+}
+
+.hidden {
+    opacity: 0;
+    height: 0;
+    /* cursor: initial; */
+}
+
+.cart-item {
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    animation: appear 300ms ease;
+    display: grid;
+    padding: 20px;
+    grid-template-columns: 1fr auto;
+    height: 10vh;
+    margin-bottom: .75rem;
+}
+
+.cart-item button {
+    border-radius: 0 7px 7px 0;
+    border-width: 0 0 0 2px;
+    margin: -20px;
+}
+
+.cart-item-title {
+    font-size: 30px;
+    display: grid;
+    place-items: center;
+    grid-auto-flow: column;
+}
+
+#total-button {
+    font-size: 30px;
+    font-weight: bold;
+}
+
+@media (orientation:portrait) {
+    main#pos {
+        grid-template-columns: none;
+        grid-template-rows: 1fr auto;
+    }
+    #cart {
+        height: auto;
+    }
+}
+
+
+#tender > div,
+#cash-in form {
+    display: grid;
+    gap: 1rem;
+}
+
+#pos dialog nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+#pos dialog nav h1,
+#pos dialog nav h2 {
+    margin: 0;
+}
+
+#terminal-setup {
+    grid-template-rows: auto 1fr auto;
+    padding: 1rem;
+}
+#terminal-setup > * {
+    display: grid;
+    place-items: center;
+}
+#terminal-setup > span {
+    font-size: 40vh;
+    font-weight: 700;
+}
+#terminal-setup > div {
+    display: flex;
+    justify-content: center;
+}

@@ -1,0 +1,24 @@
+#component_availability button{
+    height: 20vh;
+    display: grid;
+    align-content: center;
+    gap: 1rem;
+}
+
+#component_availability button h2 {
+    font-size: 30px;
+    margin: 0;    
+}
+
+#component_availability button.error {
+    text-decoration: line-through;
+    --primary-contrast: var(--error-color);
+}
+
+#component_availability button.selected {
+    background-color: var(--primary-contrast);
+}
+
+#component_availability button.selected *{
+    color: var(--primary-background);
+}

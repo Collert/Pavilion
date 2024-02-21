@@ -1,0 +1,92 @@
+#kitchen {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0 1rem 0 1rem;
+    width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+.order {
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    min-height: 15px;
+    padding: 1rem;
+    display: grid;
+    grid-template-rows: auto 0fr;
+    transition: grid-template-rows 300ms ease;
+}
+
+.order > .summary {
+    display: grid;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    grid-template-rows: none!important;
+    place-items: center;
+}
+
+.order .summary > h2 {
+    font-size: xx-large;
+}
+
+.order .summary .name-time {
+    font-size: large;
+    font-weight: 600;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: .5rem;
+}
+
+.order ul {
+    margin: 0;
+}
+
+.order li {
+    font-size: larger;
+}
+
+.order > * {
+    overflow: hidden;
+}
+
+.order.selected,
+.order.selected > *,
+.order:hover {
+    grid-template-rows: auto 1fr;
+}
+
+.order.selected,
+.order.selected  *,
+.order:hover,
+.order:hover  * {
+    color: var(--primary-background)!important;
+    background: var(--primary-contrast);
+    cursor: pointer;
+}
+
+.order.success,
+.order.success > * {
+    transition: background-color 100ms ease;
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.order.disappear {
+    animation: disappear 300ms ease forwards;
+}
+
+@keyframes appear {from{opacity: 0;} to{opacity: 1;}}
+@keyframes disappear {
+    from{
+        opacity: 1;
+        height: 110px;
+        padding: 1rem;
+        border-width: 2px;
+    } to {
+        opacity: 0;
+        height: 0;
+        padding: 0;
+        border-width: 0;
+    }
+}
