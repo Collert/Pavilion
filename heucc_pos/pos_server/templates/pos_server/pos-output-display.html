@@ -49,6 +49,7 @@
         <div id="menu-actual">
             {% for category, dishes in compiled_menu.items %}
                 {% if dishes %}
+                <div class="title-item-pack">
                 {% if category == "kitchen" %}
                 <h2>Hot meals</h2>
                 {% elif category == "bar" %}
@@ -58,18 +59,21 @@
                 {% endif %}
                 {% for dish in dishes %}
                 {% if dish.available %}
-                    <div class="menu-item">
-                        <div class="menu-item-info">
-                            <h3>{{dish.title}}</h3>
-                            <div class="components">
-                                {{dish.components|capfirst}}
-                            </div>
+                <div class="menu-item">
+                    <div class="menu-item-info">
+                        <h3>{{dish.title}}</h3>
+                        <div class="components">
+                            {{dish.components|capfirst}}
                         </div>
-                        <div class="price">
-                            ${{dish.price}}
-                        </div>
-                        {% if dish.components_out %}<small class="out-of-stock">* We might be out of this component.<br>Check in with your cashier.</small>{% endif %}
                     </div>
+                    <div class="price">
+                        ${{dish.price}}
+                    </div>
+                    {% if dish.components_out %}<small class="out-of-stock">* We might be out of this component.<br>Check in with your cashier.</small>{% endif %}
+                </div>
+                {% endif %}
+                {% if forloop.first %}
+                </div>
                 {% endif %}
                 {% endfor %}
                 {% if not forloop.last %}<div class="divider"></div>{% endif %}
