@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from inventory.models import Recipe
 
 # Create your models here.
     
@@ -29,6 +30,7 @@ class Dish(models.Model):
     station = models.CharField(max_length=50, choices=stations)
     in_stock = models.BooleanField(default=True)
     force_in_stock = models.BooleanField(default=False)
+    recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True)
 
     def __str__(self) -> str:
         return self.title
@@ -72,9 +74,7 @@ class Component(models.Model):
     type = models.CharField(max_length=10, choices=food_types)
     in_stock = models.BooleanField(default=False)
     self_crafting = models.BooleanField(default=False)
-
-    def recipe(self):
-        return self.componentingredient_set.all()
+    recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True)
 
     def save(self, *args, **kwargs):
         if self.pk is not None:

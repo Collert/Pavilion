@@ -9,4 +9,6 @@ urlpatterns = [
     path("crafting", views.crafting, name="crafting"),
     path("inventory-updates", views.inventory_updates, name="inventory_updates"),
     path("component-availability", views.component_availability, name="component_availability"),
+    path("recipes", views.recipes, name="recipes"),
+    path("recipes/<int:recipe_id>", views.recipe, name="recipe"),
 ]

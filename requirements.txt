@@ -8,3 +8,5 @@ opencv-python
 scikit-learn 
 numpy
 Pillow
+markdown
+django-mathfilters

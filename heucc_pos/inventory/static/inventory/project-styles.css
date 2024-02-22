@@ -4,6 +4,7 @@
 @import url('crafting.css');
 @import url('availability.css');
 @import url('shopping.css');
+@import url('recipes.css');
 
 button:hover:not(.no-style) *,
 button:focus-visible:not(.no-style) *,

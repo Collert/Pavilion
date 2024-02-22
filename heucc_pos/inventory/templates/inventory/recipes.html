@@ -1,0 +1,96 @@
+{% extends "inventory/layout.html" %}
+{% load static %}
+
+{% block body %}
+    {% for recipe in recipes %}
+        <a href="{% url 'recipe' recipe.id %}" class="recipe button tight">
+            {% if recipe.dish.first %}
+            {{recipe.dish.first.title}}
+            {% elif recipe.component.first %}
+            {{recipe.component.first.title}}
+            {% else %}
+            Not linked recipe #{{recipe.id}}
+            {% endif %}
+        </a>
+    {% endfor %}
+    {% if user.is_superuser %}
+        <button id="add"><span class="material-symbols-outlined">add</span>Add recipe</button>
+        <dialog class="full" id="add-recipe-dialog">
+            <nav>
+                <button id="close-modal-button" class="icon" type="button"><span class="material-symbols-outlined">close</span></button>
+            </nav>
+            <form action="{% url 'recipes' %}" method="post">
+                {% csrf_token %}
+                <input type="number" name="qty-steps" {% if editing %}value="{{editing.4|length}}"{% endif %} id="qty-steps" hidden>
+                <select required name="item" id="item-select">
+                    <option disabled {% if not editing %}selected{% endif %} hidden value="">Select item</option>
+                    {% if dishes %}
+                    <optgroup label="Dishes">
+                        {% for dish in dishes %}
+                        <option {% if editing.0 == 'd' and editing.1 == dish.id|floatformat:"0" %} selected {% endif %} value="dish-{{dish.id}}">{{dish.title}}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    {% if components %}
+                    <optgroup label="Components">
+                        {% for component in components %}
+                        <option {% if editing.0 == 'c' and editing.1 == component.id|floatformat:"0" %} selected {% endif %} value="component-{{component.id}}">{{component.title}}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                </select>
+                <input type="number" {% if editing %}value="{{editing.3.original_yield}}"{% endif %} placeholder="Recipe yield" name="default-yield" id="default-yield">
+                <small>* How many items are made using this recipe</small>
+                <div id="steps">
+                    {% if editing %}
+                    {% for step in editing.4 %}
+                        <div class="step">
+                            <h2>Step {{ forloop.counter }}:</h2>
+                            <textarea name="step-{{ forloop.counter }}" id="step-{{ forloop.counter }}" cols="30" rows="10">{{step}}</textarea>
+                        </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="step">
+                        <h2>Step 1:</h2>
+                        <textarea name="step-1" id="step-1" cols="30" rows="10"></textarea>
+                    </div>
+                    {% endif %}
+                </div>
+                <button>Save</button>
+            </form>
+            <button id="add-step"><span class="material-symbols-outlined">add</span>Add step</button>
+        </dialog>
+        <script type="module">
+            const dialog = document.querySelector("#add-recipe-dialog");
+            
+            document.querySelector("#add").addEventListener("click", e => {
+                dialog.showModal()
+            })
+            document.querySelector("#close-modal-button").addEventListener("click", () => {
+                dialog.close()
+            })
+
+            let steps = parseInt("{{editing.4|length}}") ? parseInt("{{editing.4|length}}") : 1;
+            const qtySteps = document.querySelector("#qty-steps");
+            const stepsDiv = document.querySelector("#steps");
+            qtySteps.value = steps;
+
+            document.querySelector("#add-step").addEventListener("click", () => {
+                steps ++;
+                qtySteps.value = steps;
+                const newStep = document.createElement("div");
+                newStep.className = "step";
+                newStep.innerHTML = `
+                <h2>Step ${steps}:</h2>
+                <textarea name="step-${steps}" id="step-${steps}" cols="30" rows="10"></textarea>
+                `
+                stepsDiv.appendChild(newStep)
+            })
+        </script>
+        {% if editing %}
+        <script>
+            document.querySelector("#add-recipe-dialog").showModal()
+        </script>
+        {% endif %}
+    {% endif %}
+{% endblock %}

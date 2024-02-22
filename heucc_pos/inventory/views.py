@@ -8,6 +8,8 @@ import json
 from . import globals
 import time
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+import markdown
 
 # Create your views here.
 
@@ -105,6 +107,62 @@ def component_availability(request):
             dish.save()
         return JsonResponse({"dishes":serializers.serialize('json', dishes)})
     
+@staff_member_required
+def recipes(request):
+    if request.method == "GET":
+        try:
+            type = request.GET['edit'].split("-")[0]
+            id = request.GET['edit'].split("-")[1]
+            obj = Dish.objects.get(pk=int(id)) if type == "d" else Component.objects.get(pk=int(id))
+            steps = obj.recipe.markdown_text.split("|")[8: -1: 3]
+            editing = (type, id, obj, obj.recipe, steps)
+        except:
+            editing = None
+        objs = Recipe.objects.all()
+        components = Component.objects.filter(recipe=None).all()
+        dishes = Dish.objects.filter(recipe=None).all()
+        return render(request, "inventory/recipes.html", {
+            "recipes":objs,
+            "components":components,
+            "dishes":dishes,
+            "editing":editing,
+            "route":"recipes"
+        })
+    elif request.method == "POST":
+        qty_steps = int(request.POST["qty-steps"])
+        item_type = request.POST["item"].split("-")[0]
+        try:
+            recipe_yield = int(request.POST['default-yield'])
+        except ValueError:
+            recipe_yield = 1
+        method_md = ""
+        if item_type == "dish":
+            item = Dish.objects.get(pk=request.POST["item"].split("-")[1])
+        else:
+            item = Component.objects.get(pk=request.POST["item"].split("-")[1])
+        method_md += "|||\n|-|-|\n"
+        empty_steps = 0
+        for index in range(qty_steps):
+            if request.POST[f'step-{index + 1}']:
+                method_md += f"|Step {index + 1 - empty_steps}:|{request.POST[f'step-{index + 1}']}|\n"
+            else:
+                empty_steps += 1
+        new_recipe = Recipe.objects.create(markdown_text=method_md, original_yield=recipe_yield)
+        item.recipe = new_recipe
+        item.save()
+        return HttpResponseRedirect(reverse("recipes"))
+
+@staff_member_required
+def recipe(request, recipe_id):
+    if request.method == "GET":
+        md = markdown.Markdown(extensions=['tables'])
+        recipe = Recipe.objects.get(pk=recipe_id)
+        return render(request, "inventory/recipe.html", {
+            "recipe_obj":recipe,
+            "recipe_obj_type":"dish" if recipe.dish.first() else "component",
+            "recipe_md":md.convert(recipe.markdown_text),
+            "route":"recipe"
+        })
 
 def event_stream():
     while True:
