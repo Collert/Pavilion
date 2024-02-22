@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'landing',
     'misc_tools',
     'inventory',
+    'mathfilters',
 ]
 
 MIDDLEWARE = [
