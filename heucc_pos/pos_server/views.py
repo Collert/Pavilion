@@ -265,13 +265,16 @@ def day_stats(request):
 def pos_out_display(request):
     menu = Menu.objects.get(is_active = True)
     dishes = Dish.objects.filter(menu=menu).order_by("id")
+    comp_menu, components_out = compile_menu(menu)
     return render(request, "pos_server/pos-output-display.html", {
         "dishes": serializers.serialize('json', dishes),
         "menu":menu,
-        "compiled_menu":compile_menu(menu)
+        "compiled_menu":comp_menu,
+        "components_out":components_out
     })
 
 def compile_menu(menu):
+    components_out = False
     categories = {
         "kitchen":[],
         "bar":[],
@@ -283,7 +286,6 @@ def compile_menu(menu):
             "components":"",
             "price":format_float(dish.price),
             "available":dish.in_stock or dish.force_in_stock,
-            "components_out":False
         }
         dcs = dish.dishcomponent_set.all()
         for index, dc in enumerate(dcs):
@@ -308,11 +310,11 @@ def compile_menu(menu):
                 final_dish["components"] += "s"
             if dc.component.inventory < dc.quantity:
                 final_dish["components"] += "*"
-                final_dish["components_out"] = True
+                components_out = True
             if index != len(dcs) - 1:
                 final_dish["components"] += ", "
         categories[dish.station].append(final_dish)
-    return categories
+    return categories, components_out
 
 def format_float(num:float) -> str:
     if num.is_integer():

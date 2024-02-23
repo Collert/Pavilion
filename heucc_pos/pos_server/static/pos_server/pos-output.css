@@ -4,7 +4,7 @@
         height: 100vw;
         box-sizing: border-box;
         /* background: navajowhite; */
-        grid-template-rows: auto calc(100vw - var(--_header-img-height) - var(--_footer-img-height) - var(--_header-title-height)) auto;
+        grid-template-rows: auto calc(100vw - var(--_header-img-height) - var(--_footer-img-height) - var(--_header-title-height) - 3rem) auto auto;
         padding: var(--_padding-compensation) 0 var(--_padding-compensation) 0;
 
         --_header-img-height: 18vw;
@@ -143,6 +143,10 @@ main#thank-you h1 {
 
 main#thank-you.anim {
     animation: thank-anim 4s ease both;
+}
+
+.out-of-stock {
+    padding: 1rem;
 }
 
 @keyframes thank-anim {

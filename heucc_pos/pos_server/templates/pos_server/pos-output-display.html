@@ -69,7 +69,6 @@
                     <div class="price">
                         ${{dish.price}}
                     </div>
-                    {% if dish.components_out %}<small class="out-of-stock">* We might be out of this component.<br>Check in with your cashier.</small>{% endif %}
                 </div>
                 {% endif %}
                 {% if forloop.first %}
@@ -80,6 +79,7 @@
                 {% endif %}
             {% endfor %}
         </div>
+        {% if components_out %}<small class="out-of-stock">* We might be out of this component. Check in with your cashier.</small>{% endif %}
         <footer>
             <img src="/{{menu.footer_image}}" alt="{{menu.title}} footer image">
         </footer>
