@@ -40,8 +40,8 @@ class Order(models.Model):
     prep_time = models.DurationField(null=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
-    kitchen_done = models.BooleanField(default=False)
-    bar_done = models.BooleanField(default=False)
+    kitchen_done = models.BooleanField(default=True)
+    bar_done = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True)
 
     def __str__(self) -> str:
@@ -117,7 +117,7 @@ class Ingredient(models.Model):
         ("ea", "Each")
     )
     title = models.CharField(max_length=140)
-    inventory = models.PositiveIntegerField(default = 0, null = True)
+    inventory = models.IntegerField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     unlimited = models.BooleanField(default=False)
 
