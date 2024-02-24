@@ -156,7 +156,7 @@ def pos(request):
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             for dc in dish.dishcomponent_set.all():
-                if dc.dish.self_crafting:
+                if dc.component.self_crafting:
                     craft_component(dc.component.id, 1)
                 dc.component.inventory -= dc.quantity
                 dc.component.save()
