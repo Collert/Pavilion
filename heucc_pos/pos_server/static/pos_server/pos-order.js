@@ -74,7 +74,7 @@ cardButton.addEventListener("click", e => {
     createSquarePayment(getTotal(order), actionLink)
     .then(response => {
         const status = response.status
-        fetch("/pos/webhook/square/check_card_status", {
+        fetch("/restaurant/webhook/square/check_card_status", {
             headers: {"X-CSRFToken": csrftoken },
             method:'DELETE'
         })
@@ -218,7 +218,6 @@ function createSquarePayment(amount, actionLink) {
         .then(data => {
             // console.log(data)
             if (data.message.checkout.status === "PENDING") {
-                // Start checking for data from the different route
                 checkResponse();
             } else {
                 reject(new Error('Payment failed'));
@@ -229,7 +228,7 @@ function createSquarePayment(amount, actionLink) {
         });
 
         function checkResponse() {
-            fetch("/pos/webhook/square/check_card_status")
+            fetch("/restaurant/webhook/square/check_card_status")
             .then(response => response.json())
             .then(data => {
                 console.log(data)
@@ -238,7 +237,9 @@ function createSquarePayment(amount, actionLink) {
                 } else if (data.status === "CANCELED") {
                     resolve(data);
                 } else {
-                    setTimeout(checkResponse, 1000); // Retry after 1 second
+                    if (cardInDialog.open) {
+                        setTimeout(checkResponse, 1000); // Retry after 1 second
+                    }
                 }
             })
             .catch(error => {
