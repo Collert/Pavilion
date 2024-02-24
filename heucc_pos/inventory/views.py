@@ -7,13 +7,14 @@ from django.urls import reverse
 import json
 from . import globals
 import time
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 import markdown
 
 # Create your views here.
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def log_shopping(request):
     if request.method == "GET":
         ingredients = Ingredient.objects.filter(unlimited=False)
@@ -41,6 +42,7 @@ def log_shopping(request):
         return HttpResponseRedirect(reverse("log_shopping"))
         
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def shopping_history(request):
     shopping_occasions = StockUpdate.objects.all()
     return render(request, "inventory/shopping-history.html", {
@@ -49,6 +51,7 @@ def shopping_history(request):
     })
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def day_display(request, day_id):
     day = StockUpdate.objects.get(id=day_id)
     return render(request, "inventory/day-display.html", {
