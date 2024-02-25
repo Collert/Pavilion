@@ -1,3 +1,4 @@
+from typing import Iterable
 from django.db import models
 from django.utils import timezone
 from inventory.models import Recipe
@@ -43,6 +44,11 @@ class Order(models.Model):
     kitchen_done = models.BooleanField(default=True)
     bar_done = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True)
+
+    def save(self, *args, **kwargs):
+        if self.bar_done and self.kitchen_done:
+            self.prep_time = timezone.now() - self.timestamp
+        return super().save()
 
     def __str__(self) -> str:
         return f"Order {self.id}"
