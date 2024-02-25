@@ -49,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
         })
         attachSwipability(newOrder)
+        console.log(newOrder)
         kitchenDiv.appendChild(newOrder)
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
