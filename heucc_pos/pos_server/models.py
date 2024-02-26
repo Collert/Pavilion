@@ -47,7 +47,11 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if self.bar_done and self.kitchen_done:
-            self.prep_time = timezone.now() - self.timestamp
+            try:
+                if kwargs['final']:
+                    self.prep_time = timezone.now() - self.timestamp
+            except KeyError:
+                pass
         return super().save()
 
     def __str__(self) -> str:

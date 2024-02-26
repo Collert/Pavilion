@@ -148,7 +148,7 @@ def pos(request):
         dish_counts = Counter(order)
         new_order = Order(special_instructions=instructions)
         new_order.table = body["table"] if body["table"].strip() != '' else None
-        new_order.save()
+        new_order.save(final=False)
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             if dish.station == "bar":
@@ -162,7 +162,7 @@ def pos(request):
                 dc.component.save()
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
-        new_order.save()
+        new_order.save(final=True)
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
         return square.terminal_checkout(request)
