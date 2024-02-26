@@ -153,7 +153,7 @@ if os.getenv('ENVIRONMENT') == "production":
         },
         'handlers': {
             'file': {
-                'level': 'INFO',
+                'level': 'DEBUG',
                 'class': 'logging.FileHandler',
                 'filename': '/home/collert/POS/debug.log',
                 'formatter': 'simple',
@@ -162,7 +162,7 @@ if os.getenv('ENVIRONMENT') == "production":
         'loggers': {
             'django.server': {
                 'handlers': ['file'],
-                'level': 'DEBUG',
+                'level': 'INFO',
                 'propagate': False,
             },
             # Optionally, disable SQL query logging by setting django.db.backends to WARNING or ERROR
