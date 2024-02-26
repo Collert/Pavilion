@@ -162,7 +162,7 @@ if os.getenv('ENVIRONMENT') == "production":
         'loggers': {
             'django.server': {
                 'handlers': ['file'],
-                'level': 'INFO',
+                'level': 'DEBUG',
                 'propagate': False,
             },
             # Optionally, disable SQL query logging by setting django.db.backends to WARNING or ERROR
