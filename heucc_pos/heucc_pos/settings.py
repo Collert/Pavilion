@@ -50,7 +50,7 @@ ALLOWED_HOSTS = [
     "local.internal.uahelp.ca",
     "be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app",
     "154.20.173.24"
-    ]
+]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000", 
@@ -136,6 +136,25 @@ else:
         }
     }
 
+if os.getenv('ENVIRONMENT') == "production":
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'file': {
+                'level': 'DEBUG',
+                'class': 'logging.FileHandler',
+                'filename': '/home/collert/POS/debug.log',
+            },
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['file'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+        },
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
