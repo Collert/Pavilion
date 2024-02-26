@@ -179,7 +179,7 @@ def event_stream():
             except:
                 pass
         # Send a heartbeat every X seconds
-        yield "\n"
+        yield ":heartbeat\n\n"
         time.sleep(1)
 
 def collect_ing_stock(ingredients):

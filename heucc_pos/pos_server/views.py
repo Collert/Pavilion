@@ -456,7 +456,7 @@ def event_stream():
             except:
                 pass
         # Send a heartbeat every X seconds
-        yield "\n"
+        yield ":heartbeat\n\n"
         time.sleep(1)
 
 def order_updates(request):
@@ -471,7 +471,7 @@ def stock_update_stream():
             globals.stock_updated = ''
             time.sleep(2)
         # Send a heartbeat every X seconds
-        yield "\n"
+        yield ":heartbeat\n\n"
         time.sleep(1)
 
 def stock_updates(request):

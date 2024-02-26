@@ -3,6 +3,11 @@ const station = pathSegments[pathSegments.length-1];
 
 document.addEventListener("DOMContentLoaded", () => {
     try {document.querySelector(".order").classList.add("selected");} catch (error) {}
+
+    // setTimeout(() => {
+    //     window.location.reload()
+    //     // Reload every 10 minutes to reset the nginx connection timeout
+    // }, 600000);
     
     const kitchenDiv = document.querySelector("#kitchen");
     let cards = document.querySelectorAll(".order");
@@ -14,16 +19,11 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
         isFirstLoad = false;
     }, 1000);
-    eventSource.addEventListener("open", e => {
-        console.log(e)
-    })
     eventSource.onmessage = function(e) {
-        console.log(e)
         if (isFirstLoad) {
             return;
         }
         const data = JSON.parse(e.data);
-        console.log(data)
         if (!checkRightDishes(data.dishes)) {return}
         if (!cards.length) {
             kitchenDiv.innerHTML = '';
