@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
         isFirstLoad = false;
     }, 1000);
+    eventSource.addEventListener("open", e => {
+        console.log(e)
+    })
     eventSource.onmessage = function(e) {
         console.log(e)
         if (isFirstLoad) {
