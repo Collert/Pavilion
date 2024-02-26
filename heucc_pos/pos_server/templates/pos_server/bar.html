@@ -37,11 +37,10 @@
             </div>
         </div>
     {% endif %}
-{% empty %}
-<h1 style="text-align: center;">No orders yet</h1>
 {% endfor %}
 <script> const eventSource = new EventSource("{% url 'order_updates' %}"); </script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
+<script type="module" src="{% static 'pos_server/timeouts.js' %}"></script>
 
 {% if portrait %}
 <script>
