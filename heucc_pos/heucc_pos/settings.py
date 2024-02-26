@@ -140,21 +140,40 @@ if os.getenv('ENVIRONMENT') == "production":
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{levelname} {asctime} {module} {message}',
+                'style': '{',
+            },
+            'simple': {
+                'format': '[{asctime}] "{message}"',
+                'style': '{',
+                'datefmt': '%d/%b/%Y %H:%M:%S',
+            },
+        },
         'handlers': {
             'file': {
-                'level': 'DEBUG',
+                'level': 'INFO',
                 'class': 'logging.FileHandler',
                 'filename': '/home/collert/POS/debug.log',
+                'formatter': 'simple',
             },
         },
         'loggers': {
-            'django': {
+            'django.server': {
                 'handlers': ['file'],
-                'level': 'DEBUG',
-                'propagate': True,
+                'level': 'INFO',
+                'propagate': False,
+            },
+            # Optionally, disable SQL query logging by setting django.db.backends to WARNING or ERROR
+            'django.db.backends': {
+                'handlers': ['file'],
+                'level': 'WARNING',
+                'propagate': False,
             },
         },
     }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
