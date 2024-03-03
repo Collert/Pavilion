@@ -145,8 +145,10 @@ def pos(request):
         body = json.loads(request.body)
         order = body["order"]
         instructions = body["instructions"]
+        is_to_go = body["toGo"]
+        print(is_to_go)
         dish_counts = Counter(order)
-        new_order = Order(special_instructions=instructions)
+        new_order = Order(special_instructions=instructions, to_go_order=is_to_go)
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save(final=False)
         for dish_id, quantity in dish_counts.items():

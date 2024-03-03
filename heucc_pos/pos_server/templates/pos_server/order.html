@@ -39,6 +39,13 @@
         <h2>Total: $<span id="tender-total"></span></h2>
         <input autocomplete="off" type="text" name="customer-name" placeholder="Customer name">
         <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
+        <div id="here-to-go">
+            <input type="radio" id="here-to-go1" name="here-to-go" checked value="here" />
+            <label for="here-to-go1" class="here-to-go-label">For here</label>
+
+            <input type="radio" id="here-to-go2" name="here-to-go" value="go" />
+            <label for="here-to-go2" class="here-to-go-label">To-go</label>
+        </div>
         <button data-actionLink="{% url 'pos' %}" id="cash-button">Cash</button>
         <button data-actionLink="{% url 'pos' %}" id="card-button">Card</button>
     </div>

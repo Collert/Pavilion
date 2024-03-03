@@ -44,6 +44,8 @@ class Order(models.Model):
     kitchen_done = models.BooleanField(default=True)
     bar_done = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True)
+    to_go_order = models.BooleanField(default=False)
+    final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
 
     def save(self, *args, **kwargs):
         if self.bar_done and self.kitchen_done:
