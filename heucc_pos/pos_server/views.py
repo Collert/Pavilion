@@ -388,6 +388,13 @@ def register_staff(request):
             "route":"register_staff",
             "form":form
         })
+    
+def order_progress(request):
+    return render(request, "pos_server/orders-status.html", {
+        "route":"order-status",
+        "menu":Menu.objects.get(is_active=True),
+        "weather_API_key":settings.WEATHER_API_KEY
+    })
         
 @csrf_exempt
 @require_POST

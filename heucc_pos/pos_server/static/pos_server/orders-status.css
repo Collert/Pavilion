@@ -1,0 +1,186 @@
+#order-status,
+#order-status > #top,
+#col-3 {
+    display: grid;
+}
+
+#col-1,
+#col-2 {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    gap: .5rem;
+    overflow: auto;
+}
+
+/* #col-1 > span,
+#col-2 > span {
+    flex: 0 1 50px;
+} */
+
+body {
+    margin: 0;
+    gap: 0!important;
+}
+
+#order-status {
+    grid-template-rows: 9fr 1fr;
+    width: 100dvw;
+    height: 100dvh;
+}
+
+#top {
+    width: 100%;
+    height: 90dvh;
+    /* grid-template-columns: 1.6fr 1.6fr .8fr; */
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+#weather {
+    display: grid;
+    grid-auto-flow: column;
+    gap: .5rem;
+}
+
+#weather #weather-icon {
+    font-size: xxx-large;
+    color: var(--accent-2);
+    display: flex;
+    align-items: center;
+}
+
+#weather > div {
+    display: grid;
+    grid-template-rows: auto auto;
+    align-items: center;
+    align-content: center;
+}
+#weather > div > span {
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+#bottom {
+    display: flex;
+    padding: .5rem;
+    gap: 1rem;
+    overflow: auto;
+}
+
+#clock {
+    display: grid;
+    place-items: center start;
+    font-size: 46px;
+    font-weight: 700;
+    color: var(--accent-1);
+    /* font-family: 'Satisfy', cursive; */
+}
+
+#player {
+    display: grid;
+    place-items: center;
+    grid-template-columns: auto auto 1fr auto;
+    width: 100%;
+    gap: 1rem;
+}
+
+.slider-container {
+    /* --song-progress: 50%; Defined in HTML style tag */
+
+    position: relative;
+    width: 100%;
+    height: 48px;
+}
+
+#line-cont {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    z-index: 0;
+}
+
+#line-cont > .slider-line {
+    width: 100%;
+    background-color: var(--accent-2);
+    height: 10%;
+    border-radius: 100vh;
+}
+
+.pill {
+    position: absolute;
+    z-index: 3;
+    width: 15px;
+    height: 150%;
+    top: -25%;
+    border-radius: 100vh;
+    background-color: var(--accent-3);
+    left: var(--song-progress);
+    transform: translateX(-50%);
+    transition: left 500ms ease;
+}
+#wiggle-cont {
+    position: absolute;
+    display: block;
+    height: 100%;
+    width: 100%;
+    background-color: var(--primary-background);
+    z-index: 1;
+    clip-path: inset(0 calc(100% - var(--song-progress)) 0 0);
+    transition: transform 300ms ease, clip-path 500ms ease;
+}
+#wiggle-cont.paused {
+    transform: scaleY(0);
+}
+.slider-wiggle {
+    height: 100%;
+    background-image: url(noun-wavy-line-1781284.png);
+    background-size: contain;
+    z-index: 2;
+    background-repeat: repeat-x;
+    width: 100%;
+    animation: wiggle 3s linear infinite;
+    position: absolute;
+} 
+@keyframes wiggle {from {background-position-x: 0px;} to {background-position-x: -136px;}}
+
+#player-art,
+#player-title,
+#player-time {
+    display: grid;
+}
+
+#player-art {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#player-art img {
+    max-height: 112%;
+    object-fit: none;
+    overflow: hidden;
+    display: block;
+    clip-path: inset(12% 21% 12% 21%);
+    margin: -21%;
+}
+
+#player-title {
+    grid-template-rows: 1fr 1fr;
+    gap: .2rem;
+    max-width: 250px;
+}
+#player-title > span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#player-time {
+    place-items: center;
+}

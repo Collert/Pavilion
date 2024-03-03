@@ -21,4 +21,5 @@ urlpatterns = [
     path('webhook/square/check_card_status', views.check_card_status, name='check_card_status'),
     path('check-su', views.check_superuser_status, name='check_su'),
     path('register-staff', views.register_staff, name='register_staff'),
+    path('orders-progress', views.order_progress, name='order_progress'),
 ]

@@ -29,8 +29,6 @@ def dom_image_colors(request):
 def tts(request):
     # This requires FFMPEG installed. Download it here: https://ffmpeg.org/download.html
     
-    path = os.environ.get('PATH')
-    print(path)
     # Get the text from query params
     text = request.GET.get('text', 'Hello')
 
