@@ -146,7 +146,6 @@ def pos(request):
         order = body["order"]
         instructions = body["instructions"]
         is_to_go = body["toGo"]
-        print(is_to_go)
         dish_counts = Counter(order)
         new_order = Order(special_instructions=instructions, to_go_order=is_to_go)
         new_order.table = body["table"] if body["table"].strip() != '' else None
@@ -497,6 +496,7 @@ def collect_order(order):
         'order_id': order.id,
         'dishes': dishes_data,
         'table':order.table,
+        'to_go_order':order.to_go_order,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat()
     })

@@ -24,6 +24,13 @@
                 </div>
             </div>
             <div>
+                <h3>
+                    {% if order.to_go_order %}
+                    <span class="material-symbols-outlined">takeout_dining</span> Order to-go
+                    {% else %}
+                    <span class="material-symbols-outlined">restaurant</span> Order for here
+                    {% endif %}
+                </h3>
                 <ul>
                     {% for item in order.dishes %}
                         {% if item.station == "kitchen" %}

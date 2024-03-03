@@ -38,6 +38,11 @@
     gap: .5rem;
 }
 
+.order h3 {
+    display: flex;
+    gap: 1rem;
+}
+
 .order ul {
     margin: 0;
 }

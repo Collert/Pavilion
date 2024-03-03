@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderId = data.order_id;
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
         newOrder.dataset.orderid = orderId;
+        console.log(data)
         newOrder.innerHTML = `<div class="summary">
                                     <h2>Order #${data.order_id}</h2>
                                     <div class="name-time">
@@ -43,6 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
                                     </div>
                                 </div>
                                 <div>
+                                    <h3>
+                                        ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> Order to-go" : "<span class='material-symbols-outlined'>restaurant</span> Order for here"}
+                                    </h3>
                                     <ul id="order${data.order_id}ul">
                                         
                                     </ul>
