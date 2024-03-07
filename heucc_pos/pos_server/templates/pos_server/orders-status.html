@@ -35,12 +35,26 @@
         <div id="top">
             <div id="col-1">
                 <h2>In progress</h2>
+                <div>
+                    {% for order in in_progress %}
+                    <span data-bar-done="{{order.bar_done}}" data-order-id="{{order.id}}">
+                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                    </span>
+                    {% endfor %}
+                </div>
             </div>
             <div id="col-2">
                 <h2>Ready for pickup</h2>
+                <div>
+                    {% for order in ready %}
+                    <span data-bar-done="{{order.bar_done}}" data-dishQty="{{order.dishes.all|length}}" data-dish="{{order.dishes.first.title}}" data-order-id="{{order.id}}">
+                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                    </span>
+                    {% endfor %}
+                </div>
             </div>
             <div id="col-3">
-                col 3
+                
             </div>
         </div>
         <div id="bottom">
@@ -54,7 +68,7 @@
             </div>
             <div id="player">
                 <div id="player-art">
-                    <img src="https://img.youtube.com/vi/Ucmo6hDZRSY/default.jpg">
+                    <img src="{% static 'pos_server/no album art placeholder.png' %}">
                 </div>
                 <div id="player-title">
                     <span id="song-title">Nothing</span>
@@ -76,15 +90,16 @@
         </div>
     </main>
     <dialog id="player-controls">
-        <input type="text" id="youtubeLinkInput" placeholder="Paste YouTube link here">
-        <button id="loadVideo">Load music</button>
-        <div id="YT-player"></div>
+        <div>
+            <button id="test-tts">Play test TTS</button>
+            <div>
+                <input type="text" id="youtubeLinkInput" placeholder="Paste YouTube link here">
+                <button id="loadVideo">Load music</button>
+            </div>
+            <div id="YT-player"></div>
+        </div>
     </dialog>
     <script>
-        if (sessionStorage.getItem("fsReminderDone") !== "true") {
-            alert("Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)");
-            sessionStorage.setItem("fsReminderDone", "true");
-        }
 
         const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');
 
@@ -117,7 +132,9 @@
     </script>
     <script> 
         const APIKey = "{{weather_API_key}}"
-        const eventSource = new EventSource("{% url 'order_updates' %}"); 
+        const newOrders = new EventSource("{% url 'order_updates' %}"); 
+        const updatedOrders = new EventSource("{% url 'kitchen_updates' %}"); 
+        // const finishedOrders = new EventSource("{% url 'kitchen_completions' %}"); 
     </script>
     <script type="module" src="{% static 'pos_server/orders-status.js' %}"></script>
 </body>

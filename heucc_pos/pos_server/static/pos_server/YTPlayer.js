@@ -7,6 +7,7 @@ let playerDialog;
 let videoUrlDiv;
 let songProgress;
 let songDuration;
+let prevVidBlocked = false;
 
 function createYouTubePlayer(id, isPlaylist) {
     if (!window.YT) { // If YT is not loaded yet
@@ -63,14 +64,19 @@ function onPlayerStateChange(event) {
         document.querySelector('#wiggle-cont').classList.remove('paused');
         UIUpdateInterval = setInterval(updateProgressBar, 500);
     }
-    if (event.data == YT.PlayerState.UNSTARTED) {
+    if (event.data == YT.PlayerState.UNSTARTED || prevVidBlocked) {
+        prevVidBlocked = false;
         setTimeout(() => {
             const videoData = player.getVideoData()
-            console.log(videoData)
-            albumArt.src = `https://img.youtube.com/vi/${videoData.video_id}/default.jpg`
-            songTitleDiv.textContent = videoData.title;
-            songAuthorDiv.textContent = videoData.author.replace(" - Topic", "");
-            songDuration.innerText = formatSeconds(parseInt(player.getDuration()));
+            if (videoData.errorCode) {
+                prevVidBlocked = true;
+                player.nextVideo()
+            } else {
+                albumArt.src = `https://img.youtube.com/vi/${videoData.video_id}/default.jpg`
+                songTitleDiv.textContent = videoData.title;
+                songAuthorDiv.textContent = videoData.author.replace(" - Topic", "");
+                songDuration.innerText = formatSeconds(parseInt(player.getDuration()));
+            }
         }, 1000);
     }
 }

@@ -30,6 +30,7 @@ from pos_server.decorators import local_network_only
 from inventory.views import craft_component
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
+from django.db.models import Q
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -73,7 +74,7 @@ def kitchen(request):
     if request.method == "GET":
         today = timezone.localdate()
         # Fetch all orders
-        orders = Order.objects.filter(kitchen_done=False, timestamp__date=today)
+        orders = Order.objects.filter(picked_up=False, timestamp__date=today)
 
         # Prepare data for each order
         orders_data = []
@@ -86,6 +87,12 @@ def kitchen(request):
             "portrait" : request.GET.get('portrait', 'false') == 'true'
         })
     elif request.method == "DELETE":
+        order_id = json.loads(request.body)["orderId"]
+        order = Order.objects.get(id=order_id)
+        order.picked_up = True
+        order.save()
+        return JsonResponse({"status":"Order marked done"}, status=200)
+    elif request.method == "PUT":
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.kitchen_done = True
@@ -114,6 +121,8 @@ def bar(request):
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.bar_done = True
+        if order.kitchen_done and not order.kitchen_needed:
+            order.picked_up = True
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     
@@ -149,12 +158,18 @@ def pos(request):
         new_order = Order(special_instructions=instructions)
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save(final=False)
+        new_order.bar_done = True
+        new_order.picked_up = True
+        new_order.kitchen_done = True
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             if dish.station == "bar":
                 new_order.bar_done = False
+                new_order.picked_up = False
             elif dish.station == "kitchen":
                 new_order.kitchen_done = False
+                new_order.kitchen_needed = True
+                new_order.picked_up = False
             for dc in dish.dishcomponent_set.all():
                 if dc.component.self_crafting:
                     craft_component(dc.component.id, 1)
@@ -390,8 +405,13 @@ def register_staff(request):
         })
     
 def order_progress(request):
+    in_progress = Order.objects.filter(kitchen_done=False)
+    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False))
+    print("here")
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
+        "in_progress":in_progress,
+        "ready":ready,
         "menu":Menu.objects.get(is_active=True),
         "weather_API_key":settings.WEATHER_API_KEY
     })
@@ -471,6 +491,55 @@ def order_updates(request):
     # response['Cache-Control'] = 'no-cache'
     return response
 
+def kitchen_updates_stream():
+    while True:
+        while globals.kitchen_update_queue:
+            data = globals.kitchen_update_queue[0]
+            order_data_json = json.dumps(collect_order(data))
+            yield f"data: {order_data_json}\n\n"
+            time.sleep(2)
+            try:
+                globals.kitchen_update_queue.remove(data)
+            except:
+                pass
+        while globals.kitchen_done_queue:
+            data = globals.kitchen_done_queue[0]
+            order_data_json = json.dumps(collect_order(data, done=True))
+            yield f"data: {order_data_json}\n\n"
+            time.sleep(2)
+            try:
+                globals.kitchen_done_queue.remove(data)
+            except:
+                pass
+        # Send a heartbeat every X seconds
+        yield ":heartbeat\n\n"
+        time.sleep(1)
+
+def kitchen_updates(request):
+    response = StreamingHttpResponse(kitchen_updates_stream(), content_type='text/event-stream')
+    # response['Cache-Control'] = 'no-cache'
+    return response
+
+def kitchen_completions_stream():
+    while True:
+        while globals.kitchen_done_queue:
+            data = globals.kitchen_done_queue[0]
+            order_data_json = json.dumps(collect_order(data))
+            yield f"data: {order_data_json}\n\n"
+            time.sleep(2)
+            try:
+                globals.kitchen_done_queue.remove(data)
+            except:
+                pass
+        # Send a heartbeat every X seconds
+        yield ":heartbeat\n\n"
+        time.sleep(1)
+
+def kitchen_completions(request):
+    response = StreamingHttpResponse(kitchen_completions_stream(), content_type='text/event-stream')
+    # response['Cache-Control'] = 'no-cache'
+    return response
+
 def stock_update_stream():
     while True:
         while globals.stock_updated:
@@ -486,7 +555,7 @@ def stock_updates(request):
     # response['Cache-Control'] = 'no-cache'
     return response
 
-def collect_order(order):
+def collect_order(order, done=False):
     # Fetch related OrderDish instances for each order
     order_dishes = OrderDish.objects.filter(order=order)
 
@@ -503,6 +572,10 @@ def collect_order(order):
         'dishes': dishes_data,
         'table':order.table,
         "special_instructions": order.special_instructions,
-        "timestamp":order.timestamp.isoformat()
+        "timestamp":order.timestamp.isoformat(),
+        "kitchen_done":order.kitchen_done,
+        "kitchen_needed":order.kitchen_needed,
+        "done":done,
+        "bar_done":order.bar_done,
+        "picked_up":order.picked_up,
     })
-

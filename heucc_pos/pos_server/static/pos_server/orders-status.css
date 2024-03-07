@@ -4,21 +4,25 @@
     display: grid;
 }
 
+
 #col-1,
-#col-2 {
+#col-2,
+#col-1 > div,
+#col-2 > div {
     display: flex;
     flex-wrap: wrap;
     flex-direction: column;
     align-items: center;
     height: 100%;
     gap: .5rem;
+    width: 100%;
     overflow: auto;
 }
 
-/* #col-1 > span,
-#col-2 > span {
-    flex: 0 1 50px;
-} */
+#col-1,
+#col-2 {
+    flex-wrap: nowrap;
+}
 
 body {
     margin: 0;
@@ -163,7 +167,7 @@ body {
 
 #player-art img {
     max-height: 112%;
-    object-fit: none;
+    object-fit: contain;
     overflow: hidden;
     display: block;
     clip-path: inset(12% 21% 12% 21%);
@@ -183,4 +187,58 @@ body {
 
 #player-time {
     place-items: center;
+}
+
+#player-controls > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+#col-1 span,
+#col-2 span {
+    overflow: hidden;
+}
+
+#col-1 span.remove > span,
+#col-2 span.remove > span {
+    animation: gone 500ms ease forwards;
+}
+
+#col-1 span > span,
+#col-2 span > span {
+    display: inline-block;
+    font-size: xx-large;
+    font-weight: 500;
+    animation: status-appear 1s ease;
+}
+
+#col-2 span > span {
+    animation: status-appear 1s ease, flash 1s linear 1s 5;
+}
+
+@keyframes flash {
+    from, to, 49% {color: var(--primary-accent);}
+    50%, 99% {color: var(--success-color);}
+}
+@keyframes status-appear {
+    from {
+        transform: translateY(100%);
+    } 75% {
+        transform: translateY(-15%);
+    } to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes gone {
+    from {
+        transform: translateY(0);
+    } 25% {
+        transform: translateY(-15%);
+    } to {
+        transform: translateY(100%);
+    }
+    
 }

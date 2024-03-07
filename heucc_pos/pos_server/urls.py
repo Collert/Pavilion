@@ -22,4 +22,6 @@ urlpatterns = [
     path('check-su', views.check_superuser_status, name='check_su'),
     path('register-staff', views.register_staff, name='register_staff'),
     path('orders-progress', views.order_progress, name='order_progress'),
+    path('kitchen_updates', views.kitchen_updates, name='kitchen_updates'),
+    path('kitchen_completions', views.kitchen_completions, name='kitchen_completions'),
 ]

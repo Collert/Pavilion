@@ -66,10 +66,13 @@
 }
 
 .order.success,
-.order.success > * {
-    transition: background-color 100ms ease;
-    background-color: var(--success-color);
+.order.success * {
+    transition: all 100ms ease;
     border-color: var(--success-color);
+}
+.order.selected.success,
+.order.selected.success * {
+    background-color: var(--success-color);
 }
 
 .order.disappear {

@@ -1,7 +1,10 @@
 import setClock from "./clock.js";
 import weatherIcons from "./weatherCodes.json" assert { type: "json" };
 
-const announcements = [
+const inProgressCol = document.querySelector("#col-1 div");
+const readyCol = document.querySelector("#col-2 div");
+
+const namedAnnouncements = [
     "${name}, your order is ready to go!",
     "${name}, your meal is all set!",
     "${name}, your food is up and ready!",
@@ -24,11 +27,23 @@ const announcements = [
     "${name}, scoop it up! Your order is ready."
 ]
 
+const noNameAnnouncements = [
+    "Order #${name}, featuring your delicious ${dishName}, is ready to go!",
+    "Heads up! Order #${name} with the tasty ${dishName} is ready.",
+    "Your order (#${name}), starring the ${dishName}, is now ready!",
+    "Good news! Your ${dishName} in order #${name} is ready for pickup.",
+    "Order #${name}, including your chosen ${dishName}, is all set and ready!",
+    "Get excited! Your ${dishName} in order #${name} is hot and ready.",
+    "Ready for pickup: Order #${name} with the amazing ${dishName}.",
+    "It's time: Order #${name}, featuring ${dishName}, is ready to be enjoyed.",
+    "Order #${name}, with the scrumptious ${dishName}, is now ready for you!",
+    "Ding! Your ${dishName} in order #${name} is cooked to perfection and ready."
+]
+
 const clock = document.querySelector("#clock");
 getLocation();
 getWeather(window.sessionStorage.getItem("latitude"), window.sessionStorage.getItem("longitude"));
 setClock(clock);
-
 
 function updateWeather(weather) {
     const icon = document.querySelector("#weather-icon");
@@ -91,9 +106,24 @@ function showPosition(position) {
     window.sessionStorage.setItem("longitude", position.coords.longitude)
 }
 
-async function announceOrderReady(name) {
+async function announceOrderReady(order) {
+    let curVol;
+    if (player && player.setVolume) {
+        curVol = player.getVolume();
+        player.setVolume(0.2 * curVol);
+    }
+    TTSMessage(generateAnnouncement(order))
+    .then(() => {
+        if (player && player.setVolume) {
+            player.setVolume(curVol)
+        }
+    })
+}
+
+async function TTSMessage (text) {
+    let url = `/utils/tts?text=${encodeURIComponent(text)}`
     try {
-        const response = await fetch(`/utils/tts${generateAnnouncementUrl(name)}`, {
+        const response = await fetch(url, {
         method: 'GET',
         headers: {
             'Accept': 'audio/mpeg',
@@ -103,26 +133,113 @@ async function announceOrderReady(name) {
         throw new Error('Network response was not ok');
         }
         const audioBlob = await response.blob();
-        playAudioBlob(audioBlob);
+        await playAudioBlob(audioBlob);
     } catch (error) {
         console.error('There was a problem with the fetch operation:', error);
     }
 }
 
 function playAudioBlob(audioBlob) {
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    audio.play().catch(e => console.error("Error playing audio:", e));
+    return new Promise((resolve, reject) => {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        audio.onended = () => {
+            resolve(); // Resolve the promise when audio playback ends
+        };
+
+        audio.onerror = (e) => {
+            reject("Error playing audio: " + e.error); // Reject the promise on error
+        };
+
+        audio.play().catch(e => {
+            console.error("Error playing audio:", e);
+            reject(e); // Also reject the promise if play() catches an error
+        });
+    });
 }
 
-function generateAnnouncementUrl(personName) {
-    // Replace "name" placeholder with the actual name provided
-    const personalizedAnnouncements = announcements.map(announcement => announcement.replace(/\${name}/g, personName));
-    // Pick a random announcement
-    const randomAnnouncement = personalizedAnnouncements[Math.floor(Math.random() * personalizedAnnouncements.length)];
-    // Encode the announcement for URL
-    return `?text=${encodeURIComponent(randomAnnouncement)}`;
+function generateAnnouncement(order) {
+    let announcement;
+    if (order.table) {
+        const template = namedAnnouncements[Math.floor(Math.random() * namedAnnouncements.length)];
+        announcement = template.replace(/\${name}/g, order.table);
+    } else {
+        const template = noNameAnnouncements[Math.floor(Math.random() * noNameAnnouncements.length)];
+        announcement = template.replace(/\${name}/g, order.order_id);
+        announcement = announcement.replace(/\${dishName}/g, order.dishes.length === 1 ? order.dishes[0].name : `${order.dishes[0].name} and more`);
+    }
+    return announcement;
 }
+
+newOrders.addEventListener("message", e => {
+    const data = JSON.parse(e.data);
+    if (!data.kitchen_needed) {return}
+    console.log("recieved")
+    // console.log(data)
+    const newOrder = document.createElement("span");
+    const text = document.createElement("span");
+    text.textContent = data.table ? data.table : `Order #${data.order_id}`;
+    newOrder.appendChild(text)
+    newOrder.dataset.orderId = data.order_id;
+    inProgressCol.appendChild(newOrder);
+})
+
+updatedOrders.addEventListener("message", e => {
+    const data = JSON.parse(e.data);
+    if (!data.kitchen_needed) {return}
+    const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
+    if (data.done) {
+        try {
+            console.log("finished")
+            oldOrder.classList.add("remove");
+            setTimeout(() => {
+                readyCol.removeChild(oldOrder)
+            }, 500);
+            return
+        } catch (error) {}
+    }
+    console.log("ready")
+    const newOrder = document.createElement("span");
+    const text = document.createElement("span");
+    text.textContent = data.table ? data.table : `Order #${data.order_id}`;
+    newOrder.appendChild(text)
+    newOrder.dataset.orderId = data.order_id;
+    newOrder.dataset.dishQty = data.dishes.length;
+    newOrder.dataset.dish = data.dishes[0].name;
+    newOrder.dataset.barDone === data.bar_done
+    oldOrder.classList.add("remove");
+    setTimeout(() => {
+        inProgressCol.removeChild(oldOrder)
+    }, 500);
+    readyCol.appendChild(newOrder);
+    announceOrderReady(data)
+})
+
+// finishedOrders.addEventListener("message", e => {
+//     const data = JSON.parse(e.data);
+//     // console.log(data)
+//     if (!data.kitchen_needed) {return}
+//     const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
+//     oldOrder.classList.add("remove");
+//     setTimeout(() => {
+//         readyCol.removeChild(oldOrder)
+//     }, 500);
+// })
+
+if (sessionStorage.getItem("fsReminderDone") !== "true") {
+    alert(`
+    Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)
+    Controls:
+    
+    Press 1 to open the music player controls
+    `)
+    sessionStorage.setItem("fsReminderDone", "true");
+} 
+
+document.querySelector("#test-tts").addEventListener("click", () => {
+    TTSMessage("This is what the announcements will sound like. Use this sound right now to set the volume to a good level. Here's some more speech: Lalalalalalalalala")
+})
 
 // setTimeout(() => {
 //     announceOrderReady("Rosmery")
