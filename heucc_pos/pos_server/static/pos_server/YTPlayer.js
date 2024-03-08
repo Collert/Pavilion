@@ -1,3 +1,5 @@
+// import { generateCSSFilter, ErrorThresholds } from "./CSSImageColorizer.js";
+
 let player;
 let UIUpdateInterval;
 let albumArt;
@@ -163,6 +165,18 @@ document.addEventListener("DOMContentLoaded", () => {
     videoUrlDiv = document.querySelector("#youtubeLinkInput");
     songProgress = document.querySelector("#cur-time");
     songDuration = document.querySelector("#total-time");
+    let loss, values;
+    let filter = sessionStorage.getItem("CSSFilter")
+    const style = getComputedStyle(document.body)
+    
+    if (!filter) {
+        while (true) {
+            ({filter, loss, values} = generateCSSFilter(style.getPropertyValue('--accent-2')))
+            if (loss <= ErrorThresholds.PERFECT) {break};
+        }
+        sessionStorage.setItem("CSSFilter", filter);
+    }
+    document.querySelector(".slider-wiggle").setAttribute("style", filter)
 
     document.getElementById('loadVideo').addEventListener('click', () => {
         const videoUrl = videoUrlDiv.value;
@@ -174,3 +188,46 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 })
+
+// function hexToHSL(hex) {
+//     // Convert hex to RGB first
+//     let r = 0, g = 0, b = 0;
+//     if (hex.length == 4) {
+//         r = parseInt(hex[1] + hex[1], 16);
+//         g = parseInt(hex[2] + hex[2], 16);
+//         b = parseInt(hex[3] + hex[3], 16);
+//     } else if (hex.length == 7) {
+//         r = parseInt(hex[1] + hex[2], 16);
+//         g = parseInt(hex[3] + hex[4], 16);
+//         b = parseInt(hex[5] + hex[6], 16);
+//     }
+
+//     // Then to HSL
+//     r /= 255;
+//     g /= 255;
+//     b /= 255;
+//     const max = Math.max(r, g, b), min = Math.min(r, g, b);
+//     let h, s, l = (max + min) / 2;
+
+//     if (max == min) {
+//         h = s = 0; // achromatic
+//     } else {
+//         const d = max - min;
+//         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+//         switch (max) {
+//             case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+//             case g: h = (b - r) / d + 2; break;
+//             case b: h = (r - g) / d + 4; break;
+//         }
+//         h /= 6;
+//     }
+
+//     return [h * 360, s, l]; // Convert to degrees, percentages
+// }
+
+// const ac2 = hexToHSL("#ac774e")
+// const red = hexToHSL("#ff0000")
+// console.log(ac2)
+// console.log(red)
+
+// console.log(`Differences: ${[ac2[0]-red[0], ac2[1]-red[1], ac2[2]-red[2]]}`)
