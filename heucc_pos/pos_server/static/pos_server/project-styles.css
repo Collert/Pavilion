@@ -7,6 +7,7 @@
 @import url("dashboard.css");
 @import url("pos-output.css");
 @import url("register-staff.css");
+@import url("orders-status.css");
 
 html {
     font-family: 'Noto Sans Display', sans-serif;

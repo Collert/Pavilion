@@ -1,0 +1,142 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'pos_server/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'pos_server/project-styles.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <script src="{% static 'pos_server/CSSImageColorizer.js' %}"></script>
+    <script src="{% static 'pos_server/YTPlayer.js' %}"></script>
+    <title>HEUCC Restaurant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+        :root {
+            --song-progress: 0%;
+            --primary-background: {{menu.background_color}};
+            --accent-1: {{menu.accent_1}};
+            --accent-2: {{menu.accent_2}};
+            --accent-3: {{menu.accent_3}};
+        }
+    </style>
+</head>
+<body>
+    <main id="{{route}}">
+        <div id="top">
+            <div id="col-1">
+                <h2>In progress</h2>
+                <div>
+                    {% for order in in_progress %}
+                    <span data-bar-done="{{order.bar_done}}" data-order-id="{{order.id}}">
+                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div id="col-2">
+                <h2>Ready for pickup</h2>
+                <div>
+                    {% for order in ready %}
+                    <span data-bar-done="{{order.bar_done}}" data-dishQty="{{order.dishes.all|length}}" data-dish="{{order.dishes.first.title}}" data-order-id="{{order.id}}">
+                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div id="col-3">
+                
+            </div>
+        </div>
+        <div id="bottom">
+            <div id="clock"></div>
+            <div id="weather">
+                <span id="weather-icon" class="material-symbols-outlined">rainy</span>
+                <div>
+                    <span id="temp"></span>
+                    <span id="condition"></span>
+                </div>
+            </div>
+            <div id="player">
+                <div id="player-art">
+                    <img src="{% static 'pos_server/no album art placeholder.png' %}">
+                </div>
+                <div id="player-title">
+                    <span id="song-title">Nothing</span>
+                    <span id="song-author">Is playing</span>
+                </div>
+                <div class="slider-container">
+                    <div id="wiggle-cont">
+                        <div class="slider-wiggle"></div>
+                    </div>
+                    <div id="line-cont">
+                        <div class="slider-line"></div>
+                    </div>
+                    <div class="pill"></div>
+                </div>
+                <div id="player-time">
+                    <span><span id="cur-time">00:00</span> / <span id="total-time">00:00</span></span>
+                </div>
+            </div>
+        </div>
+    </main>
+    <dialog id="player-controls">
+        <div>
+            <button id="test-tts">Play test TTS</button>
+            <div>
+                <input type="text" id="youtubeLinkInput" placeholder="Paste YouTube link here">
+                <button id="loadVideo">Load music</button>
+            </div>
+            <div id="YT-player"></div>
+        </div>
+    </dialog>
+    <script>
+
+        const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');
+
+        document.documentElement.style.setProperty('--primary-contrast', invertColor(bg));
+
+        function invertColor(hex) {
+            if (hex.indexOf('#') === 0) {
+                hex = hex.slice(1, 7);
+            }
+            // convert 3-digit hex to 6-digits.
+            if (hex.length === 3) {
+                hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            }
+            if (hex.length !== 6) {
+                throw new Error('Invalid HEX color.');
+            }
+            // invert color components
+            var r = (255 - parseInt(hex.slice(0, 2), 16)).toString(16),
+                g = (255 - parseInt(hex.slice(2, 4), 16)).toString(16),
+                b = (255 - parseInt(hex.slice(4, 6), 16)).toString(16);
+            // pad each with zeros and return
+            return '#' + padZero(r) + padZero(g) + padZero(b);
+        }
+
+        function padZero(str, len) {
+            len = len || 2;
+            var zeros = new Array(len).join('0');
+            return (zeros + str).slice(-len);
+        }
+    </script>
+    <script> 
+        const APIKey = "{{weather_API_key}}"
+        const newOrders = new EventSource("{% url 'order_updates' %}"); 
+        const updatedOrders = new EventSource("{% url 'kitchen_updates' %}"); 
+        // const finishedOrders = new EventSource("{% url 'kitchen_completions' %}"); 
+    </script>
+    <script type="module" src="{% static 'pos_server/orders-status.js' %}"></script>
+</body>
+</html>

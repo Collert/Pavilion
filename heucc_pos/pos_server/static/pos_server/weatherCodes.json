@@ -1,0 +1,290 @@
+[
+	{
+		"code" : 1000,
+		"day" : "clear_day",
+		"night" : "clear_night",
+		"icon" : 113
+	},
+	{
+		"code" : 1003,
+		"day" : "partly_cloudy_day",
+		"night" : "partly_cloudy_night",
+		"icon" : 116
+	},
+	{
+		"code" : 1006,
+		"day" : "cloud",
+		"night" : "cloud",
+		"icon" : 119
+	},
+	{
+		"code" : 1009,
+		"day" : "cloud",
+		"night" : "cloud",
+		"icon" : 122
+	},
+	{
+		"code" : 1030,
+		"day" : "mist",
+		"night" : "mist",
+		"icon" : 143
+	},
+	{
+		"code" : 1063,
+		"day" : "weather_mix",
+		"night" : "weather_mix",
+		"icon" : 176
+	},
+	{
+		"code" : 1066,
+		"day" : "weather_mix",
+		"night" : "weather_mix",
+		"icon" : 179
+	},
+	{
+		"code" : 1069,
+		"day" : "weather_mix",
+		"night" : "weather_mix",
+		"icon" : 182
+	},
+	{
+		"code" : 1072,
+		"day" : "weather_mix",
+		"night" : "weather_mix",
+		"icon" : 185
+	},
+	{
+		"code" : 1087,
+		"day" : "thunderstorm",
+		"night" : "thunderstorm",
+		"icon" : 200
+	},
+	{
+		"code" : 1114,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 227
+	},
+	{
+		"code" : 1117,
+		"day" : "severe_cold",
+		"night" : "severe_cold",
+		"icon" : 230
+	},
+	{
+		"code" : 1135,
+		"day" : "foggy",
+		"night" : "foggy",
+		"icon" : 248
+	},
+	{
+		"code" : 1147,
+		"day" : "foggy",
+		"night" : "foggy",
+		"icon" : 260
+	},
+	{
+		"code" : 1150,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 263
+	},
+	{
+		"code" : 1153,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 266
+	},
+	{
+		"code" : 1168,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 281
+	},
+	{
+		"code" : 1171,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 284
+	},
+	{
+		"code" : 1180,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 293
+	},
+	{
+		"code" : 1183,
+		"day" : "rainy_light",
+		"night" : "rainy_light",
+		"icon" : 296
+	},
+	{
+		"code" : 1186,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 299
+	},
+	{
+		"code" : 1189,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 302
+	},
+	{
+		"code" : 1192,
+		"day" : "rainy_heavy",
+		"night" : "rainy_heavy",
+		"icon" : 305
+	},
+	{
+		"code" : 1195,
+		"day" : "rainy_heavy",
+		"night" : "rainy_heavy",
+		"icon" : 308
+	},
+	{
+		"code" : 1198,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 311
+	},
+	{
+		"code" : 1201,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 314
+	},
+	{
+		"code" : 1204,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 317
+	},
+	{
+		"code" : 1207,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 320
+	},
+	{
+		"code" : 1210,
+		"day" : "sunny_snowing",
+		"night" : "sunny_snowing",
+		"icon" : 323
+	},
+	{
+		"code" : 1213,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 326
+	},
+	{
+		"code" : 1216,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 329
+	},
+	{
+		"code" : 1219,
+		"day" : "ac_unit",
+		"night" : "ac_unit",
+		"icon" : 332
+	},
+	{
+		"code" : 1222,
+		"day" : "ac_unit",
+		"night" : "ac_unit",
+		"icon" : 335
+	},
+	{
+		"code" : 1225,
+		"day" : "snowing_heavy",
+		"night" : "snowing_heavy",
+		"icon" : 338
+	},
+	{
+		"code" : 1237,
+		"day" : "ac_unit",
+		"night" : "ac_unit",
+		"icon" : 350
+	},
+	{
+		"code" : 1240,
+		"day" : "rainy",
+		"night" : "rainy",
+		"icon" : 353
+	},
+	{
+		"code" : 1243,
+		"day" : "rainy_heavy",
+		"night" : "rainy_heavy",
+		"icon" : 356
+	},
+	{
+		"code" : 1246,
+		"day" : "rainy_heavy",
+		"night" : "rainy_heavy",
+		"icon" : 359
+	},
+	{
+		"code" : 1249,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 362
+	},
+	{
+		"code" : 1252,
+		"day" : "weather_hail",
+		"night" : "weather_hail",
+		"icon" : 365
+	},
+	{
+		"code" : 1255,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 368
+	},
+	{
+		"code" : 1258,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 371
+	},
+	{
+		"code" : 1261,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 374
+	},
+	{
+		"code" : 1264,
+		"day" : "weather_snowy",
+		"night" : "weather_snowy",
+		"icon" : 377
+	},
+	{
+		"code" : 1273,
+		"day" : "thunderstorm",
+		"night" : "thunderstorm",
+		"icon" : 386
+	},
+	{
+		"code" : 1276,
+		"day" : "thunderstorm",
+		"night" : "thunderstorm",
+		"icon" : 389
+	},
+	{
+		"code" : 1279,
+		"day" : "thunderstorm",
+		"night" : "thunderstorm",
+		"icon" : 392
+	},
+	{
+		"code" : 1282,
+		"day" : "thunderstorm",
+		"night" : "thunderstorm",
+		"icon" : 395
+	}
+]
