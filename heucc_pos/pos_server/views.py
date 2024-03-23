@@ -294,6 +294,8 @@ def compile_menu(menu):
             if dc.component.type == "food":
                 if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
                     quantity_str = "a bowl of "
+                elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
+                        quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
                 else:
                     if dc.quantity == 1:
                         quantity_str = ""
@@ -308,7 +310,7 @@ def compile_menu(menu):
                     quantity_str = f"{int(dc.quantity)} cups of "
             final_dish["components"] += f"{quantity_str}"
             final_dish["components"] += f"{dc.component.title.lower()}"
-            if dc.quantity > 1 and not dc.component.type == 'beverage':
+            if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
                 final_dish["components"] += "s"
             if dc.component.inventory < dc.quantity:
                 # final_dish["components"] += "*"
