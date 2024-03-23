@@ -47,6 +47,8 @@ class Order(models.Model):
     bar_done = models.BooleanField(default=False)
     picked_up = models.BooleanField(default=False)
     special_instructions = models.TextField(null=True)
+    to_go_order = models.BooleanField(default=False)
+    final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
 
     def send_to_display(self):
         print(self.dishes.all())

@@ -58,7 +58,9 @@ cashInDialog.querySelector("form").addEventListener("submit", e => {
     const customerName = document.querySelector("[name='customer-name']").value;
     const specialInstructions = document.querySelector("[name='special-instructions']").value;
     const link = e.currentTarget.action;
-    sendOrder(link, customerName, specialInstructions);
+    console.log(document.querySelector("[name='here-to-go']:checked").value)
+    const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
+    sendOrder(link, customerName, specialInstructions, toGo);
     document.querySelector("[name='customer-name']").value = '';
     document.querySelector("[name='special-instructions']").value = '';
     e.currentTarget.querySelector("[name='cash-provided']").value = '';
@@ -86,7 +88,8 @@ cardButton.addEventListener("click", e => {
             if (status === "COMPLETED") {
                 const customerName = document.querySelector("[name='customer-name']").value;
                 const specialInstructions = document.querySelector("[name='special-instructions']").value;
-                sendOrder(actionLink, customerName, specialInstructions);
+                const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
+                sendOrder(actionLink, customerName, specialInstructions, toGo);
                 document.querySelector("[name='customer-name']").value = '';
                 document.querySelector("[name='special-instructions']").value = '';
             }
@@ -168,23 +171,23 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
 })
 
 eventSource.onmessage = function(e) {
-    if (order.length) {
-        alert("Item availability updated, the page will now refresh...")
-    }
-    console.log(e.data)
     if (e.data === "DISH") {
+        if (order.length) {
+            alert("Item availability updated, the page will now refresh...")
+        }
         location.reload()
     }
 };
 
-function sendOrder(actionLink, customerName, instructions) {
+function sendOrder(actionLink, customerName, instructions, toGo) {
     fetch(actionLink, {
         headers: {"X-CSRFToken": csrftoken },
         method:'POST',
         body: JSON.stringify({
             order:order,
             table:customerName,
-            instructions:instructions
+            instructions:instructions,
+            toGo:toGo
         })
     }).then(()=>{
         order = []

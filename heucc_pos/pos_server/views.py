@@ -154,8 +154,9 @@ def pos(request):
         body = json.loads(request.body)
         order = body["order"]
         instructions = body["instructions"]
+        is_to_go = body["toGo"]
         dish_counts = Counter(order)
-        new_order = Order(special_instructions=instructions)
+        new_order = Order(special_instructions=instructions, to_go_order=is_to_go)
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save(final=False)
         new_order.bar_done = True
@@ -308,6 +309,8 @@ def compile_menu(menu):
             if dc.component.type == "food":
                 if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
                     quantity_str = "a bowl of "
+                elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
+                        quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
                 else:
                     if dc.quantity == 1:
                         quantity_str = ""
@@ -322,7 +325,7 @@ def compile_menu(menu):
                     quantity_str = f"{int(dc.quantity)} cups of "
             final_dish["components"] += f"{quantity_str}"
             final_dish["components"] += f"{dc.component.title.lower()}"
-            if dc.quantity > 1 and not dc.component.type == 'beverage':
+            if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
                 final_dish["components"] += "s"
             if dc.component.inventory < dc.quantity:
                 # final_dish["components"] += "*"
@@ -571,6 +574,7 @@ def collect_order(order, done=False):
         'order_id': order.id,
         'dishes': dishes_data,
         'table':order.table,
+        'to_go_order':order.to_go_order,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
         "kitchen_done":order.kitchen_done,

@@ -135,3 +135,36 @@ main#pos {
     display: flex;
     justify-content: center;
 }
+
+#here-to-go {
+    display: flex;
+    justify-content: center;
+}
+
+#here-to-go input[type="radio"] {
+    display: none;
+}
+
+#here-to-go input[type="radio"] + label {
+    display: inline-block;
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    transition: all 200ms ease;
+    padding: .5rem 1rem;
+    cursor: pointer;
+}
+
+.here-to-go-label:nth-child(2) {
+    border-radius: 100vh 0 0 100vh;
+}
+
+.here-to-go-label:nth-child(4) {
+    border-radius: 0 100vh 100vh 0;
+}
+
+#here-to-go input[type="radio"]:checked + label {
+    background-color: var(--primary-contrast);
+    color: var(--primary-background);
+    border-color: var(--primary-contrast);
+}

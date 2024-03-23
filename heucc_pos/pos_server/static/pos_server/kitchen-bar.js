@@ -48,6 +48,9 @@ document.addEventListener("DOMContentLoaded", () => {
                                     </div>
                                 </div>
                                 <div>
+                                    <h3>
+                                        ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> Order to-go" : "<span class='material-symbols-outlined'>restaurant</span> Order for here"}
+                                    </h3>
                                     <ul id="order${data.order_id}ul">
                                         
                                     </ul>
