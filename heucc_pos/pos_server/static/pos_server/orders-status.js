@@ -61,7 +61,7 @@ function updateWeather(weather) {
 
 function getWeather(latitude, longitude) {
     if (latitude && longitude) {
-        const url = `http://api.weatherapi.com/v1/current.json?key=${APIKey}&q=${latitude},${longitude}&aqi=no`
+        const url = `https://api.weatherapi.com/v1/current.json?key=${APIKey}&q=${latitude},${longitude}&aqi=no`
     
         fetch(url)
         .then(response => response.json())
