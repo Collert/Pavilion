@@ -26,6 +26,7 @@ SQUARE_ENVIRONMENT = os.getenv('SQUARE_ENVIRONMENT')
 SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
+WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
