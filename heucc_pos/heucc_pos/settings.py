@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from django.urls import reverse_lazy
+import socket
 
 load_dotenv()
 
@@ -135,6 +136,11 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+if 'local.internal.uahelp.ca' in socket.gethostname().lower():
+    SECURE_PROXY_SSL_HEADER = None
+else:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 if os.getenv('ENVIRONMENT') == "production":
     LOGGING = {
