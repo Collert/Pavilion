@@ -1,5 +1,10 @@
 const pathSegments = new URL(window.location.href).pathname.split('/');
 const station = pathSegments[pathSegments.length-1];
+let prevOrderId;
+try {
+    let orders = $0.querySelectorAll(".order")
+    prevOrderId = parseInt(orders[orders.length-1].dataset.orderid)
+} catch {}
 
 document.addEventListener("DOMContentLoaded", () => {
     try {document.querySelector(".order").classList.add("selected");} catch (error) {}
@@ -29,6 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (station === "kitchen" && data.kitchen_done) {return} else if (station === "bar" && data.bar_done) {return}
         const existingOrder = document.querySelector(`[data-orderid="${orderId}"]`)
         if (existingOrder) {return}
+        if (prevOrderId && orderId - 1 !== prevOrderId) {
+            window.location.reload()
+        } else {
+            prevOrderId = orderId;
+        }
         // if (!checkRightDishes(data.dishes)) {return}
         if (!cards.length) {
             kitchenDiv.innerHTML = '';
