@@ -34,8 +34,6 @@ WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
