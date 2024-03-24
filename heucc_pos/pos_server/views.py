@@ -491,7 +491,8 @@ def event_stream():
 
 def order_updates(request):
     response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
-    # response['Cache-Control'] = 'no-cache'
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
     return response
 
 def kitchen_updates_stream():
@@ -520,7 +521,8 @@ def kitchen_updates_stream():
 
 def kitchen_updates(request):
     response = StreamingHttpResponse(kitchen_updates_stream(), content_type='text/event-stream')
-    # response['Cache-Control'] = 'no-cache'
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
     return response
 
 def kitchen_completions_stream():
@@ -540,7 +542,8 @@ def kitchen_completions_stream():
 
 def kitchen_completions(request):
     response = StreamingHttpResponse(kitchen_completions_stream(), content_type='text/event-stream')
-    # response['Cache-Control'] = 'no-cache'
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
     return response
 
 def stock_update_stream():
@@ -555,7 +558,8 @@ def stock_update_stream():
 
 def stock_updates(request):
     response = StreamingHttpResponse(stock_update_stream(), content_type='text/event-stream')
-    # response['Cache-Control'] = 'no-cache'
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
     return response
 
 def collect_order(order, done=False):
