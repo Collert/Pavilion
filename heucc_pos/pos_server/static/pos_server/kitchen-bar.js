@@ -24,18 +24,22 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         const data = JSON.parse(e.data);
-        if (!checkRightDishes(data.dishes)) {return}
+        console.log(data)
+        const orderId = data.order_id;
+        if (station === "kitchen" && data.kitchen_done) {return} else if (station === "bar" && data.bar_done) {return}
+        const existingOrder = document.querySelector(`[data-orderid="${orderId}"]`)
+        if (existingOrder) {return}
+        // if (!checkRightDishes(data.dishes)) {return}
         if (!cards.length) {
             kitchenDiv.innerHTML = '';
             selectedIndex = 0;
         }
         const newOrder = document.createElement("div");
-        const orderId = data.order_id;
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
         newOrder.dataset.orderid = orderId;
-        console.log(data)
+        newOrder.dataset.done = false;
         newOrder.innerHTML = `<div class="summary">
-                                    <h2>Order #${data.order_id}</h2>
+                                    <h2>Order #${orderId}</h2>
                                     <div class="name-time">
                                         <span>${data.table ? `Name: ${data.table}` : "No name"}</span>
                                         <span data-timestamp="${data.timestamp}" class="timestamp">
@@ -56,12 +60,10 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
         })
         attachSwipability(newOrder)
-        console.log(newOrder)
         kitchenDiv.appendChild(newOrder)
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
         for (const dish of data.dishes) {
-            console.log(dish)
             if (dish.station === station) {
                 const item = document.createElement("li");
                 item.innerHTML = `${dish.quantity} X ${dish.name}`;
@@ -106,31 +108,53 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     function markOrderDone() {
+        const orderDone = cards[selectedIndex].dataset.done === "True"; // Capital T because that's how they come from python :(
         const orderId = cards[selectedIndex].dataset.orderid;
         freezeDeletion = true;
-        fetch(window.location.href, {
-            headers:{
-                "X-CSRFToken": csrftoken,
-                "Content-Type": "application/json"
-            },
-            method:'DELETE',
-            body: JSON.stringify({
-                orderId:orderId
+        if (orderDone || (!orderDone && station === "bar")) {
+            fetch(window.location.href, {
+                headers:{
+                    "X-CSRFToken": csrftoken,
+                    "Content-Type": "application/json"
+                },
+                method:'DELETE',
+                body: JSON.stringify({
+                    orderId:orderId
+                })
+            }).then(response => {
+                if (response.ok) {
+                    cards[selectedIndex].classList.add("disappear");
+                    setTimeout(() => {
+                        document.querySelector("#kitchen").removeChild(cards[selectedIndex])
+                        cards = document.querySelectorAll(".order");
+                        cards = [...cards]
+                        selectedIndex = 0;
+                        updateSelection(selectedIndex);
+                        freezeDeletion = false;
+                        checkActiveOrders();
+                    }, 400);
+                }
             })
-        }).then(response => {
-            if (response.ok) {
-                cards[selectedIndex].classList.add("disappear");
-                setTimeout(() => {
-                    document.querySelector("#kitchen").removeChild(cards[selectedIndex])
-                    cards = document.querySelectorAll(".order");
-                    cards = [...cards]
-                    selectedIndex = 0;
-                    updateSelection(selectedIndex);
-                    freezeDeletion = false;
-                    checkActiveOrders();
-                }, 400);
-            }
-        })
+        } else {
+            fetch(window.location.href, {
+                headers:{
+                    "X-CSRFToken": csrftoken,
+                    "Content-Type": "application/json"
+                },
+                method:'PUT',
+                body: JSON.stringify({
+                    orderId:orderId
+                })
+            }).then(response => {
+                if (response.ok) {
+                    cards[selectedIndex].classList.add("success");
+                    cards[selectedIndex].dataset.done = "True"; // Capital T because that's how they come from python :(
+                    setTimeout(() => {
+                        freezeDeletion = false;
+                    }, 400);
+                }
+            })
+        }
     }
 
     function updateSelection(newIndex) {

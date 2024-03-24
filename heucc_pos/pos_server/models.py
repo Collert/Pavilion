@@ -2,6 +2,7 @@ from typing import Iterable
 from django.db import models
 from django.utils import timezone
 from inventory.models import Recipe
+from . import globals
 
 # Create your models here.
     
@@ -41,11 +42,18 @@ class Order(models.Model):
     prep_time = models.DurationField(null=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
-    kitchen_done = models.BooleanField(default=True)
-    bar_done = models.BooleanField(default=True)
+    kitchen_done = models.BooleanField(default=False)
+    kitchen_needed = models.BooleanField(default=False)
+    bar_done = models.BooleanField(default=False)
+    picked_up = models.BooleanField(default=False)
     special_instructions = models.TextField(null=True)
     to_go_order = models.BooleanField(default=False)
     final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
+
+    def send_to_display(self):
+        print(self.dishes.all())
+        for dish in self.dishes.all():
+            print(dish)
 
     def save(self, *args, **kwargs):
         if self.bar_done and self.kitchen_done:

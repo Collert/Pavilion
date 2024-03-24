@@ -10,5 +10,6 @@
         "orderdish",
         "Swipability",
         "uahelp"
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "off"
 }

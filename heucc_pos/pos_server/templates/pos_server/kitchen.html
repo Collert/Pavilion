@@ -7,7 +7,7 @@
 {% csrf_token %}
 {% for order in orders %}
     {% if order.dishes|has_kitchen_item %}
-        <div data-orderId="{{order.order_id}}" class="order">
+        <div data-orderId="{{order.order_id}}" data-done="{{order.kitchen_done}}" class="order {% if order.kitchen_done %}success{% endif %}">
             <div class="summary">
                 <h2>Order #{{order.order_id}}</h2>
                 <div class="name-time">
