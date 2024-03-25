@@ -194,7 +194,7 @@ def dashboard(request):
 @login_required
 def day_stats(request):
     if request.GET.get('date'):
-        day = datetime.datetime.strptime(request.GET.get('date'), '%b. %d, %Y')
+        day = datetime.datetime.strptime(request.GET.get('date'), '%B %d, %Y')
         menu = Dish.objects.all()
         orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
         stats = {
