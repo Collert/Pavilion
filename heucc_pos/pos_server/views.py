@@ -18,7 +18,7 @@ from . import globals
 import datetime
 from collections import defaultdict
 import math
-from . import square
+from payments import square
 import configparser
 import os
 from square.utilities.webhooks_helper import is_valid_webhook_event_signature

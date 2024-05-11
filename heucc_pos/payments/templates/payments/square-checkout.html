@@ -1,0 +1,218 @@
+{% load mathfilters %}
+{% csrf_token %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link href="{% static 'gift_cards/layers.css' %}" rel="stylesheet"> -->
+    <link href="{% static 'gift_cards/card.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>UrkVan gift card</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+        #payment-form {
+          display: grid;
+        }
+        #payment-form button {
+          background-color: var(--primary-contrast);
+          color: var(--primary-background);
+          font-weight: 700;
+        }
+        #payment-status-container {
+          font-size: 24px;
+          text-align: center;
+          margin-top: 1rem;
+          width: 30vw;
+        }
+    </style>
+    <script type="text/javascript" src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
+    <script>
+        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const appId = '{{app_id}}';
+        const locationId = '{{location_id}}'; 
+        async function initializeCard(payments) {
+          const card = await payments.card();
+          await card.attach('#card-container'); 
+          return card; 
+        }
+        // Call this function to send a payment token, buyer name, and other details
+        // to the project server code so that a payment can be created with 
+        // Payments API
+        async function createPayment(token) {
+          const body = JSON.stringify({
+            locationId:locationId,
+            token: token,
+            amount:"{{amount}}"
+          });
+          const paymentResponse = await fetch('{% url "process-web-payment" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken  // Ensure CSRF token is sent
+            },
+            body,
+          });
+          if (paymentResponse.ok) {
+            return paymentResponse.json();
+          }
+          const errorBody = await paymentResponse.text();
+          throw new Error(errorBody);
+        }
+
+        // This function tokenizes a payment method. 
+        // The ‘error’ thrown from this async function denotes a failed tokenization,
+        // which is due to buyer error (such as an expired card). It's up to the
+        // developer to handle the error and provide the buyer the chance to fix
+        // their mistakes.
+        async function tokenize(paymentMethod) {
+          const tokenResult = await paymentMethod.tokenize();
+          if (tokenResult.status === 'OK') {
+            return tokenResult.token;
+          } else {
+            let errorMessage = `Tokenization failed-status: ${tokenResult.status}`;
+            if (tokenResult.errors) {
+              errorMessage += ` and errors: ${JSON.stringify(
+                tokenResult.errors
+              )}`;
+            }
+            throw new Error(errorMessage);
+          }
+        }
+
+        // Helper method for displaying the Payment Status on the screen.
+        // status is either SUCCESS or FAILURE;
+        function displayPaymentResults(status, e) {
+          const statusContainer = document.getElementById(
+            'payment-status-container'
+          );
+          if (status === 'SUCCESS') {
+            fetch('{% url "web-payment-window" %}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken  // Ensure CSRF token is sent
+              },
+              body: JSON.stringify({
+                transaction_uuid:"{{transaction.uuid}}"
+              }),
+            });
+            statusContainer.innerText = "Payment successful!"
+            statusContainer.classList.remove('is-failure');
+            statusContainer.classList.add('is-success');
+            setTimeout(() => {
+              parent.postMessage('closeCardPopup', '*');
+            }, 1000);
+          } else {
+            statusContainer.classList.remove('is-success');
+            statusContainer.classList.add('is-failure');
+            statusContainer.innerText = e.message.replace(/'([^']*)'/g, (match, p1) => {
+              switch (p1) {
+                case "GENERIC_DECLINE":
+                  return "Transaction declined";
+                case "CVV_FAILURE":
+                  return "Card CVV is incorrect";
+                case "ADDRESS_VERIFICATION_FAILURE":
+                  return "Card postal code incorrect";
+                case "ADDRESS_VERIFICATION_FAILURE":
+                  return "Card expiration date incorrect";
+                default:
+                  return "Unknown error";
+              }
+            });
+          }
+
+          statusContainer.style.visibility = 'visible';
+        }    
+        document.addEventListener('DOMContentLoaded', async function () {
+          if (!window.Square) {
+            throw new Error('Square.js failed to load properly');
+          }
+
+          const payments = window.Square.payments(appId, locationId);
+          let card;
+          try {
+            card = await initializeCard(payments);
+          } catch (e) {
+            console.error('Initializing Card failed', e);
+            return;
+          }
+
+          async function handlePaymentMethodSubmission(event, paymentMethod) {
+            event.preventDefault();
+
+            try {
+              // disable the submit button as we await tokenization and make a
+              // payment request.
+              cardButton.disabled = true;
+              const token = await tokenize(paymentMethod);
+              const paymentResults = await createPayment(token);
+              if (paymentResults.status === "success") {
+                displayPaymentResults('SUCCESS');
+  
+                console.debug('Payment Success', paymentResults);
+              } else {
+                throw new Error(paymentResults.errors[0].detail)
+              }
+            } catch (e) {
+              cardButton.disabled = false;
+              displayPaymentResults('FAILURE', e);
+              console.error(e.message);
+            }
+          }
+
+          const cardButton = document.getElementById(
+            'card-button'
+          );
+          cardButton.addEventListener('click', async function (event) {
+            await handlePaymentMethodSubmission(event, card);
+          });
+        });
+      
+        // async function handlePaymentMethodSubmission(event) {
+        //   event.preventDefault();
+        //   try {
+        //     const tokenResult = await card.tokenize();
+        //     if (tokenResult.status === 'OK') {
+        //       const token = tokenResult.token;
+        //       // Post the token to your Django backend
+        //       fetch('/process-payment', {
+        //         method: 'POST',
+        //         headers: {
+        //           'Content-Type': 'application/json',
+        //           'X-CSRFToken': csrftoken  // Ensure CSRF token is sent
+        //         },
+        //         body: JSON.stringify({ token: token })
+        //       });
+        //     } else {
+        //       console.error(tokenResult.errors);
+        //     }
+        //   } catch (error) {
+        //     console.error(error);
+        //   }
+        // }
+    </script>
+</head>
+<body>
+  {% if amount %}
+  <form id="payment-form">
+    <div id="card-container"></div>
+    <button id="card-button" type="button">Pay ${{amount|div:100|floatformat:2}}</button>
+    <div id="payment-status-container" style="visibility: hidden;"></div> 
+  </form>
+  {% else %}
+  <h1 style="text-align: center;">Wrong link. Usage: <code> /payments/web-payment-window?amount=AMOUNT_TO_CHARGE</code></h1>
+  {% endif %}
+</body>
+</html>

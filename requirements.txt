@@ -13,3 +13,4 @@ django-mathfilters
 gevent
 gtts
 pydub
+python-barcode

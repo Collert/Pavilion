@@ -3,7 +3,7 @@ from square.client import Client
 import uuid
 from django.http import JsonResponse, HttpResponse
 import json
-from . import globals
+from pos_server import globals
 
 # Initialize the Square client
 square_client = Client(
@@ -63,3 +63,16 @@ def terminal_checkout(request):
     elif response.is_error():
         errors = response.errors
         return JsonResponse({"message":errors}, status=500)
+    
+def create_web_payment(token, amount:float):
+    payments_api = square_client.payments
+    response = payments_api.create_payment({
+        "source_id": token,
+        "amount_money": {
+            "amount": int(amount * 100),
+            "currency": "CAD"
+        },
+        "location_id": settings.SQUARE_LOCATION_ID,
+        "idempotency_key": str(uuid.uuid4())  # Important to avoid duplicate charges
+    })
+    return response

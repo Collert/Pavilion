@@ -26,6 +26,8 @@ urlpatterns = [
     path('restaurant/', include("pos_server.urls")),
     path('utils/', include("misc_tools.urls")),
     path('inventory/', include("inventory.urls")),
+    path('gift-cards/', include("gift_cards.urls")),
+    path('payments/', include("payments.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
