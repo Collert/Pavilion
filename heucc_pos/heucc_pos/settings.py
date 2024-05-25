@@ -49,7 +49,8 @@ ALLOWED_HOSTS = [
     "internal.uahelp.ca", 
     "local.internal.uahelp.ca",
     "be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app",
-    "154.20.173.24"
+    "154.20.173.24",
+    "173.183.117.181"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -58,7 +59,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
     "http://local.internal.uahelp.ca",
-    "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app"
+    "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app",
+    "https://173.183.117.181"
     ]
 
 CORS_ALLOW_ALL_ORIGINS = True
