@@ -31,6 +31,7 @@ from inventory.views import craft_component
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Q
+from django.utils.timezone import make_aware
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -195,6 +196,7 @@ def dashboard(request):
 def day_stats(request):
     if request.GET.get('date'):
         day = datetime.datetime.strptime(request.GET.get('date'), '%B %d, %Y')
+        day = make_aware(day)
         menu = Dish.objects.all()
         orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
         stats = {
@@ -219,6 +221,7 @@ def day_stats(request):
         }
         # Function to round down time to the nearest 15 minutes
         def get_15_min_window(dt):
+            dt = timezone.localtime(dt)
             # Round down to the nearest 15 minutes for the start of the window
             start_minute = 15 * math.floor(dt.minute / 15)
             start_time = dt.replace(minute=start_minute, second=0, microsecond=0)
