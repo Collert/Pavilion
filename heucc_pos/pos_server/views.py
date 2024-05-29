@@ -275,6 +275,7 @@ def day_stats(request):
                         else:
                             stats['ingredients'][ci.ingredient.title][0] += ci.quantity
         stats["order_occasions"] = dict(stats["order_occasions"])
+        stats["item_stats"] = dict(sorted(stats["item_stats"].items(), key=lambda item: item[1], reverse=True)) # https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
     return render(request, "pos_server/day_stats.html",{
         "menu":menu,
         "stats":stats
