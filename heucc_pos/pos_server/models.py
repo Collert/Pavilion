@@ -142,9 +142,23 @@ class Ingredient(models.Model):
         ("ml", "Milliliter"),
         ("ea", "Each")
     )
+    allergens = (
+        ("Eggs", "Eggs"),
+        ("Milk", "Milk"),
+        ("Mustard", "Mustard"),
+        ("Peanuts", "Peanuts"),
+        ("Fish", "Fish"),
+        ("Sesame seeds", "Sesame seeds"),
+        ("Soy", "Soy"),
+        ("Sulphites", "Sulphites"),
+        ("Tree Nuts", "Tree Nuts"),
+        ("Wheat and triticale", "Wheat and triticale"),
+        ("Crustaceans", "Crustaceans")
+    )
     title = models.CharField(max_length=140)
     inventory = models.IntegerField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
+    allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
 
     def __str__(self) -> str:
