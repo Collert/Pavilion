@@ -61,7 +61,7 @@ def day_display(request, day_id):
 @login_required
 def crafting(request):
     if request.method == "GET":
-        components = Component.objects.filter(self_crafting=False)
+        components = Component.objects.filter(crafting_option="craft")
         ingredients = Ingredient.objects.all()
         return render(request, "inventory/crafting.html", {
             "route":"crafting",

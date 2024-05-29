@@ -39,6 +39,7 @@ class Dish(models.Model):
 
 class Order(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
+    start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
@@ -87,13 +88,18 @@ class Component(models.Model):
         ("food", "Food"),
         ("beverage", "Beverage")
     )
+    crafting_options = (
+        ("craft","Craftable"),
+        ("buy","Purchased"),
+        ("auto","Self-crafting")
+    )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
     inventory = models.FloatField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
     in_stock = models.BooleanField(default=False)
-    self_crafting = models.BooleanField(default=False)
+    crafting_option = models.CharField(max_length=10, choices=crafting_options)
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def save(self, *args, **kwargs):
