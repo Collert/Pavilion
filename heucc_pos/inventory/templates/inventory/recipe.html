@@ -16,17 +16,7 @@
             <span>{{recipe_obj.original_yield}} {{recipe_obj.component.first.unit_of_measurement|capfirst}}</span>
         {% endif %}
         <h2>Ingredients:</h2>
-        <ul>
-            {% if recipe_obj_type == "dish" %}
-                {% for dc in recipe_obj.dish.first.dishcomponent_set.all %}
-                    <li>{{dc.quantity|mul:recipe_obj.original_yield}} {{dc.component.unit_of_measurement|capfirst}} {{dc.component.title}}</li>
-                {% endfor %}
-            {% else %}
-                {% for ci in recipe_obj.component.first.componentingredient_set.all %}
-                    <li>{{ci.quantity|mul:recipe_obj.original_yield}} {{ci.ingredient.unit_of_measurement|capfirst}} {{ci.ingredient.title}}</li>
-                {% endfor %}
-            {% endif %}
-        </ul>
+        {{ingredients_ul|safe}}
         <h2>Method:</h2>
         {{recipe_md|safe}}
     </div>
