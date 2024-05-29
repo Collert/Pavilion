@@ -23,7 +23,7 @@
                 {% endfor %}
             {% else %}
                 {% for ci in recipe_obj.component.first.componentingredient_set.all %}
-                    <li>{{ci.quantity|mul:recipe_obj.original_yield}} {{ci.component.unit_of_measurement|capfirst}} {{ci.ingredient.title}}</li>
+                    <li>{{ci.quantity|mul:recipe_obj.original_yield}} {{ci.ingredient.unit_of_measurement|capfirst}} {{ci.ingredient.title}}</li>
                 {% endfor %}
             {% endif %}
         </ul>
