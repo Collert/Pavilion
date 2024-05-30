@@ -24,4 +24,5 @@ urlpatterns = [
     path('orders-progress', views.order_progress, name='order_progress'),
     path('kitchen_updates', views.kitchen_updates, name='kitchen_updates'),
     path('kitchen_completions', views.kitchen_completions, name='kitchen_completions'),
+    path('check-device', views.device_elig, name='device_elig'),
 ]

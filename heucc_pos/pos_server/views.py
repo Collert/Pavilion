@@ -138,6 +138,42 @@ def menu_select(request):
         menu.save()
         return redirect(reverse("pos"))
 
+@login_required
+def device_elig(request):
+    if request.method == "PUT":
+        print(json.loads(request.body))
+        try:
+            EligibleDevice.objects.filter(token=json.loads(request.body)["token"])
+        except:
+            return HttpResponseForbidden("Forbidden: Device not recognized.")
+        if EligibleDevice.objects.filter(token=json.loads(request.body)["token"]).exists():
+            return JsonResponse({"status": "device ok"}, status=200)
+    elif request.method == "GET":
+        return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "authorized":False
+            })
+    elif request.method == "POST":
+        username = request.POST["username"]
+        password = request.POST["password"]
+        device_name = request.POST["device"]
+        user = authenticate(request, username=username, password=password)
+        if user is not None and user.is_superuser:
+            new_device = EligibleDevice.objects.create(name=device_name)
+            next_url = request.POST.get('next')  # Get the next parameter
+            if next_url:
+                return redirect(next_url)
+            return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "uuid":new_device.token,
+                "authorized":True
+            })
+        else:
+            return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "failed_login":True,
+            })
+
 # @local_network_only
 @login_required
 def pos(request):

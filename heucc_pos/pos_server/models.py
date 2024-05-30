@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from inventory.models import Recipe
 from . import globals
+import uuid
 
 # Create your models here.
     
@@ -176,3 +177,10 @@ class ComponentIngredient(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.ingredient.title} in {self.component.title}"
+    
+class EligibleDevice(models.Model):
+    token = models.UUIDField(default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=140)
+
+    def __str__(self) -> str:
+        return self.name
