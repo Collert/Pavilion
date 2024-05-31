@@ -99,6 +99,9 @@ cardButton.addEventListener("click", e => {
 
 preCheckoutButton.addEventListener("click", () => {
     compileSummary(order, discounts)
+    cartChannel.postMessage({
+        message: "openOrderSummary"
+    })
     confirmDialog.showModal()
 })
 
@@ -167,6 +170,9 @@ window.addEventListener("beforeunload", () => {
 document.querySelectorAll("dialog nav button.icon").forEach(button => {
     button.addEventListener("click", () => {
         document.querySelector("dialog[open]").close()
+        cartChannel.postMessage({
+            message: "closeOrderSummary"
+        })
     })
 })
 

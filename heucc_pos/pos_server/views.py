@@ -141,7 +141,6 @@ def menu_select(request):
 @login_required
 def device_elig(request):
     if request.method == "PUT":
-        print(json.loads(request.body))
         try:
             EligibleDevice.objects.filter(token=json.loads(request.body)["token"])
         except:
