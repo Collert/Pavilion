@@ -179,9 +179,13 @@ def pos(request):
     if request.method == "GET":
         menu = Menu.objects.filter(is_active = True).first()
         dishes = Dish.objects.filter(menu=menu)
+        grouped_dishes = defaultdict(list)
+        for dish in dishes:
+            grouped_dishes[dish.station].append(dish)
+        print(grouped_dishes)
         return render(request, "pos_server/order.html", {
             "route":"pos",
-            "menu": dishes,
+            "menu": dict(grouped_dishes),
             "menu_title": menu.title,
             "json": serializers.serialize('json', dishes),
             "menus": Menu.objects.all()

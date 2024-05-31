@@ -4,8 +4,16 @@
 {% block body %}
 {% csrf_token %}
 <div id="items-wrapper">
+    {% for station, items in menu.items %}
+    {% if station == "bar" %}
+    <h1>Drinks and sweets</h1>
+    {% elif station == "kitchen" %}
+    <h1>Hot food</h1>
+    {% elif station == "gng" %}
+    <h1>Grab & Go</h1>
+    {% endif %}
     <div id="items">
-        {% for item in menu %}
+        <!-- {% for item in menu %}
             <button 
                 data-id="{{item.id}}" 
                 class="dish tight" 
@@ -17,8 +25,22 @@
                     <span class="material-symbols-outlined">add_shopping_cart</span>
                 </div>
             </button>
-        {% endfor %}
-    </div>
+            {% endfor %} -->
+            {% for item in items %}
+            <button 
+                data-id="{{item.id}}" 
+                class="dish tight" 
+                {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}
+            >
+                <span class="dish-title">{{item.title}}</span>
+                <div>
+                    <span class="price">${{item.price|floatformat:2}}</span>
+                    <span class="material-symbols-outlined">add_shopping_cart</span>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+    {% endfor %}
 </div>
 <div id="cart-wrapper">
     <div id="cart">
