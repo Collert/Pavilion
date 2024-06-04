@@ -1,0 +1,68 @@
+main#menu {
+    display: block;
+    padding: 1rem;
+    box-sizing: border-box;
+    width: calc(100dvw - 2rem);
+}
+
+main#menu h1,
+main#menu h3 {
+    text-align: center;
+}
+
+main#menu h3 {
+    color: var(--accent-3);
+}
+
+main#menu h2 {
+    color: var(--accent-1);
+}
+
+main#menu h1 {
+    font-family: 'Satisfy', cursive;
+    font-size: 56px;
+    color: var(--accent-2);
+}
+
+main#menu .dishes {
+    display: flex;
+    width: 98dvw;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 1rem;
+    padding-bottom: .5rem;
+}
+
+main#menu .dish {
+    display: grid;
+    gap: .5rem;
+    place-items: center;
+    grid-auto-flow: row;
+    cursor: pointer;
+    transition: all 300ms ease;
+    padding: 1rem;
+    border-radius: 10px;
+    text-decoration: none;
+}
+
+main#menu .dish:hover {
+    background-color: #8080801f;
+}
+main#menu .dish:hover img {
+    border: 5px solid var(--accent-2);
+}
+
+main#menu .dish .title {
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+main#menu .dish img {
+    aspect-ratio: 1;
+    height: 20vh;
+    border: 2px solid var(--accent-2);
+    border-radius: 50%;
+    box-sizing: border-box;
+    transition: all 300ms ease;
+    object-fit: cover;
+}

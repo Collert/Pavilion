@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'webrtc',
     'landing',
     'misc_tools',
+    'online_store',
     'inventory',
     'mathfilters',
 ]

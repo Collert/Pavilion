@@ -182,7 +182,6 @@ def pos(request):
         grouped_dishes = defaultdict(list)
         for dish in dishes:
             grouped_dishes[dish.station].append(dish)
-        print(grouped_dishes)
         return render(request, "pos_server/order.html", {
             "route":"pos",
             "menu": dict(grouped_dishes),
@@ -341,42 +340,45 @@ def compile_menu(menu):
         "gng":[],
     }
     for dish in menu.dishes.all().order_by("id"):
-        final_dish = {
-            "title":dish.title,
-            "components":"",
-            "price":format_float(dish.price),
-            "available":dish.in_stock or dish.force_in_stock,
-        }
-        dcs = dish.dishcomponent_set.all()
-        for index, dc in enumerate(dcs):
-            if dc.component.type == "food":
-                if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
-                    quantity_str = "a bowl of "
-                elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
-                        quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
-                else:
-                    if dc.quantity == 1:
-                        quantity_str = ""
-                    elif dc.quantity < 1:
-                        quantity_str = "a piece of "
-                    else:
-                        quantity_str = f"{int(dc.quantity)} "
+        categories[dish.station].append(prettify_dish(dish))
+    return categories, components_out
+
+def prettify_dish(dish):
+    final_dish = {
+        "title":dish.title,
+        "components":"",
+        "price":format_float(dish.price),
+        "available":dish.in_stock or dish.force_in_stock,
+    }
+    dcs = dish.dishcomponent_set.all()
+    for index, dc in enumerate(dcs):
+        if dc.component.type == "food":
+            if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
+                quantity_str = "a bowl of "
+            elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
+                    quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
             else:
                 if dc.quantity == 1:
-                    quantity_str = "a cup of "
+                    quantity_str = ""
+                elif dc.quantity < 1:
+                    quantity_str = "a piece of "
                 else:
-                    quantity_str = f"{int(dc.quantity)} cups of "
-            final_dish["components"] += f"{quantity_str}"
-            final_dish["components"] += f"{dc.component.title.lower()}"
-            if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
-                final_dish["components"] += "s"
-            if dc.component.inventory < dc.quantity:
-                # final_dish["components"] += "*"
-                components_out = True
-            if index != len(dcs) - 1:
-                final_dish["components"] += ", "
-        categories[dish.station].append(final_dish)
-    return categories, components_out
+                    quantity_str = f"{int(dc.quantity)} "
+        else:
+            if dc.quantity == 1:
+                quantity_str = "a cup of "
+            else:
+                quantity_str = f"{int(dc.quantity)} cups of "
+        final_dish["components"] += f"{quantity_str}"
+        final_dish["components"] += f"{dc.component.title.lower()}"
+        if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
+            final_dish["components"] += "s"
+        if dc.component.inventory < dc.quantity:
+            # final_dish["components"] += "*"
+            components_out = True
+        if index != len(dcs) - 1:
+            final_dish["components"] += ", "
+    return final_dish
 
 def format_float(num:float) -> str:
     if num.is_integer():

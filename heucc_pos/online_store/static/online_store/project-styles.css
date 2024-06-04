@@ -1,0 +1,144 @@
+@import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
+@import url("menu.css");
+@import url("dish.css");
+
+html {
+    font-family: 'Noto Sans Display', sans-serif;
+}
+
+textarea {
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    padding: .5rem;
+}
+
+@media screen {
+    body.portrait {
+        transform: rotate(90deg);
+        transform-origin: right top;
+        width: 100vh;
+        height: 100vw;
+        overflow-x: hidden;
+        position: absolute;
+        top: 100%;
+        right: 0;
+    }
+}
+
+header {
+    display: flex;
+    padding: 1rem;
+    justify-content: space-between;
+}
+
+body {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100dvh;
+    gap: 2rem;
+}
+
+main {
+    display: grid;
+}
+
+main#login {
+    place-items: center;
+}
+
+form#login {
+    display: grid;
+    grid-auto-flow: row;
+    gap: 1rem;
+}
+
+button:hover:not(.no-style) span,
+button:focus-visible:not(.no-style) span,
+button:active:not(.no-style) span,
+a.button:hover:not(.no-style) span,
+a.button:focus-visible:not(.no-style) span,
+a.button:active:not(.no-style) span {
+    color: var(--primary-background)!important;
+}
+
+main:has(form#menu-create) {
+    display: grid;
+    place-items: center;
+}
+
+form#menu-create {
+    display: grid;
+    gap: 1rem;
+}
+
+#dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+#dropdown-content {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: -40%;
+    background-color: var(--primary-contrast);
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 1rem;
+}
+
+#dropdown-content a {
+    color: var(--primary-background);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+}
+
+/* #dropdown-content a:hover {background-color: #ddd;} */
+
+#dropdown:hover #dropdown-content {display: block;}
+
+#utils > div,
+#authorize > form,
+#menus > form,
+#discounts > form,
+#login > form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Style the scrollbar itself (width and background) */
+::-webkit-scrollbar {
+    width: 8px; /* scrollbar width */
+    height: 8px; /* scrollbar height for horizontal scrollbars */
+}
+
+/* Style the track (part the thumb slides within) */
+::-webkit-scrollbar-track {
+    background: #f1f1f1; /* light grey background for the track */
+    border-radius: 10px; /* rounded corners for the track */
+}
+
+/* Style the thumb (the part that's draggable) */
+::-webkit-scrollbar-thumb {
+    background: #888; /* dark grey thumb */
+    border-radius: 10px; /* rounded corners for the thumb */
+}
+
+/* Style the thumb when hovering or clicking on it */
+::-webkit-scrollbar-thumb:hover {
+    background: #555; /* darker grey when hovered */
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: #333; /* even darker grey when clicked */
+}
+
+#logo {
+    height: 5vh;
+}

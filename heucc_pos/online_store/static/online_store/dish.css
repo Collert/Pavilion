@@ -1,0 +1,54 @@
+main#dish {
+    display: grid;
+    padding: 1rem;
+}
+
+main#dish h1 {
+    color: var(--accent-2);
+    font-size: 46px;
+}
+
+main#dish h2 {
+    color: var(--accent-3);
+}
+
+@media (orientation:landscape) {
+    main#dish {
+        grid-template-columns: 1fr 2fr;
+    }
+}
+
+@media (orientation:portrait) {
+    main#dish {
+        grid-template-rows: auto auto;
+    }
+}
+
+main#dish > div {
+    display: flex;
+    flex-direction: column;
+}
+
+main#dish .title-info {
+    align-items: center;
+}
+
+main#dish .title-info img {
+    aspect-ratio: 1;
+    height: 45vh;
+    border: 4px solid var(--accent-2);
+    border-radius: 50%;
+    box-sizing: border-box;
+    transition: all 300ms ease;
+    object-fit: cover;
+}
+
+main#dish .title-info button,
+main#dish .title-info button abbr{
+    font-size: 28px;
+    color: var(--accent-3);
+}
+
+main#dish p {
+    font-size: larger;
+}

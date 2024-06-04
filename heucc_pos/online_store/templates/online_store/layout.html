@@ -1,0 +1,73 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'online_store/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'online_store/project-styles.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>HEUCC Restaurant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+    </style>
+    {% if menu %}
+    <script>
+        function getContrastingColor(hex) {
+            // Ensure the hex color is valid and remove any '#' character
+            hex = hex.replace('#', '');
+
+            // Check if the hex color is short form (e.g., 'FFF') and convert it to long form if necessary
+            if (hex.length === 3) {
+                hex = hex.split('').map(function (hexChar) {
+                    return hexChar + hexChar;
+                }).join('');
+            }
+
+            // Convert hex to RGB
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+
+            // Invert each color component by subtracting it from 255
+            const rInv = 255 - r;
+            const gInv = 255 - g;
+            const bInv = 255 - b;
+
+            // Convert the inverted RGB values back to hex
+            const rHex = rInv.toString(16).padStart(2, '0');
+            const gHex = gInv.toString(16).padStart(2, '0');
+            const bHex = bInv.toString(16).padStart(2, '0');
+
+            // Return the formatted hex color
+            return `#${rHex}${gHex}${bHex}`;
+        }
+
+        // Example usage:
+        const originalColor = '{{menu.menu.background_color}}';  // A bright orange
+        const contrastingColor = getContrastingColor(originalColor);
+        document.documentElement.style.setProperty('--primary-contrast', contrastingColor);
+    </script>
+    {% endif %}
+</head>
+<body>
+    {% csrf_token %}
+    <header>
+        <img id="logo" src="{% static 'online_store/logo.png' %}" alt="logo">
+        <nav>
+            <a href="{% url 'menu' %}" class="button">Menu</a>
+        </nav>
+    </header>
+    <main id="{{route}}">{% block body %}{% endblock %}</main>
+</body>
+</html>
