@@ -41,7 +41,6 @@ def dish(request, id):
             allergens.add(ci.ingredient.allergen)
     if len(allergens) > 1:
         allergens.remove(None)
-    print(allergens)
     return render(request, "online_store/dish.html", {
         "route":"dish",
         "dish":item,
