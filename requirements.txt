@@ -14,3 +14,4 @@ gevent
 gtts
 pydub
 python-barcode
+sendgrid

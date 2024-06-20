@@ -1,0 +1,20 @@
+{% extends "gift_cards/emails/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% if gifted %}
+    <h1>{{name}}! You got a gift!</h1>
+    <p>
+        {{sender_name}} sent you a gift card! Use it in any HEUCC event or store, like Sunflower Hearth (Perogie Dinner For Peace) amd more!
+    </p>
+{% else %}
+    <h1>Here's your gift card, {{name}}.</h1>
+{% endif %}
+<p>
+    Follow the link below to access your card.
+</p>
+<p><small>
+    <b>DO NOT share</b> this link with anyone who is not supposed to access the card! Only send it to people who you trust this card to. The card is not refundable, cannot be exchanged for cash or cannot be used for cashback. 
+</small></p>
+<a href="{% url 'card_display' card_number=card_number %}" class="button">Open card</a>
+{% endblock %}

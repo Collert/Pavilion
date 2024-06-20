@@ -3,8 +3,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
 
 :root {
-    --primary-background: #0662A6!important;
-    --primary-contrast: #E4B423!important;
+    --primary-background: #0662A6;
+    --primary-contrast: #E4B423;
 }
 
 body {

@@ -11,13 +11,14 @@ def web_payment(request):
     if request.method == "GET":
         amount = request.GET.get('amount', '')
         if amount:
-            transaction = Transaction.objects.create(amount=float("{:.2f}".format(int(amount)/100)))
+            amount = float("{:.2f}".format(float(amount)))
+            transaction = Transaction.objects.create(amount=amount)
         else:
             transaction = None
         return render(request, "payments/square-checkout.html", {
             "location_id":settings.SQUARE_LOCATION_ID,
             "app_id":settings.SQUARE_APPLICATION_ID,
-            "amount":amount,
+            "amount":int(amount * 100),
             "transaction":transaction
         })
     elif request.method == "POST":
@@ -25,13 +26,13 @@ def web_payment(request):
         transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
         transaction.successful = True
         transaction.save()
-        return JsonResponse({"status":"marked_paid"})
+        return JsonResponse({"status":"marked_paid", "uuid":transaction.uuid})
     elif request.method == "PUT":
         data = json.loads(request.body)
         transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
         if not transaction:
             return JsonResponse({"error":"transaction not found"})
-        return JsonResponse({"paid":transaction.successful})
+        return JsonResponse({"paid":transaction.successful, "uuid":transaction.uuid})
 
 def process_web_payment(request):
     if request.method == 'POST':

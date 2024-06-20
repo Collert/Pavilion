@@ -1,5 +1,6 @@
-@layer ADE, my-styles, card;
+@layer ADE, my-styles, emails, card;
 
-@import url("https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/main.css") layer(ADE);
 @import "project-styles.css" layer(my-styles);
 @import "card.css" layer(card);
+@import "emails.css" layer(emails);
+@import url("https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/main.css") layer(ADE);

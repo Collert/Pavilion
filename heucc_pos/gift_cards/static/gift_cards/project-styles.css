@@ -1,5 +1,19 @@
 @import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
 @import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
+@import url('header.css');
+@import url('get-card.css');
+@import url('emails.css');
+
+:root {
+    --primary-background: #EFF4FC;
+    --primary-contrast: #0662A6;
+    --accent-1: #1285CC;
+}
+
+body {
+    grid-template-rows: 10vh 1fr;
+    margin: 0;
+}
 
 html {
     font-family: 'Noto Sans Display', sans-serif;
