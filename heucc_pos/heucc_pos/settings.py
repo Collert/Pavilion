@@ -28,6 +28,7 @@ SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
 SQUARE_APPLICATION_ID = os.getenv('SQUARE_APPLICATION_ID')
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -36,7 +37,7 @@ WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('ENVIRONMENT') != "production"
 
 MEDIA_ROOT = ''
 MEDIA_URL = ''
@@ -49,7 +50,7 @@ ALLOWED_HOSTS = [
     "server.uahelp.ca", 
     "internal.uahelp.ca", 
     "local.internal.uahelp.ca",
-    "c331-2605-8d80-482-79ea-c064-f581-10a8-ff80.ngrok-free.app",
+    "b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
     "154.20.173.24"
 ]
 
@@ -59,7 +60,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
     "http://local.internal.uahelp.ca",
-    "https://c331-2605-8d80-482-79ea-c064-f581-10a8-ff80.ngrok-free.app/"
+    "https://b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
+    "https://internal.uahelp.ca",
     ]
 
 CORS_ALLOW_ALL_ORIGINS = True
