@@ -13,7 +13,6 @@ from .models import *
 import json
 import time
 from django.utils import timezone
-from .globals import new_data_queue
 from . import globals
 import datetime
 from collections import defaultdict
