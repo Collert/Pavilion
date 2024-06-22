@@ -1,3 +1,4 @@
+active_orders = set()
 new_data_queue = []
 kitchen_update_queue = []
 kitchen_done_queue = []

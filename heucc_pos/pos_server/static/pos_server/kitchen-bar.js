@@ -1,3 +1,6 @@
+const pollEverySecs = 10;
+const pollEveryMilisecs = pollEverySecs * 1000;
+
 const pathSegments = new URL(window.location.href).pathname.split('/');
 const station = pathSegments[pathSegments.length-1];
 let prevOrderId;
@@ -18,28 +21,46 @@ document.addEventListener("DOMContentLoaded", () => {
     let cards = document.querySelectorAll(".order");
     cards = [...cards]
     let selectedIndex = cards.findIndex(element => element.classList.contains('selected'));
-    let isFirstLoad = true;
+    // let isFirstLoad = true;
     
     checkActiveOrders();
-    setTimeout(() => {
-        isFirstLoad = false;
-    }, 1000);
-    eventSource.onmessage = function(e) {
-        if (isFirstLoad) {
-            return;
+
+    let ordersState;
+    getOrdersFirst()
+    async function getOrdersFirst() {
+        ordersState = await fetchOrders();
+    }
+
+    setInterval(async () => {
+        const newOrders = await fetchOrders()
+        newOrders.forEach(order => {
+            if (!ordersState.some(item => item.order_id === order.order_id)) {
+                appendOrder(order);
+            }
+        })
+        ordersState = newOrders
+    }, pollEveryMilisecs);
+    
+    async function fetchOrders() {
+        const data = await fetch(checkOrdersLink);
+        const array = await data.json()
+        if (station === "kitchen") {
+            return array.filter(item => !item.kitchen_done);
+        } else if (station === "bar") {
+            return array.filter(item => !item.bar_done);
         }
-        const data = JSON.parse(e.data);
-        console.log(data)
+    }
+
+    function appendOrder(data) {
         const orderId = data.order_id;
-        if (station === "kitchen" && data.kitchen_done) {return} else if (station === "bar" && data.bar_done) {return}
+        // if (station === "kitchen" && data.kitchen_done) {return} else if (station === "bar" && data.bar_done) {return}
         const existingOrder = document.querySelector(`[data-orderid="${orderId}"]`)
         if (existingOrder) {return}
-        if (prevOrderId && orderId - 1 !== prevOrderId) {
-            window.location.reload()
-        } else {
-            prevOrderId = orderId;
-        }
-        // if (!checkRightDishes(data.dishes)) {return}
+        // if (prevOrderId && orderId - 1 !== prevOrderId) {
+        //     window.location.reload()
+        // } else {
+        //     prevOrderId = orderId;
+        // }
         if (!cards.length) {
             kitchenDiv.innerHTML = '';
             selectedIndex = 0;
@@ -49,9 +70,9 @@ document.addEventListener("DOMContentLoaded", () => {
         newOrder.dataset.orderid = orderId;
         newOrder.dataset.done = false;
         newOrder.innerHTML = `<div class="summary">
-                                    <h2>Order #${orderId}</h2>
+                                    <h2>${data.table ? data.table : "No name"}</h2>                                    
                                     <div class="name-time">
-                                        <span>${data.table ? `Name: ${data.table}` : "No name"}</span>
+                                        <span>Order #${orderId}</span>
                                         <span data-timestamp="${data.timestamp}" class="timestamp">
                                             Prep time: <span>${data.timestamp}</span>
                                         </span>

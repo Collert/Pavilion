@@ -46,30 +46,42 @@ class Order(models.Model):
     prep_time = models.DurationField(null=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
-    kitchen_done = models.BooleanField(default=False)
-    kitchen_needed = models.BooleanField(default=False)
-    bar_done = models.BooleanField(default=False)
-    picked_up = models.BooleanField(default=False)
+    kitchen_done = models.BooleanField(default=True)
+    bar_done = models.BooleanField(default=True)
+    gng_done = models.BooleanField(default=True) # I will get to implementing this soon
+    picked_up = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True)
     to_go_order = models.BooleanField(default=False)
     final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
 
-    def send_to_display(self):
-        print(self.dishes.all())
-        for dish in self.dishes.all():
-            print(dish)
-
-    def save(self, *args, **kwargs):
-        if self.bar_done and self.kitchen_done:
+    def save(self, temp=False):
+        if self.bar_done and self.kitchen_done and self.gng_done:
+            if not temp:
+                self.prep_time = timezone.now() - self.timestamp
+                self.picked_up = True
+                try:
+                    globals.active_orders.remove(self)
+                except KeyError:
+                    pass
+        else:
             try:
-                if kwargs['final']:
-                    self.prep_time = timezone.now() - self.timestamp
+                globals.active_orders.remove(self)
             except KeyError:
                 pass
+            globals.active_orders.add(self)
+        print(globals.active_orders)
         return super().save()
 
     def __str__(self) -> str:
         return f"Order {self.id}"
+    
+    def __eq__(self, other):
+        if isinstance(other, Order):
+            return self.id == other.id
+        return False
+
+    def __hash__(self):
+        return hash(self.id)
 
 class OrderDish(models.Model):
     order = models.ForeignKey(Order, on_delete = models.CASCADE)
