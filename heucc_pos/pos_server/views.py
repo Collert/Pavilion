@@ -520,6 +520,11 @@ def active_orders(request):
     # print(serialized_orders)
     return JsonResponse(serialized_orders, safe=False)
 
+def check_inventory(request):
+    menu = Menu.objects.filter(is_active = True).first()
+    dishes = Dish.objects.filter(menu=menu)
+    return JsonResponse(serializers.serialize('json', dishes))
+
 def collect_order(order, done=False):
     # Fetch related OrderDish instances for each order
     order_dishes = OrderDish.objects.filter(order=order)

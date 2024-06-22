@@ -21,4 +21,6 @@ urlpatterns = [
     path('register-staff', views.register_staff, name='register_staff'),
     path('orders-progress', views.order_progress, name='order_progress'),
     path('active_orders', views.active_orders, name='active_orders'),
+    path('check_inventory', views.check_inventory, name='check_inventory'),
+    path('check-device', views.device_elig, name='device_elig'),
 ]
