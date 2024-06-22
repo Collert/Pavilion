@@ -106,9 +106,6 @@
         <button>Apply</button>
     </form>
 </dialog>
-<script> 
-    const eventSource = new EventSource("{% url 'stock_updates' %}"); 
-</script>
 <script>const dishes = JSON.parse('{{json|safe}}');</script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
