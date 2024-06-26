@@ -1,8 +1,10 @@
 import setClock from "./clock.js";
-import weatherIcons from "./weatherCodes.json" assert { type: "json" };
+// import weatherIcons from "./weatherCodes.json" assert { type: "json" };
 
 const inProgressCol = document.querySelector("#col-1 div");
 const readyCol = document.querySelector("#col-2 div");
+const pollEverySecs = 5;
+const pollEveryMilisecs = pollEverySecs * 1000;
 
 const namedAnnouncements = [
     "${name}, your order is ready to go!",
@@ -44,6 +46,42 @@ const clock = document.querySelector("#clock");
 getLocation();
 getWeather(window.sessionStorage.getItem("latitude"), window.sessionStorage.getItem("longitude"));
 setClock(clock);
+
+let ordersState;
+getOrdersFirst();
+async function getOrdersFirst() {
+    ordersState = await fetchOrders();
+    console.log(ordersState);
+}
+
+setInterval(async () => {
+    const newOrders = await fetchOrders()
+    if (newOrders.length >= ordersState.length) {
+        newOrders.forEach(order => {
+            let existingOrder = ordersState.find(item => item.order_id === order.order_id)
+            if (!existingOrder) {
+                appendNewOrder(order);
+            } else if (existingOrder && existingOrder.kitchen_done !== order.kitchen_done) {
+                markOrderReady(order);
+            } else if (existingOrder && existingOrder.picked_up !== order.picked_up) {
+    
+            }
+        })
+    } else {
+        ordersState.forEach(oldOrder => {
+            if (!newOrders.some(item => item.order_id === oldOrder.order_id)) {
+                removeOrder(oldOrder)
+            }
+        })
+    }
+    ordersState = newOrders
+}, pollEveryMilisecs);
+
+async function fetchOrders() {
+    const data = await fetch(checkOrdersLink);
+    const array = await data.json()
+    return array.filter(item => item.kitchen_needed);
+}
 
 function updateWeather(weather) {
     const icon = document.querySelector("#weather-icon");
@@ -172,9 +210,7 @@ function generateAnnouncement(order) {
     return announcement;
 }
 
-newOrders.addEventListener("message", e => {
-    const data = JSON.parse(e.data);
-    if (!data.kitchen_needed) {return}
+function appendNewOrder(data) {
     console.log("recieved")
     // console.log(data)
     const newOrder = document.createElement("span");
@@ -183,11 +219,9 @@ newOrders.addEventListener("message", e => {
     newOrder.appendChild(text)
     newOrder.dataset.orderId = data.order_id;
     inProgressCol.appendChild(newOrder);
-})
+}
 
-updatedOrders.addEventListener("message", e => {
-    const data = JSON.parse(e.data);
-    if (!data.kitchen_needed) {return}
+function markOrderReady(data) {
     const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
     if (data.done) {
         try {
@@ -214,18 +248,16 @@ updatedOrders.addEventListener("message", e => {
     }, 500);
     readyCol.appendChild(newOrder);
     announceOrderReady(data)
-})
+}
 
-// finishedOrders.addEventListener("message", e => {
-//     const data = JSON.parse(e.data);
-//     // console.log(data)
-//     if (!data.kitchen_needed) {return}
-//     const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
-//     oldOrder.classList.add("remove");
-//     setTimeout(() => {
-//         readyCol.removeChild(oldOrder)
-//     }, 500);
-// })
+function removeOrder(data) {
+    if (!data.kitchen_needed) {return}
+    const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
+    oldOrder.classList.add("remove");
+    setTimeout(() => {
+        readyCol.removeChild(oldOrder)
+    }, 500);
+}
 
 if (sessionStorage.getItem("fsReminderDone") !== "true") {
     alert(`

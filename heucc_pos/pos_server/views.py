@@ -202,6 +202,7 @@ def pos(request):
                 new_order.picked_up = False
             elif dish.station == "kitchen":
                 new_order.kitchen_done = False
+                new_order.kitchen_needed = True
                 new_order.picked_up = False
             for dc in dish.dishcomponent_set.all():
                 if dc.component.crafting_option == "auto":
@@ -446,9 +447,9 @@ def register_staff(request):
         })
     
 def order_progress(request):
-    in_progress = Order.objects.filter(kitchen_done=False)
-    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False))
-    print("here")
+    today = timezone.localdate()
+    in_progress = Order.objects.filter(kitchen_done=False, timestamp__date=today)
+    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False), timestamp__date=today)
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
         "in_progress":in_progress,
@@ -545,6 +546,7 @@ def collect_order(order, done=False):
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
         "kitchen_done":order.kitchen_done,
+        "kitchen_needed":order.kitchen_needed,
         "done":done,
         "bar_done":order.bar_done,
         "picked_up":order.picked_up,

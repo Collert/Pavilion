@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkActiveOrders();
 
     let ordersState;
-    getOrdersFirst()
+    getOrdersFirst();
     async function getOrdersFirst() {
         ordersState = await fetchOrders();
     }

@@ -47,6 +47,7 @@ class Order(models.Model):
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140)
     kitchen_done = models.BooleanField(default=True)
+    kitchen_needed = models.BooleanField(default=False)
     bar_done = models.BooleanField(default=True)
     gng_done = models.BooleanField(default=True) # I will get to implementing this soon
     picked_up = models.BooleanField(default=True)
@@ -58,11 +59,14 @@ class Order(models.Model):
         if self.bar_done and self.kitchen_done and self.gng_done:
             if not temp:
                 self.prep_time = timezone.now() - self.timestamp
-                self.picked_up = True
+                if self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done:
+                    self.picked_up=True
                 try:
                     globals.active_orders.remove(self)
                 except KeyError:
                     pass
+                if not self.picked_up:
+                    globals.active_orders.add(self)
         else:
             try:
                 globals.active_orders.remove(self)
