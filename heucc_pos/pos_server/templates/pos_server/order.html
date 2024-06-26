@@ -106,7 +106,10 @@
         <button>Apply</button>
     </form>
 </dialog>
-<script>const dishes = JSON.parse('{{json|safe}}');</script>
+<script>
+    const dishes = JSON.parse('{{json|safe}}');
+    const invUpdatesLink = "{% url 'check_inventory' %}"
+</script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
 {% endblock %}

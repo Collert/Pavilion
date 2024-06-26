@@ -176,14 +176,32 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
     })
 })
 
-eventSource.onmessage = function(e) {
-    if (e.data === "DISH") {
-        if (order.length) {
-            alert("Item availability updated, the page will now refresh...")
-        }
-        location.reload()
+let inventoryState;
+checkInventory(true);
+
+async function checkInventory(initial = false) {
+    const newInventory = await fetchInventory()
+    if (!initial) {
+        newInventory.forEach(dish => {
+            if (inventoryState.some(item => (item.fields.in_stock !== dish.fields.in_stock || item.fields.force_in_stock !== dish.fields.force_in_stock))) {
+                location.reload()
+            }
+        })
     }
-};
+    inventoryState = newInventory;
+}
+
+async function fetchInventory() {
+    const response = await fetch(invUpdatesLink);
+    const data = await response.json()
+    return JSON.parse(data)
+}
+
+setInterval(() => {
+    if (!order.length) {
+        checkInventory();
+    }
+}, 60000);
 
 function sendOrder(actionLink, customerName, instructions, toGo) {
     fetch(actionLink, {
@@ -210,6 +228,9 @@ function sendOrder(actionLink, customerName, instructions, toGo) {
             discountPercent : 0,
             discountAmount : 0
         }
+        setTimeout(() => {
+            checkInventory();
+        }, 4000);
     })
 }
 
