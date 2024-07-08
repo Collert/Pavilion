@@ -1,0 +1,178 @@
+main#orders {
+    display: grid;
+    place-items: center;
+    align-content: center;
+}
+
+main#orders > h1 {
+    text-align: center;
+}
+
+.order {
+    width: 100%;
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    padding: 1rem;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    place-items: center;
+    transition: all 300ms ease;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    text-decoration: none;
+}
+
+.order:hover {
+    background-color: var(--primary-contrast);
+}
+
+.order:hover * {
+    color: var(--primary-background);
+}
+
+.order-eta {
+    text-align: center;
+}
+
+.order h1 {
+    margin: 0;
+}
+.order span {
+    display: grid;
+    place-items: center;
+    grid-auto-flow: column;
+    gap: 0.25rem;
+}
+
+.summary {
+    display: grid;
+    grid-auto-flow: column;
+    place-items: center;
+    justify-content: space-between;
+}
+
+main#order {
+    display: grid;
+    grid-template-rows: 1fr auto;
+}
+
+main#order nav {
+    display: grid;
+    grid-template-rows: auto 0fr;
+    gap: 1rem;
+    transition: all 300ms ease;
+}
+
+main#order nav.in-progress {
+    grid-template-rows: auto 1fr;
+}
+
+main#order nav > #bot-nav {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+main#order nav > div#top-nav {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+}
+
+main#order nav .button {
+    display: grid;
+    border-radius: 10px;
+    transition: all 300ms ease;
+}
+
+main#order nav .button#start > span {
+    height: 100%;
+    overflow: hidden;
+}
+
+main#order nav .button[data-confirm-prompt="false"] {
+    grid-template-rows: 1fr 0fr 0fr 0fr;
+}
+
+main#order nav .button[data-confirm-prompt="true"] {
+    background-color: var(--primary-contrast);
+    color: var(--primary-background);
+    grid-template-rows: 0fr 1fr 0fr 0fr;
+}
+
+main#order nav .button.taken {
+    animation: taken 1800ms ease both;
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+main#order nav .button.taken span {
+    color: var(--primary-contrast);
+}
+
+@keyframes taken {
+    from {
+        grid-template-rows: 0fr 1fr 0fr 0fr;
+    } 20%, 80% {
+        grid-template-rows: 0fr 0fr 1fr 0fr;
+        background-color: var(--success-color);
+        border-color: var(--success-color);
+    } to {
+        grid-template-rows: 0fr 0fr 0fr 1fr;
+        border-color: var(--primary-contrast);
+        background-color: var(--primary-background);
+    }
+}
+
+main#order nav .button[data-confirm-prompt="true"] * {
+    color: var(--primary-background);
+}
+
+main#order nav .button span {
+    display: grid;
+    grid-auto-flow: column;
+    place-items: center;
+}
+
+main#order #eta,
+main#order #eta-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+main#order #eta-row {
+    justify-content: space-between;
+}
+
+main#order #eta-row button {
+    border-radius: 10px;
+}
+
+button#complete-order {
+    border-radius: 10px;
+    width: 97%;
+    display: grid;
+    grid-auto-flow: column;
+}
+
+main#order #eta-adjust form,
+main#order #confirm-complete form {
+    display: grid;
+    gap: 1rem;
+    place-items: center;
+}
+
+main#order #eta-adjust nav,
+main#order #confirm-complete nav {
+    display: flex;
+    flex-direction: row;
+}
+
+#complete-order span {
+    color: var(--primary-contrast);
+}
+#complete-order:disabled {
+    border-color: var(--success-color);
+}

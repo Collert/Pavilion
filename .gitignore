@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 heucc_pos/heucc_pos/__pycache__/settings.cpython-39.pyc
 */migrations/
-heucc_pos/pos_server/migrations/
+heucc_pos/*/migrations/
 *.sqlite3
 heucc_pos/db.sqlite3
 *.cfg
