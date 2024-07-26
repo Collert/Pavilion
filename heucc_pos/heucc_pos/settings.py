@@ -134,6 +134,7 @@ if os.getenv('ENVIRONMENT') == "production":
             'PORT': '',  # Leave as an empty string to use the default port
         }
     }
+    NOTIFICATIONS_HOST = "https://internal.uahelp.ca"
 else:
     DATABASES = {
         'default': {
@@ -141,6 +142,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    NOTIFICATIONS_HOST = "http://127.0.0.1:8000"
 
 if 'local.internal.uahelp.ca' in socket.gethostname().lower():
     SECURE_PROXY_SSL_HEADER = None
