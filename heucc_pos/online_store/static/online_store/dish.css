@@ -21,10 +21,11 @@ main#dish h2 {
 @media (orientation:portrait) {
     main#dish {
         grid-template-rows: auto auto;
+        overflow: auto;
     }
 }
 
-main#dish > div {
+main#dish > div:not([hidden]) {
     display: flex;
     flex-direction: column;
 }
@@ -51,4 +52,10 @@ main#dish .title-info button abbr{
 
 main#dish p {
     font-size: larger;
+}
+
+button.add-to-cart {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
 }

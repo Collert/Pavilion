@@ -1,7 +1,8 @@
 {
   "name": "Nom Nom Now",
   "short_name": "NomNow",
-  "start_url": "/",
+  "start_url": "/deliveries/",
+  "id":"7adce38f-5cc1-4957-bcd7-6eb4115712cb",
   "display": "standalone",
   "background_color": "#ffffff",
   "orientation": "portrait",

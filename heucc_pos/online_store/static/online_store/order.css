@@ -1,0 +1,165 @@
+#order_status {
+    height: fit-content;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#order_status h1,
+#order_status h2 {
+    text-align: center;
+}
+
+#order_status #status {
+    display: grid;
+    height: fit-content;
+    width: 100%;
+    padding: 25px 0;
+}
+
+#order_status #status.delivery {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+#order_status #status.web {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+#order_status .status-bar {
+    height: 15px;
+    width: 100%;
+    border: 3px solid var(--primary-contrast);
+    border-left-color: transparent;
+    border-right-color: transparent;
+}
+
+#order_status .status-bar.filled {
+    background-color: var(--primary-contrast);
+}
+
+#order_status .badge-container {
+    display: grid;
+    position: relative;
+}
+
+#order_status .badge-container {
+    place-items: center;
+    grid-template-columns: 1fr 1fr;
+}
+
+#order_status .badge-container:first-child {
+    grid-template-columns: 1fr;
+    place-items: center end;
+}
+
+#order_status .badge-container:last-child {
+    grid-template-columns: 1fr;
+    place-items: center start;
+}
+
+#order_status .badge-container:last-child .status-bar,
+#order_status .badge-container:first-child .status-bar {
+    width: 50%;
+}
+
+#order_status .badge-container .badge {
+    position: absolute;
+    border-radius: 50%;
+    background-color: var(--primary-background);
+    height: 30px;
+    aspect-ratio: 1;
+    border: 3px solid var(--primary-contrast);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px;
+    display: grid;
+    place-items: center;
+}
+
+#order_status .badge-container .badge.filled {
+    background-color: var(--primary-contrast);
+}
+#order_status .badge-container .badge.filled span {
+    color: var(--primary-background);
+}
+
+#order_status .badge-container .badge.active {
+    height: 50px;
+}
+
+#order_status .badge-container .badge.active span {
+    font-size: 45px;
+}
+
+#order_status li {
+    font-size: large;
+}
+#order_status #info {
+    display: grid;
+    grid-auto-flow: column;
+    place-items: start center;
+}
+#order_status #info * {
+    text-align: center;
+}
+
+@media (orientation: portrait) {
+    #order_status {
+        height: 75vh;
+        gap: 1rem;
+        padding: 1rem;
+        overflow: auto;
+    }
+    #order_status #info {
+        grid-auto-flow: row;
+    }
+    #order_status #status.delivery,
+    #order_status #status.web {
+        grid-template-columns: none;
+        width: 50px;
+        padding: 0 1rem;
+    }
+    #order_status #status.delivery {
+        grid-template-rows: repeat(6, 1fr);
+    }
+    #order_status #status.web {
+        grid-template-rows: repeat(5, 1fr);
+    }
+    .status-container {
+        display: grid;
+        grid-template-columns: auto auto;
+    }
+    #order_status .badge-container {
+        grid-template-columns: none!important;
+        grid-template-rows: 1fr 1fr;
+    }
+    #order_status .badge-container:first-child,
+    #order_status .badge-container:last-child {
+        grid-template-rows: 1fr;
+    }
+    #order_status .status-bar {
+        width: 25px!important;
+        height: 4vh;
+    }
+    #order_status .badge-container:first-child {
+        place-items: end center;
+    }
+    #order_status .badge-container:last-child {
+        place-items: start center;
+    }
+    #order_status .badge-container:first-child .badge {
+        transform: translate(-50%, -50%);
+    }
+    #order_status .badge-container:last-child .badge {
+        transform: translate(-50%, 50%);
+    }
+    #order_status .status-bar {
+        border-left-color: var(--primary-contrast);
+        border-right-color: var(--primary-contrast);
+        border-top-color: transparent;
+        border-bottom-color:transparent;
+    }
+    .status-container h2 {
+        display: grid;
+        place-items: center;
+    }
+}

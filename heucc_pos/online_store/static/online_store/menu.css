@@ -25,9 +25,9 @@ main#menu h1 {
 }
 
 main#menu .dishes {
-    display: flex;
+    display: grid;
     width: 98dvw;
-    flex-direction: row;
+    grid-template-columns: repeat(4, 1fr);
     overflow-x: auto;
     gap: 1rem;
     padding-bottom: .5rem;
@@ -65,4 +65,68 @@ main#menu .dish img {
     box-sizing: border-box;
     transition: all 300ms ease;
     object-fit: cover;
+}
+
+.dish-wrapper {
+    display: grid;
+    grid-template-rows: auto 0fr;
+    padding-bottom: calc(1.5rem + 18px);
+    gap: .5rem;
+}
+
+.dish-wrapper > button,
+.dish-wrapper {
+    transition: padding-bottom 300ms ease, grid-template-rows 300ms ease, padding 200ms ease, margin 200ms ease, color 200ms ease, background-color 200ms ease;
+    overflow: hidden;
+}
+
+.dish-wrapper > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.dish-wrapper:hover {
+    grid-template-rows: auto 1fr;
+    padding-bottom: 0;
+}
+
+.dish-wrapper:not(:hover) > button {
+    padding: 0;
+    border: 1px solid transparent;
+}
+
+@media (orientation:portrait) {
+    main#menu {
+        height: 75dvh;
+        width: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    main#menu .dishes {
+        width: 100%;
+        grid-template-columns: repeat(2, 1fr);
+    }
+    main#menu .dish img,
+    main#dish .title-info img {
+        height: auto!important;
+        width: 100%;
+    }
+    .dish-wrapper {
+        padding-bottom: 0;
+        gap: 0;
+        grid-template-rows: auto 1fr;
+        align-items: end;
+    }
+    .dish-wrapper:not(:hover) > button {
+        padding: .5rem .75rem;
+        border: 2px solid var(--primary-contrast);
+    }
+    main#menu .dish .title {
+        text-align: center;
+    }
+    .add-to-cart span {
+        font-size: 17px;
+    }
 }

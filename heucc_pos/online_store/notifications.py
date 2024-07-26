@@ -4,11 +4,10 @@ from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.templatetags.static import static
-from . import globals
 
 # This is a bit weird, I know. But that's the best way I could figure out how to do this without making it too complex and with no circular imports.
 class PushSubscription(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="web_notifications_sub")
     endpoint = models.TextField()
     p256dh = models.TextField()
     auth = models.TextField()
@@ -36,18 +35,14 @@ def send_push_notification(subscription_info, message_body):
                   extra.errno,
                   extra.message)
 
-def trigger_push_notifications(title, body, action_name, action_endpoint):
+def trigger_push_notifications(title, body, action_name, action_endpoint, recipients = []):
     HOST = settings.NOTIFICATIONS_HOST
-    active = []
-    for cour in globals.active_couriers:
-        dict_cour = dict(cour)
-        active.append(dict_cour["user"])
-    subscriptions = PushSubscription.objects.filter(user__in=active)
+    subscriptions = PushSubscription.objects.filter(user__in=recipients)
     message_body = {
         "title": title,
         "body": body,
-        "icon": static("deliveries/icon-192x192.png"),
-        "badge": static("deliveries/icon-monochrome.png"),
+        "icon": static("online_store/icon-192x192.png"),
+        "badge": static("online_store/icon-monochrome.png"),
         "actions": [
             {
                 "action": "open_url",

@@ -59,13 +59,16 @@ class Order(models.Model):
     special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
     final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
-    channel = models.CharField(max_length=10, choices=order_channels) 
+    channel = models.CharField(max_length=10, choices=order_channels)
+    phone = models.PositiveBigIntegerField(null=True, blank=True)
+    approved = models.BooleanField(default=True)
 
     def save(self, temp=False):
         if self.bar_done and self.kitchen_done and self.gng_done:
             if not temp:
-                self.prep_time = timezone.now() - self.timestamp
-                if self.kitchen_done and self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done:
+                if not self.prep_time:
+                    self.prep_time = timezone.now() - self.timestamp
+                if self.kitchen_done and self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done and self.channel == "store":
                     self.picked_up=True
                 try:
                     globals.active_orders.remove(self)

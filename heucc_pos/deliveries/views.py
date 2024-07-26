@@ -47,7 +47,10 @@ def get_eta(request):
             url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={origin}&destinations={destination}&mode={mode}&key={settings.GOOGLE_API_KEY}"
             response = requests.get(url)
             data = response.json()
-            times.append(data["rows"][0]["elements"][0]["duration"])
+            try:
+                times.append(data["rows"][0]["elements"][0]["duration"])
+            except KeyError:
+                return JsonResponse({"text": "???", "value": 1})
         min_time = min(times, key=lambda x: x['value'])
         max_time = max(times, key=lambda x: x['value'])
         return JsonResponse({

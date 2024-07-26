@@ -1,0 +1,63 @@
+const CACHE_NAME = 'your-app-cache-v1.1';
+const OFFLINE_URL = '/deliveries/static/deliveries/offline.html';
+
+self.addEventListener('install', function(event) {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(function(cache) {
+      return cache.addAll([
+        '/',
+        '/deliveries/static/deliveries/project-styles.css',
+        '/deliveries/static/deliveries/icon-192x192.png',
+        '/deliveries/static/deliveries/icon-512x512.png',
+        OFFLINE_URL
+      ]);
+    })
+  );
+});
+
+self.addEventListener('fetch', function(event) {
+  event.respondWith(
+    fetch(event.request).catch(function() {
+      return caches.match(event.request).then(function(response) {
+        return response || caches.match(OFFLINE_URL);
+      });
+    })
+  );
+});
+
+self.addEventListener('push', function(event) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: data.icon,
+      badge: data.badge || data.icon,
+      actions: data.actions || [],
+      data: {
+        url: data.data.url
+      }
+    };
+    
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+});
+  
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+  
+    if (event.action === 'open_url') {
+      event.waitUntil(
+        clients.openWindow(event.notification.data.url)
+      );
+    } else {
+      event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+          if (clientList.length > 0) {
+            return clientList[0].focus();
+          }
+          return clients.openWindow(event.notification.data.url);
+        })
+      );
+    }
+});
+  

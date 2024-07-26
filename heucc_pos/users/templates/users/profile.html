@@ -1,0 +1,69 @@
+{% extends "users/layout.html" %}
+{% load static %}
+
+{% block body %}
+<form action="" method="post">
+    <div id="left">
+        <img src="{% if user.customer_profile.profile_picture %}/{{user.customer_profile.profile_picture}}{% else %}https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png{% endif %}" id="pfp" alt="profile picture">
+        <label hidden for="pfp-input">Upload profile picture</label>
+        <input disabled type="file" name="pfp" id="pfp-input">
+        <div id="name">
+            <input disabled type="text" value="{{user.first_name}}">
+            <input disabled type="text" value="{{user.last_name}}">
+        </div>
+        <div>
+            <h3>Email:</h3>
+            <input disabled type="email" value="{{user.email}}">
+        </div>
+        <div>
+            <h3>Date joined:</h3>
+            <span>{{user.date_joined}}</span>
+        </div>
+        <div hidden id="new-pass-div">
+            <h3>Change password:</h3>
+            <label for="new-pass">New password:</label>
+            <input type="password" name="new-pass" id="new-pass" placeholder="Optional">
+            <label for="new-pass-repeat">Confirm password:</label>
+            <input type="password" id="new-pass-repeat" placeholder="Optional">
+        </div>
+        <div id="edit-buttons">
+            <button type="button" id="edit"><span class="material-symbols-outlined">edit</span> Edit profile</button>
+            <button id="confirm"><span class="material-symbols-outlined">check</span> Confirm edits</button>
+        </div>
+    </div>
+    <div id="right">
+        <h1>Additional info</h1>
+        <div>
+            <h3>Phone number:</h3>
+            <input disabled type="tel" value="{{user.customer_profile.phone}}">
+        </div>
+        <div>
+            <h3>Home address:</h3>
+            <input disabled type="text" value="{{user.customer_profile.home_address}}">
+            <h4>Unit:</h4>
+            <input disabled type="text" value="{{user.customer_profile.home_address}}">
+        </div>
+        
+    </div>
+</form>
+<script>
+    document.querySelector("#edit").addEventListener("click", e => {
+        e.currentTarget.parentElement.classList.add("active")
+        e.currentTarget.innerHTML = "<span class='material-symbols-outlined'>close</span> Cancel edits"
+        e.currentTarget.addEventListener("click", () => {window.location.reload()})
+        document.querySelectorAll("[disabled], [hidden]").forEach(element => {
+            if (element.value && element.value === "None" ) {
+                element.value = ''
+            }
+            element.disabled = false;
+            element.hidden = false;
+        })
+    })
+    document.querySelector("form").addEventListener("submit", e => {
+        e.preventDefault()
+        if (document.querySelector("#new-pass").value === document.querySelector("#new-pass-repeat").value) {
+            e.currentTarget.submit()
+        }
+    })
+</script>
+{% endblock %}

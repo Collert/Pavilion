@@ -10,6 +10,7 @@ class Delivery(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name = "delivery")
     destination = models.TextField()
+    address_2 = models.TextField(blank=True, null=True)
     instructions = models.TextField(blank=True, null=True)
     courier = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     completed = models.BooleanField(default=False)

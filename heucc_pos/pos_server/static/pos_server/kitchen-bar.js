@@ -69,6 +69,17 @@ document.addEventListener("DOMContentLoaded", () => {
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
         newOrder.dataset.orderid = orderId;
         newOrder.dataset.done = false;
+        newOrder.dataset.channel = data.channel;
+        let channel;
+        if (data.channel == "store") {
+            channel = '<span class="material-symbols-outlined">storefront</span> In-person order'
+        } else if (data.channel == "web") {
+            channel = `<span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
+                        <span class="material-symbols-outlined">call</span> ${data.phone}`
+        } else if (data.channel == "delivery") {
+            channel = `<span class="material-symbols-outlined">local_shipping</span> Delivery order
+                        <span class="material-symbols-outlined">call</span> ${data.phone}`
+        }
         newOrder.innerHTML = `<div class="summary">
                                     <h2>${data.table ? data.table : "No name"}</h2>                                    
                                     <div class="name-time">
@@ -79,6 +90,9 @@ document.addEventListener("DOMContentLoaded", () => {
                                     </div>
                                 </div>
                                 <div>
+                                    <h3>
+                                        ${channel}
+                                    </h3>
                                     <h3>
                                         ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> Order to-go" : "<span class='material-symbols-outlined'>restaurant</span> Order for here"}
                                     </h3>
@@ -95,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
         for (const dish of data.dishes) {
-            if (dish.station === station) {
+            if (dish.station === station || data.channel !== "store") {
                 const item = document.createElement("li");
                 item.innerHTML = `${dish.quantity} X ${dish.name}`;
                 list.appendChild(item);
@@ -141,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function markOrderDone() {
         const orderDone = cards[selectedIndex].dataset.done === "True"; // Capital T because that's how they come from python :(
         const orderId = cards[selectedIndex].dataset.orderid;
+        if (orderDone && cards[selectedIndex].dataset.channel === "delivery") {return}
         freezeDeletion = true;
         if (orderDone || (!orderDone && station === "bar")) {
             fetch(window.location.href, {

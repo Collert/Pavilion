@@ -1,0 +1,29 @@
+{% extends "online_store/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% for offer in offers %}
+<div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
+    <div>
+        <img src="/{{offer.image}}" alt="">
+    </div>
+    <div style="background-color: var(--bg);">
+        <h1 style="color: var(--contrast);" class="offer-title">{{offer.title}}</h1>
+        <span style="color: var(--contrast);" class="offer-tagline">{{offer.tagline}}</span>
+        <a style="color: var(--contrast); --_button-bg: var(--bg); border-color: var(--contrast);" href="{{offer.link}}" class="button">{{offer.call_to_action}}</a>
+    </div>
+</div>
+{% endfor %}
+{% for offer in offers %}
+<div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
+    <div>
+        <img src="/{{offer.image}}" alt="">
+    </div>
+    <div style="background-color: var(--bg);">
+        <h1 style="color: var(--contrast);" class="offer-title">{{offer.title}}</h1>
+        <span style="color: var(--contrast);" class="offer-tagline">{{offer.tagline}}</span>
+        <a style="color: var(--contrast); --_button-bg: var(--bg); border-color: var(--contrast);" href="{{offer.link}}" class="button">{{offer.call_to_action}}</a>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
