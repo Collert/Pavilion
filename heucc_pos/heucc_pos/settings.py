@@ -26,7 +26,9 @@ SQUARE_ENVIRONMENT = os.getenv('SQUARE_ENVIRONMENT')
 SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
+SQUARE_APPLICATION_ID = os.getenv('SQUARE_APPLICATION_ID')
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
@@ -38,7 +40,7 @@ VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('ENVIRONMENT') != "production"
 
 MEDIA_ROOT = ''
 MEDIA_URL = ''
@@ -51,7 +53,8 @@ ALLOWED_HOSTS = [
     "server.uahelp.ca", 
     "internal.uahelp.ca", 
     "local.internal.uahelp.ca",
-    "2fc2-2001-569-7c35-c700-9925-7c2c-c7c3-53f5.ngrok-free.app",
+    "b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
+    "154.20.173.24"
     "154.20.173.24",
     "173.183.117.181"
 ]
@@ -62,7 +65,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
     "http://local.internal.uahelp.ca",
-    "https://2fc2-2001-569-7c35-c700-9925-7c2c-c7c3-53f5.ngrok-free.app",
+    "https://b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
+    "https://internal.uahelp.ca",
     "https://173.183.117.181"
     ]
 
@@ -86,6 +90,8 @@ INSTALLED_APPS = [
     'deliveries',
     'users',
     'mathfilters',
+    'gift_cards',
+    'payments',
 ]
 
 MIDDLEWARE = [
