@@ -1,0 +1,35 @@
+:root {
+    --primary-background: #EFF4FC;
+    --primary-contrast: #0662A6;
+    --accent-1: #1285CC;
+    --accent-2: #FFBE00;
+}
+
+* {
+    text-align: center;
+}
+
+h1 {
+    color: var(--accent-2);
+}
+
+body {
+    grid-template-rows: auto;
+    place-items: start center;
+    height: auto;
+    padding: 2rem;
+}
+
+#logo {
+    width: 40dvw;
+}
+
+button,
+a.button {
+    font-weight: 600;
+}
+button,
+a.button:not(:hover) {
+    --_button-bg: var(--accent-2);
+    border: 2px solid transparent;
+}

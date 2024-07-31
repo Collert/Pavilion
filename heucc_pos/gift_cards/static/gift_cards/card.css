@@ -1,0 +1,28 @@
+@import url("https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/main.css");
+@import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
+
+:root {
+    --primary-background: #0662A6;
+    --primary-contrast: #E4B423;
+}
+
+body {
+    height: 100dvh;
+    display: grid;
+    place-items: center;
+    background-color: var(--primary-background);
+}
+
+body > * {
+    color: var(--primary-contrast);
+}
+
+html {
+    font-family: 'Noto Sans Display', sans-serif;
+}
+
+.barcode-container {
+    display: grid;
+    place-items: center;
+}

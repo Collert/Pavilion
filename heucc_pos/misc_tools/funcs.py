@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+from django.conf import settings
 
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
@@ -34,3 +37,23 @@ def get_image_colors(image_path:str, num_colors:int):
     }
 
     return color_dict
+
+def send_html_email(subject, html_content, to_emails):
+    """
+    Sends an HTML email to the specified recipient(s).
+    :param subject: Email subject
+    :param html_content: HTML content of the email
+    :param to_emails: List of email addresses to send to
+    """
+    message = Mail(
+        from_email='your-email@example.com',
+        to_emails=to_emails,
+        subject=subject,
+        html_content=html_content
+    )
+    try:
+        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        response = sg.send(message)
+        print(f"Email sent! Status code: {response.status_code}")
+    except Exception as e:
+        print(f"An error occurred: {e}")

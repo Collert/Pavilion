@@ -1,0 +1,128 @@
+#get_card {
+    height: 100%;
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+
+#get_card h1 {
+    text-align: center;
+}
+#get_card .cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+}
+
+#get_card .card {
+    display: grid;
+    height: 25dvh;
+}
+.card-img {
+    height: 20dvh;
+    border-radius: 20px;
+    box-shadow: #0000007d 6px 7px 20px 2px;
+    transition: transform 300ms ease;
+}
+
+#get_card .card-title {
+    font-size: larger;
+    font-weight: 700;
+    position: relative;
+    margin-right: 10px;
+}
+#get_card .card-title::after {
+    content: "";
+    position: absolute;
+    width: 2px;
+    height: 100%;
+    background-color: var(--primary-contrast);
+    right: -8px;
+}
+#get_card .card-info {
+    transition: padding 300ms ease;
+}
+
+#get_card .card:has(.card-img:hover) .card-info {
+    padding-top: 30px;
+}
+
+#get_card .card .card-img:hover {
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+dialog nav {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.dialog-body {
+    display: grid;
+    text-align: center;
+    max-width: 50vw;
+    justify-items: center;
+}
+
+button.filled {
+    color: var(--primary-background);
+    background-color: var(--primary-contrast);
+    border-color: var(--primary-contrast);
+}
+button.filled span, 
+button.icon:hover span {
+    color: var(--primary-background);
+}
+
+#get_card dialog button:not(.icon) {
+    display: grid;
+    place-items: center;
+    grid-auto-flow: column;
+}
+
+#get_card dialog input,
+#get_card dialog button:not(.icon) {
+    margin: .5rem 0;
+}
+
+#payment-popup iframe{
+    height: 60dvh;
+    margin-top: 1rem;
+    border-radius: 10px;
+}
+
+#is-gift {
+    display: flex;
+    justify-content: center;
+}
+
+#is-gift input[type="radio"] {
+    display: none;
+}
+
+#is-gift input[type="radio"] + label {
+    display: inline-block;
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    transition: all 200ms ease;
+    padding: .5rem 1rem;
+    cursor: pointer;
+}
+
+.is-gift-label:nth-child(2) {
+    border-radius: 100vh 0 0 100vh;
+}
+
+.is-gift-label:nth-child(4) {
+    border-radius: 0 100vh 100vh 0;
+}
+
+#is-gift input[type="radio"]:checked + label {
+    background-color: var(--primary-contrast);
+    color: var(--primary-background);
+    border-color: var(--primary-contrast);
+}

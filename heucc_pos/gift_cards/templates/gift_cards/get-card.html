@@ -1,0 +1,122 @@
+{% extends "gift_cards/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<h1>Pick a pre-loaded card</h1>
+<div class="cards-container">
+    {% for card in cards %}
+        <div data-card-id="{{card.id}}" class="card">
+            <img src="/{{card.image}}" alt="" class="card-img">
+            <div class="card-info">
+                <span class="card-title">{{card.name}}</span>
+                <span class="card-price">${{card.amount}}</span>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+<h1>Or make your own</h1>
+{% for card in cards %}
+<dialog id="dialog-{{card.id}}">
+    <form>
+        <div class="dialog-body">
+            <img src="/{{card.image}}" alt="" class="card-img">
+            <h3>{{card.name}}</h3>
+            <h4>${{card.amount}}</h4>
+            <p>This gift card comes pre-loaded with ${{card.amount}}. You can choose to email this card to someone by selecting the option on the bottom. The card is not refundable, cannot be exchanged for cash or cannot be used for cashback. After the purchase, <strong>do not</strong> publish the link to the card anywhere. Only give the link to people that will be using the card.</p>
+            <div id="is-gift">
+                <input type="radio" id="is-gift1-card-{{card.id}}" name="is-gift" checked value="false" />
+                <label for="is-gift1-card-{{card.id}}" class="is-gift-label">This card is for me</label>
+    
+                <input type="radio" id="is-gift2-card-{{card.id}}" name="is-gift" value="true" />
+                <label for="is-gift2-card-{{card.id}}" class="is-gift-label">This card is for someone else</label>
+            </div>
+            <input id="card-{{card.id}}-recepient" type="email" class="recepient-email" placeholder="Recovery email" required>
+            <div hidden class="gift-options">
+                <input id="card-{{card.id}}-name" type="text" class="recepient-email" placeholder="Recipient name">
+            </div>
+        </div>
+        <nav>
+            <button type="button" class="icon back-button"><span class="material-symbols-outlined">arrow_back</span></button>
+            <button class="filled buy-button"><span class="material-symbols-outlined">shopping_cart</span>Purchase</button>
+        </nav>
+    </form>
+</dialog>
+<script>
+    document.querySelector("#dialog-{{card.id}} form").addEventListener("submit", e => {
+        e.preventDefault()
+        const form = document.querySelector("#create-card");
+        const popup = document.querySelector("#payment-popup");
+        form.querySelector("#hidden-image").value = "{{card.image}}"
+        form.querySelector("#hidden-amount").value = "{{card.amount}}"
+        form.querySelector("#hidden-email").value = e.currentTarget.querySelector(".recepient-email").value;
+        form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-{{card.id}}-name").value;
+        popup.querySelector("iframe").src = "{% url 'web-payment-window' %}?amount={{card.amount}}"
+        popup.showModal()
+    })
+    document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
+        document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recovery email"
+        document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
+    })
+    document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
+        document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recipient email"
+        document.querySelector("#dialog-{{card.id}} .gift-options").hidden = false;
+    })
+</script>
+{% endfor %}
+<dialog id="payment-popup">
+    <nav>
+        <button class="icon back-button"><span class="material-symbols-outlined">arrow_back</span></button>
+    </nav>
+    <iframe frameborder="0"></iframe>
+</dialog>
+<form hidden id="create-card" action="" method="post">
+    {% csrf_token %}
+    <input type="email" name="email" id="hidden-email">
+    <input type="text" name="name" id="hidden-name">
+    <input type="number" name="amount" id="hidden-amount">
+    <input type="text" name="image" id="hidden-image">
+    <input type="text" name="transaction_uuid" id="hidden-uuid">
+</form>
+<script>
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const cards = document.querySelectorAll(".card");
+    const form = document.querySelector("#create-card")
+    cards.forEach(card => {
+        card.addEventListener("click", e => {
+            const id = e.currentTarget.dataset.cardId;
+            document.querySelector(`#dialog-${id}`).showModal()
+        })
+    })
+    document.querySelectorAll(".back-button").forEach(button => {
+        button.addEventListener("click", e => {
+            e.currentTarget.parentElement.parentElement.close()
+        })
+    })
+    window.addEventListener("message", e => {
+        try {
+            if (e.data.action === "closeCardPopup") {
+                const popup = document.querySelector("#payment-popup");
+                popup.close()
+                fetch('{% url "web-payment-window" %}', {
+                    method:"PUT",
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body:JSON.stringify({
+                        transaction_uuid:e.data.uuid
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.paid) {
+                        form.querySelector("#hidden-uuid").value = data.uuid
+                        form.submit()
+                    }
+                })
+            }
+        } catch (error) {}
+    })
+</script>
+{% endblock %}
