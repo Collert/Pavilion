@@ -23,13 +23,11 @@
     </style>
 </head>
 <body>
+    {% csrf_token %}
     <header>
         <nav class="button-row">
             <button id="rotate-screen" class="icon"><span class="material-symbols-outlined">screen_rotation</span></button>
             <a class="button icon" href="{% url 'component_availability' %}"><span class="material-symbols-outlined">inventory_2</span></a>
-            {% if user.is_superuser %}
-            <a class="button icon" href="{% url 'register_staff' %}"><span class="material-symbols-outlined">person_add</span></a>
-            {% endif %}
             {% if route == "pos" %}
             <button id="dropdown">
                 <span id="drop-but">Menu</span>

@@ -1,0 +1,126 @@
+{% extends "online_store/layout.html" %}
+{% load static %}
+
+{% block body %}
+<h1>Order #{{order.order_id}}</h1>
+{% if order.channel == 'delivery' %}
+<div class="status-container">
+    <div class="delivery" id="status">
+        {% for i in '123456'|make_list %}
+        <div class="badge-container">
+            {% if forloop.counter > 1 %}
+            <div class="status-bar left {% if status >= forloop.counter %}filled{% endif %}"></div>
+            {% endif %}
+            <div class="badge {% if status > forloop.counter %}filled{% elif status == forloop.counter %}active{% endif %}">
+                {% if status > forloop.counter %}
+                <span class="material-symbols-outlined">check</span>
+                {% elif status == forloop.counter %}
+                <span class="material-symbols-outlined">
+                    {% if status == 1 %}
+                        inactive_order
+                    {% elif status == 2 %}
+                        preview
+                    {% elif status == 3 %}
+                        skillet
+                    {% elif status == 4 %}
+                        order_approve
+                    {% elif status == 5 %}
+                        local_shipping
+                    {% elif status == 6 %}
+                        done_all
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+            {% if forloop.counter < 6 %}
+            <div class="status-bar right {% if status > forloop.counter %}filled{% endif %}"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <h2>
+        {% if status == 1 %}
+            Order pending
+        {% elif status == 2 %}
+            We are reviewing your order
+        {% elif status == 3 %}
+            Order is being prepared
+        {% elif status == 4 %}
+            Order is ready for pickup by the courier
+        {% elif status == 5 %}
+            Order is being transported to your address
+        {% elif status == 6 %}
+            Order delivered
+        {% endif %}
+    </h2>
+</div>
+{% elif order.channel == 'web' %}
+<div class="status-container">
+    <div class="web" id="status">
+        {% for i in '12345'|make_list %}
+        <div class="badge-container">
+            {% if forloop.counter > 1 %}
+            <div class="status-bar left {% if status >= forloop.counter %}filled{% endif %}"></div>
+            {% endif %}
+            <div class="badge {% if status > forloop.counter %}filled{% elif status == forloop.counter %}active{% endif %}">
+                {% if status > forloop.counter %}
+                <span class="material-symbols-outlined">check</span>
+                {% elif status == forloop.counter %}
+                <span class="material-symbols-outlined">
+                    {% if status == 1 %}
+                        inactive_order
+                    {% elif status == 2 %}
+                        preview
+                    {% elif status == 3 %}
+                        skillet
+                    {% elif status == 4 %}
+                        order_approve
+                    {% elif status == 5 %}
+                        done_all
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+            {% if forloop.counter < 5 %}
+            <div class="status-bar right {% if status > forloop.counter %}filled{% endif %}"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <h2>
+        {% if status == 1 %}
+            Order pending
+        {% elif status == 2 %}
+            We are reviewing your order
+        {% elif status == 3 %}
+            Order is being prepared
+        {% elif status == 4 %}
+            Order is ready for pickup
+        {% elif status == 5 %}
+            Order picked up
+        {% endif %}
+    </h2>
+</div>
+{% endif %}
+<div id="info">
+    {% if order.channel == 'delivery' %}
+    <div>        
+        <h3>Address:</h3>
+        <p>{{order.address}}</p>
+    </div>
+    {% endif %}
+    <div>
+        <h3>Your order:</h3>
+        <ul>
+            {% for item in order.dishes %}
+                <li>{{item.quantity}} X {{item.name}}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% if order.channel == 'delivery' %}
+<p>
+    No delivery fees, no service fees, but we're sure our delivery people would definitely appreciate a cash tip when they bring you your bag of deliciousness 😉
+</p>
+{% endif %}
+{% endblock %}

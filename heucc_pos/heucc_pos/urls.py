@@ -24,10 +24,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('webrtc/', include("webrtc.urls")),
     path('restaurant/', include("pos_server.urls")),
+    path('deliveries/', include("deliveries.urls")),
     path('utils/', include("misc_tools.urls")),
     path('inventory/', include("inventory.urls")),
     path('gift-cards/', include("gift_cards.urls")),
     path('payments/', include("payments.urls")),
+    path('online-store/', include("online_store.urls")),
+    path('users/', include("users.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -4,8 +4,16 @@
 {% block body %}
 {% csrf_token %}
 <div id="items-wrapper">
+    {% for station, items in menu.items %}
+    {% if station == "bar" %}
+    <h1>Drinks and sweets</h1>
+    {% elif station == "kitchen" %}
+    <h1>Hot food</h1>
+    {% elif station == "gng" %}
+    <h1>Grab & Go</h1>
+    {% endif %}
     <div id="items">
-        {% for item in menu %}
+            {% for item in items %}
             <button 
                 data-id="{{item.id}}" 
                 class="dish tight" 
@@ -17,8 +25,9 @@
                     <span class="material-symbols-outlined">add_shopping_cart</span>
                 </div>
             </button>
-        {% endfor %}
-    </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
 </div>
 <div id="cart-wrapper">
     <div id="cart">
@@ -97,9 +106,10 @@
         <button>Apply</button>
     </form>
 </dialog>
-<script> 
-    const eventSource = new EventSource("{% url 'stock_updates' %}"); 
+<script>
+    const dishes = JSON.parse('{{json|safe}}');
+    const invUpdatesLink = "{% url 'check_inventory' %}"
 </script>
-<script>const dishes = JSON.parse('{{json|safe}}');</script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
+<script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
 {% endblock %}

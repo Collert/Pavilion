@@ -1,0 +1,34 @@
+{% extends "deliveries/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% if courier %}
+    {% for order in orders %}
+        <a href="{% url 'delivery_order' id=order.id %}" class="order no-style">
+            <h1>{{order.order.table}}</h1>
+            {% with order.order.orderdish_set.all.count as items %}
+                <span>{{items}} item{% if items > 1 %}s{% endif %}</span>
+            {% endwith %}
+            <span><span class="material-symbols-outlined">
+                {% if courier.mode == "driving" %}
+                directions_car
+                {% elif courier.mode == "walking" %}
+                directions_walk
+                {% elif courier.mode == "bicycling" %}
+                directions_bike
+                {% endif %}
+            </span>
+            <span data-destination="{{order.destination}}" class="order-eta"></span></span>
+        </a>
+    {% endfor %}
+{% else %}
+        <h1>Orders will show up when you clock in in the "Job" tab.</h1>
+{% endif %}
+<script>
+    document.querySelectorAll(".order-eta").forEach(element => {
+        fetch(`{% url 'eta' %}?destination=${element.dataset.destination}`)
+        .then(response => response.json())
+        .then(data => {element.innerHTML = data.text})
+    })
+</script>
+{% endblock %}

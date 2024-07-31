@@ -1,0 +1,30 @@
+{% extends "pos_server/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% if not authorized %}
+<h2 style="text-align: center; padding: 1rem 0;">This device is not authorized to access the attempted functionality. Please use admin credentials to authorize.</h2>
+{% endif %}
+<form id="login" method="post" style="align-content: center;" action="{% url 'device_elig' %}">
+    {% csrf_token %}
+    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
+    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
+    <input type="text" required name="device" placeholder="Device name"/>
+    {% if request.GET.next %}
+    <input type="hidden" name="next" value="{{ request.GET.next }}">
+    {% endif %}
+    <button {% if failed_login %}class="error"{% endif %}>Authorize</button>
+    {% if failed_login %}
+    <span>Failed to authenticate, please try again</span>
+    {% endif %}
+</form>
+
+{% if authorized and uuid %}
+<script>
+    const UUID = "{{uuid}}"
+    window.localStorage.setItem("deviceToken", UUID)
+    alert("Device registered! You will now be redirected to homepage.")
+    window.location.href = "/"
+</script>
+{% endif %}
+{% endblock %}

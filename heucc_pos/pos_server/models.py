@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from inventory.models import Recipe
 from . import globals
+import uuid
 
 # Create your models here.
     
@@ -27,6 +28,8 @@ class Dish(models.Model):
     )
     title = models.CharField(max_length=140)
     price = models.FloatField()
+    image = models.ImageField(upload_to='files/dish_images', null=True, blank=True)
+    description = models.TextField(blank=True)
     components = models.ManyToManyField("Component", through='DishComponent')
     menu = models.ManyToManyField("Menu", related_name = "dishes")
     station = models.CharField(max_length=50, choices=stations)
@@ -38,34 +41,60 @@ class Dish(models.Model):
         return self.title
 
 class Order(models.Model):
+    order_channels = (
+        ("store", "In-person"),
+        ("web", "Online pickup"),
+        ("delivery", "Delivery")
+    )
     timestamp = models.DateTimeField(default=timezone.now)
-    prep_time = models.DurationField(null=True)
+    start_time = models.DateTimeField(default=timezone.now)
+    prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
-    table = models.CharField(null=True, max_length = 140)
-    kitchen_done = models.BooleanField(default=False)
+    table = models.CharField(null=True, max_length = 140, blank=True)
+    kitchen_done = models.BooleanField(default=True)
     kitchen_needed = models.BooleanField(default=False)
-    bar_done = models.BooleanField(default=False)
-    picked_up = models.BooleanField(default=False)
-    special_instructions = models.TextField(null=True)
+    bar_done = models.BooleanField(default=True)
+    gng_done = models.BooleanField(default=True) # I will get to implementing this soon
+    picked_up = models.BooleanField(default=True)
+    special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
     final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
+    channel = models.CharField(max_length=10, choices=order_channels)
+    phone = models.PositiveBigIntegerField(null=True, blank=True)
+    approved = models.BooleanField(default=True)
 
-    def send_to_display(self):
-        print(self.dishes.all())
-        for dish in self.dishes.all():
-            print(dish)
-
-    def save(self, *args, **kwargs):
-        if self.bar_done and self.kitchen_done:
-            try:
-                if kwargs['final']:
+    def save(self, temp=False):
+        if self.bar_done and self.kitchen_done and self.gng_done:
+            if not temp:
+                if not self.prep_time:
                     self.prep_time = timezone.now() - self.timestamp
+                if self.kitchen_done and self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done and self.channel == "store":
+                    self.picked_up=True
+                try:
+                    globals.active_orders.remove(self)
+                except KeyError:
+                    pass
+                if not self.picked_up:
+                    globals.active_orders.add(self)
+        else:
+            try:
+                globals.active_orders.remove(self)
             except KeyError:
                 pass
+            globals.active_orders.add(self)
+        print(globals.active_orders)
         return super().save()
 
     def __str__(self) -> str:
         return f"Order {self.id}"
+    
+    def __eq__(self, other):
+        if isinstance(other, Order):
+            return self.id == other.id
+        return False
+
+    def __hash__(self):
+        return hash(self.id)
 
 class OrderDish(models.Model):
     order = models.ForeignKey(Order, on_delete = models.CASCADE)
@@ -87,13 +116,18 @@ class Component(models.Model):
         ("food", "Food"),
         ("beverage", "Beverage")
     )
+    crafting_options = (
+        ("craft","Craftable"),
+        ("buy","Purchased"),
+        ("auto","Self-crafting")
+    )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
     inventory = models.FloatField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
     in_stock = models.BooleanField(default=False)
-    self_crafting = models.BooleanField(default=False)
+    crafting_option = models.CharField(max_length=10, choices=crafting_options)
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def save(self, *args, **kwargs):
@@ -136,9 +170,23 @@ class Ingredient(models.Model):
         ("ml", "Milliliter"),
         ("ea", "Each")
     )
+    allergens = (
+        ("Eggs", "Eggs"),
+        ("Milk", "Milk"),
+        ("Mustard", "Mustard"),
+        ("Peanuts", "Peanuts"),
+        ("Fish", "Fish"),
+        ("Sesame seeds", "Sesame seeds"),
+        ("Soy", "Soy"),
+        ("Sulphites", "Sulphites"),
+        ("Tree Nuts", "Tree Nuts"),
+        ("Wheat and triticale", "Wheat and triticale"),
+        ("Crustaceans", "Crustaceans")
+    )
     title = models.CharField(max_length=140)
     inventory = models.IntegerField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
+    allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
 
     def __str__(self) -> str:
@@ -156,3 +204,10 @@ class ComponentIngredient(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.ingredient.title} in {self.component.title}"
+    
+class EligibleDevice(models.Model):
+    token = models.UUIDField(default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=140)
+
+    def __str__(self) -> str:
+        return self.name

@@ -61,7 +61,7 @@ def day_display(request, day_id):
 @login_required
 def crafting(request):
     if request.method == "GET":
-        components = Component.objects.filter(self_crafting=False)
+        components = Component.objects.filter(crafting_option="craft")
         ingredients = Ingredient.objects.all()
         return render(request, "inventory/crafting.html", {
             "route":"crafting",
@@ -160,9 +160,20 @@ def recipe(request, recipe_id):
     if request.method == "GET":
         md = markdown.Markdown(extensions=['tables'])
         recipe = Recipe.objects.get(pk=recipe_id)
+        recipe_obj_type = "dish" if recipe.dish.first() else "component"
+        ingredients_ul = "<ul>"
+        if recipe_obj_type == "dish":
+            for dc in recipe.dish.first().dishcomponent_set.all():
+                ingredients_ul += f"<li>{str(round(dc.quantity * recipe.original_yield, 2))} {dc.component.unit_of_measurement.capitalize()} {dc.component.title}</li>"
+        else:
+            for ci in recipe.component.first().componentingredient_set.all():
+                ingredients_ul += f"<li>{str(round(ci.quantity * recipe.original_yield, 2))} {ci.ingredient.unit_of_measurement.capitalize()} {ci.ingredient.title}</li>"
+        ingredients_ul += "</ul>"
+        print(ingredients_ul)
         return render(request, "inventory/recipe.html", {
             "recipe_obj":recipe,
-            "recipe_obj_type":"dish" if recipe.dish.first() else "component",
+            "ingredients_ul":ingredients_ul,
+            "recipe_obj_type":recipe_obj_type,
             "recipe_md":md.convert(recipe.markdown_text),
             "route":"recipe"
         })

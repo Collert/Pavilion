@@ -8,14 +8,14 @@ cartChannel.addEventListener("message", e => {
     console.log(e.data)
     if (e.data.message === "add") {
         thank.className = "";
-        orderSummary.className = "";
+        // orderSummary.className = "";
         addCartItem(e.data.id, e.data.orderArr, null, true, e.data.discounts);
     } else if (e.data.message === "remove") {
         let dishCard = document.querySelector(`#dish-${e.data.id}`);
         removeCartItem(e.data.id, e.data.orderArr, dishCard)
-        if (!e.data.orderArr.length) {
-            orderSummary.className = "tucked";
-        }
+        // if (!e.data.orderArr.length) {
+        //     orderSummary.className = "tucked";
+        // }
     } else if (e.data.message === "paid") {
         if (e.data.name) {
             thank.children[0].innerHTML = `Thank you,<br>${e.data.name}!`
@@ -32,6 +32,10 @@ cartChannel.addEventListener("message", e => {
         updateCheckoutButton(e.data.orderArr, e.data.discounts)
     } else if (e.data.message === "toggleOrderSummary") {
         orderSummary.classList.toggle("tucked")
+    } else if (e.data.message === "openOrderSummary") {
+        orderSummary.classList.remove("tucked")
+    } else if (e.data.message === "closeOrderSummary") {
+        orderSummary.classList.add("tucked")
     }
 })
 

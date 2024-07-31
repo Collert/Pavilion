@@ -3,7 +3,6 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
-from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
@@ -13,7 +12,6 @@ from .models import *
 import json
 import time
 from django.utils import timezone
-from .globals import new_data_queue
 from . import globals
 import datetime
 from collections import defaultdict
@@ -31,6 +29,7 @@ from inventory.views import craft_component
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Q
+from django.utils.timezone import make_aware
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -121,8 +120,6 @@ def bar(request):
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         order.bar_done = True
-        if order.kitchen_done and not order.kitchen_needed:
-            order.picked_up = True
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     
@@ -137,15 +134,53 @@ def menu_select(request):
         menu.save()
         return redirect(reverse("pos"))
 
+@login_required
+def device_elig(request):
+    if request.method == "PUT":
+        try:
+            EligibleDevice.objects.filter(token=json.loads(request.body)["token"])
+        except:
+            return HttpResponseForbidden("Forbidden: Device not recognized.")
+        if EligibleDevice.objects.filter(token=json.loads(request.body)["token"]).exists():
+            return JsonResponse({"status": "device ok"}, status=200)
+    elif request.method == "GET":
+        return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "authorized":False
+            })
+    elif request.method == "POST":
+        username = request.POST["username"]
+        password = request.POST["password"]
+        device_name = request.POST["device"]
+        user = authenticate(request, username=username, password=password)
+        if user is not None and user.is_superuser:
+            new_device = EligibleDevice.objects.create(name=device_name)
+            next_url = request.POST.get('next')  # Get the next parameter
+            if next_url:
+                return redirect(next_url)
+            return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "uuid":new_device.token,
+                "authorized":True
+            })
+        else:
+            return render(request, "pos_server/ineligible-device.html", {
+                "route":"login",
+                "failed_login":True,
+            })
+
 # @local_network_only
 @login_required
 def pos(request):
     if request.method == "GET":
         menu = Menu.objects.filter(is_active = True).first()
         dishes = Dish.objects.filter(menu=menu)
+        grouped_dishes = defaultdict(list)
+        for dish in dishes:
+            grouped_dishes[dish.station].append(dish)
         return render(request, "pos_server/order.html", {
             "route":"pos",
-            "menu": dishes,
+            "menu": dict(grouped_dishes),
             "menu_title": menu.title,
             "json": serializers.serialize('json', dishes),
             "menus": Menu.objects.all()
@@ -156,12 +191,9 @@ def pos(request):
         instructions = body["instructions"]
         is_to_go = body["toGo"]
         dish_counts = Counter(order)
-        new_order = Order(special_instructions=instructions, to_go_order=is_to_go)
+        new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
         new_order.table = body["table"] if body["table"].strip() != '' else None
-        new_order.save(final=False)
-        new_order.bar_done = True
-        new_order.picked_up = True
-        new_order.kitchen_done = True
+        new_order.save(temp=True)
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             if dish.station == "bar":
@@ -172,13 +204,13 @@ def pos(request):
                 new_order.kitchen_needed = True
                 new_order.picked_up = False
             for dc in dish.dishcomponent_set.all():
-                if dc.component.self_crafting:
+                if dc.component.crafting_option == "auto":
                     craft_component(dc.component.id, 1)
                 dc.component.inventory -= dc.quantity
                 dc.component.save()
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
-        new_order.save(final=True)
+        new_order.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
         return square.terminal_checkout(request)
@@ -195,6 +227,7 @@ def dashboard(request):
 def day_stats(request):
     if request.GET.get('date'):
         day = datetime.datetime.strptime(request.GET.get('date'), '%B %d, %Y')
+        day = make_aware(day)
         menu = Dish.objects.all()
         orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
         stats = {
@@ -219,6 +252,7 @@ def day_stats(request):
         }
         # Function to round down time to the nearest 15 minutes
         def get_15_min_window(dt):
+            dt = timezone.localtime(dt)
             # Round down to the nearest 15 minutes for the start of the window
             start_minute = 15 * math.floor(dt.minute / 15)
             start_time = dt.replace(minute=start_minute, second=0, microsecond=0)
@@ -272,6 +306,7 @@ def day_stats(request):
                         else:
                             stats['ingredients'][ci.ingredient.title][0] += ci.quantity
         stats["order_occasions"] = dict(stats["order_occasions"])
+        stats["item_stats"] = dict(sorted(stats["item_stats"].items(), key=lambda item: item[1], reverse=True)) # https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
     return render(request, "pos_server/day_stats.html",{
         "menu":menu,
         "stats":stats
@@ -298,42 +333,45 @@ def compile_menu(menu):
         "gng":[],
     }
     for dish in menu.dishes.all().order_by("id"):
-        final_dish = {
-            "title":dish.title,
-            "components":"",
-            "price":format_float(dish.price),
-            "available":dish.in_stock or dish.force_in_stock,
-        }
-        dcs = dish.dishcomponent_set.all()
-        for index, dc in enumerate(dcs):
-            if dc.component.type == "food":
-                if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
-                    quantity_str = "a bowl of "
-                elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
-                        quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
-                else:
-                    if dc.quantity == 1:
-                        quantity_str = ""
-                    elif dc.quantity < 1:
-                        quantity_str = "a piece of "
-                    else:
-                        quantity_str = f"{int(dc.quantity)} "
+        categories[dish.station].append(prettify_dish(dish))
+    return categories, components_out
+
+def prettify_dish(dish):
+    final_dish = {
+        "title":dish.title,
+        "components":"",
+        "price":format_float(dish.price),
+        "available":dish.in_stock or dish.force_in_stock,
+    }
+    dcs = dish.dishcomponent_set.all()
+    for index, dc in enumerate(dcs):
+        if dc.component.type == "food":
+            if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
+                quantity_str = "a bowl of "
+            elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
+                    quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
             else:
                 if dc.quantity == 1:
-                    quantity_str = "a cup of "
+                    quantity_str = ""
+                elif dc.quantity < 1:
+                    quantity_str = "a piece of "
                 else:
-                    quantity_str = f"{int(dc.quantity)} cups of "
-            final_dish["components"] += f"{quantity_str}"
-            final_dish["components"] += f"{dc.component.title.lower()}"
-            if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
-                final_dish["components"] += "s"
-            if dc.component.inventory < dc.quantity:
-                # final_dish["components"] += "*"
-                components_out = True
-            if index != len(dcs) - 1:
-                final_dish["components"] += ", "
-        categories[dish.station].append(final_dish)
-    return categories, components_out
+                    quantity_str = f"{int(dc.quantity)} "
+        else:
+            if dc.quantity == 1:
+                quantity_str = "a cup of "
+            else:
+                quantity_str = f"{int(dc.quantity)} cups of "
+        final_dish["components"] += f"{quantity_str}"
+        final_dish["components"] += f"{dc.component.title.lower()}"
+        if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
+            final_dish["components"] += "s"
+        if dc.component.inventory < dc.quantity:
+            # final_dish["components"] += "*"
+            components_out = True
+        if index != len(dcs) - 1:
+            final_dish["components"] += ", "
+    return final_dish
 
 def format_float(num:float) -> str:
     if num.is_integer():
@@ -408,9 +446,9 @@ def register_staff(request):
         })
     
 def order_progress(request):
-    in_progress = Order.objects.filter(kitchen_done=False)
-    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False))
-    print("here")
+    today = timezone.localdate()
+    in_progress = Order.objects.filter(kitchen_done=False, timestamp__date=today)
+    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False), timestamp__date=today)
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
         "in_progress":in_progress,
@@ -473,94 +511,19 @@ def check_card_status(request):
         globals.checkout_card_status = ''
         return JsonResponse({"status":globals.checkout_card_status})
 
+def active_orders(request):
+    orders = globals.active_orders
+    serialized_orders = []
+    for order in orders:
+        serialized = collect_order(order)
+        serialized_orders.append(serialized)
+    # print(serialized_orders)
+    return JsonResponse(serialized_orders, safe=False)
 
-def event_stream():
-    while True:
-        while new_data_queue:
-            data = new_data_queue[0]
-            order_data_json = json.dumps(collect_order(data))
-            yield f"data: {order_data_json}\n\n"
-            time.sleep(2)
-            try:
-                new_data_queue.remove(data)
-            except:
-                pass
-        # Send a heartbeat every X seconds
-        yield ":heartbeat\n\n"
-        time.sleep(1)
-
-def order_updates(request):
-    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
-    response['Cache-Control'] = 'no-cache'
-    response['X-Accel-Buffering'] = 'no'
-    return response
-
-def kitchen_updates_stream():
-    while True:
-        while globals.kitchen_update_queue:
-            data = globals.kitchen_update_queue[0]
-            order_data_json = json.dumps(collect_order(data))
-            yield f"data: {order_data_json}\n\n"
-            time.sleep(2)
-            try:
-                globals.kitchen_update_queue.remove(data)
-            except:
-                pass
-        while globals.kitchen_done_queue:
-            data = globals.kitchen_done_queue[0]
-            order_data_json = json.dumps(collect_order(data, done=True))
-            yield f"data: {order_data_json}\n\n"
-            time.sleep(2)
-            try:
-                globals.kitchen_done_queue.remove(data)
-            except:
-                pass
-        # Send a heartbeat every X seconds
-        yield ":heartbeat\n\n"
-        time.sleep(1)
-
-def kitchen_updates(request):
-    response = StreamingHttpResponse(kitchen_updates_stream(), content_type='text/event-stream')
-    response['Cache-Control'] = 'no-cache'
-    response['X-Accel-Buffering'] = 'no'
-    return response
-
-def kitchen_completions_stream():
-    while True:
-        while globals.kitchen_done_queue:
-            data = globals.kitchen_done_queue[0]
-            order_data_json = json.dumps(collect_order(data))
-            yield f"data: {order_data_json}\n\n"
-            time.sleep(2)
-            try:
-                globals.kitchen_done_queue.remove(data)
-            except:
-                pass
-        # Send a heartbeat every X seconds
-        yield ":heartbeat\n\n"
-        time.sleep(1)
-
-def kitchen_completions(request):
-    response = StreamingHttpResponse(kitchen_completions_stream(), content_type='text/event-stream')
-    response['Cache-Control'] = 'no-cache'
-    response['X-Accel-Buffering'] = 'no'
-    return response
-
-def stock_update_stream():
-    while True:
-        while globals.stock_updated:
-            yield f"data: {globals.stock_updated}\n\n"
-            globals.stock_updated = ''
-            time.sleep(2)
-        # Send a heartbeat every X seconds
-        yield ":heartbeat\n\n"
-        time.sleep(1)
-
-def stock_updates(request):
-    response = StreamingHttpResponse(stock_update_stream(), content_type='text/event-stream')
-    response['Cache-Control'] = 'no-cache'
-    response['X-Accel-Buffering'] = 'no'
-    return response
+def check_inventory(request):
+    menu = Menu.objects.filter(is_active = True).first()
+    dishes = Dish.objects.filter(menu=menu)
+    return JsonResponse(serializers.serialize('json', dishes), safe=False)
 
 def collect_order(order, done=False):
     # Fetch related OrderDish instances for each order
@@ -579,6 +542,10 @@ def collect_order(order, done=False):
         'dishes': dishes_data,
         'table':order.table,
         'to_go_order':order.to_go_order,
+        'channel':order.channel,
+        'phone':order.phone,
+        'address':order.delivery.first().destination if order.delivery.first() else None,
+        'approved':order.approved,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
         "kitchen_done":order.kitchen_done,

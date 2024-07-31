@@ -1,0 +1,82 @@
+{% extends "users/layout.html" %}
+{% load static %}
+
+{% block body %}
+<form action="{% url 'register' %}" method="post">
+    {% if error %}
+    <h1 style="color: var(--error-color);">User already exists</h1>
+    {% endif %}
+    {% csrf_token %}
+    <div>
+        <label for="id_username">Username:</label>
+        <input type="text" name="username" maxlength="150" autocapitalize="none" autocomplete="username" autofocus="" required="" aria-describedby="id_username_helptext" id="id_username">
+        <span class="helptext" id="id_username_helptext">Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.</span>
+    </div>
+    <span id="username-error" hidden style="color: var(--error-color);"></span>
+    <div>
+        <label for="id_password1">Password:</label>
+        <input type="password" name="password1" autocomplete="new-password" required="" aria-describedby="id_password1_helptext" id="id_password1">
+        <span class="helptext" id="id_password1_helptext"></span>
+    </div>
+    <ul>
+        <li>Your password can’t be too similar to your other personal information.</li>
+        <li>Your password must contain at least 8 characters.</li>
+        <li>Your password can’t be a commonly used password.</li>
+        <li>Your password can’t be entirely numeric.</li>
+    </ul>
+    <div>
+        <label for="id_password2">Password confirmation:</label>
+        <input type="password" name="password2" autocomplete="new-password" required="" aria-describedby="id_password2_helptext" id="id_password2">
+        <span class="helptext" id="id_password2_helptext">Enter the same password as before, for verification.</span>
+    </div>
+    <span id="pass-error" hidden style="color: var(--error-color);"></span>
+    <div>
+        <label for="email">Email address:</label>
+        <input required type="email" name="email" id="email">
+    </div>
+    <div>
+        <label for="first_name">First name:</label>
+        <input required type="text" name="first_name" id="first_name">
+    </div>
+    <div>
+        <label for="last_name">Last name:</label>
+        <input required type="text" name="last_name" id="last_name">
+    </div>
+    <button type="submit">Register</button>
+</form>
+<script>
+    document.querySelector("form").addEventListener("submit", e => {
+        e.preventDefault()
+        if (!validatePassword(document.querySelector("#id_password1").value)) {
+            document.querySelector("#pass-error").hidden = false;
+            document.querySelector("#pass-error").innerHTML = "Password doesn't satisfy the requirements above!";
+        } else if (document.querySelector("#id_password1").value !== document.querySelector("#id_password2").value) {
+            document.querySelector("#pass-error").hidden = false;
+            document.querySelector("#pass-error").innerHTML = "Passwords don't match!";
+        } else if (/^[a-zA-Z0-9@./+_-]{1,150}$/.test(document.querySelector("#id_username").value)) {
+            document.querySelector("#username-error").hidden = false;
+            document.querySelector("#username-error").innerHTML = "Username does not satisfy requirements!";
+        } else {
+            e.currentTarget.submit()
+        }
+    })
+    function validatePassword(password) {
+        // Check if password has at least 8 characters
+        if (password.length < 8) {
+            return false
+        }
+        
+        const commonPasswords = ["12341234", "password", "123456789", "12345678", "12345", "1234567", "qwerty", "abcd1234"];
+        if (commonPasswords.includes(password)) {
+            return false
+        }
+        
+        // Check if the password is entirely numeric
+        if (/^\d+$/.test(password)) {
+            return false
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}

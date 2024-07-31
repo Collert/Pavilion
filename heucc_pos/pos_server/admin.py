@@ -6,6 +6,7 @@ from .models import *
 admin.site.register(Ingredient)
 admin.site.register(Order)
 admin.site.register(Menu)
+admin.site.register(EligibleDevice)
 # admin.site.register(OrderDish)
 # admin.site.register(DishComponent)
 # admin.site.register(ComponentIngredient)

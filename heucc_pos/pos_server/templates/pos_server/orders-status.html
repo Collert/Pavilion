@@ -133,9 +133,9 @@
     </script>
     <script> 
         const APIKey = "{{weather_API_key}}"
-        const newOrders = new EventSource("{% url 'order_updates' %}"); 
-        const updatedOrders = new EventSource("{% url 'kitchen_updates' %}"); 
-        // const finishedOrders = new EventSource("{% url 'kitchen_completions' %}"); 
+        const checkOrdersLink = "{% url 'active_orders' %}";
+        let weatherIcons;
+        fetch("{% static 'pos_server/weatherCodes.json' %}").then(response => response.json()).then(data => {weatherIcons = data})
     </script>
     <script type="module" src="{% static 'pos_server/orders-status.js' %}"></script>
 </body>

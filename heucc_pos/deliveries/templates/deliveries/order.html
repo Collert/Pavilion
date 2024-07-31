@@ -1,0 +1,222 @@
+{% extends "deliveries/layout.html" %}
+{% load static %}
+
+{% block body %}
+<div class="body">
+    {% csrf_token %}
+    <div class="summary">
+        <h1>{{delivery.order.table}}</h1>
+        <span>Order #{{delivery.order.id}}</span>
+    </div>
+    {% with delivery.order.orderdish_set.all.count as items %}
+        <h3>{{items}} item{% if items > 1 %}s{% endif %}</h3>
+    {% endwith %}
+    <h2>Deliver to:</h2>
+    <p>{{delivery.destination}}</p>
+    {% if not delivery.completed %}
+    {% if courier and delivery.courier == request.user or courier and not delivery.courier %}
+    <h2>Your ETA:</h2>
+    <div id="eta-row">
+        <span id="eta">
+            <span class="material-symbols-outlined">
+                {% if courier.mode == "driving" %}
+                directions_car
+                {% elif courier.mode == "walking" %}
+                directions_walk
+                {% elif courier.mode == "bicycling" %}
+                directions_bike
+                {% endif %}
+            </span>
+            <span class="order-eta">{{eta}}</span>
+        </span>
+        <button {% if not delivery.eta %} hidden {% endif %} id="adjust-eta">Adjust ETA</button>
+    </div>
+    {% endif %}
+    {% endif %}
+    <h2>Delivery instructions:</h2>
+    {{delivery.instructions}}
+</div>
+{% if courier %}
+<nav {% if delivery.courier == request.user %} class="in-progress" {% endif %}>
+    <div id="top-nav">
+        <a href="tel:{{delivery.phone}}" class="button icon">
+            <span class="material-symbols-outlined">call</span>
+        </a>
+        <a 
+        data-confirm-prompt="false" 
+        class="button {% if delivery.courier == request.user %}taken{% endif %}" 
+        id="start"
+        {% if delivery.completed %}
+        href="https://www.google.com/maps/dir/?api=1&destination={{restaurant_address}}&travelmode={{courier.mode}}"
+        {% elif delivery.courier == request.user %}
+        href="https://www.google.com/maps/dir/?api=1&destination={{delivery.destination}}&travelmode={{courier.mode}}"
+        {% endif %}
+        >
+            <span id="initial"><span class="material-symbols-outlined">quick_reorder</span> Start delivery</span>
+            <span id="confirmation"><span class="material-symbols-outlined">prompt_suggestion</span> Tap again to confirm start</span>
+            <span id="taken"><span class="material-symbols-outlined">check</span> Order taken</span>
+            <span id="navigate"><span class="material-symbols-outlined">
+                {% if courier.mode == "driving" %}
+                directions_car
+                {% elif courier.mode == "walking" %}
+                directions_walk
+                {% elif courier.mode == "bicycling" %}
+                directions_bike
+                {% endif %}
+            </span><span id="navigate-text">Navigate {% if delivery.completed %}back{% else %}to destination{% endif %}</span></span>
+        </a>
+    </div>
+    <div id="bot-nav">
+        {% if not delivery.completed %}
+        <button id="complete-order">
+            <span class="material-symbols-outlined">done_all</span><span id="completion-status">Complete delivery</span>
+        </button>
+        {% else %}
+        <button disabled id="complete-order">
+            <span class="material-symbols-outlined">done_all</span><span id="completion-status">Order complete</span>
+        </button>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+<dialog id="eta-adjust">
+    <form action="{% url 'delivery_order' id=delivery.id %}" method="post">
+        {% csrf_token %}
+        <input required type="time" name="new-eta" id="">
+        <nav>
+            <button type="button" id="close-adjust" class="icon"><span class="material-symbols-outlined">close</span></button>
+            <button id="submit-adjist">Submit</button>
+        </nav>
+    </form>
+</dialog>
+{% if not delivery.eta %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch("{% url 'eta' %}?destination={{delivery.destination}}")
+        .then(response => response.json())
+        .then(data => {
+            etaDisplay.innerHTML = data.text;
+            etaData = data;
+        })
+    })
+</script>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+<script>
+    const startButton = document.querySelector("#start");
+    const etaDisplay = document.querySelector(".order-eta");
+    const adjustEtaButton = document.querySelector("#adjust-eta");
+    let etaData;
+    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const etaDialog = document.querySelector("#eta-adjust");
+    const etaButton = document.querySelector("#adjust-eta");
+    const doneButton = document.querySelector("#complete-order");
+    
+    etaButton.addEventListener("click", () => {
+        etaDialog.showModal()
+    })
+
+    
+    function calculateEta(seconds) {
+        // Get the current date and time
+        let now = new Date();
+        
+        // Add the specified number of seconds
+        now.setSeconds(now.getSeconds() + seconds);
+        
+        // Format the new time as HH:MM AM/PM
+        let formattedTime = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+        
+        return formattedTime;
+    }
+</script>
+{% if courier %}
+<script>
+    startButton.addEventListener("click", e => {
+        if (startButton.dataset.confirmPrompt !== "true") {
+            startButton.dataset.confirmPrompt = true;
+            setTimeout(() => {
+                startButton.dataset.confirmPrompt = false;
+            }, 5000);
+        } else {
+            fetch(window.location.href, {
+                headers:{
+                    "X-CSRFToken": csrftoken,
+                    "Content-Type": "application/json"
+                },
+                method:'PUT',
+                body:JSON.stringify({
+                    eta:calculateEta(etaData.value)
+                })
+            }).then(response => {
+                if (response.ok) {
+                    startButton.classList.add("taken");    
+                    setTimeout(() => {
+                        startButton.href = `https://www.google.com/maps/dir/?api=1&destination={{delivery.destination}}&travelmode={{courier.mode}}`
+                        etaDisplay.innerHTML = calculateEta(etaData.value);
+                        adjustEtaButton.hidden = false;
+                        document.querySelector("nav").classList.add("in-progress")
+                    }, 1800);     
+                }
+            })
+        }
+    })
+</script>
+{% endif %}
+{% if courier.user == delivery.courier or not delivery.courier %}
+<dialog id="confirm-complete">
+    <form>
+        <strong>
+            Are you sure you have followed the delivery instructions and delivered the items to the right address?
+        </strong>
+        <nav>
+            <button type="button" id="close-confirm" class="icon"><span class="material-symbols-outlined">close</span></button>
+            <button class="icon" id="submit-confirm"><span class="material-symbols-outlined">done_outline</span></button>
+        </nav>
+    </form>
+</dialog>
+<script>
+    const confDialog = document.querySelector("#confirm-complete")
+    confDialog.querySelector("form").addEventListener("submit", e => {
+        e.preventDefault()
+        fetch(window.location.href, {
+            headers:{
+                "X-CSRFToken": csrftoken,
+                "Content-Type": "application/json"
+            },
+            method:'DELETE'
+        }).then(response => {
+            if (response.ok) {
+                doneButton.querySelector("#completion-status").innerHTML = "Order complete"
+                startButton.href = `https://www.google.com/maps/dir/?api=1&destination={{restaurant_address}}&travelmode={{courier.mode}}`
+                document.querySelector("#navigate-text").innerHTML = "Navigate back"
+                adjustEtaButton.hidden = true;
+                confDialog.close()
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.9 }
+                });
+                doneButton.disabled = true;
+            }
+        })
+    })
+    confDialog.querySelector("#close-confirm").addEventListener("click", () => {
+        confDialog.close()
+    })
+    doneButton.addEventListener('click', e => {
+        confDialog.showModal()
+    })
+</script>
+{% else %} 
+<script>
+    doneButton.addEventListener('click', e => {
+        alert("You must be assigned to this order to complete it!")
+    })
+</script>
+{% endif %}
+{% endblock %}

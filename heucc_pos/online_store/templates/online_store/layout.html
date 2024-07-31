@@ -1,0 +1,477 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'online_store/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'online_store/project-styles.css' %}" rel="stylesheet">
+    <link rel="manifest" href="{% static 'online_store/manifest.json' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>HEUCC Restaurant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+    </style>
+    <script>
+        function urlB64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        function checkNotificationPermission() {
+            // Check if the browser supports notifications
+            if (!('Notification' in window)) {
+                console.error('This browser does not support notifications.');
+                return undefined;
+            }
+    
+            return Notification.permission === 'granted'
+        }
+
+        function askNotificationPermission(swReg) {
+            // Request permission from the user
+            return Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+                    // You can now show notifications
+                    return fetch('{% url "deliveries_vapid_public_key" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        const applicationServerKey = urlB64ToUint8Array(data.vapidPublicKey);
+                        swReg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: applicationServerKey
+                        })
+                        .then(function(subscription) {
+                            console.log('User is subscribed:', subscription);
+        
+                            // Send the subscription to server to save it
+                            fetch("{% url 'deliveries_save_subscription' %}", {
+                            method: 'POST',
+                            body: JSON.stringify(subscription),
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                            });
+                        })
+                        .catch(function(err) {
+                            console.log('Failed to subscribe the user: ', err);
+                        });
+                    });
+                } else if (permission === 'denied') {
+                    console.log('Notification permission denied.');
+                    alert("Please enable notifications to use this app")
+                } else {
+                    console.log('Notification permission dismissed.');
+                    alert("Please enable notifications to use this app")
+                }
+            });
+        }
+    </script>
+    {% if menu %}
+    <script>
+        function getContrastingColor(hex) {
+            // Ensure the hex color is valid and remove any '#' character
+            hex = hex.replace('#', '');
+
+            // Check if the hex color is short form (e.g., 'FFF') and convert it to long form if necessary
+            if (hex.length === 3) {
+                hex = hex.split('').map(function (hexChar) {
+                    return hexChar + hexChar;
+                }).join('');
+            }
+
+            // Convert hex to RGB
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+
+            // Invert each color component by subtracting it from 255
+            const rInv = 255 - r;
+            const gInv = 255 - g;
+            const bInv = 255 - b;
+
+            // Convert the inverted RGB values back to hex
+            const rHex = rInv.toString(16).padStart(2, '0');
+            const gHex = gInv.toString(16).padStart(2, '0');
+            const bHex = bInv.toString(16).padStart(2, '0');
+
+            // Return the formatted hex color
+            return `#${rHex}${gHex}${bHex}`;
+        }
+
+        // Example usage:
+        const originalColor = '{{menu.menu.background_color}}';  // A bright orange
+        const contrastingColor = getContrastingColor(originalColor);
+        document.documentElement.style.setProperty('--primary-contrast', contrastingColor);
+    </script>
+    {% endif %}
+    <style>
+        :root {
+            --primary-background: {{menu.menu.background_color}};
+            --accent-1: {{menu.menu.accent_1}};
+            --accent-2: {{menu.menu.accent_2}};
+            --accent-3: {{menu.menu.accent_3}};
+        }
+    </style>    
+</head>
+<body>
+    {% csrf_token %}
+    <header id="landscape">
+        <div id="header-left">
+            <a href="{% url 'store_home' %}">
+                <img id="logo" src="{% static 'online_store/logo.png' %}" alt="logo">
+            </a>
+            <nav id="nav-1">
+                <a href="{% url 'menu' %}">Menu</a>
+                <a href="{% url 'menu' %}">Gift Cards</a>
+                <a href="{% url 'menu' %}">Impact</a>
+            </nav>
+        </div>
+        <nav id="nav-2">
+            {% if request.user %}
+            <a href="{% url 'profile' %}" class="button">Account</a>
+            {% else %}
+            <a href="{% url 'login' %}" class="button">Log In</a>
+            {% endif %}
+            <button class="button cart-button">
+                <span class="material-symbols-outlined">shopping_bag</span>
+                <span hidden class="cart-count">1</span>
+            </button>
+        </nav>
+    </header>
+    <header id="portrait">
+        <img id="logo" src="{% static 'online_store/logo.png' %}" alt="logo">
+    </header>
+    <main id="{{route}}">{% block body %}{% endblock %}</main>
+    <footer>
+        <div id="footer-cart">
+            <span class="subtotal-wrapper">$<span class="subtotal"></span></span>
+            <div id="cart-container">
+                <span hidden class="cart-count"></span>
+                <button class="cart-button">
+                    <span class="material-symbols-outlined">shopping_bag</span>
+                </button>
+            </div>
+        </div>
+        <nav>
+            <a href="{% url 'store_home' %}"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+            <a href="{% url 'menu' %}"><span class="material-symbols-outlined">menu_book</span><span>Menu</span></a>
+            <a href=""><span class="material-symbols-outlined">redeem</span><span>Gift cards</span></a>
+            <a href="{% url 'profile' %}"><span class="material-symbols-outlined">person</span><span>Account</span></a>
+        </nav>
+    </footer>
+    <dialog id="cart">
+        <div>
+            <header>
+                <h1>Cart</h1>
+                <button class="icon close-button" id="close-cart"><span class="material-symbols-outlined">close</span></button>
+            </header>
+            <div id="cart-items">
+                <div hidden class="cart-item">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png">
+                    <h2>Title</h2>
+                    <span class="price">$25</span>
+                    <button><span class="material-symbols-outlined">delete</span></button>
+                </div>
+            </div>
+            <footer>
+                <span id="subtotal-wrapper">Subtotal: $<span id="subtotal">0</span></span>
+                <button id="checkout">
+                    <span class="material-symbols-outlined">shopping_cart_checkout</span>
+                    <span>Finalize</span>
+                </button>
+            </footer>
+        </div>
+    </dialog>
+    <dialog id="finalize-dialog" class="full">
+        <form method="post" id="finalize-form" action="{% url 'submit_order' %}">
+            {% csrf_token %}
+            <header>
+                <h1>Finalize cart</h1>
+                <button class="icon close-button" type="button"><span class="material-symbols-outlined">close</span></button>
+            </header>
+            <div class="pick-up" id="finalize-menu">
+                <input hidden name="dishes-string" id="dishes-string" type="text">
+                <h2>Who?</h2>
+                <div id="who">
+                    <div>
+                        <label for="name-input">Name</label>
+                        <input required id="name-input" name="name" type="text">
+                    </div>
+                    <div>
+                        <label for="phone-number">Phone number</label>
+                        <input required id="phone-number" name="phone" type="tel">
+                    </div>
+                </div>
+                <h2>Where?</h2>
+                <div id="delivery-pickup-toggle">
+                    <input required type="radio" id="delivery-pickup-toggle1" name="delivery-pickup-toggle" checked value="pick-up" />
+                    <label for="delivery-pickup-toggle1" class="delivery-pickup-toggle-label">Pick up at the restaurant</label>
+        
+                    <input required type="radio" id="delivery-pickup-toggle2" name="delivery-pickup-toggle" value="delivery" />
+                    <label for="delivery-pickup-toggle2" class="delivery-pickup-toggle-label">Order delivery</label>
+                </div>
+                <strong class="pick-up-item">Address</strong>
+                <p class="pick-up-item">501 4th Ave, New Westminster, BC V3L 1P3</p>
+                <div class="delivery-item container">
+                    <div>
+                        <label class="delivery-item" for="delivery-address-2">Address 1</label>
+                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-1" name="delivery-address-1" type="text">
+                    </div>
+                    <div>
+                        <label class="delivery-item" for="delivery-address-2">Address 2</label>
+                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-2" name="delivery-address-2" placeholder="Unit # / Apartment #" type="text">
+                    </div>
+                </div>
+                <div class="delivery-item container">
+                    <div>
+                        <label class="delivery-item" for="delivery-address-3">City</label>
+                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-3" name="delivery-address-city" type="text">
+                    </div>
+                    <div>
+                        <label class="delivery-item" for="delivery-address-4">Province</label>
+                        <input disabled value="BC" class="delivery-item delivery-address-field" id="delivery-address-4" name="delivery-address-province" type="text">
+                    </div>
+                    <div>
+                        <label class="delivery-item" for="delivery-address-5">Postal code</label>
+                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-5" name="delivery-address-postal" type="text">
+                    </div>
+                </div>
+                <strong id="no-cour" hidden class="delivery-item" style="color: var(--error-color);">Looks like we don't have any couriers available at the moment. Sorry for inconvenience.</strong>
+                <strong id="long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are pretty far for our fastest courier at the moment. Keep in mind that the food might be off its original temperature when it arrives.</strong>
+                <strong id="too-long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are too far for our fastest courier at the moment. We are not able to deliver to this address right now. Sorry for inconvenience.</strong>
+                <span hidden id="delivery-eta-parrent" class="delivery-item">Estimated delivery time:<br><span id="delivery-eta"></span></span>
+                <h2>When?</h2>
+                <input required class="no-style" min="16:00" max="18:00" type="time" name="time" id="time-field">
+                <small>*time when we start making the order</small>
+                <h2>How?</h2>
+                <div class="pick-up-item" id="here-to-go-toggle">
+                    <input type="radio" id="here-to-go-toggle1" class="pick-up-item" name="here-to-go-toggle" checked value="here" />
+                    <label for="here-to-go-toggle1" class="here-to-go-toggle-label">Eat at<br>the restaurant</label>
+        
+                    <input type="radio" id="here-to-go-toggle2" class="pick-up-item" name="here-to-go-toggle" value="go" />
+                    <label for="here-to-go-toggle2" class="here-to-go-toggle-label">Pack<br>to-go</label>
+                </div>
+                <div class="delivery-item" id="delivery-dropoff-method">
+                    <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method1" name="delivery-dropoff-method" value="door" />
+                    <label for="delivery-dropoff-method1" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">package</span>Leave at<br>the door</label>
+            
+                    <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method2" name="delivery-dropoff-method" value="meet" />
+                    <label for="delivery-dropoff-method2" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">meeting_room</span> Meet at<br>the door</label>
+                    
+                    <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method3" name="delivery-dropoff-method" value="out" />
+                    <label for="delivery-dropoff-method3" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">gate</span> Meet<br>outside</label>
+                </div>
+                <p class="delivery-item">Delivery instructions (optional)</p>
+                <textarea class="delivery-item" name="delivery-instructions" id="delivery-instructions" placeholder="Ring the blue doorbell / meet at the garage door / place the order down and do a lil dance"></textarea>
+                <p>Special order instructions (optional)</p>
+                <textarea name="order-instructions" id="special-instructions" placeholder="Extra sour cream / no onions / extra napkins"></textarea>
+            </div>
+            <button id="proceed-to-checkout">Proceed to secure checkout</button>
+            <small>*You will only be charged when we confirm your order</small>
+        </form>
+    </dialog>
+    <script>
+        const cartButton = document.querySelectorAll(".cart-button");
+        const cartDialog = document.querySelector("#cart");
+        const closeButtons = document.querySelectorAll(".close-button");
+        const cartCount = document.querySelectorAll(".cart-count");
+        const cartItems = document.querySelector("#cart-items");
+        const cartItemTemplate = document.querySelector(".cart-item");
+        const cartSubtotal = document.querySelectorAll("#subtotal, .subtotal");
+        const checkoutBtn = document.querySelector("#checkout");
+        const finalizeCheckoutBtn = document.querySelector("#proceed-to-checkout")
+        let cart = JSON.parse(window.sessionStorage.getItem("cart")) || [];
+
+        const finalizeDialog = document.querySelector("#finalize-dialog");
+        const deliveryPickupToggles = document.querySelectorAll("[name = delivery-pickup-toggle]");
+        const finalizeMenu = document.querySelector("#finalize-menu");
+        const finalizeForm = document.querySelector("#finalize-form");
+        const deliveryAddressFields = document.querySelectorAll(".delivery-address-field");
+        const deliveryEta = document.querySelector("#delivery-eta");
+
+        finalizeForm.addEventListener("submit", e => {
+            e.preventDefault()
+            document.querySelector("#dishes-string").value = JSON.stringify(cart);
+            cart = []
+            updateCart();
+            e.currentTarget.submit()
+        })
+
+        updateCart();
+
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const currentTime = `${hours}:${minutes}`;
+
+        const timeInputs = finalizeDialog.querySelectorAll("input[type='time']");
+        timeInputs.forEach(element => {
+            const inputDateTime = new Date(`${now.toISOString().split('T')[0]}T${element.min}:00`);
+            if (inputDateTime < now) {
+                element.min = currentTime;
+            }
+        })
+
+        deliveryPickupToggles.forEach(toggle => {
+            toggle.addEventListener("change", e => {
+                finalizeMenu.className = e.currentTarget.value
+                if (e.currentTarget.value === "delivery") {
+                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {console.log(el);el.required = true});
+                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {console.log(el);el.required = false});
+                } else if (e.currentTarget.value === "pick-up") {
+                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {console.log(el);el.required = false});
+                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {console.log(el);el.required = true});
+                }
+            })
+        })
+
+        cartButton.forEach(element => {
+            element.addEventListener("click", () => { cartDialog.showModal() })
+        })
+
+        closeButtons.forEach(button => {
+            button.addEventListener("click", () => { 
+                document.querySelector("dialog[open]").close()
+            })
+        })
+
+        document.querySelectorAll(".add-to-cart").forEach(but => {
+            but.addEventListener("click", e => {
+                const dishData = JSON.parse(e.currentTarget.parentElement.querySelector(".dish-json").innerHTML)[0];
+                cart.push(dishData);
+                updateCart();
+            })
+        })
+
+        checkoutBtn.addEventListener("click", () => {
+            cartDialog.close();
+            finalizeDialog.showModal();
+        })
+        
+        const noCourBadge = document.querySelector("#no-cour");
+        const longDeliveryBadge = document.querySelector("#long-delivery");
+        const tooLongDeliveryBadge = document.querySelector("#too-long-delivery");
+
+        deliveryAddressFields.forEach(element => {
+            element.addEventListener("blur", async e => {
+                for (const field of deliveryAddressFields) {
+                    if (field.value === "") {
+                        return // Check if all fields are filled
+                    }
+                }
+                finalizeCheckoutBtn.disabled = false;
+                noCourBadge.hidden = true;
+                longDeliveryBadge.hidden = true;
+                tooLongDeliveryBadge.hidden = true;
+                
+                const destination = `${deliveryAddressFields[0].value}, ${deliveryAddressFields[2].value}, BC ${deliveryAddressFields[4].value}`
+                const response = await checkETA(destination);
+                console.log(response)
+                if (response.status === 404) {
+                    noCourBadge.hidden = false;
+                    finalizeCheckoutBtn.disabled = true;
+                    return
+                }
+                const etas = await response.json()
+                console.log(etas)
+                if (etas.min_time.value >= 1800 && etas.min_time.value < 2700) {
+                    longDeliveryBadge.hidden = false;
+                } else if (etas.min_time.value >= 2700) {
+                    tooLongDeliveryBadge.hidden = false;
+                    finalizeCheckoutBtn.disabled = true;
+                }
+                if (etas.one_time) {
+                    deliveryEta.innerHTML = etas.one_time.text;
+                } else {
+                    deliveryEta.innerHTML = `${etas.min_time.text} - ${etas.max_time.text}`;
+                }
+                deliveryEta.parentElement.hidden = false;
+            })
+        });
+        
+        function updateCartCount() {
+            if (cart.length) {
+                cartCount.forEach(element => {
+                    element.hidden = false;
+                })
+                cartCount.forEach(element => {
+                    element.innerHTML = cart.length;
+                })
+            } else {
+                cartCount.forEach(element => {
+                    element.hidden = true;
+                })
+            }
+        }
+
+        function updateCartItems() {
+            cartItems.innerHTML = "";
+            cart.forEach((item, index) => {
+                const newNode = cartItemTemplate.cloneNode(true);
+                newNode.querySelector("img").src = item.fields.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
+                newNode.querySelector("h2").innerHTML = item.fields.title
+                newNode.querySelector(".price").innerHTML = '$' + item.fields.price
+                newNode.querySelector("button").addEventListener("click", e => {
+                    cart.splice(index , 1);
+                    updateCart()
+                })
+                newNode.hidden = false;
+                cartItems.appendChild(newNode);
+            })
+        }
+
+        function updateCart() {
+            window.sessionStorage.setItem("cart", JSON.stringify(cart));
+            updateCartCount();
+            updateCartItems();
+            const sum = cart.reduce(
+                (s, currentItem) => s + currentItem.fields.price,
+                0,
+            );
+            cartSubtotal.forEach(element => {
+                element.innerHTML = sum
+            })
+        }
+
+        async function checkETA(destination) {
+            return fetch(`{% url 'eta' %}?destination=${destination}&customer=true`)
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register("{% static 'deliveries/service-worker.js' %}")
+            .then(function(swReg) {
+                // console.log('Service Worker is registered', swReg);
+                swReg.update();
+                if (checkNotificationPermission() === false && checkNotificationPermission() !== undefined) {
+                    return askNotificationPermission(swReg)
+                }
+            })
+            .catch(function(error) {
+                console.error('Service Worker Error', error);
+            });
+        }
+    </script>
+</body>
+</html>

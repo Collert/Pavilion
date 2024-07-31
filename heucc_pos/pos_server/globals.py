@@ -1,5 +1,3 @@
-new_data_queue = []
-kitchen_update_queue = []
-kitchen_done_queue = []
+active_orders = set()
 checkout_card_status = ''
 stock_updated = ''

@@ -1,0 +1,61 @@
+{% extends "online_store/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<style>
+    :root {
+        --primary-background: {{menu.menu.background_color}};
+        --accent-1: {{menu.menu.accent_1}};
+        --accent-2: {{menu.menu.accent_2}};
+        --accent-3: {{menu.menu.accent_3}};
+    }
+</style>
+    {% if not override_menu %}
+    <h3>Now serving:</h3>
+    {% endif %}
+    <h1>{{menu.menu.title}}</h1>
+    <div class="menu">
+    {% for station, items in menu.dishes.items %}
+        <div class="category">
+            {% if station == "bar" %}
+            <h2>Drinks and sweets</h2>
+            {% elif station == "kitchen" %}
+            <h2>Hot food</h2>
+            {% elif station == "gng" %}
+            <h2>Packaged food</h2>
+            {% endif %}
+            <div class="dishes">
+                {% for dish in items %}
+                <div class="dish-wrapper">
+                    <a href="{% url 'dish' id=dish.obj.id%}" class="dish no-style">
+                        <img src="
+                        {% if dish.obj.image %}
+                            /{{dish.obj.image}}
+                        {% else %}
+                            https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png
+                        {% endif %}
+                        ">
+                        <span class="title">{{dish.obj.title}}</span>
+                    </a>
+                    {% if dish.obj.in_stock or dish.obj.force_in_stock %}
+                    <button class="add-to-cart">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                        <span>Add to cart</span>
+                    </button>
+                    {% else %}
+                    <button disabled class="add-to-cart">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                        <span>Out of stock</span>
+                    </button>
+                    {% endif %}
+                    <div hidden data-id="{{dish.obj.id}}" class="dish-json">
+                        {{dish.json}}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% endblock %}
