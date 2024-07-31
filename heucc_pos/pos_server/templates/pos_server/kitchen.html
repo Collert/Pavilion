@@ -7,7 +7,7 @@
 {% csrf_token %}
 {% for order in orders %}
     {% if order.dishes|has_kitchen_item %}
-        <div data-orderId="{{order.order_id}}" data-done="{{order.kitchen_done}}" class="order {% if order.kitchen_done %}success{% endif %}">
+        <div data-orderId="{{order.order_id}}" data-channel="{{order.channel}}" data-done="{{order.kitchen_done}}" class="order {% if order.kitchen_done %}success{% endif %}">
             <div class="summary">
                 <h2>
                     {% if order.table %}
@@ -24,6 +24,17 @@
                 </div>
             </div>
             <div>
+                <h3>
+                    {% if order.channel == "store" %}
+                    <span class="material-symbols-outlined">storefront</span> In-person order
+                    {% elif order.channel == "web" %}
+                    <span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
+                    <span class="material-symbols-outlined">call</span> {{order.phone}}
+                    {% elif order.channel == "delivery" %}
+                    <span class="material-symbols-outlined">local_shipping</span> Delivery order
+                    <span class="material-symbols-outlined">call</span> {{order.phone}}
+                    {% endif %}
+                </h3>
                 <h3>
                     {% if order.to_go_order %}
                     <span class="material-symbols-outlined">takeout_dining</span> Order to-go

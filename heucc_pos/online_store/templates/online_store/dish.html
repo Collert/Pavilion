@@ -21,11 +21,24 @@
     " alt="{{dish.title}}">
     <h1>{{dish.title}}</h1>
     <h2>${{dish.price|floatformat:2}}</h2>
-    <button disabled><abbr title="Coming soon!">Order online</abbr></button>
+    {% if dish.in_stock or dish.force_in_stock %}
+    <button class="add-to-cart">
+        <span class="material-symbols-outlined">add_shopping_cart</span>
+        <span>Add to cart</span>
+    </button>
+    {% else %}
+    <button disabled class="add-to-cart">
+        <span class="material-symbols-outlined">add_shopping_cart</span>
+        <span>Out of stock</span>
+    </button>
+    {% endif %}
 </div>
 <div class="more-info">
     <p><b>Consists of:</b> {{pretty_dish.components}}</p>
     <p>{{dish.description}}</p>
     {% if allergens %}<p><b>Potential allergens:</b> {{allergens}}</p>{% endif %}
+</div>
+<div hidden id="item-json">
+{{json}}
 </div>
 {% endblock %}

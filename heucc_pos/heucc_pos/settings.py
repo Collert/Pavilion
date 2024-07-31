@@ -27,6 +27,9 @@ SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -48,7 +51,7 @@ ALLOWED_HOSTS = [
     "server.uahelp.ca", 
     "internal.uahelp.ca", 
     "local.internal.uahelp.ca",
-    "be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app",
+    "2fc2-2001-569-7c35-c700-9925-7c2c-c7c3-53f5.ngrok-free.app",
     "154.20.173.24",
     "173.183.117.181"
 ]
@@ -59,12 +62,11 @@ CSRF_TRUSTED_ORIGINS = [
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
     "http://local.internal.uahelp.ca",
-    "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app",
+    "https://2fc2-2001-569-7c35-c700-9925-7c2c-c7c3-53f5.ngrok-free.app",
     "https://173.183.117.181"
     ]
 
 CORS_ALLOW_ALL_ORIGINS = True
-
 
 # Application definition
 
@@ -81,6 +83,8 @@ INSTALLED_APPS = [
     'misc_tools',
     'online_store',
     'inventory',
+    'deliveries',
+    'users',
     'mathfilters',
 ]
 
@@ -116,7 +120,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'heucc_pos.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -131,6 +134,7 @@ if os.getenv('ENVIRONMENT') == "production":
             'PORT': '',  # Leave as an empty string to use the default port
         }
     }
+    NOTIFICATIONS_HOST = "https://internal.uahelp.ca"
 else:
     DATABASES = {
         'default': {
@@ -138,6 +142,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    NOTIFICATIONS_HOST = "http://127.0.0.1:8000"
 
 if 'local.internal.uahelp.ca' in socket.gethostname().lower():
     SECURE_PROXY_SSL_HEADER = None

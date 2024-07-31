@@ -1,0 +1,187 @@
+/* I swear to god that i will organize this into different files one day... */
+
+@import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap');
+
+html {
+    font-family: 'Noto Sans Display', sans-serif;
+}
+
+textarea {
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    padding: .5rem;
+}
+
+header {
+    display: grid;
+    place-items: center end;
+    padding: 1rem;
+}
+
+body {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100dvh;
+}
+
+main {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+}
+
+main#login {
+    place-items: center;
+}
+
+button:hover:not(.no-style) span,
+button:focus-visible:not(.no-style) span,
+button:active:not(.no-style) span,
+a.button:hover:not(.no-style) span,
+a.button:focus-visible:not(.no-style) span,
+a.button:active:not(.no-style) span {
+    color: var(--primary-background)!important;
+}
+
+#login form,
+#register form {
+    display: grid;
+    grid-auto-flow: row;
+    gap: 1rem;
+}
+
+@media (orientation: landscape) {
+    #login form, 
+    #register form {
+        max-width: 30vw;
+    }
+}
+
+#login form *,
+#register form * {
+    text-align: center;
+}
+
+#login form li, 
+#register form li {
+    text-align: left;
+}
+
+#login form > div,
+#register form > div {
+    display: grid;
+    grid-auto-flow: row;
+    gap: .5rem;
+}
+
+#profile > form {
+    display: grid;
+    gap: 2rem;
+    padding: 2rem;
+    box-sizing: border-box;
+    height: 100%;
+    width: 100%;
+}
+
+@media (orientation:landscape) {
+    #profile > form {
+        grid-template-columns: 1fr 2fr;
+    }
+}
+
+#profile h1,
+#profile h4,
+#profile h3 {
+    margin: 0;
+}
+
+#left {
+    display: flex;
+    height: 100%;
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+#left > div {
+    width: 100%;
+}
+
+#profile #pfp {
+    width: 60%;
+    border-radius: 50%;
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+
+#profile input[disabled] {
+    border: none;
+}
+#profile input[type="file"][disabled] {
+    display: none;
+}
+
+#name {
+    display: flex;
+}
+
+#name input {
+    font-size: 32px;
+    font-weight: 700;
+    width: 50%;
+    margin: 0;
+    padding-left: .25rem;
+    padding-right: .25rem;
+}
+#name input:first-child {
+    text-align: end;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+#name input:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+#new-pass-div {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+#new-pass-div[hidden] {
+    display: none;
+}
+
+#edit-buttons {
+    display: grid;
+    grid-template-columns: 1fr 0fr;
+    overflow: hidden;
+    transition: all 300ms ease;
+}
+
+#edit-buttons button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#edit-buttons:not(.active) > button:last-child {
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+}
+
+#edit-buttons.active {
+    grid-template-columns: 1fr 1fr;
+}
+
+#right {
+    display: flex;
+    gap: 1rem;
+    flex-direction: column;
+}

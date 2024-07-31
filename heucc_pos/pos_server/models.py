@@ -41,25 +41,34 @@ class Dish(models.Model):
         return self.title
 
 class Order(models.Model):
+    order_channels = (
+        ("store", "In-person"),
+        ("web", "Online pickup"),
+        ("delivery", "Delivery")
+    )
     timestamp = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(default=timezone.now)
-    prep_time = models.DurationField(null=True)
+    prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
-    table = models.CharField(null=True, max_length = 140)
+    table = models.CharField(null=True, max_length = 140, blank=True)
     kitchen_done = models.BooleanField(default=True)
     kitchen_needed = models.BooleanField(default=False)
     bar_done = models.BooleanField(default=True)
     gng_done = models.BooleanField(default=True) # I will get to implementing this soon
     picked_up = models.BooleanField(default=True)
-    special_instructions = models.TextField(null=True)
+    special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
     final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
+    channel = models.CharField(max_length=10, choices=order_channels)
+    phone = models.PositiveBigIntegerField(null=True, blank=True)
+    approved = models.BooleanField(default=True)
 
     def save(self, temp=False):
         if self.bar_done and self.kitchen_done and self.gng_done:
             if not temp:
-                self.prep_time = timezone.now() - self.timestamp
-                if self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done:
+                if not self.prep_time:
+                    self.prep_time = timezone.now() - self.timestamp
+                if self.kitchen_done and self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done and self.channel == "store":
                     self.picked_up=True
                 try:
                     globals.active_orders.remove(self)

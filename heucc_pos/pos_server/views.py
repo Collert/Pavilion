@@ -3,7 +3,6 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
-from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
@@ -192,7 +191,7 @@ def pos(request):
         instructions = body["instructions"]
         is_to_go = body["toGo"]
         dish_counts = Counter(order)
-        new_order = Order(special_instructions=instructions, to_go_order=is_to_go)
+        new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save(temp=True)
         for dish_id, quantity in dish_counts.items():
@@ -543,6 +542,10 @@ def collect_order(order, done=False):
         'dishes': dishes_data,
         'table':order.table,
         'to_go_order':order.to_go_order,
+        'channel':order.channel,
+        'phone':order.phone,
+        'address':order.delivery.first().destination if order.delivery.first() else None,
+        'approved':order.approved,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
         "kitchen_done":order.kitchen_done,

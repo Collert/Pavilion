@@ -4,8 +4,8 @@ from . import views
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("login", views.login_view, name="login_view"),
-    path("logout", views.logout_view, name="logout_view"),
+    # path("login", views.login_view, name="login_view"),
+    # path("logout", views.logout_view, name="logout_view"),
     path("register", views.pos, name="pos"),
     path("pos-output", views.pos_out_display, name="pos_output"),
     path("kitchen", views.kitchen, name="kitchen"),
@@ -18,7 +18,7 @@ urlpatterns = [
     path('webhook/square', views.square_webhook, name='square_webhook'),
     path('webhook/square/check_card_status', views.check_card_status, name='check_card_status'),
     path('check-su', views.check_superuser_status, name='check_su'),
-    path('register-staff', views.register_staff, name='register_staff'),
+    # path('register-staff', views.register_staff, name='register_staff'),
     path('orders-progress', views.order_progress, name='order_progress'),
     path('active_orders', views.active_orders, name='active_orders'),
     path('check_inventory', views.check_inventory, name='check_inventory'),

@@ -27,16 +27,32 @@
             {% endif %}
             <div class="dishes">
                 {% for dish in items %}
-                <a href="{% url 'dish' id=dish.id%}" class="dish no-style">
-                    <img src="
-                    {% if dish.image %}
-                        /{{dish.image}}
+                <div class="dish-wrapper">
+                    <a href="{% url 'dish' id=dish.obj.id%}" class="dish no-style">
+                        <img src="
+                        {% if dish.obj.image %}
+                            /{{dish.obj.image}}
+                        {% else %}
+                            https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png
+                        {% endif %}
+                        ">
+                        <span class="title">{{dish.obj.title}}</span>
+                    </a>
+                    {% if dish.obj.in_stock or dish.obj.force_in_stock %}
+                    <button class="add-to-cart">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                        <span>Add to cart</span>
+                    </button>
                     {% else %}
-                        https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png
+                    <button disabled class="add-to-cart">
+                        <span class="material-symbols-outlined">add_shopping_cart</span>
+                        <span>Out of stock</span>
+                    </button>
                     {% endif %}
-                    ">
-                    <span class="title">{{dish.title}}</span>
-                </a>
+                    <div hidden data-id="{{dish.obj.id}}" class="dish-json">
+                        {{dish.json}}
+                    </div>
+                </div>
                 {% endfor %}
             </div>
         </div>
