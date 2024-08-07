@@ -3,6 +3,9 @@
 
 {% block body %}
 {% csrf_token %}
+<dialog id="payment-popup"></dialog>
+<script>const webPaymentWindowURL = '{% url "web-payment-window" %}';</script>
+<script src="{% static 'payments/cardPaymentPopup.js' %}"></script>
 <h1>Pick a pre-loaded card</h1>
 <div class="cards-container">
     {% for card in cards %}
@@ -43,45 +46,39 @@
     </form>
 </dialog>
 <script>
-    document.querySelector("#dialog-{{card.id}} form").addEventListener("submit", e => {
-        e.preventDefault()
-        const form = document.querySelector("#create-card");
-        const popup = document.querySelector("#payment-popup");
-        form.querySelector("#hidden-image").value = "{{card.image}}"
-        form.querySelector("#hidden-amount").value = "{{card.amount}}"
-        form.querySelector("#hidden-email").value = e.currentTarget.querySelector(".recepient-email").value;
-        form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-{{card.id}}-name").value;
-        popup.querySelector("iframe").src = "{% url 'web-payment-window' %}?amount={{card.amount}}"
-        popup.showModal()
-    })
-    document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
-        document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recovery email"
-        document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
-    })
-    document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
-        document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recipient email"
-        document.querySelector("#dialog-{{card.id}} .gift-options").hidden = false;
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelector("#dialog-{{card.id}} form").addEventListener("submit", e => {
+            e.preventDefault()
+            const form = document.querySelector("#create-card");
+            // const form = e.currentTarget;
+            const popup = document.querySelector("#payment-popup");
+            form.querySelector("#hidden-image").value = "{{card.image}}"
+            form.querySelector("#transaction-amount").value = "{{card.amount}}"
+            form.querySelector("#hidden-email").value = e.currentTarget.querySelector(".recepient-email").value;
+            form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-{{card.id}}-name").value;
+            form.dispatchEvent(new Event("submit"));
+        })
+        document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
+            document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recovery email"
+            document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
+        })
+        document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
+            document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recipient email"
+            document.querySelector("#dialog-{{card.id}} .gift-options").hidden = false;
+        })
     })
 </script>
 {% endfor %}
-<dialog id="payment-popup">
-    <nav>
-        <button class="icon back-button"><span class="material-symbols-outlined">arrow_back</span></button>
-    </nav>
-    <iframe frameborder="0"></iframe>
-</dialog>
-<form hidden id="create-card" action="" method="post">
+<form hidden class="attach-card-payment" id="create-card" action="" method="post">
     {% csrf_token %}
     <input type="email" name="email" id="hidden-email">
     <input type="text" name="name" id="hidden-name">
-    <input type="number" name="amount" id="hidden-amount">
+    <input type="number" name="amount" id="transaction-amount">
     <input type="text" name="image" id="hidden-image">
-    <input type="text" name="transaction_uuid" id="hidden-uuid">
 </form>
 <script>
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     const cards = document.querySelectorAll(".card");
-    const form = document.querySelector("#create-card")
     cards.forEach(card => {
         card.addEventListener("click", e => {
             const id = e.currentTarget.dataset.cardId;
@@ -92,31 +89,6 @@
         button.addEventListener("click", e => {
             e.currentTarget.parentElement.parentElement.close()
         })
-    })
-    window.addEventListener("message", e => {
-        try {
-            if (e.data.action === "closeCardPopup") {
-                const popup = document.querySelector("#payment-popup");
-                popup.close()
-                fetch('{% url "web-payment-window" %}', {
-                    method:"PUT",
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrftoken
-                    },
-                    body:JSON.stringify({
-                        transaction_uuid:e.data.uuid
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.paid) {
-                        form.querySelector("#hidden-uuid").value = data.uuid
-                        form.submit()
-                    }
-                })
-            }
-        } catch (error) {}
     })
 </script>
 {% endblock %}

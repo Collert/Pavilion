@@ -64,7 +64,6 @@ def get_card(request):
             transaction = Transaction.objects.get(uuid=uuid)
             transaction.delete()
             card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
-            
         except:
             card = GiftCard.objects.filter(email=email, image=image_path, available_balance=amount).first()
         return render(request, "gift_cards/card-confirm.html", {

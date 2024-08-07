@@ -43,7 +43,7 @@
           display: none!important;
         } */
     </style>
-    <script type="text/javascript" src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
+    <script type="text/javascript" src="https://{% if dev_env %}sandbox.{% endif %}web.squarecdn.com/v1/square.js"></script>
     <script>
         const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
         const appId = '{{app_id}}';

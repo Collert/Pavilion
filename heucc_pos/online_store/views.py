@@ -15,6 +15,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from deliveries.models import Delivery
 from pos_server.views import collect_order
+from payments.models import Transaction
 
 # Create your views here.
 
@@ -107,52 +108,58 @@ def order_status(request, id):
 
 def place_order(request):
     if request.method == "POST":
-        method = request.POST["delivery-pickup-toggle"]
-        name = request.POST["name"]
-        phone = request.POST["phone"]
-        order_instructions = request.POST["order-instructions"]
-        dishes = json.loads(request.POST["dishes-string"])
-        dish_ids = [dish["pk"] for dish in dishes]
-        is_to_go = request.POST["here-to-go-toggle"] == "go"
-        order = Order(special_instructions=order_instructions, to_go_order=is_to_go, phone=int(phone) if phone != '' else None)
-        order.table = name.strip() if name != '' else None
-        if method == "pick-up":
-            order.channel = "web"
-        elif method == "delivery":
-            order.to_go_order = True
-            order.channel = "delivery"
-        order.save(temp=True)
-        dish_counts = Counter(dish_ids)
-        for dish_id, quantity in dish_counts.items():
-            dish = Dish.objects.get(id=dish_id)
-            if dish.station == "bar":
-                order.bar_done = False
-                order.picked_up = False
-            elif dish.station == "kitchen":
-                order.kitchen_done = False
-                order.kitchen_needed = True
-                order.picked_up = False
-            for dc in dish.dishcomponent_set.all():
-                if dc.component.crafting_option == "auto":
-                    craft_component(dc.component.id, 1)
-                dc.component.inventory -= dc.quantity
-                dc.component.save()
-            order_dish = OrderDish(order=order, dish=dish, quantity=quantity)
-            order_dish.save()
-        order.save()
-        if method == "delivery":
-            address = f'{request.POST["delivery-address-1"]}, {request.POST["delivery-address-city"]}, BC {request.POST["delivery-address-postal"]}'
-            unit = request.POST["delivery-address-2"]
-            delivery_instructions = ""
-            if request.POST["delivery-dropoff-method"] == "door":
-                delivery_instructions = "Leave the package at the door. "
-            elif request.POST["delivery-dropoff-method"] == "meet":
-                delivery_instructions = "Meet the customer at the door. "
-            elif request.POST["delivery-dropoff-method"] == "out":
-                delivery_instructions = "Meet the customer outside. "
-            delivery_instructions += request.POST["delivery-instructions"]
-            Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
-        return redirect(reverse("order_status", kwargs={"id":order.id}))
+        uuid = request.POST["transaction_uuid"]
+        try:
+            transaction = Transaction.objects.get(uuid=uuid)
+            transaction.delete()
+            method = request.POST["delivery-pickup-toggle"]
+            name = request.POST["name"]
+            phone = request.POST["phone"]
+            order_instructions = request.POST["order-instructions"]
+            dishes = json.loads(request.POST["dishes-string"])
+            dish_ids = [dish["pk"] for dish in dishes]
+            is_to_go = request.POST["here-to-go-toggle"] == "go"
+            order = Order(special_instructions=order_instructions, to_go_order=is_to_go, phone=int(phone) if phone != '' else None)
+            order.table = name.strip() if name != '' else None
+            if method == "pick-up":
+                order.channel = "web"
+            elif method == "delivery":
+                order.to_go_order = True
+                order.channel = "delivery"
+            order.save(temp=True)
+            dish_counts = Counter(dish_ids)
+            for dish_id, quantity in dish_counts.items():
+                dish = Dish.objects.get(id=dish_id)
+                if dish.station == "bar":
+                    order.bar_done = False
+                    order.picked_up = False
+                elif dish.station == "kitchen":
+                    order.kitchen_done = False
+                    order.kitchen_needed = True
+                    order.picked_up = False
+                for dc in dish.dishcomponent_set.all():
+                    if dc.component.crafting_option == "auto":
+                        craft_component(dc.component.id, 1)
+                    dc.component.inventory -= dc.quantity
+                    dc.component.save()
+                order_dish = OrderDish(order=order, dish=dish, quantity=quantity)
+                order_dish.save()
+            order.save()
+            if method == "delivery":
+                address = f'{request.POST["delivery-address-1"]}, {request.POST["delivery-address-city"]}, BC {request.POST["delivery-address-postal"]}'
+                unit = request.POST["delivery-address-2"]
+                delivery_instructions = ""
+                if request.POST["delivery-dropoff-method"] == "door":
+                    delivery_instructions = "Leave the package at the door. "
+                elif request.POST["delivery-dropoff-method"] == "meet":
+                    delivery_instructions = "Meet the customer at the door. "
+                elif request.POST["delivery-dropoff-method"] == "out":
+                    delivery_instructions = "Meet the customer outside. "
+                delivery_instructions += request.POST["delivery-instructions"]
+                Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
+            return redirect(reverse("order_status", kwargs={"id":order.id}))
+        except:
+            return "Don't do this. I will get to implementing a better page soon"
 
 @csrf_exempt
 @login_required

@@ -53,7 +53,7 @@ ALLOWED_HOSTS = [
     "server.uahelp.ca", 
     "internal.uahelp.ca", 
     "local.internal.uahelp.ca",
-    "b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
+    "f987-2605-8d80-483-d351-d9d2-4442-de38-1b9e.ngrok-free.app",
     "154.20.173.24"
     "154.20.173.24",
     "173.183.117.181"
@@ -65,7 +65,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://server.uahelp.ca", 
     "http://internal.uahelp.ca", 
     "http://local.internal.uahelp.ca",
-    "https://b66b-2605-8d80-480-4e2a-58e9-d54a-5cca-dc23.ngrok-free.app",
+    "https://f987-2605-8d80-483-d351-d9d2-4442-de38-1b9e.ngrok-free.app",
     "https://internal.uahelp.ca",
     "https://173.183.117.181"
     ]
@@ -231,6 +231,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 STATIC_ROOT = '/home/collert/POS/heucc_pos/static/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'payments/static/'),
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

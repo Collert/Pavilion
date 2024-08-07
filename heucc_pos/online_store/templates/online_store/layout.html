@@ -11,7 +11,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <title>HEUCC Restaurant</title>
+    <title>Sunflower Hearth</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'online_store/icon.ico' %}">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         .material-symbols-outlined {
@@ -205,7 +206,7 @@
         </div>
     </dialog>
     <dialog id="finalize-dialog" class="full">
-        <form method="post" id="finalize-form" action="{% url 'submit_order' %}">
+        <form method="post" id="finalize-form" class="attach-card-payment" action="{% url 'submit_order' %}">
             {% csrf_token %}
             <header>
                 <h1>Finalize cart</h1>
@@ -213,6 +214,7 @@
             </header>
             <div class="pick-up" id="finalize-menu">
                 <input hidden name="dishes-string" id="dishes-string" type="text">
+                <input hidden name="transaction-amount" id="transaction-amount" type="text">
                 <h2>Who?</h2>
                 <div id="who">
                     <div>
@@ -311,13 +313,13 @@
         const deliveryAddressFields = document.querySelectorAll(".delivery-address-field");
         const deliveryEta = document.querySelector("#delivery-eta");
 
-        finalizeForm.addEventListener("submit", e => {
-            e.preventDefault()
-            document.querySelector("#dishes-string").value = JSON.stringify(cart);
-            cart = []
-            updateCart();
-            e.currentTarget.submit()
-        })
+        // finalizeForm.addEventListener("submit", e => {
+        //     e.preventDefault()
+        //     document.querySelector("#dishes-string").value = JSON.stringify(cart);
+        //     cart = []
+        //     updateCart();
+        //     e.currentTarget.dispatchEvent(new Event("submit"));
+        // })
 
         updateCart();
 
@@ -440,7 +442,19 @@
                 newNode.hidden = false;
                 cartItems.appendChild(newNode);
             })
+            document.querySelector("#dishes-string").value = JSON.stringify(cart);
         }
+
+        window.addEventListener("message", e => {
+            try {
+                if (e.data.transactionSuccessful) {
+                    cart = []
+                    updateCart();
+                }
+            } catch (error) {
+                console.log(error)
+            }
+        })
 
         function updateCart() {
             window.sessionStorage.setItem("cart", JSON.stringify(cart));
@@ -450,6 +464,7 @@
                 (s, currentItem) => s + currentItem.fields.price,
                 0,
             );
+            document.querySelector("#transaction-amount").value = sum;
             cartSubtotal.forEach(element => {
                 element.innerHTML = sum
             })
@@ -473,5 +488,8 @@
             });
         }
     </script>
+    <dialog id="payment-popup"></dialog>
+    <script>const webPaymentWindowURL = '{% url "web-payment-window" %}';</script>
+    <script src="{% static 'payments/cardPaymentPopup.js' %}"></script>
 </body>
 </html>

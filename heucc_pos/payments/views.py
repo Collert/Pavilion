@@ -9,7 +9,7 @@ from .models import Transaction
 
 def web_payment(request):
     if request.method == "GET":
-        amount = request.GET.get('amount', '')
+        amount = request.GET.get('amount', None)
         if amount:
             amount = float("{:.2f}".format(float(amount)))
             transaction = Transaction.objects.create(amount=amount)
@@ -18,8 +18,9 @@ def web_payment(request):
         return render(request, "payments/square-checkout.html", {
             "location_id":settings.SQUARE_LOCATION_ID,
             "app_id":settings.SQUARE_APPLICATION_ID,
-            "amount":int(amount * 100),
-            "transaction":transaction
+            "amount":int(amount * 100) if amount else None,
+            "transaction":transaction,
+            "dev_env": settings.DEBUG
         })
     elif request.method == "POST":
         data = json.loads(request.body)
