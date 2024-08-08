@@ -265,7 +265,7 @@
                 <strong id="too-long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are too far for our fastest courier at the moment. We are not able to deliver to this address right now. Sorry for inconvenience.</strong>
                 <span hidden id="delivery-eta-parrent" class="delivery-item">Estimated delivery time:<br><span id="delivery-eta"></span></span>
                 <h2>When?</h2>
-                <input required class="no-style" min="16:00" max="18:00" type="time" name="time" id="time-field">
+                <input required class="no-style" min="{{business_day_start_time}}" max="{{business_day_end_time}}" type="time" name="time" id="time-field">
                 <small>*time when we start making the order</small>
                 <h2>How?</h2>
                 <div class="pick-up-item" id="here-to-go-toggle">
@@ -313,14 +313,6 @@
         const deliveryAddressFields = document.querySelectorAll(".delivery-address-field");
         const deliveryEta = document.querySelector("#delivery-eta");
 
-        // finalizeForm.addEventListener("submit", e => {
-        //     e.preventDefault()
-        //     document.querySelector("#dishes-string").value = JSON.stringify(cart);
-        //     cart = []
-        //     updateCart();
-        //     e.currentTarget.dispatchEvent(new Event("submit"));
-        // })
-
         updateCart();
 
         const now = new Date();
@@ -330,7 +322,13 @@
 
         const timeInputs = finalizeDialog.querySelectorAll("input[type='time']");
         timeInputs.forEach(element => {
-            const inputDateTime = new Date(`${now.toISOString().split('T')[0]}T${element.min}:00`);
+            // Crazy aah constructor, all because of timezones grr
+            const [hours, minutes] = element.min.split(':').map(Number);
+            const inputDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+            console.log(inputDateTime)
+            console.log(now)
+            console.log(inputDateTime < now)
+            console.log(currentTime)
             if (inputDateTime < now) {
                 element.min = currentTime;
             }
@@ -368,8 +366,12 @@
         })
 
         checkoutBtn.addEventListener("click", () => {
-            cartDialog.close();
-            finalizeDialog.showModal();
+            if ("{{business_day}}" === "True") {
+                cartDialog.close();
+                finalizeDialog.showModal();
+            } else {
+                alert("Sorry, we are closed today. Check the home page for the next date.")
+            }
         })
         
         const noCourBadge = document.querySelector("#no-cour");
