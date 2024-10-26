@@ -325,10 +325,6 @@
             // Crazy aah constructor, all because of timezones grr
             const [hours, minutes] = element.min.split(':').map(Number);
             const inputDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-            console.log(inputDateTime)
-            console.log(now)
-            console.log(inputDateTime < now)
-            console.log(currentTime)
             if (inputDateTime < now) {
                 element.min = currentTime;
             }
@@ -399,7 +395,6 @@
                     return
                 }
                 const etas = await response.json()
-                console.log(etas)
                 if (etas.min_time.value >= 1800 && etas.min_time.value < 2700) {
                     longDeliveryBadge.hidden = false;
                 } else if (etas.min_time.value >= 2700) {

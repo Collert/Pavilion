@@ -4,6 +4,7 @@ from django.utils import timezone
 from inventory.models import Recipe
 from . import globals
 import uuid
+from payments.models import PaymentAuthorization
 
 # Create your models here.
     
@@ -62,6 +63,7 @@ class Order(models.Model):
     channel = models.CharField(max_length=10, choices=order_channels)
     phone = models.PositiveBigIntegerField(null=True, blank=True)
     approved = models.BooleanField(default=True)
+    authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def save(self, temp=False):
         if self.bar_done and self.kitchen_done and self.gng_done:
@@ -74,7 +76,9 @@ class Order(models.Model):
                     globals.active_orders.remove(self)
                 except KeyError:
                     pass
-                if not self.picked_up:
+                print(self.start_time)
+                print(timezone.now())
+                if not self.picked_up and self.start_time > timezone.now():
                     globals.active_orders.add(self)
         else:
             try:

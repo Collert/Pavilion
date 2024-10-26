@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             e.preventDefault()
             const amount = form.querySelector("#transaction-amount").value;
-            popup.querySelector("iframe").src = `${webPaymentWindowURL}?amount=${amount}`
+            popup.querySelector("iframe").src = `${webPaymentWindowURL}?amount=${amount}${form.classList.contains("confirmation-needed") ? "&confirmation_needed=true" : ""}`
             popup.showModal()
         }
     })
@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
                 .then(response => response.json())
                 .then(data => {
+                    console.log(data)
                     window.postMessage({transactionSuccessful:data.paid}, '*');
                     if (data.paid) {
                         form.querySelector("#hidden-uuid").value = data.uuid;
@@ -61,3 +62,5 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     })
 })
+
+let result = ""

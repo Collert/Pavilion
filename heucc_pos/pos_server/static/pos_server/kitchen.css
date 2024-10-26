@@ -70,6 +70,17 @@
     cursor: pointer;
 }
 
+.order.order[data-approved="false"],
+.order.order[data-approved="false"] * {
+    transition: all 100ms ease;
+    border-color: #f5d001;
+}
+
+.order.selected.order[data-approved="false"],
+.order.selected.order[data-approved="false"] * {
+    background-color: #f5d001;
+}
+
 .order.success,
 .order.success * {
     transition: all 100ms ease;

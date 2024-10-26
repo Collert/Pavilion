@@ -7,7 +7,14 @@
 {% csrf_token %}
 {% for order in orders %}
     {% if order.dishes|has_kitchen_item %}
-        <div data-orderId="{{order.order_id}}" data-channel="{{order.channel}}" data-done="{{order.kitchen_done}}" class="order {% if order.kitchen_done %}success{% endif %}">
+        <div 
+            data-orderId="{{order.order_id}}" 
+            data-channel="{{order.channel}}" 
+            data-approved="{{order.approved|yesno:'true,false'}}" 
+            data-done="{{order.kitchen_done}}" 
+            data-payment-id="{{order.payment_id}}"
+            class="order {% if order.kitchen_done %}success{% endif %}"
+        >
             <div class="summary">
                 <h2>
                     {% if order.table %}
@@ -61,9 +68,12 @@
     <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
 </dialog>
 
-<script> const checkOrdersLink = "{% url 'active_orders' %}";</script>
+<script> 
+    const checkOrdersLink = "{% url 'active_orders' %}";
+    const approveOrderLink = "{% url 'capture-payment' %}";
+</script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
-<script type="module" src="{% static 'pos_server/timeouts.js' %}"></script>
+<!-- <script type="module" src="{% static 'pos_server/timeouts.js' %}"></script> -->
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
 
 {% if portrait %}

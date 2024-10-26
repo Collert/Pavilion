@@ -70,6 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
         newOrder.dataset.orderid = orderId;
         newOrder.dataset.done = false;
         newOrder.dataset.channel = data.channel;
+        newOrder.dataset.approved = data.approved;
+        newOrder.dataset.paymentId = data.payment_id;
         let channel;
         if (data.channel == "store") {
             channel = '<span class="material-symbols-outlined">storefront</span> In-person order'
@@ -136,7 +138,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (e.key === 'ArrowUp' || e.key === "8") {
             updateSelection(selectedIndex - 1);
         } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
-            markOrderDone()
+            if (cards[selectedIndex].dataset.approved === "true") {
+                markOrderDone()
+            } else {
+                approveOrder(true)
+            }
+        } else if (e.key === "Backspace" || e.key === "Delete") {
+            approveOrder(false)
         } else if (e.key === "1") {
             if (availabilityDialog.open) {
                 availabilityDialog.querySelector("iframe").contentWindow.postMessage('closeDialog', '*');
@@ -152,8 +160,55 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    function approveOrder(approved) {
+        const orderId = cards[selectedIndex].dataset.orderid;
+        fetch(window.location.href, {
+            headers:{
+                "X-CSRFToken": csrftoken,
+                "Content-Type": "application/json"
+            },
+            method:'POST',
+            body: JSON.stringify({
+                orderId:orderId,
+                action: approved ? "approve" : "delete"
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.payment_id)
+            fetch(approveOrderLink, {
+                headers:{
+                    "X-CSRFToken": csrftoken,
+                    "Content-Type": "application/json"
+                },
+                method:data.action === "delete" ? 'DELETE' : 'POST',
+                body: JSON.stringify({
+                    payment_id:data.payment_id
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    if (data.action === "delete") {
+                        cards[selectedIndex].classList.add("disappear");
+                        setTimeout(() => {
+                            document.querySelector("#kitchen").removeChild(cards[selectedIndex])
+                            cards = document.querySelectorAll(".order");
+                            cards = [...cards]
+                            selectedIndex = 0;
+                            updateSelection(selectedIndex);
+                            freezeDeletion = false;
+                            checkActiveOrders();
+                        }, 400);
+                    } else if (data.action === "approve") {
+                        cards[selectedIndex].dataset.approved = "true";
+                    }
+                }
+            })
+        })
+    }
+
     function markOrderDone() {
-        const orderDone = cards[selectedIndex].dataset.done === "True"; // Capital T because that's how they come from python :(
+        const orderDone = cards[selectedIndex].dataset.done === "True"; // Capital T because that's how they come from python
         const orderId = cards[selectedIndex].dataset.orderid;
         if (orderDone && cards[selectedIndex].dataset.channel === "delivery") {return}
         freezeDeletion = true;
@@ -194,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }).then(response => {
                 if (response.ok) {
                     cards[selectedIndex].classList.add("success");
-                    cards[selectedIndex].dataset.done = "True"; // Capital T because that's how they come from python :(
+                    cards[selectedIndex].dataset.done = "True"; // Capital T because that's how they come from python
                     setTimeout(() => {
                         freezeDeletion = false;
                     }, 400);

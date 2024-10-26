@@ -12,7 +12,7 @@ Import the `js` file into the template as well as create a dialog with an `id="p
 
 ## 2. Set up the form
 
-Give the form `class="attach-card-payment"`. Only 1 form allowed per template. Also, make sure the form has an input with `id="transaction-amount"` with its value being an accurate amount to charge in a float format.
+Give the form `class="attach-card-payment"`. If you want to confirm payments after before charging customer, add `confirmation-needed` to the class list as well. Only 1 form allowed per template. Also, make sure the form has an input with `id="transaction-amount"` with its value being an accurate amount to charge in a float format.
 
 Pop up triggers on form submit (will not work with `.submit()` method!)
 

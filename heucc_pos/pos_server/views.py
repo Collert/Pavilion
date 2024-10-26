@@ -97,6 +97,19 @@ def kitchen(request):
         order.kitchen_done = True
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
+    elif request.method == "POST":
+        body = json.loads(request.body)
+        order_id = body["orderId"]
+        action = body["action"]
+        order = Order.objects.get(id=order_id)
+        payment_id = order.authorization.payment_id
+        if action == "approve":
+            order.approved = True
+            order.save()
+            return JsonResponse({"status":"Order marked approved", "action":action, "payment_id":payment_id}, status=200)
+        elif action == "delete":
+            order.delete()
+            return JsonResponse({"status":"Order deleted", "action":action, "payment_id":payment_id}, status=200)
 
 # @local_network_only
 @login_required
@@ -553,4 +566,5 @@ def collect_order(order, done=False):
         "done":done,
         "bar_done":order.bar_done,
         "picked_up":order.picked_up,
+        "payment_id":order.authorization.payment_id if order.authorization else None,
     })

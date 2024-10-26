@@ -6,7 +6,7 @@ from .notifications import PushSubscription
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core import serializers
 from inventory.views import craft_component
 from collections import Counter
@@ -87,7 +87,7 @@ def order_status(request, id):
             status = 4
         elif (not order.kitchen_done or not order.bar_done or not order.gng_done) and order.approved:
             status = 3
-        elif not order.approved and order.start_time < timezone.now:
+        elif not order.approved and order.start_time < timezone.now():
             status = 2
         else:
             status = 1
@@ -98,7 +98,7 @@ def order_status(request, id):
             status = 4
         elif (not order.kitchen_done or not order.bar_done or not order.gng_done) and order.approved:
             status = 3
-        elif not order.approved and order.start_time < timezone.now:
+        elif not order.approved and order.start_time < timezone.now():
             status = 2
         else:
             status = 1
@@ -114,16 +114,24 @@ def place_order(request):
         uuid = request.POST["transaction_uuid"]
         try:
             transaction = Transaction.objects.get(uuid=uuid)
-            transaction.delete()
             method = request.POST["delivery-pickup-toggle"]
             name = request.POST["name"]
             phone = request.POST["phone"]
+            time = request.POST["time"]
+            print(time)
+            parsed_time = datetime.datetime.strptime(time, "%H:%M").time()
+            # Combine with current date to create a datetime object (naive)
+            current_date = timezone.now().date()  # Or use any specific date
+            naive_datetime = datetime.datetime.combine(current_date, parsed_time)
+            # Apply timezone to make it an aware datetime object
+            aware_datetime = timezone.make_aware(naive_datetime, timezone.get_current_timezone())
             order_instructions = request.POST["order-instructions"]
             dishes = json.loads(request.POST["dishes-string"])
             dish_ids = [dish["pk"] for dish in dishes]
             is_to_go = request.POST["here-to-go-toggle"] == "go"
-            order = Order(special_instructions=order_instructions, to_go_order=is_to_go, phone=int(phone) if phone != '' else None)
+            order = Order(special_instructions=order_instructions, to_go_order=is_to_go, phone=int(phone) if phone != '' else None, approved=False, authorization=transaction.authorization.first(), start_time=aware_datetime)
             order.table = name.strip() if name != '' else None
+            # transaction.delete()
             if method == "pick-up":
                 order.channel = "web"
             elif method == "delivery":
@@ -161,8 +169,9 @@ def place_order(request):
                 delivery_instructions += request.POST["delivery-instructions"]
                 Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
             return redirect(reverse("order_status", kwargs={"id":order.id}))
-        except:
-            return "Don't do this. I will get to implementing a better page soon"
+        except Exception as e:
+            print(e)
+            return HttpResponse("Don't do this. I will get to implementing a better page soon")
 
 @csrf_exempt
 @login_required

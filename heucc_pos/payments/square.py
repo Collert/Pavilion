@@ -4,6 +4,7 @@ import uuid
 from django.http import JsonResponse, HttpResponse
 import json
 from pos_server import globals
+from .models import PaymentAuthorization
 
 # Initialize the Square client
 square_client = Client(
@@ -64,7 +65,7 @@ def terminal_checkout(request):
         errors = response.errors
         return JsonResponse({"message":errors}, status=500)
     
-def create_web_payment(token, amount:float):
+def create_web_payment(token, amount:float, transaction, autocomplete = True):
     payments_api = square_client.payments
     response = payments_api.create_payment({
         "source_id": token,
@@ -73,6 +74,24 @@ def create_web_payment(token, amount:float):
             "currency": "CAD"
         },
         "location_id": settings.SQUARE_LOCATION_ID,
-        "idempotency_key": str(uuid.uuid4())  # Important to avoid duplicate charges
+        "idempotency_key": str(uuid.uuid4()),  # Important to avoid duplicate charges
+        'autocomplete': autocomplete
     })
-    return response
+    print(response.body["payment"])
+    if not autocomplete:
+        PaymentAuthorization.objects.create(
+            payment_id=response.body["payment"]["id"], 
+            amount=int(amount * 100),
+            currency=response.body["payment"]["amount_money"]["currency"],
+            created_at=response.body["payment"]["updated_at"],
+            transaction=transaction
+        )
+    return response    
+
+def capture_payment(payment_id):
+    result = square_client.payments.complete_payment(payment_id, body={})
+
+    if result.is_success():
+        return result.body['payment']
+    else:
+        raise Exception(result.errors)

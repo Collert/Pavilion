@@ -60,7 +60,9 @@
           const body = JSON.stringify({
             locationId:locationId,
             token: token,
-            amount:"{{amount}}"
+            amount:"{{amount}}",
+            confirmation_needed:"{{confirmation_needed}}",
+            transaction_uuid:"{{transaction.uuid}}"
           });
           const paymentResponse = await fetch('{% url "process-web-payment" %}', {
             method: 'POST',
