@@ -186,14 +186,22 @@ def device_elig(request):
 @login_required
 def pos(request):
     if request.method == "GET":
-        menu = Menu.objects.filter(is_active = True).first()
-        dishes = Dish.objects.filter(menu=menu)
+        menu = Menu.objects.filter(is_active=True).first()
+        
+        # Sort dishes by ID before grouping to ensure consistent ordering
+        dishes = Dish.objects.filter(menu=menu).order_by('id')
+        
+        # Group dishes by station
         grouped_dishes = defaultdict(list)
         for dish in dishes:
             grouped_dishes[dish.station].append(dish)
+        
+        # Sort each group of dishes by ID to ensure stable ordering within each station
+        sorted_grouped_dishes = {station: sorted(items, key=lambda x: x.id) for station, items in grouped_dishes.items()}
+        
         return render(request, "pos_server/order.html", {
-            "route":"pos",
-            "menu": dict(grouped_dishes),
+            "route": "pos",
+            "menu": sorted_grouped_dishes,
             "menu_title": menu.title,
             "json": serializers.serialize('json', dishes),
             "menus": Menu.objects.all()
