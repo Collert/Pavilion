@@ -173,6 +173,11 @@ if os.getenv('ENVIRONMENT') == "production":
             },
         },
         'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+                'formatter': 'simple',
+            },
             'file': {
                 'level': 'DEBUG',
                 'class': 'logging.FileHandler',
@@ -182,17 +187,11 @@ if os.getenv('ENVIRONMENT') == "production":
         },
         'loggers': {
             'django.server': {
-                'handlers': ['file'],
+                'handlers': ['console', 'file'],
                 'level': 'INFO',
                 'propagate': False,
             },
-            # Optionally, disable SQL query logging by setting django.db.backends to WARNING or ERROR
-            'django.db.backends': {
-                'handlers': ['file'],
-                'level': 'WARNING',
-                'propagate': False,
-            },
-        },
+        }
     }
 
 
