@@ -5,6 +5,7 @@ from inventory.models import Recipe
 from . import globals
 import uuid
 from payments.models import PaymentAuthorization
+from django.core.cache import cache
 
 # Create your models here.
     
@@ -65,29 +66,24 @@ class Order(models.Model):
     approved = models.BooleanField(default=True)
     authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.DO_NOTHING, null=True, blank=True)
 
-    def save(self, temp=False):
+    def save(self, *args, **kwargs):
+        # Calculate prep time if needed
         if self.bar_done and self.kitchen_done and self.gng_done:
-            if not temp:
-                if not self.prep_time:
-                    self.prep_time = timezone.now() - self.timestamp
-                if self.kitchen_done and self.kitchen_done == Order.objects.get(pk=self.id).kitchen_done and self.channel == "store":
-                    self.picked_up=True
-                try:
-                    globals.active_orders.remove(self)
-                except KeyError:
-                    pass
-                print(self.start_time)
-                print(timezone.now())
-                if not self.picked_up and self.start_time > timezone.now():
-                    globals.active_orders.add(self)
-        else:
-            try:
-                globals.active_orders.remove(self)
-            except KeyError:
-                pass
-            globals.active_orders.add(self)
-        print(globals.active_orders)
-        return super().save()
+            if not self.prep_time:
+                self.prep_time = timezone.now() - self.timestamp
+            if self.kitchen_done and self.channel == "store":
+                self.picked_up = True
+
+        # Call the original save method
+        super().save(*args, **kwargs)
+
+        # Update the active orders cache
+        update_active_orders_cache()
+
+    def delete(self, *args, **kwargs):
+        # Ensure the cache is updated when an order is deleted
+        super().delete(*args, **kwargs)
+        update_active_orders_cache()
 
     def __str__(self) -> str:
         return f"Order {self.id}"
@@ -215,3 +211,15 @@ class EligibleDevice(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+def update_active_orders_cache():
+    # Query for active orders
+    active_orders = Order.objects.filter(
+        models.Q(kitchen_done=False) |
+        models.Q(bar_done=False) |
+        models.Q(gng_done=False) |
+        models.Q(picked_up=False)
+    )
+    # Serialize or prepare active orders for caching
+    serialized_orders = [order.id for order in active_orders]  # Or serialize with necessary fields
+    cache.set('active_orders', serialized_orders, timeout=60)  # Cache the list of active order IDs

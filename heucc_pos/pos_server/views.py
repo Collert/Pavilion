@@ -113,6 +113,50 @@ def kitchen(request):
 
 # @local_network_only
 @login_required
+def order_marking(request):
+    if request.method == "GET":
+        today = timezone.localdate()
+        # Fetch all orders
+        orders = Order.objects.filter(picked_up=False, timestamp__date=today)
+
+        # Prepare data for each order
+        orders_data = []
+        for order in orders:
+            orders_data.append(collect_order(order))
+        # print(orders_data)
+        return render(request, "pos_server/kitchen.html", {
+            "route":"kitchen",
+            'orders': orders_data,
+            "portrait" : request.GET.get('portrait', 'false') == 'true'
+        })
+    elif request.method == "DELETE":
+        order_id = json.loads(request.body)["orderId"]
+        order = Order.objects.get(id=order_id)
+        order.picked_up = True
+        order.save()
+        return JsonResponse({"status":"Order marked done"}, status=200)
+    elif request.method == "PUT":
+        order_id = json.loads(request.body)["orderId"]
+        order = Order.objects.get(id=order_id)
+        order.kitchen_done = True
+        order.save()
+        return JsonResponse({"status":"Order marked done"}, status=200)
+    elif request.method == "POST":
+        body = json.loads(request.body)
+        order_id = body["orderId"]
+        action = body["action"]
+        order = Order.objects.get(id=order_id)
+        payment_id = order.authorization.payment_id
+        if action == "approve":
+            order.approved = True
+            order.save()
+            return JsonResponse({"status":"Order marked approved", "action":action, "payment_id":payment_id}, status=200)
+        elif action == "delete":
+            order.delete()
+            return JsonResponse({"status":"Order deleted", "action":action, "payment_id":payment_id}, status=200)
+
+# @local_network_only
+@login_required
 def bar(request):
     if request.method == "GET":
         today = timezone.localdate()
@@ -214,7 +258,7 @@ def pos(request):
         dish_counts = Counter(order)
         new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
         new_order.table = body["table"] if body["table"].strip() != '' else None
-        new_order.save(temp=True)
+        new_order.save()
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             if dish.station == "bar":
@@ -533,12 +577,17 @@ def check_card_status(request):
         return JsonResponse({"status":globals.checkout_card_status})
 
 def active_orders(request):
-    orders = globals.active_orders
-    serialized_orders = []
-    for order in orders:
-        serialized = collect_order(order)
-        serialized_orders.append(serialized)
-    # print(serialized_orders)
+    # Attempt to get cached active orders
+    active_order_ids = cache.get('active_orders')
+
+    if active_order_ids is None:
+        # Cache miss; update the cache and get the latest list
+        update_active_orders_cache()
+        active_order_ids = cache.get('active_orders')
+
+    # Fetch active orders from database using IDs from the cache
+    active_orders = Order.objects.filter(id__in=active_order_ids)
+    serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
     return JsonResponse(serialized_orders, safe=False)
 
 def check_inventory(request):
