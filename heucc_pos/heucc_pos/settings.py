@@ -48,15 +48,14 @@ MEDIA_URL = ''
 LOGIN_URL = reverse_lazy('login_view')
 
 ALLOWED_HOSTS = [
-    "127.0.0.1", 
-    "localhost", 
-    "server.uahelp.ca", 
-    "internal.uahelp.ca", 
-    "local.internal.uahelp.ca",
-    "6005-2605-8d80-482-cacb-58a-f30d-f46d-5a0d.ngrok-free.app",
-    "154.20.173.24"
-    "154.20.173.24",
-    "173.183.117.181"
+    '127.0.0.1',
+    'localhost',
+    'server.uahelp.ca',
+    'internal.uahelp.ca',
+    'local.internal.uahelp.ca',
+    '154.20.173.24154.20.173.24',
+    '173.183.117.181',
+    'd062-2605-8d80-481-f5a1-a415-eae2-8a4f-4c66.ngrok-free.app',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -194,6 +193,9 @@ if os.getenv('ENVIRONMENT') == "production":
         }
     }
 
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+SENDGRID_SANDBOX_MODE_IN_DEBUG = os.getenv('ENVIRONMENT') != "production"  # Set to True for testing in debug mode
+DEFAULT_FROM_EMAIL = 'restaurant@uahelp.ca'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
