@@ -176,3 +176,57 @@ main#pos {
     color: var(--primary-background);
     border-color: var(--primary-contrast);
 }
+
+#card-scanner > div,
+#gift-card-dialog > div {
+    display: grid;
+    place-items: center;
+    gap: .75rem;
+}
+
+#card-scanner > div select {
+    background-color: var(--primary-background);
+    border: 1px solid var(--primary-contrast);
+    border-radius: 100vh;
+    padding: .5rem;
+    font-size: larger;
+}
+
+#card-scanner canvas {
+    display: none;
+}
+
+h2.error {
+    color: var(--error-color);
+}
+
+#gift-card-dialog img {
+    height: 25vh;
+    border-radius: 20px;
+    box-shadow: var(--primary-contrast) 0px 0px 17px;
+}
+#gift-card-dialog h4 {
+    margin: 0;
+}
+
+#card-actions{
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+#card-actions button {
+    height: 100%;
+}
+
+#card-actions > form {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+#tender-total-div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

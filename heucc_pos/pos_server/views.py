@@ -30,6 +30,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Q
 from django.utils.timezone import make_aware
+from gift_cards.models import GiftCard
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -252,10 +253,15 @@ def pos(request):
         })
     elif request.method == "POST":
         body = json.loads(request.body)
-        order = body["order"]
+        cart = body["cart"]
+        print(f"{type(cart)}: {cart}")
+        print(cart)
+        for payment in cart["partialPayments"]:
+            if payment["type"] == "gift":
+                GiftCard.objects.get(number=payment["number"]).charge_card(payment["amount"])
         instructions = body["instructions"]
         is_to_go = body["toGo"]
-        dish_counts = Counter(order)
+        dish_counts = Counter(i["pk"] for i in cart["items"])
         new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
         new_order.table = body["table"] if body["table"].strip() != '' else None
         new_order.save()

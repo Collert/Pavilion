@@ -127,7 +127,7 @@ class Component(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
     in_stock = models.BooleanField(default=False)
-    crafting_option = models.CharField(max_length=10, choices=crafting_options)
+    crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def save(self, *args, **kwargs):

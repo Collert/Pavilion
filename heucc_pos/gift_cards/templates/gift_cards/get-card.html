@@ -10,7 +10,7 @@
 <div class="cards-container">
     {% for card in cards %}
         <div data-card-id="{{card.id}}" class="card">
-            <img src="/{{card.image}}" alt="" class="card-img">
+            <img src="/heucc_pos/{{card.image}}" alt="" class="card-img">
             <div class="card-info">
                 <span class="card-title">{{card.name}}</span>
                 <span class="card-price">${{card.amount}}</span>
@@ -23,7 +23,7 @@
 <dialog id="dialog-{{card.id}}">
     <form>
         <div class="dialog-body">
-            <img src="/{{card.image}}" alt="" class="card-img">
+            <img src="/heucc_pos/{{card.image}}" alt="" class="card-img">
             <h3>{{card.name}}</h3>
             <h4>${{card.amount}}</h4>
             <p>This gift card comes pre-loaded with ${{card.amount}}. You can choose to email this card to someone by selecting the option on the bottom. The card is not refundable, cannot be exchanged for cash or cannot be used for cashback. After the purchase, <strong>do not</strong> publish the link to the card anywhere. Only give the link to people that will be using the card.</p>
@@ -34,9 +34,10 @@
                 <input type="radio" id="is-gift2-card-{{card.id}}" name="is-gift" value="true" />
                 <label for="is-gift2-card-{{card.id}}" class="is-gift-label">This card is for someone else</label>
             </div>
-            <input id="card-{{card.id}}-recepient" type="email" class="recepient-email" placeholder="Recovery email" required>
+            <input id="card-{{card.id}}-name" type="text" class="recipient-email" placeholder="Your name">
+            <input id="card-{{card.id}}-recipient" type="email" class="recipient-email" placeholder="Recovery email" required>
             <div hidden class="gift-options">
-                <input id="card-{{card.id}}-name" type="text" class="recepient-email" placeholder="Recipient name">
+                <input id="card-{{card.id}}-sender" type="text" class="recipient-email" placeholder="Sender's name">
             </div>
         </div>
         <nav>
@@ -54,16 +55,18 @@
             const popup = document.querySelector("#payment-popup");
             form.querySelector("#hidden-image").value = "{{card.image}}"
             form.querySelector("#transaction-amount").value = "{{card.amount}}"
-            form.querySelector("#hidden-email").value = e.currentTarget.querySelector(".recepient-email").value;
+            form.querySelector("#hidden-email").value = e.currentTarget.querySelector("#card-{{card.id}}-recipient").value;
             form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-{{card.id}}-name").value;
             form.dispatchEvent(new Event("submit"));
         })
         document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
-            document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recovery email"
+            document.querySelector("#card-{{card.id}}-name").placeholder = "Your name"
+            document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recovery email"
             document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
         })
         document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
-            document.querySelector("#card-{{card.id}}-recepient").placeholder = "Recipient email"
+            document.querySelector("#card-{{card.id}}-name").placeholder = "Recipient's name"
+            document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recipient's email"
             document.querySelector("#dialog-{{card.id}} .gift-options").hidden = false;
         })
     })
@@ -73,8 +76,10 @@
     {% csrf_token %}
     <input type="email" name="email" id="hidden-email">
     <input type="text" name="name" id="hidden-name">
+    <input type="text" name="sender" id="hidden-sender">
     <input type="number" name="amount" id="transaction-amount">
     <input type="text" name="image" id="hidden-image">
+    <input type="text" name="gifted" id="hidden-gifted">
 </form>
 <script>
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;

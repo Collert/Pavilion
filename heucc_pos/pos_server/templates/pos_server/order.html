@@ -45,7 +45,13 @@
             <button class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <div id="summary"></div>
-        <h2>Total: $<span id="tender-total"></span></h2>
+        <div>
+            <div id="tenders"></div>
+            <div id="tender-total-div">
+                <h2>Total: $<span id="tender-total"></span></h2>
+                <button id="reset-partial-payments" class="icon"><span class="material-symbols-outlined">restart_alt</span></button>
+            </div>
+        </div>
         <input autocomplete="off" type="text" name="customer-name" placeholder="Customer name">
         <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
         <div id="here-to-go">
@@ -106,10 +112,48 @@
         <button>Apply</button>
     </form>
 </dialog>
+<dialog class="full" id="card-scanner">
+    <nav>
+        <h2 id="transaction-status">Gift card</h2>
+        <button class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <div>
+        <h2>Scan card</h2>
+        <div id="barcode-scanner"></div>
+        <select id="camera-select"></select>
+        <h2>Enter manually</h2>
+        <input type="text" maxlength="16" id="card-number-input">
+        <h2 class="error" style="display: none;" id="gift-card-errors"></h2>
+        <button id="card-number-lookup-button">Look up</button>
+    </div>
+</dialog>
+<dialog class="full" id="gift-card-dialog">
+    <nav>
+        <h2 id="transaction-status">Gift card</h2>
+        <button class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <div>
+        <img id="found-card-image" src="">
+        <h2>Card #<span id="found-card-number"></span></h2>
+        <h4>Available balance:</h4>
+        <h1>$<span id="found-card-balance"></span></h1>
+        <h2>Card actions:</h2>
+        <div id="card-actions">
+            <form id="card-charge-amount">
+                <input type="number" min="0.01" step=".01" id="card-charge-amount-inp">
+                <button id="card-charge-amount-button">Charge card</button>
+            </form>
+            <button id="card-charge-max">Charge max</button>
+            <button id="card-reload">Reload card</button>
+        </div>
+    </div>
+</dialog>
 <script>
     const dishes = JSON.parse('{{json|safe}}');
     const invUpdatesLink = "{% url 'check_inventory' %}"
 </script>
+<script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+<script type="module" src="{% static 'pos_server/sounds.js' %}"></script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
 {% endblock %}

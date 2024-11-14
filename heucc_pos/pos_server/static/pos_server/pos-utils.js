@@ -1,49 +1,27 @@
 const checkoutButton = document.querySelector("#checkout-button");
 const totalDisplay = document.querySelector("#total-button");
-const cart = document.querySelector("#cart");
-const summaryCart = document.querySelector("#summary");
+const cartElement = document.querySelector("#cart");
 
-export function addCartItem(dishId, orderArray, broadcastChannel, display = false, discounts = undefined) {
-    updateCheckoutButton(orderArray, discounts)
+export function addCartItem(dishId, cart) {
     let dish = getDish(dishId)
+    cart.addItem(dish)
     let existingDishCard = document.querySelector(`#dish-${dishId}`);
     if (!existingDishCard) {
-        let cartItem = document.createElement("div")
+        let cartItem = document.createElement("div");
         cartItem.className = "cart-item";
         cartItem.dataset.dishId = dishId;
         cartItem.id = `dish-${dishId}`;
         existingDishCard = cartItem;
-        if (!display && broadcastChannel) {
-            existingDishCard.innerHTML = `<div class="cart-item-title"><span><span class="item-qty"></span> X ${dish.fields.title}</span></div>
-                                    <button class="error remove-cart-item"><span class="material-symbols-outlined">remove</span></button>`
-            existingDishCard.querySelector(".error.remove-cart-item").addEventListener("click", e => {
-                e.stopPropagation()
-                orderArray.splice(orderArray.indexOf(dishId), 1);
-                broadcastChannel.postMessage({
-                    id : dishId, 
-                    orderArr : orderArray,
-                    message : "remove"
-                });
-                removeCartItem(dishId, orderArray, existingDishCard, discounts)
-            })
-        } else {
-            existingDishCard.innerHTML = `<div class="cart-item-title"><span><span class="item-qty"></span> X ${dish.fields.title}</span></div>`
-        }
-        cart.appendChild(existingDishCard);
+        existingDishCard.innerHTML = `<div class="cart-item-title"><span><span class="item-qty"></span> X ${dish.fields.title}</span></div>
+                                <button class="error remove-cart-item"><span class="material-symbols-outlined">remove</span></button>`
+        existingDishCard.querySelector(".error.remove-cart-item").addEventListener("click", e => {
+            e.stopPropagation()
+            removeCartItem(dish, cart, existingDishCard)
+        })
+        cartElement.appendChild(existingDishCard);
     }
-    existingDishCard.querySelector(".item-qty").innerHTML = getQuantity(orderArray, dishId)
-}
-
-export function compileSummary (order, discounts) {
-    summaryCart.innerHTML = '';
-    new Set(order).forEach(item => {
-        let dish = getDish(item)
-        let cartItem = document.createElement("div")
-        cartItem.className = "cart-item";
-        cartItem.innerHTML = `<div class="cart-item-title">${getQuantity(order, item)} X ${dish.fields.title}</div>`
-        summaryCart.appendChild(cartItem);
-    })
-    document.querySelector("#tender-total").textContent = getTotal(order, discounts);
+    existingDishCard.querySelector(".item-qty").innerHTML = cart.dishQuantity(dishId)
+    updateCheckoutButton(cart)
 }
 
 export function getDish(id) {
@@ -51,18 +29,19 @@ export function getDish(id) {
     return dish
 }
 
-export function removeCartItem(dishId, orderArray, existingDishCard, discounts) {
-    updateCheckoutButton(orderArray, discounts)
-    let itemQty = getQuantity(orderArray, dishId)
+export function removeCartItem(dish, cart, existingDishCard) {
+    cart.removeItem(dish)
+    let itemQty = cart.dishQuantity(dish.pk)
     if (!itemQty) {
-        cart.removeChild(existingDishCard)
+        cartElement.removeChild(existingDishCard)
     } else {
         existingDishCard.querySelector(".item-qty").innerHTML = itemQty
     }
+    updateCheckoutButton(cart)
 }
 
-export function updateCheckoutButton(order, discounts = undefined) {
-    const { discountAmount = 0, discountPercent = 0 } = discounts || {};
+export function updateCheckoutButton(cart) {
+    const { amount:discountAmount, percent:discountPercent } = cart.discounts || {};
     if (discountAmount) {
         totalDisplay.querySelector("#discount-display").textContent = ` | $${discountAmount} discount applied`
     } else if (discountPercent) {
@@ -70,25 +49,131 @@ export function updateCheckoutButton(order, discounts = undefined) {
     } else {
         totalDisplay.querySelector("#discount-display").textContent = ''
     }
-    totalDisplay.className = order.length ? "" : "hidden"
-    totalDisplay.querySelector("span").innerHTML = getTotal(order, discounts)
+    totalDisplay.className = cart.items.length ? "" : "hidden"
+    totalDisplay.querySelector("span").innerHTML = cart.remainingTotal
     if (checkoutButton) {
-        checkoutButton.className = order.length ? "" : "hidden"
-        checkoutButton.disabled = order.length === 0
+        checkoutButton.className = cart.items.length ? "" : "hidden"
+        checkoutButton.disabled = cart.items.length === 0
     }
 }
 
-export function getQuantity(array, valueToFind) {
-    return array.reduce((accumulator, currentValue) => {
-                return currentValue === valueToFind ? accumulator + 1 : accumulator;
-            }, 0);
+export async function lookupGiftCard(number, cardDialog) {
+    const cardErrors = document.querySelector("#gift-card-errors")
+    if (number) {
+        const response = await fetch("/gift-cards/card-api/" + number)
+        let data
+        if (response.status === 200) {
+            data = await response.json()
+        } else if (response.status === 404) {
+            cardErrors.innerHTML = `Card #${number} not found`
+            cardErrors.style.display = "block";
+            return null
+        } else {
+            cardErrors.innerHTML = "Unknown error"
+            cardErrors.style.display = "block";
+            return null
+        }
+        console.log(data)
+        const giftCard = new GiftCard(data.number, data.available_balance, data.email, data.image)
+        document.querySelector("#found-card-image").src = "/heucc_pos" + giftCard.image
+        document.querySelector("#found-card-number").textContent = giftCard.number
+        document.querySelector("#found-card-balance").textContent = giftCard.availableBalance
+        document.querySelector("#card-charge-amount-inp").max = giftCard.availableBalance
+        document.querySelector("dialog[open]").close()
+        document.querySelector("#return-active-gift-card").style.display = "block"
+        cardDialog.showModal()
+        return giftCard
+    } else {
+        cardErrors.innerHTML = "No card number entered"
+        cardErrors.style.display = "block";
+        return null
+    }
 }
 
-export function getTotal(order, discounts = undefined) {
-    const { discountAmount = 0, discountPercent = 0 } = discounts || {};
-    let total = 0;
-    order.forEach(item => {
-        total += getDish(item).fields.price;
-    })
-    return Math.max(total - discountAmount - (total * discountPercent / 100), 0)
+export class Cart {
+    constructor(existingInstance = null) {
+        // existingInstance is to reconstruct the class after passing it through the broadcast channel
+        this.items = existingInstance?.items ? [...existingInstance.items] : [];
+        this.discounts = existingInstance?.discounts ? { ...existingInstance.discounts } : { percent: 0, amount: 0 };
+        this.total = existingInstance?.total ?? 0;
+        this.partialPayments = existingInstance?.partialPayments ? [...existingInstance.partialPayments] : [];
+    }
+    
+    get remainingTotalNum() {
+        let remaining = this.total;
+        remaining = Math.max(remaining - this.discounts.amount - (remaining * this.discounts.percent / 100), 0)
+        this.partialPayments.forEach(payment => {
+            remaining -= payment.amount;
+        })
+        return Math.max(remaining, 0);
+    }
+    get remainingTotal() {
+        return this.remainingTotalNum.toLocaleString("en", { minimumFractionDigits: 2 })
+    }
+    addItem(item) {
+        this.items.push(item);
+        this.total += item.fields.price;
+    }
+    removeItem(item) {
+        this.items.splice(this.items.findIndex(i => i.pk === item.pk), 1);
+        this.total -= item.fields.price;
+    }
+    dishQuantity(dishId) {
+        return this.items.reduce((accumulator, currentValue) => {
+            return currentValue.pk === Number(dishId) ? accumulator + 1 : accumulator;
+        }, 0);
+    }
+    get uniqueDishes() {
+        const seen = new Set();
+        return this.items.filter(item => {
+            const key = item.pk;
+            if (seen.has(key)) {
+                return false;
+            } else {
+                seen.add(key);
+                return true;
+            }
+        });
+    }
+    addPayment(payment) {
+        this.partialPayments.push(payment)
+        updateCheckoutButton(this)
+    }
+    resetPayments() {
+        this.partialPayments = []
+        updateCheckoutButton(this)
+    }
+}
+
+class Payment {
+    constructor(amount) {
+        this.amount = parseFloat(amount)
+    }
+}
+ export class CashPayment extends Payment {
+    constructor(amount) {
+        super(amount)
+        this.type = "cash"
+    }
+}
+
+export class GiftCardPayment extends Payment {
+    constructor(number, amount) {
+        super(amount)
+        this.type = "gift"
+        this.number = number
+    }
+    get lastFour() {
+        return this.number.slice(-4)
+    }
+}
+
+export class GiftCard {
+    constructor(number, availableBalance, email, image) {
+        this.number = number
+        this.availableBalance = availableBalance
+        this.originalBalance = availableBalance
+        this.email = email
+        this.image = image
+    }
 }

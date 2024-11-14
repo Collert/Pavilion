@@ -4,6 +4,7 @@ from sklearn.cluster import KMeans
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from django.conf import settings
+from python_http_client import exceptions 
 
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
@@ -38,22 +39,38 @@ def get_image_colors(image_path:str, num_colors:int):
 
     return color_dict
 
-def send_html_email(subject, html_content, to_emails):
+def send_template_email(email_data):
     """
-    Sends an HTML email to the specified recipient(s).
-    :param subject: Email subject
-    :param html_content: HTML content of the email
-    :param to_emails: List of email addresses to send to
+    Sends a templated email using SendGrid's dynamic templates.
+    :param email_data: An instance of SendGridEmailData containing all email details.
     """
+    print("send_template_email called")
+
+    # Extract just the emails for recipients
+    to_email_objects = [recipient["email"] for recipient in email_data.recipients]
+
+    # Create the Mail object, passing only the email strings in `to_emails`
     message = Mail(
-        from_email='your-email@example.com',
-        to_emails=to_emails,
-        subject=subject,
-        html_content=html_content
+        from_email=email_data.from_email,  # Only the email address as a string
+        to_emails=to_email_objects  # List of email strings
     )
+    message.template_id = email_data.template_id
+
+    # Add dynamic data for each recipient (SendGrid will apply based on matching index)
+    for index, recipient in enumerate(email_data.recipients):
+        # Set personalization data for each recipient
+        message.personalizations[index].dynamic_template_data = recipient["dynamic_data"]
+
+    print("email prepped with template:", email_data.template_id)
+
+    # Initialize SendGrid client and send email
     try:
         sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
         response = sg.send(message)
+        print(response.status_code)
+        print(response.body)
+        print(response.headers)
         print(f"Email sent! Status code: {response.status_code}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except exceptions.BadRequestsError as e:
+        print("An error occurred while sending the email:")
+        print(e.body)  # Display the detailed error

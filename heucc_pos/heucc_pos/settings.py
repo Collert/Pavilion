@@ -48,15 +48,14 @@ MEDIA_URL = ''
 LOGIN_URL = reverse_lazy('login_view')
 
 ALLOWED_HOSTS = [
-    "127.0.0.1", 
-    "localhost", 
-    "server.uahelp.ca", 
-    "internal.uahelp.ca", 
-    "local.internal.uahelp.ca",
-    "6005-2605-8d80-482-cacb-58a-f30d-f46d-5a0d.ngrok-free.app",
-    "154.20.173.24"
-    "154.20.173.24",
-    "173.183.117.181"
+    '127.0.0.1',
+    'localhost',
+    'server.uahelp.ca',
+    'internal.uahelp.ca',
+    'local.internal.uahelp.ca',
+    'ceca-2605-8d80-6a2-3c52-68e2-ef5-2b1d-6d34.ngrok-free.app',
+    '154.20.173.24154.20.173.24',
+    '173.183.117.181',
 ]
 
 CSRF_TRUSTED_ORIGINS = [

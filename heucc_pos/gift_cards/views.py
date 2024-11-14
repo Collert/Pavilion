@@ -1,12 +1,18 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from .models import *
-from django.shortcuts import render
+from django.template.loader import render_to_string
 import barcode
 from barcode.writer import ImageWriter
 from io import BytesIO
 import base64
 from payments.models import Transaction
-from misc_tools.funcs import send_html_email
+from misc_tools.funcs import send_template_email
+from misc_tools.classes import SendGridEmailData
+from django.urls import reverse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
+import json
+from decimal import Decimal
 
 # Create your views here.
 
@@ -60,15 +66,42 @@ def get_card(request):
         email = request.POST["email"]
         amount = float(request.POST["amount"])
         name = request.POST["name"]
+        sender = request.POST["sender"]
+        gifted = request.POST["gifted"] == "true"
         try:
             transaction = Transaction.objects.get(uuid=uuid)
             transaction.delete()
-            card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
+            card = create_card(request, image_path, email, amount, name, sender, gifted)
         except:
             card = GiftCard.objects.filter(email=email, image=image_path, available_balance=amount).first()
         return render(request, "gift_cards/card-confirm.html", {
             "card":card
         })
+    
+def create_card(request, image_path, email, amount, name, sender, gifted):
+    card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
+    # Generate the card link
+    card_link = request.build_absolute_uri(reverse('card_display', args=[card.number]))
+
+    email_dynamic_data = {
+        "name":name,
+        "card_url":card_link
+    }
+
+    email_data = SendGridEmailData(
+        template_id="d-be1559e433da4d6eba67b8b9c377b3d4" if gifted else "d-8e41ef2b2f3145838d51e9bf0a40b420",
+        from_email="restaurant@uahelp.ca"
+    )
+    if gifted:
+        email_dynamic_data["sender"] = sender
+    email_data.add_recipient(
+        email=email,
+        name=name,
+        dynamic_data=email_dynamic_data
+    )
+    # Send confirmation email
+    send_template_email(email_data)
+    return card
 
 def special(request):
     return render(request, "gift_cards/special.html", {
@@ -85,7 +118,37 @@ def new_card_confirmation(request):
 def email_card_confirmation(request):
     return render(request, "gift_cards/emails/card-confirm.html", {
         "name":"Jane",
-        "gifted":True,
+        "gifted":False,
         "sender_name":"Joe",
-        "card_number":"12345"
+        "card_link":request.build_absolute_uri(reverse('card_display', "12345"))
     })
+
+@csrf_exempt
+def card_api(request, card_number):
+    if request.method == "GET":
+        try:
+            card = GiftCard.objects.get(number=card_number)
+            return JsonResponse({
+                "email":card.email,
+                "image":card.image.url,
+                "available_balance":card.available_balance,
+                "number":card.number
+            }, status=200)
+        except GiftCard.DoesNotExist:
+            return HttpResponseNotFound()
+    elif request.method == "POST":
+        try:
+            card = GiftCard.objects.get(number=card_number)
+            body = json.loads(request.body)
+            amount = Decimal(body["amount"])
+            response = card.charge_card(amount)
+            if response == 200:
+                return JsonResponse({
+                    "message":f"Card charged ${amount}"
+                }, status=200)
+            elif response == 402:
+                return JsonResponse({
+                    "message":"Insufficient card balance."
+                }, status=402)
+        except GiftCard.DoesNotExist:
+            return HttpResponseNotFound()

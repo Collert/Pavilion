@@ -18,4 +18,4 @@ class PaymentAuthorization(models.Model):
     currency = models.CharField(max_length=3)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=3, choices=statuses)
-    transaction = models.ForeignKey(Transaction, on_delete=models.DO_NOTHING, related_name="authorization")
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name="authorization")

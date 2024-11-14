@@ -1,79 +1,88 @@
-import { addCartItem, updateCheckoutButton, getTotal, compileSummary } from './pos-utils.js';
+import { addCartItem, updateCheckoutButton, Cart, CashPayment, GiftCardPayment, GiftCard, lookupGiftCard } from './pos-utils.js';
+import { playBeep } from './sounds.js'
 
 const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 // There's a isSuperuser declaration in layout.html
-let order = []
 
-let discounts = {
-    discountPercent : 0,
-    discountAmount : 0
-}
+let cart = new Cart
 
-const cashButton = document.querySelector("#cash-button");
-const cardButton = document.querySelector("#card-button");
-const preCheckoutButton = document.querySelector("#checkout-button")
+let activeGiftCard;
 
 const cartChannel = new BroadcastChannel('cart_channel');
 const reloadChannel = new BroadcastChannel('reload_channel');
 
+const preCheckoutButton = document.querySelector("#checkout-button");
+
 const confirmDialog = document.querySelector("#tender");
+
+const cashButton = document.querySelector("#cash-button");
 const cashInDialog = document.querySelector("#cash-in");
 const changeDialog = document.querySelector("#cash-change");
+
+const cardButton = document.querySelector("#card-button");
 const cardInDialog = document.querySelector("#card-in");
 const cardDoneDialog = document.querySelector("#card-done");
+
 const adminAuthorizeForm = document.querySelector("#authorize form");
 const adminAuthorizeModal = document.querySelector("#authorize");
+
 const discountForm = document.querySelector("#discounts form");
 const discountsLink = document.querySelector("#discounts-link");
 const discountModal = document.querySelector("#discounts");
-const toggleOrderSummary = document.querySelector("#toggle-summary");
+
+const summaryCart = document.querySelector("#summary");
+
+const scannerButton = document.querySelector("#barcode-scanner-button");
+const scannerDialog = document.querySelector("#card-scanner");
+
+const giftCardDialog = document.querySelector("#gift-card-dialog");
 
 document.querySelectorAll(".dish").forEach(button => {
     button.addEventListener("click", e => { 
         let dishId = e.currentTarget.dataset.id;
         e.stopPropagation();
-        order.push(dishId)
-        addCartItem(dishId, order, cartChannel, false, discounts);
-        cartChannel.postMessage({
-            id : dishId, 
-            orderArr : order,
-            message : "add",
-            discounts : discounts
-        });
+        // addCartItem(dishId, order, cartChannel, false, discounts);
+        addCartItem(dishId, cart);
     })
 })
 
 cashButton.addEventListener("click", e => {
     confirmDialog.close();
-    cashInDialog.querySelector("[name='cash-provided']").min = getTotal(order, discounts);
+    // cashInDialog.querySelector("[name='cash-provided']").min = cart.remainingTotalNum;
     cashInDialog.showModal();
 })
 
 cashInDialog.querySelector("form").addEventListener("submit", e => {
     e.preventDefault()
-    const change = parseFloat(parseFloat(e.currentTarget.querySelector("[name='cash-provided']").value) - getTotal(order, discounts)).toFixed(2);
-    changeDialog.querySelector("#change-to-give").textContent = change;
-    cashInDialog.close()
-    changeDialog.showModal()
-    const customerName = document.querySelector("[name='customer-name']").value;
-    const specialInstructions = document.querySelector("[name='special-instructions']").value;
-    const link = e.currentTarget.action;
-    console.log(document.querySelector("[name='here-to-go']:checked").value)
-    const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
-    sendOrder(link, customerName, specialInstructions, toGo);
-    document.querySelector("[name='customer-name']").value = '';
-    document.querySelector("[name='special-instructions']").value = '';
-    e.currentTarget.querySelector("[name='cash-provided']").value = '';
-    setTimeout(() => {
-        changeDialog.close()
-    }, 15000);
+    const changeNum = parseFloat(parseFloat(e.currentTarget.querySelector("[name='cash-provided']").value) - cart.remainingTotalNum)
+    if (changeNum >= 0) {
+        const change = changeNum.toFixed(2);
+        changeDialog.querySelector("#change-to-give").textContent = change;
+        cashInDialog.close()
+        changeDialog.showModal()
+        const customerName = document.querySelector("[name='customer-name']").value;
+        const specialInstructions = document.querySelector("[name='special-instructions']").value;
+        const link = e.currentTarget.action;
+        const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
+        sendOrder(link, customerName, specialInstructions, toGo);
+        document.querySelector("[name='customer-name']").value = '';
+        document.querySelector("[name='special-instructions']").value = '';
+        e.currentTarget.querySelector("[name='cash-provided']").value = '';
+        setTimeout(() => {
+            changeDialog.close()
+        }, 15000);
+    } else {
+        cart.addPayment(new CashPayment(e.currentTarget.querySelector("[name='cash-provided']").value));
+        e.currentTarget.querySelector("[name='cash-provided']").value = '';
+        cashInDialog.close()
+    }
 })
 
 cardButton.addEventListener("click", e => {
     confirmDialog.close();
     cardInDialog.showModal();
     const actionLink = e.currentTarget.dataset.actionlink
-    createSquarePayment(getTotal(order), actionLink)
+    createSquarePayment(cart.remainingTotalNum, actionLink)
     .then(response => {
         const status = response.status
         fetch("/restaurant/webhook/square/check_card_status", {
@@ -98,9 +107,18 @@ cardButton.addEventListener("click", e => {
 })
 
 preCheckoutButton.addEventListener("click", () => {
-    compileSummary(order, discounts)
+    const tenders = document.querySelector("#tenders")
+    summaryCart.innerHTML = '';
+    cart.uniqueDishes.forEach(item => {
+        let cartItem = document.createElement("div")
+        cartItem.className = "cart-item";
+        cartItem.innerHTML = `<div class="cart-item-title">${cart.dishQuantity(item.pk)} X ${item.fields.title}</div>`
+        summaryCart.appendChild(cartItem);
+    })
+    document.querySelector("#tender-total").innerHTML = cart.remainingTotal;
     cartChannel.postMessage({
-        message: "openOrderSummary"
+        message: "openOrderSummary",
+        cart: cart
     })
     confirmDialog.showModal()
 })
@@ -114,6 +132,7 @@ discountsLink.addEventListener("click", e => {
         adminAuthorizeModal.showModal();
     }
 })
+
 adminAuthorizeForm.addEventListener("submit", e => {
     e.preventDefault();
     fetch("{% url 'check_su' %}", {
@@ -139,28 +158,20 @@ adminAuthorizeForm.addEventListener("submit", e => {
     })
 })
 
+scannerButton.addEventListener("click", e => {
+    scannerDialog.showModal()
+})
+
 discountForm.addEventListener("submit", e => {
     e.preventDefault();
     const discountAmountInp = discountForm.querySelector("[name='discount-amount']");
     const discountPercentInp = discountForm.querySelector("[name='discount-percentage']");
-    discounts.discountAmount = parseFloat(discountAmountInp.value) || 0;
-    discounts.discountPercent = parseFloat(discountPercentInp.value) || 0;
-    updateCheckoutButton(order, discounts);
-    cartChannel.postMessage({
-        orderArr : order,
-        message : "modifyDiscount",
-        discounts : discounts
-    });
+    cart.discounts.amount = parseFloat(discountAmountInp.value) || 0;
+    cart.discounts.percent = parseFloat(discountPercentInp.value) || 0;
+    updateCheckoutButton(cart);
     discountModal.close();
     discountAmountInp.value = ''
     discountPercentInp.value = ''
-})
-
-toggleOrderSummary.addEventListener("click", e => {
-    e.preventDefault()
-    cartChannel.postMessage({
-        message: "toggleOrderSummary"
-    })
 })
 
 window.addEventListener("beforeunload", () => {
@@ -197,29 +208,30 @@ async function fetchInventory() {
     return JSON.parse(data)
 }
 
-setInterval(() => {
-    if (!order.length) {
-        checkInventory();
-    }
-}, 60000);
+// setInterval(() => {
+//     if (!order.length) {
+//         checkInventory();
+//     }
+// }, 60000);
 
 function sendOrder(actionLink, customerName, instructions, toGo) {
     fetch(actionLink, {
         headers: {"X-CSRFToken": csrftoken },
         method:'POST',
         body: JSON.stringify({
-            order:order,
+            cart:cart,
             table:customerName,
             instructions:instructions,
             toGo:toGo
         })
     }).then(()=>{
-        order = []
-        updateCheckoutButton(order)
+        cart = new Cart()
+        resetCard()
+        updateCheckoutButton(cart)
         document.querySelector("#cart").innerHTML = ''
         cartChannel.postMessage({
-            id : null, 
-            orderArr : order,
+            // id : null, 
+            cart : cart,
             message : "paid",
             name: customerName
         });
@@ -278,3 +290,121 @@ function createSquarePayment(amount, actionLink) {
         }
     });
 }
+
+document.querySelector("#card-number-lookup-button").addEventListener("click", async () => {
+    activeGiftCard = await lookupGiftCard(document.querySelector("#card-number-input").value, giftCardDialog)
+})
+
+document.querySelector("#card-charge-amount").addEventListener("submit", e => {
+    e.preventDefault()
+    const amount = parseFloat(document.querySelector("#card-charge-amount-inp").value)
+    cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount))
+    activeGiftCard.availableBalance -= amount
+    document.querySelector("#found-card-balance").textContent = activeGiftCard.availableBalance
+    document.querySelector("dialog[open]").close()
+})
+
+document.querySelector("#card-charge-max").addEventListener("click", e => {
+    const amount = Math.min(cart.remainingTotalNum, activeGiftCard.availableBalance)
+    cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount))
+    activeGiftCard.availableBalance -= amount
+    document.querySelector("#found-card-balance").textContent = activeGiftCard.availableBalance
+    document.querySelector("dialog[open]").close()
+})
+
+document.querySelector("#card-reload").addEventListener("click", e => {
+    
+})
+
+document.querySelector("#return-active-gift-card").addEventListener("click", e => {
+    giftCardDialog.showModal()
+})
+
+document.querySelector("#reset-partial-payments").addEventListener("click", e => {
+    resetCard()
+})
+
+function resetCard() {
+    cart.resetPayments()
+    activeGiftCard = null;
+    document.querySelector("#return-active-gift-card").style.display = "none"
+    document.querySelector("dialog[open]").close()
+    cartChannel.postMessage({
+        message: "closeOrderSummary"
+    })
+}
+
+let videoDevice;
+
+async function initCameraSelection() {
+    const select = document.getElementById("camera-select");
+  
+    // Get available video input devices (cameras)
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === "videoinput");
+  
+    // Populate the select element with available cameras
+    videoDevices.forEach((device, index) => {
+      const option = document.createElement("option");
+      option.value = device.deviceId;
+      option.text = device.label || `Camera ${index + 1}`;
+      select.appendChild(option);
+    });
+  
+    // Event listener to change camera
+    select.addEventListener("change", () => startScanner(select.value));
+  
+    // Start with the first camera
+    if (videoDevices.length > 0) {
+        videoDevice = videoDevices[0].deviceId
+        startScanner(videoDevice);
+    }
+}
+  
+function startScanner(deviceId) {
+    try {
+        Quagga.stop(); // Stop any previous instance of Quagga
+    } catch {}
+  
+    Quagga.init({
+      inputStream: {
+        type: "LiveStream",
+        target: document.querySelector("#barcode-scanner"),
+        constraints: {
+          deviceId: deviceId,
+          width: 520,
+          height: 360,
+          facingMode: "environment"
+        }
+      },
+      decoder: {
+        readers: ["code_128_reader"]
+      },
+      locate: true // Enable locating feature to increase detection accuracy
+    }, function(err) {
+      if (err) {
+        console.error("Quagga initialization error:", err);
+        return;
+      }
+      console.log("Barcode scanner initialized with selected camera");
+    //   Quagga.start();
+    });
+    
+    Quagga.onDetected(result => {
+        if (result && result.codeResult && result.codeResult.code) {
+            const code = result.codeResult.code;
+            console.log("Barcode detected:", code);
+            Quagga.stop()
+            activeGiftCard = lookupGiftCard(document.querySelector("#card-number-input").value, giftCardDialog)
+            playBeep()
+            setTimeout(() => {
+                startScanner(videoDevice);
+            }, 2000);
+            // Handle detected barcode
+        } else {
+            console.log("No valid code detected");
+        }
+    });
+  }
+  
+  document.addEventListener("DOMContentLoaded", initCameraSelection);  

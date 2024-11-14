@@ -26,14 +26,14 @@
     {% csrf_token %}
     <header>
         <nav class="button-row">
-            <button id="rotate-screen" class="icon"><span class="material-symbols-outlined">screen_rotation</span></button>
+            <button id="barcode-scanner-button" class="icon"><span class="material-symbols-outlined">barcode_scanner</span></button>
+            <button id="return-active-gift-card" class="icon" style="display: none;"><span class="material-symbols-outlined">redeem</span></button>
             <a class="button icon" href="{% url 'component_availability' %}"><span class="material-symbols-outlined">inventory_2</span></a>
             {% if route == "pos" %}
             <button id="dropdown">
                 <span id="drop-but">Menu</span>
                 <div id="dropdown-content">
                     <a href="#" id="utils-link">Utilities</a>
-                    <a href="#" id="toggle-summary">Toggle order summary</a>
                     <a href="#" id="discounts-link">Discounts</a>
                 </div>
             </button>
@@ -72,9 +72,9 @@
     let suAuthorized = isSuperuser;
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     
-    document.querySelector("#rotate-screen").addEventListener("click", () => {
-        document.querySelector("body").classList.toggle("portrait");
-    })
+    // document.querySelector("#rotate-screen").addEventListener("click", () => {
+    //     document.querySelector("body").classList.toggle("portrait");
+    // })
 </script>
 {% if route == "pos" %}
 <script>    
