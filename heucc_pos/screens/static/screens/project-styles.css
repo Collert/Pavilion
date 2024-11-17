@@ -1,0 +1,71 @@
+@import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+/* @import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Satisfy&display=swap'); */
+@import url('https://fonts.googleapis.com/css2?family=Nabla&display=swap');
+@import url('crafting.css');
+@import url('availability.css');
+@import url('shopping.css');
+@import url('recipes.css');
+
+button:hover:not(.no-style) *,
+button:focus-visible:not(.no-style) *,
+button:active:not(.no-style) *,
+a.button:hover:not(.no-style) *,
+a.button:focus-visible:not(.no-style) *,
+a.button:active:not(.no-style) * {
+    color: var(--primary-background)!important;
+}
+
+body {
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+main  {
+    box-sizing: border-box;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+}
+
+nav {
+    display: flex;  
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+nav a {
+    max-width: 10ch;
+    overflow-y: visible;
+    text-align: center;
+    word-break: break-word;
+}
+
+header h1 {
+    font-family: 'Nabla', system-ui;
+    font-size: 48px;
+    margin: 0;
+}
+
+@media (orientation:portrait) {
+    header {
+        flex-direction: column;
+    } 
+
+    header h1 {
+        text-align: center;
+    }
+
+    nav {
+        justify-content: center;
+    }
+}
+
+#add-item,
+#play-music {
+    position: fixed;
+    bottom: 3vh;
+    right: 3vh;
+}

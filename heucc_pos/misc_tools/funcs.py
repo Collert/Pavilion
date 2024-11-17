@@ -5,6 +5,10 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from django.conf import settings
 from python_http_client import exceptions 
+import qrcode
+from PIL import Image, ImageColor
+from io import BytesIO
+import base64
 
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
@@ -38,6 +42,22 @@ def get_image_colors(image_path:str, num_colors:int):
     }
 
     return color_dict
+
+
+def interpolate_color(color_hex, factor=0.25):
+    # Convert hex color to RGB tuple
+    color_rgb = ImageColor.getrgb(color_hex)
+    
+    # Define white in RGB
+    white_rgb = (255, 255, 255)
+    
+    # Interpolate between white and the target color
+    blended_rgb = tuple(
+        int(white_rgb[i] * (1 - factor) + color_rgb[i] * factor) for i in range(3)
+    )
+    
+    # Convert back to hex
+    return "#{:02x}{:02x}{:02x}".format(*blended_rgb)
 
 def send_template_email(email_data):
     """
@@ -74,3 +94,25 @@ def send_template_email(email_data):
     except exceptions.BadRequestsError as e:
         print("An error occurred while sending the email:")
         print(e.body)  # Display the detailed error
+
+def generate_qr_code(data, fill_color="black", back_color="white"):
+    # Create a QR code object
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    # Generate QR code with custom colors
+    img = qr.make_image(fill_color=fill_color, back_color=back_color)
+
+    # Convert image to bytes and encode it to base64
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+    # Return the base64 string
+    return img_str

@@ -1,0 +1,134 @@
+{% extends "screens/layout.html" %}
+{% load static %}
+
+{% block body %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Climate+Crisis&display=swap');
+    main {
+        display: grid;
+        height: 100%;
+        grid-template-rows: 1fr 1fr;
+    }
+    body {
+        height: 100dvh;
+        display: grid;
+        grid-template-rows: 6vh 88vh 6vh;
+    }
+    #circle {
+        background-color: var(--primary-contrast);
+        height: 115vw;
+        aspect-ratio: 1;
+        display: block;
+        position: absolute;
+        border-radius: 50%;
+        bottom: -100%;
+        left: 25%;
+    }
+    div:has(#circle) {
+        position: relative;
+        overflow: hidden;
+    }
+    #left {
+        display: grid;
+        place-items: center;
+        padding: 0 1rem;
+        gap: 2rem;
+    }
+    #left > * {
+        margin: 0;
+    }
+    h1 {
+        font-family: "Climate Crisis", sans-serif;
+        font-size: 9vh;
+        text-align: center;
+    }
+    p {
+        color: #222;
+        font-size: 3vh;
+    }
+    footer {
+        background-color: #222;
+        color: var(--primary-background);
+        padding: .5rem;
+        display: grid;
+        place-items: center;
+    }
+    #qr-img {
+        height: 15vh;
+        border-radius: 10px 0 0 10px;
+        width: 100%;
+        object-fit: cover;
+    }
+    #qr-code {
+        display: grid;
+        place-items: center;
+        grid-template-columns: 1fr .75fr;
+    }
+    #qr-code span {
+        font-size: 3vh;
+        background-color: var(--primary-contrast);
+        color: var(--primary-background);
+        text-align: center;
+        border-radius: 0 10px 10px 0;
+        padding-right: .5rem;
+        height: 100%;
+    }
+    #logo {
+        height: 100%;
+    }
+    header {
+        padding: .5rem;
+    }
+    @media (orientation:portrait) {
+        #qr-code span {
+            display: grid;
+            place-items: center;
+        }
+    }
+    @media (orientation:landscape) {
+        main {
+            grid-template-rows: none;
+            grid-template-columns: 1fr 1.5fr;
+        }
+        #qr-code span {
+            padding-bottom: .5rem;
+            padding-right: 0;
+            width: 100%;
+            border-radius: 0 0 10px 10px;
+        }
+        #qr-code {
+            grid-template-columns: none;
+        }
+        #qr-img {
+            height: 25vh;
+            border-radius: 10px 10px 0 0;
+        }
+        h1 {
+            font-size: 14vh;
+        }
+        #circle {
+            bottom: -115%;
+            left: 0;
+        }
+    }
+    </style>
+<header>
+<img src="{% static 'screens/logo.png' %}" id="logo" alt="Sunflower hearth logo">
+</header>
+<main>
+    <div id="left">
+        <h1>{{dish.title}}</h1>
+        <p>{{ dish.description|truncatechars:50 }}</p>
+        <div id="qr-code">
+            <img id="qr-img" src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+            <span>Order now!</span>
+        </div>
+    </div>
+    <div>
+        <span id="circle"></span>
+    </div>
+</main>
+<footer>
+    Visit the product page for more information about ingredients, allergens and more
+</footer>
+{% endblock %}

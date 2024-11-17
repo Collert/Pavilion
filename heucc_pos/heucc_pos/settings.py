@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'gift_cards',
     'payments',
     'events',
+    'screens'
 ]
 
 MIDDLEWARE = [
