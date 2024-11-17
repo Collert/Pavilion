@@ -320,11 +320,15 @@ document.querySelector("#reset-partial-payments").addEventListener("click", e =>
     resetCard()
 })
 
-function resetCard() {
-    cart.resetPayments()
+function resetCard(newCart = false) {
+    if (!newCart) {
+        cart.resetPayments()
+    }
     activeGiftCard = null;
     document.querySelector("#return-active-gift-card").style.display = "none"
-    document.querySelector("dialog[open]").close()
+    try {
+        document.querySelector("dialog[open]").close()
+    } catch {}
     cartChannel.postMessage({
         message: "closeOrderSummary"
     })
