@@ -297,70 +297,92 @@ def dashboard(request):
 @login_required
 def day_stats(request):
     if request.GET.get('date'):
-        day = datetime.datetime.strptime(request.GET.get('date'), '%B %d, %Y')
+        date_str = request.GET.get('date')  # Get the date string from the request
+        try:
+            # First, try to parse the date with the original format: Full month name
+            day = datetime.datetime.strptime(date_str, '%B %d, %Y')
+        except ValueError:
+            try:
+                # If parsing with the full month name fails, try parsing with abbreviated month names
+                day = datetime.datetime.strptime(date_str, '%b. %d, %Y')
+            except ValueError:
+                # If both parsing attempts fail, return an error response
+                return render(request, "pos_server/error.html", {
+                    "error": "Invalid date format. Please use 'Month Day, Year' or 'Mon. Day, Year'."
+                })
+
+        # Convert the parsed date into a timezone-aware datetime object
         day = make_aware(day)
+
+        # Fetch all available dishes
         menu = Dish.objects.all()
-        orders = Order.objects.filter(timestamp__date = day).order_by('timestamp')
+
+        # Fetch all orders for the specific date, ordered by timestamp
+        orders = Order.objects.filter(timestamp__date=day).order_by('timestamp')
+
+        # Initialize stats dictionary to store various metrics
         stats = {
-            "item_stats":{
-
-            },
-            "stations":{
-
-            },
-            "order_occasions":{
-
-            },
-            "prep_times":{
-                
-            },
-            "components":{
-
-            },
-            "ingredients":{
-
-            }
+            "item_stats": {},  # Stores the count of each dish sold
+            "stations": {},  # Stores the count of dishes prepared by each station
+            "order_occasions": {},  # Tracks order counts and earnings by time windows
+            "prep_times": {},  # Stores average preparation times
+            "components": {},  # Tracks quantities of each dish component used
+            "ingredients": {},  # Tracks quantities of each ingredient used
         }
-        # Function to round down time to the nearest 15 minutes
+
+        # Function to round down a datetime object to the nearest 15-minute window
         def get_15_min_window(dt):
+            # Convert datetime to local timezone for accurate window calculation
             dt = timezone.localtime(dt)
-            # Round down to the nearest 15 minutes for the start of the window
+            # Round down to the nearest 15 minutes
             start_minute = 15 * math.floor(dt.minute / 15)
             start_time = dt.replace(minute=start_minute, second=0, microsecond=0)
-
-            # Calculate the end of the window
+            # Calculate the end of the 15-minute window
             end_time = start_time + datetime.timedelta(minutes=15)
-
             return f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
+
+        # Initialize defaultdicts for grouping data
         stats["order_occasions"] = defaultdict(lambda: {'count': 0, 'total_earnings': 0.0})
         prep_time_data = defaultdict(lambda: {'total_prep_time': datetime.timedelta(0), 'count': 0})
+
+        # Process each order to populate stats
         for order in orders:
-            # Group order occasions by 15 minute intervals
+            # Group order occasions into 15-minute time windows
             time_window = get_15_min_window(order.timestamp)
+
+            # Calculate total price of the order
             order_price = sum(od.quantity * od.dish.price for od in order.orderdish_set.all())
-            # Update the count and total earnings in the dictionary
+
+            # Update the count and total earnings for the time window
             stats["order_occasions"][time_window]['count'] += 1
             stats["order_occasions"][time_window]['total_earnings'] += order_price
-            # Get averages of order prep times
+
+            # Track preparation times to calculate averages later
             prep_time_data[time_window]['total_prep_time'] += order.prep_time
             prep_time_data[time_window]['count'] += 1
+
+            # Populate average preparation times per time window
             for window, data in prep_time_data.items():
                 count = data['count']
-                if count > 0:
+                if count > 0:  # Avoid division by zero
                     average_prep = data['total_prep_time'] / count
                     stats['prep_times'][window] = average_prep
+
+            # Process each dish in the order
             for item in order.dishes.all():
-                # Getting quantity of each dish
+                # Count the quantity of each dish sold
                 if item.title not in stats["item_stats"]:
                     stats["item_stats"][item.title] = 1
                 else:
                     stats["item_stats"][item.title] += 1
-                # Getting station distributions
+
+                # Count the distribution of dishes across stations
                 if item.station not in stats["stations"]:
                     stats["stations"][item.station] = 1
                 else:
                     stats["stations"][item.station] += 1
-                # Get quantity of each items component
+
+                # Track the quantity of each component used in the dish
                 for dc in item.dishcomponent_set.all():
                     if dc.component.title not in stats["components"]:
                         stats["components"][dc.component.title] = [None] * 2
@@ -368,7 +390,8 @@ def day_stats(request):
                         stats["components"][dc.component.title][0] = dc.quantity
                     else:
                         stats["components"][dc.component.title][0] += dc.quantity
-                    # Get quantity of each components ingredient
+
+                    # Track the quantity of each ingredient used in the components
                     for ci in dc.component.componentingredient_set.all():
                         if ci.ingredient.title not in stats["ingredients"]:
                             stats['ingredients'][ci.ingredient.title] = [None] * 2
@@ -376,11 +399,17 @@ def day_stats(request):
                             stats['ingredients'][ci.ingredient.title][0] = ci.quantity
                         else:
                             stats['ingredients'][ci.ingredient.title][0] += ci.quantity
+
+        # Convert defaultdicts to regular dicts for rendering
         stats["order_occasions"] = dict(stats["order_occasions"])
-        stats["item_stats"] = dict(sorted(stats["item_stats"].items(), key=lambda item: item[1], reverse=True)) # https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value
-    return render(request, "pos_server/day_stats.html",{
-        "menu":menu,
-        "stats":stats
+
+        # Sort items by quantity sold in descending order
+        stats["item_stats"] = dict(sorted(stats["item_stats"].items(), key=lambda item: item[1], reverse=True))
+
+    # Render the stats in the HTML template
+    return render(request, "pos_server/day_stats.html", {
+        "menu": menu,
+        "stats": stats,
     })
 
 # @local_network_only
