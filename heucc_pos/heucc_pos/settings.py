@@ -173,9 +173,9 @@ if os.getenv('ENVIRONMENT') == "production":
         },
         'handlers': {
             'console': {
-                'level': 'DEBUG',
+                'level': 'ERROR',
                 'class': 'logging.StreamHandler',
-                'formatter': 'simple',
+                'formatter': 'verbose',
             },
             'file': {
                 'level': 'DEBUG',
@@ -185,14 +185,23 @@ if os.getenv('ENVIRONMENT') == "production":
             },
         },
         'loggers': {
-            'django.server': {
+            'django': {
                 'handlers': ['console', 'file'],
-                'level': 'INFO',
+                'level': 'ERROR',
                 'propagate': False,
             },
-        }
+            'django.request': {
+                'handlers': ['console', 'file'],
+                'level': 'ERROR',
+                'propagate': False,
+            },
+            'django.server': {
+                'handlers': ['console', 'file'],
+                'level': 'ERROR',
+                'propagate': False,
+            },
+        },
     }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
