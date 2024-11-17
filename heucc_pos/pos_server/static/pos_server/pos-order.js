@@ -236,10 +236,6 @@ function sendOrder(actionLink, customerName, instructions, toGo) {
             name: customerName
         });
         suAuthorized = isSuperuser;
-        discounts = {
-            discountPercent : 0,
-            discountAmount : 0
-        }
         setTimeout(() => {
             checkInventory();
         }, 4000);
