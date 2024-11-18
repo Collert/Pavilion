@@ -30,6 +30,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Q
 from django.utils.timezone import make_aware
+from django.core.cache import cache
 from gift_cards.models import GiftCard
 
 # Create a configparser object
@@ -597,6 +598,7 @@ def square_webhook(request):
     if is_from_square:
         # Process the webhook data
         webhook_data = json.loads(request.body.decode('utf8'))
+        cache.set('checkout_card_status', webhook_data["data"]["object"]["checkout"]["status"], timeout=120)
         globals.checkout_card_status = webhook_data["data"]["object"]["checkout"]["status"]
         return HttpResponse('Webhook processed', status=200)
     else:
@@ -606,9 +608,9 @@ def square_webhook(request):
     
 def check_card_status(request):
     if request.method == "GET":
-        return JsonResponse({"status":globals.checkout_card_status})
+        return JsonResponse({"status":cache.get('checkout_card_status')})
     elif request.method == "DELETE":
-        globals.checkout_card_status = ''
+        cache.delete('checkout_card_status')
         return JsonResponse({"status":globals.checkout_card_status})
 
 def active_orders(request):
