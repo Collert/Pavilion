@@ -50,8 +50,10 @@ document.querySelectorAll(".dish").forEach(button => {
             e.stopPropagation();
             addCartItem(dishId, cart);
         } else {
-            if (isSuperuser) {
+            if (suAuthorized) {
                 cashDrawerDialog.showModal()
+            } else {
+                adminAuthorizeModal.showModal();
             }
         }
     })
