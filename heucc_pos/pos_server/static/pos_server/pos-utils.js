@@ -177,3 +177,64 @@ export class GiftCard {
         this.image = image
     }
 }
+
+export class CashDrawer {
+    constructor(fiveCent, tenCent, quarters, oneDollar, twoDollar, fiveDollar, tenDollar, twentyDollar, fiftyDollar, hundredDollar) {
+        this.fiveCent = fiveCent
+        this.tenCent = tenCent
+        this.quarters = quarters
+        this.oneDollar = oneDollar
+        this.twoDollar = twoDollar
+        this.fiveDollar = fiveDollar
+        this.tenDollar = tenDollar
+        this.twentyDollar = twentyDollar
+        this.fiftyDollar = fiftyDollar
+        this.hundredDollar = hundredDollar
+    }
+    closeDrawer(fiveCent, tenCent, quarters, oneDollar, twoDollar, fiveDollar, tenDollar, twentyDollar, fiftyDollar, hundredDollar) {
+
+        let finalDrawerTotal = 0;
+
+        finalDrawerTotal += (fiveCent - this.fiveCent) * 0.05
+        finalDrawerTotal += (tenCent - this.tenCent) * 0.1
+        finalDrawerTotal += (quarters - this.quarters) * 0.25
+        finalDrawerTotal += (oneDollar - this.oneDollar)
+        finalDrawerTotal += (twoDollar - this.twoDollar) * 2
+        finalDrawerTotal += (fiveDollar - this.fiveDollar) * 5
+        finalDrawerTotal += (tenDollar - this.tenDollar) * 10
+        finalDrawerTotal += (twentyDollar - this.twentyDollar) * 20
+        finalDrawerTotal += (fiftyDollar - this.fiftyDollar) * 50
+        finalDrawerTotal += (hundredDollar - this.hundredDollar) * 100
+        
+        let drawerTotal = 0;
+        
+        drawerTotal += fiveCent * 0.05
+        drawerTotal += tenCent * 0.1
+        drawerTotal += quarters * 0.25
+        drawerTotal += oneDollar
+        drawerTotal += twoDollar * 2
+        drawerTotal += fiveDollar * 5
+        drawerTotal += tenDollar * 10
+        drawerTotal += twentyDollar * 20
+        drawerTotal += fiftyDollar * 50
+        drawerTotal += hundredDollar * 100
+
+        return {
+            finalFiveCent:(fiveCent - this.fiveCent),
+            finalTenCent:(tenCent - this.tenCent),
+            finalQuarters:(quarters - this.quarters),
+            finalOneDollar:(oneDollar - this.oneDollar),
+            finalTwoDollar:(twoDollar - this.twoDollar),
+            finalFiveDollar:(fiveDollar - this.fiveDollar),
+            finalTenDollar:(tenDollar - this.tenDollar),
+            finalTwentyDollar:(twentyDollar - this.twentyDollar),
+            finalFiftyDollar:(fiftyDollar - this.fiftyDollar),
+            finalHundredDollar:(hundredDollar - this.hundredDollar),
+            drawerTotal:drawerTotal,
+            finalDrawerTotal:finalDrawerTotal
+        }
+    }
+    get string () {
+        return JSON.stringify(this)
+    }
+}

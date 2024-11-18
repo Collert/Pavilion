@@ -230,3 +230,46 @@ h2.error {
     justify-content: space-between;
     align-items: center;
 }
+
+#new-cash-drawer,
+#close-cash-drawer,
+#result-cash-drawer {
+    display: grid;
+    grid-row-gap: .75rem;
+    grid-template-columns: 1fr auto;
+}
+
+#new-cash-drawer > button, 
+#result-cash-drawer > button, 
+#close-cash-drawer > button { 
+    grid-area: 11 / 1 / 12 / 3; 
+}
+
+#new-cash-drawer label,
+#close-cash-drawer label {
+    display: grid;
+    place-items: center;
+}
+
+#cash-drawer-result table {
+    width: 100%;
+    padding: .5rem;
+    border-collapse: collapse;
+}
+
+#cash-drawer-result table tr:not(:last-child) td {
+    border-bottom: 2px solid var(--primary-contrast);
+}
+
+#cash-drawer-result table tr td {
+    padding: .5rem 0;
+}
+
+#result-cash-drawer {
+    gap: .75rem;
+}
+
+#result-cash-drawer span {
+    display: grid;
+    place-items: center;
+}

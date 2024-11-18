@@ -53,7 +53,7 @@ ALLOWED_HOSTS = [
     'server.uahelp.ca',
     'internal.uahelp.ca',
     'local.internal.uahelp.ca',
-    'ceca-2605-8d80-6a2-3c52-68e2-ef5-2b1d-6d34.ngrok-free.app',
+    '4d8c-2605-8d80-481-a538-9448-e764-8c68-8a2f.ngrok-free.app',
     '154.20.173.24154.20.173.24',
     '173.183.117.181',
 ]

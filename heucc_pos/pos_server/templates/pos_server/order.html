@@ -148,6 +148,113 @@
         </div>
     </div>
 </dialog>
+<dialog id="cash-drawer">
+    <nav>
+        <h2 id="transaction-status">Cash drawer</h2>
+        <button class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <form id="new-cash-drawer">
+        <label for="fiveCent">¢5</label>
+        <input placeholder="Quantity" type="number" id="fiveCent">
+        <label for="tenCent">¢10</label>
+        <input placeholder="Quantity" type="number" id="tenCent">
+        <label for="quarters">¢25</label>
+        <input placeholder="Quantity" type="number" id="quarters">
+        <label for="oneDollar">$1</label>
+        <input placeholder="Quantity" type="number" id="oneDollar">
+        <label for="twoDollar">$2</label>
+        <input placeholder="Quantity" type="number" id="twoDollar">
+        <label for="fiveDollar">$5</label>
+        <input placeholder="Quantity" type="number" id="fiveDollar">
+        <label for="tenDollar">$10</label>
+        <input placeholder="Quantity" type="number" id="tenDollar">
+        <label for="twentyDollar">$20</label>
+        <input placeholder="Quantity" type="number" id="twentyDollar">
+        <label for="fiftyDollar">$50</label>
+        <input placeholder="Quantity" type="number" id="fiftyDollar">
+        <label for="hundredDollar">$100</label>
+        <input placeholder="Quantity" type="number" id="hundredDollar">
+        <button>Open drawer</button>
+    </form>
+    <form id="close-cash-drawer" style="display: none;">
+        <label for="close-fiveCent">¢5</label>
+        <input placeholder="Quantity" type="number" id="close-fiveCent">
+        <label for="close-tenCent">¢10</label>
+        <input placeholder="Quantity" type="number" id="close-tenCent">
+        <label for="close-quarters">¢25</label>
+        <input placeholder="Quantity" type="number" id="close-quarters">
+        <label for="close-oneDollar">$1</label>
+        <input placeholder="Quantity" type="number" id="close-oneDollar">
+        <label for="close-twoDollar">$2</label>
+        <input placeholder="Quantity" type="number" id="close-twoDollar">
+        <label for="close-fiveDollar">$5</label>
+        <input placeholder="Quantity" type="number" id="close-fiveDollar">
+        <label for="close-tenDollar">$10</label>
+        <input placeholder="Quantity" type="number" id="close-tenDollar">
+        <label for="close-twentyDollar">$20</label>
+        <input placeholder="Quantity" type="number" id="close-twentyDollar">
+        <label for="close-fiftyDollar">$50</label>
+        <input placeholder="Quantity" type="number" id="close-fiftyDollar">
+        <label for="close-hundredDollar">$100</label>
+        <input placeholder="Quantity" type="number" id="close-hundredDollar">
+        <button>Close drawer</button>
+    </form>
+</dialog>
+<dialog id="cash-drawer-result">
+    <nav>
+        <h2 id="transaction-status">Cash drawer</h2>
+        <button class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <h2>New money:</h2>
+    <table>
+        <tr>
+            <td>¢5</td>
+            <td id="result-fiveCent"></td>
+        </tr>
+        <tr>
+            <td>¢10</td>
+            <td id="result-tenCent"></td>
+        </tr>
+        <tr>
+            <td>¢25</td>
+            <td id="result-quarters"></td>
+        </tr>
+        <tr>
+            <td>$1</td>
+            <td id="result-oneDollar"></td>
+        </tr>
+        <tr>
+            <td>$2</td>
+            <td id="result-twoDollar"></td>
+        </tr>
+        <tr>
+            <td>$5</td>
+            <td id="result-fiveDollar"></td>
+        </tr>
+        <tr>
+            <td>$10</td>
+            <td id="result-tenDollar"></td>
+        </tr>
+        <tr>
+            <td>$20</td>
+            <td id="result-twentyDollar"></td>
+        </tr>
+        <tr>
+            <td>$50</td>
+            <td id="result-fiftyDollar"></td>
+        </tr>
+        <tr>
+            <td>$100</td>
+            <td id="result-hundredDollar"></td>
+        </tr>
+    </table>
+    <div id="result-cash-drawer">
+        <h2>Total:</h2>
+        <span id="result-total"></span>
+        <h2>Total profit:</h2>
+        <span id="result-total-profit"></span>
+    </div>
+</dialog>
 <script>
     const dishes = JSON.parse('{{json|safe}}');
     const invUpdatesLink = "{% url 'check_inventory' %}"

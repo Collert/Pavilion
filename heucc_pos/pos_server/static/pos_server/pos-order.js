@@ -1,10 +1,12 @@
-import { addCartItem, updateCheckoutButton, Cart, CashPayment, GiftCardPayment, GiftCard, lookupGiftCard } from './pos-utils.js';
+import { addCartItem, updateCheckoutButton, Cart, CashPayment, GiftCardPayment, GiftCard, lookupGiftCard, CashDrawer } from './pos-utils.js';
 import { playBeep } from './sounds.js'
 
 const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 // There's a isSuperuser declaration in layout.html
 
 let cart = new Cart
+
+let cashDrawer = window.localStorage.getItem("cashDrawer");
 
 let activeGiftCard;
 
@@ -35,15 +37,83 @@ const summaryCart = document.querySelector("#summary");
 const scannerButton = document.querySelector("#barcode-scanner-button");
 const scannerDialog = document.querySelector("#card-scanner");
 
+const cashDrawerDialog = document.querySelector("#cash-drawer");
+const cashDrawerButton = document.querySelector("#cash-drawer-button");
+const cashDrawerResult = document.querySelector("#cash-drawer-result");
+
 const giftCardDialog = document.querySelector("#gift-card-dialog");
 
 document.querySelectorAll(".dish").forEach(button => {
-    button.addEventListener("click", e => { 
-        let dishId = e.currentTarget.dataset.id;
-        e.stopPropagation();
-        // addCartItem(dishId, order, cartChannel, false, discounts);
-        addCartItem(dishId, cart);
+    button.addEventListener("click", e => {
+        if (cashDrawer) {
+            let dishId = e.currentTarget.dataset.id;
+            e.stopPropagation();
+            addCartItem(dishId, cart);
+        } else {
+            if (isSuperuser) {
+                cashDrawerDialog.showModal()
+            }
+        }
     })
+})
+
+cashDrawerButton.addEventListener("click", e => {
+    document.querySelector("#utils").close()
+    cashDrawerDialog.showModal()
+})
+
+document.querySelector("#new-cash-drawer").addEventListener("submit", e => {
+    e.preventDefault()
+    cashDrawer = new CashDrawer(
+        parseInt(document.querySelector("#fiveCent").value) || 0,
+        parseInt(document.querySelector("#tenCent").value) || 0,
+        parseInt(document.querySelector("#quarters").value) || 0,
+        parseInt(document.querySelector("#oneDollar").value) || 0,
+        parseInt(document.querySelector("#twoDollar").value) || 0,
+        parseInt(document.querySelector("#fiveDollar").value) || 0,
+        parseInt(document.querySelector("#tenDollar").value) || 0,
+        parseInt(document.querySelector("#twentyDollar").value) || 0,
+        parseInt(document.querySelector("#fiftyDollar").value) || 0,
+        parseInt(document.querySelector("#hundredDollar").value) || 0
+    )
+    window.localStorage.setItem("cashDrawer", cashDrawer.string)
+    e.currentTarget.style.display = "none";
+    document.querySelector("#close-cash-drawer").style.display = 'grid';
+    e.currentTarget.parentElement.close();
+})
+
+document.querySelector("#close-cash-drawer").addEventListener("submit", e => {
+    e.preventDefault()
+    let drawerEnd = cashDrawer.closeDrawer(
+        parseInt(document.querySelector("#close-fiveCent").value) || 0,
+        parseInt(document.querySelector("#close-tenCent").value) || 0,
+        parseInt(document.querySelector("#close-quarters").value) || 0,
+        parseInt(document.querySelector("#close-oneDollar").value) || 0,
+        parseInt(document.querySelector("#close-twoDollar").value) || 0,
+        parseInt(document.querySelector("#close-fiveDollar").value) || 0,
+        parseInt(document.querySelector("#close-tenDollar").value) || 0,
+        parseInt(document.querySelector("#close-twentyDollar").value) || 0,
+        parseInt(document.querySelector("#close-fiftyDollar").value) || 0,
+        parseInt(document.querySelector("#close-hundredDollar").value) || 0
+    )
+    window.localStorage.removeItem("cashDrawer");
+    e.currentTarget.style.display = "none";
+    document.querySelector("#new-cash-drawer").style.display = 'grid';
+    e.currentTarget.parentElement.close();
+    cashDrawerResult.querySelector("#result-fiveCent").innerHTML = `X ${drawerEnd.finalFiveCent}`
+    cashDrawerResult.querySelector("#result-tenCent").innerHTML = `X ${drawerEnd.finalTenCent}`
+    cashDrawerResult.querySelector("#result-quarters").innerHTML = `X ${drawerEnd.finalQuarters}`
+    cashDrawerResult.querySelector("#result-oneDollar").innerHTML = `X ${drawerEnd.finalOneDollar}`
+    cashDrawerResult.querySelector("#result-twoDollar").innerHTML = `X ${drawerEnd.finalTwoDollar}`
+    cashDrawerResult.querySelector("#result-fiveDollar").innerHTML = `X ${drawerEnd.finalFiveDollar}`
+    cashDrawerResult.querySelector("#result-tenDollar").innerHTML = `X ${drawerEnd.finalTenDollar}`
+    cashDrawerResult.querySelector("#result-twentyDollar").innerHTML = `X ${drawerEnd.finalTwentyDollar}`
+    cashDrawerResult.querySelector("#result-fiftyDollar").innerHTML = `X ${drawerEnd.finalFiftyDollar}`
+    cashDrawerResult.querySelector("#result-hundredDollar").innerHTML = `X ${drawerEnd.finalHundredDollar}`
+    cashDrawerResult.querySelector("#result-total").innerHTML = `$${drawerEnd.drawerTotal.toFixed(2)}`
+    cashDrawerResult.querySelector("#result-total-profit").innerHTML = `$${drawerEnd.finalDrawerTotal.toFixed(2)}`
+    cashDrawerResult.showModal()
+    cashDrawer = undefined;
 })
 
 cashButton.addEventListener("click", e => {
