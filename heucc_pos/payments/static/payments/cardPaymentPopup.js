@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     form.appendChild(uuidField);
     
     popup.querySelector(".back-button").addEventListener("click", e => {
-        e.currentTarget.parentElement.parentElement.close()
+        e.currentTarget.parentElement.parentElement.parentElement.close()
     })
 
     form.addEventListener("submit", e => {
