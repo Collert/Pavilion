@@ -42,6 +42,26 @@
         /* iframe[src] {
           display: none!important;
         } */
+        #card-button:disabled {
+          display: grid;
+          grid-template-columns: auto auto;
+          place-items: center;
+          gap: 1rem;
+        }
+        #loading-spinner {
+          aspect-ratio: 1;
+          height: 100%;
+          background-color: var(--primary-background);
+          border-radius: 50%;
+          animation: spinner 1s ease infinite;
+        }
+        @keyframes spinner {
+          from, to {
+            clip-path: inset(0 0 0 0);
+          } 50% {
+            clip-path: inset(40% 0 40% 0);
+          }
+        }
     </style>
     <script type="text/javascript" src="https://{% if dev_env %}sandbox.{% endif %}web.squarecdn.com/v1/square.js"></script>
     <script>
@@ -50,7 +70,10 @@
         const locationId = '{{location_id}}'; 
         async function initializeCard(payments) {
           const card = await payments.card();
-          await card.attach('#card-container'); 
+          await card.attach('#card-container');
+          const button = document.querySelector("#card-button")
+          button.innerHTML = "Pay ${{amount|div:100|floatformat:2}}"
+          button.disabled = false
           return card; 
         }
         // Call this function to send a payment token, buyer name, and other details
@@ -164,6 +187,7 @@
               // disable the submit button as we await tokenization and make a
               // payment request.
               cardButton.disabled = true;
+              cardButton.innerHTML = "Payment processing<span id='loading-spinner'></span>";
               const token = await tokenize(paymentMethod);
               const paymentResults = await createPayment(token);
               if (paymentResults.status === "success") {
@@ -192,7 +216,7 @@
   {% if amount %}
   <form id="payment-form">
     <div id="card-container"></div>
-    <button id="card-button" type="button">Pay ${{amount|div:100|floatformat:2}}</button>
+    <button id="card-button" disabled type="button">Payment form loading<span id="loading-spinner"></span></button>
     <div id="payment-status-container" style="visibility: hidden;"></div> 
   </form>
   {% else %}

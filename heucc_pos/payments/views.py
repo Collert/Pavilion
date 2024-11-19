@@ -13,9 +13,9 @@ def web_payment(request):
         if amount:
             amount = float("{:.2f}".format(float(amount)))
             transaction = Transaction.objects.create(amount=amount)
-            confirmation_needed = bool(request.GET.get('confirmation_needed', False))
         else:
             transaction = None
+        confirmation_needed = bool(request.GET.get('confirmation_needed', False))
         return render(request, "payments/square-checkout.html", {
             "location_id":settings.SQUARE_LOCATION_ID,
             "app_id":settings.SQUARE_APPLICATION_ID,
