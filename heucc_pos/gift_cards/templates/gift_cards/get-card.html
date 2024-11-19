@@ -163,7 +163,7 @@
         // TODO fix gifted input in the old form and add here
         const form = document.querySelector("#create-card");
         const popup = document.querySelector("#payment-popup");
-        form.querySelector("#hidden-image").value = document.querySelector(".card-img.personal.selected").src
+        form.querySelector("#hidden-image").value = document.querySelector(".card-img.personal.selected").getAttribute("src")
         form.querySelector("#transaction-amount").value = personalCardForm.querySelector("#transaction-amount").value
         form.querySelector("#hidden-email").value = e.currentTarget.querySelector("#card-personal-recipient").value;
         form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-personal-name").value;
