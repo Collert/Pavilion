@@ -22,6 +22,7 @@
 }
 .card-img {
     height: 20dvh;
+    aspect-ratio: 16/9;
     border-radius: 20px;
     box-shadow: #0000007d 6px 7px 20px 2px;
     transition: transform 300ms ease;
@@ -125,4 +126,67 @@ button.icon:hover span {
     background-color: var(--primary-contrast);
     color: var(--primary-background);
     border-color: var(--primary-contrast);
+}
+
+#personal-card-selector {
+    width: 100%;
+    display: grid;
+    place-items: center;
+    grid-template-columns: 1fr auto auto auto 1fr;
+}
+
+#cards-personal {
+    display: flex;
+    width: 35vw;
+    overflow-x: hidden;
+    gap: 1rem;
+    position: relative;
+    aspect-ratio: 16 / 9;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-img.personal {
+    position: absolute;
+    display: none;
+}
+
+#cards-personal .selected {
+    z-index: 3;
+    display: block;
+}
+
+#cards-personal .selected + * {
+    filter: brightness(0.5);
+    z-index: 2;
+    transform: translate(3vw, 1vh);
+    display: block;
+}
+
+*:has(+ .selected) {
+    filter: brightness(0.5);
+    z-index: 1;
+    transform: translate(-3vw, 1vh);
+    display: block!important;
+}
+
+#personal-card-selector button {
+    background-color: var(--primary-background);
+    display: grid;
+    place-items: center;
+}
+
+#personal-card-selector button:hover {
+    background-color: var(--accent-2);
+}
+
+#personal-card-form {
+    display: grid;
+    place-items: center;
+    gap: 1rem;
+}
+
+#personal-card-form h1,
+#personal-card-form h2 {
+    margin: 0;
 }

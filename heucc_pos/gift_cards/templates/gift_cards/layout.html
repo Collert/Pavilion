@@ -29,7 +29,7 @@
         <img src="{% static 'gift_cards/images/HEUCC_brand_family_email_header.png' %}" alt="UkrVan logo">
         <nav>
             <a>Special</a>
-            <a class="button">Cards</a>
+            <a href="{% url 'get-card' %}" class="button">Cards</a>
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>

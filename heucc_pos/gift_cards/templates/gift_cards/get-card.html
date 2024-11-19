@@ -19,6 +19,38 @@
     {% endfor %}
 </div>
 <h1>Or make your own</h1>
+<form id="personal-card-form" action="" method="post">
+    {% csrf_token %}
+    <h2>Which cover?</h2>
+    <input type="text" name="image" hidden id="personal-hidden-image">
+    <div id="personal-card-selector">
+        <div></div>
+        <button style="opacity: 0;" id="carousel-back"><span class="material-symbols-outlined">arrow_back_ios</span></button>
+        <div id="cards-personal">
+            {% for card in card_images %}
+            <img src="{{card}}" alt="" class="card-img personal{% if forloop.first %} selected {% endif %}">
+            {% endfor %}
+        </div>
+        <button id="carousel-forward"><span class="material-symbols-outlined">arrow_forward_ios</span></button>
+        <div></div>
+    </div>
+    <h2>How much money?</h2>
+    <input type="number" name="amount" id="transaction-amount" class="transaction-amount">
+    <h2>For who?</h2>
+    <div id="is-gift">
+        <input type="radio" id="is-gift1-card-personal" name="is-gift" checked value="false" />
+        <label for="is-gift1-card-personal" class="is-gift-label">For me</label>
+
+        <input type="radio" id="is-gift2-card-personal" name="is-gift" value="true" />
+        <label for="is-gift2-card-personal" class="is-gift-label">For someone else</label>
+    </div>
+    <input id="card-personal-name" type="text" class="recipient-email" placeholder="Your name">
+    <input id="card-personal-recipient" type="email" class="recipient-email" placeholder="Recovery email" required>
+    <div hidden class="gift-options">
+        <input id="card-personal-sender" type="text" class="recipient-email" placeholder="Sender's name">
+    </div>
+    <button>Get this card</button>
+</form>
 {% for card in cards %}
 <dialog id="dialog-{{card.id}}">
     <form>
@@ -57,6 +89,8 @@
             form.querySelector("#transaction-amount").value = "{{card.amount}}"
             form.querySelector("#hidden-email").value = e.currentTarget.querySelector("#card-{{card.id}}-recipient").value;
             form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-{{card.id}}-name").value;
+            form.querySelector("#hidden-sender").value = e.currentTarget.querySelector("#card-{{card.id}}-sender").value;
+            form.querySelector("#hidden-gifted").value = e.currentTarget.querySelector("#is-gift2-card-{{card.id}}").checked;
             form.dispatchEvent(new Event("submit"));
         })
         document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
@@ -77,7 +111,7 @@
     <input type="email" name="email" id="hidden-email">
     <input type="text" name="name" id="hidden-name">
     <input type="text" name="sender" id="hidden-sender">
-    <input type="number" name="amount" id="transaction-amount">
+    <input type="number" name="amount" id="transaction-amount" class="transaction-amount">
     <input type="text" name="image" id="hidden-image">
     <input type="text" name="gifted" id="hidden-gifted">
 </form>
@@ -94,6 +128,58 @@
         button.addEventListener("click", e => {
             e.currentTarget.parentElement.parentElement.close()
         })
+    })
+    
+    const personalCards = document.querySelectorAll(".card-img.personal")
+    let selectedCard = 0;
+
+    function updateSelection(newIndex) {
+        if (newIndex < personalCards.length && newIndex >= 0) {
+            personalCards[selectedCard].classList.remove('selected');
+            personalCards[newIndex].classList.add('selected');
+            selectedCard = newIndex;
+            document.querySelector("#carousel-forward").style.opacity = 1
+            document.querySelector("#carousel-back").style.opacity = 1
+            if (selectedCard === 0) {
+                document.querySelector("#carousel-back").style.opacity = 0
+            } else if (selectedCard === personalCards.length - 1) {
+                document.querySelector("#carousel-forward").style.opacity = 0
+            }
+        }
+    }
+
+    document.querySelector("#carousel-forward").addEventListener("click", e => {
+        e.preventDefault()
+        updateSelection(selectedCard + 1)
+    })
+    
+    document.querySelector("#carousel-back").addEventListener("click", e => {
+        e.preventDefault()
+        updateSelection(selectedCard - 1)
+    })
+    const personalCardForm = document.querySelector("#personal-card-form");
+    personalCardForm.addEventListener("submit", e => {
+        e.preventDefault()
+        // TODO fix gifted input in the old form and add here
+        const form = document.querySelector("#create-card");
+        const popup = document.querySelector("#payment-popup");
+        form.querySelector("#hidden-image").value = document.querySelector(".card-img.personal.selected").src
+        form.querySelector("#transaction-amount").value = personalCardForm.querySelector("#transaction-amount").value
+        form.querySelector("#hidden-email").value = e.currentTarget.querySelector("#card-personal-recipient").value;
+        form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-personal-name").value;
+        form.querySelector("#hidden-sender").value = e.currentTarget.querySelector("#card-personal-sender").value;
+        form.querySelector("#hidden-gifted").value = e.currentTarget.querySelector("#is-gift2-card-personal").checked;
+        form.dispatchEvent(new Event("submit"));
+    })
+    document.querySelector("#is-gift1-card-personal").addEventListener("change", e => {
+        document.querySelector("#card-personal-name").placeholder = "Your name"
+        document.querySelector("#card-personal-recipient").placeholder = "Recovery email"
+        document.querySelector("#personal-card-form .gift-options").hidden = true;
+    })
+    document.querySelector("#is-gift2-card-personal").addEventListener("change", e => {
+        document.querySelector("#card-personal-name").placeholder = "Recipient's name"
+        document.querySelector("#card-personal-recipient").placeholder = "Recipient's email"
+        document.querySelector("#personal-card-form .gift-options").hidden = false;
     })
 </script>
 {% endblock %}

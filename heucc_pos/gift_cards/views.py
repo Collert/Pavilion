@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
 import json
 from decimal import Decimal
+import os
+from django.conf import settings
 
 # Create your views here.
 
@@ -56,9 +58,20 @@ def card_display(request, card_number):
 def get_card(request):
     if request.method == "GET":
         templates = CardPreset.objects.all()
+        subfolders = ['presets', 'personal']
+        image_urls = []
+        for subfolder in subfolders:
+            folder_path = os.path.join(settings.BASE_DIR, f"files/gift-cards/{subfolder}/")
+            if os.path.exists(folder_path):
+                for file_name in os.listdir(folder_path):
+                    if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                        # Construct the URL
+                        image_url = f"/heucc_pos/files/gift-cards/{subfolder}/{file_name}"
+                        image_urls.append(image_url)
         return render(request, "gift_cards/get-card.html", {
             "route":"get_card",
-            "cards": templates
+            "cards": templates,
+            "card_images":image_urls
         })
     elif request.method == "POST":
         uuid = request.POST["transaction_uuid"]
