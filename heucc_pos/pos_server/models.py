@@ -48,15 +48,21 @@ class Order(models.Model):
         ("web", "Online pickup"),
         ("delivery", "Delivery")
     )
+    station_statuses = (
+        (0, "Pending approval"),
+        (1, "Approved"),
+        (2, "Completed"),
+        (3, "Rejected"),
+        (4, "Not required"),
+    )
     timestamp = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
     table = models.CharField(null=True, max_length = 140, blank=True)
-    kitchen_done = models.BooleanField(default=True)
-    kitchen_needed = models.BooleanField(default=False)
-    bar_done = models.BooleanField(default=True)
-    gng_done = models.BooleanField(default=True) # I will get to implementing this soon
+    kitchen_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
+    bar_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
+    gng_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     picked_up = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
@@ -68,11 +74,9 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         # Calculate prep time if needed
-        if self.bar_done and self.kitchen_done and self.gng_done:
+        if (self.bar_status == 2 or self.bar_status == 4) and (self.kitchen_status == 2 or self.kitchen_status == 4) and (self.gng_status == 2 or self.gng_status == 4):
             if not self.prep_time:
                 self.prep_time = timezone.now() - self.timestamp
-            if self.kitchen_done and self.channel == "store":
-                self.picked_up = True
 
         # Call the original save method
         super().save(*args, **kwargs)
@@ -215,9 +219,12 @@ class EligibleDevice(models.Model):
 def update_active_orders_cache():
     # Query for active orders
     active_orders = Order.objects.filter(
-        models.Q(kitchen_done=False) |
-        models.Q(bar_done=False) |
-        models.Q(gng_done=False) |
+        models.Q(kitchen_status=0) |
+        models.Q(kitchen_status=1) |
+        models.Q(bar_status=0) |
+        models.Q(bar_status=1) |
+        models.Q(gng_status=0) |
+        models.Q(gng_status=1) |
         models.Q(picked_up=False)
     )
     # Serialize or prepare active orders for caching

@@ -32,23 +32,56 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     setInterval(async () => {
-        const newOrders = await fetchOrders()
+        const newOrders = await fetchOrders();
+        // Remove orders that are in ordersState but not in newOrders
+        if (newOrders.length === 0) {
+            // If newOrders is empty, remove all orders in ordersState
+            ordersState.forEach(order => removeOrder(order));
+        } else {
+            // Otherwise, remove orders in ordersState that are not in newOrders
+            ordersState.forEach(order => {
+                if (!newOrders.some(item => item.order_id === order.order_id)) {
+                    removeOrder(order);
+                }
+            });
+        }
+        // Append new orders to the list
         newOrders.forEach(order => {
             if (!ordersState.some(item => item.order_id === order.order_id)) {
                 appendOrder(order);
             }
-        })
-        ordersState = newOrders
+            const card = cards.find(card => parseInt(card.dataset.orderId) === order.order_id)
+            if (card) {
+                card.dataset.kitchenStatus = order.kitchen_status
+                card.dataset.barStatus = order.bar_status
+                card.dataset.gngStatus = order.gng_status
+                updateColors(cards.find(card => parseInt(card.dataset.orderId) === order.order_id))
+            }
+        });
+        // Update the ordersState to match the newOrders
+        ordersState = newOrders;
     }, pollEveryMilisecs);
     
     async function fetchOrders() {
         const data = await fetch(checkOrdersLink);
         const array = await data.json()
-        if (station === "kitchen") {
-            return array.filter(item => !item.kitchen_done);
-        } else if (station === "bar") {
-            return array.filter(item => !item.bar_done);
+        const orders = new UniqueKeySet("order_id")
+        if (orderFilters.kitchen) {
+            array.filter(item => (item.kitchen_status <= 2 && item.picked_up === false)).forEach(i => {
+                orders.add(i)
+            });
         }
+        if (orderFilters.bar) {
+            array.filter(item => (item.bar_status <= 2 && item.picked_up === false)).forEach(i => {
+                orders.add(i)
+            });;
+        }
+        if (orderFilters.gng) {
+            array.filter(item => (item.gng_status <= 2 && item.picked_up === false)).forEach(i => {
+                orders.add(i)
+            });
+        }
+        return orders.values
     }
 
     function appendOrder(data) {
@@ -67,11 +100,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const newOrder = document.createElement("div");
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
-        newOrder.dataset.orderid = orderId;
+        newOrder.dataset.orderId = orderId;
         newOrder.dataset.done = false;
         newOrder.dataset.channel = data.channel;
-        newOrder.dataset.approved = data.approved;
         newOrder.dataset.paymentId = data.payment_id;
+        newOrder.dataset.kitchenStatus = data.kitchen_status;
+        newOrder.dataset.barStatus = data.bar_status;
+        newOrder.dataset.gngStatus = data.gng_status;
+        newOrder.dataset.pendingHere = pendingApprovalSelf(data)
+        newOrder.dataset.pendingOthers = pendingApprovalOtherStations(data)
         let channel;
         if (data.channel == "store") {
             channel = '<span class="material-symbols-outlined">storefront</span> In-person order'
@@ -81,6 +118,44 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (data.channel == "delivery") {
             channel = `<span class="material-symbols-outlined">local_shipping</span> Delivery order
                         <span class="material-symbols-outlined">call</span> ${data.phone}`
+        }
+        const progresses = document.createElement("div");
+        progresses.classList.add("progresses")
+        if (data.kitchen_status != 4) {
+            const statusStack = document.createElement("div");
+            statusStack.classList.add("kitchen-progress", "progress-stack")
+            statusStack.innerHTML = `<span class="material-symbols-outlined">restaurant</span>
+                                    <div class="hourglass">
+                                        <span class="material-symbols-outlined">hourglass_bottom</span>
+                                        <span class="material-symbols-outlined">hourglass_top</span>
+                                    </div>
+                                    <span class="material-symbols-outlined check">check</span>
+                                    <span class="material-symbols-outlined done_all">done_all</span>`
+            progresses.appendChild(statusStack)
+        }
+        if (data.bar_status != 4) {
+            const statusStack = document.createElement("div");
+            statusStack.classList.add("bar-progress", "progress-stack")
+            statusStack.innerHTML = `<span class="material-symbols-outlined">local_cafe</span>
+            <div class="hourglass">
+            <span class="material-symbols-outlined">hourglass_bottom</span>
+            <span class="material-symbols-outlined">hourglass_top</span>
+                                    </div>
+                                    <span class="material-symbols-outlined check">check</span>
+                                    <span class="material-symbols-outlined done_all">done_all</span>`
+            progresses.appendChild(statusStack)
+        }
+        if (data.gng_status != 4) {
+            const statusStack = document.createElement("div");
+            statusStack.classList.add("gng-progress", "progress-stack")
+            statusStack.innerHTML = `<span class="material-symbols-outlined">kitchen</span>
+                                    <div class="hourglass">
+                                        <span class="material-symbols-outlined">hourglass_bottom</span>
+                                        <span class="material-symbols-outlined">hourglass_top</span>
+                                    </div>
+                                    <span class="material-symbols-outlined check">check</span>
+                                    <span class="material-symbols-outlined done_all">done_all</span>`
+            progresses.appendChild(statusStack)
         }
         newOrder.innerHTML = `<div class="summary">
                                     <h2>${data.table ? data.table : "No name"}</h2>                                    
@@ -95,6 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                     <h3>
                                         ${channel}
                                     </h3>
+                                    ${progresses.outerHTML}
                                     <h3>
                                         ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> Order to-go" : "<span class='material-symbols-outlined'>restaurant</span> Order for here"}
                                     </h3>
@@ -111,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
         for (const dish of data.dishes) {
-            if (dish.station === station || data.channel !== "store") {
+            if (filters.includes(dish.station) || data.channel !== "store") {
                 const item = document.createElement("li");
                 item.innerHTML = `${dish.quantity} X ${dish.name}`;
                 list.appendChild(item);
@@ -119,6 +195,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         cards = document.querySelectorAll(".order");
         cards = [...cards]
+    };
+
+    function removeOrder(data) {
+        const orderId = data.order_id;
+        const existingOrder = document.querySelector(`[data-order-id="${orderId}"]`)
+        try {
+            kitchenDiv.removeChild(existingOrder)
+        } catch {}
+        cards = document.querySelectorAll(".order");
+        cards = [...cards]
+        updateSelection(selectedIndex);
+        checkActiveOrders()
     };
 
     cards.forEach(card => {
@@ -138,9 +226,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (e.key === 'ArrowUp' || e.key === "8") {
             updateSelection(selectedIndex - 1);
         } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
-            if (cards[selectedIndex].dataset.approved === "true") {
+            if (filters.every(filter => ["1", "2", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]))) {
                 markOrderDone()
-            } else {
+            } else if (pendingApprovalSelf({
+                kitchen_status: parseInt(cards[selectedIndex].dataset.kitchenStatus),
+                bar_status: parseInt(cards[selectedIndex].dataset.barStatus),
+                gng_status: parseInt(cards[selectedIndex].dataset.gngStatus)
+            })) {
                 approveOrder(true)
             }
         } else if (e.key === "Backspace" || e.key === "Delete") {
@@ -159,6 +251,19 @@ document.addEventListener("DOMContentLoaded", () => {
             availabilityDialog.close();
         }
     });
+
+    function shakeOthers(orderCard){
+        const icons = []
+        const otherFilters = ["kitchen", "bar", "gng"].filter(n => !filters.includes(n))
+        otherFilters.forEach(filter => {
+            const icon = orderCard.querySelector(`.progress-stack.${filter}-progress span:first-child`)
+            if (icon) {
+                icons.push(icon)
+            }
+        })
+        icons.forEach(icon => {icon.classList.add("shake")})
+        return icons
+    }
 
     function approveOrder(approved) {
         const orderId = cards[selectedIndex].dataset.orderid;
@@ -200,19 +305,78 @@ document.addEventListener("DOMContentLoaded", () => {
                             checkActiveOrders();
                         }, 400);
                     } else if (data.action === "approve") {
-                        cards[selectedIndex].dataset.approved = "true";
+                        if (orderFilters.kitchen) {
+                            cards[selectedIndex].dataset.kitchenStatus = 1;
+                        }
+                        if (orderFilters.bar) {
+                            cards[selectedIndex].dataset.barStatus = 1;
+                        }
+                        if (orderFilters.gng) {
+                            cards[selectedIndex].dataset.gngStatus = 1;
+                        }
                     }
                 }
             })
         })
     }
 
+    function updateColors(card) {
+        if (filters.every(filter => ["2", "4"].includes(card.dataset[`${filter}Status`]))) {
+            card.classList.add("success")
+        } else {
+            card.classList.remove("success")
+        }
+        const order = {
+            kitchen_status: parseInt(card.dataset.kitchenStatus),
+            bar_status: parseInt(card.dataset.barStatus),
+            gng_status: parseInt(card.dataset.gngStatus)
+        }
+        card.dataset.pendingHere = pendingApprovalSelf(order)
+        card.dataset.pendingOthers = pendingApprovalOtherStations(order)
+    }
+
+    function pendingApprovalSelf(order) {
+        // Map the station status fields in the order object
+        const stationStatusFields = {
+            kitchen: order.kitchen_status,
+            bar: order.bar_status,
+            gng: order.gng_status
+        };
+    
+        // Check stations covered by filters
+        for (const [station, status] of Object.entries(stationStatusFields)) {
+            if (filters.includes(station) && status === 0) { // Pending approval
+                return true;
+            }
+        }
+    
+        return false;
+    }
+
+    function pendingApprovalOtherStations(order) {
+        // Map the station status fields in the order object
+        const stationStatusFields = {
+            kitchen: order.kitchen_status,
+            bar: order.bar_status,
+            gng: order.gng_status
+        };
+    
+        // Check stations not covered by filters
+        for (const [station, status] of Object.entries(stationStatusFields)) {
+            if (!filters.includes(station) && status === 0) { // Pending approval
+                return true;
+            }
+        }
+    
+        return false;
+    }
+
     function markOrderDone() {
-        const orderDone = cards[selectedIndex].dataset.done === "True"; // Capital T because that's how they come from python
-        const orderId = cards[selectedIndex].dataset.orderid;
+        const orderId = cards[selectedIndex].dataset.orderId;
+        const orderDone = ["kitchen", "bar", "gng"].every(filter => ["2", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]));
         if (orderDone && cards[selectedIndex].dataset.channel === "delivery") {return}
         freezeDeletion = true;
-        if (orderDone || (!orderDone && station === "bar")) {
+        if (orderDone) {
             fetch(window.location.href, {
                 headers:{
                     "X-CSRFToken": csrftoken,
@@ -236,7 +400,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     }, 400);
                 }
             })
-        } else {
+        } else if (
+            !pendingApprovalSelf({
+            kitchen_status: parseInt(cards[selectedIndex].dataset.kitchenStatus),
+            bar_status: parseInt(cards[selectedIndex].dataset.barStatus),
+            gng_status: parseInt(cards[selectedIndex].dataset.gngStatus)
+            })
+            &&
+            filters.every(filter => ["1", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]))
+        ) {
             fetch(window.location.href, {
                 headers:{
                     "X-CSRFToken": csrftoken,
@@ -244,17 +416,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 method:'PUT',
                 body: JSON.stringify({
-                    orderId:orderId
+                    orderId:orderId,
+                    filters:filters
                 })
             }).then(response => {
                 if (response.ok) {
-                    cards[selectedIndex].classList.add("success");
-                    cards[selectedIndex].dataset.done = "True"; // Capital T because that's how they come from python
+                    filters.forEach(filter => {cards[selectedIndex].dataset[`${filter}Status`] = 2})
                     setTimeout(() => {
                         freezeDeletion = false;
                     }, 400);
                 }
             })
+        } else {
+            const icons = shakeOthers(cards[selectedIndex])
+            setTimeout(() => {
+                freezeDeletion = false;
+                icons.forEach(icon => {icon.classList.remove("shake")})
+            }, 2000);
         }
     }
 
@@ -289,7 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     function checkActiveOrders() {
-        if (!kitchenDiv.querySelector(".order")) {
+        if (!kitchenDiv.querySelector(".order") && !kitchenDiv.querySelector("h1")) {
             const noOrderSign = document.createElement("h1");
             noOrderSign.textContent = "No new orders";
             noOrderSign.style = "text-align: center;"
@@ -364,3 +542,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
 })
+
+class UniqueKeySet {
+    constructor(key) {
+      this.key = key; // Property name to enforce uniqueness on
+      this.map = new Map();
+    }
+  
+    add(item) {
+        if (item) {
+            const keyValue = item[this.key];
+            if (!keyValue) {
+              throw new Error(`Item must have a unique key property: ${this.key}`);
+            }
+            this.map.set(keyValue, item); // Replace any existing item with the same key
+        }
+    }
+  
+    delete(item) {
+      const keyValue = item[this.key];
+      return this.map.delete(keyValue);
+    }
+  
+    has(item) {
+      const keyValue = item[this.key];
+      return this.map.has(keyValue);
+    }
+  
+    get size() {
+      return this.map.size;
+    }
+  
+    get values() {
+      return Array.from(this.map.values());
+    }
+  }

@@ -6,79 +6,117 @@
 {% block body %}
 {% csrf_token %}
 {% for order in orders %}
-    {% if order.dishes|has_kitchen_item %}
-        <div 
-            data-orderId="{{order.order_id}}" 
-            data-channel="{{order.channel}}" 
-            data-approved="{{order.approved|yesno:'true,false'}}" 
-            data-done="{{order.kitchen_done}}" 
-            data-payment-id="{{order.payment_id}}"
-            class="order {% if order.kitchen_done %}success{% endif %}"
-        >
-            <div class="summary">
-                <h2>
-                    {% if order.table %}
-                    {{order.table}}
-                    {% else %}
-                    No name
-                    {% endif %}
-                </h2>
-                <div class="name-time">
-                    <span>Order #{{order.order_id}}</span>
-                    <span data-timestamp="{{order.timestamp}}" class="timestamp">
-                        Prep time: <span>{{order.timestamp}}</span>
-                    </span>
-                </div>
-            </div>
-            <div>
-                <h3>
-                    {% if order.channel == "store" %}
-                    <span class="material-symbols-outlined">storefront</span> In-person order
-                    {% elif order.channel == "web" %}
-                    <span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
-                    <span class="material-symbols-outlined">call</span> {{order.phone}}
-                    {% elif order.channel == "delivery" %}
-                    <span class="material-symbols-outlined">local_shipping</span> Delivery order
-                    <span class="material-symbols-outlined">call</span> {{order.phone}}
-                    {% endif %}
-                </h3>
-                <h3>
-                    {% if order.to_go_order %}
-                    <span class="material-symbols-outlined">takeout_dining</span> Order to-go
-                    {% else %}
-                    <span class="material-symbols-outlined">restaurant</span> Order for here
-                    {% endif %}
-                </h3>
-                <ul>
-                    {% for item in order.dishes %}
-                        {% if item.station == "kitchen" %}
-                            <li>{{item.quantity}} X {{item.name}}</li>
-                        {% endif %}
-                    {% endfor %}
-                </ul>
-                {% if order.special_instructions %}
-                <h3>Special instructions:</h3>
-                <p>{{order.special_instructions}}</p>
+    <div 
+        data-order-id="{{order.order_id}}" 
+        data-channel="{{order.channel}}" 
+        data-pending-others="{{order|pending_other_stations:filters|yesno:'true,false'}}"
+        data-pending-here="{{order|pending_self:filters|yesno:'true,false'}}"
+        data-done="{{order.kitchen_done}}" 
+        data-payment-id="{{order.payment_id}}"
+        data-kitchen-status="{{order.kitchen_status}}"
+        data-bar-status="{{order.bar_status}}"
+        data-gng-status="{{order.gng_status}}"
+        class="order {% if order|all_stations_ready %}success{% endif %}"
+    >
+        <div class="summary">
+            <h2>
+                {% if order.table %}
+                {{order.table}}
+                {% else %}
+                No name
                 {% endif %}
+            </h2>
+            <div class="name-time">
+                <span>Order #{{order.order_id}}</span>
+                <span data-timestamp="{{order.timestamp}}" class="timestamp">
+                    Prep time: <span>{{order.timestamp}}</span>
+                </span>
             </div>
         </div>
-    {% endif %}
+        <div>
+            <h3>
+                {% if order.channel == "store" %}
+                <span class="material-symbols-outlined">storefront</span> In-person order
+                {% elif order.channel == "web" %}
+                <span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
+                <span class="material-symbols-outlined">call</span> {{order.phone}}
+                {% elif order.channel == "delivery" %}
+                <span class="material-symbols-outlined">local_shipping</span> Delivery order
+                <span class="material-symbols-outlined">call</span> {{order.phone}}
+                {% endif %}
+            </h3>
+            <div class="progresses">
+                {% if order.kitchen_status != 4 %}
+                    <div class="progress-stack kitchen-progress">
+                        <span class="material-symbols-outlined">restaurant</span>
+                        <div class="hourglass">
+                            <span class="material-symbols-outlined">hourglass_bottom</span>
+                            <span class="material-symbols-outlined">hourglass_top</span>
+                        </div>
+                        <span class="material-symbols-outlined check">check</span>
+                        <span class="material-symbols-outlined done_all">done_all</span>
+                    </div>
+                {% endif %}
+                {% if order.bar_status != 4 %}
+                    <div class="progress-stack bar-progress">
+                        <span class="material-symbols-outlined">local_cafe</span>
+                        <div class="hourglass">
+                            <span class="material-symbols-outlined">hourglass_bottom</span>
+                            <span class="material-symbols-outlined">hourglass_top</span>
+                        </div>
+                        <span class="material-symbols-outlined check">check</span>
+                        <span class="material-symbols-outlined done_all">done_all</span>
+                    </div>
+                {% endif %}
+                {% if order.gng_status != 4 %}
+                    <div class="progress-stack gng-progress">
+                        <span class="material-symbols-outlined">kitchen</span>
+                        <div class="hourglass">
+                            <span class="material-symbols-outlined">hourglass_bottom</span>
+                            <span class="material-symbols-outlined">hourglass_top</span>
+                        </div>
+                        <span class="material-symbols-outlined check">check</span>
+                        <span class="material-symbols-outlined done_all">done_all</span>      
+                    </div>
+                {% endif %}
+            </div>
+            <h3>
+                {% if order.to_go_order %}
+                <span class="material-symbols-outlined">takeout_dining</span> Order to-go
+                {% else %}
+                <span class="material-symbols-outlined">restaurant</span> Order for here
+                {% endif %}
+            </h3>
+            <ul>
+                {% for item in order.dishes %}
+                    {% if item.station in filters %}
+                        <li>{{item.quantity}} X {{item.name}}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+            {% if order.special_instructions %}
+            <h3>Special instructions:</h3>
+            <p>{{order.special_instructions}}</p>
+            {% endif %}
+        </div>
+    </div>
 {% endfor %}
 <dialog class="full" id="availability">
     <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
 </dialog>
 
+<script>
+    const filters = JSON.parse('{{filters|safe}}')
+    const orderFilters = {
+        kitchen:filters.includes("kitchen"),
+        bar:filters.includes("bar"),
+        gng:filters.includes("gng")
+    }
+</script>
 <script> 
     const checkOrdersLink = "{% url 'active_orders' %}";
     const approveOrderLink = "{% url 'capture-payment' %}";
 </script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
-<!-- <script type="module" src="{% static 'pos_server/timeouts.js' %}"></script> -->
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
-
-{% if portrait %}
-<script>
-    document.querySelector("body").classList.add("portrait");
-</script>
-{% endif %}
 {% endblock %}

@@ -70,24 +70,66 @@
     cursor: pointer;
 }
 
-.order.order[data-approved="false"],
-.order.order[data-approved="false"] * {
+.order.order[data-pending-others="true"],
+.order.order[data-pending-others="true"] * {
     transition: all 100ms ease;
     border-color: #f5d001;
 }
 
-.order.selected.order[data-approved="false"],
-.order.selected.order[data-approved="false"] * {
+.order.selected.order[data-pending-others="true"],
+.order.selected.order[data-pending-others="true"] * {
     background-color: #f5d001;
 }
 
-.order.success,
-.order.success * {
+.order.order[data-pending-here="true"],
+.order.order[data-pending-here="true"] * {
+    transition: all 100ms ease;
+    border-color: #0662A6!important;
+}
+
+.order.selected.order[data-pending-here="true"],
+.order.selected.order[data-pending-here="true"] * {
+    background-color: #0662A6!important;
+}
+
+/* The next part is VERY ugly but it works */
+.order[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"],
+.order[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="4"],
+.order[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="2"],
+.order[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="4"],
+.order[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="2"],
+.order[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="4"],
+.order[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="2"],
+.order[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="4"],
+.order[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"] *,
+.order[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="4"] *,
+.order[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="2"] *,
+.order[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="4"] *,
+.order[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="2"] *,
+.order[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="4"] *,
+.order[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="2"] *,
+.order[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="4"] *,
+.order[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"] * {
     transition: all 100ms ease;
     border-color: var(--success-color);
 }
-.order.selected.success,
-.order.selected.success * {
+.order.selected[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"],
+.order.selected[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="4"],
+.order.selected[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="2"],
+.order.selected[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="4"],
+.order.selected[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="2"],
+.order.selected[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="4"],
+.order.selected[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="2"],
+.order.selected[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="4"],
+.order.selected[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"] *,
+.order.selected[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="4"] *,
+.order.selected[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="2"] *,
+.order.selected[data-kitchen-status="2"][data-bar-status="4"][data-gng-status="4"] *,
+.order.selected[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="2"] *,
+.order.selected[data-kitchen-status="4"][data-bar-status="2"][data-gng-status="4"] *,
+.order.selected[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="2"] *,
+.order.selected[data-kitchen-status="4"][data-bar-status="4"][data-gng-status="4"] *,
+.order.selected[data-kitchen-status="2"][data-bar-status="2"][data-gng-status="2"] * {
     background-color: var(--success-color);
 }
 
@@ -107,5 +149,124 @@
         height: 0;
         padding: 0;
         border-width: 0;
+    }
+}
+
+.progresses {
+    display: flex;
+    gap: 1rem;
+}
+
+.progress-stack {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+}
+
+.progress-stack .hourglass {
+    position: relative;
+}
+.progress-stack .hourglass span {
+    position: absolute;
+}
+
+.progress-stack .hourglass span:first-child {
+    animation: hourglass-bottom 3s ease infinite;
+}
+.progress-stack .hourglass span:last-child {
+    animation: hourglass-top 3s linear infinite;
+}
+
+.order[data-kitchen-status="0"] .kitchen-progress .hourglass,
+.order[data-bar-status="0"] .bar-progress .hourglass,
+.order[data-gng-status="0"] .gng-progress .hourglass {
+    display: block;
+}
+
+.order[data-kitchen-status="0"] .kitchen-progress .done_all,
+.order[data-bar-status="0"] .bar-progress .done_all,
+.order[data-gng-status="0"] .gng-progress .done_all,
+.order[data-kitchen-status="0"] .kitchen-progress .check,
+.order[data-bar-status="0"] .bar-progress .check,
+.order[data-gng-status="0"] .gng-progress .check {
+    display: none;
+}
+
+.order[data-kitchen-status="1"] .kitchen-progress .check,
+.order[data-bar-status="1"] .bar-progress .check,
+.order[data-gng-status="1"] .gng-progress .check {
+    display: block;
+}
+
+.order[data-kitchen-status="1"] .kitchen-progress .done_all,
+.order[data-bar-status="1"] .bar-progress .done_all,
+.order[data-gng-status="1"] .gng-progress .done_all,
+.order[data-kitchen-status="1"] .kitchen-progress .hourglass,
+.order[data-bar-status="1"] .bar-progress .hourglass,
+.order[data-gng-status="1"] .gng-progress .hourglass {
+    display: none;
+}
+
+.order[data-kitchen-status="2"] .kitchen-progress .done_all,
+.order[data-bar-status="2"] .bar-progress .done_all,
+.order[data-gng-status="2"] .gng-progress .done_all {
+    display: block;
+}
+
+.order[data-kitchen-status="2"] .kitchen-progress .check,
+.order[data-bar-status="2"] .bar-progress .check,
+.order[data-gng-status="2"] .gng-progress .check,
+.order[data-kitchen-status="2"] .kitchen-progress .hourglass,
+.order[data-bar-status="2"] .bar-progress .hourglass,
+.order[data-gng-status="2"] .gng-progress .hourglass {
+    display: none;
+}
+
+.shake {
+    animation: shake 2s;
+}
+
+@keyframes hourglass-top {
+    from {
+        clip-path: inset(0% 0% 0% 0%);
+    }
+    70% {
+        clip-path: inset(50% 0% 50% 0%);
+    } 
+    99.9% {
+        clip-path: inset(50% 0% 50% 0%);
+    }
+    to {
+        clip-path: inset(0% 0% 0% 0%);
+    }
+}
+
+@keyframes hourglass-bottom {
+    from {
+        transform: rotate(0);
+    }
+    70% {
+        transform: rotate(0deg);
+    }
+    99.9% {
+        transform: rotate(180deg);
+    }
+    to {
+        transform: rotate(0);
+    }
+}
+
+@keyframes shake {
+    from, to {
+        transform: none;
+    } 10% {
+        transform: scale(2);
+    } 20%, 30%, 40%, 50%, 60%, 70%, 80% {
+        transform: scale(2) translateX(15%);
+        color: var(--error-color, salmon)!important;
+    } 25%, 35%, 45%, 55%, 65%, 75% {
+        transform: scale(2) translateX(-15%);
+        color: var(--error-color, salmon)!important;
+    } 90% {
+        transform: scale(2);
     }
 }

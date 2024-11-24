@@ -92,11 +92,11 @@ def kitchen(request):
         order = Order.objects.get(id=order_id)
         order.picked_up = True
         order.save()
-        return JsonResponse({"status":"Order marked done"}, status=200)
+        return JsonResponse({"status":"Order picked up"}, status=200)
     elif request.method == "PUT":
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
-        order.kitchen_done = True
+        order.kitchen_status = 2
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
@@ -118,29 +118,55 @@ def kitchen(request):
 def order_marking(request):
     if request.method == "GET":
         today = timezone.localdate()
+        filters = request.GET.getlist('filter')
+        print(filters)
         # Fetch all orders
-        orders = Order.objects.filter(picked_up=False, timestamp__date=today)
+        orders = Order.objects.filter(
+            Q(picked_up = False) & 
+            Q(timestamp__date=today) & 
+            (~Q(kitchen_status__in = [3] if "kitchen" in filters else [1,2,3,4]) |
+            ~Q(bar_status__in = [3] if "bar" in filters else [1,2,3,4]) |
+            ~Q(gng_status__in = [3] if "gng" in filters else [1,2,3,4]))
+        )
 
         # Prepare data for each order
         orders_data = []
         for order in orders:
             orders_data.append(collect_order(order))
-        # print(orders_data)
-        return render(request, "pos_server/kitchen.html", {
+        print(orders_data)
+        return render(request, "pos_server/order-marking.html", {
             "route":"kitchen",
             'orders': orders_data,
-            "portrait" : request.GET.get('portrait', 'false') == 'true'
+            "filters":json.dumps(filters)
         })
     elif request.method == "DELETE":
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
+        station_mappings = {
+            "kitchen": order.kitchen_status,
+            "bar": order.bar_status,
+            "gng": order.gng_status,
+        }
         order.picked_up = True
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "PUT":
         order_id = json.loads(request.body)["orderId"]
+        filters = json.loads(request.body)["filters"]
         order = Order.objects.get(id=order_id)
-        order.kitchen_done = True
+
+        station_mappings = {
+            "kitchen": "kitchen_status",
+            "bar": "bar_status",
+            "gng": "gng_status",
+        }
+
+        for station in filters:
+            if station in station_mappings:
+                field_name = station_mappings[station]
+                current_value = getattr(order, field_name)  # Get the current value of the attribute
+                if current_value != 4:  # Only update if the current value is not 4
+                    setattr(order, field_name, 2)
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
@@ -148,6 +174,11 @@ def order_marking(request):
         order_id = body["orderId"]
         action = body["action"]
         order = Order.objects.get(id=order_id)
+        station_mappings = {
+            "kitchen": order.kitchen_status,
+            "bar": order.bar_status,
+            "gng": order.gng_status,
+        }
         payment_id = order.authorization.payment_id
         if action == "approve":
             order.approved = True
@@ -269,11 +300,10 @@ def pos(request):
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
             if dish.station == "bar":
-                new_order.bar_done = False
+                new_order.bar_status = 1
                 new_order.picked_up = False
             elif dish.station == "kitchen":
-                new_order.kitchen_done = False
-                new_order.kitchen_needed = True
+                new_order.kitchen_status = 1
                 new_order.picked_up = False
             for dc in dish.dishcomponent_set.all():
                 if dc.component.crafting_option == "auto":
@@ -548,8 +578,8 @@ def register_staff(request):
     
 def order_progress(request):
     today = timezone.localdate()
-    in_progress = Order.objects.filter(kitchen_done=False, timestamp__date=today)
-    ready = Order.objects.filter(Q(kitchen_done=True) & Q(picked_up=False), timestamp__date=today)
+    in_progress = Order.objects.filter(kitchen_status=1, timestamp__date=today)
+    ready = Order.objects.filter(Q(kitchen_status=2) & Q(picked_up=False), timestamp__date=today)
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
         "in_progress":in_progress,
@@ -652,13 +682,12 @@ def collect_order(order, done=False):
         'channel':order.channel,
         'phone':order.phone,
         'address':order.delivery.first().destination if order.delivery.first() else None,
-        'approved':order.approved,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
-        "kitchen_done":order.kitchen_done,
-        "kitchen_needed":order.kitchen_needed,
+        "kitchen_status":order.kitchen_status,
         "done":done,
-        "bar_done":order.bar_done,
+        "bar_status":order.bar_status,
+        "gng_status":order.gng_status,
         "picked_up":order.picked_up,
         "payment_id":order.authorization.payment_id if order.authorization else None,
     })
