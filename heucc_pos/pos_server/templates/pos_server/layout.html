@@ -26,10 +26,10 @@
     {% csrf_token %}
     <header>
         <nav class="button-row">
-            <button id="barcode-scanner-button" class="icon"><span class="material-symbols-outlined">barcode_scanner</span></button>
-            <button id="return-active-gift-card" class="icon" style="display: none;"><span class="material-symbols-outlined">redeem</span></button>
             <a class="button icon" href="{% url 'component_availability' %}"><span class="material-symbols-outlined">inventory_2</span></a>
             {% if route == "pos" %}
+            <button id="barcode-scanner-button" class="icon"><span class="material-symbols-outlined">barcode_scanner</span></button>
+            <button id="return-active-gift-card" class="icon" style="display: none;"><span class="material-symbols-outlined">redeem</span></button>
             <button id="dropdown">
                 <span id="drop-but">Menu</span>
                 <div id="dropdown-content">
@@ -37,8 +37,6 @@
                     <a href="#" id="discounts-link">Discounts</a>
                 </div>
             </button>
-            {% else %}
-            <a class="button icon" href="{% url 'pos' %}"><span class="material-symbols-outlined">point_of_sale</span></a>
             {% endif %}
             {% if user.is_authenticated %}
             <a class="button" href="{% url 'logout_view' %}">Lock POS</a>
