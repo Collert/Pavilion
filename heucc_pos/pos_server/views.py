@@ -171,17 +171,24 @@ def order_marking(request):
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
         body = json.loads(request.body)
+        print(body)
+        filters = body["filters"]
         order_id = body["orderId"]
         action = body["action"]
         order = Order.objects.get(id=order_id)
         station_mappings = {
-            "kitchen": order.kitchen_status,
-            "bar": order.bar_status,
-            "gng": order.gng_status,
+            "kitchen": "kitchen_status",
+            "bar": "bar_status",
+            "gng": "gng_status",
         }
         payment_id = order.authorization.payment_id
         if action == "approve":
-            order.approved = True
+            for station in filters:
+                if station in station_mappings:
+                    field_name = station_mappings[station]
+                    current_value = getattr(order, field_name)  # Get the current value of the attribute
+                    if current_value != 4:  # Only update if the current value is not 4
+                        setattr(order, field_name, 1)
             order.save()
             return JsonResponse({"status":"Order marked approved", "action":action, "payment_id":payment_id}, status=200)
         elif action == "delete":

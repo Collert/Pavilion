@@ -21,7 +21,14 @@ RESTAURANT_ADDRESS = "501 4th Ave, New Westminster, BC V3L 1P3"
 def ready_orders(request):
     courier = check_if_active_courier(request)
     today = timezone.localdate()
-    orders = Delivery.objects.filter(order__kitchen_done=True, order__bar_done=True, order__gng_done=True, completed=False, order__picked_up=False, timestamp__date=today)
+    orders = Delivery.objects.filter(
+        order__kitchen_status__in = [2, 4],
+        order__bar_status__in = [2, 4],
+        order__gng_status__in = [2, 4],
+        completed=False,
+        order__picked_up=False,
+        timestamp__date=today
+    )
     if courier:
         for d in Delivery.objects.filter(completed = False).all():
             if d.courier == request.user:

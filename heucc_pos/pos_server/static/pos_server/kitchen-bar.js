@@ -266,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function approveOrder(approved) {
-        const orderId = cards[selectedIndex].dataset.orderid;
+        const orderId = cards[selectedIndex].dataset.orderId;
         fetch(window.location.href, {
             headers:{
                 "X-CSRFToken": csrftoken,
@@ -275,7 +275,8 @@ document.addEventListener("DOMContentLoaded", () => {
             method:'POST',
             body: JSON.stringify({
                 orderId:orderId,
-                action: approved ? "approve" : "delete"
+                action: approved ? "approve" : "delete",
+                filters:filters
             })
         })
         .then(response => response.json())

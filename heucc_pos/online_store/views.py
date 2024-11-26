@@ -83,22 +83,22 @@ def order_status(request, id):
             status = 6
         elif order.picked_up:
             status = 5
-        elif not order.picked_up and order.kitchen_done and order.bar_done and order.gng_done:
+        elif not order.picked_up and order.kitchen_status in [2, 4] and order.bar_status in [2, 4] and order.gng_status in [2, 4]:
             status = 4
-        elif (not order.kitchen_done or not order.bar_done or not order.gng_done) and order.approved:
+        elif not order.picked_up and (order.kitchen_status == 1 or order.bar_status == 1 or order.gng_status == 1):
             status = 3
-        elif not order.approved and order.start_time < timezone.now():
+        elif (order.kitchen_status == 0 or order.bar_status == 0 or order.gng_status == 0) and order.start_time < timezone.now():
             status = 2
         else:
             status = 1
     elif order.channel == "web":
         if order.picked_up:
             status = 5
-        elif not order.picked_up and order.kitchen_done and order.bar_done and order.gng_done:
+        elif not order.picked_up and order.kitchen_status in [2, 4] and order.bar_status in [2, 4] and order.gng_status in [2, 4]:
             status = 4
-        elif (not order.kitchen_done or not order.bar_done or not order.gng_done) and order.approved:
+        elif not order.picked_up and (order.kitchen_status == 1 or order.bar_status == 1 or order.gng_status == 1):
             status = 3
-        elif not order.approved and order.start_time < timezone.now():
+        elif (order.kitchen_status == 0 or order.bar_status == 0 or order.gng_status == 0) and order.start_time < timezone.now():
             status = 2
         else:
             status = 1
@@ -129,7 +129,13 @@ def place_order(request):
             dishes = json.loads(request.POST["dishes-string"])
             dish_ids = [dish["pk"] for dish in dishes]
             is_to_go = request.POST["here-to-go-toggle"] == "go"
-            order = Order(special_instructions=order_instructions, to_go_order=is_to_go, phone=int(phone) if phone != '' else None, approved=False, authorization=transaction.authorization.first(), start_time=aware_datetime)
+            order = Order(
+                special_instructions=order_instructions, 
+                to_go_order=is_to_go, 
+                phone=int(phone) if phone != '' else None, 
+                authorization=transaction.authorization.first(), 
+                start_time=aware_datetime
+            )
             order.table = name.strip() if name != '' else None
             # transaction.delete()
             if method == "pick-up":
@@ -137,16 +143,18 @@ def place_order(request):
             elif method == "delivery":
                 order.to_go_order = True
                 order.channel = "delivery"
-            order.save(temp=True)
+            order.save()
             dish_counts = Counter(dish_ids)
             for dish_id, quantity in dish_counts.items():
                 dish = Dish.objects.get(id=dish_id)
                 if dish.station == "bar":
-                    order.bar_done = False
+                    order.bar_status = 0
                     order.picked_up = False
                 elif dish.station == "kitchen":
-                    order.kitchen_done = False
-                    order.kitchen_needed = True
+                    order.kitchen_status = 0
+                    order.picked_up = False
+                elif dish.station == "gng":
+                    order.gng_status = 0
                     order.picked_up = False
                 for dc in dish.dishcomponent_set.all():
                     if dc.component.crafting_option == "auto":

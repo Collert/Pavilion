@@ -1,14 +1,14 @@
 const CACHE_NAME = 'your-app-cache-v1.1';
-const OFFLINE_URL = '/deliveries/static/deliveries/offline.html';
+const OFFLINE_URL = '/heucc_pos/online_store/static/online_store/offline.html';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll([
-        '/',
-        '/deliveries/static/deliveries/project-styles.css',
-        '/deliveries/static/deliveries/icon-192x192.png',
-        '/deliveries/static/deliveries/icon-512x512.png',
+        // '/',
+        '/heucc_pos/online_store/static/online_store/project-styles.css',
+        '/heucc_pos/online_store/static/online_store/icon-192x192.png',
+        '/heucc_pos/online_store/static/online_store/icon-512x512.png',
         OFFLINE_URL
       ]);
     })

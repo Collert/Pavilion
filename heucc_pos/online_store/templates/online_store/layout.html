@@ -145,8 +145,8 @@
             </a>
             <nav id="nav-1">
                 <a href="{% url 'menu' %}">Menu</a>
-                <a href="{% url 'menu' %}">Gift Cards</a>
-                <a href="{% url 'menu' %}">Impact</a>
+                <a href="{% url 'get-card' %}">Gift Cards</a>
+                <!-- <a href="{% url 'menu' %}">Impact</a> -->
             </nav>
         </div>
         <nav id="nav-2">
@@ -355,7 +355,13 @@
 
         document.querySelectorAll(".add-to-cart").forEach(but => {
             but.addEventListener("click", e => {
-                const dishData = JSON.parse(e.currentTarget.parentElement.querySelector(".dish-json").innerHTML)[0];
+                const dishData = JSON.parse(
+                    e.currentTarget.parentElement.querySelector(".dish-json") 
+                    ? 
+                    e.currentTarget.parentElement.querySelector(".dish-json").innerHTML
+                    : 
+                    document.querySelector("#item-json").innerHTML
+                )[0];
                 cart.push(dishData);
                 updateCart();
             })
@@ -429,7 +435,7 @@
             cartItems.innerHTML = "";
             cart.forEach((item, index) => {
                 const newNode = cartItemTemplate.cloneNode(true);
-                newNode.querySelector("img").src = item.fields.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
+                newNode.querySelector("img").src = `/${item.fields.image}` || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
                 newNode.querySelector("h2").innerHTML = item.fields.title
                 newNode.querySelector(".price").innerHTML = '$' + item.fields.price
                 newNode.querySelector("button").addEventListener("click", e => {
@@ -472,7 +478,7 @@
         }
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register("{% static 'deliveries/service-worker.js' %}")
+            navigator.serviceWorker.register("{% static 'online_store/service-worker.js' %}")
             .then(function(swReg) {
                 // console.log('Service Worker is registered', swReg);
                 swReg.update();

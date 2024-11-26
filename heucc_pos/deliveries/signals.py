@@ -6,7 +6,7 @@ from .models import *
 
 @receiver(post_save, sender=Delivery)
 def new_delivery(sender, instance, created, **kwargs):
-    if instance.order.kitchen_done and instance.order.bar_done and instance.order.gng_done:
+    if instance.order.kitchen_status in [2, 4] and instance.order.bar_status in [2, 4] and instance.order.gng_status in [2, 4]:
         trigger_push_notifications(
             "New delivery!",
             "New order available to deliver. Check your app!",
