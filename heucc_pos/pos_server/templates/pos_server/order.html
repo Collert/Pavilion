@@ -19,6 +19,7 @@
         <button 
             data-id="{{item.id}}"
             data-has-choices="{{item|has_options}}"
+            data-only-choices="{{item|only_choices}}"
             class="dish tight" 
             {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}
         >

@@ -1,5 +1,6 @@
 from django import template
 from datetime import timedelta
+from pos_server.views import check_if_only_choice_dish
 
 register = template.Library()
 
@@ -14,6 +15,10 @@ def has_bar_item(dishes):
 @register.filter(name='has_options')
 def has_options(dish):
     return len(dish.serialize_with_options()["fields"]["choice_components"]) > 0
+
+@register.filter(name='only_choices')
+def only_choices(dish):
+    return check_if_only_choice_dish(dish)
 
 @register.filter(name='pending_other_stations')
 def pending_other_stations(order:dict, filters:list):

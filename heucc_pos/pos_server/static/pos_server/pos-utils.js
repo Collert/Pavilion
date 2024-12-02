@@ -7,14 +7,16 @@ const cartElement = document.querySelector("#cart");
 export function addCartItem(dishId, cart, choices = {}, parent = undefined) {
     let dish = getDish(dishId)
     let customizationsString = ""
+    let parentOnlyChoiceDish = false;
     if (dish.fields.choice_components.length) {
         if (Object.keys(choices).length) {
                 dish.children = []
-            Object.values(choices).forEach(v => {
+            for (const v of Object.values(choices)) {
                 addCartItem(parseInt(v.id), cart, {}, dish.id)
+                if (document.querySelector(`button[data-id="${dishId}"]`)?.dataset.onlyChoices === "True") return
                 dish.children.push(v)
                 customizationsString += v.title + ", "
-            })
+            }
             customizationsString = customizationsString.slice(0, -2)
         } else {
             componentChoices(dishId)
@@ -22,8 +24,13 @@ export function addCartItem(dishId, cart, choices = {}, parent = undefined) {
         }
     } else if (parent) {
         dish.parent = parent
+        parentOnlyChoiceDish = document.querySelector(`button[data-id="${parent}"]`)?.dataset.onlyChoices === "True"
     }
-    cart.addItem(dish, parent !== undefined)
+    if (parentOnlyChoiceDish) {
+        cart.addItem(dish)
+    } else {
+        cart.addItem(dish, parent !== undefined)
+    }
     let existingDishCards = document.querySelectorAll(`.dish-${dishId}`);
     let existingDishCard;
     existingDishCards.forEach(card => {
@@ -36,7 +43,7 @@ export function addCartItem(dishId, cart, choices = {}, parent = undefined) {
         cartItem.className = "cart-item";
         cartItem.dataset.dishId = dishId;
         cartItem.dataset.customs = JSON.stringify(choices);
-        if (parent) {
+        if (parent && !parentOnlyChoiceDish) {
             cartItem.classList.add("part-of-combo");
         }
         cartItem.classList.add(`dish-${dishId}`);

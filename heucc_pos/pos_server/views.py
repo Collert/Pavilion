@@ -387,6 +387,8 @@ def pos(request):
 
 def check_if_only_choice_dish(dish:Dish):
     """Checks whether the dish only consists of components that point to other dishes"""
+    if not dish.components.all():
+        return False
     for component in dish.components.all():
         if not component.child_dishes.all():
             return False
