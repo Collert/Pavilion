@@ -1,16 +1,45 @@
+import { componentChoices } from "./componentChoices.js";
+
 const checkoutButton = document.querySelector("#checkout-button");
 const totalDisplay = document.querySelector("#total-button");
 const cartElement = document.querySelector("#cart");
 
-export function addCartItem(dishId, cart) {
+export function addCartItem(dishId, cart, choices = {}, parent = undefined) {
     let dish = getDish(dishId)
-    cart.addItem(dish)
-    let existingDishCard = document.querySelector(`#dish-${dishId}`);
+    let customizationsString = ""
+    if (dish.fields.choice_components.length) {
+        if (Object.keys(choices).length) {
+                dish.children = []
+            Object.values(choices).forEach(v => {
+                addCartItem(parseInt(v.id), cart, {}, dish.id)
+                dish.children.push(v)
+                customizationsString += v.title + ", "
+            })
+            customizationsString = customizationsString.slice(0, -2)
+        } else {
+            componentChoices(dishId)
+            return
+        }
+    } else if (parent) {
+        dish.parent = parent
+    }
+    cart.addItem(dish, parent !== undefined)
+    let existingDishCards = document.querySelectorAll(`.dish-${dishId}`);
+    let existingDishCard;
+    existingDishCards.forEach(card => {
+        if (card.dataset.customs === JSON.stringify(choices)) {
+            existingDishCard = card;
+        }
+    })
     if (!existingDishCard) {
         let cartItem = document.createElement("div");
         cartItem.className = "cart-item";
         cartItem.dataset.dishId = dishId;
-        cartItem.id = `dish-${dishId}`;
+        cartItem.dataset.customs = JSON.stringify(choices);
+        if (parent) {
+            cartItem.classList.add("part-of-combo");
+        }
+        cartItem.classList.add(`dish-${dishId}`);
         existingDishCard = cartItem;
         existingDishCard.innerHTML = `<div class="cart-item-title"><span><span class="item-qty"></span> X ${dish.fields.title}</span></div>
                                 <button class="error remove-cart-item"><span class="material-symbols-outlined">remove</span></button>`
@@ -19,19 +48,31 @@ export function addCartItem(dishId, cart) {
             removeCartItem(dish, cart, existingDishCard)
         })
         cartElement.appendChild(existingDishCard);
+        if (customizationsString) {
+            const titleSpace = existingDishCard.querySelector(".cart-item-title")
+            const small = document.createElement("small")
+            small.innerHTML = customizationsString
+            titleSpace.appendChild(small)
+        }
     }
-    existingDishCard.querySelector(".item-qty").innerHTML = cart.dishQuantity(dishId)
+    existingDishCard.querySelector(".item-qty").innerHTML = cart.dishQuantity(dishId, Object.values(choices))
     updateCheckoutButton(cart)
+    console.log(cart)
 }
 
 export function getDish(id) {
+    // Assuming dishes is a parsed array of menu dishes that's been declared higher in the HTML.
     let dish = dishes.find(obj => obj.pk === parseInt(id))
-    return dish
+    return {...dish}
 }
 
 export function removeCartItem(dish, cart, existingDishCard) {
-    cart.removeItem(dish)
-    let itemQty = cart.dishQuantity(dish.pk)
+    const customizations = Object.values(JSON.parse(existingDishCard.dataset.customs))
+    customizations.forEach(child => {
+        cart.removeItem(getDish(child.id), {parent:dish.id})
+    })
+    cart.removeItem(dish, {children:customizations})
+    let itemQty = cart.dishQuantity(dish.pk, customizations)
     if (!itemQty) {
         cartElement.removeChild(existingDishCard)
     } else {
@@ -90,6 +131,51 @@ export async function lookupGiftCard(number, cardDialog) {
     }
 }
 
+function deepEqual(obj1, obj2) {
+    // Check if both values are strictly equal
+    if (obj1 === obj2) return true;
+
+    // Check if either is null or not an object
+    if (obj1 === null || typeof obj1 !== 'object' ||
+        obj2 === null || typeof obj2 !== 'object') {
+        return false;
+    }
+
+    // Get the keys of both objects
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+
+    // Compare the number of keys
+    if (keys1.length !== keys2.length) return false;
+
+    // Compare the values for each key recursively
+    for (const key of keys1) {
+        if (!keys2.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function arraysAreEqual(arr1, arr2) {
+    if (arr1.length !== arr2.length) return false;
+
+    return arr1.every((obj1, index) => {
+        const obj2 = arr2[index];
+        const keys1 = Object.keys(obj1);
+        const keys2 = Object.keys(obj2);
+
+        // Check if both objects have the same keys
+        if (keys1.length !== keys2.length || !keys1.every(key => keys2.includes(key))) {
+            return false;
+        }
+
+        // Check if all the values are the same
+        return keys1.every(key => obj1[key] === obj2[key]);
+    });
+}
+
 export class Cart {
     constructor(existingInstance = null) {
         // existingInstance is to reconstruct the class after passing it through the broadcast channel
@@ -110,18 +196,34 @@ export class Cart {
     get remainingTotal() {
         return this.remainingTotalNum.toLocaleString("en", { minimumFractionDigits: 2 })
     }
-    addItem(item) {
+    addItem(item, isFree = false) {
         this.items.push(item);
-        this.total += item.fields.price;
+        if (!isFree) {
+            this.total += item.fields.price;
+        }
     }
-    removeItem(item) {
-        this.items.splice(this.items.findIndex(i => i.pk === item.pk), 1);
-        this.total -= item.fields.price;
+    removeItem(item, context) {
+        const {children, parent} = context
+        if (children?.length) {
+            this.items.splice(this.items.findIndex(i => (i.pk === item.pk && arraysAreEqual(children, i.children))), 1);
+            this.total -= item.fields.price;
+        } else if (parent) {
+            this.items.splice(this.items.findIndex(i => (i.pk === item.pk && i.parent === parent)), 1);
+        } else {
+            this.items.splice(this.items.findIndex(i => i.pk === item.pk), 1);
+            this.total -= item.fields.price;
+        }
     }
-    dishQuantity(dishId) {
-        return this.items.reduce((accumulator, currentValue) => {
-            return currentValue.pk === Number(dishId) ? accumulator + 1 : accumulator;
-        }, 0);
+    dishQuantity(dishId, children = []) {
+        if (children.length) {
+            return this.items.reduce((accumulator, currentValue) => {
+                return (currentValue.pk === Number(dishId) && arraysAreEqual(children, currentValue.children)) ? accumulator + 1 : accumulator;
+            }, 0);
+        } else {
+            return this.items.reduce((accumulator, currentValue) => {
+                return currentValue.pk === Number(dishId) ? accumulator + 1 : accumulator;
+            }, 0);
+        }
     }
     get uniqueDishes() {
         const seen = new Set();

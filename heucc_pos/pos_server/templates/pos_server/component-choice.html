@@ -1,0 +1,100 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'pos_server/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'pos_server/project-styles.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>HEUCC Restaurant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+        form {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .component {
+            display: grid;
+            place-items: center;
+        }
+        .component > div {
+            display: flex;
+            gap: 1rem;
+        }
+        input[type="radio"]{
+            display: none;
+        }
+        input[type="radio"] + label {
+            display: inline-block;
+            background-color: var(--primary-background);
+            color: var(--primary-contrast);
+            border: 2px solid var(--primary-contrast);
+            transition: all 200ms ease;
+            padding: .5rem 1rem;
+            cursor: pointer;
+            border-radius: 10px;
+        }
+        
+        input[type="radio"]:checked + label {
+            background-color: var(--primary-contrast);
+            color: var(--primary-background);
+            border-color: var(--primary-contrast);
+        }
+        button {
+            width: fit-content;
+        }
+    </style>
+</head>
+<body>
+    <form>
+        {% for component in choices %}
+            <div class="component">
+                <h1>Select one for {{component.parent.title}}</h1>
+                <div>
+                    {% for choice in component.children %}
+                        <input type="radio" id="for-{{component.parent.id}}-choice-{{choice.id}}" name="choice-for-{{component.parent.id}}" data-title="{{choice.title}}" value="{{choice.id}}" />
+                        <label for="for-{{component.parent.id}}-choice-{{choice.id}}" class="choice-label">{{choice.title}}</label>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+        <button>Done</button>
+    </form>
+</body>
+<script>
+    const choicesChannel = new BroadcastChannel('choices_channel');
+
+    document.querySelector("form").addEventListener("submit", e => {
+        e.preventDefault();
+        choices = {}
+        for (const component of document.querySelectorAll(".component")) {
+            if (component.querySelector("input:checked")) {
+                choices[component.querySelector("input").name] = {
+                    title: component.querySelector("input:checked").dataset.title,
+                    id: component.querySelector("input:checked").value
+                }
+            } else {
+                alert("Please make all required choices")
+                return
+            }
+        }
+        choicesChannel.postMessage({
+            dishId:new URL(window.location.href).searchParams.get('dish_id'),
+            choices: choices
+        })
+    });
+</script>
+</html>

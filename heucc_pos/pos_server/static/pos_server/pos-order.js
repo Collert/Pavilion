@@ -12,6 +12,7 @@ let activeGiftCard;
 
 const cartChannel = new BroadcastChannel('cart_channel');
 const reloadChannel = new BroadcastChannel('reload_channel');
+const choicesChannel = new BroadcastChannel('choices_channel');
 
 const preCheckoutButton = document.querySelector("#checkout-button");
 
@@ -62,6 +63,11 @@ document.querySelectorAll(".dish").forEach(button => {
 cashDrawerButton.addEventListener("click", e => {
     document.querySelector("#utils").close()
     cashDrawerDialog.showModal()
+})
+
+choicesChannel.addEventListener("message", e => {
+    addCartItem(e.data.dishId, cart, e.data.choices)
+    document.querySelector("#component-choices-dialog").close()
 })
 
 document.querySelector("#new-cash-drawer").addEventListener("submit", e => {

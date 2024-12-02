@@ -1,4 +1,5 @@
 {% extends "pos_server/layout.html" %}
+{% load custom_filters %}
 {% load static %}
 
 {% block body %}
@@ -14,8 +15,10 @@
     {% endif %}
     <div id="items">
         {% for item in items %}
+        {% if item.visible_in_menu %}
         <button 
-            data-id="{{item.id}}" 
+            data-id="{{item.id}}"
+            data-has-choices="{{item|has_options}}"
             class="dish tight" 
             {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}
         >
@@ -25,6 +28,7 @@
                 <span class="material-symbols-outlined">add_shopping_cart</span>
             </div>
         </button>
+        {% endif%}
         {% endfor %}
     </div>
     {% endfor %}
@@ -255,12 +259,20 @@
         <span id="result-total-profit"></span>
     </div>
 </dialog>
+<dialog class="full" id="component-choices-dialog">
+    <nav>
+        <h2>Pick the options</h2>
+        <button class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <iframe style="width: 100%; height: 90%;" frameborder="0"></iframe>
+</dialog>
 <script>
-    const dishes = JSON.parse('{{json|safe}}');
+    const dishes = JSON.parse('{{json|safe|escapejs}}');
     const invUpdatesLink = "{% url 'check_inventory' %}"
 </script>
 <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
 <script type="module" src="{% static 'pos_server/sounds.js' %}"></script>
+<script type="module" src="{% static 'pos_server/componentChoices.js' %}"></script>
 <script type="module" src="{% static 'pos_server/pos-order.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
 {% endblock %}

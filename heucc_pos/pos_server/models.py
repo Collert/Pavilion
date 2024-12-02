@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from inventory.models import Recipe
 from . import globals
+import json
 import uuid
 from payments.models import PaymentAuthorization
 from django.core.cache import cache
@@ -38,9 +39,46 @@ class Dish(models.Model):
     in_stock = models.BooleanField(default=True)
     force_in_stock = models.BooleanField(default=False)
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
+    visible_in_menu = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.title
+
+    def serialize_with_options(self):
+        choice_components = []
+        for component in self.components.all():
+            if component.child_dishes.all():
+                choices = {
+                    "parent":{
+                        "title":component.title,
+                        "id":component.id
+                    },
+                    "children":[]
+                }
+                for child in component.child_dishes.all():
+                    choices["children"].append({
+                        "title":child.title,
+                        "id":child.id,
+                        "in_stock":child.in_stock,
+                        "force_in_stock":child.force_in_stock
+                    })
+                choice_components.append(choices)
+        return {
+            "fields":{
+                "title":self.title,
+                "price":self.price,
+                "image":self.image.url if self.image else None,
+                "description":self.description,
+                "menu":self.menu.first().id,
+                "station":self.station,
+                "in_stock":self.in_stock,
+                "force_in_stock":self.force_in_stock,
+                "choice_components":choice_components
+            },
+            "model":"pos_server.dish",
+            "id":self.id,
+            "pk":self.id
+        }
 
 class Order(models.Model):
     order_channels = (
@@ -133,6 +171,7 @@ class Component(models.Model):
     in_stock = models.BooleanField(default=False)
     crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
+    child_dishes = models.ManyToManyField('Dish', symmetrical=False, blank=True, related_name='parent_component')
 
     def save(self, *args, **kwargs):
         if self.pk is not None:
@@ -165,6 +204,21 @@ class DishComponent(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.component.title} in {self.dish.title}"
+
+# The next class is a part of dish customization. One day...
+
+# class ModifiedComponent(models.Model):
+#     operations = (
+#         ("rem","Remove component"),
+#         ("add","Add component"),
+#         ("pick","Choose component")
+#     )
+#     order = models.ForeignKey(Order, on_delete = models.CASCADE, related_name="mods")
+#     dish = models.ForeignKey(Dish, on_delete = models.CASCADE)
+#     parent = models.ForeignKey(Component, on_delete = models.CASCADE)
+#     component = models.ForeignKey(Component, on_delete = models.CASCADE, related_name="mods")
+#     quantity = models.FloatField()
+#     operation = models.CharField(max_length=5, choices=operations)
 
 class Ingredient(models.Model):
     units = (

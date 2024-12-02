@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.urls import reverse
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
@@ -133,7 +133,6 @@ def order_marking(request):
         orders_data = []
         for order in orders:
             orders_data.append(collect_order(order))
-        print(orders_data)
         return render(request, "pos_server/order-marking.html", {
             "route":"kitchen",
             'orders': orders_data,
@@ -171,7 +170,6 @@ def order_marking(request):
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
         body = json.loads(request.body)
-        print(body)
         filters = body["filters"]
         order_id = body["orderId"]
         action = body["action"]
@@ -287,14 +285,12 @@ def pos(request):
             "route": "pos",
             "menu": sorted_grouped_dishes,
             "menu_title": menu.title,
-            "json": serializers.serialize('json', dishes),
+            "json": json.dumps([dish.serialize_with_options() for dish in dishes]),
             "menus": Menu.objects.all()
         })
     elif request.method == "POST":
         body = json.loads(request.body)
         cart = body["cart"]
-        print(f"{type(cart)}: {cart}")
-        print(cart)
         for payment in cart["partialPayments"]:
             if payment["type"] == "gift":
                 GiftCard.objects.get(number=payment["number"]).charge_card(payment["amount"])
@@ -306,6 +302,8 @@ def pos(request):
         new_order.save()
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
+            if check_if_only_choice_dish(dish):
+                continue
             if dish.station == "bar":
                 new_order.bar_status = 1
                 new_order.picked_up = False
@@ -319,10 +317,107 @@ def pos(request):
                 dc.component.save()
             order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
             order_dish.save()
+
+        # All of this underneath is a start to customizing dishes. Won't be used right now.
+
+        # dish_counts = defaultdict(lambda: {"customizations": None, "quantity": 0})
+
+        # for item in cart["items"]:
+        #     dish_id = item["id"]
+        #     customizations = item.get("customizations", None)
+        #     if customizations is None:
+        #         customizations_key = "None"  # Use a string to represent no customizations
+        #     else:
+        #         customizations_key = json.dumps(customizations, sort_keys=True)
+            
+        #     # Use a composite key of dish_id and customizations to count occurrences
+        #     key = (dish_id, customizations_key)
+        #     dish_counts[key]["customizations"] = customizations
+        #     dish_counts[key]["quantity"] += 1
+
+        # # Transform the result into the desired format
+        # result = {}
+        # for (dish_id, customizations), details in dish_counts.items():
+        #     # Ensure the dish_id key exists in the result dictionary
+        #     if dish_id not in result:
+        #         result[dish_id] = []
+        #     result[dish_id].append({
+        #         "customizations": details["customizations"],
+        #         "quantity": details["quantity"]
+        #     })
+
+        # # Output the result
+        # print(json.dumps(result, indent=2))
+        # new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
+        # new_order.table = body["table"] if body["table"].strip() != '' else None
+        # new_order.save()
+        # for dish_id, details in result.items():
+        #     dish = Dish.objects.get(id=dish_id)
+        #     for detail in details:
+        #         if detail["customizations"]:
+        #             for parent_str, customization in detail["customizations"].items():
+        #                 parent_id = int(parent_str.split('-')[-1])
+        #                 parent = Component.objects.get(pk=parent_id)
+        #                 ModifiedComponent.objects.create(
+        #                     order = new_order, 
+        #                     dish = dish, 
+        #                     parent = parent,
+        #                     component = Component.objects.get(pk=int(customization["id"])),
+        #                     quantity = 1,
+        #                     operation = "pick"
+        #                 )
+        #         if dish.station == "bar":
+        #             new_order.bar_status = 1
+        #             new_order.picked_up = False
+        #         elif dish.station == "kitchen":
+        #             new_order.kitchen_status = 1
+        #             new_order.picked_up = False
+        #         for dc in dish.dishcomponent_set.all():
+        #             if dc.component.crafting_option == "auto":
+        #                 craft_component(dc.component.id, 1)
+        #             dc.component.inventory -= dc.quantity
+        #             dc.component.save()
+        #         order_dish = OrderDish(order=new_order, dish=dish, quantity=detail["quantity"])
+        #         order_dish.save()
+
         new_order.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
         return square.terminal_checkout(request)
+
+def check_if_only_choice_dish(dish:Dish):
+    """Checks whether the dish only consists of components that point to other dishes"""
+    for component in dish.components.all():
+        if not component.child_dishes.all():
+            return False
+    return True
+
+def component_choice(request):
+    dish_id = request.GET.get('dish_id')
+    if dish_id:
+        dish = Dish.objects.filter(pk=dish_id).first()
+        choice_components = []
+        for component in dish.components.all():
+            if component.child_dishes.all():
+                choices = {
+                    "parent":{
+                        "title":component.title,
+                        "id":component.id
+                    },
+                    "children":[]
+                }
+                for child in component.child_dishes.all():
+                    choices["children"].append({
+                        "title":child.title,
+                        "id":child.id,
+                        "in_stock":child.in_stock,
+                        "force_in_stock":child.force_in_stock
+                    })
+                choice_components.append(choices)
+        print(choice_components)
+        return render(request, "pos_server/component-choice.html", {"choices":choice_components})
+    else:
+        return HttpResponseBadRequest("Please include a valid dish ID in the request")
 
 @login_required
 def dashboard(request):
@@ -674,11 +769,13 @@ def collect_order(order, done=False):
     order_dishes = OrderDish.objects.filter(order=order)
 
     # Prepare dish details for this order
-    dishes_data = [{
-        'name': od.dish.title,
-        'quantity': od.quantity,
-        'station': od.dish.station
-    } for od in order_dishes]
+    dishes_data = []
+    for od in order_dishes:
+        dishes_data.append({
+            'name': od.dish.title,
+            'quantity': od.quantity,
+            'station': od.dish.station
+        })
 
     # Add the order and its dishes to the orders_data list
     return({

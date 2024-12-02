@@ -80,6 +80,10 @@ main#pos {
     margin-bottom: .75rem;
 }
 
+.cart-item.part-of-combo {
+    display: none;
+}
+
 .cart-item button {
     border-radius: 0 7px 7px 0;
     border-width: 0 0 0 2px;
@@ -90,7 +94,7 @@ main#pos {
     font-size: 30px;
     display: grid;
     place-items: center;
-    grid-auto-flow: column;
+    grid-auto-flow: row;
 }
 
 #total-button {

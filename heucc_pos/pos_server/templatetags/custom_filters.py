@@ -11,6 +11,10 @@ def has_kitchen_item(dishes):
 def has_bar_item(dishes):
     return any(item["station"] == "bar" for item in dishes)
 
+@register.filter(name='has_options')
+def has_options(dish):
+    return len(dish.serialize_with_options()["fields"]["choice_components"]) > 0
+
 @register.filter(name='pending_other_stations')
 def pending_other_stations(order:dict, filters:list):
     """
