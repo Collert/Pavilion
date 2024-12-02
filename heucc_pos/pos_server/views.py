@@ -276,6 +276,7 @@ def pos(request):
         # Group dishes by station
         grouped_dishes = defaultdict(list)
         for dish in dishes:
+            dish.description = ''
             grouped_dishes[dish.station].append(dish)
         
         # Sort each group of dishes by ID to ensure stable ordering within each station
