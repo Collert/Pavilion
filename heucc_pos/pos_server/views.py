@@ -601,6 +601,12 @@ def prettify_dish(dish):
         final_dish["components"] += f"{dc.component.title.lower()}"
         if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
             final_dish["components"] += "s"
+        if dc.component.child_dishes.all():
+            final_dish["components"] += " (choice of: "
+            for choice in dc.component.child_dishes.all():
+                final_dish["components"] += f"{choice.title}/"
+            final_dish["components"] = final_dish["components"][:-1]
+            final_dish["components"] += ")"
         if dc.component.inventory < dc.quantity:
             # final_dish["components"] += "*"
             components_out = True

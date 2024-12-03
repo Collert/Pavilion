@@ -14,6 +14,10 @@
     }
 }
 
+.components {
+    color: var(--accent-3);
+}
+
 #out-cart-wrapper {
     grid-template-rows: 1fr;
     transition: all 300ms ease;
@@ -38,7 +42,7 @@
 }
 
 #menu-actual .divider {
-    background-color: var(--primary-contrast);
+    background-color: var(--accent-3);
     height: 2px;
 }
 
