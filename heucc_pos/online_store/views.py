@@ -1,13 +1,14 @@
 from django.shortcuts import render
 from pos_server.models import *
 from collections import defaultdict
-from pos_server.views import prettify_dish
+from pos_server.views import prettify_dish, check_if_only_choice_dish
 from .notifications import PushSubscription
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound
 from django.core import serializers
+import os
 from inventory.views import craft_component
 from collections import Counter
 from .models import *
@@ -19,8 +20,8 @@ from payments.models import Transaction
 import datetime
 from events.models import Event
 from django.db.models import Q
-
-# Create your views here.
+from django.conf import settings
+from gift_cards.models import GiftCard, GiftCardAuthorization 
 
 def menu(request):
     query = request.GET.get('actual', None)
@@ -34,7 +35,7 @@ def menu(request):
     active_dishes = Dish.objects.filter(menu=active)
     grouped_active = defaultdict(list)
     for dish in active_dishes:
-        grouped_active[dish.station].append({"obj":dish,"json":serializers.serialize("json", [dish])})
+        grouped_active[dish.station].append({"obj":dish,"json":json.dumps([dish.serialize_with_options()])})
     others = Menu.objects.filter(is_active = False).all()
     grouped_other_menus = defaultdict(dict)
     for menu_obj in others:
@@ -51,7 +52,10 @@ def menu(request):
     })
 
 def dish(request, id):
-    item = Dish.objects.get(pk=id)
+    try:
+        item = Dish.objects.get(pk=id)
+    except Dish.DoesNotExist:
+        return HttpResponseNotFound("Dish not found")
     allergens = set()
     for dc in item.dishcomponent_set.all():
         for ci in dc.component.componentingredient_set.all():
@@ -64,7 +68,7 @@ def dish(request, id):
         "pretty_dish":prettify_dish(item),
         "menu":{"menu":item.menu.first()},
         "allergens":', '.join(allergens) if None not in allergens else None,
-        "json":serializers.serialize("json", [item])
+        "json":json.dumps([item.serialize_with_options()])
     })
 
 def index(request):
@@ -76,36 +80,22 @@ def index(request):
         "offers":offers
     })
 
-def order_status(request, id):
-    order = Order.objects.get(pk=id)
-    if order.channel == "delivery":
-        if order.delivery.first().completed:
-            status = 6
-        elif order.picked_up:
-            status = 5
-        elif not order.picked_up and order.kitchen_status in [2, 4] and order.bar_status in [2, 4] and order.gng_status in [2, 4]:
-            status = 4
-        elif not order.picked_up and (order.kitchen_status == 1 or order.bar_status == 1 or order.gng_status == 1):
-            status = 3
-        elif (order.kitchen_status == 0 or order.bar_status == 0 or order.gng_status == 0) and order.start_time < timezone.now():
-            status = 2
-        else:
-            status = 1
-    elif order.channel == "web":
-        if order.picked_up:
-            status = 5
-        elif not order.picked_up and order.kitchen_status in [2, 4] and order.bar_status in [2, 4] and order.gng_status in [2, 4]:
-            status = 4
-        elif not order.picked_up and (order.kitchen_status == 1 or order.bar_status == 1 or order.gng_status == 1):
-            status = 3
-        elif (order.kitchen_status == 0 or order.bar_status == 0 or order.gng_status == 0) and order.start_time < timezone.now():
-            status = 2
-        else:
-            status = 1
+def order_status(request, id, from_placing = False):
+    try:
+        order = Order.objects.get(pk=id)
+        rejected_order = None
+    except Order.DoesNotExist:
+        try:
+            order = None
+            rejected_order = RejectedOrder.objects.get(order_id=id)
+        except RejectedOrder.DoesNotExist:
+            return HttpResponseNotFound("Order not found")
     return render(request, "online_store/order.html", {
         "route":"order_status",
         "order":collect_order(order),
-        "status":status,
+        "rejected_order":rejected_order,
+        "from_placing":bool(from_placing),
+        "status":order.progress_status() if order else None,
         "menu":{"menu":Menu.objects.filter(is_active = True).first()},
     })
 
@@ -113,27 +103,33 @@ def place_order(request):
     if request.method == "POST":
         uuid = request.POST["transaction_uuid"]
         try:
-            transaction = Transaction.objects.get(uuid=uuid)
+            cart = json.loads(request.POST["cart-string"])
+            cart_total = float(cart["total"])
+            for payment in cart["partialPayments"]:
+                cart_total -= float(payment["amount"])
+            if cart_total > 0:
+                transaction = Transaction.objects.get(uuid=uuid)
+            else:
+                transaction = None
             method = request.POST["delivery-pickup-toggle"]
             name = request.POST["name"]
             phone = request.POST["phone"]
             time = request.POST["time"]
-            print(time)
             parsed_time = datetime.datetime.strptime(time, "%H:%M").time()
             # Combine with current date to create a datetime object (naive)
-            current_date = timezone.now().date()  # Or use any specific date
+            current_date = timezone.localtime(timezone.now()).date()  # Or use any specific date
             naive_datetime = datetime.datetime.combine(current_date, parsed_time)
             # Apply timezone to make it an aware datetime object
             aware_datetime = timezone.make_aware(naive_datetime, timezone.get_current_timezone())
             order_instructions = request.POST["order-instructions"]
-            dishes = json.loads(request.POST["dishes-string"])
+            dishes = cart["items"]
             dish_ids = [dish["pk"] for dish in dishes]
             is_to_go = request.POST["here-to-go-toggle"] == "go"
             order = Order(
                 special_instructions=order_instructions, 
                 to_go_order=is_to_go, 
                 phone=int(phone) if phone != '' else None, 
-                authorization=transaction.authorization.first(), 
+                authorization=transaction.authorization.first() if transaction else None,
                 start_time=aware_datetime
             )
             order.table = name.strip() if name != '' else None
@@ -144,9 +140,16 @@ def place_order(request):
                 order.to_go_order = True
                 order.channel = "delivery"
             order.save()
+            for payment in cart["partialPayments"]:
+                if payment["type"] == "gift":
+                    card = GiftCard.objects.get(number=payment["number"])
+                    card.charge_card(payment["amount"])
+                    GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=payment["amount"])
             dish_counts = Counter(dish_ids)
             for dish_id, quantity in dish_counts.items():
                 dish = Dish.objects.get(id=dish_id)
+                if check_if_only_choice_dish(dish):
+                    continue
                 if dish.station == "bar":
                     order.bar_status = 0
                     order.picked_up = False
@@ -176,10 +179,47 @@ def place_order(request):
                     delivery_instructions = "Meet the customer outside. "
                 delivery_instructions += request.POST["delivery-instructions"]
                 Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
-            return redirect(reverse("order_status", kwargs={"id":order.id}))
+            return redirect(reverse("order_status", kwargs={"id":order.id, "from_placing":True}))
         except Exception as e:
             print(e)
             return HttpResponse("Don't do this. I will get to implementing a better page soon")
+
+def order_history(request):
+    orders = request.GET.get('orders', '[]')
+    try:
+        orders_list = json.loads(orders)
+        if orders_list is None:
+            orders_list = []
+    except json.JSONDecodeError:
+        orders_list = []
+    orders_objs = list(Order.objects.filter(pk__in=orders_list).all().order_by("id").reverse())
+    rejected_orders = list(RejectedOrder.objects.filter(order_id__in=orders_list).all().order_by("order_id").reverse())
+    for ro in rejected_orders:
+        ro.id = ro.order_id
+        ro.progress_status = -1
+        ro.channel = "web"
+    combined_orders = sorted(orders_objs + rejected_orders, key=lambda x: x.id if isinstance(x, Order) else x.order_id, reverse=True)
+    print(orders_list)
+    return render(request, "online_store/history.html", {
+        "route":"history",
+        "menu":{"menu":Menu.objects.filter(is_active = True).first()},
+        "orders":combined_orders
+    })
+
+def service_worker_view(request):
+    # Determine the absolute path to the service worker file
+    file_path = os.path.join(settings.BASE_DIR, "online_store", 'service-worker.js')
+    print(file_path)
+
+    # Check if the file exists
+    if not os.path.isfile(file_path):
+        return HttpResponseNotFound(f"Service worker file not found at: {file_path}")
+
+    # Serve the file if it exists
+    with open(file_path, 'r') as f:
+        response = HttpResponse(f.read(), content_type='application/javascript')
+        response['Service-Worker-Allowed'] = '/online-store/'  # Optional, explicitly set scope
+        return response
 
 @csrf_exempt
 @login_required

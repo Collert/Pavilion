@@ -81,10 +81,10 @@
                     });
                 } else if (permission === 'denied') {
                     console.log('Notification permission denied.');
-                    alert("Please enable notifications to use this app")
+                    // alert("Please enable notifications to use this app")
                 } else {
                     console.log('Notification permission dismissed.');
-                    alert("Please enable notifications to use this app")
+                    // alert("Please enable notifications to use this app")
                 }
             });
         }
@@ -121,8 +121,7 @@
             return `#${rHex}${gHex}${bHex}`;
         }
 
-        // Example usage:
-        const originalColor = '{{menu.menu.background_color}}';  // A bright orange
+        const originalColor = '{{menu.menu.background_color}}';
         const contrastingColor = getContrastingColor(originalColor);
         document.documentElement.style.setProperty('--primary-contrast', contrastingColor);
     </script>
@@ -150,8 +149,9 @@
             </nav>
         </div>
         <nav id="nav-2">
+            <a class="history-button" href="{% url 'order_history' %}"><dfn title="Order history"><span class="material-symbols-outlined">history</span></dfn></a>
             {% if request.user %}
-            <a href="{% url 'profile' %}" class="button">Account</a>
+            <a href="{% url 'profile' %}"><dfn title="Account"><span class="material-symbols-outlined">person</span></dfn></a>
             {% else %}
             <a href="{% url 'login' %}" class="button">Log In</a>
             {% endif %}
@@ -162,7 +162,9 @@
         </nav>
     </header>
     <header id="portrait">
+        <a href=""><span class="material-symbols-outlined">redeem</span></a>
         <img id="logo" src="{% static 'online_store/logo.png' %}" alt="logo">
+        <a class="history-button" href="{% url 'order_history' %}"><span class="material-symbols-outlined">history</span></a>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>
     <footer>
@@ -178,7 +180,7 @@
         <nav>
             <a href="{% url 'store_home' %}"><span class="material-symbols-outlined">home</span><span>Home</span></a>
             <a href="{% url 'menu' %}"><span class="material-symbols-outlined">menu_book</span><span>Menu</span></a>
-            <a href=""><span class="material-symbols-outlined">redeem</span><span>Gift cards</span></a>
+            <a href="{% url 'get-card' %}"><span class="material-symbols-outlined">add_card</span><span>Gift cards</span></a>
             <a href="{% url 'profile' %}"><span class="material-symbols-outlined">person</span><span>Account</span></a>
         </nav>
     </footer>
@@ -191,14 +193,17 @@
             <div id="cart-items">
                 <div hidden class="cart-item">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png">
-                    <h2>Title</h2>
+                    <div>
+                        <h2>Title</h2>
+                        <small hidden></small>
+                    </div>
                     <span class="price">$25</span>
                     <button><span class="material-symbols-outlined">delete</span></button>
                 </div>
             </div>
             <footer>
                 <span id="subtotal-wrapper">Subtotal: $<span id="subtotal">0</span></span>
-                <button id="checkout">
+                <button disabled id="checkout">
                     <span class="material-symbols-outlined">shopping_cart_checkout</span>
                     <span>Finalize</span>
                 </button>
@@ -213,7 +218,7 @@
                 <button class="icon close-button" type="button"><span class="material-symbols-outlined">close</span></button>
             </header>
             <div class="pick-up" id="finalize-menu">
-                <input hidden name="dishes-string" id="dishes-string" type="text">
+                <input hidden name="cart-string" id="cart-string" type="text">
                 <input hidden name="transaction-amount" id="transaction-amount" type="text">
                 <h2>Who?</h2>
                 <div id="who">
@@ -226,13 +231,14 @@
                         <input required id="phone-number" name="phone" type="tel">
                     </div>
                 </div>
+                <span class="line-divider"></span>
                 <h2>Where?</h2>
                 <div id="delivery-pickup-toggle">
                     <input required type="radio" id="delivery-pickup-toggle1" name="delivery-pickup-toggle" checked value="pick-up" />
-                    <label for="delivery-pickup-toggle1" class="delivery-pickup-toggle-label">Pick up at the restaurant</label>
+                    <label for="delivery-pickup-toggle1" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">person_pin_circle</span>Pick up at<br>the restaurant</label>
         
                     <input required type="radio" id="delivery-pickup-toggle2" name="delivery-pickup-toggle" value="delivery" />
-                    <label for="delivery-pickup-toggle2" class="delivery-pickup-toggle-label">Order delivery</label>
+                    <label for="delivery-pickup-toggle2" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">local_shipping</span>Order<br>delivery</label>
                 </div>
                 <strong class="pick-up-item">Address</strong>
                 <p class="pick-up-item">501 4th Ave, New Westminster, BC V3L 1P3</p>
@@ -264,16 +270,18 @@
                 <strong id="long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are pretty far for our fastest courier at the moment. Keep in mind that the food might be off its original temperature when it arrives.</strong>
                 <strong id="too-long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are too far for our fastest courier at the moment. We are not able to deliver to this address right now. Sorry for inconvenience.</strong>
                 <span hidden id="delivery-eta-parrent" class="delivery-item">Estimated delivery time:<br><span id="delivery-eta"></span></span>
+                <span class="line-divider"></span>
                 <h2>When?</h2>
                 <input required class="no-style" min="{{business_day_start_time}}" max="{{business_day_end_time}}" type="time" name="time" id="time-field">
                 <small>*time when we start making the order</small>
+                <span class="line-divider"></span>
                 <h2>How?</h2>
                 <div class="pick-up-item" id="here-to-go-toggle">
                     <input type="radio" id="here-to-go-toggle1" class="pick-up-item" name="here-to-go-toggle" checked value="here" />
-                    <label for="here-to-go-toggle1" class="here-to-go-toggle-label">Eat at<br>the restaurant</label>
+                    <label for="here-to-go-toggle1" class="here-to-go-toggle-label"><span class="material-symbols-outlined">restaurant</span>Eat at<br>the restaurant</label>
         
                     <input type="radio" id="here-to-go-toggle2" class="pick-up-item" name="here-to-go-toggle" value="go" />
-                    <label for="here-to-go-toggle2" class="here-to-go-toggle-label">Pack<br>to-go</label>
+                    <label for="here-to-go-toggle2" class="here-to-go-toggle-label"><span class="material-symbols-outlined">takeout_dining</span>Pack<br>to-go</label>
                 </div>
                 <div class="delivery-item" id="delivery-dropoff-method">
                     <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method1" name="delivery-dropoff-method" value="door" />
@@ -289,12 +297,60 @@
                 <textarea class="delivery-item" name="delivery-instructions" id="delivery-instructions" placeholder="Ring the blue doorbell / meet at the garage door / place the order down and do a lil dance"></textarea>
                 <p>Special order instructions (optional)</p>
                 <textarea name="order-instructions" id="special-instructions" placeholder="Extra sour cream / no onions / extra napkins"></textarea>
+                <span class="line-divider"></span>
+                <h2>Have a gift card?</h2>
+                <div id="gift-card-inout-group">
+                    <input type="text" maxlength="16" id="card-number-input">
+                    <h3 class="error" style="display: none;" id="gift-card-errors"></h3>
+                    <button role="button" type="button" id="card-number-lookup-button">Look up</button>
+                </div>
             </div>
-            <button id="proceed-to-checkout">Proceed to secure checkout</button>
+            <span class="line-divider"></span>
+            <button type="button" id="proceed-to-checkout">Proceed to secure checkout</button>
+            <button type="button" id="proceed-to-checkout-free">Place order</button>
+            <button hidden id="true-submit-button"></button>
             <small>*You will only be charged when we confirm your order</small>
         </form>
     </dialog>
-    <script>
+    <dialog class="full" id="component-choices-dialog">
+        <nav>
+            <h2>Pick the options</h2>
+            <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
+        </nav>
+        <iframe style="width: 100%; height: 90%;" frameborder="0"></iframe>
+    </dialog>
+    <dialog class="full" id="gift-card-dialog">
+        <nav>
+            <h2 id="transaction-status">Gift card</h2>
+            <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
+        </nav>
+        <div>
+            <img id="found-card-image" src="">
+            <h2>Card #<span id="found-card-number"></span></h2>
+            <h4>Available balance:</h4>
+            <h1>$<span id="found-card-balance"></span></h1>
+            <h4 hidden class="card-hold">Held in a different transaction:</h4>
+            <h1 hidden class="card-hold">$<span id="found-card-hold"></span></h1>
+            <div id="card-actions">
+                <form hidden id="card-charge-amount">
+                    <input type="number" min="0.01" step=".01" id="card-charge-amount-inp">
+                    <button id="card-charge-amount-button">Charge card</button>
+                </form>
+                <button id="card-charge-max">Use this card</button>
+                <button hidden id="card-reload">Reload card</button>
+            </div>
+        </div>
+    </dialog>
+    <script type="module" src="{% static 'pos_server/componentChoices.js' %}"></script>
+    <script type="module">
+        import { componentChoices } from "/heucc_pos/pos_server/static/pos_server/componentChoices.js"
+        import { Cart, GiftCardPayment, lookupGiftCard } from "/heucc_pos/pos_server/static/pos_server/pos-utils.js"
+
+        const CartDB = {
+            save: (cart) => saveCartToIndexedDB(cart),
+            load: () => getCartFromIndexedDB(),
+        };
+
         const cartButton = document.querySelectorAll(".cart-button");
         const cartDialog = document.querySelector("#cart");
         const closeButtons = document.querySelectorAll(".close-button");
@@ -304,21 +360,74 @@
         const cartSubtotal = document.querySelectorAll("#subtotal, .subtotal");
         const checkoutBtn = document.querySelector("#checkout");
         const finalizeCheckoutBtn = document.querySelector("#proceed-to-checkout")
-        let cart = JSON.parse(window.sessionStorage.getItem("cart")) || [];
-
+        const submitOrderBtn = document.querySelector("#proceed-to-checkout-free")
+        const existingCart = await CartDB.load();
+        let cart = existingCart ? new Cart(existingCart) : new Cart();
+        
         const finalizeDialog = document.querySelector("#finalize-dialog");
         const deliveryPickupToggles = document.querySelectorAll("[name = delivery-pickup-toggle]");
         const finalizeMenu = document.querySelector("#finalize-menu");
         const finalizeForm = document.querySelector("#finalize-form");
         const deliveryAddressFields = document.querySelectorAll(".delivery-address-field");
         const deliveryEta = document.querySelector("#delivery-eta");
-
+        const giftCardDialog = document.querySelector("#gift-card-dialog")
+        const giftCardInput = document.querySelector("#card-number-input")
+        
         updateCart();
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('{% url "service_worker_serve" %}')
+                .then((swReg) => {
+                    // console.log('Service Worker registered with scope:', swReg.scope);
+
+                    // Check if the service worker is already controlling the page
+                    if (!navigator.serviceWorker.controller) {
+                        // console.warn('Service Worker is not yet controlling the page.');
+
+                        // Wait for the service worker to be ready
+                        navigator.serviceWorker.ready.then(() => {
+                            // console.log('Service Worker is ready and controlling the page.');
+
+                            // Reload the page, but only once
+                            if (!sessionStorage.getItem('sw-reloaded')) {
+                                sessionStorage.setItem('sw-reloaded', 'true');
+                                window.location.reload();
+                            }
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
 
         const now = new Date();
         const hours = now.getHours().toString().padStart(2, '0');
         const minutes = now.getMinutes().toString().padStart(2, '0');
         const currentTime = `${hours}:${minutes}`;
+
+        const choicesChannel = new BroadcastChannel('choices_channel');
+
+        let activeGiftCard;
+
+        document.querySelector("#card-number-lookup-button").addEventListener("click", async () => {
+            activeGiftCard = await lookupGiftCard(giftCardInput.value, giftCardDialog)
+            giftCardInput.value = ""
+        })
+
+        document.querySelector("#card-charge-max").addEventListener("click", async e => {
+            const amount = Math.min(cart.remainingTotalNum, activeGiftCard.availableBalance)
+            cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount))
+            activeGiftCard.availableBalance -= amount
+            document.querySelector("#found-card-balance").textContent = activeGiftCard.availableBalance
+            updateCart()
+            document.querySelector("dialog[open]").close()
+            alert(`Redeemed $${amount}`)
+        })
+
+        document.querySelectorAll(".history-button").forEach(element => {
+            element.href += `?orders=${encodeURIComponent(window.localStorage.getItem("orders"))}`
+        })
 
         const timeInputs = finalizeDialog.querySelectorAll("input[type='time']");
         timeInputs.forEach(element => {
@@ -334,11 +443,11 @@
             toggle.addEventListener("change", e => {
                 finalizeMenu.className = e.currentTarget.value
                 if (e.currentTarget.value === "delivery") {
-                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {console.log(el);el.required = true});
-                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {console.log(el);el.required = false});
+                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {el.required = true});
+                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {el.required = false});
                 } else if (e.currentTarget.value === "pick-up") {
-                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {console.log(el);el.required = false});
-                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {console.log(el);el.required = true});
+                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {el.required = false});
+                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {el.required = true});
                 }
             })
         })
@@ -353,19 +462,65 @@
             })
         })
 
-        document.querySelectorAll(".add-to-cart").forEach(but => {
-            but.addEventListener("click", e => {
-                const dishData = JSON.parse(
-                    e.currentTarget.parentElement.querySelector(".dish-json") 
+        function getDish(id) {
+            return JSON.parse(
+                    document.querySelector(`.dish-json[data-id="${id}"]`)
                     ? 
-                    e.currentTarget.parentElement.querySelector(".dish-json").innerHTML
+                    document.querySelector(`.dish-json[data-id="${id}"]`).innerHTML
                     : 
                     document.querySelector("#item-json").innerHTML
                 )[0];
-                cart.push(dishData);
+        }
+
+        document.querySelectorAll(".add-to-cart").forEach(but => {
+            but.addEventListener("click", e => {
+                const dishData = getDish(
+                    e.currentTarget.parentElement.querySelector(".dish-json")?.dataset.id
+                )
+                processCartItem(dishData).forEach(item => {
+                    cart.addItem(item, item.noPayment)
+                })
                 updateCart();
             })
         })
+        
+        choicesChannel.addEventListener("message", e => {
+            const newItems = processCartItem(getDish(parseInt(e.data.dishId)), e.data.choices)
+            newItems.forEach(item => {
+                cart.addItem(item, item.noPayment)
+            })
+            updateCart();
+            document.querySelector("#component-choices-dialog").close()
+        })
+
+        function processCartItem(dishData, choices = {}, parent = undefined) {
+            let customizationsString = ""
+            let parentOnlyChoiceDish = false;
+            let final = []
+            // console.log(dishData)
+            if (dishData.fields.choice_components.length) {
+                if (Object.keys(choices).length) {
+                        dishData.children = []
+                    for (const v of Object.values(choices)) {
+                        final = final.concat(processCartItem(getDish(parseInt(v.id)), {}, dishData.id))
+                        if (dishData.fields.only_choices) return final
+                        dishData.children.push(v)
+                        customizationsString += v.title + ", "
+                    }
+                    customizationsString = customizationsString.slice(0, -2)
+                    dishData.customizationsString = customizationsString
+                } else {
+                    componentChoices(dishData.id)
+                    return final
+                }
+            } else if (parent) {
+                dishData.parent = parent
+                parentOnlyChoiceDish = getDish(parent).fields.only_choices
+            }
+            dishData.noPayment = parent && !parentOnlyChoiceDish
+            final.push(dishData)
+            return final
+        }
 
         checkoutBtn.addEventListener("click", () => {
             if ("{{business_day}}" === "True") {
@@ -394,7 +549,7 @@
                 
                 const destination = `${deliveryAddressFields[0].value}, ${deliveryAddressFields[2].value}, BC ${deliveryAddressFields[4].value}`
                 const response = await checkETA(destination);
-                console.log(response)
+                // console.log(response)
                 if (response.status === 404) {
                     noCourBadge.hidden = false;
                     finalizeCheckoutBtn.disabled = true;
@@ -417,12 +572,14 @@
         });
         
         function updateCartCount() {
-            if (cart.length) {
+            const freeItems = cart.items.reduce((accumulator, value) => value.noPayment ? accumulator + 1 : accumulator, 0)
+            const actualLength = cart.items.length - freeItems
+            if (actualLength) {
                 cartCount.forEach(element => {
                     element.hidden = false;
                 })
                 cartCount.forEach(element => {
-                    element.innerHTML = cart.length;
+                    element.innerHTML = actualLength;
                 })
             } else {
                 cartCount.forEach(element => {
@@ -431,63 +588,211 @@
             }
         }
 
+        let cartUpdateAllowed = true;
+
         function updateCartItems() {
             cartItems.innerHTML = "";
-            cart.forEach((item, index) => {
+            cart.items.forEach((item, index) => {
                 const newNode = cartItemTemplate.cloneNode(true);
-                newNode.querySelector("img").src = `/${item.fields.image}` || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
+                newNode.querySelector("img").src = item.fields.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
                 newNode.querySelector("h2").innerHTML = item.fields.title
                 newNode.querySelector(".price").innerHTML = '$' + item.fields.price
                 newNode.querySelector("button").addEventListener("click", e => {
-                    cart.splice(index , 1);
-                    updateCart()
+                    if (cartUpdateAllowed) {
+                        cartUpdateAllowed = false
+                        // console.log(item)
+                        item.children?.forEach(child => {
+                            const foundChild = cart.items.findIndex(i => i.id == child.id && i.noPayment && i.parent === item.id)
+                            // console.log(child)
+                            cart.items.splice(foundChild, 1);
+                        })
+                        cart.removeItem(item, {children:item.children});
+                        updateCart()
+                        setTimeout(() => {
+                            cartUpdateAllowed = true
+                        }, 500);
+                    }
                 })
-                newNode.hidden = false;
+                if (item.customizationsString) {
+                    const customizationNode = newNode.querySelector("small")
+                    customizationNode.innerHTML = `With ${item.customizationsString}`
+                    customizationNode.hidden = false
+                }
+                if (!item.noPayment) {
+                    newNode.hidden = false;
+                }
                 cartItems.appendChild(newNode);
             })
-            document.querySelector("#dishes-string").value = JSON.stringify(cart);
+            document.querySelector("#cart-string").value = JSON.stringify(cart);
         }
 
         window.addEventListener("message", e => {
             try {
                 if (e.data.transactionSuccessful) {
-                    cart = []
-                    updateCart();
+                    fullResetCart();
                 }
             } catch (error) {
                 console.log(error)
             }
         })
 
-        function updateCart() {
-            window.sessionStorage.setItem("cart", JSON.stringify(cart));
+        function fullResetCart() {
+            cart = new Cart();
+            updateCart();
+        }
+
+        function resetCartPayments() {
+            cart.partialPayments = [];
+            updateCart();
+        }
+
+        async function updateCart() {
+            // window.sessionStorage.setItem("cart", cart.stringifySelf);
             updateCartCount();
             updateCartItems();
-            const sum = cart.reduce(
-                (s, currentItem) => s + currentItem.fields.price,
-                0,
-            );
-            document.querySelector("#transaction-amount").value = sum;
+            if (cart.items.length > 0) {
+                checkoutBtn.disabled = false
+            } else {
+                checkoutBtn.disabled = true
+            }
+            if (cart.remainingTotalNum) {
+                finalizeCheckoutBtn.style.display = "block"
+                submitOrderBtn.style.display = "none"
+            } else {
+                finalizeCheckoutBtn.style.display = "none"
+                submitOrderBtn.style.display = "block"
+            }
+            document.querySelector("#transaction-amount").value = cart.remainingTotalNum;
             cartSubtotal.forEach(element => {
-                element.innerHTML = sum
+                element.innerHTML = cart.remainingTotal
             })
+            // cart.renewLastUpdate();
+            CartDB.save(cart);
+            // registerResetSync();
         }
+
+        [finalizeCheckoutBtn, submitOrderBtn].forEach(button => {
+            button.addEventListener("click", async e => {
+                if (cart.partialPayments.length) {
+                    for (const element of document.querySelectorAll("[required]")) {
+                        if (!element.value) {
+                            // Basically do form validation with error highlighting.
+                            document.querySelector("#true-submit-button").click()
+                            return
+                        }
+                    }
+                    const oldText = button.innerHTML
+                    button.disabled = true
+                    button.classList.add("loading")
+                    button.innerHTML = "<span class='circle'></span><span>Checking your gift cards</span>"
+                    const fetchPromises = cart.partialPayments.map(async card => {
+                        const response = await fetch(`/gift-cards/card-api/${card.number}`);
+                        return response.json();
+                    });
+                    const results = await Promise.all(fetchPromises);
+                    let removedNumbers = []
+                    results.forEach(card => {
+                        const index = cart.partialPayments.findIndex(element => element.number === card.number && element.amount > parseFloat(card.available_balance))
+                        if (index !== -1) {
+                            removedNumbers.push(cart.partialPayments[index].number.slice(-4))
+                            console.log(index)
+                            console.log("Removed:")
+                            console.log(cart.partialPayments[index])
+                            cart.partialPayments.splice(index, 1);
+                        }
+                    })
+                    updateCart();
+                    if (removedNumbers.length) {
+                        alert(`Looks like ${removedNumbers.length === 1 ? "one" : "some"} of your gift cards ${removedNumbers.length === 1 ? "has" : "have"} changed since you redeemed them. Card${removedNumbers.length === 1 ? "" : "s"} ending with ${removedNumbers} ha${removedNumbers.length === 1 ? "s" : "ve"} insufficient balance and ha${removedNumbers.length === 1 ? "s" : "ve"} been removed. Input the number${removedNumbers.length === 1 ? "" : "s"} again to see the updated balance.`)
+                        button.disabled = false
+                        button.classList.remove("loading")
+                        button.innerHTML = oldText
+                        document.querySelector("dialog[open]").close()
+                        return
+                    }
+                    if (cart.remainingTotalNum === 0) {
+                        finalizeForm.submit()   
+                        fullResetCart()
+                        return
+                    }
+                }
+                // This is awkward but it solves the form validation as well as submission.
+                document.querySelector("#true-submit-button").click()
+            })
+        })
 
         async function checkETA(destination) {
             return fetch(`{% url 'eta' %}?destination=${destination}&customer=true`)
         }
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register("{% static 'online_store/service-worker.js' %}")
-            .then(function(swReg) {
-                // console.log('Service Worker is registered', swReg);
-                swReg.update();
-                if (checkNotificationPermission() === false && checkNotificationPermission() !== undefined) {
-                    return askNotificationPermission(swReg)
+        function registerResetSync() {
+            if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                navigator.serviceWorker.ready
+                    .then((registration) => {
+                        // console.log('Service Worker is ready:', registration);
+                        // Register the sync task
+                        registration.sync.register('reset-cart-payments');
+                        // console.log('Background sync registered for cart reset.');
+                    })
+                    .catch((error) => {
+                        console.error('Failed to register background sync:', error);
+                    });
+            } else {
+                console.warn('Background Sync is not supported in this browser.');
+            }
+        }
+
+        function saveCartToIndexedDB(cart) {
+            const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)
+
+            request.onupgradeneeded = function (event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('cart')) {
+                    db.createObjectStore('cart', { keyPath: 'id' }); // Create the 'cart' object store
+                    // console.log('Object store "cart" created.');
                 }
-            })
-            .catch(function(error) {
-                console.error('Service Worker Error', error);
+            };
+
+            request.onsuccess = function (event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['cart'], 'readwrite');
+                const store = transaction.objectStore('cart');
+                store.put({ id: 'currentCart', data: cart });
+            };
+        }
+
+        function getCartFromIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)
+
+                request.onupgradeneeded = function (event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('cart')) {
+                        db.createObjectStore('cart', { keyPath: 'id' }); // Create the 'cart' object store
+                        // console.log('Object store "cart" created.');
+                    }
+                };
+
+                request.onsuccess = function (event) {
+                    const db = event.target.result;
+                    const transaction = db.transaction(['cart'], 'readonly');
+                    const store = transaction.objectStore('cart');
+                    const getRequest = store.get('currentCart');
+
+                    getRequest.onsuccess = function () {
+                        resolve(getRequest.result ? getRequest.result.data : null); // Return the cart data or null
+                    };
+
+                    getRequest.onerror = function () {
+                        console.error('Failed to retrieve cart from IndexedDB');
+                        resolve(null); // Resolve with null on error
+                    };
+                };
+
+                request.onerror = function () {
+                    console.error('Failed to open IndexedDB');
+                    resolve(null); // Resolve with null if the database fails to open
+                };
             });
         }
     </script>

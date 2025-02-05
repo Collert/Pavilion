@@ -44,6 +44,8 @@ const cashDrawerResult = document.querySelector("#cash-drawer-result");
 
 const giftCardDialog = document.querySelector("#gift-card-dialog");
 
+const errorDialog = document.querySelector("#error-dialog");
+
 document.querySelectorAll(".dish").forEach(button => {
     button.addEventListener("click", e => {
         if (cashDrawer) {
@@ -170,17 +172,24 @@ cardButton.addEventListener("click", e => {
         cardInDialog.close();
         cardDoneDialog.querySelector("#transaction-status").textContent = `Transaction ${status.toLowerCase()}!`
         cardDoneDialog.showModal();
+        if (status === "COMPLETED") {
+            const customerName = document.querySelector("[name='customer-name']").value;
+            const specialInstructions = document.querySelector("[name='special-instructions']").value;
+            const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
+            sendOrder(actionLink, customerName, specialInstructions, toGo);
+            document.querySelector("[name='customer-name']").value = '';
+            document.querySelector("[name='special-instructions']").value = '';
+        }
+    })
+    .catch(error => {
+        document.querySelector("dialog[open]").close()
+        errorDialog.querySelector("h2").innerText = error
+        errorDialog.showModal()
+    })
+    .finally(() => {
         setTimeout(() => {
-            cardDoneDialog.close();
-            if (status === "COMPLETED") {
-                const customerName = document.querySelector("[name='customer-name']").value;
-                const specialInstructions = document.querySelector("[name='special-instructions']").value;
-                const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
-                sendOrder(actionLink, customerName, specialInstructions, toGo);
-                document.querySelector("[name='customer-name']").value = '';
-                document.querySelector("[name='special-instructions']").value = '';
-            }
-        }, 4000);
+            try {document.querySelector("dialog[open]").close()} catch {}
+        }, 10000);
     });
 })
 
@@ -327,12 +336,16 @@ function createSquarePayment(amount, actionLink) {
             headers: { "X-CSRFToken": csrftoken },
             method: 'PUT',
             body: JSON.stringify({
+                cart:cart,
                 amount: parseFloat(amount).toFixed(2)
             })
         })
         .then(response => response.json())
         .then(data => {
-            // console.log(data)
+            console.log(data)
+            if (data.status === 402) {
+                reject(new Error(data.message));
+            }
             if (data.message.checkout.status === "PENDING") {
                 checkResponse();
             } else {
@@ -366,7 +379,7 @@ function createSquarePayment(amount, actionLink) {
 }
 
 document.querySelector("#card-number-lookup-button").addEventListener("click", async () => {
-    activeGiftCard = await lookupGiftCard(document.querySelector("#card-number-input").value, giftCardDialog)
+    activeGiftCard = await lookupGiftCard(document.querySelector("#card-number-input").value, giftCardDialog, cart)
 })
 
 document.querySelector("#card-charge-amount").addEventListener("submit", e => {

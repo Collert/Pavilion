@@ -10,7 +10,6 @@ from django.views.decorators.http import require_POST
 from collections import Counter
 from .models import *
 import json
-import time
 from django.utils import timezone
 from . import globals
 import datetime
@@ -24,14 +23,14 @@ from django.conf import settings
 from misc_tools import funcs
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from pos_server.decorators import local_network_only
 from inventory.views import craft_component
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
 from django.db.models import Q
-from django.utils.timezone import make_aware
+from django.utils.timezone import make_aware, now
 from django.core.cache import cache
 from gift_cards.models import GiftCard
+from online_store.models import RejectedOrder
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -71,74 +70,36 @@ def logout_view(request):
 
 # @local_network_only
 @login_required
-def kitchen(request):
-    if request.method == "GET":
-        today = timezone.localdate()
-        # Fetch all orders
-        orders = Order.objects.filter(picked_up=False, timestamp__date=today)
-
-        # Prepare data for each order
-        orders_data = []
-        for order in orders:
-            orders_data.append(collect_order(order))
-        # print(orders_data)
-        return render(request, "pos_server/kitchen.html", {
-            "route":"kitchen",
-            'orders': orders_data,
-            "portrait" : request.GET.get('portrait', 'false') == 'true'
-        })
-    elif request.method == "DELETE":
-        order_id = json.loads(request.body)["orderId"]
-        order = Order.objects.get(id=order_id)
-        order.picked_up = True
-        order.save()
-        return JsonResponse({"status":"Order picked up"}, status=200)
-    elif request.method == "PUT":
-        order_id = json.loads(request.body)["orderId"]
-        order = Order.objects.get(id=order_id)
-        order.kitchen_status = 2
-        order.save()
-        return JsonResponse({"status":"Order marked done"}, status=200)
-    elif request.method == "POST":
-        body = json.loads(request.body)
-        order_id = body["orderId"]
-        action = body["action"]
-        order = Order.objects.get(id=order_id)
-        payment_id = order.authorization.payment_id
-        if action == "approve":
-            order.approved = True
-            order.save()
-            return JsonResponse({"status":"Order marked approved", "action":action, "payment_id":payment_id}, status=200)
-        elif action == "delete":
-            order.delete()
-            return JsonResponse({"status":"Order deleted", "action":action, "payment_id":payment_id}, status=200)
-
-# @local_network_only
-@login_required
 def order_marking(request):
     if request.method == "GET":
         today = timezone.localdate()
+        stations = ["kitchen", "bar", "gng"]
         filters = request.GET.getlist('filter')
         print(filters)
         # Fetch all orders
-        orders = Order.objects.filter(
-            Q(picked_up = False) & 
-            Q(timestamp__date=today) & 
-            (~Q(kitchen_status__in = [3] if "kitchen" in filters else [1,2,3,4]) |
-            ~Q(bar_status__in = [3] if "bar" in filters else [1,2,3,4]) |
-            ~Q(gng_status__in = [3] if "gng" in filters else [1,2,3,4]))
-        )
+        conditions = Q(picked_up=False) & Q(start_time__lte=now()) & Q(timestamp__date=today)
+        status_conditions = Q()
+        for station in stations:
+            if station in filters:
+                status_conditions |= ~Q(**{f"{station}_status__in": [3, 4]})
+            else:
+                status_conditions |= ~Q(**{f"{station}_status__in": [0, 1, 2, 3, 4]})
+        conditions &= status_conditions
+        orders = Order.objects.filter(conditions)
+        print(orders)
 
         # Prepare data for each order
         orders_data = []
         for order in orders:
             orders_data.append(collect_order(order))
         return render(request, "pos_server/order-marking.html", {
-            "route":"kitchen",
+            "route":"markings",
             'orders': orders_data,
-            "filters":json.dumps(filters)
+            "filters":json.dumps(filters),
+            "stations":json.dumps(stations)
         })
     elif request.method == "DELETE":
+        # Mark order as picked up
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
         station_mappings = {
@@ -148,8 +109,9 @@ def order_marking(request):
         }
         order.picked_up = True
         order.save()
-        return JsonResponse({"status":"Order marked done"}, status=200)
+        return JsonResponse({"status":"Order marked picked up"}, status=200)
     elif request.method == "PUT":
+        # Mark order as completed
         order_id = json.loads(request.body)["orderId"]
         filters = json.loads(request.body)["filters"]
         order = Order.objects.get(id=order_id)
@@ -169,6 +131,7 @@ def order_marking(request):
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
+        # Approve or reject the order
         body = json.loads(request.body)
         filters = body["filters"]
         order_id = body["orderId"]
@@ -179,7 +142,7 @@ def order_marking(request):
             "bar": "bar_status",
             "gng": "gng_status",
         }
-        payment_id = order.authorization.payment_id
+        payment_id = order.authorization.payment_id if order.authorization else None
         if action == "approve":
             for station in filters:
                 if station in station_mappings:
@@ -188,35 +151,32 @@ def order_marking(request):
                     if current_value != 4:  # Only update if the current value is not 4
                         setattr(order, field_name, 1)
             order.save()
-            return JsonResponse({"status":"Order marked approved", "action":action, "payment_id":payment_id}, status=200)
+            all_approved = order.kitchen_status in [1,4] and order.bar_status in [1,4] and order.gng_status in [1,4]
+            return JsonResponse({
+                "status":"Order marked approved", 
+                "action":action, 
+                "payment_id":payment_id,
+                "all_approved":all_approved
+            }, status=200)
         elif action == "delete":
+            rejection_obj = body["rejection"]
+            print(rejection_obj)
+            rejection_reason = "We are sorry but we could not complete your order for the following reasons: "
+            if 'out-of-stock' in rejection_obj["reasons"]:
+                rejection_reason += "Some of the products you requested are currently out of stock. We will update our menu in a few minutes to reflect the accurate stock levels. "
+            if 'no-containers' in rejection_obj["reasons"]:
+                rejection_reason += "We are currently out of containers to package your order. "
+            if rejection_obj["reasonExtra"]:
+                rejection_reason += rejection_obj["reasonExtra"]
+            rejection_reason += "We apologize for the inconvenience. Please try placing your order again later or contact us for more information."
+            RejectedOrder.objects.create(order_id=order_id, reason=rejection_reason, timestamp=order.timestamp)
+            for card_auth in order.gift_card_auth.all():
+                print(card_auth.charged_balance)
+                print(card_auth.card)
+                print(card_auth.order)
+                card_auth.card.load_card(card_auth.charged_balance)
             order.delete()
             return JsonResponse({"status":"Order deleted", "action":action, "payment_id":payment_id}, status=200)
-
-# @local_network_only
-@login_required
-def bar(request):
-    if request.method == "GET":
-        today = timezone.localdate()
-        # Fetch all orders
-        orders = Order.objects.filter(bar_done=False, timestamp__date=today)
-
-        # Prepare data for each order
-        orders_data = []
-        for order in orders:
-            orders_data.append(collect_order(order))
-        # print(orders_data)
-        return render(request, "pos_server/bar.html", {
-            "route":"kitchen",
-            'orders': orders_data,
-            "portrait" : request.GET.get('portrait', 'false') == 'true'
-        })
-    elif request.method == "DELETE":
-        order_id = json.loads(request.body)["orderId"]
-        order = Order.objects.get(id=order_id)
-        order.bar_done = True
-        order.save()
-        return JsonResponse({"status":"Order marked done"}, status=200)
     
 @login_required
 def menu_select(request):
@@ -310,6 +270,9 @@ def pos(request):
             elif dish.station == "kitchen":
                 new_order.kitchen_status = 1
                 new_order.picked_up = False
+            elif dish.station == "gng":
+                new_order.gng_status = 1
+                new_order.picked_up = False
             for dc in dish.dishcomponent_set.all():
                 if dc.component.crafting_option == "auto":
                     craft_component(dc.component.id, 1)
@@ -383,6 +346,17 @@ def pos(request):
         new_order.save()
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
+        body = json.loads(request.body)
+        print(body)
+        cart = body["cart"]
+        for payment in cart["partialPayments"]:
+            print(payment)
+            if payment["type"] == "gift":
+                if GiftCard.objects.get(number=payment["number"]).available_balance < payment["amount"]:
+                    return JsonResponse({
+                            "message":f"Card x{payment["number"][-4:]} no longer has a sufficient balance to charge ${payment["amount"]}",
+                            "status":402
+                        }, status=402)
         return square.terminal_checkout(request)
 
 def check_if_only_choice_dish(dish:Dish):
@@ -773,6 +747,8 @@ def check_inventory(request):
     return JsonResponse(serializers.serialize('json', dishes), safe=False)
 
 def collect_order(order, done=False):
+    if not order:
+        return None
     # Fetch related OrderDish instances for each order
     order_dishes = OrderDish.objects.filter(order=order)
 
@@ -796,6 +772,7 @@ def collect_order(order, done=False):
         'address':order.delivery.first().destination if order.delivery.first() else None,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
+        "start_time":order.start_time.isoformat(),
         "kitchen_status":order.kitchen_status,
         "done":done,
         "bar_status":order.bar_status,

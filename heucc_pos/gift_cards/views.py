@@ -138,20 +138,16 @@ def email_card_confirmation(request):
 
 @csrf_exempt
 def card_api(request, card_number):
-    if request.method == "GET":
-        try:
-            card = GiftCard.objects.get(number=card_number)
-            return JsonResponse({
-                "email":card.email,
-                "image":card.image.url,
-                "available_balance":card.available_balance,
-                "number":card.number
-            }, status=200)
-        except GiftCard.DoesNotExist:
-            return HttpResponseNotFound()
-    elif request.method == "POST":
-        try:
-            card = GiftCard.objects.get(number=card_number)
+    try:
+        card = GiftCard.objects.get(number=card_number)
+        if request.method == "GET":
+                return JsonResponse({
+                    "email":card.email,
+                    "image":card.image.url,
+                    "available_balance":card.available_balance,
+                    "number":card.number
+                }, status=200)
+        elif request.method == "POST":
             body = json.loads(request.body)
             amount = Decimal(body["amount"])
             response = card.charge_card(amount)
@@ -163,5 +159,17 @@ def card_api(request, card_number):
                 return JsonResponse({
                     "message":"Insufficient card balance."
                 }, status=402)
-        except GiftCard.DoesNotExist:
-            return HttpResponseNotFound()
+        # elif request.method == "PUT":
+        #     body = json.loads(request.body)
+        #     amount = Decimal(body["amount"])
+        #     response = card.charge_card(amount)
+        #     if response == 200:
+        #         return JsonResponse({
+        #             "message":f"Card charged ${amount}"
+        #         }, status=200)
+        #     elif response == 402:
+        #         return JsonResponse({
+        #             "message":"Insufficient card balance."
+        #         }, status=402)
+    except GiftCard.DoesNotExist:
+        return HttpResponseNotFound()

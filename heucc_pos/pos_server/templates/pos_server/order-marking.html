@@ -8,10 +8,7 @@
 {% for order in orders %}
     <div 
         data-order-id="{{order.order_id}}" 
-        data-channel="{{order.channel}}" 
-        data-pending-others="{{order|pending_other_stations:filters|yesno:'true,false'}}"
-        data-pending-here="{{order|pending_self:filters|yesno:'true,false'}}"
-        data-done="{{order.kitchen_done}}" 
+        data-channel="{{order.channel}}"
         data-payment-id="{{order.payment_id}}"
         data-kitchen-status="{{order.kitchen_status}}"
         data-bar-status="{{order.bar_status}}"
@@ -28,20 +25,20 @@
             </h2>
             <div class="name-time">
                 <span>Order #{{order.order_id}}</span>
-                <span data-timestamp="{{order.timestamp}}" class="timestamp">
-                    Prep time: <span>{{order.timestamp}}</span>
+                <span data-timestamp="{{order.start_time}}" class="timestamp">
+                    Prep time: <span>{{order.start_time}}</span>
                 </span>
             </div>
         </div>
         <div>
             <h3>
                 {% if order.channel == "store" %}
-                <span class="material-symbols-outlined">storefront</span> In-person order
+                <span class="material-symbols-outlined">storefront</span> In-person
                 {% elif order.channel == "web" %}
-                <span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
+                <span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up
                 <span class="material-symbols-outlined">call</span> {{order.phone}}
                 {% elif order.channel == "delivery" %}
-                <span class="material-symbols-outlined">local_shipping</span> Delivery order
+                <span class="material-symbols-outlined">local_shipping</span> Delivery
                 <span class="material-symbols-outlined">call</span> {{order.phone}}
                 {% endif %}
             </h3>
@@ -105,7 +102,63 @@
     <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
 </dialog>
 
+<dialog class="full" id="reject-reason">
+    <nav>
+        <h2>Reason for rejection</h2>
+        <button tabindex="-1" class="icon">Close</button>
+    </nav>
+    <form action="/" method="post">
+        <div id="rejection-reasons">
+            <div class="rejection">
+                <input tabindex="-1" type="checkbox" data-key="1" id="rejection-out-of-stock" value="out-of-stock" name="reason">
+                <label for="rejection-out-of-stock">
+                    <span class="material-symbols-outlined">no_meals</span>
+                    <span>Out of one or more components</span>
+                    <span>1</span>
+                </label>
+            </div>
+            <div class="rejection">
+                <input tabindex="-1" type="checkbox" data-key="2" id="rejection-no-containers" value="no-containers" name="reason">
+                <label for="rejection-no-containers">
+                    <span class="material-symbols-outlined">takeout_dining</span>
+                    <span>Out of containers to pack the order</span>
+                    <span>2</span>
+                </label>
+            </div>
+        </div>
+        <textarea name="reason-extra" placeholder="Extra information for rejection?"></textarea>
+        <button type="submit">Reject</button>
+    </form>
+</dialog>
+
+<dialog id="order-management">
+    <nav>
+        <h2>Order management</h2>
+        <button tabindex="-1" class="icon"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <div class="order-actions">
+        <button id="approve-order-button">
+            <span class="material-symbols-outlined">check</span>
+            <span>Approve order</span>
+        </button>
+        <button id="reject-order-button">
+            <span class="material-symbols-outlined">block</span>
+            <span>Reject order</span>
+        </button>
+        <button id="mark-order-done-button">
+            <span class="material-symbols-outlined">done_all</span>
+            <span>Mark order done</span>
+        </button>
+        <button id="mark-order-collected-button">
+            <span class="material-symbols-outlined">how_to_reg</span>
+            <span>Mark order picked up</span>
+        </button>
+    </div>
+
+</dialog>
+
 <script>
+    const stations = JSON.parse('{{stations|safe}}')
     const filters = JSON.parse('{{filters|safe}}')
     const orderFilters = {
         kitchen:filters.includes("kitchen"),
@@ -117,6 +170,84 @@
     const checkOrdersLink = "{% url 'active_orders' %}";
     const approveOrderLink = "{% url 'capture-payment' %}";
 </script>
+<script>
+    document.querySelector("#filters-form")?.addEventListener("submit", e => {
+        e.preventDefault()
+        let query = '?'
+        if (e.currentTarget.querySelector("#kitchen-filter").checked) {
+            query += "filter=kitchen"
+        }
+        if (e.currentTarget.querySelector("#bar-filter").checked) {
+            if (query !== "?") {
+                query += "&"
+            }
+            query += "filter=bar"
+        }
+        if (e.currentTarget.querySelector("#gng-filter").checked) {
+            if (query !== "?") {
+                query += "&"
+            }
+            query += "filter=gng"
+        }
+        if (e.currentTarget.querySelector("#auto-done-input").value) {
+            if (query !== "?") {
+                query += "&"
+            }
+            query += `auto-done=${e.currentTarget.querySelector("#auto-done-input").value}`
+        }
+        if (e.currentTarget.querySelector("#auto-collect-input").value) {
+            if (query !== "?") {
+                query += "&"
+            }
+            query += `auto-collect=${e.currentTarget.querySelector("#auto-collect-input").value}`
+        }
+        // const url = new URL()
+        window.location.replace(window.location.href.split('?')[0] + query) 
+    })
+</script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
+{% endblock %}
+
+{% block marking-nav %}
+<dialog id="filters-dialog">
+    <nav>
+        <h1>Preferences</h1>
+        <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
+    </nav>
+    <form id="filters-form" action="" method="get">
+        <div class="preference-categories">
+            <div class="preference-category">
+                <h2>Filters</h2>
+                <div class="filter-switch">
+                    <input {% if "kitchen" in filters %}checked{% endif %} type="checkbox" name="filter" id="kitchen-filter">
+                    <label for="kitchen-filter">Hot food</label>
+                </div>
+                <div class="filter-switch">
+                    <input {% if "bar" in filters %}checked{% endif %} type="checkbox" name="filter" id="bar-filter">
+                    <label for="bar-filter">Drinks & sweets</label>
+                </div>
+                <div class="filter-switch">
+                    <input {% if "gng" in filters %}checked{% endif %} type="checkbox" name="filter" id="gng-filter">
+                    <label for="gng-filter">Frozen products</label>
+                </div>
+            </div>
+            <div class="preference-category">
+                <h2>Auto-done</h2>
+                <small style="width: 12rem; text-align: center;">Automatically mark orders as done after the specified number of minutes. <br>(Leave blank to disable)</small>
+                <input placeholder="Minutes" type="number" min="1" name="auto-done" id="auto-done-input">
+            </div>
+            <div class="preference-category">
+                <h2>Auto-pickup</h2>
+                <small style="width: 12rem; text-align: center;">Automatically mark orders as collected after the specified number of minutes. <br>(Leave blank to disable)</small>
+                <input placeholder="Minutes" type="number" min="1" name="auto-collect" id="auto-collect-input">
+            </div>
+        </div>
+        <button>Submit</button>
+    </form>
+</dialog>
+<button id="filters-icon" class="icon"><span class="material-symbols-outlined">tune</span></button>
+<script>
+    document.querySelector("#filters-icon").addEventListener("click", e => {document.querySelector("#filters-dialog").showModal()})
+</script>
 {% endblock %}

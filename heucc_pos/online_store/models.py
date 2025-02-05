@@ -10,3 +10,8 @@ class PromoContent(models.Model):
     color = models.CharField(max_length=7)
     accent = models.CharField(max_length=7)
     link = models.TextField()
+
+class RejectedOrder(models.Model):
+    order_id = models.PositiveIntegerField(unique=True)
+    reason = models.TextField()
+    timestamp = models.DateTimeField(null=True)

@@ -27,7 +27,8 @@
             {% endif %}
             <div class="dishes">
                 {% for dish in items %}
-                <div class="dish-wrapper">
+                <div 
+                {% if not dish.obj.visible_in_menu %} style="display: none;" {% endif %} class="dish-wrapper">
                     <a href="{% url 'dish' id=dish.obj.id%}" class="dish no-style">
                         <img src="
                         {% if dish.obj.image %}

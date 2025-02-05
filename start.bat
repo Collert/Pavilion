@@ -59,7 +59,7 @@ REM Activate virtual environment
 call "venv\Scripts\activate"
 
 REM Run Django development server in the same terminal
-python manage.py collectstatic
+python heucc_pos\manage.py collectstatic
 python heucc_pos\manage.py runserver
 
 endlocal

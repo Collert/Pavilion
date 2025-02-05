@@ -4,6 +4,7 @@
 @import url("dish.css");
 @import url("index.css");
 @import url("order.css");
+@import url("history.css");
 
 html {
     font-family: 'Noto Sans Display', sans-serif;
@@ -23,12 +24,14 @@ header {
     top: 0;
     z-index: 1000; /* Ensures the header stays on top */
     display: flex;
-    padding: 1rem;
     background-color: var(--primary-background);
     justify-content: space-between;
 }
 
 @media (orientation:landscape) {
+    header {
+        padding: 1rem;
+    }
     header#portrait {
         display: none;
     }
@@ -48,9 +51,12 @@ nav {
     display: flex;
     flex-direction: row;
     gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
 }
 
-#nav-1 a {
+#nav-1 a,
+#nav-2 a.history-button {
     font-size: larger;
     color: var(--primary-contrast);
     font-weight: 600;
@@ -172,17 +178,25 @@ form#menu-create {
     height: 5vh;
 }
 
+#nav-2 span.material-symbols-outlined {
+    font-size: 36px!important;
+}
+#nav-2 > a {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
 .cart-button {
     border: none;
     display: grid;
     place-items: center;
-    font-size: 36px!important;
     position: relative;
 }
 .cart-button span.material-symbols-outlined,
 .cart-button:hover span.material-symbols-outlined {
     color: var(--primary-contrast)!important;
-    font-size: 36px!important;
+    /* font-size: 36px!important; */
 }
 .cart-button:hover span.material-symbols-outlined {
     font-variation-settings: 'FILL' 1;
@@ -264,7 +278,7 @@ dialog#cart footer button {
     justify-content: space-between;
     padding: 1rem 0;
     margin-bottom: 1rem;
-    height: 10dvh;
+    min-height: 10dvh;
     align-items: center;
 }
 
@@ -290,6 +304,12 @@ dialog#cart footer button {
 .cart-item h2 {
     font-size: 30px;
     margin: 0;
+}
+
+.cart-item > div {
+    display: grid;
+    height: 100%;
+    align-items: center;
 }
 
 footer .subtotal-wrapper,
@@ -337,16 +357,6 @@ footer .subtotal-wrapper > *,
     cursor: pointer;
 }
 
-.here-to-go-toggle-label:nth-child(2),
-.delivery-pickup-toggle-label:nth-child(2) {
-    border-radius: 100vh 0 0 100vh;
-}
-
-.here-to-go-toggle-label:nth-child(4),
-.delivery-pickup-toggle-label:nth-child(4) {
-    border-radius: 0 100vh 100vh 0;
-}
-
 #here-to-go-toggle input[type="radio"]:checked + label,
 #delivery-pickup-toggle input[type="radio"]:checked + label {
     background-color: var(--primary-contrast);
@@ -364,12 +374,16 @@ input:not(.no-style)::-webkit-calendar-picker-indicator {
     -webkit-mask-image: none;
 }
 
-#delivery-dropoff-method {
+#delivery-dropoff-method,
+#here-to-go-toggle,
+#delivery-pickup-toggle {
     display: flex;
     justify-content: center;
     position: relative;
 }
 
+#here-to-go-toggle input[type="radio"],
+#delivery-pickup-toggle input[type="radio"],
 #delivery-dropoff-method input[type="radio"] {
     opacity: 0;
     position: absolute;
@@ -377,6 +391,8 @@ input:not(.no-style)::-webkit-calendar-picker-indicator {
     height: 0;
 }
 
+#here-to-go-toggle input[type="radio"] + label,
+#delivery-pickup-toggle input[type="radio"] + label,
 #delivery-dropoff-method input[type="radio"] + label {
     display: grid;
     place-items: center;
@@ -389,20 +405,28 @@ input:not(.no-style)::-webkit-calendar-picker-indicator {
     cursor: pointer;
 }
 
+.here-to-go-toggle-label:nth-child(2),
+.delivery-pickup-toggle-label:nth-child(2),
 .delivery-dropoff-method-label:nth-child(2) {
     border-radius: 10px 0 0 10px;
 }
 
+.here-to-go-toggle-label:nth-child(4),
+.delivery-pickup-toggle-label:nth-child(4),
 .delivery-dropoff-method-label:nth-child(6) {
     border-radius: 0 10px 10px 0;
 }
 
+#here-to-go-toggle input[type="radio"]:checked + label,
+#delivery-pickup-toggle input[type="radio"]:checked + label,
 #delivery-dropoff-method input[type="radio"]:checked + label {
     background-color: var(--primary-contrast);
     color: var(--primary-background);
     border-color: var(--primary-contrast);
 }
 
+#here-to-go-toggle input[type="radio"]:checked + label span,
+#delivery-pickup-toggle input[type="radio"]:checked + label span,
 #delivery-dropoff-method input[type="radio"]:checked + label span {
     color: var(--primary-background);
 }
@@ -454,7 +478,58 @@ input[type="time"] {
     text-align: center;
 }
 
+#gift-card-dialog img {
+    height: 25vh;
+    border-radius: 20px;
+    box-shadow: var(--primary-contrast) 0px 0px 17px;
+}
+#gift-card-dialog h4 {
+    margin: 0;
+}
+
+#gift-card-dialog > div {
+    display: grid;
+    place-items: center;
+    gap: .75rem;
+}
+
+button.loading {
+    display: flex!important;
+    justify-content: center;
+    gap: 1rem;
+}
+
+button.loading .circle {
+    display: block;
+    aspect-ratio: 1;
+    height: 100%;
+    background-color: var(--primary-contrast);
+    border-radius: 50%;
+    animation: squish 1s ease infinite;
+}
+
+@keyframes squish {
+    from, to {
+        clip-path: inset(0 0 0 0);
+    } 50% {
+        clip-path: inset(40% 0 40% 0);
+    }
+}
+
+#gift-card-inout-group {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.line-divider {
+    outline: 1px solid var(--primary-contrast);
+}
+
 @media (orientation:portrait) {
+    #gift-card-inout-group {
+        flex-direction: column;
+    }
     #who {
         flex-direction: column;
     }
@@ -502,8 +577,8 @@ input[type="time"] {
     }
     header {
         position: initial!important;
-        justify-content: center;
         align-items: center;
+        padding: 0 1rem;
     }
     dialog header {
         justify-content: space-between;

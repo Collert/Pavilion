@@ -1,0 +1,87 @@
+{% extends "online_store/layout.html" %}
+{% load static %}
+
+{% block body %}
+{% csrf_token %}
+<style>
+    :root {
+        --primary-background: {{menu.menu.background_color}};
+        --accent-1: {{menu.menu.accent_1}};
+        --accent-2: {{menu.menu.accent_2}};
+        --accent-3: {{menu.menu.accent_3}};
+    }
+</style>
+{% for order in orders %}
+    <a href="{% url 'order_status' id=order.id %}" class="order no-style">
+        <h2>Order# {{order.id}}</h2>
+        <strong>{{order.timestamp}}</strong>
+        <div class="order-status">
+            {% if order.channel == 'web' %}
+            <span class="material-symbols-outlined">
+                {% if order.progress_status == 1 %}
+                    inactive_order
+                {% elif order.progress_status == 2 %}
+                    preview
+                {% elif order.progress_status == 3 %}
+                    skillet
+                {% elif order.progress_status == 4 %}
+                    order_approve
+                {% elif order.progress_status == 5 %}
+                    done_all
+                {% elif order.progress_status == -1 %}
+                    block
+                {% endif %}
+            </span>
+            <span>
+                {% if order.progress_status == 1 %}
+                    Order pending
+                {% elif order.progress_status == 2 %}
+                    We are reviewing your order
+                {% elif order.progress_status == 3 %}
+                    Order is being prepared
+                {% elif order.progress_status == 4 %}
+                    Order is ready for pickup
+                {% elif order.progress_status == 5 %}
+                    Order picked up
+                {% elif order.progress_status == -1 %}
+                    Order cancelled
+                {% endif %}
+            </span>
+            {% elif order.channel == 'delivery' %}
+            <span class="material-symbols-outlined">
+                {% if order.progress_status == 1 %}
+                    inactive_order
+                {% elif order.progress_status == 2 %}
+                    preview
+                {% elif order.progress_status == 3 %}
+                    skillet
+                {% elif order.progress_status == 4 %}
+                    order_approve
+                {% elif order.progress_status == 5 %}
+                    local_shipping
+                {% elif order.progress_status == 6 %}
+                    done_all
+                {% endif %}
+            </span>
+            <span>
+                {% if order.progress_status == 1 %}
+                    Order pending
+                {% elif order.progress_status == 2 %}
+                    We are reviewing your order
+                {% elif order.progress_status == 3 %}
+                    Order is being prepared
+                {% elif order.progress_status == 4 %}
+                    Order is ready for pickup by the courier
+                {% elif order.progress_status == 5 %}
+                    Order is being transported to your address
+                {% elif order.progress_status == 6 %}
+                    Order delivered
+                {% endif %}
+            </span>
+            {% endif %}
+        </div>
+    </a>
+{% empty %}
+<h1>No previous orders</h1>
+{% endfor %}
+{% endblock %}

@@ -36,6 +36,15 @@ class GiftCard(models.Model):
         else:
             return 402
 
+    def load_card(self, amount:Decimal) -> None:
+        self.available_balance += amount
+        self.save()
+
+class GiftCardAuthorization(models.Model):
+    card = models.ForeignKey(GiftCard, on_delete = models.CASCADE)
+    order = models.ForeignKey("pos_server.Order", on_delete=models.CASCADE, related_name="gift_card_auth")
+    charged_balance = models.DecimalField(decimal_places=2, max_digits=5)
+
 class CardPreset(models.Model):
     name = models.CharField(max_length=64, blank=True)
     amount = models.DecimalField(null = False, max_digits=5, decimal_places=2)

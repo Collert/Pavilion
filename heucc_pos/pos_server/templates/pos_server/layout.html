@@ -38,6 +38,7 @@
                 </div>
             </button>
             {% endif %}
+            {% block marking-nav %}{% endblock %}
             {% if user.is_authenticated %}
             <a class="button" href="{% url 'logout_view' %}">Lock POS</a>
             {% else %}
@@ -66,10 +67,18 @@
     </dialog>
     {% endif %}
 </body>
+{% block register-scripts %}{% endblock %}
 <script>
     const isSuperuser = "{{user.is_superuser}}" == "True";
     let suAuthorized = isSuperuser;
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const closeButtons = document.querySelectorAll(".close-button");
+
+    closeButtons.forEach(button => {
+        button.addEventListener("click", () => { 
+            document.querySelector("dialog[open]").close()
+        })
+    })
     
     // document.querySelector("#rotate-screen").addEventListener("click", () => {
     //     document.querySelector("body").classList.toggle("portrait");

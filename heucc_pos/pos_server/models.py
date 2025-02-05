@@ -1,7 +1,9 @@
 from typing import Iterable
 from django.db import models
 from django.utils import timezone
+from django.utils.timezone import localtime, now
 from inventory.models import Recipe
+from gift_cards.models import GiftCard
 from . import globals
 import json
 import uuid
@@ -43,6 +45,15 @@ class Dish(models.Model):
 
     def __str__(self) -> str:
         return self.title
+    
+    def check_if_only_choice_dish(self):
+        """Checks whether the dish only consists of components that point to other dishes"""
+        if not self.components.all():
+            return False
+        for component in self.components.all():
+            if not component.child_dishes.all():
+                return False
+        return True
 
     def serialize_with_options(self):
         choice_components = []
@@ -73,7 +84,8 @@ class Dish(models.Model):
                 "station":self.station,
                 "in_stock":self.in_stock,
                 "force_in_stock":self.force_in_stock,
-                "choice_components":choice_components
+                "choice_components":choice_components,
+                "only_choices":self.check_if_only_choice_dish()
             },
             "model":"pos_server.dish",
             "id":self.id,
@@ -109,6 +121,7 @@ class Order(models.Model):
     phone = models.PositiveBigIntegerField(null=True, blank=True)
     approved = models.BooleanField(default=True)
     authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.DO_NOTHING, null=True, blank=True)
+    gift_cards = models.ManyToManyField(GiftCard, through="gift_cards.GiftCardAuthorization", blank=True)
 
     def save(self, *args, **kwargs):
         # Calculate prep time if needed
@@ -137,6 +150,38 @@ class Order(models.Model):
 
     def __hash__(self):
         return hash(self.id)
+    
+    def progress_status(self):
+        print(timezone.localtime(self.start_time))
+        print(timezone.localtime(timezone.now()))
+        print(timezone.localtime(self.start_time) > timezone.localtime(timezone.now()))
+        if self.channel == "delivery":
+            if self.delivery.first().completed:
+                status = 6
+            elif self.picked_up:
+                status = 5
+            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
+                status = 4
+            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
+                status = 3
+            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
+                status = 2
+            else:
+                status = 1
+        elif self.channel == "web":
+            if self.picked_up:
+                status = 5
+            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
+                status = 4
+            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
+                status = 3
+            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
+                status = 2
+            else:
+                status = 1
+        else:
+            status = None
+        return status
 
 class OrderDish(models.Model):
     order = models.ForeignKey(Order, on_delete = models.CASCADE)
@@ -264,7 +309,7 @@ class ComponentIngredient(models.Model):
         return f"{self.quantity} x {self.ingredient.title} in {self.component.title}"
     
 class EligibleDevice(models.Model):
-    token = models.UUIDField(default=uuid.uuid4, editable=False)
+    token = models.UUIDField(default=uuid.uuid4)
     name = models.CharField(max_length=140)
 
     def __str__(self) -> str:
@@ -273,13 +318,14 @@ class EligibleDevice(models.Model):
 def update_active_orders_cache():
     # Query for active orders
     active_orders = Order.objects.filter(
-        models.Q(kitchen_status=0) |
+        models.Q(start_time__lte=now()) &
+        (models.Q(kitchen_status=0) |
         models.Q(kitchen_status=1) |
         models.Q(bar_status=0) |
         models.Q(bar_status=1) |
         models.Q(gng_status=0) |
         models.Q(gng_status=1) |
-        models.Q(picked_up=False)
+        models.Q(picked_up=False))
     )
     # Serialize or prepare active orders for caching
     serialized_orders = [order.id for order in active_orders]  # Or serialize with necessary fields

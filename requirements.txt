@@ -16,3 +16,4 @@ pydub
 python-barcode
 sendgrid
 pywebpush
+whitenoise

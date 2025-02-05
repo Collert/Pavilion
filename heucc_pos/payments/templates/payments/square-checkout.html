@@ -198,6 +198,7 @@
               }
             } catch (e) {
               cardButton.disabled = false;
+              cardButton.innerHTML = "Pay ${{amount|div:100|floatformat:2}}";
               displayPaymentResults('FAILURE', e);
               console.error(e.message);
             }

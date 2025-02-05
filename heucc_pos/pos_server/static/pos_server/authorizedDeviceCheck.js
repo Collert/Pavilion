@@ -1,4 +1,4 @@
-const DEVICE_TOKEN = window.localStorage.getItem("deviceToken");
+const DEVICE_TOKEN = window.localStorage.getItem("deviceToken") || new URLSearchParams(window.location.search).get("device-token");
 const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
 if (!DEVICE_TOKEN) {

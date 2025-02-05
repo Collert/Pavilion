@@ -1,28 +1,36 @@
-const pollEverySecs = 10;
+const pollEverySecs = 11; // Put something that's not a factor of 10 to avoid race condition with auto actions. Needs to be fixed later.
 const pollEveryMilisecs = pollEverySecs * 1000;
 
-const pathSegments = new URL(window.location.href).pathname.split('/');
-const station = pathSegments[pathSegments.length-1];
-let prevOrderId;
-try {
-    let orders = $0.querySelectorAll(".order")
-    prevOrderId = parseInt(orders[orders.length-1].dataset.orderid)
-} catch {}
+const rejectOrderDialog = document.querySelector("#reject-reason")
+const orderManagementDialog = document.querySelector("#order-management")
+const preferencesDialog = document.querySelector("#filters-dialog")
 
 document.addEventListener("DOMContentLoaded", () => {
+    let prevOrderId;
+    try {
+        let orders = document.querySelectorAll(".order")
+        prevOrderId = parseInt(orders[orders.length-1].dataset.orderid)
+    } catch {}
     try {document.querySelector(".order").classList.add("selected");} catch (error) {}
 
-    // setTimeout(() => {
-    //     window.location.reload()
-    //     // Reload every 10 minutes to reset the nginx connection timeout
-    // }, 600000);
+    const params = new URLSearchParams(document.location.search);
+    let autoDoneTimeout = params.get("auto-done");
+    document.querySelector("#auto-done-input").value = autoDoneTimeout
+    if (autoDoneTimeout) {
+        autoDoneTimeout = parseInt(autoDoneTimeout) * 60000
+    }
+    let autoCollectTimeout = params.get("auto-collect");
+    document.querySelector("#auto-collect-input").value = autoCollectTimeout
+    if (autoCollectTimeout) {
+        autoCollectTimeout = parseInt(autoCollectTimeout) * 60000
+    }
     
-    const kitchenDiv = document.querySelector("#kitchen");
+    const mainDiv = document.querySelector("#markings");
     let cards = document.querySelectorAll(".order");
     cards = [...cards]
     let selectedIndex = cards.findIndex(element => element.classList.contains('selected'));
     // let isFirstLoad = true;
-    
+
     checkActiveOrders();
 
     let ordersState;
@@ -61,6 +69,35 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update the ordersState to match the newOrders
         ordersState = newOrders;
     }, pollEveryMilisecs);
+
+    if (autoDoneTimeout) {
+        setInterval(() => {
+            const now = new Date();
+            cards.forEach(card => {
+                if (card.dataset.progressState == 2) {
+                    console.log(card)
+                    const startTime = new Date(card.querySelector(".timestamp").getAttribute('data-last-interaction') || card.querySelector(".timestamp").getAttribute('data-timestamp'));
+                    if (now - startTime >= autoDoneTimeout) {
+                        markOrderDone(card.dataset.orderId);
+                    }
+                }
+            });
+        }, 60000);
+    }
+
+    if (autoCollectTimeout) {
+        setInterval(() => {
+            const now = new Date();
+            cards.forEach(card => {
+                if (card.dataset.progressState == 3) {
+                    const startTime = new Date(card.querySelector(".timestamp").getAttribute('data-last-interaction') || card.querySelector(".timestamp").getAttribute('data-timestamp'));
+                    if (now - startTime >= autoCollectTimeout) {
+                        markOrderDone(card.dataset.orderId);
+                    }
+                }
+            });
+        }, 60000);
+    }
     
     async function fetchOrders() {
         const data = await fetch(checkOrdersLink);
@@ -95,28 +132,25 @@ document.addEventListener("DOMContentLoaded", () => {
         //     prevOrderId = orderId;
         // }
         if (!cards.length) {
-            kitchenDiv.innerHTML = '';
+            mainDiv.innerHTML = '';
             selectedIndex = 0;
         }
         const newOrder = document.createElement("div");
         newOrder.className = `order ${!cards.length ? "selected" : ""}`;
         newOrder.dataset.orderId = orderId;
-        newOrder.dataset.done = false;
         newOrder.dataset.channel = data.channel;
         newOrder.dataset.paymentId = data.payment_id;
         newOrder.dataset.kitchenStatus = data.kitchen_status;
         newOrder.dataset.barStatus = data.bar_status;
         newOrder.dataset.gngStatus = data.gng_status;
-        newOrder.dataset.pendingHere = pendingApprovalSelf(data)
-        newOrder.dataset.pendingOthers = pendingApprovalOtherStations(data)
         let channel;
         if (data.channel == "store") {
-            channel = '<span class="material-symbols-outlined">storefront</span> In-person order'
+            channel = '<span class="material-symbols-outlined">storefront</span> In-person'
         } else if (data.channel == "web") {
-            channel = `<span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up order
+            channel = `<span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up
                         <span class="material-symbols-outlined">call</span> ${data.phone}`
         } else if (data.channel == "delivery") {
-            channel = `<span class="material-symbols-outlined">local_shipping</span> Delivery order
+            channel = `<span class="material-symbols-outlined">local_shipping</span> Delivery
                         <span class="material-symbols-outlined">call</span> ${data.phone}`
         }
         const progresses = document.createElement("div");
@@ -161,8 +195,8 @@ document.addEventListener("DOMContentLoaded", () => {
                                     <h2>${data.table ? data.table : "No name"}</h2>                                    
                                     <div class="name-time">
                                         <span>Order #${orderId}</span>
-                                        <span data-timestamp="${data.timestamp}" class="timestamp">
-                                            Prep time: <span>${data.timestamp}</span>
+                                        <span data-timestamp="${data.start_time}" class="timestamp">
+                                            Prep time: <span>${data.start_time}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -183,11 +217,11 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
         })
         attachSwipability(newOrder)
-        kitchenDiv.appendChild(newOrder)
+        mainDiv.appendChild(newOrder)
         trackTime(newOrder.querySelector(".timestamp"))
         const list = document.querySelector(`#order${data.order_id}ul`);
         for (const dish of data.dishes) {
-            if (filters.includes(dish.station) || data.channel !== "store") {
+            if (filters.includes(dish.station)) {
                 const item = document.createElement("li");
                 item.innerHTML = `${dish.quantity} X ${dish.name}`;
                 list.appendChild(item);
@@ -201,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderId = data.order_id;
         const existingOrder = document.querySelector(`[data-order-id="${orderId}"]`)
         try {
-            kitchenDiv.removeChild(existingOrder)
+            mainDiv.removeChild(existingOrder)
         } catch {}
         cards = document.querySelectorAll(".order");
         cards = [...cards]
@@ -213,35 +247,42 @@ document.addEventListener("DOMContentLoaded", () => {
         card.addEventListener("click", e => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
         })
+        updateColors(card)
     })
 
     document.querySelectorAll(".timestamp").forEach(node => trackTime(node))
 
-    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const csrfTokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    const csrftoken = csrfTokenInput ? csrfTokenInput.value : '';
     let freezeDeletion = false;
     const availabilityDialog = document.querySelector("#availability");
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowDown' || e.key == "2") {
-            updateSelection(selectedIndex + 1);
-        } else if (e.key === 'ArrowUp' || e.key === "8") {
-            updateSelection(selectedIndex - 1);
-        } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
-            if (filters.every(filter => ["1", "2", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]))) {
-                markOrderDone()
-            } else if (pendingApprovalSelf({
-                kitchen_status: parseInt(cards[selectedIndex].dataset.kitchenStatus),
-                bar_status: parseInt(cards[selectedIndex].dataset.barStatus),
-                gng_status: parseInt(cards[selectedIndex].dataset.gngStatus)
-            })) {
-                approveOrder(true)
+        if (!rejectOrderDialog.open && !preferencesDialog.open) { // Normal key bindings
+            if (e.key === 'ArrowDown' || e.key == "2") {
+                updateSelection(selectedIndex + 1);
+            } else if (e.key === 'ArrowUp' || e.key === "8") {
+                updateSelection(selectedIndex - 1);
+            } else if ((e.key === "Enter" || e.key === "5") && !freezeDeletion) {
+                if (filters.every(filter => ["1", "2", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]))) {
+                    markOrderDone(cards[selectedIndex].dataset.orderId)
+                } else if (pendingApprovalSelf(cards[selectedIndex])) {
+                    approveOrder(cards[selectedIndex].dataset.orderId, true)
+                }
+            } else if (e.key === "Backspace" || e.key === "Delete") {
+                rejectOrderDialog.showModal()
+            } else if (e.key === "1") {
+                if (availabilityDialog.open) {
+                    availabilityDialog.querySelector("iframe").contentWindow.postMessage('closeDialog', '*');
+                } else {
+                    availabilityDialog.showModal()
+                }
             }
-        } else if (e.key === "Backspace" || e.key === "Delete") {
-            approveOrder(false)
-        } else if (e.key === "1") {
-            if (availabilityDialog.open) {
-                availabilityDialog.querySelector("iframe").contentWindow.postMessage('closeDialog', '*');
-            } else {
-                availabilityDialog.showModal()
+        } else { // If the reject dialog is open
+            if (e.key >= "1" && e.key <= "9" && document.activeElement.name !== "reason-extra") {
+                const checkbox = rejectOrderDialog.querySelector(`input[type='checkbox'][data-key='${e.key}']`)
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked
+                }
             }
         }
     });
@@ -265,8 +306,26 @@ document.addEventListener("DOMContentLoaded", () => {
         return icons
     }
 
-    function approveOrder(approved) {
-        const orderId = cards[selectedIndex].dataset.orderId;
+    rejectOrderDialog.querySelector("form").addEventListener("submit", e => {
+        e.preventDefault();
+        const checkboxes = rejectOrderDialog.querySelectorAll("input[type='checkbox']");
+        const isChecked = [...checkboxes].some(checkbox => checkbox.checked);
+
+        if (!isChecked) {
+            alert("Please select at least one rejection reason.");
+            return
+        }
+        const rejection = {
+            reasons: [...document.querySelectorAll("#reject-reason input[type='checkbox']:checked")].map(checkbox => checkbox.value),
+            reasonExtra: document.querySelector("#reject-reason textarea").value
+        }
+        console.log(rejection)
+        approveOrder(cards[selectedIndex].dataset.orderId, false, rejection)
+        rejectOrderDialog.close()
+    })
+
+    function approveOrder(orderId, approved, rejection = undefined) {
+        console.log("approve order")
         fetch(window.location.href, {
             headers:{
                 "X-CSRFToken": csrftoken,
@@ -276,77 +335,95 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
                 orderId:orderId,
                 action: approved ? "approve" : "delete",
-                filters:filters
+                filters:filters,
+                rejection: rejection
             })
         })
         .then(response => response.json())
         .then(data => {
-            console.log(data.payment_id)
-            fetch(approveOrderLink, {
-                headers:{
-                    "X-CSRFToken": csrftoken,
-                    "Content-Type": "application/json"
-                },
-                method:data.action === "delete" ? 'DELETE' : 'POST',
-                body: JSON.stringify({
-                    payment_id:data.payment_id
+            console.log(data)
+            if (data.payment_id && data.all_approved) {
+                fetch(approveOrderLink, {
+                    headers:{
+                        "X-CSRFToken": csrftoken,
+                        "Content-Type": "application/json"
+                    },
+                    method:data.action === "delete" ? 'DELETE' : 'POST',
+                    body: JSON.stringify({
+                        payment_id:data.payment_id
+                    })
                 })
-            })
-            .then(response => {
-                if (response.ok) {
-                    if (data.action === "delete") {
-                        cards[selectedIndex].classList.add("disappear");
-                        setTimeout(() => {
-                            document.querySelector("#kitchen").removeChild(cards[selectedIndex])
-                            cards = document.querySelectorAll(".order");
-                            cards = [...cards]
-                            selectedIndex = 0;
-                            updateSelection(selectedIndex);
-                            freezeDeletion = false;
-                            checkActiveOrders();
-                        }, 400);
-                    } else if (data.action === "approve") {
-                        if (orderFilters.kitchen) {
-                            cards[selectedIndex].dataset.kitchenStatus = 1;
-                        }
-                        if (orderFilters.bar) {
-                            cards[selectedIndex].dataset.barStatus = 1;
-                        }
-                        if (orderFilters.gng) {
-                            cards[selectedIndex].dataset.gngStatus = 1;
-                        }
+                .then(response => {
+                    if (response.ok) {
+                        processOrderResponse(data);
                     }
-                }
-            })
+                })
+            } else {
+                processOrderResponse(data);
+            }
+            cards[selectedIndex].querySelector(".timestamp").setAttribute("data-last-interaction", new Date().toISOString())
         })
+
+        function processOrderResponse(data) {
+            if (data.action === "delete") {
+                cards[selectedIndex].classList.add("disappear");
+                setTimeout(() => {
+                    document.querySelector("#markings").removeChild(cards[selectedIndex]);
+                    cards = document.querySelectorAll(".order");
+                    cards = [...cards];
+                    selectedIndex = 0;
+                    updateSelection(selectedIndex);
+                    freezeDeletion = false;
+                    checkActiveOrders();
+                }, 400);
+            } else if (data.action === "approve") {
+                filters.forEach(filter => {cards[selectedIndex].dataset[`${filter}Status`] = 1})
+                // if (orderFilters.kitchen) {
+                //     cards[selectedIndex].dataset["kitchenStatus"] = 1;
+                // }
+                // if (orderFilters.bar) {
+                //     cards[selectedIndex].dataset["barStatus"] = 1;
+                // }
+                // if (orderFilters.gng) {
+                //     cards[selectedIndex].dataset["gngStatus"] = 1;
+                // }
+            }
+            checkActiveOrders()
+            updateColors(cards[selectedIndex])
+        }
     }
 
     function updateColors(card) {
+        let progressState;
         if (filters.every(filter => ["2", "4"].includes(card.dataset[`${filter}Status`]))) {
-            card.classList.add("success")
-        } else {
-            card.classList.remove("success")
+            progressState = 3;
+            // card.classList.add("success")
+        } else if (pendingApprovalSelf(card)) {
+            progressState = 0;
+        } else if (pendingApprovalOtherStations(card)) {
+            progressState = 1;
+        } else if (filters.some(filter => ["1"].includes(card.dataset[`${filter}Status`]))) {
+            progressState = 2;
         }
-        const order = {
-            kitchen_status: parseInt(card.dataset.kitchenStatus),
-            bar_status: parseInt(card.dataset.barStatus),
-            gng_status: parseInt(card.dataset.gngStatus)
-        }
-        card.dataset.pendingHere = pendingApprovalSelf(order)
-        card.dataset.pendingOthers = pendingApprovalOtherStations(order)
+        card.dataset.progressState = progressState;
+        // const order = {
+        //     kitchen_status: parseInt(card.dataset.kitchenStatus),
+        //     bar_status: parseInt(card.dataset.barStatus),
+        //     gng_status: parseInt(card.dataset.gngStatus)
+        // }
+        // card.dataset.pendingHere = pendingApprovalSelf(order)
+        // card.dataset.pendingOthers = pendingApprovalOtherStations(order)
     }
 
-    function pendingApprovalSelf(order) {
-        // Map the station status fields in the order object
-        const stationStatusFields = {
-            kitchen: order.kitchen_status,
-            bar: order.bar_status,
-            gng: order.gng_status
-        };
+    function pendingApprovalSelf(card) {
+        const stationStatusFields = {};
+        stations.forEach(station => {
+            stationStatusFields[station] = card.dataset[`${station}Status`];
+        });
     
         // Check stations covered by filters
         for (const [station, status] of Object.entries(stationStatusFields)) {
-            if (filters.includes(station) && status === 0) { // Pending approval
+            if (filters.includes(station) && status == 0) { // Pending approval
                 return true;
             }
         }
@@ -354,17 +431,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    function pendingApprovalOtherStations(order) {
-        // Map the station status fields in the order object
-        const stationStatusFields = {
-            kitchen: order.kitchen_status,
-            bar: order.bar_status,
-            gng: order.gng_status
-        };
+    function pendingApprovalOtherStations(card) {
+        const stationStatusFields = {};
+        stations.forEach(station => {
+            stationStatusFields[station] = card.dataset[`${station}Status`];
+        });
     
         // Check stations not covered by filters
         for (const [station, status] of Object.entries(stationStatusFields)) {
-            if (!filters.includes(station) && status === 0) { // Pending approval
+            if (!filters.includes(station) && status == 0) { // Pending approval
                 return true;
             }
         }
@@ -372,10 +447,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    function markOrderDone() {
-        const orderId = cards[selectedIndex].dataset.orderId;
-        const orderDone = ["kitchen", "bar", "gng"].every(filter => ["2", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]));
-        if (orderDone && cards[selectedIndex].dataset.channel === "delivery") {return}
+    function markOrderDone(orderId) {
+        const card = cards.find(card => card.dataset.orderId == orderId);
+        const orderDone = stations.every(filter => ["2", "4"].includes(card.dataset[`${filter}Status`]));
+        if (orderDone && card.dataset.channel === "delivery") {return}
         freezeDeletion = true;
         if (orderDone) {
             fetch(window.location.href, {
@@ -389,9 +464,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             }).then(response => {
                 if (response.ok) {
-                    cards[selectedIndex].classList.add("disappear");
+                    card.classList.add("disappear");
                     setTimeout(() => {
-                        document.querySelector("#kitchen").removeChild(cards[selectedIndex])
+                        document.querySelector("#markings").removeChild(card)
                         cards = document.querySelectorAll(".order");
                         cards = [...cards]
                         selectedIndex = 0;
@@ -402,13 +477,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             })
         } else if (
-            !pendingApprovalSelf({
-            kitchen_status: parseInt(cards[selectedIndex].dataset.kitchenStatus),
-            bar_status: parseInt(cards[selectedIndex].dataset.barStatus),
-            gng_status: parseInt(cards[selectedIndex].dataset.gngStatus)
-            })
+            !pendingApprovalSelf(card)
             &&
-            filters.every(filter => ["1", "4"].includes(cards[selectedIndex].dataset[`${filter}Status`]))
+            filters.every(filter => ["1", "4"].includes(card.dataset[`${filter}Status`]))
+            &&
+            !pendingApprovalOtherStations(card)
         ) {
             fetch(window.location.href, {
                 headers:{
@@ -422,19 +495,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             }).then(response => {
                 if (response.ok) {
-                    filters.forEach(filter => {cards[selectedIndex].dataset[`${filter}Status`] = 2})
+                    filters.forEach(filter => {card.dataset[`${filter}Status`] = 2})
                     setTimeout(() => {
                         freezeDeletion = false;
                     }, 400);
+                    updateColors(card)
                 }
             })
         } else {
-            const icons = shakeOthers(cards[selectedIndex])
+            const icons = shakeOthers(card)
             setTimeout(() => {
                 freezeDeletion = false;
                 icons.forEach(icon => {icon.classList.remove("shake")})
             }, 2000);
         }
+        card.querySelector(".timestamp").setAttribute("data-last-interaction", new Date().toISOString())
     }
 
     function updateSelection(newIndex) {
@@ -468,23 +543,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     function checkActiveOrders() {
-        if (!kitchenDiv.querySelector(".order") && !kitchenDiv.querySelector("h1")) {
+        if (!mainDiv.querySelector(".order") && !mainDiv.querySelector("h1")) {
             const noOrderSign = document.createElement("h1");
             noOrderSign.textContent = "No new orders";
             noOrderSign.style = "text-align: center;"
-            kitchenDiv.appendChild(noOrderSign);
+            mainDiv.appendChild(noOrderSign);
         }
-    }
-
-    function checkRightDishes(dishes) {
-        let hasRightDishes = false;
-        for (const dish of dishes) {
-            if (dish.station === station) {
-                hasRightDishes = true
-                break
-            }
-        }
-        return hasRightDishes;
     }
 
     // Functions to swipe away orders
@@ -497,6 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         function handleStart(e) {
             if (card.classList.contains('selected')) {
                 startX = e.touches ? e.touches[0].clientX : e.clientX;
+                card.style.transition = 'none'; // Disable transition during swipe
             }
         }
     
@@ -505,42 +570,80 @@ document.addEventListener("DOMContentLoaded", () => {
                 const currentX = e.touches ? e.touches[0].clientX : e.clientX;
                 const deltaX = currentX - startX;
         
-                // Add your logic to move the element on the screen
-                card.style.transform = `translateX(${deltaX}px)`;
+                // Move the element on the screen, but limit it to half the screen width
+                const maxDeltaX = window.innerWidth / 2;
+                card.style.transform = `translateX(${Math.max(-maxDeltaX, Math.min(deltaX, maxDeltaX))}px)`;
             }
         }
 
         function handleEnd() {
             if (card.classList.contains('selected')) {
-                const screenWidth = window.innerWidth;
-                const threshold = screenWidth * 0.5;
-                const deltaX = parseInt(card.style.transform.replace('translateX(', '').replace('px)', ''), 10);
-    
-                if (Math.abs(deltaX) > threshold) {
-                    card.style.transition = 'transform 0.5s ease-in-out';
-                    card.style.transform = `translateX(${deltaX > 0 ? screenWidth : -screenWidth}px)`;
-                    setTimeout(() => {
-                        // card.style.display = 'none';
-                        markOrderDone()
-                    }, 500);
-                } else {
-                    card.style.transition = 'transform 0.5s ease-in-out';
-                    card.style.transform = 'translateX(0px)';
+                const currentX = parseFloat(card.style.transform.replace('translateX(', '').replace('px)', ''));
+                const maxDeltaX = window.innerWidth / 2;
+                if (Math.abs(currentX) > maxDeltaX / 2) {
+                    openOrderManagement();
                 }
+                card.style.transition = 'transform 0.5s ease-in-out';
+                card.style.transform = 'translateX(0px)'; // Bring it back to its original position
             }
         }
 
-        // I don't think the mouse ones are needed but they are here just in case
-
         card.addEventListener('touchstart', handleStart);
-        // card.addEventListener('mousedown', handleStart);
-
         card.addEventListener('touchmove', handleMove);
-        // card.addEventListener('mousemove', handleMove);
-
         card.addEventListener('touchend', handleEnd);
-        // card.addEventListener('mouseup', handleEnd);
+    }
 
+    const orderManagementApproveButton = document.querySelector("#approve-order-button")
+    const orderManagementRejectButton = document.querySelector("#reject-order-button")
+    const orderManagementDoneButton = document.querySelector("#mark-order-done-button")
+    const orderManagementCollectedButton = document.querySelector("#mark-order-collected-button")
+
+    orderManagementApproveButton.addEventListener("click", () => {
+        approveOrder(cards[selectedIndex].dataset.orderId, true)
+    })
+
+    orderManagementRejectButton.addEventListener("click", () => {
+        rejectOrderDialog.showModal()
+    })
+
+    orderManagementDoneButton.addEventListener("click", () => {
+        markOrderDone(cards[selectedIndex].dataset.orderId)
+    })
+
+    orderManagementCollectedButton.addEventListener("click", () => {
+        markOrderDone(cards[selectedIndex].dataset.orderId)
+    })
+
+    orderManagementDialog.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+            orderManagementDialog.close()
+        })
+    })
+
+    function openOrderManagement() {
+        const state = parseInt(cards[selectedIndex].dataset.progressState);
+        if (state === 0) {
+            orderManagementApproveButton.disabled = false;
+            orderManagementRejectButton.disabled = false;
+            orderManagementDoneButton.disabled = true;
+            orderManagementCollectedButton.disabled = true;
+        } else if (state === 1) {
+            orderManagementApproveButton.disabled = true;
+            orderManagementRejectButton.disabled = true;
+            orderManagementDoneButton.disabled = true;
+            orderManagementCollectedButton.disabled = true;
+        } else if (state === 2) {
+            orderManagementApproveButton.disabled = true;
+            orderManagementRejectButton.disabled = true;
+            orderManagementDoneButton.disabled = false;
+            orderManagementCollectedButton.disabled = true;
+        } else if (state === 3) {
+            orderManagementApproveButton.disabled = true;
+            orderManagementRejectButton.disabled = true;
+            orderManagementDoneButton.disabled = true;
+            orderManagementCollectedButton.disabled = false;
+        }
+        orderManagementDialog.showModal();
     }
 })
 

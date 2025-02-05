@@ -128,7 +128,9 @@ export async function lookupGiftCard(number, cardDialog) {
         document.querySelector("#found-card-balance").textContent = giftCard.availableBalance
         document.querySelector("#card-charge-amount-inp").max = giftCard.availableBalance
         document.querySelector("dialog[open]").close()
-        document.querySelector("#return-active-gift-card").style.display = "block"
+        try {
+            document.querySelector("#return-active-gift-card").style.display = "block"
+        } catch {}
         cardDialog.showModal()
         return giftCard
     } else {
@@ -190,6 +192,7 @@ export class Cart {
         this.discounts = existingInstance?.discounts ? { ...existingInstance.discounts } : { percent: 0, amount: 0 };
         this.total = existingInstance?.total ?? 0;
         this.partialPayments = existingInstance?.partialPayments ? [...existingInstance.partialPayments] : [];
+        this.lastUpdate = Date.now()
     }
     
     get remainingTotalNum() {
@@ -209,7 +212,7 @@ export class Cart {
             this.total += item.fields.price;
         }
     }
-    removeItem(item, context) {
+    removeItem(item, context = {children:null, parent:null}) {
         const {children, parent} = context
         if (children?.length) {
             this.items.splice(this.items.findIndex(i => (i.pk === item.pk && arraysAreEqual(children, i.children))), 1);
@@ -246,11 +249,19 @@ export class Cart {
     }
     addPayment(payment) {
         this.partialPayments.push(payment)
-        updateCheckoutButton(this)
+        try {
+            updateCheckoutButton(this)
+        } catch {} // No errors in online store
     }
     resetPayments() {
         this.partialPayments = []
         updateCheckoutButton(this)
+    }
+    get stringifySelf() {
+        return JSON.stringify(this)
+    }
+    renewLastUpdate() {
+        this.lastUpdate = Date.now()
     }
 }
 
