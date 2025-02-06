@@ -66,7 +66,7 @@ def get_card(request):
                 for file_name in os.listdir(folder_path):
                     if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
                         # Construct the URL
-                        image_url = f"/heucc_pos/files/gift-cards/{subfolder}/{file_name}"
+                        image_url = f"/files/gift-cards/{subfolder}/{file_name}"
                         image_urls.append(image_url)
         return render(request, "gift_cards/get-card.html", {
             "route":"get_card",

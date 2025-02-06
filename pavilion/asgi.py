@@ -1,5 +1,5 @@
 """
-ASGI config for heucc_pos project.
+ASGI config for pavilion project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'heucc_pos.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pavilion.settings')
 
 application = get_asgi_application()
