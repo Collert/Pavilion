@@ -14,7 +14,7 @@ REM Write Python code to a file that only modifies ALLOWED_HOSTS
 echo import os > temp_script.py
 echo import re >> temp_script.py
 echo. >> temp_script.py
-echo file_path = os.path.join(os.path.dirname(__file__), 'heucc_pos', 'settings.py') >> temp_script.py
+echo file_path = os.path.join(os.path.dirname(__file__), 'pavilion', 'settings.py') >> temp_script.py
 echo. >> temp_script.py
 echo with open(file_path, 'r') as f: >> temp_script.py
 echo     lines = f.readlines() >> temp_script.py

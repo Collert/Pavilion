@@ -5,7 +5,7 @@
 {% for offer in offers %}
 <div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
     <div>
-        <img src="/heucc_pos/{{offer.image}}" alt="">
+        <img src="/{{offer.image}}" alt="">
     </div>
     <div style="background-color: var(--bg);">
         <h1 style="color: var(--contrast);" class="offer-title">{{offer.title}}</h1>
@@ -17,7 +17,7 @@
 {% for offer in offers %}
 <div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
     <div>
-        <img src="/heucc_pos/{{offer.image}}" alt="">
+        <img src="/{{offer.image}}" alt="">
     </div>
     <div style="background-color: var(--bg);">
         <h1 style="color: var(--contrast);" class="offer-title">{{offer.title}}</h1>

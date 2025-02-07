@@ -343,8 +343,8 @@
     </dialog>
     <script type="module" src="{% static 'pos_server/componentChoices.js' %}"></script>
     <script type="module">
-        import { componentChoices } from "/heucc_pos/pos_server/static/pos_server/componentChoices.js"
-        import { Cart, GiftCardPayment, lookupGiftCard } from "/heucc_pos/pos_server/static/pos_server/pos-utils.js"
+        import { componentChoices } from "/pos_server/static/pos_server/componentChoices.js"
+        import { Cart, GiftCardPayment, lookupGiftCard } from "/pos_server/static/pos_server/pos-utils.js"
 
         const CartDB = {
             save: (cart) => saveCartToIndexedDB(cart),

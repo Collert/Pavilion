@@ -10,7 +10,7 @@
 <div class="cards-container">
     {% for card in cards %}
         <div data-card-id="{{card.id}}" class="card">
-            <img src="/heucc_pos/{{card.image}}" alt="" class="card-img">
+            <img src="/pavilion/{{card.image}}" alt="" class="card-img">
             <div class="card-info">
                 <span class="card-title">{{card.name}}</span>
                 <span class="card-price">${{card.amount}}</span>
@@ -55,7 +55,7 @@
 <dialog id="dialog-{{card.id}}">
     <form>
         <div class="dialog-body">
-            <img src="/heucc_pos/{{card.image}}" alt="" class="card-img">
+            <img src="/pavilion/{{card.image}}" alt="" class="card-img">
             <h3>{{card.name}}</h3>
             <h4>${{card.amount}}</h4>
             <p>This gift card comes pre-loaded with ${{card.amount}}. You can choose to email this card to someone by selecting the option on the bottom. The card is not refundable, cannot be exchanged for cash or cannot be used for cashback. After the purchase, <strong>do not</strong> publish the link to the card anywhere. Only give the link to people that will be using the card.</p>

@@ -123,7 +123,7 @@ export async function lookupGiftCard(number, cardDialog) {
         }
         console.log(data)
         const giftCard = new GiftCard(data.number, data.available_balance, data.email, data.image)
-        document.querySelector("#found-card-image").src = "/heucc_pos" + giftCard.image
+        document.querySelector("#found-card-image").src = giftCard.image
         document.querySelector("#found-card-number").textContent = giftCard.number
         document.querySelector("#found-card-balance").textContent = giftCard.availableBalance
         document.querySelector("#card-charge-amount-inp").max = giftCard.availableBalance
