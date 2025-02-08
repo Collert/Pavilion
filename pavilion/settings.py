@@ -249,7 +249,6 @@ STATIC_ROOT = '/home/collert/POS/static/'
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'payments/static/'),
-    os.path.join(BASE_DIR, 'static'),
 ]
 
 # Default primary key field type
