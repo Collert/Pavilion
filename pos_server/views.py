@@ -354,7 +354,7 @@ def pos(request):
             if payment["type"] == "gift":
                 if GiftCard.objects.get(number=payment["number"]).available_balance < payment["amount"]:
                     return JsonResponse({
-                            "message":f"Card x{payment["number"][-4:]} no longer has a sufficient balance to charge ${payment["amount"]}",
+                            "message":f"Card x{payment['number'][-4:]} no longer has a sufficient balance to charge ${payment['amount']}",
                             "status":402
                         }, status=402)
         return square.terminal_checkout(request)
