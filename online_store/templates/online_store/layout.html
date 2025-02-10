@@ -415,6 +415,15 @@
             giftCardInput.value = ""
         })
 
+        // Adds an event listener to the element with the ID "card-charge-max" that triggers when the element is clicked.
+        // The event listener performs the following actions:
+        // 1. Calculates the amount to be charged, which is the minimum of the remaining total in the cart and the available balance on the active gift card.
+        // 2. Adds a new payment to the cart using the gift card number and the calculated amount.
+        // 3. Deducts the charged amount from the available balance of the active gift card.
+        // 4. Updates the displayed balance of the gift card.
+        // 5. Calls the updateCart() function to refresh the cart's state.
+        // 6. Closes any open dialog.
+        // 7. Displays an alert indicating the amount redeemed.
         document.querySelector("#card-charge-max").addEventListener("click", async e => {
             const amount = Math.min(cart.remainingTotalNum, activeGiftCard.availableBalance)
             cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount))
@@ -425,10 +434,18 @@
             alert(`Redeemed $${amount}`)
         })
 
+        // This script selects all elements with the class "history-button" and appends a query parameter to their href attribute.
+        // The query parameter "orders" is set to the value of the "orders" item stored in the browser's local storage, encoded for URL compatibility.
         document.querySelectorAll(".history-button").forEach(element => {
             element.href += `?orders=${encodeURIComponent(window.localStorage.getItem("orders"))}`
         })
 
+        // This script selects all input elements of type 'time' within the finalizeDialog element and updates their 'min' attribute to be either the current time or the time specified in the 'min' attribute, whichever is later.
+        // For each time input element, it performs the following actions:
+        // 1. Splits the 'min' attribute value (in the format 'HH:MM') into hours and minutes.
+        // 2. Creates a Date object using the current year, month, date, and the extracted hours and minutes.
+        // 3. Compares the created Date object with the current date and time (now).
+        // 4. If the created Date object is earlier than the current date and time, it updates the 'min' attribute of the input element to the current time.
         const timeInputs = finalizeDialog.querySelectorAll("input[type='time']");
         timeInputs.forEach(element => {
             // Crazy aah constructor, all because of timezones grr
@@ -439,6 +456,17 @@
             }
         })
 
+        // This script adds event listeners to elements with the class 'deliveryPickupToggles'.
+        // When the value of these elements changes, it updates the class name of the 'finalizeMenu' element
+        // based on the selected value ("delivery" or "pick-up").
+        
+        // If the selected value is "delivery":
+        // - It sets the 'required' attribute to true for all elements with the class 'delivery-item' and a 'data-required' attribute set to "true".
+        // - It sets the 'required' attribute to false for all elements with the class 'pick-up-item' and a 'data-required' attribute set to "true".
+        
+        // If the selected value is "pick-up":
+        // - It sets the 'required' attribute to false for all elements with the class 'delivery-item' and a 'data-required' attribute set to "true".
+        // - It sets the 'required' attribute to true for all elements with the class 'pick-up-item' and a 'data-required' attribute set to "true".
         deliveryPickupToggles.forEach(toggle => {
             toggle.addEventListener("change", e => {
                 finalizeMenu.className = e.currentTarget.value
@@ -462,6 +490,16 @@
             })
         })
 
+        // Function: getDish
+        // Description: Retrieves a dish object by its ID from the HTML document.
+        // Parameters:
+        //     id (string): The ID of the dish to retrieve.
+        // Returns:
+        //     Object: The dish object corresponding to the provided ID.
+        // Details:
+        //     - The function searches for an element with the class 'dish-json' and the specified data-id attribute.
+        //     - If such an element is found, its innerHTML is parsed as JSON and the first element of the resulting array is returned.
+        //     - If no such element is found, the innerHTML of the element with the ID 'item-json' is parsed as JSON and the first element of the resulting array is returned.
         function getDish(id) {
             return JSON.parse(
                     document.querySelector(`.dish-json[data-id="${id}"]`)
@@ -472,6 +510,10 @@
                 )[0];
         }
 
+        // This script adds event listeners to all elements with the class "add-to-cart".
+        // When an "add-to-cart" button is clicked, it retrieves the dish data using the 
+        // `getDish` function, processes the cart item, and adds it to the cart. 
+        // Finally, it updates the cart display.
         document.querySelectorAll(".add-to-cart").forEach(but => {
             but.addEventListener("click", e => {
                 const dishData = getDish(
@@ -484,6 +526,9 @@
             })
         })
         
+        // This script listens for messages on the choicesChannel. 
+        // When a message is received, it processes the cart item based on the dish ID and choices provided in the message data. 
+        // The processed items are then added to the cart, and the cart is updated. Finally, the choices dialog component is closed.
         choicesChannel.addEventListener("message", e => {
             const newItems = processCartItem(getDish(parseInt(e.data.dishId)), e.data.choices)
             newItems.forEach(item => {
@@ -492,7 +537,15 @@
             updateCart();
             document.querySelector("#component-choices-dialog").close()
         })
+        
+        // Processes a cart item by handling its customizations and choices, and returns a list of processed items.
 
+        // Details:
+        // - If the dish has choice components and choices are provided, it processes each choice recursively.
+        // - If the dish has choice components but no choices are provided, it calls `componentChoices` to handle the choices.
+        // - If the dish is a child of another dish, it sets the parent and determines if the parent is an "only choices" dish.
+        // - Adds a `noPayment` flag to the dish if it is a child and the parent is an "only choices" dish.
+        // - Constructs a customizations string from the choices and adds it to the dish data.
         function processCartItem(dishData, choices = {}, parent = undefined) {
             let customizationsString = ""
             let parentOnlyChoiceDish = false;
@@ -535,6 +588,15 @@
         const longDeliveryBadge = document.querySelector("#long-delivery");
         const tooLongDeliveryBadge = document.querySelector("#too-long-delivery");
 
+        // This script adds an event listener to each element in the deliveryAddressFields array.
+        // When a field loses focus (blur event), it checks if all fields are filled.
+        // If any field is empty, it exits the function.
+        // If all fields are filled, it enables the finalizeCheckoutBtn and hides all badges.
+        // It then constructs a destination string from the field values and calls the checkETA function to get the estimated time of arrival (ETA).
+        // If the response status is 404, it shows the noCourBadge and disables the finalizeCheckoutBtn.
+        // If the ETA is between 30 and 45 minutes, it shows the longDeliveryBadge.
+        // If the ETA is 45 minutes or more, it shows the tooLongDeliveryBadge and disables the finalizeCheckoutBtn.
+        // It updates the deliveryEta element with the ETA text and makes its parent element visible.
         deliveryAddressFields.forEach(element => {
             element.addEventListener("blur", async e => {
                 for (const field of deliveryAddressFields) {
@@ -571,6 +633,10 @@
             })
         });
         
+        // Function: updateCartCount
+        // Description: Updates the cart count display based on the number of items in the cart that require payment.
+        // - If there are items that require payment, the cart count elements are shown and updated with the number of such items.
+        // - If there are no items that require payment, the cart count elements are hidden.
         function updateCartCount() {
             const freeItems = cart.items.reduce((accumulator, value) => value.noPayment ? accumulator + 1 : accumulator, 0)
             const actualLength = cart.items.length - freeItems
@@ -590,6 +656,20 @@
 
         let cartUpdateAllowed = true;
 
+        // Function: updateCartItems
+        // Description: Updates the cart items displayed in the cart by clearing the current items and re-adding them from the cart object. 
+        //              It also handles the removal of items and their children from the cart, updates the cart string, and manages the 
+        //              display of item customizations and images.
+        // Side Effects: 
+        //     - Modifies the innerHTML of the cartItems element.
+        //     - Adds event listeners to the remove buttons of each cart item.
+        //     - Updates the value of the #cart-string element with the JSON stringified cart object.
+        // Dependencies: 
+        //     - cart: An object representing the shopping cart.
+        //     - cartItems: A DOM element where the cart items are displayed.
+        //     - cartItemTemplate: A DOM element template used to clone new cart items.
+        //     - cartUpdateAllowed: A boolean flag to control the update process.
+        //     - updateCart: A function to update the cart display.
         function updateCartItems() {
             cartItems.innerHTML = "";
             cart.items.forEach((item, index) => {
@@ -646,6 +726,14 @@
             updateCart();
         }
 
+        // Function: updateCart
+        // Description: This asynchronous function updates the cart's state and UI elements based on the current items in the cart.
+        // - Updates the cart count and items displayed.
+        // - Enables or disables the checkout button based on whether the cart has items.
+        // - Toggles the display of the finalize checkout button and submit order button based on the remaining total number in the cart.
+        // - Sets the transaction amount input value to the cart's remaining total number.
+        // - Updates the inner HTML of elements displaying the cart subtotal.
+        // - Saves the cart state to the CartDB.
         async function updateCart() {
             // window.sessionStorage.setItem("cart", cart.stringifySelf);
             updateCartCount();
@@ -671,6 +759,19 @@
             // registerResetSync();
         }
 
+        // This script adds event listeners to the finalizeCheckoutBtn and submitOrderBtn buttons. 
+        // When either button is clicked, the following actions are performed:
+
+        // 1. If there are partial payments in the cart:
+        //     a. Validate all required form fields. If any required field is empty, trigger a form submission to highlight errors and exit.
+        //     b. Disable the clicked button, add a loading class, and change its inner HTML to indicate that gift cards are being checked.
+        //     c. Fetch the available balance for each gift card in the cart.
+        //     d. Check if any gift card's available balance is less than the amount in the cart. If so, remove the card from the cart and store its last four digits.
+        //     e. Update the cart.
+        //     f. If any gift cards were removed due to insufficient balance, alert the user, re-enable the button, remove the loading class, restore the button's original text, and close any open dialog.
+        //     g. If the remaining total in the cart is zero, submit the form, reset the cart, and exit.
+
+        // 2. If there are no partial payments or after handling partial payments, trigger a form submission to handle validation and submission.
         [finalizeCheckoutBtn, submitOrderBtn].forEach(button => {
             button.addEventListener("click", async e => {
                 if (cart.partialPayments.length) {
@@ -742,6 +843,21 @@
             }
         }
 
+        // Function: saveCartToIndexedDB
+
+        // Description:
+        // This function saves the provided cart data to the IndexedDB database named 'CartDB'. 
+        // If the database or the 'cart' object store does not exist, they are created.
+
+        // Parameters:
+        // - cart (Object): The cart data to be saved in the IndexedDB.
+
+        // IndexedDB Operations:
+        // - Opens the 'CartDB' database with version 1.
+        // - If the database upgrade is needed (i.e., the database is being created for the first time or a new version is specified), 
+        //   it creates an object store named 'cart' with 'id' as the keyPath.
+        // - On successful opening of the database, it starts a readwrite transaction on the 'cart' object store and 
+        //   stores the provided cart data with 'currentCart' as the key.
         function saveCartToIndexedDB(cart) {
             const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)
 
@@ -761,6 +877,28 @@
             };
         }
 
+        // Function: getCartFromIndexedDB
+
+        // Description:
+        // This function retrieves the current cart data from an IndexedDB database named 'CartDB'. 
+        // It returns a Promise that resolves with the cart data or null if the data is not found or an error occurs.
+
+        // Usage:
+        // getCartFromIndexedDB().then(cartData => {
+        //     // Use the cart data
+        // }).catch(error => {
+        //     // Handle any errors
+        // });
+
+        // IndexedDB Structure:
+        // - Database: CartDB (version 1)
+        // - Object Store: cart (keyPath: 'id')
+
+        // Returns:
+        // - Promise: Resolves with the cart data or null if not found or an error occurs.
+
+        // Error Handling:
+        // - Logs an error message to the console if the database fails to open or if the cart data retrieval fails.
         function getCartFromIndexedDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)

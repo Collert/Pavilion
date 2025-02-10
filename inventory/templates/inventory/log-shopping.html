@@ -62,6 +62,8 @@
 
     document.querySelector(".item select.item-title").addEventListener("change", e => {changeUOM(e)})
 
+    // This function updates the unit of measurement (UOM) displayed for an ingredient in a shopping list.
+    // It is triggered by an event, typically a change event on a dropdown or input field.
     function changeUOM(event) {
         const element = event.currentTarget.parentNode.parentNode;
         const elementId = parseInt(element.id.slice(5));

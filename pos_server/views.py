@@ -37,12 +37,27 @@ file_dir = os.path.dirname(os.path.abspath(__file__))
 config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
 config.read(os.path.join(file_dir, 'config.cfg'))
 
-# Create your views here.
-
 def index(request):
     return HttpResponseRedirect(reverse("pos"))
 
 def login_view(request):
+    """
+    Handle the login view for the POS server.
+
+    This view supports both GET and POST requests:
+    - GET: Renders the login page.
+    - POST: Authenticates the user and logs them in if credentials are valid.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The HTTP response object. If the request method is GET, 
+                      it returns the login page. If the request method is POST 
+                      and authentication is successful, it redirects to the 
+                      next URL or the main POS page. If authentication fails, 
+                      it re-renders the login page with a failure message.
+    """
     if request.method == "GET":
         return render(request, "pos_server/login.html", {
             "route":"login"
@@ -65,12 +80,39 @@ def login_view(request):
 
 @login_required
 def logout_view(request):
+    """
+    Logs out the user and redirects to the login view.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponseRedirect: A redirect to the login view.
+    """
     logout(request)
     return redirect(reverse("login_view"))
 
 # @local_network_only
 @login_required
 def order_marking(request):
+    """
+    Handles order marking operations based on the HTTP request method.
+    GET:
+        Fetches and filters orders based on the provided filters and current date.
+        Renders the 'order-marking' template with the filtered orders and filters.
+    DELETE:
+        Marks an order as picked up based on the provided order ID.
+    PUT:
+        Marks an order as completed based on the provided order ID and filters.
+    POST:
+        Approves or rejects an order based on the provided order ID, action, and filters.
+        If approved, updates the order status for the specified stations.
+        If rejected, creates a RejectedOrder entry and deletes the order.
+    Args:
+        request (HttpRequest): The HTTP request object containing method, body, and GET parameters.
+    Returns:
+        HttpResponse: The response object with the appropriate status and data based on the request method.
+    """
     if request.method == "GET":
         today = timezone.localdate()
         stations = ["kitchen", "bar", "gng"]
@@ -180,6 +222,19 @@ def order_marking(request):
     
 @login_required
 def menu_select(request):
+    """
+    Handles the selection of a menu via a POST request.
+
+    This view function processes a POST request to change the active menu.
+    It deactivates the currently active menu and activates the menu specified
+    in the POST request.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing metadata about the request.
+
+    Returns:
+        HttpResponseRedirect: A redirect response to the "pos" view.
+    """
     if request.method == "POST":
         cur_menu = Menu.objects.get(is_active = True)
         cur_menu.is_active = False
@@ -191,6 +246,28 @@ def menu_select(request):
 
 @login_required
 def device_elig(request):
+    """
+    Handle device eligibility requests.
+
+    This view handles three types of HTTP requests: PUT, GET, and POST.
+
+    - PUT: Checks if the device token provided in the request body is eligible.
+      Returns a JSON response with status "device ok" if the device is recognized,
+      otherwise returns a 403 Forbidden response.
+
+    - GET: Renders the ineligible device page with a login route and unauthorized status.
+
+    - POST: Authenticates the user with provided username and password. If the user is a superuser,
+      creates a new eligible device and redirects to the next URL if provided, otherwise renders
+      the ineligible device page with the new device's UUID and authorized status. If authentication
+      fails, renders the ineligible device page with a failed login status.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The HTTP response object.
+    """
     if request.method == "PUT":
         try:
             EligibleDevice.objects.filter(token=json.loads(request.body)["token"])
@@ -227,6 +304,25 @@ def device_elig(request):
 # @local_network_only
 @login_required
 def pos(request):
+    """
+    Handles POS (Point of Sale) operations for GET, POST, and PUT requests.
+    GET:
+    - Retrieves the active menu and groups dishes by station.
+    - Renders the order page with the menu and other relevant data.
+    POST:
+    - Processes an order from the cart.
+    - Handles partial payments, including gift card charges.
+    - Creates a new order with special instructions and dish quantities.
+    - Updates inventory and order statuses based on dish components.
+    PUT:
+    - Validates partial payments, including gift card balances.
+    - Initiates a terminal checkout process.
+    Args:
+        request (HttpRequest): The HTTP request object.
+    Returns:
+        HttpResponse: The rendered order page for GET requests.
+        JsonResponse: A JSON response indicating the result of POST and PUT requests.
+    """
     if request.method == "GET":
         menu = Menu.objects.filter(is_active=True).first()
         
@@ -360,7 +456,15 @@ def pos(request):
         return square.terminal_checkout(request)
 
 def check_if_only_choice_dish(dish:Dish):
-    """Checks whether the dish only consists of components that point to other dishes"""
+    """
+    Checks whether the dish only consists of components that point to other dishes.
+
+    Args:
+        dish (Dish): The dish to check.
+
+    Returns:
+        bool: True if all components of the dish point to other dishes, False otherwise.
+    """
     if not dish.components.all():
         return False
     for component in dish.components.all():
@@ -369,6 +473,23 @@ def check_if_only_choice_dish(dish:Dish):
     return True
 
 def component_choice(request):
+    """
+    Handles the selection of components for a given dish.
+
+    This view function retrieves the dish ID from the request's GET parameters,
+    fetches the corresponding dish from the database, and constructs a list of
+    choice components. Each choice component includes the parent component and
+    its child dishes, along with their titles, IDs, stock status, and forced stock status.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing GET parameters.
+
+    Returns:
+        HttpResponse: Renders the 'component-choice.html' template with the choice components
+                      if a valid dish ID is provided.
+        HttpResponseBadRequest: Returns a bad request response if the dish ID is not provided
+                                or invalid.
+    """
     dish_id = request.GET.get('dish_id')
     if dish_id:
         dish = Dish.objects.filter(pk=dish_id).first()
@@ -397,6 +518,17 @@ def component_choice(request):
 
 @login_required
 def dashboard(request):
+    """
+    Renders the dashboard view with a list of unique order dates.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered dashboard HTML page with the context containing:
+            - route (str): The current route, set to "dashboard".
+            - dates (QuerySet): A QuerySet of unique dates from the Order model's timestamp field.
+    """
     unique_days = Order.objects.dates('timestamp', 'day')
     return render(request, "pos_server/dashboard.html", {
         "route":"dashboard",
@@ -405,6 +537,40 @@ def dashboard(request):
 
 @login_required
 def day_stats(request):
+    """
+    View function to generate and display statistics for a specific day based on orders.
+    Args:
+        request (HttpRequest): The HTTP request object containing GET parameters.
+    Returns:
+        HttpResponse: The rendered HTML response with the day's statistics or an error message.
+    The function performs the following steps:
+    1. Parses the 'date' parameter from the GET request.
+    2. Attempts to parse the date string in two formats: 'Month Day, Year' and 'Mon. Day, Year'.
+    3. If parsing fails, returns an error response indicating an invalid date format.
+    4. Converts the parsed date into a timezone-aware datetime object.
+    5. Fetches all available dishes from the database.
+    6. Retrieves all orders for the specified date, ordered by timestamp.
+    7. Initializes a stats dictionary to store various metrics:
+        - item_stats: Count of each dish sold.
+        - stations: Count of dishes prepared by each station.
+        - order_occasions: Order counts and earnings by 15-minute time windows.
+        - prep_times: Average preparation times.
+        - components: Quantities of each dish component used.
+        - ingredients: Quantities of each ingredient used.
+    8. Defines a helper function to round down a datetime object to the nearest 15-minute window.
+    9. Processes each order to populate the stats dictionary:
+        - Groups order occasions into 15-minute time windows.
+        - Calculates total price of each order.
+        - Updates the count and total earnings for each time window.
+        - Tracks preparation times to calculate averages.
+        - Processes each dish in the order to update item_stats, stations, components, and ingredients.
+    10. Converts defaultdicts to regular dicts for rendering.
+    11. Sorts items by quantity sold in descending order.
+    12. Renders the stats in the 'pos_server/day_stats.html' template.
+    Note:
+        - The function assumes the existence of the Dish, Order, and related models.
+        - The function uses Django's timezone utilities for accurate time calculations.
+    """
     if request.GET.get('date'):
         date_str = request.GET.get('date')  # Get the date string from the request
         try:
@@ -524,6 +690,24 @@ def day_stats(request):
 # @local_network_only
 @login_required
 def pos_out_display(request):
+    """
+    Handles the display of the POS output screen.
+
+    This view retrieves the active menu and its associated dishes, compiles the menu,
+    and renders the 'pos_server/pos-output-display.html' template with the necessary context.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML response for the POS output display.
+
+    Context:
+        dishes (str): JSON serialized list of dishes associated with the active menu.
+        menu (Menu): The active menu object.
+        compiled_menu (dict): The compiled menu data.
+        components_out (list): List of components for the output display.
+    """
     menu = Menu.objects.get(is_active = True)
     dishes = Dish.objects.filter(menu=menu).order_by("id")
     comp_menu, components_out = compile_menu(menu)
@@ -535,6 +719,17 @@ def pos_out_display(request):
     })
 
 def compile_menu(menu):
+    """
+    Compiles the menu into categorized dishes and determines if components are out.
+
+    Args:
+        menu (Menu): The menu object containing dishes to be compiled.
+
+    Returns:
+        tuple: A tuple containing:
+            - categories (dict): A dictionary with keys 'kitchen', 'bar', and 'gng', each containing a list of prettified dishes.
+            - components_out (bool): A boolean indicating if components are out (always False in this implementation).
+    """
     components_out = False
     categories = {
         "kitchen":[],
@@ -546,6 +741,19 @@ def compile_menu(menu):
     return categories, components_out
 
 def prettify_dish(dish):
+    """
+    Converts a dish object into a dictionary with a human-readable format.
+
+    Args:
+        dish (Dish): The dish object to be converted.
+
+    Returns:
+        dict: A dictionary containing the prettified dish information with the following keys:
+            - title (str): The title of the dish.
+            - components (str): A string describing the components of the dish.
+            - price (str): The formatted price of the dish.
+            - available (bool): Availability status of the dish.
+    """
     final_dish = {
         "title":dish.title,
         "components":"",
@@ -589,6 +797,19 @@ def prettify_dish(dish):
     return final_dish
 
 def format_float(num:float) -> str:
+    """
+    Format a floating-point number to a string, removing unnecessary trailing zeros.
+
+    If the number is an integer, it will be formatted without any decimal point.
+    Otherwise, it will be formatted to a maximum of 10 decimal places, with trailing
+    zeros and the decimal point removed if they are not needed.
+
+    Args:
+        num (float): The floating-point number to format.
+
+    Returns:
+        str: The formatted number as a string.
+    """
     if num.is_integer():
         return f"{int(num)}"
     # Otherwise, format the number to remove trailing zeros.
@@ -598,6 +819,19 @@ def format_float(num:float) -> str:
 # @local_network_only
 @login_required
 def pair_square_terminal(request):
+    """
+    Handles pairing of the Square terminal with the POS system.
+
+    Depending on the HTTP request method, this function performs different actions:
+    - GET: Retrieves the current POS device code from the configuration and renders the pairing page.
+    - PUT: Generates a new POS device code, updates the configuration file, and renders the pairing page with the new code.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML response for the pairing page.
+    """
     if request.method == "GET":
         code = config.get('POS_device_codes', 'POS_device_code')
         return render(request, "pos_server/pair_pos.html", {
@@ -616,6 +850,29 @@ def pair_square_terminal(request):
     
 @login_required
 def create_menu(request):
+    """
+    Handle the creation of a menu via GET and POST requests.
+
+    If the request method is GET, render the menu creation page.
+    If the request method is POST, process the form data to create a new menu.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The HTTP response object with the rendered template.
+
+    POST Parameters:
+        title (str): The title of the menu.
+        header (UploadedFile): The header image file.
+        footer (UploadedFile): The footer image file.
+
+    Template:
+        pos_server/create-menu.html
+
+    Context:
+        done (bool): Indicates whether the menu creation was successful (only for POST requests).
+    """
     if request.method == "GET":
         return render(request, "pos_server/create-menu.html")
     elif request.method == "POST":
@@ -661,6 +918,25 @@ def register_staff(request):
         })
     
 def order_progress(request):
+    """
+    View function to display the progress of orders for the current day.
+
+    This function retrieves orders that are currently in progress and those that are ready but not yet picked up.
+    It also fetches the active menu and weather API key to be used in the template.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML page displaying the order status.
+
+    Context:
+        route (str): The route name for the template.
+        in_progress (QuerySet): A queryset of orders that are currently in progress.
+        ready (QuerySet): A queryset of orders that are ready but not yet picked up.
+        menu (Menu): The active menu object.
+        weather_API_key (str): The weather API key from the settings.
+    """
     today = timezone.localdate()
     in_progress = Order.objects.filter(kitchen_status=1, timestamp__date=today)
     ready = Order.objects.filter(Q(kitchen_status=2) & Q(picked_up=False), timestamp__date=today)
@@ -675,6 +951,18 @@ def order_progress(request):
 @csrf_exempt
 @require_POST
 def check_superuser_status(request):
+    """
+    Check if the authenticated user is a superuser.
+    Args:
+        request (HttpRequest): The HTTP request object containing the user's credentials in the body.
+    Returns:
+        JsonResponse: A JSON response indicating whether the user is a superuser or not, or an error message if the request is invalid or authentication fails.
+    Possible JSON responses:
+        - {'superuser': True} if the user is authenticated and is a superuser.
+        - {'superuser': False} if the user is authenticated but is not a superuser.
+        - {'error': 'Invalid request'} if the request body is invalid.
+        - {'error': 'Authentication failed'} if the authentication fails.
+    """
     try:
         data = json.loads(request.body)
         username = data.get('username')
@@ -694,6 +982,29 @@ def check_superuser_status(request):
 @require_POST
 @csrf_exempt  # Disable CSRF for this view as it's an external API
 def square_webhook(request):
+    """
+    Handle Square webhook events.
+    This function processes incoming webhook events from Square, verifies the 
+    event signature to ensure it is from Square, and updates the checkout card 
+    status in the cache and global variables.
+    Args:
+        request (HttpRequest): The HTTP request object containing the webhook 
+        event data.
+    Returns:
+        HttpResponse: A response indicating whether the webhook was processed 
+        successfully or if the signature was invalid.
+    Raises:
+        json.JSONDecodeError: If the request body cannot be decoded as JSON.
+    Notes:
+        - The Square webhook signing secret is retrieved from the Django 
+          settings.
+        - The notification URL is built from the request object.
+        - The signature is validated using the `is_valid_webhook_event_signature` 
+          function.
+        - If the signature is valid, the checkout card status is updated in the 
+          cache and global variables.
+        - If the signature is invalid, a forbidden response is returned.
+    """
     # Your Square webhook signing secret
     signature_key = settings.SQUARE_WEBHOOK_SIGNATURE_KEY
 
@@ -721,6 +1032,16 @@ def square_webhook(request):
         return HttpResponseForbidden('Invalid signature')
     
 def check_card_status(request):
+    """
+    Handle GET and DELETE requests to check or delete the card status.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        JsonResponse: A JSON response containing the card status for GET requests,
+                      or a confirmation of deletion for DELETE requests.
+    """
     if request.method == "GET":
         return JsonResponse({"status":cache.get('checkout_card_status')})
     elif request.method == "DELETE":
@@ -728,6 +1049,17 @@ def check_card_status(request):
         return JsonResponse({"status":globals.checkout_card_status})
 
 def active_orders(request):
+    """
+    Handle the request to retrieve active orders.
+    This function attempts to retrieve the list of active order IDs from the cache.
+    If the cache is empty or expired, it updates the cache with the latest active orders.
+    It then fetches the active orders from the database using the IDs from the cache,
+    serializes them, and returns them as a JSON response.
+    Args:
+        request (HttpRequest): The HTTP request object.
+    Returns:
+        JsonResponse: A JSON response containing the serialized active orders.
+    """
     # Attempt to get cached active orders
     active_order_ids = cache.get('active_orders')
 
@@ -742,11 +1074,49 @@ def active_orders(request):
     return JsonResponse(serialized_orders, safe=False)
 
 def check_inventory(request):
+    """
+    Handles the request to check the inventory of active dishes.
+
+    This view function retrieves the first active menu and then fetches all dishes
+    associated with that menu. The list of dishes is then serialized to JSON format
+    and returned as a JsonResponse.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        JsonResponse: A JSON response containing the serialized list of dishes.
+    """
     menu = Menu.objects.filter(is_active = True).first()
     dishes = Dish.objects.filter(menu=menu)
     return JsonResponse(serializers.serialize('json', dishes), safe=False)
 
 def collect_order(order, done=False):
+    """
+    Collects and prepares order details along with related dishes.
+    Args:
+        order (Order): The order instance to collect details from.
+        done (bool, optional): Indicates if the order is done. Defaults to False.
+    Returns:
+        dict: A dictionary containing the order details and related dishes, or None if the order is not provided.
+            The dictionary includes the following keys:
+            - order_id (int): The ID of the order.
+            - dishes (list): A list of dictionaries, each containing 'name', 'quantity', and 'station' of a dish.
+            - table (str): The table associated with the order.
+            - to_go_order (bool): Indicates if the order is a to-go order.
+            - channel (str): The channel through which the order was placed.
+            - phone (str): The phone number associated with the order.
+            - address (str): The delivery address if available, otherwise None.
+            - special_instructions (str): Any special instructions for the order.
+            - timestamp (str): The timestamp of the order in ISO format.
+            - start_time (str): The start time of the order in ISO format.
+            - kitchen_status (str): The kitchen status of the order.
+            - done (bool): Indicates if the order is done.
+            - bar_status (str): The bar status of the order.
+            - gng_status (str): The grab-and-go status of the order.
+            - picked_up (bool): Indicates if the order has been picked up.
+            - payment_id (str): The payment ID associated with the order authorization, if available.
+    """
     if not order:
         return None
     # Fetch related OrderDish instances for each order

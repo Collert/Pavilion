@@ -19,6 +19,24 @@ from django.conf import settings
 # Create your views here.
 
 def card_display(request, card_number):
+    """
+    Display the gift card information along with its barcode.
+    Args:
+        request (HttpRequest): The HTTP request object.
+        card_number (str): The number of the gift card to be displayed.
+    Returns:
+        HttpResponse: The rendered HTML page with the gift card information and barcode.
+    Raises:
+        GiftCard.DoesNotExist: If the gift card with the given number does not exist.
+    The function performs the following steps:
+    1. Retrieves the gift card object from the database using the provided card number.
+    2. Creates a barcode for the gift card number using the 'code128' barcode class.
+    3. Configures the barcode writer with specific options such as module width, height, quiet zone, text distance, font size, background, and foreground colors.
+    4. Saves the generated barcode to a BytesIO stream.
+    5. Encodes the barcode image in base64 format to embed it in the HTML template.
+    6. Passes the base64-encoded image data and the gift card object to the template context.
+    7. Renders the 'gift_cards/card.html' template with the provided context.
+    """
     try:
         card = GiftCard.objects.get(number=card_number)
     except:
@@ -56,6 +74,25 @@ def card_display(request, card_number):
     return render(request, 'gift_cards/card.html', context)
 
 def get_card(request):
+    """
+    Handle GET and POST requests for gift cards.
+
+    GET:
+    - Retrieves all card presets and images from specified subfolders.
+    - Renders the 'gift_cards/get-card.html' template with the card presets and image URLs.
+
+    POST:
+    - Retrieves transaction details from the request.
+    - Deletes the transaction if it exists and creates a new gift card.
+    - If the transaction does not exist, retrieves an existing gift card based on the provided details.
+    - Renders the 'gift_cards/card-confirm.html' template with the created or retrieved gift card.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML response.
+    """
     if request.method == "GET":
         templates = CardPreset.objects.all()
         subfolders = ['presets', 'personal']
@@ -92,6 +129,19 @@ def get_card(request):
         })
     
 def create_card(request, image_path, email, amount, name, sender, gifted):
+    """
+    Creates a new gift card and sends a confirmation email.
+    Args:
+        request (HttpRequest): The HTTP request object.
+        image_path (str): The path to the image associated with the gift card.
+        email (str): The recipient's email address.
+        amount (float): The initial balance of the gift card.
+        name (str): The recipient's name.
+        sender (str): The sender's name (used if the card is gifted).
+        gifted (bool): Indicates whether the card is a gift.
+    Returns:
+        GiftCard: The created GiftCard object.
+    """
     card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
     # Generate the card link
     card_link = request.build_absolute_uri(reverse('card_display', args=[card.number]))
@@ -122,6 +172,19 @@ def special(request):
     })
 
 def new_card_confirmation(request):
+    """
+    Handles the confirmation view for a new gift card.
+
+    This view retrieves the gift card based on the provided card ID from the request's GET parameters.
+    If the card ID is present, it fetches the corresponding GiftCard object from the database.
+    The view then renders the "gift_cards/card-confirm.html" template with the gift card context.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing GET parameters.
+
+    Returns:
+        HttpResponse: The rendered HTML response with the gift card context.
+    """
     card_id = request.GET.get('cardId')
     card = GiftCard.objects.get(pk=card_id) if card_id else None
     return render(request, "gift_cards/card-confirm.html", {
@@ -138,6 +201,21 @@ def email_card_confirmation(request):
 
 @csrf_exempt
 def card_api(request, card_number):
+    """
+    Handle API requests for gift card operations.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+        card_number (str): The number of the gift card.
+
+    Returns:
+        JsonResponse: A JSON response containing gift card details or operation results.
+        HttpResponseNotFound: If the gift card does not exist.
+
+    Methods:
+        GET: Retrieve gift card details including email, image URL, available balance, and card number.
+        POST: Charge the gift card with a specified amount. Returns a message indicating success or insufficient balance.
+    """
     try:
         card = GiftCard.objects.get(number=card_number)
         if request.method == "GET":
@@ -159,17 +237,5 @@ def card_api(request, card_number):
                 return JsonResponse({
                     "message":"Insufficient card balance."
                 }, status=402)
-        # elif request.method == "PUT":
-        #     body = json.loads(request.body)
-        #     amount = Decimal(body["amount"])
-        #     response = card.charge_card(amount)
-        #     if response == 200:
-        #         return JsonResponse({
-        #             "message":f"Card charged ${amount}"
-        #         }, status=200)
-        #     elif response == 402:
-        #         return JsonResponse({
-        #             "message":"Insufficient card balance."
-        #         }, status=402)
     except GiftCard.DoesNotExist:
         return HttpResponseNotFound()

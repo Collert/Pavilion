@@ -17,6 +17,30 @@ class PushSubscription(models.Model):
         return f"{self.user.username} - {self.endpoint}"
 
 def send_push_notification(subscription_info, message_body):
+    """
+    Sends a push notification to a given subscription.
+
+    Args:
+        subscription_info (dict): The subscription information required to send the push notification.
+        message_body (dict): The message content to be sent in the push notification.
+
+    Returns:
+        Response: The response from the web push service.
+
+    Raises:
+        WebPushException: If there is an error sending the push notification.
+
+    Example:
+        subscription_info = {
+            "endpoint": "https://example.com/...",
+            "keys": {
+                "p256dh": "BNc...",
+                "auth": "..."
+        message_body = {
+            "title": "Notification Title",
+            "body": "Notification Body"
+        send_push_notification(subscription_info, message_body)
+    """
     try:
         response = webpush(
             subscription_info=subscription_info,
@@ -37,6 +61,16 @@ def send_push_notification(subscription_info, message_body):
                   extra.message)
 
 def trigger_push_notifications(title, body, action_name, action_endpoint):
+    """
+    Sends push notifications to active couriers.
+    Args:
+        title (str): The title of the notification.
+        body (str): The body content of the notification.
+        action_name (str): The name of the action button in the notification.
+        action_endpoint (str): The endpoint URL that the action button will link to.
+    Returns:
+        None
+    """
     HOST = settings.NOTIFICATIONS_HOST
     active = []
     for cour in globals.active_couriers:

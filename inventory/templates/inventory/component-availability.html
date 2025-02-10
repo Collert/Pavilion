@@ -45,6 +45,24 @@
             })
         })
         
+        // Function: toggleItem
+
+        // Description:
+        // This function toggles the availability status of an item (component or dish) by sending a PUT request to the server.
+        // It updates the UI based on the response from the server.
+
+        // Parameters:
+        // - id (string): The unique identifier of the item to be toggled.
+        // - type (string): The type of the item (e.g., 'component', 'dish').
+
+        // Behavior:
+        // - Selects the button element associated with the given id and type.
+        // - Sends a PUT request to the server with the item's id and type in the request body.
+        // - If the server responds with a successful status, toggles the "error" class on the button.
+        // - Parses the response data to update the UI for related dishes:
+        //     - Adds the "error" class to dishes that are not in stock and not forced in stock.
+        //     - Adds the "success" class to dishes that are forced in stock.
+        //     - Removes the "error" class from dishes that are in stock.
         function toggleItem(id, type) {
             const button = document.querySelector(`[data-id="${id}"].${type}`)
             fetch("{% url 'component_availability' %}", {
@@ -75,6 +93,14 @@
             })
         }
         
+        // Function: updateSelection
+        // Description: Updates the selection of buttons by changing the CSS class of the currently selected button and the new button.
+        // Parameters:
+        //     newIndex (number) - The index of the new button to be selected.
+        // Behavior:
+        //     - If the selectedIndex is less than 0, it sets selectedIndex to 0.
+        //     - If the newIndex is within the valid range (0 to buttons.length - 1), it removes the 'selected' class from the currently selected button and adds the 'selected' class to the new button.
+        //     - Updates the selectedIndex to the newIndex.
         function updateSelection(newIndex) {
             if (selectedIndex < 0) {selectedIndex = 0};
             if (newIndex < buttons.length && newIndex >= 0) {

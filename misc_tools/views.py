@@ -13,6 +13,23 @@ from django.conf import settings
 # Create your views here.
 
 def dom_image_colors(request):
+    """
+    Handle GET and POST requests to process an image and extract dominant colors.
+    GET:
+        Renders the HTML template for uploading an image.
+    POST:
+        Processes the uploaded image to extract dominant colors.
+        - Reads the uploaded image from the request.
+        - Saves the image temporarily.
+        - Extracts a specified number of dominant colors from the image.
+        - Deletes the temporary image file.
+        - Returns the dominant colors as a JSON response.
+    Args:
+        request (HttpRequest): The HTTP request object.
+    Returns:
+        HttpResponse: Renders the HTML template for GET requests.
+        JsonResponse: Returns a JSON response with the dominant colors for POST requests.
+    """
     if request.method == "GET":
         return render(request, "misc_tools/get-image-colors.html")
     elif request.method == "POST":
@@ -27,7 +44,19 @@ def dom_image_colors(request):
         return JsonResponse(color_dict)
     
 def tts(request):
-    # This requires FFMPEG installed. Download it here: https://ffmpeg.org/download.html
+    """
+    Generate a Text-to-Speech (TTS) audio file combined with an intro audio and return it as an HTTP response.
+    This function requires FFMPEG to be installed. Download it here: https://ffmpeg.org/download.html
+    Args:
+        request (HttpRequest): The HTTP request object containing query parameters.
+    Returns:
+        HttpResponse: An HTTP response with the combined audio content as an MP3 file.
+    Query Parameters:
+        text (str): The text to be converted to speech. Defaults to 'Hello'.
+    Raises:
+        FileNotFoundError: If the intro audio directory or files are not found.
+        Exception: For any other exceptions that may occur during audio processing.
+    """
     
     # Get the text from query params
     text = request.GET.get('text', 'Hello')

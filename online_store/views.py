@@ -24,6 +24,32 @@ from django.conf import settings
 from gift_cards.models import GiftCard, GiftCardAuthorization 
 
 def menu(request):
+    """
+    Handles the menu view for the online store.
+
+    This view retrieves the active menu and its associated dishes, groups them by station,
+    and also retrieves other inactive menus and their dishes, grouping them by station as well.
+    The data is then rendered to the "online_store/menu.html" template.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML response for the menu view.
+
+    Query Parameters:
+        actual (str, optional): The primary key of the menu to be set as active. If not provided,
+                                the first active menu will be used.
+
+    Template Context:
+        route (str): The route name, set to "menu".
+        menu (dict): A dictionary containing the active menu and its grouped dishes.
+            - menu (Menu): The active menu object.
+            - dishes (dict): A dictionary where keys are station names and values are lists of dishes.
+        others (dict): A dictionary where keys are titles of inactive menus and values are dictionaries
+                       of grouped dishes by station.
+        override_menu (str): The primary key of the menu to be set as active, if provided in the query parameters.
+    """
     query = request.GET.get('actual', None)
     if query:
         try:
@@ -52,6 +78,23 @@ def menu(request):
     })
 
 def dish(request, id):
+    """
+    View function to display details of a specific dish.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+        id (int): The primary key of the dish to be retrieved.
+
+    Returns:
+        HttpResponse: Renders the dish details page if the dish exists.
+        HttpResponseNotFound: Returns a 404 response if the dish does not exist.
+
+    The function retrieves the dish by its primary key. If the dish is found,
+    it collects all allergens associated with the dish's components and their
+    ingredients. If there are multiple allergens, it removes 'None' from the set.
+    Finally, it renders the dish details page with the dish information, menu,
+    allergens, and serialized dish data in JSON format.
+    """
     try:
         item = Dish.objects.get(pk=id)
     except Dish.DoesNotExist:
@@ -61,17 +104,29 @@ def dish(request, id):
         for ci in dc.component.componentingredient_set.all():
             allergens.add(ci.ingredient.allergen)
     if len(allergens) > 1:
-        allergens.remove(None)
+        allergens.discard(None)
     return render(request, "online_store/dish.html", {
         "route":"dish",
         "dish":item,
         "pretty_dish":prettify_dish(item),
         "menu":{"menu":item.menu.first()},
-        "allergens":', '.join(allergens) if None not in allergens else None,
+        "allergens":', '.join(a for a in allergens if a is not None) if None not in allergens else None,
         "json":json.dumps([item.serialize_with_options()])
     })
 
 def index(request):
+    """
+    Renders the home page of the online store.
+
+    This view function retrieves the active menu and all promotional content,
+    then renders the "online_store/home.html" template with the retrieved data.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered home page with the context data.
+    """
     menu = Menu.objects.filter(is_active = True).first()
     offers = PromoContent.objects.all()
     return render(request, "online_store/home.html", {
@@ -81,6 +136,17 @@ def index(request):
     })
 
 def order_status(request, id, from_placing = False):
+    """
+    View function to display the status of an order.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+        id (int): The ID of the order.
+        from_placing (bool, optional): Flag indicating if the request is from placing an order. Defaults to False.
+
+    Returns:
+        HttpResponse: The rendered order status page or a 404 response if the order is not found.
+    """
     try:
         order = Order.objects.get(pk=id)
         rejected_order = None
@@ -100,6 +166,27 @@ def order_status(request, id, from_placing = False):
     })
 
 def place_order(request):
+    """
+    Handles the placement of an order based on the POST request data.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing order details.
+
+    Returns:
+        HttpResponse: Redirects to the order status page if successful, otherwise returns an error message.
+
+    The function performs the following steps:
+    1. Extracts and processes the cart and payment information from the request.
+    2. Calculates the remaining cart total after applying partial payments.
+    3. Retrieves the transaction object if the cart total is greater than zero.
+    4. Parses and combines the delivery/pickup time with the current date to create a timezone-aware datetime object.
+    5. Creates an Order object with the provided details and saves it.
+    6. Processes gift card payments and updates the gift card balance.
+    7. Iterates through the dishes in the cart, updates inventory, and creates OrderDish objects.
+    8. If the order method is delivery, creates a Delivery object with the provided address and instructions.
+    9. Redirects to the order status page upon successful order placement.
+    10. Returns an error message if any exception occurs during the process.
+    """
     if request.method == "POST":
         uuid = request.POST["transaction_uuid"]
         try:
@@ -185,6 +272,28 @@ def place_order(request):
             return HttpResponse("Don't do this. I will get to implementing a better page soon")
 
 def order_history(request):
+    """
+    Handles the order history view for the online store.
+
+    This view retrieves the list of orders from the request, processes them, and renders the order history page.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing the GET parameters.
+
+    Returns:
+        HttpResponse: The rendered order history page with the combined list of orders and rejected orders.
+
+    GET Parameters:
+        orders (str): A JSON-encoded list of order IDs. Defaults to an empty list if not provided or invalid.
+
+    Template:
+        online_store/history.html
+
+    Context:
+        route (str): The route name, set to "history".
+        menu (dict): The active menu object.
+        orders (list): The combined list of Order and RejectedOrder objects, sorted by ID in descending order.
+    """
     orders = request.GET.get('orders', '[]')
     try:
         orders_list = json.loads(orders)
@@ -207,6 +316,18 @@ def order_history(request):
     })
 
 def service_worker_view(request):
+    """
+    Handles the request to serve the service worker JavaScript file.
+    This view function determines the absolute path to the service worker file,
+    checks if the file exists, and serves it if it does. If the file does not
+    exist, it returns a 404 Not Found response.
+    Args:
+        request (HttpRequest): The HTTP request object.
+    Returns:
+        HttpResponse: The HTTP response containing the service worker file content
+                      with the appropriate content type and headers.
+        HttpResponseNotFound: If the service worker file is not found at the specified path.
+    """
     # Determine the absolute path to the service worker file
     file_path = os.path.join(settings.BASE_DIR, "online_store", 'service-worker.js')
     print(file_path)
@@ -224,6 +345,19 @@ def service_worker_view(request):
 @csrf_exempt
 @login_required
 def save_subscription(request):
+    """
+    Handle saving a push subscription for the current user.
+
+    This view function processes a POST request containing subscription data
+    in JSON format. It either creates a new PushSubscription object or updates
+    an existing one for the current user.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing the subscription data.
+
+    Returns:
+        JsonResponse: A JSON response indicating the subscription has been saved.
+    """
     if request.method == 'POST':
         subscription_data = json.loads(request.body)
         user = request.user

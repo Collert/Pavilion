@@ -13,6 +13,17 @@ square_client = Client(
 )
 
 def gather_terminal_checkout(amount:float):
+    """
+    Initiates a terminal checkout request with Square API.
+    This function converts the given amount to the smallest currency unit (e.g., cents)
+    and creates a checkout request with necessary details such as idempotency key,
+    amount, note, and device options. It then sends the request to the Square API
+    to create a terminal checkout.
+    Args:
+        amount (float): The amount for the transaction in dollars.
+    Returns:
+        dict: The response from the Square API after creating the terminal checkout.
+    """
     # Convert amount to the smallest currency unit, e.g., cents
     amount_money = {"amount": amount * 100, "currency": "CAD"}
 

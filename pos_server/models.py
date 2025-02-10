@@ -13,6 +13,20 @@ from django.core.cache import cache
 # Create your models here.
     
 class Menu(models.Model):
+    """
+    Model representing a Menu.
+    Attributes:
+        title (CharField): The title of the menu, with a maximum length of 140 characters.
+        is_active (BooleanField): A boolean indicating whether the menu is active. Defaults to False.
+        header_image (ImageField): An optional image field for the header image, uploaded to 'files/menu_decorations'.
+        footer_image (ImageField): An optional image field for the footer image, uploaded to 'files/menu_decorations'.
+        background_color (CharField): The background color of the menu, with a default value of "#ffffff".
+        accent_1 (CharField): The first accent color of the menu, with a default value of "#ffffff".
+        accent_2 (CharField): The second accent color of the menu, with a default value of "#ffffff".
+        accent_3 (CharField): The third accent color of the menu, with a default value of "#ffffff".
+    Methods:
+        __str__(): Returns a string representation of the Menu instance.
+    """
     title = models.CharField(max_length=140)
     is_active = models.BooleanField(default=False)
     header_image = models.ImageField(upload_to='files/menu_decorations', null=True)
@@ -26,6 +40,26 @@ class Menu(models.Model):
         return f"Menu: {self.title}"
 
 class Dish(models.Model):
+    """
+    Dish model representing a dish in the POS system.
+    Attributes:
+        stations (tuple): Choices for the station where the dish is prepared.
+        title (CharField): The title of the dish.
+        price (FloatField): The price of the dish.
+        image (ImageField): An optional image of the dish.
+        description (TextField): An optional description of the dish.
+        components (ManyToManyField): Components that make up the dish, related through DishComponent.
+        menu (ManyToManyField): Menus that include the dish.
+        station (CharField): The station where the dish is prepared.
+        in_stock (BooleanField): Indicates if the dish is in stock.
+        force_in_stock (BooleanField): Indicates if the dish is forced to be in stock.
+        recipe (ForeignKey): The recipe associated with the dish from the inventory.
+        visible_in_menu (BooleanField): Indicates if the dish is visible in the menu.
+    Methods:
+        __str__(): Returns the title of the dish.
+        check_if_only_choice_dish(): Checks whether the dish only consists of components that point to other dishes.
+        serialize_with_options(): Serializes the dish with its options and components.
+    """
     stations = (
         ("bar", "Bar"),
         ("kitchen", "Kitchen"),
@@ -47,7 +81,12 @@ class Dish(models.Model):
         return self.title
     
     def check_if_only_choice_dish(self):
-        """Checks whether the dish only consists of components that point to other dishes"""
+        """
+        Checks whether the dish only consists of components that point to other dishes.
+
+        Returns:
+            bool: True if all components of the dish have child dishes, False otherwise.
+        """
         if not self.components.all():
             return False
         for component in self.components.all():
@@ -56,6 +95,32 @@ class Dish(models.Model):
         return True
 
     def serialize_with_options(self):
+        """
+        Serializes the dish object with its components and options.
+
+        Returns:
+            dict: A dictionary containing the serialized data of the dish, including:
+                - fields (dict): Contains the following keys:
+                    - title (str): The title of the dish.
+                    - price (float): The price of the dish.
+                    - image (str or None): The URL of the dish's image, or None if no image is available.
+                    - description (str): The description of the dish.
+                    - menu (int): The ID of the first menu associated with the dish.
+                    - station (str): The station associated with the dish.
+                    - in_stock (bool): Whether the dish is in stock.
+                    - force_in_stock (bool): Whether the dish is forced to be in stock.
+                    - choice_components (list): A list of dictionaries representing the components and their child dishes, each containing:
+                        - parent (dict): Contains the title and ID of the parent component.
+                        - children (list): A list of dictionaries representing the child dishes, each containing:
+                            - title (str): The title of the child dish.
+                            - id (int): The ID of the child dish.
+                            - in_stock (bool): Whether the child dish is in stock.
+                            - force_in_stock (bool): Whether the child dish is forced to be in stock.
+                    - only_choices (bool): Whether the dish is an only choice dish.
+                - model (str): The model name, which is "pos_server.dish".
+                - id (int): The ID of the dish.
+                - pk (int): The primary key of the dish (same as the ID).
+        """
         choice_components = []
         for component in self.components.all():
             if component.child_dishes.all():
@@ -93,6 +158,36 @@ class Dish(models.Model):
         }
 
 class Order(models.Model):
+    """
+    Order model representing an order in the POS system.
+    Attributes:
+        order_channels (tuple): Choices for the order channel.
+        station_statuses (tuple): Choices for the status of different stations.
+        timestamp (DateTimeField): The timestamp when the order was created.
+        start_time (DateTimeField): The start time of the order.
+        prep_time (DurationField): The preparation time for the order.
+        dishes (ManyToManyField): The dishes associated with the order.
+        table (CharField): The table number for the order.
+        kitchen_status (PositiveSmallIntegerField): The status of the kitchen station.
+        bar_status (PositiveSmallIntegerField): The status of the bar station.
+        gng_status (PositiveSmallIntegerField): The status of the grab-and-go station.
+        picked_up (BooleanField): Whether the order has been picked up.
+        special_instructions (TextField): Special instructions for the order.
+        to_go_order (BooleanField): Whether the order is a to-go order.
+        final_revenue (DecimalField): The final revenue for the order.
+        channel (CharField): The channel through which the order was placed.
+        phone (PositiveBigIntegerField): The phone number associated with the order.
+        approved (BooleanField): Whether the order has been approved.
+        authorization (ForeignKey): The payment authorization for the order.
+        gift_cards (ManyToManyField): The gift cards associated with the order.
+    Methods:
+        save(*args, **kwargs): Saves the order and updates the active orders cache.
+        delete(*args, **kwargs): Deletes the order and updates the active orders cache.
+        __str__() -> str: Returns a string representation of the order.
+        __eq__(other): Checks if another order is equal to this order.
+        __hash__(): Returns the hash of the order.
+        progress_status(): Returns the progress status of the order.
+    """
     order_channels = (
         ("store", "In-person"),
         ("web", "Online pickup"),
@@ -152,6 +247,19 @@ class Order(models.Model):
         return hash(self.id)
     
     def progress_status(self):
+        """
+        Determine the progress status of an order based on various conditions.
+
+        Returns:
+            int: The status code representing the progress of the order.
+                - 6: Delivery completed.
+                - 5: Order picked up.
+                - 4: Order ready (kitchen, bar, and gng statuses are 2 or 4).
+                - 3: Order in progress (any of kitchen, bar, or gng statuses is 1).
+                - 2: Order not started (any of kitchen, bar, or gng statuses is 0 and start time is in the past).
+                - 1: Order is scheduled (any of kitchen, bar, or gng statuses is 0 and start time is in the future).
+            None: If the channel is neither "delivery" nor "web".
+        """
         print(timezone.localtime(self.start_time))
         print(timezone.localtime(timezone.now()))
         print(timezone.localtime(self.start_time) > timezone.localtime(timezone.now()))
@@ -184,6 +292,19 @@ class Order(models.Model):
         return status
 
 class OrderDish(models.Model):
+    """
+    OrderDish model represents the relationship between an order and a dish, 
+    including the quantity of the dish in the order.
+    Attributes:
+        order (ForeignKey): A reference to the Order model. When the referenced order is deleted, 
+                            the related OrderDish instances will also be deleted.
+        dish (ForeignKey): A reference to the Dish model. When the referenced dish is deleted, 
+                           the related OrderDish instances will also be deleted.
+        quantity (IntegerField): The quantity of the dish in the order. Defaults to 1.
+    Methods:
+        __str__(): Returns a string representation of the OrderDish instance, 
+                   showing the quantity of the dish and the order ID.
+    """
     order = models.ForeignKey(Order, on_delete = models.CASCADE)
     dish = models.ForeignKey(Dish, on_delete = models.CASCADE)
     quantity = models.IntegerField(default=1)
@@ -192,6 +313,26 @@ class OrderDish(models.Model):
         return f"{self.quantity} X {self.dish.title} in order {self.order.id}"
     
 class Component(models.Model):
+    """
+    Component model representing an item in the inventory.
+    For more info, refer to: https://github.com/Collert/Pavilion/wiki/Inventory-Management-System
+    Attributes:
+        units (tuple): Choices for unit of measurement.
+        food_types (tuple): Choices for type of food.
+        crafting_options (tuple): Choices for crafting options.
+        title (CharField): The title of the component.
+        ingredients (ManyToManyField): Ingredients associated with the component.
+        inventory (FloatField): The current inventory level of the component.
+        unit_of_measurement (CharField): The unit of measurement for the component.
+        type (CharField): The type of food (food or beverage).
+        in_stock (BooleanField): Indicates if the component is in stock.
+        crafting_option (CharField): The crafting option for the component.
+        recipe (ForeignKey): The recipe associated with the component.
+        child_dishes (ManyToManyField): Dishes that use this component.
+    Methods:
+        save(*args, **kwargs): Custom save method to update stock status and related dishes.
+        __str__() -> str: String representation of the component.
+    """
     units = (
         ("kg", "Kilogram"),
         ("g", "Gram"),
@@ -243,6 +384,15 @@ class Component(models.Model):
         return f"{self.title} ({self.unit_of_measurement.title()})"
     
 class DishComponent(models.Model):
+    """
+    Represents the relationship between a Dish and its Component.
+    Attributes:
+        dish (ForeignKey): A reference to the Dish model.
+        component (ForeignKey): A reference to the Component model.
+        quantity (FloatField): The quantity of the component used in the dish.
+    Methods:
+        __str__(): Returns a string representation of the DishComponent instance.
+    """
     dish = models.ForeignKey('Dish', on_delete=models.CASCADE)
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
     quantity = models.FloatField()
@@ -266,6 +416,20 @@ class DishComponent(models.Model):
 #     operation = models.CharField(max_length=5, choices=operations)
 
 class Ingredient(models.Model):
+    """
+    Represents an ingredient in the inventory.
+    For more info, refer to: https://github.com/Collert/Pavilion/wiki/Inventory-Management-System
+    Attributes:
+        units (tuple): Choices for unit of measurement.
+        allergens (tuple): Choices for allergens.
+        title (str): The name of the ingredient.
+        inventory (int): The quantity of the ingredient in inventory.
+        unit_of_measurement (str): The unit of measurement for the ingredient.
+        allergen (str): The allergen associated with the ingredient.
+        unlimited (bool): Indicates if the ingredient has unlimited supply.
+    Methods:
+        __str__(): Returns a string representation of the ingredient.
+    """
     units = (
         ("kg", "Kilogram"),
         ("g", "Gram"),
@@ -301,6 +465,15 @@ class Ingredient(models.Model):
         return f"{self.title} ({self.unit_of_measurement.title()})"
     
 class ComponentIngredient(models.Model):
+    """
+    Represents the relationship between a component and an ingredient in the POS system.
+    Attributes:
+        component (ForeignKey): A reference to the Component model.
+        ingredient (ForeignKey): A reference to the Ingredient model.
+        quantity (FloatField): The quantity of the ingredient used in the component.
+    Methods:
+        __str__(): Returns a string representation of the ComponentIngredient instance.
+    """
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
     ingredient = models.ForeignKey('Ingredient', on_delete=models.CASCADE)
     quantity = models.FloatField()
@@ -309,6 +482,14 @@ class ComponentIngredient(models.Model):
         return f"{self.quantity} x {self.ingredient.title} in {self.component.title}"
     
 class EligibleDevice(models.Model):
+    """
+    Model representing an eligible device.
+    Attributes:
+        token (UUIDField): A unique identifier for the device, automatically generated.
+        name (CharField): The name of the device, with a maximum length of 140 characters.
+    Methods:
+        __str__(): Returns the name of the device as its string representation.
+    """
     token = models.UUIDField(default=uuid.uuid4)
     name = models.CharField(max_length=140)
 
@@ -316,6 +497,25 @@ class EligibleDevice(models.Model):
         return self.name
 
 def update_active_orders_cache():
+    """
+    Updates the cache with the list of active orders.
+
+    This function queries the database for orders that are considered active based on their
+    start time and various status fields. It then serializes the relevant order information
+    and stores it in the cache with a timeout of 60 seconds.
+
+    Active orders are defined as orders that:
+    - Have a start time less than or equal to the current time.
+    - Have a kitchen status of 0 or 1.
+    - Have a bar status of 0 or 1.
+    - Have a gng status of 0 or 1.
+    - Have not been picked up.
+
+    The cached data is a list of active order IDs.
+
+    Returns:
+        None
+    """
     # Query for active orders
     active_orders = Order.objects.filter(
         models.Q(start_time__lte=now()) &

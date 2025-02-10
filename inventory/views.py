@@ -16,6 +16,20 @@ import markdown
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def log_shopping(request):
+    """
+    Handle the logging of shopping activities.
+
+    This view supports both GET and POST requests:
+    - GET: Renders the shopping log page with a list of ingredients.
+    - POST: Processes the shopping log form submission, updates inventory, and saves the receipt.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered shopping log page for GET requests.
+        HttpResponseRedirect: Redirects to the shopping log page after processing POST requests.
+    """
     if request.method == "GET":
         ingredients = Ingredient.objects.filter(unlimited=False)
         return render(request, "inventory/log-shopping.html", {
@@ -44,6 +58,18 @@ def log_shopping(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def shopping_history(request):
+    """
+    View function to display the shopping history.
+
+    This function retrieves all instances of StockUpdate and renders the 
+    'inventory/shopping-history.html' template with the shopping history data.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML page displaying the shopping history.
+    """
     shopping_occasions = StockUpdate.objects.all()
     return render(request, "inventory/shopping-history.html", {
         "history":shopping_occasions,
@@ -60,6 +86,37 @@ def day_display(request, day_id):
 
 @login_required
 def crafting(request):
+    """
+    Handle crafting-related requests.
+
+    This view function handles GET, POST, and PUT requests for crafting components.
+
+    GET:
+        - Retrieves components with the crafting option set to "craft".
+        - Retrieves all ingredients.
+        - Renders the "inventory/crafting.html" template with the following context:
+            - route: "crafting"
+            - components: List of components with crafting option "craft"
+            - ingredients: List of all ingredients
+            - ingredient_inventory: Inventory of ingredients collected by `collect_ing_stock`
+
+    POST:
+        - Parses the request body as JSON.
+        - Iterates over the component IDs in the request body.
+        - Crafts the specified quantity of each component.
+        - Returns a JSON response with a success message.
+
+    PUT:
+        - Parses the request body to get the component ID.
+        - Crafts one unit of the specified component.
+        - Returns a JSON response with a success message.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The HTTP response object.
+    """
     if request.method == "GET":
         components = Component.objects.filter(crafting_option="craft")
         ingredients = Ingredient.objects.all()
@@ -82,6 +139,20 @@ def crafting(request):
 
 @login_required
 def component_availability(request):
+    """
+    Handle the availability of components and dishes in the inventory.
+
+    This view handles both GET and PUT requests:
+    - GET: Renders the component availability page with the list of components and dishes.
+    - PUT: Toggles the in_stock status of a component or dish based on the request body.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered component availability page for GET requests.
+        JsonResponse: A JSON response with the updated list of dishes for PUT requests.
+    """
     menu = Menu.objects.get(is_active=True)
     dishes = Dish.objects.filter(menu=menu)
     if request.method == "GET":
@@ -112,6 +183,28 @@ def component_availability(request):
     
 @staff_member_required
 def recipes(request):
+    """
+    Handle the recipes view for GET and POST requests.
+
+    GET:
+    - If the request method is GET, it attempts to retrieve and parse the 'edit' parameter from the request.
+    - Based on the 'edit' parameter, it fetches the corresponding Dish or Component object and extracts recipe steps.
+    - Renders the 'inventory/recipes.html' template with the list of recipes, components, dishes, and editing context.
+
+    POST:
+    - If the request method is POST, it processes the form data to create a new recipe.
+    - Retrieves the item type (dish or component) and its ID from the form data.
+    - Constructs the markdown text for the recipe steps.
+    - Creates a new Recipe object and associates it with the corresponding Dish or Component.
+    - Redirects to the 'recipes' view after saving the new recipe.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        HttpResponse: The rendered HTML response for GET requests.
+        HttpResponseRedirect: A redirect response to the 'recipes' view for POST requests.
+    """
     if request.method == "GET":
         try:
             type = request.GET['edit'].split("-")[0]
@@ -157,6 +250,24 @@ def recipes(request):
 
 @staff_member_required
 def recipe(request, recipe_id):
+    """
+    Handles the recipe view for a given recipe ID.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+        recipe_id (int): The ID of the recipe to be displayed.
+
+    Returns:
+        HttpResponse: The rendered HTML page displaying the recipe details.
+
+    This view handles GET requests to display the details of a recipe. It retrieves the recipe
+    object from the database using the provided recipe ID. Depending on whether the recipe is
+    a dish or a component, it generates an HTML unordered list of ingredients with their
+    quantities adjusted by the original yield of the recipe. The view then renders the
+    "inventory/recipe.html" template with the recipe object, the generated ingredients list,
+    the type of the recipe (dish or component), the converted markdown text of the recipe,
+    and the route name.
+    """
     if request.method == "GET":
         md = markdown.Markdown(extensions=['tables'])
         recipe = Recipe.objects.get(pk=recipe_id)
@@ -194,6 +305,16 @@ def event_stream():
         time.sleep(1)
 
 def collect_ing_stock(ingredients):
+    """
+    Collects the inventory stock for a list of ingredients and returns it as a JSON string.
+
+    Args:
+        ingredients (list): A list of ingredient objects, each with an 'id' and 'inventory' attribute.
+
+    Returns:
+        str: A JSON string representing the inventory stock of the ingredients, 
+             where the keys are ingredient IDs and the values are their respective inventory counts.
+    """
     inventory = {}
     for ingredient in ingredients:
         inventory[f"{ingredient.id}"] = ingredient.inventory
@@ -205,6 +326,22 @@ def inventory_updates(request):
     return response
 
 def craft_component(component_id:int, qty:int):
+    def craft_component(component_id: int, qty: int):
+        """
+        Updates the inventory of a component and its ingredients based on the quantity crafted.
+
+        Args:
+            component_id (int): The ID of the component to be crafted.
+            qty (int): The quantity of the component to be crafted.
+
+        Raises:
+            Component.DoesNotExist: If the component with the given ID does not exist.
+
+        Side Effects:
+            - Increases the inventory of the specified component by the given quantity.
+            - Decreases the inventory of each ingredient used in the component by the required amount, 
+              unless the ingredient has unlimited supply.
+        """
     component = Component.objects.get(pk=component_id)
     component.inventory += qty
     component.save()

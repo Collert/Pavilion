@@ -127,10 +127,19 @@
         inventory = data;
     };
 
+    // This plays minecraft music :)
     document.querySelector("#play-music").addEventListener("click", () => {
         document.querySelector("#music").play();
     })
 
+    // This script adds a click event listener to each button in the `singleButtons` collection. 
+    // When a button is clicked, it plays a pop sound, retrieves the item ID and ingredient list from the button's dataset, and checks if there are enough ingredients to craft the item. 
+    // If any ingredient is insufficient, it adds an "error" class to the button and throws an error. 
+    // If all ingredients are available, it updates the displayed quantity of the crafted item, animates the subtraction of ingredients, 
+    // and sends a PUT request to the server with the item ID.
+
+    // Notes:
+    // - The ingredient list is retrieved from a data attribute and parsed as JSON. This approach works but is not ideal; passing a proper JSON from the server would be better.
     singleButtons.forEach(button => {
         button.addEventListener("click", e => {
             popSound.play();
@@ -154,7 +163,10 @@
             })
         })
     })
-
+    
+    // This function animates the subtraction of ingredient quantities from the inventory display. 
+    // It updates the displayed values for each ingredient by decrementing them based on the provided 
+    // ingredients object and an optional multiplier.
     function animateSubtractIngredients(ingredients, multiplier = 1) {
         for (const ingredient in ingredients) {
             const curTopIng = document.querySelector(`#top-${ingredient} span`);
@@ -175,6 +187,37 @@
         }
     }
 
+    // This script handles the form submission for crafting items in the inventory system.
+
+    // Event Listener:
+    // - Listens for the "submit" event on the form and prevents the default form submission behavior.
+
+    // Functionality:
+    // 1. Plays a sound effect when the form is submitted.
+    // 2. Iterates through all elements with the class "multi-component".
+    // 3. For each component:
+    //     - Retrieves the quantity input field and its value.
+    //     - Parses the ingredient list from the component's data attributes.
+    //     - Checks if there are enough ingredients available to craft the specified quantity.
+    //     - If not enough ingredients are available, adds an error class to the quantity field and throws an error.
+    //     - Updates the displayed quantity of the component using an animation.
+    //     - Animates the subtraction of ingredients from the inventory.
+    // 4. Sends a POST request to the server with the crafting data in JSON format.
+    // 5. Catches and alerts any errors that occur during the process.
+
+    // Data Attributes:
+    // - `data-id`: The ID of the component.
+    // - `data-ingredients`: A JSON string representing the list of ingredients required for the component.
+
+    // Functions:
+    // - `checkAvailability(ingredient, quantity)`: Checks if the specified quantity of the ingredient is available.
+    // - `animateValue(element, start, end, duration)`: Animates the change of a numerical value in an element.
+    // - `animateSubtractIngredients(ingredientList, quantity)`: Animates the subtraction of ingredients from the inventory.
+
+    // Dependencies:
+    // - `levelSound`: A sound object that plays when the form is submitted.
+    // - `csrftoken`: A CSRF token for securing the POST request.
+    // - `countAnimDuration`: The duration of the quantity change animation.
     form.addEventListener("submit", e => {
         e.preventDefault()
         levelSound.play()
@@ -210,6 +253,14 @@
         }
     })
 
+    // This script adds an event listener to all input fields of type 'number' within the form.
+    // When the value of any of these input fields changes, the event listener triggers a function that:
+    // 1. Retrieves the parent node of the current input field.
+    // 2. Parses the 'data-ingredients' attribute of the parent node to get the list of ingredients.
+    // 3. Iterates over each ingredient in the list.
+    // 4. Updates the inner HTML of the corresponding span element with the calculated value, 
+    //    which is the product of the ingredient quantity and the current input field value, 
+    //    formatted to one decimal place.
     form.querySelectorAll("input[type='number']").forEach(field => {
         field.addEventListener("input", e => {
             const parent = e.currentTarget.parentNode.parentNode;
@@ -220,6 +271,34 @@
         })
     })
 
+    // Function: animateValue
+    // Description: Animates the value of an HTML element from a start value to an end value over a specified duration using an easing function.
+    // Parameters:
+    //     obj (HTMLElement) - The HTML element whose value will be animated.
+    //     start (number) - The starting value of the animation.
+    //     end (number) - The ending value of the animation.
+    //     duration (number) - The duration of the animation in milliseconds. Defaults to countAnimDuration.
+    // Internal Functions:
+    //     easeOutQuad(t, b, c, d) - Easing function for smooth animation.
+    //         Parameters:
+    //             t (number) - Current time.
+    //             b (number) - Start value.
+    //             c (number) - Change in value (end - start).
+    //             d (number) - Duration of the animation.
+    //         Returns:
+    //             (number) - The calculated value at the current time.
+    //     animation(currentTime) - The animation function called on each frame.
+    //         Parameters:
+    //             currentTime (number) - The current time in milliseconds.
+    //         Description:
+    //             - Initializes the start time if it's the first frame.
+    //             - Calculates the time elapsed since the start of the animation.
+    //             - Uses the easing function to calculate the next value.
+    //             - Updates the innerHTML of the obj with the next value.
+    //             - Continues the animation if the duration has not been reached.
+    //             - Ensures the final value is set to the end value when the animation completes.
+    // Usage:
+    //     animateValue(document.getElementById('myElement'), 0, 100, 2000);
     function animateValue(obj, start, end, duration = countAnimDuration) {
         let startTime = null;
 

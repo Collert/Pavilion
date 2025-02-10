@@ -80,6 +80,17 @@
 </dialog>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
+        // This script adds an event listener to the form inside the dialog with the ID `dialog-{{card.id}}`.
+        // When the form is submitted, it prevents the default form submission behavior.
+        // It then selects the form with the ID `create-card` and the popup with the ID `payment-popup`.
+        // The script sets various hidden input fields in the `create-card` form with values from the submitted form:
+        // - `hidden-image` is set to the card's image.
+        // - `transaction-amount` is set to the card's amount.
+        // - `hidden-email` is set to the recipient's email from the submitted form.
+        // - `hidden-name` is set to the recipient's name from the submitted form.
+        // - `hidden-sender` is set to the sender's name from the submitted form.
+        // - `hidden-gifted` is set to whether the card is marked as a gift.
+        // Finally, it dispatches a submit event on the `create-card` form to trigger its submission.
         document.querySelector("#dialog-{{card.id}} form").addEventListener("submit", e => {
             e.preventDefault()
             const form = document.querySelector("#create-card");
@@ -93,11 +104,13 @@
             form.querySelector("#hidden-gifted").value = e.currentTarget.querySelector("#is-gift2-card-{{card.id}}").checked;
             form.dispatchEvent(new Event("submit"));
         })
+        // This script shows forms for personalizing gift card if the person is buying it for themselves.
         document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
             document.querySelector("#card-{{card.id}}-name").placeholder = "Your name"
             document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recovery email"
             document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
         })
+        // This script shows forms for personalizing gift card if the person is buying it sa a gift.
         document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
             document.querySelector("#card-{{card.id}}-name").placeholder = "Recipient's name"
             document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recipient's email"
@@ -133,6 +146,18 @@
     const personalCards = document.querySelectorAll(".card-img.personal")
     let selectedCard = 0;
 
+    // Function: updateSelection
+    // Description: Updates the selection of gift cards in the carousel by changing the selected card's CSS class and adjusting the opacity of navigation buttons.
+    // Parameters:
+    //     newIndex (number) - The index of the new card to be selected.
+    // Behavior:
+    //     - If newIndex is within the valid range (0 to personalCards.length - 1):
+    //         - Removes the 'selected' class from the currently selected card.
+    //         - Adds the 'selected' class to the new card.
+    //         - Updates the selectedCard variable to the new index.
+    //         - Sets the opacity of the forward and back carousel buttons to 1 (visible).
+    //         - If the new index is 0, sets the opacity of the back button to 0 (hidden).
+    //         - If the new index is the last card, sets the opacity of the forward button to 0 (hidden).
     function updateSelection(newIndex) {
         if (newIndex < personalCards.length && newIndex >= 0) {
             personalCards[selectedCard].classList.remove('selected');
