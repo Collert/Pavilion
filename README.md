@@ -21,4 +21,4 @@ Pavilion is a Django-based restaurant management system designed to streamline f
 
 ---
 
-For detailed setup, API documentation, and tutorials, please refer to the project's **GitHub Wiki** (coming soon). If you have any questions, open an issue or reach out via GitHub discussions.
+For detailed setup, API documentation, and tutorials, please refer to the project's [**GitHub Wiki**](https://github.com/Collert/Pavilion/wiki). If you have any questions, open an issue or reach out via GitHub discussions.
