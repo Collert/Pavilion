@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     'gift_cards',  # Gift card transactions
     'payments',  # Payment processing
     'events',  # Event handling
+    'new_admin',  # Custom admin interface
 ]
 
 # Middleware - Handles request processing, security, and session management
