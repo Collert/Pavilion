@@ -31,6 +31,7 @@ SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+APP_DOMAIN = os.getenv('APP_DOMAIN')
 
 # Security settings
 SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'  # WARNING: Change this in production!
@@ -47,27 +48,15 @@ LOGIN_URL = reverse_lazy('login_view')
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    'server.uahelp.ca',
-    'internal.uahelp.ca',
-    'local.internal.uahelp.ca',
-    '8697-24-244-23-36.ngrok-free.app',
-    '154.20.173.24154.20.173.24',
-    '173.183.117.181',
-    '057f-154-20-173-24.ngrok-free.app',
-    '061a-23-16-73-26.ngrok-free.app',
-    '2d90-2605-8d80-480-2e91-34d4-246d-12c-b245.ngrok-free.app',
+    APP_DOMAIN
 ]
 
 # CSRF Trusted Origins (allows cross-origin requests from specified domains)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000", 
-    "http://127.0.0.1:3000", 
-    "http://server.uahelp.ca", 
-    "http://internal.uahelp.ca", 
-    "http://local.internal.uahelp.ca",
+    "http://127.0.0.1:3000",
     "https://6005-2605-8d80-482-cacb-58a-f30d-f46d-5a0d.ngrok-free.app",
-    "https://internal.uahelp.ca",
-    "https://173.183.117.181"
+    "https://{APP_DOMAIN}"
 ]
 
 # Enable CORS for all origins (consider restricting this in production)
@@ -146,7 +135,7 @@ if os.getenv('ENVIRONMENT') == "production":
             'PORT': '',  # Default port
         }
     }
-    NOTIFICATIONS_HOST = "https://internal.uahelp.ca"
+    NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}"
 else:
     DATABASES = {
         'default': {

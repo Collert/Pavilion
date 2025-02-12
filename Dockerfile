@@ -7,6 +7,8 @@ WORKDIR /app
 # Copy project files into container
 COPY . .
 
+COPY prod.env /app/pavilion/.env
+
 # Install system dependencies for OpenCV and FFmpeg
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
