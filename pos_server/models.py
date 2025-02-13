@@ -455,6 +455,8 @@ class Ingredient(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
+    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    condiment_price = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True) # Price for this ingredient if sold as a condiment. Leave blank to treat as a free condiment or if not given as a condiment.
 
     def __str__(self) -> str:
         qty = self.inventory
