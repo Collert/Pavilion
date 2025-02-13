@@ -427,6 +427,8 @@ class Ingredient(models.Model):
         unit_of_measurement (str): The unit of measurement for the ingredient.
         allergen (str): The allergen associated with the ingredient.
         unlimited (bool): Indicates if the ingredient has unlimited supply.
+        cost (DecimalField): The cost of the ingredient.
+        condiment_price (DecimalField): The price of the ingredient if sold as a condiment.
     Methods:
         __str__(): Returns a string representation of the ingredient.
     """
@@ -455,7 +457,7 @@ class Ingredient(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True) 
     condiment_price = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True) # Price for this ingredient if sold as a condiment. Leave blank to treat as a free condiment or if not given as a condiment.
 
     def __str__(self) -> str:
