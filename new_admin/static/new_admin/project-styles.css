@@ -112,3 +112,29 @@ header {
 #secondary-nav a:hover {
     background-color: var(--accent-3);
 }
+
+*::-webkit-scrollbar {
+    width: 12px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--accent-2);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    transition: background-color 300ms ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-1);
+}
+
+main {
+    height: 100dvh;
+    overflow: auto;
+}
