@@ -72,7 +72,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'pos_server.apps.PosServerConfig',  # POS system module
     'webrtc',  # WebRTC communication
-    'landing',  # Landing page module
+    'app_switcher',  # App switcher page module
     'misc_tools',  # Miscellaneous utilities
     'online_store',  # E-commerce store module
     'inventory',  # Inventory management

@@ -20,7 +20,7 @@ from django.conf.urls.static import static
 from django.conf import settings
 
 urlpatterns = [
-    path('', include("landing.urls")),
+    path('', include("online_store.urls")),
     path('admin/', include("new_admin.urls")),
     path('advanced-admin/', admin.site.urls),
     path('webrtc/', include("webrtc.urls")),
@@ -30,7 +30,7 @@ urlpatterns = [
     path('inventory/', include("inventory.urls")),
     path('gift-cards/', include("gift_cards.urls")),
     path('payments/', include("payments.urls")),
-    path('online-store/', include("online_store.urls")),
+    path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
 ]
 

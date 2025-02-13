@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class LandingConfig(AppConfig):
+class AppSwitcherConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'landing'
+    name = 'app_switcher'
