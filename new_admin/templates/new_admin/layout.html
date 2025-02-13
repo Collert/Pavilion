@@ -1,0 +1,150 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'new_admin/layers.css' %}" rel="stylesheet">
+    <link href="{% static 'new_admin/project-styles.css' %}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <title>Admin: {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 48
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="{% static 'new_admin/Pavilion logo.webp' %}" id="logo" alt="">
+        <nav id="primary-nav">
+            <div class="nav-section" id="dashboard-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">monitoring</span>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Home</a>
+                    <a href="{% url 'admin-dashboard-home' %}">History</a>
+                </div>
+            </div>
+            <div class="nav-section" id="orders-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">orders</span>
+                    <span>Orders</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Retail Orders</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Catering</a>
+                </div>
+            </div>
+            <div class="nav-section" id="menus-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">menu_book</span>
+                    <span>Menus</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Menus list</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Create menu</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Dishes</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Recipes</a>
+                </div>
+            </div>
+            <div class="nav-section" id="inventory-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    <span>Inventory</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Components</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Ingredients</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Crafting</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Restocks</a>
+                </div>
+            </div>
+            <div class="nav-section" id="store-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">storefront</span>
+                    <span>Store</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-store-branding' %}">Branding</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Working hours</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Events</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Media</a>
+                </div>
+            </div>
+            <div class="nav-section" id="promotions-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">sell</span>
+                    <span>Promotions</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Coupons</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Discounts</a>
+                </div>
+            </div>
+            <div class="nav-section" id="gift-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">redeem</span>
+                    <span>Gift cards</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Card presets</a>
+                    <a href="{% url 'admin-dashboard-home' %}">Active cards</a>
+                    <a href="{% url 'admin-dashboard-home' %}">New card</a>
+                </div>
+            </div>
+            <div class="nav-section" id="settings-nav">
+                <div class="nav-section-header">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Settings</span>
+                </div>
+                <div class="nav-section-body">
+                    <a href="{% url 'admin-dashboard-home' %}">Retail Orders</a>
+                </div>
+            </div>
+        </nav>
+        <nav id="secondary-nav">
+            <a class="no-style" href="" id="profile-container">
+                <img src="https://pasa.org/wp-content/uploads/2021/06/Vervet-Monkey-Foundation-credit-Kyle-.jpg" alt="">
+                <span>{{request.user.first_name}} {{request.user.last_name}}</span>
+            </a>
+            <a class="no-style" href="">
+                <span class="material-symbols-outlined">power_settings_new</span>
+            </a>
+        </nav>
+    </header>
+    <main>
+        {% block body %}
+        {% endblock %}
+    </main>
+</body>
+<script>
+    const navSections = document.querySelectorAll('.nav-section');
+    navSections.forEach(navSection => {
+        navSection.addEventListener('click', () => {
+            navSections.forEach(navSection => {
+                navSection.classList.remove('active');
+            });
+            navSection.classList.add('active');
+        });
+    });
+    const currentUrl = window.location.pathname.split('/');
+    const sectionName = currentUrl[currentUrl.length - 2];
+
+    navSections.forEach(navSection => {
+        if (navSection.id.includes(sectionName)) {
+            navSection.classList.add('active');
+        }
+    });
+</script>
+</html>

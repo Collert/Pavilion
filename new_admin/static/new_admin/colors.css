@@ -1,0 +1,28 @@
+:root {
+    /* Color Theme Swatches in Hex */
+    --pavilion-color-1-hex: #012340;
+    --pavilion-color-2-hex: #1F6373;
+    --pavilion-color-3-hex: #68A6A6;
+    --pavilion-color-4-hex: #BBBFB8;
+    --pavilion-color-5-hex: #F2EFDF;
+    
+    /* Color Theme Swatches in RGBA */
+    --pavilion-color-1-rgba: rgba(1, 35, 64, 1);
+    --pavilion-color-2-rgba: rgba(31, 99, 115, 1);
+    --pavilion-color-3-rgba: rgba(104, 166, 166, 1);
+    --pavilion-color-4-rgba: rgba(187, 191, 184, 1);
+    --pavilion-color-5-rgba: rgba(242, 239, 223, 1);
+    
+    /* Color Theme Swatches in HSLA */
+    --pavilion-color-1-hsla: hsla(207, 96, 12, 1);
+    --pavilion-color-2-hsla: hsla(191, 57, 28, 1);
+    --pavilion-color-3-hsla: hsla(180, 25, 52, 1);
+    --pavilion-color-4-hsla: hsla(94, 5, 73, 1);
+    --pavilion-color-5-hsla: hsla(50, 42, 91, 1);
+
+    --primary-background: var(--pavilion-color-5-hex);
+    --primary-contrast: var(--pavilion-color-1-hex);
+    --accent-1: var(--pavilion-color-2-hex);
+    --accent-2: var(--pavilion-color-3-hex);
+    --accent-3: var(--pavilion-color-4-hex);
+}

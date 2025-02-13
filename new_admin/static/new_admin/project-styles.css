@@ -1,0 +1,114 @@
+@import url('https://cdn.jsdelivr.net/gh/Collert/AD-Elements@latest/colors.css');
+@import url("colors.css");
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    display: grid;
+    height: 100dvh;
+    grid-template-columns: 1fr 6fr;
+}
+
+header {
+    display: flex;
+    padding: 1rem 0;
+    gap: 2rem;
+    flex-direction: column;
+    align-items: center;
+    height: 100dvh;
+}
+
+#logo {
+    height: 7rem;
+}
+
+#primary-nav {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    padding: 0 2rem;
+    gap: 1rem;
+    flex-direction: column;
+    overflow: auto;
+}
+
+.nav-section-header {
+    display: flex;
+    height: fit-content;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 700;
+    font-size: larger;
+    cursor: pointer;
+    padding: .5rem 1rem;
+    transition: all 300ms ease;
+    border-radius: 7px;
+}
+
+.nav-section.active .nav-section-header,
+.nav-section:hover .nav-section-header {
+    background-color: var(--accent-3);
+}
+
+.nav-section {
+    display: grid;
+    grid-template-rows: auto 0fr;
+    transition: all 300ms ease;
+    gap: .5rem;
+}
+
+.nav-section.active {
+    grid-template-rows: auto 1fr;
+}
+
+.nav-section.active .nav-section-body {
+    padding: .5rem 1rem;
+    padding-left: calc(1rem + 24px + 1rem);
+}
+
+.nav-section-body {
+    overflow: hidden;
+    padding: 0;
+    padding-left: 0;
+    transition: all 300ms ease;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.nav-section-body a {
+    width: fit-content;
+}
+
+#secondary-nav {
+    display: grid;
+    grid-template-columns: 5fr 1fr;
+    gap: 1rem;
+}
+
+#secondary-nav #profile-container img {
+    aspect-ratio: 1;
+    height: 3rem;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid var(--accent-2);
+}
+
+#secondary-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    cursor: pointer;
+    text-decoration: none;
+    padding: .5rem;
+    border-radius: 10px;
+    transition: all 300ms ease;
+    font-weight: 600;
+}
+
+#secondary-nav a:hover {
+    background-color: var(--accent-3);
+}
