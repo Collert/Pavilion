@@ -1,0 +1,34 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-02-15 15:31-0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: Cantonese (Hong Kong)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: .\new_admin\templates\new_admin\orders_retail.html:6
+#: .\new_admin\templates\new_admin\orders_retail.html:14
+msgid "Retail orders"
+msgstr ""
+
+#: .\pavilion\settings.py:236
+msgid "English"
+msgstr ""
+
+#: .\pavilion\settings.py:237
+msgid "Ukrainian"
+msgstr ""
+
+#: .\pavilion\settings.py:238
+msgid "Cantonese (Hong Kong)"
+msgstr ""

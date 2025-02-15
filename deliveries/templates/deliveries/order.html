@@ -5,7 +5,7 @@
 <div class="body">
     {% csrf_token %}
     <div class="summary">
-        <h1>{{delivery.order.table}}</h1>
+        <h1>{{delivery.order.name}}</h1>
         <span>Order #{{delivery.order.id}}</span>
     </div>
     {% with delivery.order.orderdish_set.all.count as items %}

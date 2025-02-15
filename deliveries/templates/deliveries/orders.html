@@ -5,7 +5,7 @@
 {% if courier %}
     {% for order in orders %}
         <a href="{% url 'delivery_order' id=order.id %}" class="order no-style">
-            <h1>{{order.order.table}}</h1>
+            <h1>{{order.order.name}}</h1>
             {% with order.order.orderdish_set.all.count as items %}
                 <span>{{items}} item{% if items > 1 %}s{% endif %}</span>
             {% endwith %}

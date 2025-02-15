@@ -1,0 +1,118 @@
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th:first-child {
+    border-top-left-radius: 10px;
+}
+
+th:last-child {
+    border-top-right-radius: 10px;
+}
+
+tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 10px;
+    border-left: none;
+    border-bottom: none;
+} 
+
+tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 10px;
+    border-right: none;
+    border-bottom: none;
+}
+
+tbody tr:nth-child(even) {
+    background-color: var(--accent-3);
+}
+
+tbody td {
+    border: 1px solid var(--accent-1);
+    padding: .5rem;
+}
+
+tbody td:first-child {
+    border-left: none;
+}
+
+tbody td:last-child {
+    border-right: none;
+}
+
+.pagination {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 1rem 0;
+}
+
+a.button {
+    display: grid;
+    place-items: center;
+}
+
+span.ellipsis,
+span.current {
+    border-radius: 0;
+    margin: 0;
+    border-width: 2px 1px 2px 1px;
+    padding: .5rem .75rem;
+    background-color: var(--primary-contrast);
+    color: var(--primary-background);
+    border-color: var(--primary-contrast);
+    display: grid;
+    place-items: center;
+}
+
+span.ellipsis {
+    color: var(--primary-contrast);
+    background-color: var(--primary-background);
+    border-style: solid;
+    opacity: .5;
+}
+
+span.current:first-child {
+    border-top-left-radius: 100vh;
+    border-bottom-left-radius: 100vh;
+}
+
+span.current:last-child {
+    border-top-right-radius: 100vh;
+    border-bottom-right-radius: 100vh;
+}
+
+a.button:hover {
+    background-color: var(--primary-contrast);
+}
+
+a.button:hover span {
+    color: var(--primary-background);
+}
+
+th {
+    padding: 1rem;
+    position: relative;
+    user-select: none;
+}
+
+thead {
+    background-color: var(--accent-2);
+}
+
+th:not(:last-child) .resizer {
+    content: "";
+    width: 2px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transform: translateX(50%);
+    background-color: var(--accent-1);
+    z-index: 1;
+    cursor: col-resize;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}

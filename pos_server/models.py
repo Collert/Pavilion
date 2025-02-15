@@ -167,7 +167,7 @@ class Order(models.Model):
         start_time (DateTimeField): The start time of the order.
         prep_time (DurationField): The preparation time for the order.
         dishes (ManyToManyField): The dishes associated with the order.
-        table (CharField): The table number for the order.
+        name (CharField): The name number for the order.
         kitchen_status (PositiveSmallIntegerField): The status of the kitchen station.
         bar_status (PositiveSmallIntegerField): The status of the bar station.
         gng_status (PositiveSmallIntegerField): The status of the grab-and-go station.
@@ -204,7 +204,7 @@ class Order(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
-    table = models.CharField(null=True, max_length = 140, blank=True)
+    name = models.CharField(null=True, max_length = 140, blank=True)
     kitchen_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     bar_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     gng_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)

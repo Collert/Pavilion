@@ -1,0 +1,74 @@
+{% extends 'new_admin/layout.html' %}
+{% load i18n %}    
+{% load static %}
+
+{% block title %}
+    {% trans 'Retail orders' %}
+{% endblock %}
+
+{% block stylesheets %}
+    <link href="{% static 'new_admin/tables.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+    <h1>{% trans "Retail orders" %}</h1>
+    <table class="resizable">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Order timestamp</th>
+                <th>Customer name</th>
+                <th>Order status</th>
+                <th>Order total</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.timestamp }}</td>
+                    <td>{{ order.name }}</td>
+                    <td>
+                        <!-- TODO -->
+                    </td>
+                    <td>${{ order.final_revenue }}</td>
+                    <td>
+                        <a class="button icon" href="{% url 'admin-order-retail' id=order.id %}"><span class="material-symbols-outlined">visibility</span></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="pagination">
+        <span class="step-links button-row">
+            {% if orders.has_previous %}
+                <a class="button" href="?page=1"><span style="rotate: 180deg;" class="material-symbols-outlined">double_arrow</span></a>
+                <a class="button" href="?page={{ orders.previous_page_number }}"><span class="material-symbols-outlined">chevron_left</span></a>
+                {% if orders.number > 5 %}
+                    <span class="ellipsis">...</span>
+                {% endif %}
+            {% endif %}
+
+            {% for page_num in orders.paginator.page_range %}
+                {% if page_num > orders.number|add:'-5' and page_num < orders.number|add:'5' %}
+                    {% if page_num == orders.number %}
+                        <span class="current">{{ page_num }}</span>
+                    {% else %}
+                        <a class="button" href="?page={{ page_num }}">{{ page_num }}</a>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if orders.has_next %}
+                {% if orders.number < orders.paginator.num_pages|add:'-5' %}
+                    <span class="ellipsis">...</span>
+                {% endif %}
+                <a class="button" href="?page={{ orders.next_page_number }}"><span class="material-symbols-outlined">chevron_right</span></a>
+                <a class="button" href="?page={{ orders.paginator.num_pages }}"><span class="material-symbols-outlined">double_arrow</span></a>
+            {% endif %}
+        </span>
+    </div>
+
+    <script src="{% static 'new_admin/table-resizers.js' %}"></script>
+{% endblock %}

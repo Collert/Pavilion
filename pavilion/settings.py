@@ -12,6 +12,7 @@ import os
 from dotenv import load_dotenv
 from django.urls import reverse_lazy
 import socket
+from django.utils.translation import gettext_lazy as _
 
 # Load environment variables from a .env file if present
 load_dotenv()
@@ -87,6 +88,7 @@ INSTALLED_APPS = [
 
 # Middleware - Handles request processing, security, and session management
 MIDDLEWARE = [
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Manages static files efficiently
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -226,8 +228,21 @@ TIME_ZONE = 'America/Vancouver'
 
 USE_I18N = True
 
+USE_L10N = True
+
 USE_TZ = True
 
+LANGUAGES = [
+    ('en', _('English')),
+    ('uk', _('Ukrainian')),
+    ('zh-HK', _('Cantonese (Hong Kong)')),
+]
+
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, "locale"),  # Path for translation files
+]
+
+PO_FILE_IGNORE_PATTERNS = ["venv/*", "node_modules/*", "migrations/*", ".venv/*", "static/*", "media/*", "locale/*"]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/

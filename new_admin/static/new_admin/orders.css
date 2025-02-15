@@ -1,0 +1,34 @@
+nav {
+    padding: 1rem;
+}
+
+#order {
+    display: grid;
+    grid-template-columns: 4fr 1fr;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#customer-card {
+    border-radius: 10px;
+    background-color: var(--accent-2);
+    padding: 1rem;
+    display: grid;
+    gap: 1rem;
+}
+
+#customer-card * {
+    margin: 0;
+}
+
+table {
+    table-layout: fixed;
+}
+
+#customer-info button {
+    display: grid;
+    place-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    grid-template-columns: auto auto;
+}

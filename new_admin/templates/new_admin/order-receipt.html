@@ -1,0 +1,58 @@
+{% load mathfilters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order receipt</title>
+    <style>
+        body {
+            padding: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .75rem;
+        }
+        * {
+            margin: 0;
+        }
+        table#main {
+            width: 90%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        thead tr {
+            border-bottom: 2px solid black;
+        }
+        th, td {
+            padding: .5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sales receipt</h1>
+    <p>{{restaurant_name}}</p>
+    <p>{{restaurant_address}}</p>
+    <p>{{order.timestamp_pretty}}</p>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 60%;">Item</th>
+                <th style="width: 13%;">Quantity</th>
+                <th style="width: 13%;">Price</th>
+                <th style="width: 13%;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.dishes %}
+                <tr>
+                    <td>{{item.name}}</td>
+                    <td>{{item.quantity}}</td>
+                    <td>${{item.price|floatformat:2}}</td>
+                    <td>${{item.price|mul:item.quantity|floatformat:2}}</td>
+                </tr>
+            {% endfor %}
+    </table>
+</body>
+</html>

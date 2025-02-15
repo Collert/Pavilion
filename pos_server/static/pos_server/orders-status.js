@@ -199,9 +199,9 @@ function playAudioBlob(audioBlob) {
 
 function generateAnnouncement(order) {
     let announcement;
-    if (order.table) {
+    if (order.name) {
         const template = namedAnnouncements[Math.floor(Math.random() * namedAnnouncements.length)];
-        announcement = template.replace(/\${name}/g, order.table);
+        announcement = template.replace(/\${name}/g, order.name);
     } else {
         const template = noNameAnnouncements[Math.floor(Math.random() * noNameAnnouncements.length)];
         announcement = template.replace(/\${name}/g, order.order_id);
@@ -215,7 +215,7 @@ function appendNewOrder(data) {
     // console.log(data)
     const newOrder = document.createElement("span");
     const text = document.createElement("span");
-    text.textContent = data.table ? data.table : `Order #${data.order_id}`;
+    text.textContent = data.name ? data.name : `Order #${data.order_id}`;
     newOrder.appendChild(text)
     newOrder.dataset.orderId = data.order_id;
     inProgressCol.appendChild(newOrder);
@@ -236,7 +236,7 @@ function markOrderReady(data) {
     console.log("ready")
     const newOrder = document.createElement("span");
     const text = document.createElement("span");
-    text.textContent = data.table ? data.table : `Order #${data.order_id}`;
+    text.textContent = data.name ? data.name : `Order #${data.order_id}`;
     newOrder.appendChild(text)
     newOrder.dataset.orderId = data.order_id;
     newOrder.dataset.dishQty = data.dishes.length;

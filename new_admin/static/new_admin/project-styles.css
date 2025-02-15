@@ -138,3 +138,7 @@ main {
     height: 100dvh;
     overflow: auto;
 }
+
+a.button.icon {
+    box-sizing: content-box;
+}

@@ -192,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
             progresses.appendChild(statusStack)
         }
         newOrder.innerHTML = `<div class="summary">
-                                    <h2>${data.table ? data.table : "No name"}</h2>                                    
+                                    <h2>${data.name ? data.name : "No name"}</h2>                                    
                                     <div class="name-time">
                                         <span>Order #${orderId}</span>
                                         <span data-timestamp="${data.start_time}" class="timestamp">

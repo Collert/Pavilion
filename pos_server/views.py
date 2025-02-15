@@ -354,7 +354,7 @@ def pos(request):
         is_to_go = body["toGo"]
         dish_counts = Counter(i["pk"] for i in cart["items"])
         new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
-        new_order.table = body["table"] if body["table"].strip() != '' else None
+        new_order.name = body["name"] if body["name"].strip() != '' else None
         new_order.save()
         for dish_id, quantity in dish_counts.items():
             dish = Dish.objects.get(id=dish_id)
@@ -408,7 +408,7 @@ def pos(request):
         # # Output the result
         # print(json.dumps(result, indent=2))
         # new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
-        # new_order.table = body["table"] if body["table"].strip() != '' else None
+        # new_order.name = body["name"] if body["name"].strip() != '' else None
         # new_order.save()
         # for dish_id, details in result.items():
         #     dish = Dish.objects.get(id=dish_id)
@@ -1102,7 +1102,7 @@ def collect_order(order, done=False):
             The dictionary includes the following keys:
             - order_id (int): The ID of the order.
             - dishes (list): A list of dictionaries, each containing 'name', 'quantity', and 'station' of a dish.
-            - table (str): The table associated with the order.
+            - name (str): The name associated with the order.
             - to_go_order (bool): Indicates if the order is a to-go order.
             - channel (str): The channel through which the order was placed.
             - phone (str): The phone number associated with the order.
@@ -1128,6 +1128,7 @@ def collect_order(order, done=False):
         dishes_data.append({
             'name': od.dish.title,
             'quantity': od.quantity,
+            'price': od.dish.price,
             'station': od.dish.station
         })
 
@@ -1135,13 +1136,14 @@ def collect_order(order, done=False):
     return({
         'order_id': order.id,
         'dishes': dishes_data,
-        'table':order.table,
+        'name':order.name,
         'to_go_order':order.to_go_order,
         'channel':order.channel,
         'phone':order.phone,
         'address':order.delivery.first().destination if order.delivery.first() else None,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
+        "timestamp_pretty":order.timestamp,
         "start_time":order.start_time.isoformat(),
         "kitchen_status":order.kitchen_status,
         "done":done,

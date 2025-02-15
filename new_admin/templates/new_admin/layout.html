@@ -44,7 +44,7 @@
                     <span>Orders</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Retail Orders</a>
+                    <a class="header-link" href="{% url 'admin-orders-retail' %}">Retail Orders</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">Catering</a>
                 </div>
             </div>
@@ -132,7 +132,7 @@
         </nav>
     </header>
     <main>
-        {% block body %}
+        {% block content %}
         {% endblock %}
     </main>
 </body>
@@ -147,7 +147,7 @@
         });
     });
     const currentUrl = window.location.pathname.split('/');
-    const sectionName = currentUrl[currentUrl.length - 2];
+    const sectionName = currentUrl[2];
 
     navSections.forEach(navSection => {
         if (navSection.id.includes(sectionName)) {

@@ -219,7 +219,7 @@ def place_order(request):
                 authorization=transaction.authorization.first() if transaction else None,
                 start_time=aware_datetime
             )
-            order.table = name.strip() if name != '' else None
+            order.name = name.strip() if name != '' else None
             # transaction.delete()
             if method == "pick-up":
                 order.channel = "web"

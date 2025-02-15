@@ -307,7 +307,7 @@ function sendOrder(actionLink, customerName, instructions, toGo) {
         method:'POST',
         body: JSON.stringify({
             cart:cart,
-            table:customerName,
+            name:customerName,
             instructions:instructions,
             toGo:toGo
         })

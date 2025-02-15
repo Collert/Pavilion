@@ -39,7 +39,7 @@
                 <div>
                     {% for order in in_progress %}
                     <span data-bar-done="{{order.bar_done}}" data-order-id="{{order.id}}">
-                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                        <span>{% if order.name %}{{order.name}}{% else %}Order #{{order.id}}{% endif %}</span>
                     </span>
                     {% endfor %}
                 </div>
@@ -49,7 +49,7 @@
                 <div>
                     {% for order in ready %}
                     <span data-bar-done="{{order.bar_done}}" data-dishQty="{{order.dishes.all|length}}" data-dish="{{order.dishes.first.title}}" data-order-id="{{order.id}}">
-                        <span>{% if order.table %}{{order.table}}{% else %}Order #{{order.id}}{% endif %}</span>
+                        <span>{% if order.name %}{{order.name}}{% else %}Order #{{order.id}}{% endif %}</span>
                     </span>
                     {% endfor %}
                 </div>
