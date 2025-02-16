@@ -222,7 +222,7 @@ discountsLink.addEventListener("click", e => {
 
 adminAuthorizeForm.addEventListener("submit", e => {
     e.preventDefault();
-    fetch("{% url 'check_su' %}", {
+    fetch("/restaurant/check-su", {
         headers: {"X-CSRFToken": csrftoken },
         method:'POST',
         body: JSON.stringify({
@@ -438,7 +438,7 @@ async function initCameraSelection() {
     videoDevices.forEach((device, index) => {
       const option = document.createElement("option");
       option.value = device.deviceId;
-      option.text = device.label || `Camera ${index + 1}`;
+      option.text = device.label || gettext("Camera") + ` ${index + 1}`;
       select.appendChild(option);
     });
   

@@ -1,9 +1,10 @@
 {% extends "pos_server/layout.html" %}
 {% load static %}
+{% load i18n %}
 
 {% block body %}
 {% csrf_token %}
-<h1>Select a business day</h1>
+<h1>{% trans "Select a business day" %}</h1>
 {% for day in dates %}
     <button data-day="{{day}}" class="business-day">{{day}}</button>
 {% endfor %}

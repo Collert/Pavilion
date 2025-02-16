@@ -145,13 +145,13 @@ document.addEventListener("DOMContentLoaded", () => {
         newOrder.dataset.gngStatus = data.gng_status;
         let channel;
         if (data.channel == "store") {
-            channel = '<span class="material-symbols-outlined">storefront</span> In-person'
+            channel = '<span class="material-symbols-outlined">storefront</span> ' + gettext('In-person')
         } else if (data.channel == "web") {
-            channel = `<span class="material-symbols-outlined">shopping_cart_checkout</span> Online pick-up
-                        <span class="material-symbols-outlined">call</span> ${data.phone}`
+            channel = `<span class="material-symbols-outlined">shopping_cart_checkout</span> ` + gettext("Online pick-up") +
+                        `<span class="material-symbols-outlined">call</span> ${data.phone}`
         } else if (data.channel == "delivery") {
-            channel = `<span class="material-symbols-outlined">local_shipping</span> Delivery
-                        <span class="material-symbols-outlined">call</span> ${data.phone}`
+            channel = `<span class="material-symbols-outlined">local_shipping</span> ` + gettext("Delivery") +
+                        `<span class="material-symbols-outlined">call</span> ${data.phone}`
         }
         const progresses = document.createElement("div");
         progresses.classList.add("progresses")
@@ -192,11 +192,11 @@ document.addEventListener("DOMContentLoaded", () => {
             progresses.appendChild(statusStack)
         }
         newOrder.innerHTML = `<div class="summary">
-                                    <h2>${data.name ? data.name : "No name"}</h2>                                    
+                                    <h2>${data.name ? data.name : gettext("No name")}</h2>                                    
                                     <div class="name-time">
                                         <span>Order #${orderId}</span>
                                         <span data-timestamp="${data.start_time}" class="timestamp">
-                                            Prep time: <span>${data.start_time}</span>
+                                            ${gettext("Prep time")}: <span>${data.start_time}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -206,12 +206,12 @@ document.addEventListener("DOMContentLoaded", () => {
                                     </h3>
                                     ${progresses.outerHTML}
                                     <h3>
-                                        ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> Order to-go" : "<span class='material-symbols-outlined'>restaurant</span> Order for here"}
+                                        ${data.to_go_order ? "<span class='material-symbols-outlined'>takeout_dining</span> " + gettext("Order to-go") : "<span class='material-symbols-outlined'>restaurant</span> " + gettext("Order for here")}
                                     </h3>
                                     <ul id="order${data.order_id}ul">
                                         
                                     </ul>
-                                    ${data.special_instructions ? '<h3>Special instructions:</h3><p>'+data.special_instructions+'</p>' : ''}
+                                    ${data.special_instructions ? '<h3>' + gettext("Special instructions") + ':</h3><p>' + data.special_instructions + '</p>' : ''}
                                 </div>`
         newOrder.addEventListener("click", e => {
             updateSelection(cards.findIndex(cd => cd === e.currentTarget))
@@ -312,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isChecked = [...checkboxes].some(checkbox => checkbox.checked);
 
         if (!isChecked) {
-            alert("Please select at least one rejection reason.");
+            alert(gettext("Please select at least one rejection reason."));
             return
         }
         const rejection = {
@@ -545,7 +545,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function checkActiveOrders() {
         if (!mainDiv.querySelector(".order") && !mainDiv.querySelector("h1")) {
             const noOrderSign = document.createElement("h1");
-            noOrderSign.textContent = "No new orders";
+            noOrderSign.textContent = gettext("No new orders");
             noOrderSign.style = "text-align: center;"
             mainDiv.appendChild(noOrderSign);
         }

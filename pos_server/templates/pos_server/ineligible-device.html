@@ -1,21 +1,22 @@
 {% extends "pos_server/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
 {% if not authorized %}
-<h2 style="text-align: center; padding: 1rem 0;">This device is not authorized to access the attempted functionality. Please use admin credentials to authorize.</h2>
+<h2 style="text-align: center; padding: 1rem 0;">{% trans "This device is not authorized to access the attempted functionality. Please use admin credentials to authorize." %}</h2>
 {% endif %}
 <form id="login" method="post" style="align-content: center;" action="{% url 'device_elig' %}">
     {% csrf_token %}
-    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
-    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
-    <input type="text" required name="device" placeholder="Device name"/>
+    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="{% trans 'Username' %}"/>
+    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="{% trans 'Password' %}"/>
+    <input type="text" required name="device" placeholder="{% trans 'Device name' %}"/>
     {% if request.GET.next %}
     <input type="hidden" name="next" value="{{ request.GET.next }}">
     {% endif %}
-    <button {% if failed_login %}class="error"{% endif %}>Authorize</button>
+    <button {% if failed_login %}class="error"{% endif %}>{% trans "Authorize" %}</button>
     {% if failed_login %}
-    <span>Failed to authenticate, please try again</span>
+    <span>{% trans "Failed to authenticate, please try again" %}</span>
     {% endif %}
 </form>
 
@@ -23,7 +24,7 @@
 <script>
     const UUID = "{{uuid}}"
     window.localStorage.setItem("deviceToken", UUID)
-    alert("Device registered! You will now be redirected to homepage.")
+    alert("{% trans 'Device registered! You will now be redirected to homepage.' %}")
     window.location.href = "/"
 </script>
 {% endif %}

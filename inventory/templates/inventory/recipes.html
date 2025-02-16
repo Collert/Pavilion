@@ -1,4 +1,5 @@
 {% extends "inventory/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -9,7 +10,9 @@
             {% elif recipe.component.first %}
             {{recipe.component.first.title}}
             {% else %}
+            {% blocktrans %}
             Not linked recipe #{{recipe.id}}
+            {% endblocktrans %}
             {% endif %}
         </a>
     {% endfor %}

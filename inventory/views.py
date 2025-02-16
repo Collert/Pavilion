@@ -326,22 +326,21 @@ def inventory_updates(request):
     return response
 
 def craft_component(component_id:int, qty:int):
-    def craft_component(component_id: int, qty: int):
-        """
-        Updates the inventory of a component and its ingredients based on the quantity crafted.
+    """
+    Updates the inventory of a component and its ingredients based on the quantity crafted.
 
-        Args:
-            component_id (int): The ID of the component to be crafted.
-            qty (int): The quantity of the component to be crafted.
+    Args:
+        component_id (int): The ID of the component to be crafted.
+        qty (int): The quantity of the component to be crafted.
 
-        Raises:
-            Component.DoesNotExist: If the component with the given ID does not exist.
+    Raises:
+        Component.DoesNotExist: If the component with the given ID does not exist.
 
-        Side Effects:
-            - Increases the inventory of the specified component by the given quantity.
-            - Decreases the inventory of each ingredient used in the component by the required amount, 
-              unless the ingredient has unlimited supply.
-        """
+    Side Effects:
+        - Increases the inventory of the specified component by the given quantity.
+        - Decreases the inventory of each ingredient used in the component by the required amount, 
+            unless the ingredient has unlimited supply.
+    """
     component = Component.objects.get(pk=component_id)
     component.inventory += qty
     component.save()

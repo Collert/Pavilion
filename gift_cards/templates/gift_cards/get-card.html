@@ -6,7 +6,7 @@
 <dialog id="payment-popup"></dialog>
 <script>const webPaymentWindowURL = '{% url "web-payment-window" %}';</script>
 <script src="{% static 'payments/cardPaymentPopup.js' %}"></script>
-<h1>Pick a pre-loaded card</h1>
+<h1>{% trans "Pick a pre-loaded card" %}</h1>
 <div class="cards-container">
     {% for card in cards %}
         <div data-card-id="{{card.id}}" class="card">
@@ -18,10 +18,10 @@
         </div>
     {% endfor %}
 </div>
-<h1>Or make your own</h1>
+<h1>{% trans "Or make your own" %}</h1>
 <form id="personal-card-form" action="" method="post">
     {% csrf_token %}
-    <h2>Which cover?</h2>
+    <h2>{% trans "Which cover?" %}</h2>
     <input type="text" name="image" hidden id="personal-hidden-image">
     <div id="personal-card-selector">
         <div></div>
@@ -34,22 +34,22 @@
         <button id="carousel-forward"><span class="material-symbols-outlined">arrow_forward_ios</span></button>
         <div></div>
     </div>
-    <h2>How much money?</h2>
+    <h2>{% trans "How much money?" %}</h2>
     <input type="number" min="5" max="500" step=".01" name="amount" id="transaction-amount" class="transaction-amount">
-    <h2>For who?</h2>
+    <h2>{% trans "For who?" %}</h2>
     <div id="is-gift">
         <input type="radio" id="is-gift1-card-personal" name="is-gift" checked value="false" />
-        <label for="is-gift1-card-personal" class="is-gift-label">For me</label>
+        <label for="is-gift1-card-personal" class="is-gift-label">{% trans "For me" %}</label>
 
         <input type="radio" id="is-gift2-card-personal" name="is-gift" value="true" />
-        <label for="is-gift2-card-personal" class="is-gift-label">For someone else</label>
+        <label for="is-gift2-card-personal" class="is-gift-label">{% trans "For someone else" %}</label>
     </div>
-    <input id="card-personal-name" type="text" class="recipient-email" placeholder="Your name">
-    <input id="card-personal-recipient" type="email" class="recipient-email" placeholder="Recovery email" required>
+    <input id="card-personal-name" type="text" class="recipient-email" placeholder="{% trans 'Your name' %}">
+    <input id="card-personal-recipient" type="email" class="recipient-email" placeholder="{% trans 'Recovery email' %}" required>
     <div hidden class="gift-options">
         <input id="card-personal-sender" type="text" class="recipient-email" placeholder="Sender's name">
     </div>
-    <button>Get this card</button>
+    <button>{% trans "Get this card" %}</button>
 </form>
 {% for card in cards %}
 <dialog id="dialog-{{card.id}}">
@@ -58,23 +58,25 @@
             <img src="/pavilion/{{card.image}}" alt="" class="card-img">
             <h3>{{card.name}}</h3>
             <h4>${{card.amount}}</h4>
+            {% blocktrans %}
             <p>This gift card comes pre-loaded with ${{card.amount}}. You can choose to email this card to someone by selecting the option on the bottom. The card is not refundable, cannot be exchanged for cash or cannot be used for cashback. After the purchase, <strong>do not</strong> publish the link to the card anywhere. Only give the link to people that will be using the card.</p>
+            {% endblocktrans %}
             <div id="is-gift">
                 <input type="radio" id="is-gift1-card-{{card.id}}" name="is-gift" checked value="false" />
-                <label for="is-gift1-card-{{card.id}}" class="is-gift-label">This card is for me</label>
+                <label for="is-gift1-card-{{card.id}}" class="is-gift-label">{% trans "This card is for me" %}</label>
     
                 <input type="radio" id="is-gift2-card-{{card.id}}" name="is-gift" value="true" />
-                <label for="is-gift2-card-{{card.id}}" class="is-gift-label">This card is for someone else</label>
+                <label for="is-gift2-card-{{card.id}}" class="is-gift-label">{% trans "This card is for someone else" %}</label>
             </div>
-            <input id="card-{{card.id}}-name" type="text" class="recipient-email" placeholder="Your name">
-            <input id="card-{{card.id}}-recipient" type="email" class="recipient-email" placeholder="Recovery email" required>
+            <input id="card-{{card.id}}-name" type="text" class="recipient-email" placeholder="{% trans 'Your name' %}">
+            <input id="card-{{card.id}}-recipient" type="email" class="recipient-email" placeholder="{% trans 'Recovery email' %}" required>
             <div hidden class="gift-options">
-                <input id="card-{{card.id}}-sender" type="text" class="recipient-email" placeholder="Sender's name">
+                <input id="card-{{card.id}}-sender" type="text" class="recipient-email" placeholder="{% trans 'Sender\'s name' %}">
             </div>
         </div>
         <nav>
             <button type="button" class="icon back-button"><span class="material-symbols-outlined">arrow_back</span></button>
-            <button class="filled buy-button"><span class="material-symbols-outlined">shopping_cart</span>Purchase</button>
+            <button class="filled buy-button"><span class="material-symbols-outlined">shopping_cart</span>{% trans "Purchase" %}</button>
         </nav>
     </form>
 </dialog>
@@ -106,14 +108,14 @@
         })
         // This script shows forms for personalizing gift card if the person is buying it for themselves.
         document.querySelector("#is-gift1-card-{{card.id}}").addEventListener("change", e => {
-            document.querySelector("#card-{{card.id}}-name").placeholder = "Your name"
-            document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recovery email"
+            document.querySelector("#card-{{card.id}}-name").placeholder = "{% trans 'Your name' %}"
+            document.querySelector("#card-{{card.id}}-recipient").placeholder = "{% trans 'Recovery email' %}"
             document.querySelector("#dialog-{{card.id}} .gift-options").hidden = true;
         })
         // This script shows forms for personalizing gift card if the person is buying it sa a gift.
         document.querySelector("#is-gift2-card-{{card.id}}").addEventListener("change", e => {
-            document.querySelector("#card-{{card.id}}-name").placeholder = "Recipient's name"
-            document.querySelector("#card-{{card.id}}-recipient").placeholder = "Recipient's email"
+            document.querySelector("#card-{{card.id}}-name").placeholder = "{% trans 'Recipient\'s name' %}"
+            document.querySelector("#card-{{card.id}}-recipient").placeholder = "{% trans 'Recipient\'s email' %}"
             document.querySelector("#dialog-{{card.id}} .gift-options").hidden = false;
         })
     })

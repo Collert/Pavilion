@@ -21,7 +21,8 @@ import datetime
 from events.models import Event
 from django.db.models import Q
 from django.conf import settings
-from gift_cards.models import GiftCard, GiftCardAuthorization 
+from gift_cards.models import GiftCard, GiftCardAuthorization
+from django.utils.translation import gettext_lazy as _
 
 def menu(request):
     """
@@ -98,7 +99,7 @@ def dish(request, id):
     try:
         item = Dish.objects.get(pk=id)
     except Dish.DoesNotExist:
-        return HttpResponseNotFound("Dish not found")
+        return HttpResponseNotFound(_("Dish not found"))
     allergens = set()
     for dc in item.dishcomponent_set.all():
         for ci in dc.component.componentingredient_set.all():
@@ -155,7 +156,7 @@ def order_status(request, id, from_placing = False):
             order = None
             rejected_order = RejectedOrder.objects.get(order_id=id)
         except RejectedOrder.DoesNotExist:
-            return HttpResponseNotFound("Order not found")
+            return HttpResponseNotFound(_("Order not found"))
     return render(request, "online_store/order.html", {
         "route":"order_status",
         "order":collect_order(order),
@@ -259,11 +260,11 @@ def place_order(request):
                 unit = request.POST["delivery-address-2"]
                 delivery_instructions = ""
                 if request.POST["delivery-dropoff-method"] == "door":
-                    delivery_instructions = "Leave the package at the door. "
+                    delivery_instructions = _("Leave the package at the door. ")
                 elif request.POST["delivery-dropoff-method"] == "meet":
-                    delivery_instructions = "Meet the customer at the door. "
+                    delivery_instructions = _("Meet the customer at the door. ")
                 elif request.POST["delivery-dropoff-method"] == "out":
-                    delivery_instructions = "Meet the customer outside. "
+                    delivery_instructions = _("Meet the customer outside. ")
                 delivery_instructions += request.POST["delivery-instructions"]
                 Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
             return redirect(reverse("order_status", kwargs={"id":order.id, "from_placing":True}))

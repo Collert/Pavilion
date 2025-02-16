@@ -260,12 +260,12 @@ function removeOrder(data) {
 }
 
 if (sessionStorage.getItem("fsReminderDone") !== "true") {
-    alert(`
+    alert(gettext(`
     Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)
     Controls:
     
     Press 1 to open the music player controls
-    `)
+    `))
     sessionStorage.setItem("fsReminderDone", "true");
 } 
 

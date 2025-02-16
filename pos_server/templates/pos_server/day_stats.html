@@ -1,5 +1,6 @@
 {% load static %}
 {% load custom_filters %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -28,11 +29,11 @@
 <body style="gap: 0;">
     <main id="day-stat">
         <div class="stat-cell">
-            <h1>Menu items stats:</h1>
+            <h1>{% trans "Menu items stats:" %}</h1>
             <table>
                 <tr>
-                    <th>Dish</th>
-                    <th>Quantity</th>
+                    <th>{% trans "Dish" %}</th>
+                    <th>{% trans "Quantity" %}</th>
                 </tr>
                 {% for item, quantity in stats.item_stats.items %}
                 <tr>
@@ -43,11 +44,11 @@
             </table>
         </div>
         <div class="stat-cell">
-            <h1>Components used:</h1>
+            <h1>{% trans "Components used:" %}</h1>
             <table>
                 <tr>
-                    <th>Component</th>
-                    <th>Quantity</th>
+                    <th>{% trans "Component" %}</th>
+                    <th>{% trans "Quantity" %}</th>
                 </tr>
                 {% for item, quantity in stats.components.items %}
                 <tr>
@@ -62,11 +63,11 @@
             </table>
         </div>
         <div class="stat-cell">
-            <h1>Ingredients used:</h1>
+            <h1>{% trans "Ingredients used:" %}</h1>
             <table>
                 <tr>
-                    <th>Ingredient</th>
-                    <th>Quantity</th>
+                    <th>{% trans "Ingredient" %}</th>
+                    <th>{% trans "Quantity" %}</th>
                 </tr>
                 {% for item, quantity in stats.ingredients.items %}
                 <tr>
@@ -81,16 +82,16 @@
             </table>
         </div>
         <div class="stat-cell" id="stations">
-            <h1>Stations mix:</h1>
+            <h1>{% trans "Stations mix:" %}</h1>
             <canvas style="width: 80%;" id="stationsPieChart"></canvas>
         </div>
         <div class="stat-cell" id="customer-occasions">
-            <h1>Customer occasions:</h1>
+            <h1>{% trans "Customer occasions:" %}</h1>
             <table>
                 <tr>
-                    <th>Time</th>
-                    <th>Orders</th>
-                    <th>Earnings</th>
+                    <th>{% trans "Time" %}</th>
+                    <th>{% trans "Orders" %}</th>
+                    <th>{% trans "Earnings" %}</th>
                 </tr>
                 {% for time_window, summary in stats.order_occasions.items %}
                     <tr>
@@ -102,11 +103,11 @@
             </table>            
         </div>
         <div class="stat-cell" id="prep-times">
-            <h1>Average prep times:</h1>
+            <h1>{% trans "Average prep times:" %}</h1>
             <table>
                 <tr>
-                    <th>Time</th>
-                    <th>Avg prep time</th>
+                    <th>{% trans "Time" %}</th>
+                    <th>{% trans "Avg prep time" %}</th>
                 </tr>
                 {% for time_window, prep_time in stats.prep_times.items %}
                     <tr>
@@ -136,7 +137,7 @@
             const data = {
                 labels: Object.keys(rawData),
                 datasets: [{
-                    label: 'Station distributions',
+                    label: '{% trans "Station distributions" %}',
                     data: Object.values(rawData),
                     backgroundColor: [accent1, accent2, accent3], // You can customize colors
                     hoverOffset: 4

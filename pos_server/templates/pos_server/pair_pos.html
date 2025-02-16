@@ -1,12 +1,13 @@
 {% extends "pos_server/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
 {% csrf_token %}
-<h1>Square terminal device code:</h1>
+<h1>{% trans "Square terminal device code:" %}</h1>
 <span>{{code}}</span>
 <div>
-    <button>Send test transaction</button>
-    <button>Generate new code</button>
+    <button>{% trans "Send test transaction" %}</button>
+    <button>{% trans "Generate new code" %}</button>
 </div>
 {% endblock %}

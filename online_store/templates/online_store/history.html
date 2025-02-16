@@ -1,4 +1,5 @@
 {% extends "online_store/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -13,7 +14,11 @@
 </style>
 {% for order in orders %}
     <a href="{% url 'order_status' id=order.id %}" class="order no-style">
-        <h2>Order# {{order.id}}</h2>
+        <h2>
+            {% blocktrans %}
+            Order# {{order.id}}
+            {% endblocktrans %}
+        </h2>
         <strong>{{order.timestamp}}</strong>
         <div class="order-status">
             {% if order.channel == 'web' %}
@@ -65,23 +70,23 @@
             </span>
             <span>
                 {% if order.progress_status == 1 %}
-                    Order pending
+                    {% trans "Order pending" %}
                 {% elif order.progress_status == 2 %}
-                    We are reviewing your order
+                    {% trans "We are reviewing your order" %}
                 {% elif order.progress_status == 3 %}
-                    Order is being prepared
+                    {% trans "Order is being prepared" %}
                 {% elif order.progress_status == 4 %}
-                    Order is ready for pickup by the courier
+                    {% trans "Order is ready for pickup by the courier" %}
                 {% elif order.progress_status == 5 %}
-                    Order is being transported to your address
+                    {% trans "Order is being transported to your address" %}
                 {% elif order.progress_status == 6 %}
-                    Order delivered
+                    {% trans "Order delivered" %}
                 {% endif %}
             </span>
             {% endif %}
         </div>
     </a>
 {% empty %}
-<h1>No previous orders</h1>
+<h1>{% trans "No previous orders" %}</h1>
 {% endfor %}
 {% endblock %}

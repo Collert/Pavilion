@@ -13,6 +13,7 @@ import datetime
 from django.shortcuts import redirect
 from .notifications import PushSubscription
 from . import signals
+from django.utils.translation import gettext as _
 
 RESTAURANT_ADDRESS = "501 4th Ave, New Westminster, BC V3L 1P3"
 
@@ -76,11 +77,11 @@ def get_eta(request):
     origin = RESTAURANT_ADDRESS
     destination = request.GET.get('destination')
     if not destination:
-        return HttpResponseBadRequest("Destination address needed.")
+        return HttpResponseBadRequest(_("Destination address needed."))
     customer_requesting = request.GET.get('customer', 'false') == 'true'
     if customer_requesting:
         if len(globals.active_couriers) == 0:
-            return HttpResponseNotFound("No couriers available")
+            return HttpResponseNotFound(_("No couriers available"))
         times = []
         modes = {dict(courier)["mode"] for courier in globals.active_couriers}
         for mode in modes:
@@ -101,7 +102,7 @@ def get_eta(request):
     else:
         courier = check_if_active_courier(request)
         if not courier:
-            return HttpResponseForbidden("Start accepting orders to view this page.")
+            return HttpResponseForbidden(_("Start accepting orders to view this page."))
         mode = courier["mode"]
         url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={origin}&destinations={destination}&mode={mode}&key={settings.GOOGLE_API_KEY}"
         response = requests.get(url)

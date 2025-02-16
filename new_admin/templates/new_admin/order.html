@@ -1,5 +1,6 @@
 {% extends 'new_admin/layout.html' %}
 {% load static %}
+{% load i18n %}
 {% load mathfilters %}
 
 {% block title %}Order #{{order.id}}{% endblock %}
@@ -15,15 +16,19 @@
     </nav>
     <div id="order">
         <div id="order-info">
-            <h1>Order #{{order.order_id}}</h1>
+            <h1>
+                {% blocktrans %}
+                Order #{{order.order_id}}
+                {% endblocktrans %}
+            </h1>
             <h4>{{order.timestamp_pretty}}</h4>
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 70%;">Item</th>
-                        <th style="width: 10%;">Quantity</th>
-                        <th style="width: 10%;">Price</th>
-                        <th style="width: 10%;">Total</th>
+                        <th style="width: 70%;">{% trans "Item" %}</th>
+                        <th style="width: 10%;">{% trans "Quantity" %}</th>
+                        <th style="width: 10%;">{% trans "Price" %}</th>
+                        <th style="width: 10%;">{% trans "Total" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,11 +45,11 @@
         </div>
         <div id="customer-info">
             <div id="customer-card">
-                <h3>Customer</h3>
+                <h3>{% trans "Customer" %}</h3>
                 {% if order.name %}
                     <h2>{{order.name}}</h2>
                 {% else %}
-                    <h2>No name</h2>
+                    <h2>{% trans "No name" %}</h2>
                 {% endif %}
                 {% if order.email %}
                     <p>{{order.email}}</p>
@@ -53,8 +58,8 @@
                     <p>{{order.phone}}</p>
                 {% endif %}
             </div>
-            <button id="print-receipt"><span class="material-symbols-outlined">print</span><span>Print receipt</span></button>
-            <button class="error" id="delete-order"><span class="material-symbols-outlined">delete</span><span>Delete order</span></button>
+            <button id="print-receipt"><span class="material-symbols-outlined">print</span><span>{% trans "Print receipt" %}</span></button>
+            <button class="error" id="delete-order"><span class="material-symbols-outlined">delete</span><span>{% trans "Delete order" %}</span></button>
         </div>
     </div>
     <script>

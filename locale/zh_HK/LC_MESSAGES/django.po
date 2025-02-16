@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-15 15:31-0800\n"
+"POT-Creation-Date: 2025-02-16 02:09-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,9 +16,1016 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: .\app_switcher\templates\app_switcher\index.html:14
+msgid "Apps switcher"
+msgstr ""
+
+#: .\app_switcher\templates\app_switcher\index.html:30
+msgid "Point Of Sale"
+msgstr ""
+
+#: .\app_switcher\templates\app_switcher\index.html:34
+msgid "Order marking"
+msgstr ""
+
+#: .\app_switcher\templates\app_switcher\index.html:38
+msgid "Stats dashboard"
+msgstr ""
+
+#: .\app_switcher\templates\app_switcher\index.html:42
+msgid "Admin interface"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\layout.html:14
+msgid "Courier app"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\layout.html:103
+#: .\new_admin\templates\new_admin\layout.html:45
+#: .\pos_server\templates\pos_server\day_stats.html:93
+msgid "Orders"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\layout.html:109
+msgid "Job"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:13
+#, python-format
+msgid ""
+"\n"
+"            %(items_count)s item\n"
+"            "
+msgid_plural ""
+"\n"
+"            %(items_count)s items\n"
+"        "
+msgstr[0] ""
+msgstr[1] ""
+
+#: .\deliveries\templates\deliveries\order.html:19
+msgid "Deliver to:"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:37
+msgid "Adjust ETA"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:41
+msgid "Delivery instructions:"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:60
+msgid "Start delivery"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:61
+msgid "Tap again to confirm start"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:62
+msgid "Order taken"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:72
+msgid "Navigate"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:72
+msgid "back"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:72
+msgid "to destination"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:79
+msgid "Complete delivery"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:83
+#: .\deliveries\templates\deliveries\order.html:201
+msgid "Order complete"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:95
+#: .\inventory\templates\inventory\crafting.html:106
+#: .\inventory\templates\inventory\log-shopping.html:27
+#: .\misc_tools\templates\misc_tools\get-image-colors.html:9
+#: .\pos_server\templates\pos_server\order-marking.html:247
+msgid "Submit"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:181
+msgid ""
+"Are you sure you have followed the delivery instructions and delivered the "
+"items to the right address?"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:203
+msgid "Navigate back"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\order.html:225
+msgid "You must be assigned to this order to complete it!"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\orders.html:11
+#, python-format
+msgid ""
+"\n"
+"                    %(items_count)s item\n"
+"                    "
+msgid_plural ""
+"\n"
+"                    %(items_count)s items\n"
+"                "
+msgstr[0] ""
+msgstr[1] ""
+
+#: .\deliveries\templates\deliveries\orders.html:30
+msgid "Orders will show up when you clock in in the "
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:22
+msgid "You must complete your delivery first!"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:30
+msgid "Select delivery method:"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:33
+msgid " Bike /<br> Scooter"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:36
+msgid "Walking"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:39
+msgid "Driving"
+msgstr ""
+
+#: .\deliveries\templates\deliveries\profile.html:41
+msgid "Start delivering"
+msgstr ""
+
+#: .\deliveries\views.py:80
+msgid "Destination address needed."
+msgstr ""
+
+#: .\deliveries\views.py:84
+msgid "No couriers available"
+msgstr ""
+
+#: .\deliveries\views.py:105
+msgid "Start accepting orders to view this page."
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card-confirm.html:20
+msgid "Card active!"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card-confirm.html:21
+msgid ""
+"\n"
+"    <p>Use the button below to access the card. <b>DO NOT share this link</"
+"b> with anyone who is not supposed to access the card!\n"
+"    Only send it to people who you trust this card to. You will also get a "
+"copy of this card sent to the email mentioned in the previous step.\n"
+"    The card is not refundable, cannot be exchanged for cash or cannot be "
+"used for cashback.</p>\n"
+"    "
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card-confirm.html:26
+msgid "View card"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card-confirm.html:28
+msgid "No card"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card.html:26
+msgid "Gift Card"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card.html:31
+msgid "No barcode generated."
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\card.html:35
+msgid "Balance:"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:9
+msgid "Pick a pre-loaded card"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:21
+msgid "Or make your own"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:24
+msgid "Which cover?"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:37
+msgid "How much money?"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:39
+msgid "For who?"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:42
+msgid "For me"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:45
+msgid "For someone else"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:47
+#: .\gift_cards\templates\gift_cards\get-card.html:71
+#: .\gift_cards\templates\gift_cards\get-card.html:111
+msgid "Your name"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:48
+#: .\gift_cards\templates\gift_cards\get-card.html:72
+#: .\gift_cards\templates\gift_cards\get-card.html:112
+msgid "Recovery email"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:52
+msgid "Get this card"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:61
+#, python-format
+msgid ""
+"\n"
+"            <p>This gift card comes pre-loaded with $%(card.amount)s. You "
+"can choose to email this card to someone by selecting the option on the "
+"bottom. The card is not refundable, cannot be exchanged for cash or cannot "
+"be used for cashback. After the purchase, <strong>do not</strong> publish "
+"the link to the card anywhere. Only give the link to people that will be "
+"using the card.</p>\n"
+"            "
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:66
+msgid "This card is for me"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:69
+msgid "This card is for someone else"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:74
+msgid "Sender\\"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:79
+msgid "Purchase"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:117
+#: .\gift_cards\templates\gift_cards\get-card.html:118
+msgid "Recipient\\"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\layout.html:14
+#: .\online_store\templates\online_store\layout.html:184
+msgid "Gift cards"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\layout.html:31
+msgid "Special"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\layout.html:32
+msgid "Cards"
+msgstr ""
+
+#: .\inventory\templates\inventory\component-availability.html:7
+msgid "Components:"
+msgstr ""
+
+#: .\inventory\templates\inventory\component-availability.html:12
+#, python-format
+msgid ""
+"Available: %(component.inventory)s %(component.unit_of_measurement|title)s"
+msgstr ""
+
+#: .\inventory\templates\inventory\component-availability.html:16
+msgid "Individual dishes:"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:13
+msgid "Craft single items"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:21
+msgid "Ingredients inventory:"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:26
+#, python-format
+msgid ""
+"\n"
+"            Unlimited %(ingredient.title)s\n"
+"            "
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:41
+msgid "Craft multiple items"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:60
+#, python-format
+msgid ""
+"\n"
+"                    Currently in inventory: <span>%(component.inventory)s</"
+"span> %(component.unit_of_measurement|title)s\n"
+"                    "
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:65
+msgid "Needed:"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:75
+#, python-format
+msgid ""
+"\n"
+"                                %(ingredient.title)s\n"
+"                                "
+msgid_plural ""
+"\n"
+"                                %(ingredient.title)ss\n"
+"                            "
+msgstr[0] ""
+msgstr[1] ""
+
+#: .\inventory\templates\inventory\crafting.html:87
+msgid "Available:"
+msgstr ""
+
+#: .\inventory\templates\inventory\crafting.html:95
+#, python-format
+msgid ""
+"\n"
+"                            %(ingredient.title)s\n"
+"                            "
+msgid_plural ""
+"\n"
+"                            %(ingredient.title)ss\n"
+"                        "
+msgstr[0] ""
+msgstr[1] ""
+
+#: .\inventory\templates\inventory\crafting.html:250
+msgid "Not enough ingredients to craft"
+msgstr ""
+
+#: .\inventory\templates\inventory\day-display.html:28
+msgid "Shopping on"
+msgstr ""
+
+#: .\inventory\templates\inventory\day-display.html:29
+msgid "Ingredients purchased:"
+msgstr ""
+
+#: .\inventory\templates\inventory\day-display.html:37
+#: .\inventory\templates\inventory\log-shopping.html:11
+msgid "Receipt:"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:14
+#: .\inventory\templates\inventory\layout.html:28
+msgid "Inventory management"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:31
+msgid "Add ingredients"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:32
+#: .\new_admin\templates\new_admin\layout.html:59
+msgid "Create menu"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:33
+msgid "Shopping reports"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:34
+msgid "Component crafting"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:35
+msgid "Advanced management"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:37
+msgid "Component availability"
+msgstr ""
+
+#: .\inventory\templates\inventory\layout.html:38
+#: .\new_admin\templates\new_admin\layout.html:61
+msgid "Recipes"
+msgstr ""
+
+#: .\inventory\templates\inventory\log-shopping.html:6
+msgid "Shopping logging"
+msgstr ""
+
+#: .\inventory\templates\inventory\log-shopping.html:16
+#: .\inventory\templates\inventory\log-shopping.html:45
+#: .\pos_server\templates\pos_server\day_stats.html:69
+msgid "Ingredient"
+msgstr ""
+
+#: .\inventory\templates\inventory\log-shopping.html:50
+#: .\new_admin\templates\new_admin\order-receipt.html:43
+#: .\new_admin\templates\new_admin\order.html:29
+#: .\pos_server\templates\pos_server\day_stats.html:36
+#: .\pos_server\templates\pos_server\day_stats.html:51
+#: .\pos_server\templates\pos_server\day_stats.html:70
+msgid "Quantity"
+msgstr ""
+
+#: .\inventory\templates\inventory\recipe.html:13
+#: .\inventory\templates\inventory\recipe.html:33
+msgid "Yields:"
+msgstr ""
+
+#: .\inventory\templates\inventory\recipe.html:15
+#: .\inventory\templates\inventory\recipe.html:33
+msgid "portion"
+msgstr ""
+
+#: .\inventory\templates\inventory\recipe.html:19
+#: .\inventory\templates\inventory\recipe.html:36
+msgid "Ingredients:"
+msgstr ""
+
+#: .\inventory\templates\inventory\recipe.html:21
+msgid "Method:"
+msgstr ""
+
+#: .\inventory\templates\inventory\recipes.html:13
+#, python-format
+msgid ""
+"\n"
+"            Not linked recipe #%(recipe.id)s\n"
+"            "
+msgstr ""
+
+#: .\misc_tools\templates\misc_tools\layout.html:14
+msgid "Miscellaneous Tools"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:16
+msgid "Admin:"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:35
+msgid "Dashboard"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:38
+#: .\online_store\templates\online_store\layout.html:182
+msgid "Home"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:39
+msgid "History"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:48
+msgid "Retail Orders"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:49
+msgid "Catering"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:55
+msgid "Menus"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:58
+msgid "Menus list"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:60
+msgid "Dishes"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:67
+msgid "Inventory"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:70
+msgid "Components"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:71
+msgid "Ingredients"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:72
+msgid "Condiments"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:73
+msgid "Packaging"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:74
+msgid "Crafting"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:75
+msgid "Restocks"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:81
+msgid "Store"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:84
+msgid "Branding"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:85
+msgid "Working hours"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:86
+msgid "Events"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:87
+msgid "Media"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:93
+msgid "Team"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:96
+msgid "Staff"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:97
+msgid "Groups"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:98
+msgid "Roles"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:99
+msgid "Training"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:105
+msgid "Rewards"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:108
+msgid "Coupons"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:109
+#: .\pos_server\templates\pos_server\layout.html:39
+msgid "Discounts"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:110
+msgid "Gift card presets"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:111
+msgid "Active gift cards"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:112
+msgid "New gift card"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\layout.html:118
+msgid "Settings"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:35
+msgid "Sales receipt"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:42
+#: .\new_admin\templates\new_admin\order.html:28
+msgid "Item"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:44
+#: .\new_admin\templates\new_admin\order.html:30
+msgid "Price"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:45
+#: .\new_admin\templates\new_admin\order.html:31
+msgid "Total"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order.html:20
+#, python-format
+msgid ""
+"\n"
+"                Order #%(order.order_id)s\n"
+"                "
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order.html:48
+msgid "Customer"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order.html:52
+#: .\pos_server\templates\pos_server\order-marking.html:24
+msgid "No name"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order.html:61
+msgid "Print receipt"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order.html:62
+msgid "Delete order"
+msgstr ""
+
 #: .\new_admin\templates\new_admin\orders_retail.html:6
 #: .\new_admin\templates\new_admin\orders_retail.html:14
 msgid "Retail orders"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:18
+msgid "Order ID"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:19
+msgid "Order timestamp"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:20
+#: .\pos_server\templates\pos_server\order.html:61
+msgid "Customer name"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:21
+msgid "Order status"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:22
+msgid "Order total"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\orders_retail.html:23
+msgid "Actions"
+msgstr ""
+
+#: .\online_store\templates\online_store\dish.html:28
+#: .\online_store\templates\online_store\menu.html:46
+msgid "Add to cart"
+msgstr ""
+
+#: .\online_store\templates\online_store\dish.html:33
+#: .\online_store\templates\online_store\menu.html:51
+msgid "Out of stock"
+msgstr ""
+
+#: .\online_store\templates\online_store\dish.html:38
+msgid "Consists of:"
+msgstr ""
+
+#: .\online_store\templates\online_store\dish.html:40
+msgid "Potential allergens:"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:18
+#, python-format
+msgid ""
+"\n"
+"            Order# %(order.id)s\n"
+"            "
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:73
+#: .\online_store\templates\online_store\order.html:45
+#: .\online_store\templates\online_store\order.html:94
+msgid "Order pending"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:75
+#: .\online_store\templates\online_store\order.html:47
+#: .\online_store\templates\online_store\order.html:96
+msgid "We are reviewing your order"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:77
+#: .\online_store\templates\online_store\order.html:49
+#: .\online_store\templates\online_store\order.html:98
+msgid "Order is being prepared"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:79
+#: .\online_store\templates\online_store\order.html:51
+msgid "Order is ready for pickup by the courier"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:81
+#: .\online_store\templates\online_store\order.html:53
+msgid "Order is being transported to your address"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:83
+#: .\online_store\templates\online_store\order.html:55
+msgid "Order delivered"
+msgstr ""
+
+#: .\online_store\templates\online_store\history.html:90
+msgid "No previous orders"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:147
+#: .\online_store\templates\online_store\layout.html:183
+#: .\pos_server\templates\pos_server\layout.html:36
+msgid "Menu"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:148
+msgid "Gift Cards"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:157
+msgid "Log In"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:185
+msgid "Account"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:206
+msgid "Subtotal:"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:209
+msgid "Finalize"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:218
+msgid "Finalize cart"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:224
+msgid "Who?"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:227
+msgid "Name"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:231
+msgid "Phone number"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:236
+msgid "Where?"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:239
+msgid "Pick up at<br>the restaurant"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:242
+msgid "Order<br>delivery"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:244
+msgid "Address"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:248
+msgid "Address 1"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:252
+msgid "Address 2"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:253
+msgid "Unit # / Apartment #"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:258
+msgid "City"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:262
+msgid "Province"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:266
+msgid "Postal code"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:270
+msgid ""
+"Looks like we don't have any couriers available at the moment. Sorry for "
+"inconvenience."
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:275
+msgid "When?"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:277
+msgid "time when we start making the order"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:279
+msgid "How?"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:282
+msgid "Eat at<br>the restaurant"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:285
+msgid "Pack<br>to-go"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:289
+msgid "Leave at<br>the door"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:292
+msgid "Meet at<br>the door"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:295
+msgid "Meet<br>outside"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:297
+msgid "Delivery instructions (optional)"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:298
+msgid ""
+"Ring the blue doorbell / meet at the garage door / place the order down and "
+"do a lil dance"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:299
+msgid "Special order instructions (optional)"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:300
+msgid "Extra sour cream / no onions / extra napkins"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:302
+msgid "Have a gift card?"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:306
+#: .\pos_server\templates\pos_server\order.html:139
+msgid "Look up"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:310
+msgid "Proceed to secure checkout"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:311
+msgid "Place order"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:313
+msgid "You will only be charged when we confirm your order"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:318
+#: .\pos_server\templates\pos_server\order.html:272
+msgid "Pick the options"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:325
+#: .\pos_server\templates\pos_server\order.html:129
+#: .\pos_server\templates\pos_server\order.html:144
+msgid "Gift card"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:330
+#: .\pos_server\templates\pos_server\order.html:149
+msgid "Card #"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:331
+#: .\pos_server\templates\pos_server\order.html:150
+msgid "Available balance:"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:338
+#: .\pos_server\templates\pos_server\order.html:156
+msgid "Charge card"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:340
+msgid "Use this card"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:341
+#: .\pos_server\templates\pos_server\order.html:159
+msgid "Reload card"
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:585
+msgid "Sorry, we are closed today. Check the home page for the next date."
+msgstr ""
+
+#: .\online_store\templates\online_store\layout.html:790
+msgid "Checking your gift cards"
+msgstr ""
+
+#: .\online_store\templates\online_store\menu.html:16
+msgid "Now serving:"
+msgstr ""
+
+#: .\online_store\templates\online_store\menu.html:23
+#: .\pos_server\templates\pos_server\order.html:11
+msgid "Drinks and sweets"
+msgstr ""
+
+#: .\online_store\templates\online_store\menu.html:25
+#: .\pos_server\templates\pos_server\order-marking.html:225
+#: .\pos_server\templates\pos_server\order.html:13
+msgid "Hot food"
+msgstr ""
+
+#: .\online_store\templates\online_store\menu.html:27
+msgid "Packaged food"
+msgstr ""
+
+#: .\online_store\templates\online_store\order.html:100
+msgid "Order is ready for pickup"
+msgstr ""
+
+#: .\online_store\templates\online_store\order.html:102
+msgid "Order picked up"
+msgstr ""
+
+#: .\online_store\templates\online_store\order.html:109
+msgid "Your order:"
+msgstr ""
+
+#: .\online_store\templates\online_store\order.html:119
+msgid ""
+"No delivery fees, no service fees, but we're sure our delivery people would "
+"definitely appreciate a cash tip when they bring you your bag of "
+"deliciousness 😉"
+msgstr ""
+
+#: .\online_store\templates\online_store\order.html:157
+#, python-format
+msgid ""
+"\n"
+"        We could not complete your order #%(rejected_order.order_id)s\n"
+"        "
+msgstr ""
+
+#: .\online_store\views.py:102
+msgid "Dish not found"
+msgstr ""
+
+#: .\online_store\views.py:159
+msgid "Order not found"
+msgstr ""
+
+#: .\online_store\views.py:263
+msgid "Leave the package at the door. "
+msgstr ""
+
+#: .\online_store\views.py:265
+msgid "Meet the customer at the door. "
+msgstr ""
+
+#: .\online_store\views.py:267
+msgid "Meet the customer outside. "
 msgstr ""
 
 #: .\pavilion\settings.py:236
@@ -31,4 +1038,640 @@ msgstr ""
 
 #: .\pavilion\settings.py:238
 msgid "Cantonese (Hong Kong)"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:76
+#: .\payments\templates\payments\square-checkout.html:202
+#, python-format
+msgid "Pay $%(amount|div:100|floatformat:2)s"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:143
+msgid "Payment successful!"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:155
+msgid "Transaction declined"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:157
+msgid "Card CVV is incorrect"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:159
+msgid "Card postal code incorrect"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:161
+msgid "Card expiration date incorrect"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:163
+msgid "Unknown error"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:191
+msgid "Payment processing"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:221
+msgid "Payment form loading"
+msgstr ""
+
+#: .\payments\templates\payments\square-checkout.html:225
+msgid "Wrong link. Usage:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\component-choice.html:69
+#, python-format
+msgid "Select one for %(component.parent.title)s"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\component-choice.html:94
+msgid "Please make all required choices"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:8
+msgid "Create a new menu:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:9
+msgid "Menu title"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:11
+msgid "Header image"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:13
+msgid "Footer image"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:15
+msgid "Create"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\create-menu.html:17
+msgid "Menu created!"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\dashboard.html:7
+msgid "Select a business day"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:32
+msgid "Menu items stats:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:35
+msgid "Dish"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:47
+msgid "Components used:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:50
+msgid "Component"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:66
+msgid "Ingredients used:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:85
+msgid "Stations mix:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:89
+msgid "Customer occasions:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:92
+#: .\pos_server\templates\pos_server\day_stats.html:109
+msgid "Time"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:94
+msgid "Earnings"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:106
+msgid "Average prep times:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:110
+msgid "Avg prep time"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\day_stats.html:140
+msgid "Station distributions"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:7
+msgid ""
+"This device is not authorized to access the attempted functionality. Please "
+"use admin credentials to authorize."
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:11
+#: .\pos_server\templates\pos_server\login.html:8
+msgid "Username"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:12
+#: .\pos_server\templates\pos_server\login.html:9
+msgid "Password"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:13
+msgid "Device name"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:17
+#: .\pos_server\templates\pos_server\order.html:114
+msgid "Authorize"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:19
+#: .\pos_server\templates\pos_server\login.html:15
+#: .\users\templates\users\login.html:15
+msgid "Failed to authenticate, please try again"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\ineligible-device.html:27
+msgid "Device registered! You will now be redirected to homepage."
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:38
+msgid "Utilities"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:45
+msgid "Lock POS"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:47
+msgid "Login"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:55
+msgid "Open menu"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:56
+msgid "Pair terminal"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:57
+msgid "Select menu"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\layout.html:58
+#: .\pos_server\templates\pos_server\order.html:165
+#: .\pos_server\templates\pos_server\order.html:217
+msgid "Cash drawer"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\login.html:13
+#: .\users\templates\users\login.html:13
+msgid "Log in"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\menu_select.html:6
+msgid "Select a menu:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:28
+#, python-format
+msgid "Order #%(order.order_id)s"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:30
+msgid "Prep time:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:37
+msgid "In-person"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:39
+msgid "Online pick-up"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:42
+msgid "Delivery"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:83
+msgid "Order to-go"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:85
+msgid "Order for here"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:96
+msgid "Special instructions:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:108
+msgid "Reason for rejection"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:117
+msgid "Out of one or more components"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:125
+msgid "Out of containers to pack the order"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:131
+msgid "Reject"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:137
+msgid "Order management"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:143
+msgid "Approve order"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:147
+msgid "Reject order"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:151
+msgid "Mark order done"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:155
+msgid "Mark order picked up"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:222
+msgid "Filters"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:229
+msgid "Drinks & sweets"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:233
+msgid "Frozen products"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:237
+msgid "Auto-done"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:238
+msgid ""
+"Automatically mark orders as done after the specified number of minutes. "
+"<br>(Leave blank to disable)"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:239
+#: .\pos_server\templates\pos_server\order-marking.html:244
+msgid "Minutes"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:242
+msgid "Auto-pickup"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order-marking.html:243
+msgid ""
+"Automatically mark orders as collected after the specified number of "
+"minutes. <br>(Leave blank to disable)"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:15
+msgid "Grab & Go"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:45
+msgid "Tender order"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:50
+msgid "Finalize order"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:57
+#: .\pos_server\templates\pos_server\order.html:264
+#: .\pos_server\templates\pos_server\pos-output-display.html:42
+msgid "Total:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:65
+msgid "For here"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:68
+msgid "To-go"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:70
+msgid "Cash"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:71
+msgid "Card"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:77
+msgid "Change"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:80
+msgid "How much money<br>did customer give?"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:82
+msgid "Accept cash"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:87
+msgid "Transaction completed!"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:90
+msgid "Change due:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:94
+msgid "Pass the terminal to customer..."
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:112
+msgid "Manager username"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:113
+msgid "Manager password"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:115
+msgid "Authorization failed"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:120
+msgid "Apply whole order discount"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:122
+msgid "or"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:124
+msgid "Apply"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:133
+msgid "Scan card"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:136
+msgid "Enter manually"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:152
+msgid "Card actions:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:158
+msgid "Charge max"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:189
+msgid "Open drawer"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:212
+msgid "Close drawer"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:220
+msgid "New money:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\order.html:266
+msgid "Total profit:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:39
+msgid "In progress"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:43
+#: .\pos_server\templates\pos_server\orders-status.html:53
+msgid "Order #"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:49
+msgid "Ready for pickup"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:76
+msgid "Nothing"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:77
+msgid "Is playing"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:96
+msgid "Play test TTS"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\orders-status.html:99
+msgid "Load music"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pair_pos.html:7
+msgid "Square terminal device code:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pair_pos.html:10
+msgid "Send test transaction"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pair_pos.html:11
+msgid "Generate new code"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pos-output-display.html:55
+msgid "Hot meals"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pos-output-display.html:57
+msgid "Drinks and snacks"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pos-output-display.html:59
+msgid "Pre-packaged food"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\pos-output-display.html:97
+msgid "Don"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\register-staff.html:15
+#: .\users\templates\users\register.html:39
+msgid "First name:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\register-staff.html:19
+#: .\users\templates\users\register.html:43
+msgid "Last name:"
+msgstr ""
+
+#: .\pos_server\templates\pos_server\register-staff.html:22
+#: .\users\templates\users\register.html:46
+msgid "Register"
+msgstr ""
+
+#: .\pos_server\views.py:207
+msgid ""
+"We are sorry but we could not complete your order for the following reasons: "
+msgstr ""
+
+#: .\pos_server\views.py:209
+msgid ""
+"Some of the products you requested are currently out of stock. We will "
+"update our menu in a few minutes to reflect the accurate stock levels. "
+msgstr ""
+
+#: .\pos_server\views.py:211
+msgid "We are currently out of containers to package your order. "
+msgstr ""
+
+#: .\pos_server\views.py:214
+msgid ""
+"We apologize for the inconvenience. Please try placing your order again "
+"later or contact us for more information."
+msgstr ""
+
+#: .\pos_server\views.py:768
+msgid "a bowl of "
+msgstr ""
+
+#: .\pos_server\views.py:775
+msgid "a piece of "
+msgstr ""
+
+#: .\pos_server\views.py:780
+msgid "a cup of "
+msgstr ""
+
+#: .\pos_server\views.py:788
+msgid " (choice of: "
+msgstr ""
+
+#: .\users\templates\users\profile.html:16
+msgid "Email:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:20
+msgid "Date joined:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:24
+msgid "Change password:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:25
+msgid "New password:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:26
+#: .\users\templates\users\profile.html:28
+msgid "Optional"
+msgstr ""
+
+#: .\users\templates\users\profile.html:27
+msgid "Confirm password:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:31
+msgid "Edit profile"
+msgstr ""
+
+#: .\users\templates\users\profile.html:32
+msgid "Confirm edits"
+msgstr ""
+
+#: .\users\templates\users\profile.html:36
+msgid "Additional info"
+msgstr ""
+
+#: .\users\templates\users\profile.html:38
+msgid "Phone number:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:42
+msgid "Home address:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:44
+msgid "Unit:"
+msgstr ""
+
+#: .\users\templates\users\profile.html:53
+msgid "Cancel edits"
+msgstr ""
+
+#: .\users\templates\users\register.html:8
+msgid "User already exists"
+msgstr ""
+
+#: .\users\templates\users\register.html:12
+msgid "Username:"
+msgstr ""
+
+#: .\users\templates\users\register.html:14
+msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
+msgstr ""
+
+#: .\users\templates\users\register.html:18
+msgid "Password:"
+msgstr ""
+
+#: .\users\templates\users\register.html:23
+msgid "Your password can’t be too similar to your other personal information."
+msgstr ""
+
+#: .\users\templates\users\register.html:24
+msgid "Your password must contain at least 8 characters."
+msgstr ""
+
+#: .\users\templates\users\register.html:25
+msgid "Your password can’t be a commonly used password."
+msgstr ""
+
+#: .\users\templates\users\register.html:26
+msgid "Your password can’t be entirely numeric."
+msgstr ""
+
+#: .\users\templates\users\register.html:29
+msgid "Password confirmation:"
+msgstr ""
+
+#: .\users\templates\users\register.html:31
+msgid "Enter the same password as before, for verification."
+msgstr ""
+
+#: .\users\templates\users\register.html:35
+msgid "Email address:"
+msgstr ""
+
+#: .\users\templates\users\register.html:53
+msgid "Password doesn"
+msgstr ""
+
+#: .\users\templates\users\register.html:56
+msgid "Passwords don"
 msgstr ""

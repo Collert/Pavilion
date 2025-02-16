@@ -1,5 +1,6 @@
 {% extends "pos_server/layout.html" %}
 {% load custom_filters %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -7,11 +8,11 @@
 <div id="items-wrapper">
     {% for station, items in menu.items %}
     {% if station == "bar" %}
-    <h1>Drinks and sweets</h1>
+    <h1>{% trans "Drinks and sweets" %}</h1>
     {% elif station == "kitchen" %}
-    <h1>Hot food</h1>
+    <h1>{% trans "Hot food" %}</h1>
     {% elif station == "gng" %}
-    <h1>Grab & Go</h1>
+    <h1>{% trans "Grab & Go" %}</h1>
     {% endif %}
     <div id="items">
         {% for item in items %}
@@ -41,56 +42,56 @@
     <div id="total-button" class="hidden">
         Total: $<span></span><span id="discount-display"></span>
     </div>
-    <button data-actionLink="{% url 'pos' %}" class="hidden" id="checkout-button">Tender order</button>
+    <button data-actionLink="{% url 'pos' %}" class="hidden" id="checkout-button">{% trans "Tender order" %}</button>
 </div>
 <dialog id="tender">
     <div>
         <nav>
-            <h1>Finalize order</h1>
+            <h1>{% trans "Finalize order" %}</h1>
             <button class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <div id="summary"></div>
         <div>
             <div id="tenders"></div>
             <div id="tender-total-div">
-                <h2>Total: $<span id="tender-total"></span></h2>
+                <h2>{% trans "Total:" %} $<span id="tender-total"></span></h2>
                 <button id="reset-partial-payments" class="icon"><span class="material-symbols-outlined">restart_alt</span></button>
             </div>
         </div>
-        <input autocomplete="off" type="text" name="customer-name" placeholder="Customer name">
+        <input autocomplete="off" type="text" name="customer-name" placeholder="{% trans 'Customer name' %}">
         <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
         <div id="here-to-go">
             <input type="radio" id="here-to-go1" name="here-to-go" checked value="here" />
-            <label for="here-to-go1" class="here-to-go-label">For here</label>
+            <label for="here-to-go1" class="here-to-go-label">{% trans "For here" %}</label>
 
             <input type="radio" id="here-to-go2" name="here-to-go" value="go" />
-            <label for="here-to-go2" class="here-to-go-label">To-go</label>
+            <label for="here-to-go2" class="here-to-go-label">{% trans "To-go" %}</label>
         </div>
-        <button data-actionLink="{% url 'pos' %}" id="cash-button">Cash</button>
-        <button data-actionLink="{% url 'pos' %}" id="card-button">Card</button>
+        <button data-actionLink="{% url 'pos' %}" id="cash-button">{% trans "Cash" %}</button>
+        <button data-actionLink="{% url 'pos' %}" id="card-button">{% trans "Card" %}</button>
     </div>
 </dialog>
 <dialog id="cash-in">
     <form action="{% url 'pos' %}">
         <nav>
-            <h1>Change</h1>
+            <h1>{% trans "Change" %}</h1>
             <button type="button" class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
-        <h1 style="text-align: center;">How much money<br>did customer give?</h1>
+        <h1 style="text-align: center;">{% trans "How much money<br>did customer give?" %}</h1>
         <input autocomplete="off" name="cash-provided" step="0.01" placeholder="$" type="number"/>
-        <button>Accept cash</button>
+        <button>{% trans "Accept cash" %}</button>
     </form>   
 </dialog>
 <dialog id="cash-change">
     <nav>
-        <h2>Transaction completed!</h2>
+        <h2>{% trans "Transaction completed!" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
-    <h1>Change due: $<span id="change-to-give"></span></h1>
+    <h1>{% trans "Change due:" %} $<span id="change-to-give"></span></h1>
 </dialog>
 <dialog id="card-in">
     <nav>
-        <h2>Pass the terminal to customer...</h2>
+        <h2>{% trans "Pass the terminal to customer..."%}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
 </dialog>
@@ -108,60 +109,60 @@
 </dialog>
 <dialog id="authorize">
     <form>
-        <input autocomplete="off" type="text" name="man-user" placeholder="Manager username">
-        <input autocomplete="off" type="password" name="man-pass" placeholder="Manager password">
-        <button type="submit">Authorize</button>
-        <span style="color: var(--error-color); display: none;">Authorization failed</span>
+        <input autocomplete="off" type="text" name="man-user" placeholder="{% trans 'Manager username' %}">
+        <input autocomplete="off" type="password" name="man-pass" placeholder="{% trans 'Manager password' %}">
+        <button type="submit">{% trans "Authorize" %}</button>
+        <span style="color: var(--error-color); display: none;">{% trans "Authorization failed" %}</span>
     </form>
 </dialog>
 <dialog id="discounts">
     <form>
-        <h2>Apply whole order discount</h2>
+        <h2>{% trans "Apply whole order discount" %}</h2>
         <input autocomplete="off" min="1" max="100" type="number" name="discount-percentage" placeholder="%">
-        <span style="text-align: center;">or</span>
+        <span style="text-align: center;">{% trans "or" %}</span>
         <input autocomplete="off" type="number" name="discount-amount" placeholder="$ amount">
-        <button>Apply</button>
+        <button>{% trans "Apply" %}</button>
     </form>
 </dialog>
 <dialog class="full" id="card-scanner">
     <nav>
-        <h2 id="transaction-status">Gift card</h2>
+        <h2 id="transaction-status">{% trans "Gift card" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
     <div>
-        <h2>Scan card</h2>
+        <h2>{% trans "Scan card" %}</h2>
         <div id="barcode-scanner"></div>
         <select id="camera-select"></select>
-        <h2>Enter manually</h2>
+        <h2>{% trans "Enter manually" %}</h2>
         <input type="text" maxlength="16" id="card-number-input">
         <h2 class="error" style="display: none;" id="gift-card-errors"></h2>
-        <button id="card-number-lookup-button">Look up</button>
+        <button id="card-number-lookup-button">{% trans "Look up" %}</button>
     </div>
 </dialog>
 <dialog class="full" id="gift-card-dialog">
     <nav>
-        <h2 id="transaction-status">Gift card</h2>
+        <h2 id="transaction-status">{% trans "Gift card" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
     <div>
         <img id="found-card-image" src="">
-        <h2>Card #<span id="found-card-number"></span></h2>
-        <h4>Available balance:</h4>
+        <h2>{% trans "Card #" %}<span id="found-card-number"></span></h2>
+        <h4>{% trans "Available balance:" %}</h4>
         <h1>$<span id="found-card-balance"></span></h1>
-        <h2>Card actions:</h2>
+        <h2>{% trans "Card actions:" %}</h2>
         <div id="card-actions">
             <form id="card-charge-amount">
                 <input type="number" min="0.01" step=".01" id="card-charge-amount-inp">
-                <button id="card-charge-amount-button">Charge card</button>
+                <button id="card-charge-amount-button">{% trans "Charge card" %}</button>
             </form>
-            <button id="card-charge-max">Charge max</button>
-            <button id="card-reload">Reload card</button>
+            <button id="card-charge-max">{% trans "Charge max" %}</button>
+            <button id="card-reload">{% trans "Reload card" %}</button>
         </div>
     </div>
 </dialog>
 <dialog id="cash-drawer">
     <nav>
-        <h2 id="transaction-status">Cash drawer</h2>
+        <h2 id="transaction-status">{% trans "Cash drawer" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
     <form id="new-cash-drawer">
@@ -185,7 +186,7 @@
         <input placeholder="Quantity" type="number" id="fiftyDollar">
         <label for="hundredDollar">$100</label>
         <input placeholder="Quantity" type="number" id="hundredDollar">
-        <button>Open drawer</button>
+        <button>{% trans "Open drawer" %}</button>
     </form>
     <form id="close-cash-drawer" style="display: none;">
         <label for="close-fiveCent">¢5</label>
@@ -208,15 +209,15 @@
         <input placeholder="Quantity" type="number" id="close-fiftyDollar">
         <label for="close-hundredDollar">$100</label>
         <input placeholder="Quantity" type="number" id="close-hundredDollar">
-        <button>Close drawer</button>
+        <button>{% trans "Close drawer" %}</button>
     </form>
 </dialog>
 <dialog id="cash-drawer-result">
     <nav>
-        <h2 id="transaction-status">Cash drawer</h2>
+        <h2 id="transaction-status">{% trans "Cash drawer" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
-    <h2>New money:</h2>
+    <h2>{% trans "New money:" %}</h2>
     <table>
         <tr>
             <td>¢5</td>
@@ -260,15 +261,15 @@
         </tr>
     </table>
     <div id="result-cash-drawer">
-        <h2>Total:</h2>
+        <h2>{% trans "Total:" %}</h2>
         <span id="result-total"></span>
-        <h2>Total profit:</h2>
+        <h2>{% trans "Total profit:" %}</h2>
         <span id="result-total-profit"></span>
     </div>
 </dialog>
 <dialog class="full" id="component-choices-dialog">
     <nav>
-        <h2>Pick the options</h2>
+        <h2>{% trans "Pick the options" %}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
     <iframe style="width: 100%; height: 90%;" frameborder="0"></iframe>

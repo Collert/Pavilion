@@ -1,4 +1,5 @@
 {% extends "deliveries/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -7,7 +8,11 @@
         <a href="{% url 'delivery_order' id=order.id %}" class="order no-style">
             <h1>{{order.order.name}}</h1>
             {% with order.order.orderdish_set.all.count as items %}
-                <span>{{items}} item{% if items > 1 %}s{% endif %}</span>
+                <span>{% blocktrans count items_count=items|length %}
+                    {{items_count}} item
+                    {% plural %}
+                    {{items_count}} items
+                {% endblocktrans %}</span>
             {% endwith %}
             <span><span class="material-symbols-outlined">
                 {% if courier.mode == "driving" %}
@@ -22,7 +27,7 @@
         </a>
     {% endfor %}
 {% else %}
-        <h1>Orders will show up when you clock in in the "Job" tab.</h1>
+        <h1>{% trans "Orders will show up when you clock in in the "Job" tab." %}</h1>
 {% endif %}
 <script>
     document.querySelectorAll(".order-eta").forEach(element => {

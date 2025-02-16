@@ -1,4 +1,5 @@
 {% extends "online_store/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -41,17 +42,17 @@
     </div>
     <h2>
         {% if status == 1 %}
-            Order pending
+            {% trans "Order pending" %}
         {% elif status == 2 %}
-            We are reviewing your order
+            {% trans "We are reviewing your order" %}
         {% elif status == 3 %}
-            Order is being prepared
+            {% trans "Order is being prepared" %}
         {% elif status == 4 %}
-            Order is ready for pickup by the courier
+            {% trans "Order is ready for pickup by the courier" %}
         {% elif status == 5 %}
-            Order is being transported to your address
+            {% trans "Order is being transported to your address" %}
         {% elif status == 6 %}
-            Order delivered
+            {% trans "Order delivered" %}
         {% endif %}
     </h2>
 </div>
@@ -90,22 +91,22 @@
     </div>
     <h2>
         {% if status == 1 %}
-            Order pending
+            {% trans "Order pending" %}
         {% elif status == 2 %}
-            We are reviewing your order
+            {% trans "We are reviewing your order" %}
         {% elif status == 3 %}
-            Order is being prepared
+            {% trans "Order is being prepared" %}
         {% elif status == 4 %}
-            Order is ready for pickup
+            {% trans "Order is ready for pickup" %}
         {% elif status == 5 %}
-            Order picked up
+            {% trans "Order picked up" %}
         {% endif %}
     </h2>
 </div>
 {% endif %}
 <div id="info">
     <div>
-        <h3>Your order:</h3>
+        <h3>{% trans "Your order:" %}</h3>
         <ul>
             {% for item in order.dishes %}
                 <li>{{item.quantity}} X {{item.name}}</li>
@@ -115,7 +116,7 @@
 </div>
 {% if order.channel == 'delivery' %}
 <p>
-    No delivery fees, no service fees, but we're sure our delivery people would definitely appreciate a cash tip when they bring you your bag of deliciousness 😉
+    {% trans "No delivery fees, no service fees, but we're sure our delivery people would definitely appreciate a cash tip when they bring you your bag of deliciousness 😉" %}
 </p>
 {% endif %}
 {% if from_placing %}
@@ -152,7 +153,11 @@
 {% endif %}
 {% elif rejected_order %}
 <div style="width: 100%; display: grid; place-items: center;">
-    <h1>We could not complete your order #{{rejected_order.order_id}}</h1>
+    <h1>
+        {% blocktrans %}
+        We could not complete your order #{{rejected_order.order_id}}
+        {% endblocktrans %}
+    </h1>
     <span class="material-symbols-outlined" style="font-size: 64px; text-align: center;">report</span>
     <p style="text-align: center; width: 70%;">
         {{rejected_order.reason}}

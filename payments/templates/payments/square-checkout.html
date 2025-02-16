@@ -1,4 +1,5 @@
 {% load mathfilters %}
+{% load i18n %}
 {% csrf_token %}
 {% load static %}
 
@@ -72,7 +73,7 @@
           const card = await payments.card();
           await card.attach('#card-container');
           const button = document.querySelector("#card-button")
-          button.innerHTML = "Pay ${{amount|div:100|floatformat:2}}"
+          button.innerHTML = "{% blocktrans %}Pay ${{amount|div:100|floatformat:2}}{% endblocktrans %}"
           button.disabled = false
           return card; 
         }
@@ -139,7 +140,7 @@
                 transaction_uuid:"{{transaction.uuid}}"
               }),
             });
-            statusContainer.innerText = "Payment successful!"
+            statusContainer.innerText = "{% trans 'Payment successful!' %}";
             statusContainer.classList.remove('is-failure');
             statusContainer.classList.add('is-success');
             setTimeout(() => {
@@ -151,15 +152,15 @@
             statusContainer.innerText = e.message.replace(/'([^']*)'/g, (match, p1) => {
               switch (p1) {
                 case "GENERIC_DECLINE":
-                  return "Transaction declined";
+                  return "{% trans 'Transaction declined' %}";
                 case "CVV_FAILURE":
-                  return "Card CVV is incorrect";
+                  return "{% trans 'Card CVV is incorrect' %}";
                 case "ADDRESS_VERIFICATION_FAILURE":
-                  return "Card postal code incorrect";
+                  return "{% trans 'Card postal code incorrect' %}";
                 case "ADDRESS_VERIFICATION_FAILURE":
-                  return "Card expiration date incorrect";
+                  return "{% trans 'Card expiration date incorrect' %}";
                 default:
-                  return "Unknown error";
+                  return "{% trans 'Unknown error' %}";
               }
             });
           }
@@ -187,7 +188,7 @@
               // disable the submit button as we await tokenization and make a
               // payment request.
               cardButton.disabled = true;
-              cardButton.innerHTML = "Payment processing<span id='loading-spinner'></span>";
+              cardButton.innerHTML = "{% trans 'Payment processing' %}<span id='loading-spinner'></span>";
               const token = await tokenize(paymentMethod);
               const paymentResults = await createPayment(token);
               if (paymentResults.status === "success") {
@@ -198,7 +199,7 @@
               }
             } catch (e) {
               cardButton.disabled = false;
-              cardButton.innerHTML = "Pay ${{amount|div:100|floatformat:2}}";
+              cardButton.innerHTML = "{% blocktrans %}Pay ${{amount|div:100|floatformat:2}}{% endblocktrans %}";
               displayPaymentResults('FAILURE', e);
               console.error(e.message);
             }
@@ -217,11 +218,11 @@
   {% if amount %}
   <form id="payment-form">
     <div id="card-container"></div>
-    <button id="card-button" disabled type="button">Payment form loading<span id="loading-spinner"></span></button>
+    <button id="card-button" disabled type="button">{% trans 'Payment form loading' %}<span id="loading-spinner"></span></button>
     <div id="payment-status-container" style="visibility: hidden;"></div> 
   </form>
   {% else %}
-  <h1 style="text-align: center;">Wrong link. Usage: <code> /payments/web-payment-window?amount=AMOUNT_TO_CHARGE</code></h1>
+  <h1 style="text-align: center;">{% trans "Wrong link. Usage:" %} <code> /payments/web-payment-window?amount=AMOUNT_TO_CHARGE</code></h1>
   {% endif %}
 </body>
 </html>

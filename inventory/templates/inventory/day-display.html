@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -24,8 +25,8 @@
 </head>
 <body>
     <main id="day-display">
-        <h1>Shopping on {{day.date}}</h1>
-        <h2>Ingredients purchased:</h1>
+        <h1>{% trans "Shopping on" %} {{day.date}}</h1>
+        <h2>{% trans "Ingredients purchased:" %}</h1>
         <ul>
             {% for ui in day.updateingredient_set.all %}    
             <li>
@@ -33,7 +34,7 @@
             </li>
             {% endfor %}
         </ul>
-        <h2>Receipt:</h2>
+        <h2>{% trans "Receipt:" %}</h2>
         <img src="/{{day.receipt}}" alt="">
     </main>
 </body>

@@ -113,11 +113,11 @@ export async function lookupGiftCard(number, cardDialog) {
         if (response.status === 200) {
             data = await response.json()
         } else if (response.status === 404) {
-            cardErrors.innerHTML = `Card #${number} not found`
+            cardErrors.innerHTML = interpolate(gettext("Card #%s not found"), [number]);
             cardErrors.style.display = "block";
             return null
         } else {
-            cardErrors.innerHTML = "Unknown error"
+            cardErrors.innerHTML = gettext("Unknown error")
             cardErrors.style.display = "block";
             return null
         }
@@ -134,7 +134,7 @@ export async function lookupGiftCard(number, cardDialog) {
         cardDialog.showModal()
         return giftCard
     } else {
-        cardErrors.innerHTML = "No card number entered"
+        cardErrors.innerHTML = gettext("No card number entered")
         cardErrors.style.display = "block";
         return null
     }

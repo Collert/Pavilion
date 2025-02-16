@@ -15,6 +15,7 @@ import json
 from decimal import Decimal
 import os
 from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 
 # Create your views here.
 

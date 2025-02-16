@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -12,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <title>Admin: {% block title %}{% endblock %}</title>
+    <title>{% trans "Admin:" %} {% block title %}{% endblock %}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         .material-symbols-outlined {
@@ -31,90 +32,90 @@
             <div class="nav-section" id="dashboard-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">monitoring</span>
-                    <span>Dashboard</span>
+                    <span>{% trans "Dashboard" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Home</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">History</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Home" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "History" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="orders-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">orders</span>
-                    <span>Orders</span>
+                    <span>{% trans "Orders" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-orders-retail' %}">Retail Orders</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Catering</a>
+                    <a class="header-link" href="{% url 'admin-orders-retail' %}">{% trans "Retail Orders" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Catering" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="menus-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">menu_book</span>
-                    <span>Menus</span>
+                    <span>{% trans "Menus" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Menus list</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Create menu</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Dishes</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Recipes</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Menus list" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Create menu" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Dishes" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Recipes" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="inventory-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">warehouse</span>
-                    <span>Inventory</span>
+                    <span>{% trans "Inventory" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Components</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Ingredients</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Condiments</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Packaging</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Crafting</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Restocks</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Components" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Ingredients" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Condiments" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Packaging" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Crafting" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Restocks" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="store-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">storefront</span>
-                    <span>Store</span>
+                    <span>{% trans "Store" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-store-branding' %}">Branding</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Working hours</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Events</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Media</a>
+                    <a class="header-link" href="{% url 'admin-store-branding' %}">{% trans "Branding" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Working hours" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Events" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Media" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="team-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">groups_2</span>
-                    <span>Team</span>
+                    <span>{% trans "Team" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Staff</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Groups</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Roles</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Training</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Staff" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Groups" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Roles" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Training" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="rewards-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">redeem</span>
-                    <span>Rewards</span>
+                    <span>{% trans "Rewards" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Coupons</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Discounts</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Gift card presets</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Active gift cards</a>
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">New gift card</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Coupons" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Discounts" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Gift card presets" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Active gift cards" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "New gift card" %}</a>
                 </div>
             </div>
             <div class="nav-section" id="settings-nav">
                 <div class="nav-section-header">
                     <span class="material-symbols-outlined">settings</span>
-                    <span>Settings</span>
+                    <span>{% trans "Settings" %}</span>
                 </div>
                 <div class="nav-section-body">
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">Retail Orders</a>

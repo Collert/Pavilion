@@ -1,4 +1,5 @@
 {% extends "inventory/layout.html" %}
+{% load i18n %}
 {% load static %}
 {% load mathfilters %}
 
@@ -9,15 +10,15 @@
         {% else %}
             <h1>{{recipe_obj.component.first.title}}</h1>
         {% endif %}
-        <h2>Yields:</h2>
+        <h2>{% trans "Yields:" %}</h2>
         {% if recipe_obj_type == "dish" %}
-            <span>{{recipe_obj.original_yield}} portion</span>
+            <span>{{recipe_obj.original_yield}} {% trans "portion" %}</span>
         {% else %}
             <span>{{recipe_obj.original_yield}} {{recipe_obj.component.first.unit_of_measurement|capfirst}}</span>
         {% endif %}
-        <h2>Ingredients:</h2>
+        <h2>{% trans "Ingredients:" %}</h2>
         {{ingredients_ul|safe}}
-        <h2>Method:</h2>
+        <h2>{% trans "Method:" %}</h2>
         {{recipe_md|safe}}
     </div>
     
@@ -28,10 +29,11 @@
             {% else %}
                 <h1>{{recipe_obj.component.first.title}}</h1>
             {% endif %}
-            <span>Yields: {{recipe_obj.original_yield}} {% if recipe_obj.component.first %}{{recipe_obj.component.first.unit_of_measurement|capfirst}}{% else %}portion{% endif %}</span>
+            <span>
+                {% trans "Yields:" %} {{recipe_obj.original_yield}} {% if recipe_obj.component.first %}{{recipe_obj.component.first.unit_of_measurement|capfirst}}{% else %}{% trans "portion" %}{% endif %}</span>
         </div>
         <div id="ingredients">
-            <h2>Ingredients:</h2>
+            <h2>{% trans "Ingredients:" %}</h2>
             {{ingredients_ul|safe}}
         </div>
         <div>
