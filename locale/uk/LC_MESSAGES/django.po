@@ -22,37 +22,37 @@ msgstr ""
 
 #: .\app_switcher\templates\app_switcher\index.html:14
 msgid "Apps switcher"
-msgstr ""
+msgstr "Додатки"
 
 #: .\app_switcher\templates\app_switcher\index.html:30
 msgid "Point Of Sale"
-msgstr ""
+msgstr "Касовий апарат"
 
 #: .\app_switcher\templates\app_switcher\index.html:34
 msgid "Order marking"
-msgstr ""
+msgstr "Приготування замовлень"
 
 #: .\app_switcher\templates\app_switcher\index.html:38
 msgid "Stats dashboard"
-msgstr ""
+msgstr "Панель статистики"
 
 #: .\app_switcher\templates\app_switcher\index.html:42
 msgid "Admin interface"
-msgstr ""
+msgstr "Адміністративний інтерфейс"
 
 #: .\deliveries\templates\deliveries\layout.html:14
 msgid "Courier app"
-msgstr ""
+msgstr "Додаток для кур'єрів"
 
 #: .\deliveries\templates\deliveries\layout.html:103
 #: .\new_admin\templates\new_admin\layout.html:45
 #: .\pos_server\templates\pos_server\day_stats.html:93
 msgid "Orders"
-msgstr ""
+msgstr "Замовлення"
 
 #: .\deliveries\templates\deliveries\layout.html:109
 msgid "Job"
-msgstr ""
+msgstr "Робота"
 
 #: .\deliveries\templates\deliveries\order.html:13
 #, python-format
@@ -71,48 +71,48 @@ msgstr[3] ""
 
 #: .\deliveries\templates\deliveries\order.html:19
 msgid "Deliver to:"
-msgstr ""
+msgstr "Доставка до:"
 
 #: .\deliveries\templates\deliveries\order.html:37
 msgid "Adjust ETA"
-msgstr ""
+msgstr "Змінити час прибуття"
 
 #: .\deliveries\templates\deliveries\order.html:41
 msgid "Delivery instructions:"
-msgstr ""
+msgstr "Вказівки для доставки:"
 
 #: .\deliveries\templates\deliveries\order.html:60
 msgid "Start delivery"
-msgstr ""
+msgstr "Розпочати доставку"
 
 #: .\deliveries\templates\deliveries\order.html:61
 msgid "Tap again to confirm start"
-msgstr ""
+msgstr "Натисніть ще раз щоб розпочати"
 
 #: .\deliveries\templates\deliveries\order.html:62
 msgid "Order taken"
-msgstr ""
+msgstr "Замовлення прийнято"
 
 #: .\deliveries\templates\deliveries\order.html:72
 msgid "Navigate"
-msgstr ""
+msgstr "Прокласти маршрут"
 
 #: .\deliveries\templates\deliveries\order.html:72
 msgid "back"
-msgstr ""
+msgstr "назад"
 
 #: .\deliveries\templates\deliveries\order.html:72
 msgid "to destination"
-msgstr ""
+msgstr "до адреси"
 
 #: .\deliveries\templates\deliveries\order.html:79
 msgid "Complete delivery"
-msgstr ""
+msgstr "Завершити доставку"
 
 #: .\deliveries\templates\deliveries\order.html:83
 #: .\deliveries\templates\deliveries\order.html:201
 msgid "Order complete"
-msgstr ""
+msgstr "Замовляння завершено"
 
 #: .\deliveries\templates\deliveries\order.html:95
 #: .\inventory\templates\inventory\crafting.html:106
@@ -120,7 +120,7 @@ msgstr ""
 #: .\misc_tools\templates\misc_tools\get-image-colors.html:9
 #: .\pos_server\templates\pos_server\order-marking.html:247
 msgid "Submit"
-msgstr ""
+msgstr "Зробити"
 
 #: .\deliveries\templates\deliveries\order.html:181
 msgid ""
@@ -130,11 +130,11 @@ msgstr ""
 
 #: .\deliveries\templates\deliveries\order.html:203
 msgid "Navigate back"
-msgstr ""
+msgstr "Прокласти маршрут назад"
 
 #: .\deliveries\templates\deliveries\order.html:225
 msgid "You must be assigned to this order to complete it!"
-msgstr ""
+msgstr "Ви можете завершити тільки ваше замовлення!"
 
 #: .\deliveries\templates\deliveries\orders.html:11
 #, python-format
@@ -153,47 +153,47 @@ msgstr[3] ""
 
 #: .\deliveries\templates\deliveries\orders.html:30
 msgid "Orders will show up when you clock in in the "
-msgstr ""
+msgstr "Замовлення з'являться тут коли ви розпочнете роботу у "
 
 #: .\deliveries\templates\deliveries\profile.html:22
 msgid "You must complete your delivery first!"
-msgstr ""
+msgstr "Спочатку вам потрібно завершити своє замовлення!"
 
 #: .\deliveries\templates\deliveries\profile.html:30
 msgid "Select delivery method:"
-msgstr ""
+msgstr "Виберіть ваш метод доставки:"
 
 #: .\deliveries\templates\deliveries\profile.html:33
 msgid " Bike /<br> Scooter"
-msgstr ""
+msgstr "Велосипед /<br> Самокат"
 
 #: .\deliveries\templates\deliveries\profile.html:36
 msgid "Walking"
-msgstr ""
+msgstr "Пішки"
 
 #: .\deliveries\templates\deliveries\profile.html:39
 msgid "Driving"
-msgstr ""
+msgstr "На машині"
 
 #: .\deliveries\templates\deliveries\profile.html:41
 msgid "Start delivering"
-msgstr ""
+msgstr "Розпочати зміну"
 
 #: .\deliveries\views.py:80
 msgid "Destination address needed."
-msgstr ""
+msgstr "Вкажіть адресу доставки."
 
 #: .\deliveries\views.py:84
 msgid "No couriers available"
-msgstr ""
+msgstr "Немає доступних кур'єрів"
 
 #: .\deliveries\views.py:105
 msgid "Start accepting orders to view this page."
-msgstr ""
+msgstr "Розпочніть зміну щоб побачити цю сторінку."
 
 #: .\gift_cards\templates\gift_cards\card-confirm.html:20
 msgid "Card active!"
-msgstr ""
+msgstr "Картку активовано!"
 
 #: .\gift_cards\templates\gift_cards\card-confirm.html:21
 msgid ""
@@ -209,67 +209,67 @@ msgstr ""
 
 #: .\gift_cards\templates\gift_cards\card-confirm.html:26
 msgid "View card"
-msgstr ""
+msgstr "Переглянути картку"
 
 #: .\gift_cards\templates\gift_cards\card-confirm.html:28
 msgid "No card"
-msgstr ""
+msgstr "Немає картки"
 
 #: .\gift_cards\templates\gift_cards\card.html:26
 msgid "Gift Card"
-msgstr ""
+msgstr "Подарункова картка"
 
 #: .\gift_cards\templates\gift_cards\card.html:31
 msgid "No barcode generated."
-msgstr ""
+msgstr "Не вдалося згенерувати бар код"
 
 #: .\gift_cards\templates\gift_cards\card.html:35
 msgid "Balance:"
-msgstr ""
+msgstr "Баланс:"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:9
 msgid "Pick a pre-loaded card"
-msgstr ""
+msgstr "Оберіть готову картку"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:21
 msgid "Or make your own"
-msgstr ""
+msgstr "Або зробіть власну"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:24
 msgid "Which cover?"
-msgstr ""
+msgstr "Яку обкладинку?"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:37
 msgid "How much money?"
-msgstr ""
+msgstr "Скільки грошей?"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:39
 msgid "For who?"
-msgstr ""
+msgstr "Для кого?"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:42
 msgid "For me"
-msgstr ""
+msgstr "Для себе"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:45
 msgid "For someone else"
-msgstr ""
+msgstr "Для когось іншого"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:47
 #: .\gift_cards\templates\gift_cards\get-card.html:71
 #: .\gift_cards\templates\gift_cards\get-card.html:111
 msgid "Your name"
-msgstr ""
+msgstr "Ваше ім'я"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:48
 #: .\gift_cards\templates\gift_cards\get-card.html:72
 #: .\gift_cards\templates\gift_cards\get-card.html:112
 msgid "Recovery email"
-msgstr ""
+msgstr "Електронна пошта"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:52
 msgid "Get this card"
-msgstr ""
+msgstr "Придбати цю картку"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:61
 #, python-format
@@ -286,59 +286,59 @@ msgstr ""
 
 #: .\gift_cards\templates\gift_cards\get-card.html:66
 msgid "This card is for me"
-msgstr ""
+msgstr "Ця картка для мене"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:69
 msgid "This card is for someone else"
-msgstr ""
+msgstr "Ця картка для когось іншого"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:74
 msgid "Sender\\"
-msgstr ""
+msgstr "Від\\"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:79
 msgid "Purchase"
-msgstr ""
+msgstr "Купити"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:117
 #: .\gift_cards\templates\gift_cards\get-card.html:118
 msgid "Recipient\\"
-msgstr ""
+msgstr "Для\\"
 
 #: .\gift_cards\templates\gift_cards\layout.html:14
 #: .\online_store\templates\online_store\layout.html:184
 msgid "Gift cards"
-msgstr ""
+msgstr "Подарункові картки"
 
 #: .\gift_cards\templates\gift_cards\layout.html:31
 msgid "Special"
-msgstr ""
+msgstr "Особливі картки"
 
 #: .\gift_cards\templates\gift_cards\layout.html:32
 msgid "Cards"
-msgstr ""
+msgstr "Картки"
 
 #: .\inventory\templates\inventory\component-availability.html:7
 msgid "Components:"
-msgstr ""
+msgstr "Компоненти:"
 
 #: .\inventory\templates\inventory\component-availability.html:12
 #, python-format
 msgid ""
 "Available: %(component.inventory)s %(component.unit_of_measurement|title)s"
-msgstr ""
+msgstr "Доступно: %(component.inventory)s %(component.unit_of_measurement|title)"
 
 #: .\inventory\templates\inventory\component-availability.html:16
 msgid "Individual dishes:"
-msgstr ""
+msgstr "Індивідуальні страви:"
 
 #: .\inventory\templates\inventory\crafting.html:13
 msgid "Craft single items"
-msgstr ""
+msgstr "Виготовити по одному"
 
 #: .\inventory\templates\inventory\crafting.html:21
 msgid "Ingredients inventory:"
-msgstr ""
+msgstr "Інвентар інгредієнтів:"
 
 #: .\inventory\templates\inventory\crafting.html:26
 #, python-format
@@ -350,7 +350,7 @@ msgstr ""
 
 #: .\inventory\templates\inventory\crafting.html:41
 msgid "Craft multiple items"
-msgstr ""
+msgstr "Виготовити кілька"
 
 #: .\inventory\templates\inventory\crafting.html:60
 #, python-format
@@ -363,7 +363,7 @@ msgstr ""
 
 #: .\inventory\templates\inventory\crafting.html:65
 msgid "Needed:"
-msgstr ""
+msgstr "Потрібно:"
 
 #: .\inventory\templates\inventory\crafting.html:75
 #, python-format
@@ -382,7 +382,7 @@ msgstr[3] ""
 
 #: .\inventory\templates\inventory\crafting.html:87
 msgid "Available:"
-msgstr ""
+msgstr "Доступно:"
 
 #: .\inventory\templates\inventory\crafting.html:95
 #, python-format
@@ -401,65 +401,65 @@ msgstr[3] ""
 
 #: .\inventory\templates\inventory\crafting.html:250
 msgid "Not enough ingredients to craft"
-msgstr ""
+msgstr "Не достатньо інгредієнтів для виготовлення"
 
 #: .\inventory\templates\inventory\day-display.html:28
 msgid "Shopping on"
-msgstr ""
+msgstr "День придбання"
 
 #: .\inventory\templates\inventory\day-display.html:29
 msgid "Ingredients purchased:"
-msgstr ""
+msgstr "Придбані інгредієнти:"
 
 #: .\inventory\templates\inventory\day-display.html:37
 #: .\inventory\templates\inventory\log-shopping.html:11
 msgid "Receipt:"
-msgstr ""
+msgstr "Чек:"
 
 #: .\inventory\templates\inventory\layout.html:14
 #: .\inventory\templates\inventory\layout.html:28
 msgid "Inventory management"
-msgstr ""
+msgstr "Керування інвентарем"
 
 #: .\inventory\templates\inventory\layout.html:31
 msgid "Add ingredients"
-msgstr ""
+msgstr "Додати інгредієнти"
 
 #: .\inventory\templates\inventory\layout.html:32
 #: .\new_admin\templates\new_admin\layout.html:59
 msgid "Create menu"
-msgstr ""
+msgstr "Створити меню"
 
 #: .\inventory\templates\inventory\layout.html:33
 msgid "Shopping reports"
-msgstr ""
+msgstr "Звіти закупок"
 
 #: .\inventory\templates\inventory\layout.html:34
 msgid "Component crafting"
-msgstr ""
+msgstr "Створення компонентів"
 
 #: .\inventory\templates\inventory\layout.html:35
 msgid "Advanced management"
-msgstr ""
+msgstr "Детальне керування"
 
 #: .\inventory\templates\inventory\layout.html:37
 msgid "Component availability"
-msgstr ""
+msgstr "Доступні компоненти"
 
 #: .\inventory\templates\inventory\layout.html:38
 #: .\new_admin\templates\new_admin\layout.html:61
 msgid "Recipes"
-msgstr ""
+msgstr "Рецепти"
 
 #: .\inventory\templates\inventory\log-shopping.html:6
 msgid "Shopping logging"
-msgstr ""
+msgstr "Звітувати закупки"
 
 #: .\inventory\templates\inventory\log-shopping.html:16
 #: .\inventory\templates\inventory\log-shopping.html:45
 #: .\pos_server\templates\pos_server\day_stats.html:69
 msgid "Ingredient"
-msgstr ""
+msgstr "Інгредієнт"
 
 #: .\inventory\templates\inventory\log-shopping.html:50
 #: .\new_admin\templates\new_admin\order-receipt.html:43
@@ -468,26 +468,26 @@ msgstr ""
 #: .\pos_server\templates\pos_server\day_stats.html:51
 #: .\pos_server\templates\pos_server\day_stats.html:70
 msgid "Quantity"
-msgstr ""
+msgstr "Кількість"
 
 #: .\inventory\templates\inventory\recipe.html:13
 #: .\inventory\templates\inventory\recipe.html:33
 msgid "Yields:"
-msgstr ""
+msgstr "Виробляє:"
 
 #: .\inventory\templates\inventory\recipe.html:15
 #: .\inventory\templates\inventory\recipe.html:33
 msgid "portion"
-msgstr ""
+msgstr "порція"
 
 #: .\inventory\templates\inventory\recipe.html:19
 #: .\inventory\templates\inventory\recipe.html:36
 msgid "Ingredients:"
-msgstr ""
+msgstr "Інгредієнти:"
 
 #: .\inventory\templates\inventory\recipe.html:21
 msgid "Method:"
-msgstr ""
+msgstr "Метод:"
 
 #: .\inventory\templates\inventory\recipes.html:13
 #, python-format
