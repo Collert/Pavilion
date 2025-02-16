@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-16 02:09-0800\n"
+"POT-Creation-Date: 2025-02-16 13:57-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: ANDREW DZOBKO MYTYBER@GMAIL.COM\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -65,9 +65,21 @@ msgid_plural ""
 "            %(items_count)s items\n"
 "        "
 msgstr[0] ""
+"\n"
+"            %(items_count)s товар\n"
+"            "
 msgstr[1] ""
+"\n"
+"            %(items_count)s товари\n"
+"            "
 msgstr[2] ""
+"\n"
+"            %(items_count)s товарів\n"
+"            "
 msgstr[3] ""
+"\n"
+"            %(items_count)s товар\n"
+"            "
 
 #: .\deliveries\templates\deliveries\order.html:19
 msgid "Deliver to:"
@@ -127,6 +139,8 @@ msgid ""
 "Are you sure you have followed the delivery instructions and delivered the "
 "items to the right address?"
 msgstr ""
+"Ви впевнені що ви виконали всі вказівки та доставили замовлення до "
+"правильної адреси?"
 
 #: .\deliveries\templates\deliveries\order.html:203
 msgid "Navigate back"
@@ -147,9 +161,21 @@ msgid_plural ""
 "                    %(items_count)s items\n"
 "                "
 msgstr[0] ""
+"\n"
+"                    %(items_count)s товар\n"
+"                "
 msgstr[1] ""
+"\n"
+"                    %(items_count)s товари\n"
+"                "
 msgstr[2] ""
+"\n"
+"                    %(items_count)s товарів\n"
+"                "
 msgstr[3] ""
+"\n"
+"                    %(items_count)s товарів\n"
+"                "
 
 #: .\deliveries\templates\deliveries\orders.html:30
 msgid "Orders will show up when you clock in in the "
@@ -206,6 +232,15 @@ msgid ""
 "used for cashback.</p>\n"
 "    "
 msgstr ""
+"\n"
+"    <p>Натисніть клавішу знизу щоб відкрити картку. <b>НІКОЛИ не поширюйте "
+"це посилання</b> з незнайомими людьми!\n"
+"    Надсилайте його тільки людям яким ви можете довірити цю картку. Ви також "
+"отримаєте копію цієї картки на поштову скриньку яку ви вказали у "
+"попередньому кроці.\n"
+"    Ця картка не підлягає поверненню, не може бути обміняна на готівку і не "
+"підлягає кешбеку.</p>\n"
+"    "
 
 #: .\gift_cards\templates\gift_cards\card-confirm.html:26
 msgid "View card"
@@ -221,7 +256,7 @@ msgstr "Подарункова картка"
 
 #: .\gift_cards\templates\gift_cards\card.html:31
 msgid "No barcode generated."
-msgstr "Не вдалося згенерувати бар код"
+msgstr "Не вдалося згенерувати бар код."
 
 #: .\gift_cards\templates\gift_cards\card.html:35
 msgid "Balance:"
@@ -283,6 +318,14 @@ msgid ""
 "using the card.</p>\n"
 "            "
 msgstr ""
+"\n"
+" <p>На цій подарунковій картці попередньо завантажено $%(card.amount)s. Ви "
+"може надіслати цю картку електронною поштою комусь, вибравши опцію внизу. "
+"Картка не повертається, не обмінюється на готівку та не може використовувати "
+"для кешбеку. Після покупки <strong>не</strong> публікуйте посилання на "
+"картку. Дайте посилання лише тим людям, які будуть використовувати цю картку."
+"</p>\n"
+"            "
 
 #: .\gift_cards\templates\gift_cards\get-card.html:66
 msgid "This card is for me"
@@ -326,7 +369,8 @@ msgstr "Компоненти:"
 #, python-format
 msgid ""
 "Available: %(component.inventory)s %(component.unit_of_measurement|title)s"
-msgstr "Доступно: %(component.inventory)s %(component.unit_of_measurement|title)"
+msgstr ""
+"Доступно: %(component.inventory)s %(component.unit_of_measurement|title)s"
 
 #: .\inventory\templates\inventory\component-availability.html:16
 msgid "Individual dishes:"
@@ -347,6 +391,9 @@ msgid ""
 "            Unlimited %(ingredient.title)s\n"
 "            "
 msgstr ""
+"\n"
+"            Безкінечна кількісь %(ingredient.title)s\n"
+"            "
 
 #: .\inventory\templates\inventory\crafting.html:41
 msgid "Craft multiple items"
@@ -360,6 +407,10 @@ msgid ""
 "span> %(component.unit_of_measurement|title)s\n"
 "                    "
 msgstr ""
+"\n"
+"                    Поточно у інвентарі: <span>%(component.inventory)s</"
+"span> %(component.unit_of_measurement|title)s\n"
+"                    "
 
 #: .\inventory\templates\inventory\crafting.html:65
 msgid "Needed:"
@@ -376,9 +427,21 @@ msgid_plural ""
 "                                %(ingredient.title)ss\n"
 "                            "
 msgstr[0] ""
+"\n"
+"                                %(ingredient.title)s\n"
+"                            "
 msgstr[1] ""
+"\n"
+"                                %(ingredient.title)sи\n"
+"                            "
 msgstr[2] ""
+"\n"
+"                                %(ingredient.title)sів\n"
+"                            "
 msgstr[3] ""
+"\n"
+"                                %(ingredient.title)sів\n"
+"                            "
 
 #: .\inventory\templates\inventory\crafting.html:87
 msgid "Available:"
@@ -395,9 +458,21 @@ msgid_plural ""
 "                            %(ingredient.title)ss\n"
 "                        "
 msgstr[0] ""
+"\n"
+"                                %(ingredient.title)s\n"
+"                            "
 msgstr[1] ""
+"\n"
+"                                %(ingredient.title)sи\n"
+"                            "
 msgstr[2] ""
+"\n"
+"                                %(ingredient.title)sів\n"
+"                            "
 msgstr[3] ""
+"\n"
+"                                %(ingredient.title)sів\n"
+"                            "
 
 #: .\inventory\templates\inventory\crafting.html:250
 msgid "Not enough ingredients to craft"
@@ -496,6 +571,9 @@ msgid ""
 "            Not linked recipe #%(recipe.id)s\n"
 "            "
 msgstr ""
+"\n"
+"            Не зв'язаний рецепт #%(recipe.id)s\n"
+"            "
 
 #: .\misc_tools\templates\misc_tools\layout.html:14
 msgid "Miscellaneous Tools"
@@ -605,10 +683,8 @@ msgid "Roles"
 msgstr "Ролі"
 
 #: .\new_admin\templates\new_admin\layout.html:99
-#, fuzzy
-#| msgid "Ukrainian"
 msgid "Training"
-msgstr "Українська"
+msgstr "Навчання"
 
 #: .\new_admin\templates\new_admin\layout.html:105
 msgid "Rewards"
@@ -665,6 +741,9 @@ msgid ""
 "                Order #%(order.order_id)s\n"
 "                "
 msgstr ""
+"\n"
+"                Замовлення №%(order.order_id)s\n"
+"                "
 
 #: .\new_admin\templates\new_admin\order.html:48
 msgid "Customer"
@@ -680,8 +759,6 @@ msgid "Print receipt"
 msgstr "Надрукувати чек"
 
 #: .\new_admin\templates\new_admin\order.html:62
-#, fuzzy
-#| msgid "Retail orders"
 msgid "Delete order"
 msgstr "Видалити замовлення"
 
@@ -740,6 +817,9 @@ msgid ""
 "            Order# %(order.id)s\n"
 "            "
 msgstr ""
+"\n"
+"            Замовлення№ %(order.id)s\n"
+"            "
 
 #: .\online_store\templates\online_store\history.html:73
 #: .\online_store\templates\online_store\order.html:45
@@ -864,7 +944,7 @@ msgstr "Поштовий код"
 msgid ""
 "Looks like we don't have any couriers available at the moment. Sorry for "
 "inconvenience."
-msgstr ""
+msgstr "Схоже в неас зараз немає доступних кур'єрів. Вибачте."
 
 #: .\online_store\templates\online_store\layout.html:275
 msgid "When?"
@@ -974,7 +1054,9 @@ msgstr "Поповнити картку"
 
 #: .\online_store\templates\online_store\layout.html:585
 msgid "Sorry, we are closed today. Check the home page for the next date."
-msgstr "Вибачте, ми сьогодні закриті. Перевірте наші години роботи на домашній сторінці."
+msgstr ""
+"Вибачте, ми сьогодні закриті. Перевірте наші години роботи на домашній "
+"сторінці."
 
 #: .\online_store\templates\online_store\layout.html:790
 msgid "Checking your gift cards"
@@ -1017,6 +1099,8 @@ msgid ""
 "definitely appreciate a cash tip when they bring you your bag of "
 "deliciousness 😉"
 msgstr ""
+"Жодної комісії за доставку чи послуги, але ми впевнені, що наші кур’єри "
+"будутьоднозначно оцінять готівкові чайові, коли привезуть ваше замовлення 😉"
 
 #: .\online_store\templates\online_store\order.html:157
 #, python-format
@@ -1025,6 +1109,10 @@ msgid ""
 "        We could not complete your order #%(rejected_order.order_id)s\n"
 "        "
 msgstr ""
+"\n"
+"        Ми не змогли приготувати ваше замовлення №"
+"%(rejected_order.order_id)s\n"
+"        "
 
 #: .\online_store\views.py:102
 msgid "Dish not found"
@@ -1191,6 +1279,8 @@ msgid ""
 "This device is not authorized to access the attempted functionality. Please "
 "use admin credentials to authorize."
 msgstr ""
+"Цей пристрій не авторизовано для доступу до ціеї функції. Будь ласка "
+"авторизуйте його з адміністратором."
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:11
 #: .\pos_server\templates\pos_server\login.html:8
@@ -1318,8 +1408,6 @@ msgid "Approve order"
 msgstr "Підтвердити замовлення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:147
-#, fuzzy
-#| msgid "Retail orders"
 msgid "Reject order"
 msgstr "Відмовити замовлення"
 
@@ -1352,346 +1440,354 @@ msgid ""
 "Automatically mark orders as done after the specified number of minutes. "
 "<br>(Leave blank to disable)"
 msgstr ""
+"Автоматично позначати замовлення як виконані через указану кількість хвилин."
+"<br>(Залиште порожнім, щоб вимкнути)"
 
 #: .\pos_server\templates\pos_server\order-marking.html:239
 #: .\pos_server\templates\pos_server\order-marking.html:244
 msgid "Minutes"
-msgstr ""
+msgstr "Хвилини"
 
 #: .\pos_server\templates\pos_server\order-marking.html:242
 msgid "Auto-pickup"
-msgstr ""
+msgstr "Авто-підбір"
 
 #: .\pos_server\templates\pos_server\order-marking.html:243
 msgid ""
 "Automatically mark orders as collected after the specified number of "
 "minutes. <br>(Leave blank to disable)"
 msgstr ""
+"Автоматично позначати замовлення як зібрані після вказаної кількості хвилин. "
+"<br>(Залиште порожнім, щоб вимкнути)"
 
 #: .\pos_server\templates\pos_server\order.html:15
 msgid "Grab & Go"
-msgstr ""
+msgstr "Упакована їжа"
 
 #: .\pos_server\templates\pos_server\order.html:45
 msgid "Tender order"
-msgstr ""
+msgstr "Сплатити замовлення"
 
 #: .\pos_server\templates\pos_server\order.html:50
 msgid "Finalize order"
-msgstr ""
+msgstr "Завершити замовлення"
 
 #: .\pos_server\templates\pos_server\order.html:57
 #: .\pos_server\templates\pos_server\order.html:264
 #: .\pos_server\templates\pos_server\pos-output-display.html:42
 msgid "Total:"
-msgstr ""
+msgstr "Загалом:"
 
 #: .\pos_server\templates\pos_server\order.html:65
 msgid "For here"
-msgstr ""
+msgstr "Тут"
 
 #: .\pos_server\templates\pos_server\order.html:68
 msgid "To-go"
-msgstr ""
+msgstr "З собою"
 
 #: .\pos_server\templates\pos_server\order.html:70
 msgid "Cash"
-msgstr ""
+msgstr "Готівка"
 
 #: .\pos_server\templates\pos_server\order.html:71
 msgid "Card"
-msgstr ""
+msgstr "Картка"
 
 #: .\pos_server\templates\pos_server\order.html:77
 msgid "Change"
-msgstr ""
+msgstr "Здача"
 
 #: .\pos_server\templates\pos_server\order.html:80
 msgid "How much money<br>did customer give?"
-msgstr ""
+msgstr "Скільки грошей<br>вам дав клієнт?"
 
 #: .\pos_server\templates\pos_server\order.html:82
 msgid "Accept cash"
-msgstr ""
+msgstr "Взяти готівку"
 
 #: .\pos_server\templates\pos_server\order.html:87
 msgid "Transaction completed!"
-msgstr ""
+msgstr "Транзакцію виконано!"
 
 #: .\pos_server\templates\pos_server\order.html:90
 msgid "Change due:"
-msgstr ""
+msgstr "Видати здачу:"
 
 #: .\pos_server\templates\pos_server\order.html:94
 msgid "Pass the terminal to customer..."
-msgstr ""
+msgstr "Передайте термінал клієнту..."
 
 #: .\pos_server\templates\pos_server\order.html:112
 msgid "Manager username"
-msgstr ""
+msgstr "Ім'я користувача менеджера"
 
 #: .\pos_server\templates\pos_server\order.html:113
 msgid "Manager password"
-msgstr ""
+msgstr "Пароль менеджера"
 
 #: .\pos_server\templates\pos_server\order.html:115
 msgid "Authorization failed"
-msgstr ""
+msgstr "Авторизація не вдалася"
 
 #: .\pos_server\templates\pos_server\order.html:120
 msgid "Apply whole order discount"
-msgstr ""
+msgstr "Дати знижку на ціле замовлення"
 
 #: .\pos_server\templates\pos_server\order.html:122
 msgid "or"
-msgstr ""
+msgstr "або"
 
 #: .\pos_server\templates\pos_server\order.html:124
 msgid "Apply"
-msgstr ""
+msgstr "Дати"
 
 #: .\pos_server\templates\pos_server\order.html:133
 msgid "Scan card"
-msgstr ""
+msgstr "Сканувати картку"
 
 #: .\pos_server\templates\pos_server\order.html:136
 msgid "Enter manually"
-msgstr ""
+msgstr "Ввести вручну"
 
 #: .\pos_server\templates\pos_server\order.html:152
 msgid "Card actions:"
-msgstr ""
+msgstr "Функції картки"
 
 #: .\pos_server\templates\pos_server\order.html:158
 msgid "Charge max"
-msgstr ""
+msgstr "Зняти максимальну суму"
 
 #: .\pos_server\templates\pos_server\order.html:189
 msgid "Open drawer"
-msgstr ""
+msgstr "Створити касу"
 
 #: .\pos_server\templates\pos_server\order.html:212
 msgid "Close drawer"
-msgstr ""
+msgstr "Закрити касу"
 
 #: .\pos_server\templates\pos_server\order.html:220
 msgid "New money:"
-msgstr ""
+msgstr "Нові гроші:"
 
 #: .\pos_server\templates\pos_server\order.html:266
 msgid "Total profit:"
-msgstr ""
+msgstr "Заробіток:"
 
 #: .\pos_server\templates\pos_server\orders-status.html:39
 msgid "In progress"
-msgstr ""
+msgstr "Готується"
 
 #: .\pos_server\templates\pos_server\orders-status.html:43
 #: .\pos_server\templates\pos_server\orders-status.html:53
 msgid "Order #"
-msgstr ""
+msgstr "Замовлення №"
 
 #: .\pos_server\templates\pos_server\orders-status.html:49
 msgid "Ready for pickup"
-msgstr ""
+msgstr "Готові"
 
 #: .\pos_server\templates\pos_server\orders-status.html:76
 msgid "Nothing"
-msgstr ""
+msgstr "Нічого не"
 
 #: .\pos_server\templates\pos_server\orders-status.html:77
 msgid "Is playing"
-msgstr ""
+msgstr "Грає"
 
 #: .\pos_server\templates\pos_server\orders-status.html:96
 msgid "Play test TTS"
-msgstr ""
+msgstr "Протестувати текст до мови"
 
 #: .\pos_server\templates\pos_server\orders-status.html:99
 msgid "Load music"
-msgstr ""
+msgstr "Знайти музику"
 
 #: .\pos_server\templates\pos_server\pair_pos.html:7
 msgid "Square terminal device code:"
-msgstr ""
+msgstr "Код пристрою терміналу Square:"
 
 #: .\pos_server\templates\pos_server\pair_pos.html:10
 msgid "Send test transaction"
-msgstr ""
+msgstr "Надіслати тестову транзакцію"
 
 #: .\pos_server\templates\pos_server\pair_pos.html:11
 msgid "Generate new code"
-msgstr ""
+msgstr "Згенерувати новий код"
 
 #: .\pos_server\templates\pos_server\pos-output-display.html:55
 msgid "Hot meals"
-msgstr ""
+msgstr "Гарячі страви"
 
 #: .\pos_server\templates\pos_server\pos-output-display.html:57
 msgid "Drinks and snacks"
-msgstr ""
+msgstr "Напої та солодощі"
 
 #: .\pos_server\templates\pos_server\pos-output-display.html:59
 msgid "Pre-packaged food"
-msgstr ""
+msgstr "Упакована їжа"
 
 #: .\pos_server\templates\pos_server\pos-output-display.html:97
-msgid "Don"
+msgid "Don\\"
 msgstr ""
 
 #: .\pos_server\templates\pos_server\register-staff.html:15
 #: .\users\templates\users\register.html:39
 msgid "First name:"
-msgstr ""
+msgstr "Ім'я"
 
 #: .\pos_server\templates\pos_server\register-staff.html:19
 #: .\users\templates\users\register.html:43
 msgid "Last name:"
-msgstr ""
+msgstr "Прізвище"
 
 #: .\pos_server\templates\pos_server\register-staff.html:22
 #: .\users\templates\users\register.html:46
 msgid "Register"
-msgstr ""
+msgstr "Зареєструватися"
 
 #: .\pos_server\views.py:207
 msgid ""
 "We are sorry but we could not complete your order for the following reasons: "
-msgstr ""
+msgstr "Вибачте, але ми не змогли виконати ваше замовлення з таких причин: "
 
 #: .\pos_server\views.py:209
 msgid ""
 "Some of the products you requested are currently out of stock. We will "
 "update our menu in a few minutes to reflect the accurate stock levels. "
 msgstr ""
+"Деяких продуктів, які ви замовили, наразі немає в наявності. Мионовимо наше "
+"меню за кілька хвилин, щоб відобразити точний рівень запасів."
 
 #: .\pos_server\views.py:211
 msgid "We are currently out of containers to package your order. "
-msgstr ""
+msgstr "Наразі у нас закінчилися контейнери для упаковки вашого замовлення."
 
 #: .\pos_server\views.py:214
 msgid ""
 "We apologize for the inconvenience. Please try placing your order again "
 "later or contact us for more information."
 msgstr ""
+"Просимо вибачення за незручності. Спробуйте замовити ще раз або зв'яжіться з "
+"нами для отримання додаткової інформації."
 
 #: .\pos_server\views.py:768
 msgid "a bowl of "
-msgstr ""
+msgstr "миска "
 
 #: .\pos_server\views.py:775
 msgid "a piece of "
-msgstr ""
+msgstr "шматок "
 
 #: .\pos_server\views.py:780
 msgid "a cup of "
-msgstr ""
+msgstr "горнятко "
 
 #: .\pos_server\views.py:788
 msgid " (choice of: "
-msgstr ""
+msgstr " (вибір між: "
 
 #: .\users\templates\users\profile.html:16
 msgid "Email:"
-msgstr ""
+msgstr "Електронна скринька"
 
 #: .\users\templates\users\profile.html:20
 msgid "Date joined:"
-msgstr ""
+msgstr "Дата створення облікового запису:"
 
 #: .\users\templates\users\profile.html:24
 msgid "Change password:"
-msgstr ""
+msgstr "Змінити пароль:"
 
 #: .\users\templates\users\profile.html:25
 msgid "New password:"
-msgstr ""
+msgstr "Новий пароль:"
 
 #: .\users\templates\users\profile.html:26
 #: .\users\templates\users\profile.html:28
 msgid "Optional"
-msgstr ""
+msgstr "Необов'язково"
 
 #: .\users\templates\users\profile.html:27
 msgid "Confirm password:"
-msgstr ""
+msgstr "Підтвердити пароль:"
 
 #: .\users\templates\users\profile.html:31
 msgid "Edit profile"
-msgstr ""
+msgstr "Редагувати обліковий запис"
 
 #: .\users\templates\users\profile.html:32
 msgid "Confirm edits"
-msgstr ""
+msgstr "Підтвердити редагування"
 
 #: .\users\templates\users\profile.html:36
 msgid "Additional info"
-msgstr ""
+msgstr "Додаткова інформація"
 
 #: .\users\templates\users\profile.html:38
 msgid "Phone number:"
-msgstr ""
+msgstr "Номер телефону"
 
 #: .\users\templates\users\profile.html:42
 msgid "Home address:"
-msgstr ""
+msgstr "Домашня адреса:"
 
 #: .\users\templates\users\profile.html:44
 msgid "Unit:"
-msgstr ""
+msgstr "Квартира:"
 
 #: .\users\templates\users\profile.html:53
 msgid "Cancel edits"
-msgstr ""
+msgstr "Відмінити зміни"
 
 #: .\users\templates\users\register.html:8
 msgid "User already exists"
-msgstr ""
+msgstr "Користувач вже існує"
 
 #: .\users\templates\users\register.html:12
 msgid "Username:"
-msgstr ""
+msgstr "Ім'я користувача:"
 
 #: .\users\templates\users\register.html:14
 msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
-msgstr ""
+msgstr "Обов'язково. 150 символів або менше. Лише літери, цифри та @/./+/-/_."
 
 #: .\users\templates\users\register.html:18
 msgid "Password:"
-msgstr ""
+msgstr "Пароль:"
 
 #: .\users\templates\users\register.html:23
 msgid "Your password can’t be too similar to your other personal information."
-msgstr ""
+msgstr "Ваш пароль не може бути дуже схожим на вашу іншу особисту інформацію."
 
 #: .\users\templates\users\register.html:24
 msgid "Your password must contain at least 8 characters."
-msgstr ""
+msgstr "Ваш пароль має містити не менше 8 символів."
 
 #: .\users\templates\users\register.html:25
 msgid "Your password can’t be a commonly used password."
-msgstr ""
+msgstr "Ваш пароль не може бути типовим паролем."
 
 #: .\users\templates\users\register.html:26
 msgid "Your password can’t be entirely numeric."
-msgstr ""
+msgstr "Ваш пароль не може бути повністю цифровим."
 
 #: .\users\templates\users\register.html:29
 msgid "Password confirmation:"
-msgstr ""
+msgstr "Підтвердження пароля:"
 
 #: .\users\templates\users\register.html:31
 msgid "Enter the same password as before, for verification."
-msgstr ""
+msgstr "Для підтвердження введіть той самий пароль, що й раніше."
 
 #: .\users\templates\users\register.html:35
 msgid "Email address:"
-msgstr ""
+msgstr "Електронна скринька:"
 
 #: .\users\templates\users\register.html:53
-msgid "Password doesn"
-msgstr ""
+msgid "Password doesn't satisfy the requirements above!"
+msgstr "Пароль не відповідає наведеним вище вимогам!"
 
 #: .\users\templates\users\register.html:56
-msgid "Passwords don"
-msgstr ""
+msgid "Passwords don't match!"
+msgstr "Паролі не збігаються!"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-16 02:09-0800\n"
+"POT-Creation-Date: 2025-02-16 13:57-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1516,7 +1516,7 @@ msgid "Pre-packaged food"
 msgstr ""
 
 #: .\pos_server\templates\pos_server\pos-output-display.html:97
-msgid "Don"
+msgid "Don\\"
 msgstr ""
 
 #: .\pos_server\templates\pos_server\register-staff.html:15
@@ -1669,9 +1669,9 @@ msgid "Email address:"
 msgstr ""
 
 #: .\users\templates\users\register.html:53
-msgid "Password doesn"
+msgid "Password doesn't satisfy the requirements above!"
 msgstr ""
 
 #: .\users\templates\users\register.html:56
-msgid "Passwords don"
+msgid "Passwords don't match!"
 msgstr ""

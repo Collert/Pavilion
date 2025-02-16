@@ -94,7 +94,7 @@
     </main>
     <script>
         if (sessionStorage.getItem("fsReminderDone") !== "true") {
-            alert("{% trans 'Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)' %}");
+            alert("{% trans 'Don\'t forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)' %}");
             sessionStorage.setItem("fsReminderDone", "true");
         } 
         const dishes = JSON.parse('{{dishes|safe}}');
