@@ -499,24 +499,24 @@ msgstr ""
 
 #: .\misc_tools\templates\misc_tools\layout.html:14
 msgid "Miscellaneous Tools"
-msgstr ""
+msgstr "Інші додатки"
 
 #: .\new_admin\templates\new_admin\layout.html:16
 msgid "Admin:"
-msgstr ""
+msgstr "Керування:"
 
 #: .\new_admin\templates\new_admin\layout.html:35
 msgid "Dashboard"
-msgstr ""
+msgstr "Інфо-панель"
 
 #: .\new_admin\templates\new_admin\layout.html:38
 #: .\online_store\templates\online_store\layout.html:182
 msgid "Home"
-msgstr ""
+msgstr "Домівка"
 
 #: .\new_admin\templates\new_admin\layout.html:39
 msgid "History"
-msgstr ""
+msgstr "Історія"
 
 #: .\new_admin\templates\new_admin\layout.html:48
 #, fuzzy
@@ -526,83 +526,83 @@ msgstr "Замовлення"
 
 #: .\new_admin\templates\new_admin\layout.html:49
 msgid "Catering"
-msgstr ""
+msgstr "Оптові замовлення"
 
 #: .\new_admin\templates\new_admin\layout.html:55
 msgid "Menus"
-msgstr ""
+msgstr "Меню"
 
 #: .\new_admin\templates\new_admin\layout.html:58
 msgid "Menus list"
-msgstr ""
+msgstr "Список меню"
 
 #: .\new_admin\templates\new_admin\layout.html:60
 msgid "Dishes"
-msgstr ""
+msgstr "Страви"
 
 #: .\new_admin\templates\new_admin\layout.html:67
 msgid "Inventory"
-msgstr ""
+msgstr "Інвентар"
 
 #: .\new_admin\templates\new_admin\layout.html:70
 msgid "Components"
-msgstr ""
+msgstr "Компоненти"
 
 #: .\new_admin\templates\new_admin\layout.html:71
 msgid "Ingredients"
-msgstr ""
+msgstr "Інгредієнти"
 
 #: .\new_admin\templates\new_admin\layout.html:72
 msgid "Condiments"
-msgstr ""
+msgstr "Додатки"
 
 #: .\new_admin\templates\new_admin\layout.html:73
 msgid "Packaging"
-msgstr ""
+msgstr "Упаковки"
 
 #: .\new_admin\templates\new_admin\layout.html:74
 msgid "Crafting"
-msgstr ""
+msgstr "Створення компонентів"
 
 #: .\new_admin\templates\new_admin\layout.html:75
 msgid "Restocks"
-msgstr ""
+msgstr "Поповнення"
 
 #: .\new_admin\templates\new_admin\layout.html:81
 msgid "Store"
-msgstr ""
+msgstr "Заклад"
 
 #: .\new_admin\templates\new_admin\layout.html:84
 msgid "Branding"
-msgstr ""
+msgstr "Брендинг"
 
 #: .\new_admin\templates\new_admin\layout.html:85
 msgid "Working hours"
-msgstr ""
+msgstr "Години роботи"
 
 #: .\new_admin\templates\new_admin\layout.html:86
 msgid "Events"
-msgstr ""
+msgstr "Події"
 
 #: .\new_admin\templates\new_admin\layout.html:87
 msgid "Media"
-msgstr ""
+msgstr "Медіа"
 
 #: .\new_admin\templates\new_admin\layout.html:93
 msgid "Team"
-msgstr ""
+msgstr "Команда"
 
 #: .\new_admin\templates\new_admin\layout.html:96
 msgid "Staff"
-msgstr ""
+msgstr "Персонал"
 
 #: .\new_admin\templates\new_admin\layout.html:97
 msgid "Groups"
-msgstr ""
+msgstr "Групи"
 
 #: .\new_admin\templates\new_admin\layout.html:98
 msgid "Roles"
-msgstr ""
+msgstr "Ролі"
 
 #: .\new_admin\templates\new_admin\layout.html:99
 #, fuzzy
@@ -612,51 +612,51 @@ msgstr "Українська"
 
 #: .\new_admin\templates\new_admin\layout.html:105
 msgid "Rewards"
-msgstr ""
+msgstr "Бонуси"
 
 #: .\new_admin\templates\new_admin\layout.html:108
 msgid "Coupons"
-msgstr ""
+msgstr "Купони"
 
 #: .\new_admin\templates\new_admin\layout.html:109
 #: .\pos_server\templates\pos_server\layout.html:39
 msgid "Discounts"
-msgstr ""
+msgstr "Знижки"
 
 #: .\new_admin\templates\new_admin\layout.html:110
 msgid "Gift card presets"
-msgstr ""
+msgstr "Готові подарункові карти"
 
 #: .\new_admin\templates\new_admin\layout.html:111
 msgid "Active gift cards"
-msgstr ""
+msgstr "Активні подарункові карти"
 
 #: .\new_admin\templates\new_admin\layout.html:112
 msgid "New gift card"
-msgstr ""
+msgstr "Нова подарункова карта"
 
 #: .\new_admin\templates\new_admin\layout.html:118
 msgid "Settings"
-msgstr ""
+msgstr "Налаштування"
 
 #: .\new_admin\templates\new_admin\order-receipt.html:35
 msgid "Sales receipt"
-msgstr ""
+msgstr "Чек"
 
 #: .\new_admin\templates\new_admin\order-receipt.html:42
 #: .\new_admin\templates\new_admin\order.html:28
 msgid "Item"
-msgstr ""
+msgstr "Предмет"
 
 #: .\new_admin\templates\new_admin\order-receipt.html:44
 #: .\new_admin\templates\new_admin\order.html:30
 msgid "Price"
-msgstr ""
+msgstr "Ціна"
 
 #: .\new_admin\templates\new_admin\order-receipt.html:45
 #: .\new_admin\templates\new_admin\order.html:31
 msgid "Total"
-msgstr ""
+msgstr "Загалом"
 
 #: .\new_admin\templates\new_admin\order.html:20
 #, python-format
@@ -668,22 +668,22 @@ msgstr ""
 
 #: .\new_admin\templates\new_admin\order.html:48
 msgid "Customer"
-msgstr ""
+msgstr "Клієнт"
 
 #: .\new_admin\templates\new_admin\order.html:52
 #: .\pos_server\templates\pos_server\order-marking.html:24
 msgid "No name"
-msgstr ""
+msgstr "Без імені"
 
 #: .\new_admin\templates\new_admin\order.html:61
 msgid "Print receipt"
-msgstr ""
+msgstr "Надрукувати чек"
 
 #: .\new_admin\templates\new_admin\order.html:62
 #, fuzzy
 #| msgid "Retail orders"
 msgid "Delete order"
-msgstr "Замовлення"
+msgstr "Видалити замовлення"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:6
 #: .\new_admin\templates\new_admin\orders_retail.html:14
@@ -692,46 +692,46 @@ msgstr "Замовлення"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:18
 msgid "Order ID"
-msgstr ""
+msgstr "Номер замовлення"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:19
 msgid "Order timestamp"
-msgstr ""
+msgstr "Час замовлення"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:20
 #: .\pos_server\templates\pos_server\order.html:61
 msgid "Customer name"
-msgstr ""
+msgstr "Ім'я клієнта"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:21
 msgid "Order status"
-msgstr ""
+msgstr "Статус замовлення"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:22
 msgid "Order total"
-msgstr ""
+msgstr "Загалом"
 
 #: .\new_admin\templates\new_admin\orders_retail.html:23
 msgid "Actions"
-msgstr ""
+msgstr "Дії"
 
 #: .\online_store\templates\online_store\dish.html:28
 #: .\online_store\templates\online_store\menu.html:46
 msgid "Add to cart"
-msgstr ""
+msgstr "Додати до кошика"
 
 #: .\online_store\templates\online_store\dish.html:33
 #: .\online_store\templates\online_store\menu.html:51
 msgid "Out of stock"
-msgstr ""
+msgstr "Немає в наявності"
 
 #: .\online_store\templates\online_store\dish.html:38
 msgid "Consists of:"
-msgstr ""
+msgstr "Складники:"
 
 #: .\online_store\templates\online_store\dish.html:40
 msgid "Potential allergens:"
-msgstr ""
+msgstr "Можливі алергени:"
 
 #: .\online_store\templates\online_store\history.html:18
 #, python-format
@@ -745,120 +745,120 @@ msgstr ""
 #: .\online_store\templates\online_store\order.html:45
 #: .\online_store\templates\online_store\order.html:94
 msgid "Order pending"
-msgstr ""
+msgstr "Майбутнє замовлення"
 
 #: .\online_store\templates\online_store\history.html:75
 #: .\online_store\templates\online_store\order.html:47
 #: .\online_store\templates\online_store\order.html:96
 msgid "We are reviewing your order"
-msgstr ""
+msgstr "Ми розглядаємо ваше замовлення"
 
 #: .\online_store\templates\online_store\history.html:77
 #: .\online_store\templates\online_store\order.html:49
 #: .\online_store\templates\online_store\order.html:98
 msgid "Order is being prepared"
-msgstr ""
+msgstr "Замовлення готується"
 
 #: .\online_store\templates\online_store\history.html:79
 #: .\online_store\templates\online_store\order.html:51
 msgid "Order is ready for pickup by the courier"
-msgstr ""
+msgstr "Замовлення готове до вивозу"
 
 #: .\online_store\templates\online_store\history.html:81
 #: .\online_store\templates\online_store\order.html:53
 msgid "Order is being transported to your address"
-msgstr ""
+msgstr "Замовлення пересувається до вашої адреси"
 
 #: .\online_store\templates\online_store\history.html:83
 #: .\online_store\templates\online_store\order.html:55
 msgid "Order delivered"
-msgstr ""
+msgstr "Замовлення доставлено"
 
 #: .\online_store\templates\online_store\history.html:90
 msgid "No previous orders"
-msgstr ""
+msgstr "Немає попередніх замовлень"
 
 #: .\online_store\templates\online_store\layout.html:147
 #: .\online_store\templates\online_store\layout.html:183
 #: .\pos_server\templates\pos_server\layout.html:36
 msgid "Menu"
-msgstr ""
+msgstr "Меню"
 
 #: .\online_store\templates\online_store\layout.html:148
 msgid "Gift Cards"
-msgstr ""
+msgstr "Подарункові карти"
 
 #: .\online_store\templates\online_store\layout.html:157
 msgid "Log In"
-msgstr ""
+msgstr "Увійти"
 
 #: .\online_store\templates\online_store\layout.html:185
 msgid "Account"
-msgstr ""
+msgstr "Обліковий запис"
 
 #: .\online_store\templates\online_store\layout.html:206
 msgid "Subtotal:"
-msgstr ""
+msgstr "Загалом:"
 
 #: .\online_store\templates\online_store\layout.html:209
 msgid "Finalize"
-msgstr ""
+msgstr "Підтвердити"
 
 #: .\online_store\templates\online_store\layout.html:218
 msgid "Finalize cart"
-msgstr ""
+msgstr "Підтвердити кошик"
 
 #: .\online_store\templates\online_store\layout.html:224
 msgid "Who?"
-msgstr ""
+msgstr "Хто?"
 
 #: .\online_store\templates\online_store\layout.html:227
 msgid "Name"
-msgstr ""
+msgstr "Ім'я"
 
 #: .\online_store\templates\online_store\layout.html:231
 msgid "Phone number"
-msgstr ""
+msgstr "Номер телефону"
 
 #: .\online_store\templates\online_store\layout.html:236
 msgid "Where?"
-msgstr ""
+msgstr "Де?"
 
 #: .\online_store\templates\online_store\layout.html:239
 msgid "Pick up at<br>the restaurant"
-msgstr ""
+msgstr "Підібрати у<br>ресторані"
 
 #: .\online_store\templates\online_store\layout.html:242
 msgid "Order<br>delivery"
-msgstr ""
+msgstr "Замовити<br>доставку"
 
 #: .\online_store\templates\online_store\layout.html:244
 msgid "Address"
-msgstr ""
+msgstr "Адреса"
 
 #: .\online_store\templates\online_store\layout.html:248
 msgid "Address 1"
-msgstr ""
+msgstr "Основна адреса"
 
 #: .\online_store\templates\online_store\layout.html:252
 msgid "Address 2"
-msgstr ""
+msgstr "Другорядна адреса"
 
 #: .\online_store\templates\online_store\layout.html:253
 msgid "Unit # / Apartment #"
-msgstr ""
+msgstr "№ квартири"
 
 #: .\online_store\templates\online_store\layout.html:258
 msgid "City"
-msgstr ""
+msgstr "Місто"
 
 #: .\online_store\templates\online_store\layout.html:262
 msgid "Province"
-msgstr ""
+msgstr "Провінція"
 
 #: .\online_store\templates\online_store\layout.html:266
 msgid "Postal code"
-msgstr ""
+msgstr "Поштовий код"
 
 #: .\online_store\templates\online_store\layout.html:270
 msgid ""
@@ -868,148 +868,148 @@ msgstr ""
 
 #: .\online_store\templates\online_store\layout.html:275
 msgid "When?"
-msgstr ""
+msgstr "Коли?"
 
 #: .\online_store\templates\online_store\layout.html:277
 msgid "time when we start making the order"
-msgstr ""
+msgstr "час коли ми почнемо готувати ваше замовлення"
 
 #: .\online_store\templates\online_store\layout.html:279
 msgid "How?"
-msgstr ""
+msgstr "Як?"
 
 #: .\online_store\templates\online_store\layout.html:282
 msgid "Eat at<br>the restaurant"
-msgstr ""
+msgstr "Замовити у<br>закладі"
 
 #: .\online_store\templates\online_store\layout.html:285
 msgid "Pack<br>to-go"
-msgstr ""
+msgstr "Упакувати<br>з собою"
 
 #: .\online_store\templates\online_store\layout.html:289
 msgid "Leave at<br>the door"
-msgstr ""
+msgstr "Залишити біля<br>дверей"
 
 #: .\online_store\templates\online_store\layout.html:292
 msgid "Meet at<br>the door"
-msgstr ""
+msgstr "Зустрітися біля<br>дверей"
 
 #: .\online_store\templates\online_store\layout.html:295
 msgid "Meet<br>outside"
-msgstr ""
+msgstr "Зустрітися на<br>вулиці"
 
 #: .\online_store\templates\online_store\layout.html:297
 msgid "Delivery instructions (optional)"
-msgstr ""
+msgstr "Вказівки для доставки (необов'язково)"
 
 #: .\online_store\templates\online_store\layout.html:298
 msgid ""
 "Ring the blue doorbell / meet at the garage door / place the order down and "
 "do a lil dance"
-msgstr ""
+msgstr "Подзвонити у дзвінок / зустрітися біля гаражу / станцювати гопака"
 
 #: .\online_store\templates\online_store\layout.html:299
 msgid "Special order instructions (optional)"
-msgstr ""
+msgstr "Вказівки для замовлення (необов'язково)"
 
 #: .\online_store\templates\online_store\layout.html:300
 msgid "Extra sour cream / no onions / extra napkins"
-msgstr ""
+msgstr "Кинути більше сметани / без цибулі / докинути серветок"
 
 #: .\online_store\templates\online_store\layout.html:302
 msgid "Have a gift card?"
-msgstr ""
+msgstr "Маєте подарункову картку?"
 
 #: .\online_store\templates\online_store\layout.html:306
 #: .\pos_server\templates\pos_server\order.html:139
 msgid "Look up"
-msgstr ""
+msgstr "Знайти"
 
 #: .\online_store\templates\online_store\layout.html:310
 msgid "Proceed to secure checkout"
-msgstr ""
+msgstr "Перейти до захищеного розрахунку"
 
 #: .\online_store\templates\online_store\layout.html:311
 msgid "Place order"
-msgstr ""
+msgstr "Замовити"
 
 #: .\online_store\templates\online_store\layout.html:313
 msgid "You will only be charged when we confirm your order"
-msgstr ""
+msgstr "Ми знімемо гроші лише після підтвердження вашого замовлення"
 
 #: .\online_store\templates\online_store\layout.html:318
 #: .\pos_server\templates\pos_server\order.html:272
 msgid "Pick the options"
-msgstr ""
+msgstr "Оберіть один з варіантів"
 
 #: .\online_store\templates\online_store\layout.html:325
 #: .\pos_server\templates\pos_server\order.html:129
 #: .\pos_server\templates\pos_server\order.html:144
 msgid "Gift card"
-msgstr ""
+msgstr "Подарункова картка"
 
 #: .\online_store\templates\online_store\layout.html:330
 #: .\pos_server\templates\pos_server\order.html:149
 msgid "Card #"
-msgstr ""
+msgstr "№ картки"
 
 #: .\online_store\templates\online_store\layout.html:331
 #: .\pos_server\templates\pos_server\order.html:150
 msgid "Available balance:"
-msgstr ""
+msgstr "Доступно грошей:"
 
 #: .\online_store\templates\online_store\layout.html:338
 #: .\pos_server\templates\pos_server\order.html:156
 msgid "Charge card"
-msgstr ""
+msgstr "Зняти з картки"
 
 #: .\online_store\templates\online_store\layout.html:340
 msgid "Use this card"
-msgstr ""
+msgstr "Використати цю картку"
 
 #: .\online_store\templates\online_store\layout.html:341
 #: .\pos_server\templates\pos_server\order.html:159
 msgid "Reload card"
-msgstr ""
+msgstr "Поповнити картку"
 
 #: .\online_store\templates\online_store\layout.html:585
 msgid "Sorry, we are closed today. Check the home page for the next date."
-msgstr ""
+msgstr "Вибачте, ми сьогодні закриті. Перевірте наші години роботи на домашній сторінці."
 
 #: .\online_store\templates\online_store\layout.html:790
 msgid "Checking your gift cards"
-msgstr ""
+msgstr "Перевіряємо ваші картки"
 
 #: .\online_store\templates\online_store\menu.html:16
 msgid "Now serving:"
-msgstr ""
+msgstr "Зараз доступно:"
 
 #: .\online_store\templates\online_store\menu.html:23
 #: .\pos_server\templates\pos_server\order.html:11
 msgid "Drinks and sweets"
-msgstr ""
+msgstr "Напитки та солодощі"
 
 #: .\online_store\templates\online_store\menu.html:25
 #: .\pos_server\templates\pos_server\order-marking.html:225
 #: .\pos_server\templates\pos_server\order.html:13
 msgid "Hot food"
-msgstr ""
+msgstr "Гаряча їжа"
 
 #: .\online_store\templates\online_store\menu.html:27
 msgid "Packaged food"
-msgstr ""
+msgstr "Упакована їжа"
 
 #: .\online_store\templates\online_store\order.html:100
 msgid "Order is ready for pickup"
-msgstr ""
+msgstr "Замовлення готове для підбору"
 
 #: .\online_store\templates\online_store\order.html:102
 msgid "Order picked up"
-msgstr ""
+msgstr "Замовлення підібране"
 
 #: .\online_store\templates\online_store\order.html:109
 msgid "Your order:"
-msgstr ""
+msgstr "Ваше замовлення:"
 
 #: .\online_store\templates\online_store\order.html:119
 msgid ""
@@ -1028,23 +1028,23 @@ msgstr ""
 
 #: .\online_store\views.py:102
 msgid "Dish not found"
-msgstr ""
+msgstr "Страву не знайдено"
 
 #: .\online_store\views.py:159
 msgid "Order not found"
-msgstr ""
+msgstr "Замовлення не знайдено"
 
 #: .\online_store\views.py:263
 msgid "Leave the package at the door. "
-msgstr ""
+msgstr "Залишити замовлення біля дверей. "
 
 #: .\online_store\views.py:265
 msgid "Meet the customer at the door. "
-msgstr ""
+msgstr "Зустріти клієнта біля дверей. "
 
 #: .\online_store\views.py:267
 msgid "Meet the customer outside. "
-msgstr ""
+msgstr "Зустріти клієнта на вулиці. "
 
 #: .\pavilion\settings.py:236
 msgid "English"
@@ -1056,135 +1056,135 @@ msgstr "Українська"
 
 #: .\pavilion\settings.py:238
 msgid "Cantonese (Hong Kong)"
-msgstr ""
+msgstr "Китайська (Кантонська, Гонг Конг)"
 
 #: .\payments\templates\payments\square-checkout.html:76
 #: .\payments\templates\payments\square-checkout.html:202
 #, python-format
 msgid "Pay $%(amount|div:100|floatformat:2)s"
-msgstr ""
+msgstr "Заплатити $%(amount|div:100|floatformat:2)s"
 
 #: .\payments\templates\payments\square-checkout.html:143
 msgid "Payment successful!"
-msgstr ""
+msgstr "Оплата успішна!"
 
 #: .\payments\templates\payments\square-checkout.html:155
 msgid "Transaction declined"
-msgstr ""
+msgstr "Картку відхилено"
 
 #: .\payments\templates\payments\square-checkout.html:157
 msgid "Card CVV is incorrect"
-msgstr ""
+msgstr "CVV номер не правильний"
 
 #: .\payments\templates\payments\square-checkout.html:159
 msgid "Card postal code incorrect"
-msgstr ""
+msgstr "Поштовий код не правильний"
 
 #: .\payments\templates\payments\square-checkout.html:161
 msgid "Card expiration date incorrect"
-msgstr ""
+msgstr "Термін дії не правильний"
 
 #: .\payments\templates\payments\square-checkout.html:163
 msgid "Unknown error"
-msgstr ""
+msgstr "Невідома помилка"
 
 #: .\payments\templates\payments\square-checkout.html:191
 msgid "Payment processing"
-msgstr ""
+msgstr "Платіж обчислюється"
 
 #: .\payments\templates\payments\square-checkout.html:221
 msgid "Payment form loading"
-msgstr ""
+msgstr "Форма готується"
 
 #: .\payments\templates\payments\square-checkout.html:225
 msgid "Wrong link. Usage:"
-msgstr ""
+msgstr "Неправильне посилання. Формат:"
 
 #: .\pos_server\templates\pos_server\component-choice.html:69
 #, python-format
 msgid "Select one for %(component.parent.title)s"
-msgstr ""
+msgstr "Виберіть для %(component.parent.title)s"
 
 #: .\pos_server\templates\pos_server\component-choice.html:94
 msgid "Please make all required choices"
-msgstr ""
+msgstr "Будь ласка зробіть всі потрібні вибори"
 
 #: .\pos_server\templates\pos_server\create-menu.html:8
 msgid "Create a new menu:"
-msgstr ""
+msgstr "Створення нового меню:"
 
 #: .\pos_server\templates\pos_server\create-menu.html:9
 msgid "Menu title"
-msgstr ""
+msgstr "Назва меню"
 
 #: .\pos_server\templates\pos_server\create-menu.html:11
 msgid "Header image"
-msgstr ""
+msgstr "Зображення у шапці"
 
 #: .\pos_server\templates\pos_server\create-menu.html:13
 msgid "Footer image"
-msgstr ""
+msgstr "Зображення у підніжжі"
 
 #: .\pos_server\templates\pos_server\create-menu.html:15
 msgid "Create"
-msgstr ""
+msgstr "Створити"
 
 #: .\pos_server\templates\pos_server\create-menu.html:17
 msgid "Menu created!"
-msgstr ""
+msgstr "Меню створено!"
 
 #: .\pos_server\templates\pos_server\dashboard.html:7
 msgid "Select a business day"
-msgstr ""
+msgstr "Виберіть день"
 
 #: .\pos_server\templates\pos_server\day_stats.html:32
 msgid "Menu items stats:"
-msgstr ""
+msgstr "Продажі страв:"
 
 #: .\pos_server\templates\pos_server\day_stats.html:35
 msgid "Dish"
-msgstr ""
+msgstr "Страва"
 
 #: .\pos_server\templates\pos_server\day_stats.html:47
 msgid "Components used:"
-msgstr ""
+msgstr "Використані компоненти"
 
 #: .\pos_server\templates\pos_server\day_stats.html:50
 msgid "Component"
-msgstr ""
+msgstr "Компонент"
 
 #: .\pos_server\templates\pos_server\day_stats.html:66
 msgid "Ingredients used:"
-msgstr ""
+msgstr "Використані інгредієнти:"
 
 #: .\pos_server\templates\pos_server\day_stats.html:85
 msgid "Stations mix:"
-msgstr ""
+msgstr "Станції:"
 
 #: .\pos_server\templates\pos_server\day_stats.html:89
 msgid "Customer occasions:"
-msgstr ""
+msgstr "Кількість клієнтів:"
 
 #: .\pos_server\templates\pos_server\day_stats.html:92
 #: .\pos_server\templates\pos_server\day_stats.html:109
 msgid "Time"
-msgstr ""
+msgstr "Час"
 
 #: .\pos_server\templates\pos_server\day_stats.html:94
 msgid "Earnings"
-msgstr ""
+msgstr "Виручка"
 
 #: .\pos_server\templates\pos_server\day_stats.html:106
 msgid "Average prep times:"
-msgstr ""
+msgstr "Середній час приготування замовлення:"
 
 #: .\pos_server\templates\pos_server\day_stats.html:110
 msgid "Avg prep time"
-msgstr ""
+msgstr "Середній час"
 
 #: .\pos_server\templates\pos_server\day_stats.html:140
 msgid "Station distributions"
-msgstr ""
+msgstr "Розкид по станціях"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:7
 msgid ""
@@ -1195,157 +1195,157 @@ msgstr ""
 #: .\pos_server\templates\pos_server\ineligible-device.html:11
 #: .\pos_server\templates\pos_server\login.html:8
 msgid "Username"
-msgstr ""
+msgstr "Ім'я користувача"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:12
 #: .\pos_server\templates\pos_server\login.html:9
 msgid "Password"
-msgstr ""
+msgstr "Пароль"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:13
 msgid "Device name"
-msgstr ""
+msgstr "Ім'я пристрою"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:17
 #: .\pos_server\templates\pos_server\order.html:114
 msgid "Authorize"
-msgstr ""
+msgstr "Авторизувати"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:19
 #: .\pos_server\templates\pos_server\login.html:15
 #: .\users\templates\users\login.html:15
 msgid "Failed to authenticate, please try again"
-msgstr ""
+msgstr "Помилка аутентифікації, спробуйте знову"
 
 #: .\pos_server\templates\pos_server\ineligible-device.html:27
 msgid "Device registered! You will now be redirected to homepage."
-msgstr ""
+msgstr "Пристрій зареєстровано! Переходимо на сторінку вибору додатку..."
 
 #: .\pos_server\templates\pos_server\layout.html:38
 msgid "Utilities"
-msgstr ""
+msgstr "Утиліти"
 
 #: .\pos_server\templates\pos_server\layout.html:45
 msgid "Lock POS"
-msgstr ""
+msgstr "Заблокувати пристрій"
 
 #: .\pos_server\templates\pos_server\layout.html:47
 msgid "Login"
-msgstr ""
+msgstr "Увійти"
 
 #: .\pos_server\templates\pos_server\layout.html:55
 msgid "Open menu"
-msgstr ""
+msgstr "Відкрити меню"
 
 #: .\pos_server\templates\pos_server\layout.html:56
 msgid "Pair terminal"
-msgstr ""
+msgstr "З'єднатися з терміналом"
 
 #: .\pos_server\templates\pos_server\layout.html:57
 msgid "Select menu"
-msgstr ""
+msgstr "Обрати меню"
 
 #: .\pos_server\templates\pos_server\layout.html:58
 #: .\pos_server\templates\pos_server\order.html:165
 #: .\pos_server\templates\pos_server\order.html:217
 msgid "Cash drawer"
-msgstr ""
+msgstr "Каса"
 
 #: .\pos_server\templates\pos_server\login.html:13
 #: .\users\templates\users\login.html:13
 msgid "Log in"
-msgstr ""
+msgstr "Увійти"
 
 #: .\pos_server\templates\pos_server\menu_select.html:6
 msgid "Select a menu:"
-msgstr ""
+msgstr "Виберіть меню:"
 
 #: .\pos_server\templates\pos_server\order-marking.html:28
 #, python-format
 msgid "Order #%(order.order_id)s"
-msgstr ""
+msgstr "Замовлення №%(order.order_id)s"
 
 #: .\pos_server\templates\pos_server\order-marking.html:30
 msgid "Prep time:"
-msgstr ""
+msgstr "Час приготування:"
 
 #: .\pos_server\templates\pos_server\order-marking.html:37
 msgid "In-person"
-msgstr ""
+msgstr "На касі"
 
 #: .\pos_server\templates\pos_server\order-marking.html:39
 msgid "Online pick-up"
-msgstr ""
+msgstr "Онлайн"
 
 #: .\pos_server\templates\pos_server\order-marking.html:42
 msgid "Delivery"
-msgstr ""
+msgstr "Доставка"
 
 #: .\pos_server\templates\pos_server\order-marking.html:83
 msgid "Order to-go"
-msgstr ""
+msgstr "Замовлення з собою"
 
 #: .\pos_server\templates\pos_server\order-marking.html:85
 msgid "Order for here"
-msgstr ""
+msgstr "Замовлення тут"
 
 #: .\pos_server\templates\pos_server\order-marking.html:96
 msgid "Special instructions:"
-msgstr ""
+msgstr "Додаткові запити:"
 
 #: .\pos_server\templates\pos_server\order-marking.html:108
 msgid "Reason for rejection"
-msgstr ""
+msgstr "Причина відмови"
 
 #: .\pos_server\templates\pos_server\order-marking.html:117
 msgid "Out of one or more components"
-msgstr ""
+msgstr "Немає певних компонентів"
 
 #: .\pos_server\templates\pos_server\order-marking.html:125
 msgid "Out of containers to pack the order"
-msgstr ""
+msgstr "Немає контейнерів для упаковки"
 
 #: .\pos_server\templates\pos_server\order-marking.html:131
 msgid "Reject"
-msgstr ""
+msgstr "Відмовити"
 
 #: .\pos_server\templates\pos_server\order-marking.html:137
 msgid "Order management"
-msgstr ""
+msgstr "Керування замовлення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:143
 msgid "Approve order"
-msgstr ""
+msgstr "Підтвердити замовлення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:147
 #, fuzzy
 #| msgid "Retail orders"
 msgid "Reject order"
-msgstr "Замовлення"
+msgstr "Відмовити замовлення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:151
 msgid "Mark order done"
-msgstr ""
+msgstr "Завершити замовлення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:155
 msgid "Mark order picked up"
-msgstr ""
+msgstr "Відмітити замовлення як підібране"
 
 #: .\pos_server\templates\pos_server\order-marking.html:222
 msgid "Filters"
-msgstr ""
+msgstr "Фільтри"
 
 #: .\pos_server\templates\pos_server\order-marking.html:229
 msgid "Drinks & sweets"
-msgstr ""
+msgstr "Напитки та солодощі"
 
 #: .\pos_server\templates\pos_server\order-marking.html:233
 msgid "Frozen products"
-msgstr ""
+msgstr "Заморожені продукти"
 
 #: .\pos_server\templates\pos_server\order-marking.html:237
 msgid "Auto-done"
-msgstr ""
+msgstr "Авто-завершення"
 
 #: .\pos_server\templates\pos_server\order-marking.html:238
 msgid ""
