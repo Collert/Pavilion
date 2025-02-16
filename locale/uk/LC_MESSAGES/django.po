@@ -597,8 +597,6 @@ msgid "History"
 msgstr "Історія"
 
 #: .\new_admin\templates\new_admin\layout.html:48
-#, fuzzy
-#| msgid "Retail orders"
 msgid "Retail Orders"
 msgstr "Замовлення"
 
