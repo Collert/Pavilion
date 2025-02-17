@@ -42,6 +42,37 @@ DEBUG = os.getenv('ENVIRONMENT') != "production"  # Debug mode enabled unless in
 MEDIA_ROOT = ''
 MEDIA_URL = ''
 
+# Icons from google fonts
+AVAILABLE_ICONS = (
+    ("kitchen", "Fridge"),
+    ("local_cafe", "Cup"),
+    ("coffee_maker", "Coffee maker"),
+    ("soup_kitchen", "Soup scoop"),
+    ("skillet", "Skillet"),
+    ("blender", "Blender"),
+    ("microwave", "Microwave"),
+    ("faucet", "Faucet"),
+    ("kettle", "Kettle"),
+    ("dishwasher", "Dishwasher"),
+    ("cake", "Cake"),
+    ("cooking", "Cooking"),
+    ("mode_heat", "Fire"),
+    ("flatware", "Flatware"),
+    ("outdoor_grill", "Grill"),
+    ("table_bar", "Table"),
+    ("deck", "Deck"),
+    ("icecream", "Ice Cream"),
+    ("dinner_dining", "Dinner"),
+    ("sports_bar", "Beer"),
+    ("liquor", "Liquor"),
+    ("bakery_dining", "Croissant"),
+    ("ramen_dining", "Ramen"),
+    ("local_bar", "Bar"),
+    ("lunch_dining", "Burger"),
+    ("rice_bowl", "Rice"),
+    ("wine_bar", "Wine glass")
+)
+
 # Default login redirect
 LOGIN_URL = reverse_lazy('login_view')
 
