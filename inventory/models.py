@@ -1,5 +1,4 @@
 from django.db import models
-from pos_server.models import *
 
 # Create your models here.
 
