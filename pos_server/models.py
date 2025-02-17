@@ -2,7 +2,6 @@ from typing import Iterable
 from django.db import models
 from django.utils import timezone
 from django.utils.timezone import localtime, now
-from inventory.models import Recipe
 from gift_cards.models import GiftCard
 from . import globals
 import json
