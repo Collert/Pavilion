@@ -72,7 +72,7 @@ class Dish(models.Model):
     components = models.ManyToManyField("Component", through='DishComponent')
     menu = models.ManyToManyField("Menu", related_name = "dishes")
     station = models.CharField(max_length=50, choices=stations)
-    new_station = models.ForeignKey("Station", related_name="dishes", on_delete=models.DO_NOTHING, null=True, blank=True)
+    # new_station = models.ForeignKey("Station", related_name="dishes", on_delete=models.DO_NOTHING, null=True, blank=True)
     in_stock = models.BooleanField(default=True)
     force_in_stock = models.BooleanField(default=False)
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
