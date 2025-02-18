@@ -209,11 +209,11 @@ class Order(models.Model):
     kitchen_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     bar_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     gng_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
-    status_0_stations = models.ManyToManyField("Station", blank=True, related_name="status_0_orders")
-    status_1_stations = models.ManyToManyField("Station", blank=True, related_name="status_1_orders")
-    status_2_stations = models.ManyToManyField("Station", blank=True, related_name="status_2_orders")
-    status_3_stations = models.ManyToManyField("Station", blank=True, related_name="status_3_orders")
-    status_4_stations = models.ManyToManyField("Station", blank=True, related_name="status_4_orders")
+    # status_0_stations = models.ManyToManyField("Station", blank=True, related_name="status_0_orders")
+    # status_1_stations = models.ManyToManyField("Station", blank=True, related_name="status_1_orders")
+    # status_2_stations = models.ManyToManyField("Station", blank=True, related_name="status_2_orders")
+    # status_3_stations = models.ManyToManyField("Station", blank=True, related_name="status_3_orders")
+    # status_4_stations = models.ManyToManyField("Station", blank=True, related_name="status_4_orders")
     picked_up = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
@@ -506,13 +506,13 @@ class EligibleDevice(models.Model):
     def __str__(self) -> str:
         return self.name
     
-class Station(models.Model):
-    friendly_name = models.CharField(max_length=50)
-    code = models.CharField(max_length=10)
-    icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
+# class Station(models.Model):
+#     friendly_name = models.CharField(max_length=50)
+#     code = models.CharField(max_length=10)
+#     icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
 
-    def __str__(self):
-        return self.friendly_name
+#     def __str__(self):
+#         return self.friendly_name
 
 def update_active_orders_cache():
     """
