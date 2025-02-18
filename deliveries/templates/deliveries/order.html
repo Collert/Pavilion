@@ -1,4 +1,5 @@
 {% extends "deliveries/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -9,9 +10,13 @@
         <span>Order #{{delivery.order.id}}</span>
     </div>
     {% with delivery.order.orderdish_set.all.count as items %}
-        <h3>{{items}} item{% if items > 1 %}s{% endif %}</h3>
+        <h3>{% blocktrans count items_count=items|length %}
+            {{items_count}} item
+            {% plural %}
+            {{items_count}} items
+        {% endblocktrans %}</h3>
     {% endwith %}
-    <h2>Deliver to:</h2>
+    <h2>{% trans "Deliver to:" %}</h2>
     <p>{{delivery.destination}}</p>
     {% if not delivery.completed %}
     {% if courier and delivery.courier == request.user or courier and not delivery.courier %}
@@ -29,11 +34,11 @@
             </span>
             <span class="order-eta">{{eta}}</span>
         </span>
-        <button {% if not delivery.eta %} hidden {% endif %} id="adjust-eta">Adjust ETA</button>
+        <button {% if not delivery.eta %} hidden {% endif %} id="adjust-eta">{% trans "Adjust ETA" %}</button>
     </div>
     {% endif %}
     {% endif %}
-    <h2>Delivery instructions:</h2>
+    <h2>{% trans "Delivery instructions:" %}</h2>
     {{delivery.instructions}}
 </div>
 {% if courier %}
@@ -52,9 +57,9 @@
         href="https://www.google.com/maps/dir/?api=1&destination={{delivery.destination}}&travelmode={{courier.mode}}"
         {% endif %}
         >
-            <span id="initial"><span class="material-symbols-outlined">quick_reorder</span> Start delivery</span>
-            <span id="confirmation"><span class="material-symbols-outlined">prompt_suggestion</span> Tap again to confirm start</span>
-            <span id="taken"><span class="material-symbols-outlined">check</span> Order taken</span>
+            <span id="initial"><span class="material-symbols-outlined">quick_reorder</span> {% trans "Start delivery" %}</span>
+            <span id="confirmation"><span class="material-symbols-outlined">prompt_suggestion</span> {% trans "Tap again to confirm start" %}</span>
+            <span id="taken"><span class="material-symbols-outlined">check</span> {% trans "Order taken" %}</span>
             <span id="navigate"><span class="material-symbols-outlined">
                 {% if courier.mode == "driving" %}
                 directions_car
@@ -63,17 +68,19 @@
                 {% elif courier.mode == "bicycling" %}
                 directions_bike
                 {% endif %}
-            </span><span id="navigate-text">Navigate {% if delivery.completed %}back{% else %}to destination{% endif %}</span></span>
+            </span><span id="navigate-text">
+                {% trans "Navigate" %} {% if delivery.completed %}{% trans "back" %}{% else %}{% trans "to destination" %}{% endif %}
+            </span></span>
         </a>
     </div>
     <div id="bot-nav">
         {% if not delivery.completed %}
         <button id="complete-order">
-            <span class="material-symbols-outlined">done_all</span><span id="completion-status">Complete delivery</span>
+            <span class="material-symbols-outlined">done_all</span><span id="completion-status">{% trans "Complete delivery" %}</span>
         </button>
         {% else %}
         <button disabled id="complete-order">
-            <span class="material-symbols-outlined">done_all</span><span id="completion-status">Order complete</span>
+            <span class="material-symbols-outlined">done_all</span><span id="completion-status">{% trans "Order complete" %}</span>
         </button>
         {% endif %}
     </div>
@@ -85,7 +92,7 @@
         <input required type="time" name="new-eta" id="">
         <nav>
             <button type="button" id="close-adjust" class="icon"><span class="material-symbols-outlined">close</span></button>
-            <button id="submit-adjist">Submit</button>
+            <button id="submit-adjist">{% trans "Submit" %}</button>
         </nav>
     </form>
 </dialog>
@@ -171,7 +178,7 @@
 <dialog id="confirm-complete">
     <form>
         <strong>
-            Are you sure you have followed the delivery instructions and delivered the items to the right address?
+            {% trans "Are you sure you have followed the delivery instructions and delivered the items to the right address?" %}
         </strong>
         <nav>
             <button type="button" id="close-confirm" class="icon"><span class="material-symbols-outlined">close</span></button>
@@ -191,9 +198,9 @@
             method:'DELETE'
         }).then(response => {
             if (response.ok) {
-                doneButton.querySelector("#completion-status").innerHTML = "Order complete"
+                doneButton.querySelector("#completion-status").innerHTML = "{% trans 'Order complete' %}"
                 startButton.href = `https://www.google.com/maps/dir/?api=1&destination={{restaurant_address}}&travelmode={{courier.mode}}`
-                document.querySelector("#navigate-text").innerHTML = "Navigate back"
+                document.querySelector("#navigate-text").innerHTML = "{% trans 'Navigate back' %}"
                 adjustEtaButton.hidden = true;
                 confDialog.close()
                 confetti({
@@ -215,7 +222,7 @@
 {% else %} 
 <script>
     doneButton.addEventListener('click', e => {
-        alert("You must be assigned to this order to complete it!")
+        alert("{% trans 'You must be assigned to this order to complete it!' %}")
     })
 </script>
 {% endif %}

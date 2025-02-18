@@ -23,16 +23,16 @@
     </style>
 </head>
 <body>
-    <h1>UkrVan Gift Card</h1>
+    <h1>{% trans "Gift Card" %}</h1>
     <div class="barcode-container">
         {% if image_data %}
             <img src="data:image/png;base64,{{ image_data|safe }}">
         {% else %}
-            <p>No barcode generated.</p>
+            <p>{% trans "No barcode generated." %}</p>
         {% endif %}
     </div>
     {% if card %}
-    <h2>Balance: ${{card.available_balance}}</h2>
+    <h2>{% trans "Balance:" %} ${{card.available_balance}}</h2>
     {% endif %}
 </body>
 </html>

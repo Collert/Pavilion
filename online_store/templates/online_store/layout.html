@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -143,8 +144,8 @@
                 <img id="logo" src="{% static 'online_store/logo.png' %}" alt="logo">
             </a>
             <nav id="nav-1">
-                <a href="{% url 'menu' %}">Menu</a>
-                <a href="{% url 'get-card' %}">Gift Cards</a>
+                <a href="{% url 'menu' %}">{% trans "Menu" %}</a>
+                <a href="{% url 'get-card' %}">{% trans "Gift Cards" %}</a>
                 <!-- <a href="{% url 'menu' %}">Impact</a> -->
             </nav>
         </div>
@@ -153,7 +154,7 @@
             {% if request.user %}
             <a href="{% url 'profile' %}"><dfn title="Account"><span class="material-symbols-outlined">person</span></dfn></a>
             {% else %}
-            <a href="{% url 'login' %}" class="button">Log In</a>
+            <a href="{% url 'login' %}" class="button">{% trans "Log In" %}</a>
             {% endif %}
             <button class="button cart-button">
                 <span class="material-symbols-outlined">shopping_bag</span>
@@ -178,10 +179,10 @@
             </div>
         </div>
         <nav>
-            <a href="{% url 'store_home' %}"><span class="material-symbols-outlined">home</span><span>Home</span></a>
-            <a href="{% url 'menu' %}"><span class="material-symbols-outlined">menu_book</span><span>Menu</span></a>
-            <a href="{% url 'get-card' %}"><span class="material-symbols-outlined">add_card</span><span>Gift cards</span></a>
-            <a href="{% url 'profile' %}"><span class="material-symbols-outlined">person</span><span>Account</span></a>
+            <a href="{% url 'store_home' %}"><span class="material-symbols-outlined">home</span><span>{% trans "Home" %}</span></a>
+            <a href="{% url 'menu' %}"><span class="material-symbols-outlined">menu_book</span><span>{% trans "Menu" %}</span></a>
+            <a href="{% url 'get-card' %}"><span class="material-symbols-outlined">add_card</span><span>{% trans "Gift cards" %}</span></a>
+            <a href="{% url 'profile' %}"><span class="material-symbols-outlined">person</span><span>{% trans "Account" %}</span></a>
         </nav>
     </footer>
     <dialog id="cart">
@@ -202,10 +203,10 @@
                 </div>
             </div>
             <footer>
-                <span id="subtotal-wrapper">Subtotal: $<span id="subtotal">0</span></span>
+                <span id="subtotal-wrapper">{% trans "Subtotal:" %} $<span id="subtotal">0</span></span>
                 <button disabled id="checkout">
                     <span class="material-symbols-outlined">shopping_cart_checkout</span>
-                    <span>Finalize</span>
+                    <span>{% trans "Finalize" %}</span>
                 </button>
             </footer>
         </div>
@@ -214,134 +215,135 @@
         <form method="post" id="finalize-form" class="attach-card-payment" action="{% url 'submit_order' %}">
             {% csrf_token %}
             <header>
-                <h1>Finalize cart</h1>
+                <h1>{% trans "Finalize cart" %}</h1>
                 <button class="icon close-button" type="button"><span class="material-symbols-outlined">close</span></button>
             </header>
             <div class="pick-up" id="finalize-menu">
                 <input hidden name="cart-string" id="cart-string" type="text">
                 <input hidden name="transaction-amount" id="transaction-amount" type="text">
-                <h2>Who?</h2>
+                <h2>{% trans "Who?" %}</h2>
                 <div id="who">
                     <div>
-                        <label for="name-input">Name</label>
+                        <label for="name-input">{% trans "Name" %}</label>
                         <input required id="name-input" name="name" type="text">
                     </div>
                     <div>
-                        <label for="phone-number">Phone number</label>
+                        <label for="phone-number">{% trans "Phone number" %}</label>
                         <input required id="phone-number" name="phone" type="tel">
                     </div>
                 </div>
                 <span class="line-divider"></span>
-                <h2>Where?</h2>
+                <h2>{% trans "Where?" %}</h2>
                 <div id="delivery-pickup-toggle">
                     <input required type="radio" id="delivery-pickup-toggle1" name="delivery-pickup-toggle" checked value="pick-up" />
-                    <label for="delivery-pickup-toggle1" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">person_pin_circle</span>Pick up at<br>the restaurant</label>
+                    <label for="delivery-pickup-toggle1" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">person_pin_circle</span>{% blocktrans %}Pick up at<br>the restaurant{% endblocktrans %}</label>
         
                     <input required type="radio" id="delivery-pickup-toggle2" name="delivery-pickup-toggle" value="delivery" />
-                    <label for="delivery-pickup-toggle2" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">local_shipping</span>Order<br>delivery</label>
+                    <label for="delivery-pickup-toggle2" class="delivery-pickup-toggle-label"><span class="material-symbols-outlined">local_shipping</span>{% blocktrans %}Order<br>delivery{% endblocktrans %}</label>
                 </div>
-                <strong class="pick-up-item">Address</strong>
+                <strong class="pick-up-item">{% trans "Address" %}</strong>
                 <p class="pick-up-item">501 4th Ave, New Westminster, BC V3L 1P3</p>
                 <div class="delivery-item container">
                     <div>
-                        <label class="delivery-item" for="delivery-address-2">Address 1</label>
+                        <label class="delivery-item" for="delivery-address-2">{% trans "Address 1" %}</label>
                         <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-1" name="delivery-address-1" type="text">
                     </div>
                     <div>
-                        <label class="delivery-item" for="delivery-address-2">Address 2</label>
-                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-2" name="delivery-address-2" placeholder="Unit # / Apartment #" type="text">
+                        <label class="delivery-item" for="delivery-address-2">{% trans "Address 2" %}</label>
+                        <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-2" name="delivery-address-2" placeholder="{% trans 'Unit # / Apartment #' %}" type="text">
                     </div>
                 </div>
                 <div class="delivery-item container">
                     <div>
-                        <label class="delivery-item" for="delivery-address-3">City</label>
+                        <label class="delivery-item" for="delivery-address-3">{% trans "City" %}</label>
                         <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-3" name="delivery-address-city" type="text">
                     </div>
                     <div>
-                        <label class="delivery-item" for="delivery-address-4">Province</label>
+                        <label class="delivery-item" for="delivery-address-4">{% trans "Province" %}</label>
                         <input disabled value="BC" class="delivery-item delivery-address-field" id="delivery-address-4" name="delivery-address-province" type="text">
                     </div>
                     <div>
-                        <label class="delivery-item" for="delivery-address-5">Postal code</label>
+                        <label class="delivery-item" for="delivery-address-5">{% trans "Postal code" %}</label>
                         <input data-required="true" class="delivery-item delivery-address-field" id="delivery-address-5" name="delivery-address-postal" type="text">
                     </div>
                 </div>
-                <strong id="no-cour" hidden class="delivery-item" style="color: var(--error-color);">Looks like we don't have any couriers available at the moment. Sorry for inconvenience.</strong>
+                <strong id="no-cour" hidden class="delivery-item" style="color: var(--error-color);">{% trans "Looks like we don't have any couriers available at the moment. Sorry for inconvenience." %}</strong>
                 <strong id="long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are pretty far for our fastest courier at the moment. Keep in mind that the food might be off its original temperature when it arrives.</strong>
                 <strong id="too-long-delivery" hidden class="delivery-item" style="color: var(--error-color);">It seems like you are too far for our fastest courier at the moment. We are not able to deliver to this address right now. Sorry for inconvenience.</strong>
                 <span hidden id="delivery-eta-parrent" class="delivery-item">Estimated delivery time:<br><span id="delivery-eta"></span></span>
                 <span class="line-divider"></span>
-                <h2>When?</h2>
+                <h2>{% trans "When?" %}</h2>
                 <input required class="no-style" min="{{business_day_start_time}}" max="{{business_day_end_time}}" type="time" name="time" id="time-field">
-                <small>*time when we start making the order</small>
+                <small>*{% trans "time when we start making the order" %}</small>
                 <span class="line-divider"></span>
-                <h2>How?</h2>
+                <h2>{% trans "How?" %}</h2>
                 <div class="pick-up-item" id="here-to-go-toggle">
                     <input type="radio" id="here-to-go-toggle1" class="pick-up-item" name="here-to-go-toggle" checked value="here" />
-                    <label for="here-to-go-toggle1" class="here-to-go-toggle-label"><span class="material-symbols-outlined">restaurant</span>Eat at<br>the restaurant</label>
+                    <label for="here-to-go-toggle1" class="here-to-go-toggle-label"><span class="material-symbols-outlined">restaurant</span>{% blocktrans %}Eat at<br>the restaurant{% endblocktrans %}</label>
         
                     <input type="radio" id="here-to-go-toggle2" class="pick-up-item" name="here-to-go-toggle" value="go" />
-                    <label for="here-to-go-toggle2" class="here-to-go-toggle-label"><span class="material-symbols-outlined">takeout_dining</span>Pack<br>to-go</label>
+                    <label for="here-to-go-toggle2" class="here-to-go-toggle-label"><span class="material-symbols-outlined">takeout_dining</span>{% blocktrans %}Pack<br>to-go{% endblocktrans %}</label>
                 </div>
                 <div class="delivery-item" id="delivery-dropoff-method">
                     <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method1" name="delivery-dropoff-method" value="door" />
-                    <label for="delivery-dropoff-method1" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">package</span>Leave at<br>the door</label>
+                    <label for="delivery-dropoff-method1" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">package</span>{% blocktrans %}Leave at<br>the door{% endblocktrans %}</label>
             
                     <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method2" name="delivery-dropoff-method" value="meet" />
-                    <label for="delivery-dropoff-method2" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">meeting_room</span> Meet at<br>the door</label>
+                    <label for="delivery-dropoff-method2" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">meeting_room</span>{% blocktrans %}Meet at<br>the door{% endblocktrans %}</label>
                     
                     <input data-required="true" class="delivery-item" type="radio" id="delivery-dropoff-method3" name="delivery-dropoff-method" value="out" />
-                    <label for="delivery-dropoff-method3" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">gate</span> Meet<br>outside</label>
+                    <label for="delivery-dropoff-method3" class="delivery-dropoff-method-label"><span class="material-symbols-outlined">gate</span>{% blocktrans %}Meet<br>outside{% endblocktrans %}</label>
                 </div>
-                <p class="delivery-item">Delivery instructions (optional)</p>
-                <textarea class="delivery-item" name="delivery-instructions" id="delivery-instructions" placeholder="Ring the blue doorbell / meet at the garage door / place the order down and do a lil dance"></textarea>
-                <p>Special order instructions (optional)</p>
-                <textarea name="order-instructions" id="special-instructions" placeholder="Extra sour cream / no onions / extra napkins"></textarea>
+                <p class="delivery-item">{% trans "Delivery instructions (optional)" %}</p>
+                <textarea class="delivery-item" name="delivery-instructions" id="delivery-instructions" placeholder="{% trans 'Ring the blue doorbell / meet at the garage door / place the order down and do a lil dance' %}"></textarea>
+                <p>{% trans "Special order instructions (optional)" %}</p>
+                <textarea name="order-instructions" id="special-instructions" placeholder="{% trans 'Extra sour cream / no onions / extra napkins' %}"></textarea>
                 <span class="line-divider"></span>
-                <h2>Have a gift card?</h2>
+                <h2>{% trans "Have a gift card?" %}</h2>
                 <div id="gift-card-inout-group">
                     <input type="text" maxlength="16" id="card-number-input">
                     <h3 class="error" style="display: none;" id="gift-card-errors"></h3>
-                    <button role="button" type="button" id="card-number-lookup-button">Look up</button>
+                    <button role="button" type="button" id="card-number-lookup-button">{% trans "Look up" %}</button>
                 </div>
             </div>
             <span class="line-divider"></span>
-            <button type="button" id="proceed-to-checkout">Proceed to secure checkout</button>
-            <button type="button" id="proceed-to-checkout-free">Place order</button>
+            <button type="button" id="proceed-to-checkout">{% trans "Proceed to secure checkout" %}</button>
+            <button type="button" id="proceed-to-checkout-free">{% trans "Place order" %}</button>
             <button hidden id="true-submit-button"></button>
-            <small>*You will only be charged when we confirm your order</small>
+            <small>*{% trans "You will only be charged when we confirm your order" %}</small>
         </form>
     </dialog>
     <dialog class="full" id="component-choices-dialog">
         <nav>
-            <h2>Pick the options</h2>
+            <h2>{% trans "Pick the options" %}</h2>
             <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <iframe style="width: 100%; height: 90%;" frameborder="0"></iframe>
     </dialog>
     <dialog class="full" id="gift-card-dialog">
         <nav>
-            <h2 id="transaction-status">Gift card</h2>
+            <h2 id="transaction-status">{% trans "Gift card" %}</h2>
             <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <div>
             <img id="found-card-image" src="">
-            <h2>Card #<span id="found-card-number"></span></h2>
-            <h4>Available balance:</h4>
+            <h2>{% trans "Card #" %}<span id="found-card-number"></span></h2>
+            <h4>{% trans "Available balance:" %}</h4>
             <h1>$<span id="found-card-balance"></span></h1>
             <h4 hidden class="card-hold">Held in a different transaction:</h4>
             <h1 hidden class="card-hold">$<span id="found-card-hold"></span></h1>
             <div id="card-actions">
                 <form hidden id="card-charge-amount">
                     <input type="number" min="0.01" step=".01" id="card-charge-amount-inp">
-                    <button id="card-charge-amount-button">Charge card</button>
+                    <button id="card-charge-amount-button">{% trans "Charge card" %}</button>
                 </form>
-                <button id="card-charge-max">Use this card</button>
-                <button hidden id="card-reload">Reload card</button>
+                <button id="card-charge-max">{% trans "Use this card" %}</button>
+                <button hidden id="card-reload">{% trans "Reload card" %}</button>
             </div>
         </div>
     </dialog>
     <script type="module" src="{% static 'pos_server/componentChoices.js' %}"></script>
+    <script src="{% url 'djangojs' %}"></script>
     <script type="module">
         import { componentChoices } from "/pos_server/static/pos_server/componentChoices.js"
         import { Cart, GiftCardPayment, lookupGiftCard } from "/pos_server/static/pos_server/pos-utils.js"
@@ -580,7 +582,7 @@
                 cartDialog.close();
                 finalizeDialog.showModal();
             } else {
-                alert("Sorry, we are closed today. Check the home page for the next date.")
+                alert("{% trans 'Sorry, we are closed today. Check the home page for the next date.' %}")
             }
         })
         
@@ -785,7 +787,7 @@
                     const oldText = button.innerHTML
                     button.disabled = true
                     button.classList.add("loading")
-                    button.innerHTML = "<span class='circle'></span><span>Checking your gift cards</span>"
+                    button.innerHTML = "<span class='circle'></span><span>{% trans 'Checking your gift cards' %}</span>"
                     const fetchPromises = cart.partialPayments.map(async card => {
                         const response = await fetch(`/gift-cards/card-api/${card.number}`);
                         return response.json();
@@ -804,7 +806,7 @@
                     })
                     updateCart();
                     if (removedNumbers.length) {
-                        alert(`Looks like ${removedNumbers.length === 1 ? "one" : "some"} of your gift cards ${removedNumbers.length === 1 ? "has" : "have"} changed since you redeemed them. Card${removedNumbers.length === 1 ? "" : "s"} ending with ${removedNumbers} ha${removedNumbers.length === 1 ? "s" : "ve"} insufficient balance and ha${removedNumbers.length === 1 ? "s" : "ve"} been removed. Input the number${removedNumbers.length === 1 ? "" : "s"} again to see the updated balance.`)
+                        alert(gettext(`Looks like ${removedNumbers.length === 1 ? "one" : "some"} of your gift cards ${removedNumbers.length === 1 ? "has" : "have"} changed since you redeemed them. Card${removedNumbers.length === 1 ? "" : "s"} ending with ${removedNumbers} ha${removedNumbers.length === 1 ? "s" : "ve"} insufficient balance and ha${removedNumbers.length === 1 ? "s" : "ve"} been removed. Input the number${removedNumbers.length === 1 ? "" : "s"} again to see the updated balance.`))
                         button.disabled = false
                         button.classList.remove("loading")
                         button.innerHTML = oldText

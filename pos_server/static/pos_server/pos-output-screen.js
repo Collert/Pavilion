@@ -18,9 +18,9 @@ cartChannel.addEventListener("message", e => {
         // }
     } else if (e.data.message === "paid") {
         if (e.data.name) {
-            thank.children[0].innerHTML = `Thank you,<br>${e.data.name}!`
+            thank.children[0].innerHTML = gettext("Thank you") + `,<br>${e.data.name}!`
         } else {
-            thank.children[0].innerHTML = "Thank you!"
+            thank.children[0].innerHTML = gettext("Thank you!")
         }
         thank.className = "anim";
         setTimeout(() => {

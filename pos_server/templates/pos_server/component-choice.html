@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -65,7 +66,7 @@
     <form>
         {% for component in choices %}
             <div class="component">
-                <h1>Select one for {{component.parent.title}}</h1>
+                <h1>{% blocktrans %}Select one for {{component.parent.title}}{% endblocktrans %}</h1>
                 <div>
                     {% for choice in component.children %}
                         <input type="radio" id="for-{{component.parent.id}}-choice-{{choice.id}}" name="choice-for-{{component.parent.id}}" data-title="{{choice.title}}" value="{{choice.id}}" />
@@ -90,7 +91,7 @@
                     id: component.querySelector("input:checked").value
                 }
             } else {
-                alert("Please make all required choices")
+                alert("{% trans 'Please make all required choices' %}")
                 return
             }
         }

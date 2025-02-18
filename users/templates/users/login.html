@@ -1,4 +1,5 @@
 {% extends "users/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -9,9 +10,9 @@
     {% if request.GET.next %}
     <input type="hidden" name="next" value="{{ request.GET.next }}">
     {% endif %}
-    <button {% if failed_login %}class="error"{% endif %}>Log in</button>
+    <button {% if failed_login %}class="error"{% endif %}>{% trans "Log in" %}</button>
     {% if failed_login %}
-    <span>Failed to authenticate, please try again</span>
+    <span>{% trans "Failed to authenticate, please try again" %}</span>
     {% endif %}
 </form>
 {% endblock %}

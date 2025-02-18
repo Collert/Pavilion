@@ -1,17 +1,18 @@
 {% extends "pos_server/layout.html" %}
 {% load static %}
+{% load i18n %}
 
 {% block body %}
 <form id="login" method="post" action="{% url 'login_view' %}">
     {% csrf_token %}
-    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
-    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
+    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="{% trans 'Username' %}"/>
+    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="{% trans 'Password' %}"/>
     {% if request.GET.next %}
     <input type="hidden" name="next" value="{{ request.GET.next }}">
     {% endif %}
-    <button {% if failed_login %}class="error"{% endif %}>Log in</button>
+    <button {% if failed_login %}class="error"{% endif %}>{% trans "Log in" %}</button>
     {% if failed_login %}
-    <span>Failed to authenticate, please try again</span>
+    <span>{% trans "Failed to authenticate, please try again" %}</span>
     {% endif %}
 </form>
 {% endblock %}

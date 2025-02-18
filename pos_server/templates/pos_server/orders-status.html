@@ -1,3 +1,4 @@
+{% load i18n %}
 {% load static %}
 
 <!DOCTYPE html>
@@ -35,21 +36,21 @@
     <main id="{{route}}">
         <div id="top">
             <div id="col-1">
-                <h2>In progress</h2>
+                <h2>{% trans "In progress" %}</h2>
                 <div>
                     {% for order in in_progress %}
                     <span data-bar-done="{{order.bar_done}}" data-order-id="{{order.id}}">
-                        <span>{% if order.name %}{{order.name}}{% else %}Order #{{order.id}}{% endif %}</span>
+                        <span>{% if order.name %}{{order.name}}{% else %}{% trans "Order #" %}{{order.id}}{% endif %}</span>
                     </span>
                     {% endfor %}
                 </div>
             </div>
             <div id="col-2">
-                <h2>Ready for pickup</h2>
+                <h2>{% trans "Ready for pickup" %}</h2>
                 <div>
                     {% for order in ready %}
                     <span data-bar-done="{{order.bar_done}}" data-dishQty="{{order.dishes.all|length}}" data-dish="{{order.dishes.first.title}}" data-order-id="{{order.id}}">
-                        <span>{% if order.name %}{{order.name}}{% else %}Order #{{order.id}}{% endif %}</span>
+                        <span>{% if order.name %}{{order.name}}{% else %}{% trans "Order #" %}{{order.id}}{% endif %}</span>
                     </span>
                     {% endfor %}
                 </div>
@@ -72,8 +73,8 @@
                     <img src="{% static 'pos_server/no album art placeholder.png' %}">
                 </div>
                 <div id="player-title">
-                    <span id="song-title">Nothing</span>
-                    <span id="song-author">Is playing</span>
+                    <span id="song-title">{% trans "Nothing" %}</span>
+                    <span id="song-author">{% trans "Is playing" %}</span>
                 </div>
                 <div class="slider-container">
                     <div id="wiggle-cont">
@@ -92,10 +93,10 @@
     </main>
     <dialog id="player-controls">
         <div>
-            <button id="test-tts">Play test TTS</button>
+            <button id="test-tts">{% trans "Play test TTS" %}</button>
             <div>
                 <input type="text" id="youtubeLinkInput" placeholder="Paste YouTube link here">
-                <button id="loadVideo">Load music</button>
+                <button id="loadVideo">{% trans "Load music" %}</button>
             </div>
             <div id="YT-player"></div>
         </div>

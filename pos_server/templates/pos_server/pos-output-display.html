@@ -1,3 +1,4 @@
+{% load i18n %}
 {% load static %}
 
 <!DOCTYPE html>
@@ -38,7 +39,7 @@
             <div>
                 <div id="cart"></div>
                 <div style="text-align: end;" id="total-button">
-                    Total: $<span id="tender-total"></span><span id="discount-display"></span>
+                    {% trans "Total:" %} $<span id="tender-total"></span><span id="discount-display"></span>
                 </div>
             </div>
         </div>
@@ -51,11 +52,11 @@
                 {% if dishes %}
                 <div class="title-item-pack">
                 {% if category == "kitchen" %}
-                <h2>Hot meals</h2>
+                <h2>{% trans "Hot meals" %}</h2>
                 {% elif category == "bar" %}
-                <h2>Drinks and snacks</h2>
+                <h2>{% trans "Drinks and snacks" %}</h2>
                 {% elif category == "gng" %}
-                <h2>Pre-packaged food</h2>
+                <h2>{% trans "Pre-packaged food" %}</h2>
                 {% endif %}
                 {% for dish in dishes %}
                 {% if dish.available %}
@@ -93,7 +94,7 @@
     </main>
     <script>
         if (sessionStorage.getItem("fsReminderDone") !== "true") {
-            alert("Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)");
+            alert("{% trans 'Don\'t forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)' %}");
             sessionStorage.setItem("fsReminderDone", "true");
         } 
         const dishes = JSON.parse('{{dishes|safe}}');

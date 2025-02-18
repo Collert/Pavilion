@@ -1,18 +1,19 @@
 {% extends "inventory/layout.html" %}
 {% load static %}
+{% load i18n %}
 
 {% block body %}
-<h2>Shopping logging</h2>
+<h2>{% trans "Shopping logging" %}</h2>
 <form id="add-ingredients" action="{% url 'log_shopping' %}" method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <button type="button" id="add-item" class="icon"><span class="material-symbols-outlined">add</span></button>
     <input type="hidden" name="items-total" value="1">
-    <div><span style="width: fit-content;">Receipt: </span><input type="file" name="receipt" accept="image/png, image/jpeg, application/pdf"></div>
+    <div><span style="width: fit-content;">{% trans "Receipt:" %} </span><input type="file" name="receipt" accept="image/png, image/jpeg, application/pdf"></div>
     <div class="items">
         <div id="item-0" class="item">
             <div>
                 <select required name="item-0-title" id="item-0-title" class="item-title">
-                    <option value="" disabled hidden selected>Ingredient</option>
+                    <option value="" disabled hidden selected>{% trans "Ingredient" %}</option>
                     {% for ingredient in ingredients %}
                     <option value="{{ingredient.title}}">{{ingredient.title}}</option>
                     {% endfor %}
@@ -23,7 +24,7 @@
             <button class="icon error" type="button"><span class="material-symbols-outlined">delete</span></button>
         </div>
     </div>
-    <button id="submit">Submit</button>
+    <button id="submit">{% trans "Submit" %}</button>
 </form>
 
 <script>
@@ -41,12 +42,12 @@
         newItem.innerHTML = `
         <div>
             <select required name="item-${itemsCounter}-title" id="item-${itemsCounter}-title" class="item-title">
-                <option value="" disabled hidden selected>Ingredient</option>
+                <option value="" disabled hidden selected>{% trans "Ingredient" %}</option>
                 {% for ingredient in ingredients %}
                 <option value="{{ingredient.title}}">{{ingredient.title}}</option>
                 {% endfor %}
             </select>
-            <input step="0.001" min="0" type="number" class="no-style" placeholder="Quantity" name="item-${itemsCounter}-quantity" id="">
+            <input step="0.001" min="0" type="number" class="no-style" placeholder="{% trans 'Quantity' %}" name="item-${itemsCounter}-quantity" id="">
             <span id="ingredient-${itemsCounter}-unit_of_measurement"></span>
         </div>
         <button class="icon error" type="button"><span class="material-symbols-outlined">delete</span></button>

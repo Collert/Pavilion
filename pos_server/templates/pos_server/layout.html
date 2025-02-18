@@ -1,8 +1,9 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
+    <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="{% static 'pos_server/layers.css' %}" rel="stylesheet">
@@ -10,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <script src="{% url 'djangojs' %}"></script>
     <title>HEUCC Restaurant</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
@@ -31,18 +33,18 @@
             <button id="barcode-scanner-button" class="icon"><span class="material-symbols-outlined">barcode_scanner</span></button>
             <button id="return-active-gift-card" class="icon" style="display: none;"><span class="material-symbols-outlined">redeem</span></button>
             <button id="dropdown">
-                <span id="drop-but">Menu</span>
+                <span id="drop-but">{% trans "Menu" %}</span>
                 <div id="dropdown-content">
-                    <a href="#" id="utils-link">Utilities</a>
-                    <a href="#" id="discounts-link">Discounts</a>
+                    <a href="#" id="utils-link">{% trans "Utilities" %}</a>
+                    <a href="#" id="discounts-link">{% trans "Discounts" %}</a>
                 </div>
             </button>
             {% endif %}
             {% block marking-nav %}{% endblock %}
             {% if user.is_authenticated %}
-            <a class="button" href="{% url 'logout_view' %}">Lock POS</a>
+            <a class="button" href="{% url 'logout_view' %}">{% trans "Lock POS" %}</a>
             {% else %}
-            <button>Login</button>
+            <button>{% trans "Login" %}</button>
             {% endif %}
         </nav>
     </header>
@@ -50,10 +52,10 @@
     {% if route == "pos" %}
     <dialog id="utils">
         <div>
-            <button id="open-menu">Open menu</button>
-            <button id="open-pairing">Pair terminal</button>
-            <button id="select-menu">Select menu</button>
-            <button id="cash-drawer-button">Cash drawer</button>
+            <button id="open-menu">{% trans "Open menu" %}</button>
+            <button id="open-pairing">{% trans "Pair terminal" %}</button>
+            <button id="select-menu">{% trans "Select menu" %}</button>
+            <button id="cash-drawer-button">{% trans "Cash drawer" %}</button>
         </div>
     </dialog>
     <dialog id="menus">

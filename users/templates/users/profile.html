@@ -1,4 +1,5 @@
 {% extends "users/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -12,35 +13,35 @@
             <input disabled type="text" value="{{user.last_name}}">
         </div>
         <div>
-            <h3>Email:</h3>
+            <h3>{% trans "Email:" %}</h3>
             <input disabled type="email" value="{{user.email}}">
         </div>
         <div>
-            <h3>Date joined:</h3>
+            <h3>{% trans "Date joined:" %}</h3>
             <span>{{user.date_joined}}</span>
         </div>
         <div hidden id="new-pass-div">
-            <h3>Change password:</h3>
-            <label for="new-pass">New password:</label>
-            <input type="password" name="new-pass" id="new-pass" placeholder="Optional">
-            <label for="new-pass-repeat">Confirm password:</label>
-            <input type="password" id="new-pass-repeat" placeholder="Optional">
+            <h3>{% trans "Change password:" %}</h3>
+            <label for="new-pass">{% trans "New password:" %}</label>
+            <input type="password" name="new-pass" id="new-pass" placeholder="{% trans 'Optional' %}">
+            <label for="new-pass-repeat">{% trans "Confirm password:" %}</label>
+            <input type="password" id="new-pass-repeat" placeholder="{% trans 'Optional' %}">
         </div>
         <div id="edit-buttons">
-            <button type="button" id="edit"><span class="material-symbols-outlined">edit</span> Edit profile</button>
-            <button id="confirm"><span class="material-symbols-outlined">check</span> Confirm edits</button>
+            <button type="button" id="edit"><span class="material-symbols-outlined">edit</span> {% trans "Edit profile" %}</button>
+            <button id="confirm"><span class="material-symbols-outlined">check</span> {% trans "Confirm edits" %}</button>
         </div>
     </div>
     <div id="right">
-        <h1>Additional info</h1>
+        <h1>{% trans "Additional info" %}</h1>
         <div>
-            <h3>Phone number:</h3>
+            <h3>{% trans "Phone number:" %}</h3>
             <input disabled type="tel" value="{{user.customer_profile.phone}}">
         </div>
         <div>
-            <h3>Home address:</h3>
+            <h3>{% trans "Home address:" %}</h3>
             <input disabled type="text" value="{{user.customer_profile.home_address}}">
-            <h4>Unit:</h4>
+            <h4>{% trans "Unit:" %}</h4>
             <input disabled type="text" value="{{user.customer_profile.home_address}}">
         </div>
         
@@ -49,7 +50,7 @@
 <script>
     document.querySelector("#edit").addEventListener("click", e => {
         e.currentTarget.parentElement.classList.add("active")
-        e.currentTarget.innerHTML = "<span class='material-symbols-outlined'>close</span> Cancel edits"
+        e.currentTarget.innerHTML = "<span class='material-symbols-outlined'>close</span> {% trans 'Cancel edits' %}"
         e.currentTarget.addEventListener("click", () => {window.location.reload()})
         document.querySelectorAll("[disabled], [hidden]").forEach(element => {
             if (element.value && element.value === "None" ) {

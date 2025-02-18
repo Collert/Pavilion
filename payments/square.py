@@ -31,7 +31,7 @@ def gather_terminal_checkout(amount:float):
         "idempotency_key": str(uuid.uuid4()),  # Unique identifier for the request
         "checkout": {
             "amount_money": amount_money,
-            "note": "Transaction through HEUCC POS",
+            "note": "Transaction through Pavilion",
             "device_options": {
                 "device_id": settings.SQUARE_DEVICE_ID,
                 "tip_settings": {

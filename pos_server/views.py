@@ -31,6 +31,7 @@ from django.utils.timezone import make_aware, now
 from django.core.cache import cache
 from gift_cards.models import GiftCard
 from online_store.models import RejectedOrder
+from django.utils.translation import gettext_lazy as _
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -203,14 +204,14 @@ def order_marking(request):
         elif action == "delete":
             rejection_obj = body["rejection"]
             print(rejection_obj)
-            rejection_reason = "We are sorry but we could not complete your order for the following reasons: "
+            rejection_reason = _("We are sorry but we could not complete your order for the following reasons: ")
             if 'out-of-stock' in rejection_obj["reasons"]:
-                rejection_reason += "Some of the products you requested are currently out of stock. We will update our menu in a few minutes to reflect the accurate stock levels. "
+                rejection_reason += _("Some of the products you requested are currently out of stock. We will update our menu in a few minutes to reflect the accurate stock levels. ")
             if 'no-containers' in rejection_obj["reasons"]:
-                rejection_reason += "We are currently out of containers to package your order. "
+                rejection_reason += _("We are currently out of containers to package your order. ")
             if rejection_obj["reasonExtra"]:
                 rejection_reason += rejection_obj["reasonExtra"]
-            rejection_reason += "We apologize for the inconvenience. Please try placing your order again later or contact us for more information."
+            rejection_reason += _("We apologize for the inconvenience. Please try placing your order again later or contact us for more information.")
             RejectedOrder.objects.create(order_id=order_id, reason=rejection_reason, timestamp=order.timestamp)
             for card_auth in order.gift_card_auth.all():
                 print(card_auth.charged_balance)
@@ -450,7 +451,7 @@ def pos(request):
             if payment["type"] == "gift":
                 if GiftCard.objects.get(number=payment["number"]).available_balance < payment["amount"]:
                     return JsonResponse({
-                            "message":f"Card x{payment['number'][-4:]} no longer has a sufficient balance to charge ${payment['amount']}",
+                            "message":_(f"Card x{payment['number'][-4:]} no longer has a sufficient balance to charge ${payment['amount']}"),
                             "status":402
                         }, status=402)
         return square.terminal_checkout(request)
@@ -764,27 +765,27 @@ def prettify_dish(dish):
     for index, dc in enumerate(dcs):
         if dc.component.type == "food":
             if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
-                quantity_str = "a bowl of "
+                quantity_str = _("a bowl of ")
             elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
                     quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
             else:
                 if dc.quantity == 1:
                     quantity_str = ""
                 elif dc.quantity < 1:
-                    quantity_str = "a piece of "
+                    quantity_str = _("a piece of ")
                 else:
                     quantity_str = f"{int(dc.quantity)} "
         else:
             if dc.quantity == 1:
-                quantity_str = "a cup of "
+                quantity_str = _("a cup of ")
             else:
-                quantity_str = f"{int(dc.quantity)} cups of "
+                quantity_str = _(f"{int(dc.quantity)} cups of ")
         final_dish["components"] += f"{quantity_str}"
         final_dish["components"] += f"{dc.component.title.lower()}"
         if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
             final_dish["components"] += "s"
         if dc.component.child_dishes.all():
-            final_dish["components"] += " (choice of: "
+            final_dish["components"] += _(" (choice of: ")
             for choice in dc.component.child_dishes.all():
                 final_dish["components"] += f"{choice.title}/"
             final_dish["components"] = final_dish["components"][:-1]

@@ -1,18 +1,19 @@
 {% extends "inventory/layout.html" %}
 {% load static %}
+{% load i18n %}
 
 {% block body %}
 {% csrf_token %}
-    <h1>Components: </h1>
+    <h1>{% trans "Components:" %} </h1>
     <section>
         {% for component in components %}
         <button data-id="{{component.id}}" class="component icon {% if not component.in_stock %}error{% endif %}">
             <h2>{{component.title}}</h2>
-            <span>Available: {{component.inventory}} {{component.unit_of_measurement|title}}</span>
+            {% blocktrans %}Available: {{component.inventory}} {{component.unit_of_measurement|title}}{% endblocktrans %}
         </button>
         {% endfor %}
     </section>
-    <h1>Individual dishes:</h1>
+    <h1>{% trans "Individual dishes:" %}</h1>
     <section>
         {% for component in dishes %}
         <button data-id="{{component.id}}" class="dish icon {% if not component.in_stock and not component.force_in_stock %}error{% elif component.force_in_stock %}success{% endif %}">

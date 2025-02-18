@@ -1,4 +1,5 @@
 {% extends "online_store/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -12,18 +13,18 @@
     }
 </style>
     {% if not override_menu %}
-    <h3>Now serving:</h3>
+    <h3>{% trans "Now serving:" %}</h3>
     {% endif %}
     <h1>{{menu.menu.title}}</h1>
     <div class="menu">
     {% for station, items in menu.dishes.items %}
         <div class="category">
             {% if station == "bar" %}
-            <h2>Drinks and sweets</h2>
+            <h2>{% trans "Drinks and sweets" %}</h2>
             {% elif station == "kitchen" %}
-            <h2>Hot food</h2>
+            <h2>{% trans "Hot food" %}</h2>
             {% elif station == "gng" %}
-            <h2>Packaged food</h2>
+            <h2>{% trans "Packaged food" %}</h2>
             {% endif %}
             <div class="dishes">
                 {% for dish in items %}
@@ -42,12 +43,12 @@
                     {% if dish.obj.in_stock or dish.obj.force_in_stock %}
                     <button class="add-to-cart">
                         <span class="material-symbols-outlined">add_shopping_cart</span>
-                        <span>Add to cart</span>
+                        <span>{% trans "Add to cart" %}</span>
                     </button>
                     {% else %}
                     <button disabled class="add-to-cart">
                         <span class="material-symbols-outlined">add_shopping_cart</span>
-                        <span>Out of stock</span>
+                        <span>{% trans "Out of stock" %}</span>
                     </button>
                     {% endif %}
                     <div hidden data-id="{{dish.obj.id}}" class="dish-json">

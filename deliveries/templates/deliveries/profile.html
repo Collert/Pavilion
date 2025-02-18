@@ -1,4 +1,5 @@
 {% extends "deliveries/layout.html" %}
+{% load i18n %}
 {% load static %}
 
 {% block body %}
@@ -18,7 +19,7 @@
     <script>
         document.querySelector("form").addEventListener("submit", e => {
             e.preventDefault()
-            alert("You must complete your delivery first!")
+            alert("{% trans 'You must complete your delivery first!' %}")
         })
     </script>
 {% endif %}
@@ -26,18 +27,18 @@
 <form action="{% url 'delivery_profile' %}" method="post">
     <input type="text" hidden value="start" name="act">
     {% csrf_token %}
-    <h3>Select delivery method:</h3>
+    <h3>{% trans "Select delivery method:" %}</h3>
     <div id="transport-mode">
         <input type="radio" id="transport-mode1" name="transport-mode" value="bicycling" />
-        <label for="transport-mode1" class="transport-mode-label"><span class="material-symbols-outlined">directions_bike</span> Bike /<br> Scooter</label>
+        <label for="transport-mode1" class="transport-mode-label"><span class="material-symbols-outlined">directions_bike</span>{% blocktrans %} Bike /<br> Scooter{% endblocktrans %}</label>
 
         <input type="radio" id="transport-mode2" name="transport-mode" value="walking" />
-        <label for="transport-mode2" class="transport-mode-label"><span class="material-symbols-outlined">directions_walk</span> Walking</label>
+        <label for="transport-mode2" class="transport-mode-label"><span class="material-symbols-outlined">directions_walk</span> {% trans "Walking" %}</label>
 
         <input type="radio" id="transport-mode3" name="transport-mode" value="driving" />
-        <label for="transport-mode3" class="transport-mode-label"><span class="material-symbols-outlined">directions_car</span> Driving</label>
+        <label for="transport-mode3" class="transport-mode-label"><span class="material-symbols-outlined">directions_car</span> {% trans "Driving" %}</label>
     </div>
-    <button>Start delivering</button>
+    <button>{% trans "Start delivering" %}</button>
 </form>
 {% endif %}
 <script>

@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -10,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <title>HEUCC Restaurant</title>
+    <title>{% trans "Inventory management" %}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         .material-symbols-outlined {
@@ -24,17 +25,17 @@
 </head>
 <body>
     <header>
-        <h1>Inventory management</h1>
+        <h1>{% trans "Inventory management" %}</h1>
         <nav>
             {% if user.is_superuser %}
-            <a href="{% url 'log_shopping' %}">Add ingredients</a>
-            <a href="{% url 'create_menu' %}">Create menu</a>
-            <a href="{% url 'shopping_history' %}">Shopping reports</a>
-            <a href="{% url 'crafting' %}">Component crafting</a>
-            <a href="/admin/">Advanced management</a>
+            <a href="{% url 'log_shopping' %}">{% trans "Add ingredients" %}</a>
+            <a href="{% url 'create_menu' %}">{% trans "Create menu" %}</a>
+            <a href="{% url 'shopping_history' %}">{% trans "Shopping reports" %}</a>
+            <a href="{% url 'crafting' %}">{% trans "Component crafting" %}</a>
+            <a href="/admin/">{% trans "Advanced management" %}</a>
             {% endif %}
-            <a href="{% url 'component_availability' %}">Component availability</a>
-            <a href="{% url 'recipes' %}">Recipes</a>
+            <a href="{% url 'component_availability' %}">{% trans "Component availability" %}</a>
+            <a href="{% url 'recipes' %}">{% trans "Recipes" %}</a>
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>
