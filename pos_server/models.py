@@ -205,7 +205,7 @@ class Order(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
-    name = models.CharField(null=True, max_length = 140, blank=True)
+    table = models.CharField(null=True, max_length = 140, blank=True)
     kitchen_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     bar_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
     gng_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
