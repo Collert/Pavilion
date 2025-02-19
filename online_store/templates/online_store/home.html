@@ -3,18 +3,29 @@
 {% load static %}
 
 {% block body %}
-{% for offer in offers %}
-<div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
+{% if next_event %}
+<div id="next-event">
     <div>
-        <img src="/{{offer.image}}" alt="">
+        <h2>{% trans "We are currently <strong>CLOSED</strong>" %}</h2>
+        <span>{% trans "Our next event is on" %}: {{next_event.start}}</span>
     </div>
-    <div style="background-color: var(--bg);">
-        <h1 style="color: var(--contrast);" class="offer-title">{{offer.title}}</h1>
-        <span style="color: var(--contrast);" class="offer-tagline">{{offer.tagline}}</span>
-        <a style="color: var(--contrast); --_button-bg: var(--bg); border-color: var(--contrast);" href="{{offer.link}}" class="button">{{offer.call_to_action}}</a>
+    <div>
+        {% if next_event.in_person_open and next_event.online_open and next_event.delivery_open %}
+        <h3>{% trans "Normal operations" %}</h3>
+        {% else %}
+        <span>
+            <span>{% trans "Lobby" %}:</span> <strong>{% if next_event.in_person_open %}{% trans "OPEN" %}{% else %}{% trans "CLOSED" %}{% endif %}</strong>
+        </span>
+        <span>
+            <span>{% trans "Online ordering" %}:</span> <strong>{% if next_event.online_open %}{% trans "OPEN" %}{% else %}{% trans "CLOSED" %}{% endif %}</strong>
+        </span>
+        <span>
+            <span>{% trans "Delivery" %}:</span> <strong>{% if next_event.delivery_open %}{% trans "OPEN" %}{% else %}{% trans "CLOSED" %}{% endif %}</strong>
+        </span>
+        {% endif %}
     </div>
 </div>
-{% endfor %}
+{% endif %}
 {% for offer in offers %}
 <div style="--bg: {{offer.color}}; --contrast: {{offer.accent}};" class="offer-card">
     <div>

@@ -130,10 +130,13 @@ def index(request):
     """
     menu = Menu.objects.filter(is_active = True).first()
     offers = PromoContent.objects.all()
+    now = timezone.localtime(timezone.now())
+    next_event = Event.objects.filter(start__gt=now).first()
     return render(request, "online_store/home.html", {
         "route":"index",
         "menu":{"menu":menu},
-        "offers":offers
+        "offers":offers,
+        "next_event":next_event
     })
 
 def order_status(request, id, from_placing = False):

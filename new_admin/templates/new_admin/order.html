@@ -11,6 +11,8 @@
 {% endblock %}
 
 {% block content %}
+<main>
+
     <nav>
         <a class="button icon" href="{% url 'admin-orders-retail' %}"><span class="material-symbols-outlined">arrow_back</span></a>
     </nav>
@@ -62,6 +64,7 @@
             <button class="error" id="delete-order"><span class="material-symbols-outlined">delete</span><span>{% trans "Delete order" %}</span></button>
         </div>
     </div>
+</main>
     <script>
         document.querySelector("#delete-order").addEventListener("click", () => {
             if (confirm("Are you sure you want to delete this order?")) {

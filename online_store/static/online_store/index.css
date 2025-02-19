@@ -56,6 +56,27 @@
     margin: 0;
 }
 
+#next-event {
+    display: flex;
+    padding: 1rem;
+    background-color: var(--accent-2);
+    border-radius: 10px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+#next-event h3,
+#next-event h2 {
+    margin: 0;
+    font-weight: 400;
+}
+#next-event div {
+    display: flex;
+    gap: 1rem;
+    flex-direction: column;
+}
+
 @media (orientation:portrait) {
     #index {
         height: 75dvh;
@@ -74,5 +95,24 @@
     
     .offer-card > div:last-child {
         border-radius: 0 0 var(--_border-radius) var(--_border-radius)!important;
+    }
+    #next-event {
+        flex-direction: column;
+    }
+
+    #next-event h2 {
+        text-align: center;
+    }
+
+    #next-event div:last-child {
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-evenly;
+    }
+
+    #next-event div:last-child span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 }

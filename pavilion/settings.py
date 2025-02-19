@@ -39,8 +39,8 @@ SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$
 DEBUG = os.getenv('ENVIRONMENT') != "production"  # Debug mode enabled unless in production
 
 # URL for media files (currently empty, should be set if needed)
-MEDIA_ROOT = ''
 MEDIA_URL = ''
+MEDIA_ROOT = ""
 
 # Icons from google fonts
 AVAILABLE_ICONS = (

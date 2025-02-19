@@ -1,0 +1,15 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Content editing" %}{% endblock %}
+
+{% block content %}
+<main>
+    <h1>
+        {% blocktrans %}
+            Editing {{content.title}}
+        {% endblocktrans %}
+    </h1>
+</main>
+{% endblock %}

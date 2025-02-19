@@ -19,8 +19,13 @@ from django.urls import include, path
 from django.conf.urls.static import static
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
+from django.views.i18n import JavaScriptCatalog
 
-urlpatterns = i18n_patterns(
+urlpatterns = [
+    path('jsi18n/', JavaScriptCatalog.as_view(), name='javascript-catalog')
+]
+
+urlpatterns += i18n_patterns(
     path('', include("online_store.urls")),
     path('admin/', include("new_admin.urls")),
     path('advanced-admin/', admin.site.urls),

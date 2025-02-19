@@ -1,0 +1,94 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Content editing" %}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/store-promo-content.css' %}">
+{% endblock %}
+
+{% block content %}
+<main>
+    <form action="" id="promo-editor" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <h1>
+            {% if new %}
+                {% trans "New post" %}
+            {% else %}
+                {% trans "Editing" %} "{{content.title}}"
+            {% endif %}
+        </h1>
+        <div style="--bg: {{content.color}}; --contrast: {{content.accent}};" id="content-instance-card">
+            <div id="image-wrapper">
+                {% if new or not content.image %}
+                    <img id="card-image" src="https://adaptcommunitynetwork.org/wp-content/uploads/2022/01/ef3-placeholder-image.jpg" alt="">
+                {% else %}
+                    <img id="card-image" src="/{{content.image}}" alt="">
+                {% endif %}
+                <span class="material-symbols-outlined">edit_square</span>
+            </div>
+            <div style="background-color: var(--bg);">
+                <input placeholder="{% trans 'Post title' %}" required name="title" id="title" style="color: var(--contrast);" class="content-title" value="{{content.title}}"/>
+                <input placeholder="{% trans 'Post subtitle' %}" name="tagline" id="tagline" style="color: var(--contrast);" value="{{content.tagline}}" class="content-tagline"/>
+                <button type="button" id="button" style="color: var(--contrast); --_button-bg: var(--bg); border-color: var(--contrast);">
+                    <span id="button-text">{{content.call_to_action}}</span>
+                    <span class="material-symbols-outlined">edit</span>
+                </button>
+                <dialog id="button-settings">
+                    <input name="new-button-text" id="new-button-text" type="text" value="{{content.call_to_action}}" placeholder="{% trans 'Button text' %}">
+                    <input name="new-button-link" id="new-button-link" type="text" value="{{content.link}}" placeholder="{% trans 'Button link' %}">
+                    <button type="button" id="update-button-button">{% trans "Update" %}</button>
+                </dialog>
+            </div>       
+        <input {% if new %} required {% endif %} type="file" name="new-image" id="image-upload" accept="image/*" style="display: none;">
+        </div>
+        <div class="colors">
+            <div>
+                <label for="main-color-input">{% trans "Main color" %}:</label>
+                <input type="color" name="main-color" value="{{content.color}}" id="main-color-input">
+            </div>
+            <div>
+                <label for="accent-color-input">{% trans "Secondary color" %}:</label>
+                <input type="color" name="accent-color" value="{{content.accent}}" id="accent-color-input">
+            </div>
+        </div>
+        <div>
+            <button style="width: fit-content;">
+                {% if new %}
+                    {% trans "Create post" %}
+                {% else %}
+                    {% trans "Save post" %}
+                {% endif %}
+            </button>
+        </div>
+    </form>
+</main>
+<script>
+    const card = document.querySelector("#content-instance-card")
+    const buttonDialog = document.querySelector("#button-settings")
+    document.querySelector("#main-color-input").addEventListener("input", e => {
+        card.style.setProperty("--bg", e.currentTarget.value);
+    })
+    document.querySelector("#accent-color-input").addEventListener("input", e => {
+        card.style.setProperty("--contrast", e.currentTarget.value);
+    })
+    document.querySelector("#image-wrapper").addEventListener("click", () => {
+        document.querySelector("#image-upload").click()
+    })
+    document.getElementById("image-upload").addEventListener("change", event => {
+        let file = event.target.files[0]; // Get the selected file
+        if (file) {
+            const imgPreview = document.querySelector("#card-image");
+            imgPreview.src = URL.createObjectURL(file); // Create temporary URL
+        }
+    });
+    document.querySelector("#button").addEventListener("click", e => {
+        buttonDialog.showModal()
+    })
+    document.querySelector("#update-button-button").addEventListener("click", e => {
+        document.querySelector("#button-text").innerHTML = document.querySelector("#new-button-text").value
+        buttonDialog.close()
+    })
+</script>
+{% endblock %}

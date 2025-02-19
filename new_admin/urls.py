@@ -15,5 +15,8 @@ urlpatterns = [
     path("orders/retail/<int:id>/receipt", views.receipt, name="admin-index"),
     
     path("store", views.store, name="admin-store"),
+    path("store/promo-content", views.promo_content, name="admin-store-promo-content"),
+    path("store/promo-content/<int:id>", views.promo_content_instance, name="admin-store-promo-content-instance"),
+    path("store/promo-content/new", views.promo_content_new, name="admin-store-promo-content-new"),
     path("store/branding", views.store_branding, name="admin-store-branding"),
 ]

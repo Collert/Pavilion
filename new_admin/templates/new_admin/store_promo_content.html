@@ -1,0 +1,28 @@
+{% extends 'new_admin/layout.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Promo content" %}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/store-promo-content.css' %}">
+{% endblock %}
+
+{% block content %}
+    <main>
+        <h1>{% trans "Promo content" %}</h1>
+        {% for instance in content %}
+            <a href="{% url 'admin-store-promo-content-instance' id=instance.id %}" class="no-style content-instance">
+                <span>
+                    {{instance.title}}
+                </span>
+            </a>
+        {% empty %}
+            <h1>{% trans "No content displaying" %}</h1>
+        {% endfor %}
+        <a href="{% url 'admin-store-promo-content-new' %}" id="add-content" class="button">
+            <span class="material-symbols-outlined">add</span>
+            <span>{% trans "Add content" %}</span>
+        </a>
+    </main>
+{% endblock %}

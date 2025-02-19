@@ -83,6 +83,8 @@
                 <div class="nav-section-body">
                     <a class="header-link" href="{% url 'admin-store-branding' %}">{% trans "Branding" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Working hours" %}</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Stations" %}</a>
+                    <a class="header-link" href="{% url 'admin-store-promo-content' %}">{% trans "Promo content" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Events" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Media" %}</a>
                 </div>
@@ -118,7 +120,7 @@
                     <span>{% trans "Settings" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">Retail Orders</a>
+                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Webhooks" %}</a>
                 </div>
             </div>
         </nav>
@@ -132,10 +134,8 @@
             </a>
         </nav>
     </header>
-    <main>
-        {% block content %}
-        {% endblock %}
-    </main>
+    {% block content %}
+    {% endblock %}
 </body>
 <script>
     const navSections = document.querySelectorAll('.nav-section');
