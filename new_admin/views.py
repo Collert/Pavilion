@@ -6,25 +6,39 @@ from online_store.models import PromoContent
 from pos_server.views import collect_order
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
 
 # Create your views here.
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def index(request):
     return redirect(reverse("admin-dashboard-home"))
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def dashboard(request):
     return redirect(reverse("admin-dashboard-home"))
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def store(request):
     return redirect(reverse("admin-store-branding"))
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def orders(request):
     return redirect(reverse("admin-orders-retail"))
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def dashboard_home(request):
     return render(request, "new_admin/dashboard_home.html")
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def retail_orders(request):
     order_list = Order.objects.all().order_by('-timestamp')
     paginator = Paginator(order_list, 20)  # Show 10 orders per page
@@ -36,6 +50,8 @@ def retail_orders(request):
         "page_count": paginator.num_pages
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def retail_order(request, id):
     if request.method == "GET":
         order = Order.objects.get(id=id)
@@ -47,7 +63,9 @@ def retail_order(request, id):
         order = Order.objects.get(id=id)
         order.delete()
         return redirect(reverse("admin-orders-retail"))
-    
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def receipt(request, id):
     order = Order.objects.get(id=id)
     return render(request, "new_admin/order-receipt.html", {
@@ -56,15 +74,21 @@ def receipt(request, id):
         "order": collect_order(order)
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def store_branding(request):
     return render(request, "new_admin/store_branding.html")
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def promo_content(request):
     content = PromoContent.objects.all()
     return render(request, "new_admin/store_promo_content.html", {
         "content":content
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def promo_content_instance(request, id):
     content = PromoContent.objects.get(pk=id)
     if request.method == "GET":
@@ -88,6 +112,8 @@ def promo_content_instance(request, id):
         content.delete()
         return JsonResponse({"message": "Content deleted successfully"})
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def promo_content_new(request):
     if request.method == "GET":
         content = {
