@@ -6,6 +6,7 @@ from online_store.models import PromoContent
 from pos_server.views import collect_order
 from django.core.paginator import Paginator
 from django.utils.translation import gettext_lazy as _
+from django.http import JsonResponse
 
 # Create your views here.
 
@@ -83,7 +84,9 @@ def promo_content_instance(request, id):
         content.link=request.POST.get('new-button-link')
         content.save()
         return redirect(reverse("admin-store-promo-content"))
-        
+    elif request.method == "DELETE":
+        content.delete()
+        return JsonResponse({"message": "Content deleted successfully"})
 
 def promo_content_new(request):
     if request.method == "GET":
