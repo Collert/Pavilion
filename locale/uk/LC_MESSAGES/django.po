@@ -976,7 +976,7 @@ msgstr "Приміщення"
 #: .\online_store\templates\online_store\home.html:20
 #: .\online_store\templates\online_store\home.html:23
 msgid "OPEN"
-msgstr "ВІДКРИТО"
+msgstr "ВІДЧИНЕНО"
 
 #: .\online_store\templates\online_store\home.html:17
 #: .\online_store\templates\online_store\home.html:20
