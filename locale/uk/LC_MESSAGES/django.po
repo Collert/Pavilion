@@ -958,11 +958,11 @@ msgstr "Немає попередніх замовлень"
 
 #: .\online_store\templates\online_store\home.html:9
 msgid "We are currently <strong>CLOSED</strong>"
-msgstr "На даний момент ми <strong>ЗАКРИТІ</strong>"
+msgstr "На даний момент ми <strong>ЗАЧИНЕНІ</strong>"
 
 #: .\online_store\templates\online_store\home.html:10
 msgid "Our next event is on"
-msgstr ""
+msgstr "Наступна подія відбуватиметься"
 
 #: .\online_store\templates\online_store\home.html:14
 msgid "Normal operations"
@@ -1190,7 +1190,7 @@ msgstr "Поповнити картку"
 #: .\online_store\templates\online_store\layout.html:585
 msgid "Sorry, we are closed today. Check the home page for the next date."
 msgstr ""
-"Вибачте, ми сьогодні закриті. Перевірте наші години роботи на домашній "
+"Вибачте, ми сьогодні зачинені. Перевірте наші години роботи на домашній "
 "сторінці."
 
 #: .\online_store\templates\online_store\layout.html:790
