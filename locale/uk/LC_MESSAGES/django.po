@@ -819,7 +819,7 @@ msgid ""
 "        "
 msgstr ""
 "\n"
-"            Редагування %(ingredient.title)s\n"
+"            Редагування %(content.title)s\n"
 "            "
 
 #: .\new_admin\templates\new_admin\store_promo_content-instance.html:17
