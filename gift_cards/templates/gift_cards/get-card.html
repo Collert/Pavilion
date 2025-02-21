@@ -11,7 +11,7 @@
 <div class="cards-container">
     {% for card in cards %}
         <div data-card-id="{{card.id}}" class="card">
-            <img src="/pavilion/{{card.image}}" alt="" class="card-img">
+            <img src="/{{card.image}}" alt="" class="card-img">
             <div class="card-info">
                 <span class="card-title">{{card.name}}</span>
                 <span class="card-price">${{card.amount}}</span>
