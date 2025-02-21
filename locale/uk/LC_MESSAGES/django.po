@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-20 17:24-0800\n"
+"POT-Creation-Date: 2025-02-20 17:53-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: ANDREW DZOBKO MYTYBER@GMAIL.COM\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -250,63 +250,63 @@ msgstr "Переглянути картку"
 msgid "No card"
 msgstr "Немає картки"
 
-#: .\gift_cards\templates\gift_cards\card.html:26
+#: .\gift_cards\templates\gift_cards\card.html:27
 msgid "Gift Card"
 msgstr "Подарункова картка"
 
-#: .\gift_cards\templates\gift_cards\card.html:31
+#: .\gift_cards\templates\gift_cards\card.html:32
 msgid "No barcode generated."
 msgstr "Не вдалося згенерувати бар код."
 
-#: .\gift_cards\templates\gift_cards\card.html:35
+#: .\gift_cards\templates\gift_cards\card.html:36
 msgid "Balance:"
 msgstr "Баланс:"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:9
+#: .\gift_cards\templates\gift_cards\get-card.html:10
 msgid "Pick a pre-loaded card"
 msgstr "Оберіть готову картку"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:21
+#: .\gift_cards\templates\gift_cards\get-card.html:22
 msgid "Or make your own"
 msgstr "Або зробіть власну"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:24
+#: .\gift_cards\templates\gift_cards\get-card.html:25
 msgid "Which cover?"
 msgstr "Яку обкладинку?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:37
+#: .\gift_cards\templates\gift_cards\get-card.html:38
 msgid "How much money?"
 msgstr "Скільки грошей?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:39
+#: .\gift_cards\templates\gift_cards\get-card.html:40
 msgid "For who?"
 msgstr "Для кого?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:42
+#: .\gift_cards\templates\gift_cards\get-card.html:43
 msgid "For me"
 msgstr "Для себе"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:45
+#: .\gift_cards\templates\gift_cards\get-card.html:46
 msgid "For someone else"
 msgstr "Для когось іншого"
-
-#: .\gift_cards\templates\gift_cards\get-card.html:47
-#: .\gift_cards\templates\gift_cards\get-card.html:71
-#: .\gift_cards\templates\gift_cards\get-card.html:111
-msgid "Your name"
-msgstr "Ваше ім'я"
 
 #: .\gift_cards\templates\gift_cards\get-card.html:48
 #: .\gift_cards\templates\gift_cards\get-card.html:72
 #: .\gift_cards\templates\gift_cards\get-card.html:112
+msgid "Your name"
+msgstr "Ваше ім'я"
+
+#: .\gift_cards\templates\gift_cards\get-card.html:49
+#: .\gift_cards\templates\gift_cards\get-card.html:73
+#: .\gift_cards\templates\gift_cards\get-card.html:113
 msgid "Recovery email"
 msgstr "Електронна пошта"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:52
+#: .\gift_cards\templates\gift_cards\get-card.html:53
 msgid "Get this card"
 msgstr "Придбати цю картку"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:61
+#: .\gift_cards\templates\gift_cards\get-card.html:62
 #, python-format
 msgid ""
 "\n"
@@ -327,37 +327,37 @@ msgstr ""
 "</p>\n"
 "            "
 
-#: .\gift_cards\templates\gift_cards\get-card.html:66
+#: .\gift_cards\templates\gift_cards\get-card.html:67
 msgid "This card is for me"
 msgstr "Ця картка для мене"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:69
+#: .\gift_cards\templates\gift_cards\get-card.html:70
 msgid "This card is for someone else"
 msgstr "Ця картка для когось іншого"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:74
+#: .\gift_cards\templates\gift_cards\get-card.html:75
 msgid "Sender\\"
 msgstr "Від\\"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:79
+#: .\gift_cards\templates\gift_cards\get-card.html:80
 msgid "Purchase"
 msgstr "Купити"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:117
 #: .\gift_cards\templates\gift_cards\get-card.html:118
+#: .\gift_cards\templates\gift_cards\get-card.html:119
 msgid "Recipient\\"
 msgstr "Для\\"
 
-#: .\gift_cards\templates\gift_cards\layout.html:14
+#: .\gift_cards\templates\gift_cards\layout.html:15
 #: .\online_store\templates\online_store\layout.html:184
 msgid "Gift cards"
 msgstr "Подарункові картки"
 
-#: .\gift_cards\templates\gift_cards\layout.html:31
+#: .\gift_cards\templates\gift_cards\layout.html:32
 msgid "Special"
 msgstr "Особливі картки"
 
-#: .\gift_cards\templates\gift_cards\layout.html:32
+#: .\gift_cards\templates\gift_cards\layout.html:33
 msgid "Cards"
 msgstr "Картки"
 
@@ -836,7 +836,9 @@ msgid "Open ordering channels"
 msgstr "Відкриті канали для замовлення"
 
 #: .\new_admin\templates\new_admin\store_event.html:33
-msgid "Приміщення"
+#, fuzzy
+#| msgid "In-person"
+msgid "In-Person"
 msgstr "На касі"
 
 #: .\new_admin\templates\new_admin\store_event.html:38
@@ -2003,3 +2005,6 @@ msgstr "Пароль не відповідає наведеним вище ви�
 #: .\users\templates\users\register.html:56
 msgid "Passwords don't match!"
 msgstr "Паролі не збігаються!"
+
+#~ msgid "Приміщення"
+#~ msgstr "На касі"

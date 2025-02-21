@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-20 17:24-0800\n"
+"POT-Creation-Date: 2025-02-20 17:53-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -207,63 +207,63 @@ msgstr ""
 msgid "No card"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\card.html:26
+#: .\gift_cards\templates\gift_cards\card.html:27
 msgid "Gift Card"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\card.html:31
+#: .\gift_cards\templates\gift_cards\card.html:32
 msgid "No barcode generated."
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\card.html:35
+#: .\gift_cards\templates\gift_cards\card.html:36
 msgid "Balance:"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:9
+#: .\gift_cards\templates\gift_cards\get-card.html:10
 msgid "Pick a pre-loaded card"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:21
+#: .\gift_cards\templates\gift_cards\get-card.html:22
 msgid "Or make your own"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:24
+#: .\gift_cards\templates\gift_cards\get-card.html:25
 msgid "Which cover?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:37
+#: .\gift_cards\templates\gift_cards\get-card.html:38
 msgid "How much money?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:39
+#: .\gift_cards\templates\gift_cards\get-card.html:40
 msgid "For who?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:42
+#: .\gift_cards\templates\gift_cards\get-card.html:43
 msgid "For me"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:45
+#: .\gift_cards\templates\gift_cards\get-card.html:46
 msgid "For someone else"
-msgstr ""
-
-#: .\gift_cards\templates\gift_cards\get-card.html:47
-#: .\gift_cards\templates\gift_cards\get-card.html:71
-#: .\gift_cards\templates\gift_cards\get-card.html:111
-msgid "Your name"
 msgstr ""
 
 #: .\gift_cards\templates\gift_cards\get-card.html:48
 #: .\gift_cards\templates\gift_cards\get-card.html:72
 #: .\gift_cards\templates\gift_cards\get-card.html:112
+msgid "Your name"
+msgstr ""
+
+#: .\gift_cards\templates\gift_cards\get-card.html:49
+#: .\gift_cards\templates\gift_cards\get-card.html:73
+#: .\gift_cards\templates\gift_cards\get-card.html:113
 msgid "Recovery email"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:52
+#: .\gift_cards\templates\gift_cards\get-card.html:53
 msgid "Get this card"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:61
+#: .\gift_cards\templates\gift_cards\get-card.html:62
 #, python-format
 msgid ""
 "\n"
@@ -276,37 +276,37 @@ msgid ""
 "            "
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:66
+#: .\gift_cards\templates\gift_cards\get-card.html:67
 msgid "This card is for me"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:69
+#: .\gift_cards\templates\gift_cards\get-card.html:70
 msgid "This card is for someone else"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:74
+#: .\gift_cards\templates\gift_cards\get-card.html:75
 msgid "Sender\\"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:79
+#: .\gift_cards\templates\gift_cards\get-card.html:80
 msgid "Purchase"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:117
 #: .\gift_cards\templates\gift_cards\get-card.html:118
+#: .\gift_cards\templates\gift_cards\get-card.html:119
 msgid "Recipient\\"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\layout.html:14
+#: .\gift_cards\templates\gift_cards\layout.html:15
 #: .\online_store\templates\online_store\layout.html:184
 msgid "Gift cards"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\layout.html:31
+#: .\gift_cards\templates\gift_cards\layout.html:32
 msgid "Special"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\layout.html:32
+#: .\gift_cards\templates\gift_cards\layout.html:33
 msgid "Cards"
 msgstr ""
 
