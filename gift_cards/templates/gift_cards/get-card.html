@@ -26,13 +26,19 @@
     <input type="text" name="image" hidden id="personal-hidden-image">
     <div id="personal-card-selector">
         <div></div>
-        <button style="opacity: 0;" id="carousel-back"><span class="material-symbols-outlined">arrow_back_ios</span></button>
+        <button style="opacity: 0;" id="carousel-back">
+            <span class="landscape material-symbols-outlined">arrow_back_ios</span>
+            <span class="portrait material-symbols-outlined">keyboard_arrow_up</span>
+        </button>
         <div id="cards-personal">
             {% for card in card_images %}
             <img src="{{card}}" alt="" class="card-img personal{% if forloop.first %} selected {% endif %}">
             {% endfor %}
         </div>
-        <button id="carousel-forward"><span class="material-symbols-outlined">arrow_forward_ios</span></button>
+        <button id="carousel-forward">
+            <span class="landscape material-symbols-outlined">arrow_forward_ios</span>
+            <span class="portrait material-symbols-outlined">keyboard_arrow_down</span>
+        </button>
         <div></div>
     </div>
     <h2>{% trans "How much money?" %}</h2>

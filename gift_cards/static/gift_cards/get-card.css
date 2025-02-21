@@ -130,14 +130,20 @@ button.icon:hover span {
 
 #personal-card-selector {
     width: 100%;
-    display: grid;
-    place-items: center;
-    grid-template-columns: 1fr auto auto auto 1fr;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+@media (orientation:portrait) {
+    #personal-card-selector {
+        flex-direction: column;
+    }
 }
 
 #cards-personal {
     display: flex;
-    width: 35vw;
+    height: calc(20dvh * 1.5);
     overflow-x: hidden;
     gap: 1rem;
     position: relative;
@@ -174,6 +180,32 @@ button.icon:hover span {
     background-color: var(--primary-background);
     display: grid;
     place-items: center;
+}
+
+#personal-card-selector button span.portrait {
+    display: none;
+}
+
+#personal-card-selector button span.landscape {
+    display: grid;
+}
+
+@media (orientation:portrait) {
+    #cards-personal .selected + * {
+        transform: translateY(3vh);
+        scale: .9;
+    }
+    *:has(+ .selected) {
+        scale: .9;
+        transform: translateY(-3vh);
+    }
+    #personal-card-selector button span.portrait {
+        display: grid;
+    }
+    
+    #personal-card-selector button span.landscape {
+        display: none;
+    }
 }
 
 #personal-card-selector button:hover {
