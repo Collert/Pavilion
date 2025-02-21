@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-20 17:53-0800\n"
+"POT-Creation-Date: 2025-02-21 13:19-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: ANDREW DZOBKO MYTYBER@GMAIL.COM\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -274,39 +274,39 @@ msgstr "Або зробіть власну"
 msgid "Which cover?"
 msgstr "Яку обкладинку?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:38
+#: .\gift_cards\templates\gift_cards\get-card.html:44
 msgid "How much money?"
 msgstr "Скільки грошей?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:40
+#: .\gift_cards\templates\gift_cards\get-card.html:46
 msgid "For who?"
 msgstr "Для кого?"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:43
+#: .\gift_cards\templates\gift_cards\get-card.html:49
 msgid "For me"
 msgstr "Для себе"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:46
+#: .\gift_cards\templates\gift_cards\get-card.html:52
 msgid "For someone else"
 msgstr "Для когось іншого"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:48
-#: .\gift_cards\templates\gift_cards\get-card.html:72
-#: .\gift_cards\templates\gift_cards\get-card.html:112
+#: .\gift_cards\templates\gift_cards\get-card.html:54
+#: .\gift_cards\templates\gift_cards\get-card.html:78
+#: .\gift_cards\templates\gift_cards\get-card.html:118
 msgid "Your name"
 msgstr "Ваше ім'я"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:49
-#: .\gift_cards\templates\gift_cards\get-card.html:73
-#: .\gift_cards\templates\gift_cards\get-card.html:113
+#: .\gift_cards\templates\gift_cards\get-card.html:55
+#: .\gift_cards\templates\gift_cards\get-card.html:79
+#: .\gift_cards\templates\gift_cards\get-card.html:119
 msgid "Recovery email"
 msgstr "Електронна пошта"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:53
+#: .\gift_cards\templates\gift_cards\get-card.html:59
 msgid "Get this card"
 msgstr "Придбати цю картку"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:62
+#: .\gift_cards\templates\gift_cards\get-card.html:68
 #, python-format
 msgid ""
 "\n"
@@ -327,24 +327,24 @@ msgstr ""
 "</p>\n"
 "            "
 
-#: .\gift_cards\templates\gift_cards\get-card.html:67
+#: .\gift_cards\templates\gift_cards\get-card.html:73
 msgid "This card is for me"
 msgstr "Ця картка для мене"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:70
+#: .\gift_cards\templates\gift_cards\get-card.html:76
 msgid "This card is for someone else"
 msgstr "Ця картка для когось іншого"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:75
+#: .\gift_cards\templates\gift_cards\get-card.html:81
 msgid "Sender\\"
 msgstr "Від\\"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:80
+#: .\gift_cards\templates\gift_cards\get-card.html:86
 msgid "Purchase"
 msgstr "Купити"
 
-#: .\gift_cards\templates\gift_cards\get-card.html:118
-#: .\gift_cards\templates\gift_cards\get-card.html:119
+#: .\gift_cards\templates\gift_cards\get-card.html:124
+#: .\gift_cards\templates\gift_cards\get-card.html:125
 msgid "Recipient\\"
 msgstr "Для\\"
 
@@ -537,7 +537,7 @@ msgid "Ingredient"
 msgstr "Інгредієнт"
 
 #: .\inventory\templates\inventory\log-shopping.html:50
-#: .\new_admin\templates\new_admin\order-receipt.html:43
+#: .\new_admin\templates\new_admin\order-receipt.html:56
 #: .\new_admin\templates\new_admin\order.html:31
 #: .\pos_server\templates\pos_server\day_stats.html:36
 #: .\pos_server\templates\pos_server\day_stats.html:51
@@ -729,24 +729,32 @@ msgstr "Налаштування"
 msgid "Webhooks"
 msgstr "Веб-хуки"
 
-#: .\new_admin\templates\new_admin\order-receipt.html:35
+#: .\new_admin\templates\new_admin\order-receipt.html:45
 msgid "Sales receipt"
 msgstr "Чек"
 
-#: .\new_admin\templates\new_admin\order-receipt.html:42
+#: .\new_admin\templates\new_admin\order-receipt.html:55
 #: .\new_admin\templates\new_admin\order.html:30
 msgid "Item"
 msgstr "Предмет"
 
-#: .\new_admin\templates\new_admin\order-receipt.html:44
+#: .\new_admin\templates\new_admin\order-receipt.html:57
 #: .\new_admin\templates\new_admin\order.html:32
 msgid "Price"
 msgstr "Ціна"
 
-#: .\new_admin\templates\new_admin\order-receipt.html:45
+#: .\new_admin\templates\new_admin\order-receipt.html:58
 #: .\new_admin\templates\new_admin\order.html:33
 msgid "Total"
 msgstr "Загалом"
+
+#: .\new_admin\templates\new_admin\order-receipt.html:81
+msgid "TOTAL"
+msgstr "ЗАГАЛОМ"
+
+#: .\new_admin\templates\new_admin\order-receipt.html:84
+msgid "THANK YOU!"
+msgstr "ДЯКУЄМО!"
 
 #: .\new_admin\templates\new_admin\order.html:22
 #, python-format

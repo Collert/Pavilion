@@ -12,7 +12,7 @@ urlpatterns = [
     path("orders", views.orders, name="admin-orders"),
     path("orders/retail", views.retail_orders, name="admin-orders-retail"),
     path("orders/retail/<int:id>", views.retail_order, name="admin-order-retail"),
-    path("orders/retail/<int:id>/receipt", views.receipt, name="admin-index"),
+    path("orders/retail/<int:id>/receipt", views.receipt, name="admin-orders-receipt"),
     
     path("store", views.store, name="admin-store"),
     path("store/promo-content", views.promo_content, name="admin-store-promo-content"),

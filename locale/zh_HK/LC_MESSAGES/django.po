@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-20 17:53-0800\n"
+"POT-Creation-Date: 2025-02-21 13:19-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -231,39 +231,39 @@ msgstr ""
 msgid "Which cover?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:38
+#: .\gift_cards\templates\gift_cards\get-card.html:44
 msgid "How much money?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:40
+#: .\gift_cards\templates\gift_cards\get-card.html:46
 msgid "For who?"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:43
+#: .\gift_cards\templates\gift_cards\get-card.html:49
 msgid "For me"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:46
+#: .\gift_cards\templates\gift_cards\get-card.html:52
 msgid "For someone else"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:48
-#: .\gift_cards\templates\gift_cards\get-card.html:72
-#: .\gift_cards\templates\gift_cards\get-card.html:112
+#: .\gift_cards\templates\gift_cards\get-card.html:54
+#: .\gift_cards\templates\gift_cards\get-card.html:78
+#: .\gift_cards\templates\gift_cards\get-card.html:118
 msgid "Your name"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:49
-#: .\gift_cards\templates\gift_cards\get-card.html:73
-#: .\gift_cards\templates\gift_cards\get-card.html:113
+#: .\gift_cards\templates\gift_cards\get-card.html:55
+#: .\gift_cards\templates\gift_cards\get-card.html:79
+#: .\gift_cards\templates\gift_cards\get-card.html:119
 msgid "Recovery email"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:53
+#: .\gift_cards\templates\gift_cards\get-card.html:59
 msgid "Get this card"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:62
+#: .\gift_cards\templates\gift_cards\get-card.html:68
 #, python-format
 msgid ""
 "\n"
@@ -276,24 +276,24 @@ msgid ""
 "            "
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:67
+#: .\gift_cards\templates\gift_cards\get-card.html:73
 msgid "This card is for me"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:70
+#: .\gift_cards\templates\gift_cards\get-card.html:76
 msgid "This card is for someone else"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:75
+#: .\gift_cards\templates\gift_cards\get-card.html:81
 msgid "Sender\\"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:80
+#: .\gift_cards\templates\gift_cards\get-card.html:86
 msgid "Purchase"
 msgstr ""
 
-#: .\gift_cards\templates\gift_cards\get-card.html:118
-#: .\gift_cards\templates\gift_cards\get-card.html:119
+#: .\gift_cards\templates\gift_cards\get-card.html:124
+#: .\gift_cards\templates\gift_cards\get-card.html:125
 msgid "Recipient\\"
 msgstr ""
 
@@ -450,7 +450,7 @@ msgid "Ingredient"
 msgstr ""
 
 #: .\inventory\templates\inventory\log-shopping.html:50
-#: .\new_admin\templates\new_admin\order-receipt.html:43
+#: .\new_admin\templates\new_admin\order-receipt.html:56
 #: .\new_admin\templates\new_admin\order.html:31
 #: .\pos_server\templates\pos_server\day_stats.html:36
 #: .\pos_server\templates\pos_server\day_stats.html:51
@@ -639,23 +639,31 @@ msgstr ""
 msgid "Webhooks"
 msgstr ""
 
-#: .\new_admin\templates\new_admin\order-receipt.html:35
+#: .\new_admin\templates\new_admin\order-receipt.html:45
 msgid "Sales receipt"
 msgstr ""
 
-#: .\new_admin\templates\new_admin\order-receipt.html:42
+#: .\new_admin\templates\new_admin\order-receipt.html:55
 #: .\new_admin\templates\new_admin\order.html:30
 msgid "Item"
 msgstr ""
 
-#: .\new_admin\templates\new_admin\order-receipt.html:44
+#: .\new_admin\templates\new_admin\order-receipt.html:57
 #: .\new_admin\templates\new_admin\order.html:32
 msgid "Price"
 msgstr ""
 
-#: .\new_admin\templates\new_admin\order-receipt.html:45
+#: .\new_admin\templates\new_admin\order-receipt.html:58
 #: .\new_admin\templates\new_admin\order.html:33
 msgid "Total"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:81
+msgid "TOTAL"
+msgstr ""
+
+#: .\new_admin\templates\new_admin\order-receipt.html:84
+msgid "THANK YOU!"
 msgstr ""
 
 #: .\new_admin\templates\new_admin\order.html:22

@@ -29,13 +29,26 @@
         th, td {
             padding: .5rem;
         }
+        hr {
+            width: 90%;
+        }
+        .spread-content {
+            display: flex;
+            width: 90%;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
+    <h2>{{restaurant_name}}</h2>
+    <hr>
     <h1>{% trans "Sales receipt" %}</h1>
-    <p>{{restaurant_name}}</p>
-    <p>{{restaurant_address}}</p>
-    <p>{{order.timestamp_pretty}}</p>
+    <hr>
+    <div class="spread-content">
+        <p>{{restaurant_address}}</p>
+        <p>{{order.timestamp_pretty}}</p>
+    </div>
+    <hr>
     <table>
         <thead>
             <tr>
@@ -55,5 +68,19 @@
                 </tr>
             {% endfor %}
     </table>
+    <hr>
+    {% if tax %}
+    {% for tax_type in tax %}
+        <div class="spread-content">
+            <h3>{{tax_type.title}}</h3>
+            <h3>{{tax_type.amount}}</h3>
+        </div>
+    {% endfor %}
+    {% endif %}
+    <div class="spread-content">
+        <h3>{% trans "TOTAL" %}:</h3>
+        <h3>{{total}}</h3>
+    </div>
+    <h2>{% trans "THANK YOU!" %}</h2>
 </body>
 </html>
