@@ -1,0 +1,68 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Events" %}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/store-events.css' %}">
+{% endblock %}
+
+{% block content %}
+<main>
+    <h1>{% trans "Events" %}</h1>
+    {% if upcoming %}
+    <h2>{% trans "Upcoming" %}</h2>
+    {% for event in upcoming %}
+    <a class="event no-style" href="{% url 'admin-store-events-instance' id=event.id %}">
+        <div class="left">
+            <h3>{{event.title}}</h3>
+            {% if event.location_title %}
+            <span>
+                <span class="material-symbols-outlined">location_on</span>
+                <span>{{event.location_title}}</span>
+            </span>
+            {% endif %}
+        </div>
+        <div class="right">
+            {{event.start}}
+        </div>
+    </a>
+    {% endfor %}
+    {% endif %}
+    {% if past %}
+    <h2>{% trans "Past events" %}</h2>
+    {% for event in past %}
+    <a class="event no-style" href="{% url 'admin-store-events-instance' id=event.id %}">
+        <div class="left">
+            <h3>{{event.title}}</h3>
+            {% if event.location_title %}
+            <span>
+                <span class="material-symbols-outlined">location_on</span>
+                <span>{{event.location_title}}</span>
+            </span>
+            {% endif %}
+        </div>
+        <div class="right">
+            {{event.start}}
+        </div>
+    </a>
+    {% endfor %}
+    {% endif %}
+    {% if not upcoming and not past %}
+    <div class="empty-section">
+        <h2>{% trans "No events yet" %}</h2>
+        <p>{% trans "Try creating one now" %}</p>
+        <a href="{% url 'admin-store-events-instance-new' %}" class="button with-icon">
+            <span class="material-symbols-outlined">add</span>
+            <span>{% trans "Create event" %}</span>
+        </a>
+    </div>
+    {% else %}
+    <a href="{% url 'admin-store-events-instance-new' %}" class="button bottom-right-button">
+        <span class="material-symbols-outlined">add</span>
+        <span>{% trans "Create event" %}</span>
+    </a>
+    {% endif %}
+</main>
+{% endblock %}

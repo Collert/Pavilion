@@ -20,14 +20,6 @@ main {
     font-weight: 600;
 }
 
-#add-content {
-    display: flex;
-    gap: .5rem;
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-}
-
 #content-instance-card {
     --_border-radius: 10px;
     

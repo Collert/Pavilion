@@ -16,6 +16,9 @@ urlpatterns = [
     
     path("store", views.store, name="admin-store"),
     path("store/promo-content", views.promo_content, name="admin-store-promo-content"),
+    path("store/events", views.events, name="admin-store-events"),
+    path("store/events/<int:id>", views.event, name="admin-store-events-instance"),
+    path("store/events/new", views.event_new, name="admin-store-events-instance-new"),
     path("store/promo-content/<int:id>", views.promo_content_instance, name="admin-store-promo-content-instance"),
     path("store/promo-content/new", views.promo_content_new, name="admin-store-promo-content-new"),
     path("store/branding", views.store_branding, name="admin-store-branding"),

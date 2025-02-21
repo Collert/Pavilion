@@ -1,0 +1,94 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{event.title}}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/store-events.css' %}">
+{% endblock %}
+
+{% block content %}
+<main>
+    {% if not event %}
+    <h1>{% trans "New event" %}</h1>
+    {% else %}
+    <h1>{% trans "Editing" %}: {{event.title}}</h1>
+    {% endif %}
+    <form action="" method="post" id="content">
+        {% csrf_token %}
+        <div id="details">
+            <input id="title" name="title" required placeholder="{% trans 'Event title' %}" value="{{event.title}}"/>
+            <div id="location-title">
+                <span class="material-symbols-outlined">location_on</span>
+                <input type="text" name="location-title" id="location-title-input" value="{{event.location_title}}" placeholder="{% trans 'Location title' %}">
+            </div>
+            <input type="text" name="location-address" id="location-address-input" value="{{event.location_address  }}" placeholder="{% trans 'Location address' %}">
+            <textarea name="description" id="description" placeholder="{% trans 'Event description' %}"></textarea>
+            <h3>{% trans "Open ordering channels" %}</h3>
+            <div id="open-channels">
+                <input type="checkbox" name="store-channel" value="true" id="store-channel-input">
+                <label for="store-channel-input">
+                    <span class="material-symbols-outlined">storefront</span>
+                    <span>{% trans "In-Person" %}</span>
+                </label>
+                <input type="checkbox" name="online-channel" value="true" id="online-channel-input">
+                <label for="online-channel-input">
+                    <span class="material-symbols-outlined">shopping_bag</span>
+                    <span>{% trans "Online ordering" %}</span>
+                </label>
+                <input type="checkbox" name="delivery-channel" value="true" id="delivery-channel-input">
+                <label for="delivery-channel-input">
+                    <span class="material-symbols-outlined">local_shipping</span>
+                    <span>{% trans "Delivery" %}</span>
+                </label>
+            </div>
+            <button class="with-icon">
+                <span class="material-symbols-outlined">save</span>
+                <span>
+                    {% if event %}
+                        {% trans "Save event" %}
+                    {% else %}
+                        {% trans "Create event" %}
+                    {% endif %}
+                </span>
+            </button>
+            {% if event %}
+            <button type="button" id="delete-event-button" class="with-icon error">
+                <span class="material-symbols-outlined">delete</span>
+                <span>{% trans "Delete event" %}</span>
+            </button>
+            {% endif %}
+        </div>
+        <div id="times">
+            <h2>{% trans "Date & Time" %}</h2>
+            <h3>{% trans "From" %}:</h3>
+            <div>
+                <input required type="datetime-local" name="start" id="start-input">
+            </div>
+            <h3>{% trans "To" %}:</h3>
+            <div>
+                <input required type="datetime-local" name="end" id="end-input">
+            </div>
+        </div>
+    </form>
+</main>
+<script>
+    document.querySelector("#delete-event-button").addEventListener("click", () => {
+        if (confirm("{% trans 'Are you sure you want to delete this event?' %}")) {
+            fetch(window.location.href, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "{% url 'admin-store-events' %}";
+                } else {
+                    alert("{% trans 'Failed to delete the event.' %}");
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

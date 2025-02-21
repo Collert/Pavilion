@@ -343,7 +343,7 @@ def service_worker_view(request):
     # Serve the file if it exists
     with open(file_path, 'r') as f:
         response = HttpResponse(f.read(), content_type='application/javascript')
-        response['Service-Worker-Allowed'] = '/online-store/'  # Optional, explicitly set scope
+        response['Service-Worker-Allowed'] = '/'  # Optional, explicitly set scope
         return response
 
 @csrf_exempt

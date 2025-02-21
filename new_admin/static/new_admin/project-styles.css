@@ -142,3 +142,36 @@ main {
 a.button.icon {
     box-sizing: content-box;
 }
+
+.empty-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 85%;
+    justify-content: center;
+}
+
+button.bottom-right-button,
+.button.bottom-right-button {
+    display: flex;
+    gap: .5rem;
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    align-items: center;
+}
+
+.button.with-icon,
+button.with-icon {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+textarea {
+    background-color: var(--primary-background);
+    color: var(--primary-contrast);
+    border: 2px solid var(--primary-contrast);
+    border-radius: 10px;
+    padding: 1rem;
+}

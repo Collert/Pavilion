@@ -3,12 +3,15 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from pos_server.models import Order
 from online_store.models import PromoContent
+from events.models import Event
 from pos_server.views import collect_order
 from django.core.paginator import Paginator
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
+import datetime
 
 # Create your views here.
 
@@ -41,7 +44,7 @@ def dashboard_home(request):
 @user_passes_test(lambda u: u.is_superuser)
 def retail_orders(request):
     order_list = Order.objects.all().order_by('-timestamp')
-    paginator = Paginator(order_list, 20)  # Show 10 orders per page
+    paginator = Paginator(order_list, 20)  # Show 20 orders per page
 
     page_number = request.GET.get('page', 1)
     orders = paginator.get_page(page_number)
@@ -138,3 +141,57 @@ def promo_content_new(request):
         content.link=request.POST.get('new-button-link')
         content.save()
         return redirect(reverse("admin-store-promo-content"))
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def events(request):
+    now = timezone.localtime(timezone.now())
+    upcoming = Event.objects.filter(end__gt=now).all()
+    past = Event.objects.filter(end__lt=now).all()
+    return render(request, "new_admin/store_events.html", {
+            "upcoming":upcoming,
+            "past":past
+        })
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def event(request, id):
+    event = Event.objects.get(pk=id)
+    if request.method == "GET":
+        return render(request, "new_admin/store_event.html", {
+            "event":event
+        })
+    elif request.method == "POST":
+        event.title = request.POST.get("title")
+        event.description = request.POST.get("description")
+        event.location_title = request.POST.get("location-title")
+        event.location_address = request.POST.get("location_address")
+        event.start = timezone.make_aware(datetime.datetime.strptime(request.POST.get("start"), "%Y-%m-%dT%H:%M"))
+        event.end = timezone.make_aware(datetime.datetime.strptime(request.POST.get("end"), "%Y-%m-%dT%H:%M"))
+        event.in_person_open = bool(request.POST.get("store-channel", False))
+        event.online_open = bool(request.POST.get("online-channel", False))
+        event.delivery_open = bool(request.POST.get("delivery-channel", False))
+        event.save()
+        return redirect(reverse("admin-store-events"))
+    elif request.method == "DELETE":
+        event.delete()
+        return JsonResponse({"message": "Event deleted successfully"})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def event_new(request):
+    if request.method == "GET":
+        return render(request, "new_admin/store_event.html")
+    elif request.method == "POST":
+        Event.objects.create(
+            title = request.POST.get("title"),
+            description = request.POST.get("description"),
+            location_title = request.POST.get("location-title"),
+            location_address = request.POST.get("location_address"),
+            start = timezone.make_aware(datetime.datetime.strptime(request.POST.get("start"), "%Y-%m-%dT%H:%M")),
+            end = timezone.make_aware(datetime.datetime.strptime(request.POST.get("end"), "%Y-%m-%dT%H:%M")),
+            in_person_open = bool(request.POST.get("store-channel", False)),
+            online_open = bool(request.POST.get("online-channel", False)),
+            delivery_open = bool(request.POST.get("delivery-channel", False))
+        )
+        return redirect(reverse("admin-store-events"))

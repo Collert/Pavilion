@@ -657,8 +657,6 @@ msgid "Working hours"
 msgstr "Години роботи"
 
 #: .\new_admin\templates\new_admin\layout.html:86
-#, fuzzy
-#| msgid "Stations mix:"
 msgid "Stations"
 msgstr "Станції"
 
