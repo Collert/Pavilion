@@ -4,6 +4,7 @@ const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').va
 if (!DEVICE_TOKEN) {
     window.location.href = "/restaurant/check-device";
 } else {
+    window.localStorage.setItem("deviceToken", DEVICE_TOKEN)
     fetch(
         "/restaurant/check-device",{
           method:"PUT",
