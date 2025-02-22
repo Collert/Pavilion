@@ -59,7 +59,7 @@
                 <h2>{% trans "Pre-packaged food" %}</h2>
                 {% endif %}
                 {% for dish in dishes %}
-                {% if dish.visible_in_menu %}
+                {% if dish.available %}
                 <div class="menu-item">
                     <div class="menu-item-info">
                         <h3>{{dish.title}}</h3>
