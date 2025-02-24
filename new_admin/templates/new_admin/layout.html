@@ -26,6 +26,11 @@
     </style>
 </head>
 <body>
+    <header id="portrait-only">
+        <button class="icon">
+            H
+        </button>
+    </header>
     <header>
         <img src="{% static 'new_admin/Pavilion logo.webp' %}" id="logo" alt="">
         <nav id="primary-nav">
@@ -139,6 +144,7 @@
 </body>
 <script>
     const navSections = document.querySelectorAll('.nav-section');
+    const body = document.querySelector("body");
     navSections.forEach(navSection => {
         navSection.addEventListener('click', () => {
             navSections.forEach(navSection => {
@@ -154,6 +160,9 @@
         if (navSection.id.includes(sectionName)) {
             navSection.classList.add('active');
         }
+    });
+    document.querySelector("#portrait-only button").addEventListener("click", e => {
+        body.classList.toggle("header-open")
     });
 </script>
 </html>

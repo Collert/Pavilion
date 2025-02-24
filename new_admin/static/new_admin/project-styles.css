@@ -20,6 +20,15 @@ header {
     height: 100dvh;
 }
 
+header#portrait-only {
+    display: none;
+    position: absolute;
+    height: fit-content;
+    padding: 1rem;
+    top: 0;
+    left: 0;
+}
+
 #logo {
     height: 7rem;
 }
@@ -174,4 +183,20 @@ textarea {
     border: 2px solid var(--primary-contrast);
     border-radius: 10px;
     padding: 1rem;
+}
+
+@media (orientation:portrait) {
+    body {
+        grid-template-columns: 0fr 1fr;
+        transition: all 300ms ease;
+    }
+    body.header-open {
+        grid-template-columns: 1fr 0fr;
+    }
+    header#portrait-only {
+        display: flex;
+    }
+    header {
+        overflow-x: hidden;
+    }
 }
