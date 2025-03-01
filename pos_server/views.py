@@ -759,7 +759,7 @@ def prettify_dish(dish):
         "title":dish.title,
         "components":"",
         "price":format_float(dish.price),
-        "available":dish.in_stock or dish.force_in_stock,
+        "available":(dish.in_stock or dish.force_in_stock) and dish.visible_in_menu,
     }
     dcs = dish.dishcomponent_set.all()
     for index, dc in enumerate(dcs):

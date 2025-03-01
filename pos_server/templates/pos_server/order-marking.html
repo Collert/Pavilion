@@ -25,7 +25,7 @@
                 {% endif %}
             </h2>
             <div class="name-time">
-                <span>{% blocktrans %}Order #{{order.order_id}}{% endblocktrans %}</span>
+                <span>{% trans "Order" %} #{{order.order_id}}</span>
                 <span data-timestamp="{{order.start_time}}" class="timestamp">
                     {%trans "Prep time:" %} <span>{{order.start_time}}</span>
                 </span>

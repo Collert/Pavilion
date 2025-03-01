@@ -73,7 +73,7 @@
           const card = await payments.card();
           await card.attach('#card-container');
           const button = document.querySelector("#card-button")
-          button.innerHTML = "{% blocktrans %}Pay ${{amount|div:100|floatformat:2}}{% endblocktrans %}"
+          button.innerHTML = "{% trans "Pay" %} ${{amount|div:100|floatformat:2}}"
           button.disabled = false
           return card; 
         }

@@ -88,6 +88,7 @@ def create_web_payment(token, amount:float, transaction, autocomplete = True):
         "idempotency_key": str(uuid.uuid4()),  # Important to avoid duplicate charges
         'autocomplete': autocomplete
     })
+    print(response.body)
     print(response.body["payment"])
     if not autocomplete:
         PaymentAuthorization.objects.create(
