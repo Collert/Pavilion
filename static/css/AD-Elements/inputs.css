@@ -1,0 +1,134 @@
+input:not(.no-style) {
+    --_border-color: var(--primary-contrast);
+    
+    background-color: var(--primary-background);
+    border: 2px solid var(--_border-color);
+    border-radius: 100vh;
+    transition: all 300ms ease;
+    padding: .5rem;
+    margin: 0 .5rem;
+}
+
+input:not(.no-style).error {
+    --_border-color: var(--error-color);
+}
+
+input:not(.no-style).success {
+    --_border-color: var(--success-color);
+}
+
+input:not(.no-style).inline {
+    padding: .1em;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid var(--primary-contrast);
+    transition: outline 100ms ease;
+    display: inline-block;
+}
+
+input:not(.no-style).inline:active,
+input:not(.no-style).inline:focus-visible {
+    outline: 2px solid var(--primary-contrast);
+}
+
+input:not(.no-style):not(.inline)[type="text"]:active,
+input:not(.no-style):not(.inline)[type="text"]:focus-visible,
+input:not(.no-style):not(.inline)[type="email"]:active,
+input:not(.no-style):not(.inline)[type="email"]:focus-visible,
+input:not(.no-style):not(.inline)[type="password"]:active,
+input:not(.no-style):not(.inline)[type="password"]:focus-visible,
+input:not(.no-style):not(.inline)[type="month"]:active,
+input:not(.no-style):not(.inline)[type="month"]:focus-visible {
+    outline: none;
+    border: 2px solid var(--primary-contrast);
+    padding: .5rem 1rem;
+    margin: 0;
+}
+
+/* Color */
+
+input[type="color"] {
+    border: 1px solid var(--primary-contrast);
+    background-color: var(--primary-background);
+    padding: 0;
+    border-radius: 100vh;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+	border: none;
+    border-radius: 100vh;
+}
+
+/* File */
+input:not(.no-style)[type="file"]:host {
+    display: grid;
+}
+
+input:not(.no-style)[type="file"]::file-selector-button {
+    color: var(--primary-background);
+    background-color: var(--primary-contrast);
+    border: none;
+    padding: .55rem;
+    margin: -.5rem;
+    margin-right: .5rem;
+    cursor: pointer;
+}
+
+/* Dates */
+
+/* input:not(.no-style)::-webkit-calendar-picker-indicator {
+    color: var(--primary-contrast);
+    background: var(--primary-contrast);
+    mask-size: contain;
+    -webkit-mask-size: contain;
+} */
+
+/* input:not(.no-style)[type="month"]::-webkit-calendar-picker-indicator,
+input:not(.no-style)[type="week"]::-webkit-calendar-picker-indicator,
+input:not(.no-style)[type="date"]::-webkit-calendar-picker-indicator {
+    mask-image: url('/icons/calendar_today_FILL0_wght400_GRAD0_opsz48.svg');
+    -webkit-mask-image: url('/icons/calendar_today_FILL0_wght400_GRAD0_opsz48.svg');
+} */
+
+/* input:not(.no-style)[type="datetime"]::-webkit-calendar-picker-indicator,
+input:not(.no-style)[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input:not(.no-style)[type="time"]::-webkit-calendar-picker-indicator {
+    mask-image: url('/icons/schedule_FILL0_wght400_GRAD0_opsz48.svg');
+    -webkit-mask-image: url('/icons/schedule_FILL0_wght400_GRAD0_opsz48.svg');
+} */
+
+/* Search */
+
+input:not(.no-style)[type="search"]:focus::-webkit-search-cancel-button {
+    transform: none;
+}
+
+input:not(.no-style)[type="search"]::-webkit-textfield-decoration-container {
+    overflow-x: hidden;
+}
+
+input::shadow:not(.no-style)[type="search"]:host #text-field-container {
+    background-color: red;
+}
+
+input:not(.no-style)[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+    display: block;
+    background: var(--primary-contrast);
+    height: 1em;
+    width: 1em;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-image: url('/icons/close_FILL0_wght400_GRAD0_opsz48.svg');
+    -webkit-mask-image: url('/icons/close_FILL0_wght400_GRAD0_opsz48.svg');
+    /* animation: slide-up 300ms ease; */
+    transform: translateX(110%);
+    transition: transform 300ms ease;
+    opacity: 1!important;
+    
+}

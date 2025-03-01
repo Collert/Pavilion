@@ -1,0 +1,184 @@
+button:not(.no-style),
+a.button:not(.no-style) {
+    --_button-bg: var(--primary-background);
+    --_button-highlight: var(--primary-background);
+
+
+    background-color: var(--_button-bg);
+    border: 2px solid var(--primary-contrast);
+    color: var(--primary-contrast);
+    padding: .5rem .75rem;
+    border-radius: 100vh;
+    font-weight: 400;
+    font-size: large;
+    margin: 0 .25rem;
+    transition: padding 200ms ease, margin 200ms ease, color 200ms ease, background-color 200ms ease;
+}
+
+button:hover:not(.no-style),
+button:focus-visible:not(.no-style),
+button:active:not(.no-style),
+a.button:hover:not(.no-style),
+a.button:focus-visible:not(.no-style),
+a.button:active:not(.no-style) {
+    margin: 0;
+    padding: .5rem 1rem;
+    cursor: pointer;
+    background-color: var(--_button-highlight);
+}
+
+button:focus-visible:not(.no-style),
+button:active:not(.no-style),
+a.button:focus-visible:not(.no-style),
+a.button:active:not(.no-style) {
+    color: var(--primary-background);
+    background-color: var(--primary-contrast);
+}
+
+/* Tight buttons */
+
+button.tight:not(.no-style),
+a.button.tight:not(.no-style) {
+    border-radius: 1vh;
+    margin: 0;
+}
+
+button.tight:hover:not(.no-style),
+button.tight:focus-visible:not(.no-style),
+button.tight:active:not(.no-style),
+a.button.tight:hover:not(.no-style),
+a.button.tight:focus-visible:not(.no-style),
+a.button.tight:active:not(.no-style) {
+    --_button-bg: var(--primary-background);
+    --_button-highlight: var(--primary-contrast);
+    
+    padding: .5rem .75rem;
+    color: var(--primary-background);
+}
+
+button.tight:active:not(.no-style),
+a.button.tight:active:not(.no-style) {
+    animation: click-button 200ms ease;
+}
+
+/* Disabled buttons */
+
+button:disabled:not(.no-style),
+button:disabled:hover:not(.no-style),
+a.button:disabled:not(.no-style),
+a.button:disabled:hover:not(.no-style) {
+    border-color: var(--error-color);
+    margin: 0 .25rem;
+    padding: .5rem .75rem;
+    cursor: not-allowed;
+}
+
+/* Icon buttons */
+
+button.icon:not(.no-style),
+a.button.icon:not(.no-style) {
+    --_button-highlight: var(--primary-contrast);
+
+    margin: 0;
+    box-sizing: content-box;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    padding: .5rem;
+    height: var(--icon-font-size);
+}
+
+button.icon:hover:not(.no-style),
+button.icon:focus-visible:not(.no-style),
+button.icon:active:not(.no-style),
+a.button.icon:hover:not(.no-style),
+a.button.icon:focus-visible:not(.no-style),
+a.button.icon:active:not(.no-style) {
+    margin: 0;
+    background-color: var(--_button-highlight);
+    color: var(--_button-bg);
+}
+
+button.icon:active:not(.no-style),
+a.button.icon:active:not(.no-style) {
+    animation: click-button 200ms ease;
+}
+
+/* Button row */
+
+.button-row:not(.no-style) {
+    display: flex;
+}
+
+.button-row>button:not(.no-style),
+.button-row>a.button:not(.no-style) {
+    --_button-highlight: var(--primary-contrast);
+
+    border-radius: 0;
+    margin: 0;
+    border-width: 2px 1px 2px 1px;
+}
+
+.button-row>button:nth-child(1):not(.no-style),
+.button-row>a.button:nth-child(1):not(.no-style) {
+    border-top-left-radius: 100vh;
+    border-bottom-left-radius: 100vh;
+    border-width: 2px 1px 2px 2px;
+}
+.button-row>button:nth-last-child(1):not(.no-style),
+.button-row>a.button:nth-last-child(1):not(.no-style) {
+    border-top-right-radius: 100vh;
+    border-bottom-right-radius: 100vh;
+    border-width: 2px 2px 2px 1px;
+}
+
+.button-row>button:hover:not(.no-style),
+.button-row>button:focus-visible:not(.no-style),
+.button-row>button:active:not(.no-style),
+.button-row>a.button:hover:not(.no-style),
+.button-row>a.button:focus-visible:not(.no-style),
+.button-row>a.button:active:not(.no-style) {
+    padding: .5rem .75rem;
+    background-color: var(--_button-highlight);
+    color: var(--primary-background);
+}
+
+.button-row>button:active:not(.no-style),
+.button-row>a.button:active:not(.no-style) {
+    animation: click-button 200ms ease;
+}
+
+/* Colored buttons */
+
+button.success:not(.no-style),
+a.button.success:not(.no-style) {
+    --_button-highlight: var(--success-color);
+}
+button.error:not(.no-style),
+a.button.error:not(.no-style) {
+    --_button-highlight: var(--error-color);
+}
+
+button.success:not(.no-style),
+button.error:not(.no-style),
+a.button.success:not(.no-style),
+a.button.error:not(.no-style) {
+    border-color: var(--_button-highlight);
+}
+
+button.success.filled:not(.no-style),
+button.success:hover:not(.no-style),
+button.error.filled:not(.no-style),
+button.error:hover:not(.no-style),
+a.button.success.filled:not(.no-style),
+a.button.success:hover:not(.no-style),
+a.button.error.filled:not(.no-style),
+a.button.error:hover:not(.no-style) {
+    color: var(--primary-background);
+}
+
+/* Animations */
+
+@keyframes click-button {
+    from, to {scale: 1;}
+    50% {scale: .9;}
+}

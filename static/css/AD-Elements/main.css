@@ -1,0 +1,24 @@
+@import url('colors.css');
+@import url('buttons.css');
+@import url('links.css');
+@import url('dialog.css');
+@import url('inputs.css');
+
+:root {
+    --icon-font-size: 24px;
+}
+
+* {
+    font-family: 'Noto Sans', sans-serif;
+    color: var(--primary-contrast);
+}
+
+body {
+    background-color: var(--primary-background);
+    margin: 0;
+    box-sizing: border-box;
+}
+
+svg.ui-icon {
+    fill: var(--primary-contrast);
+}

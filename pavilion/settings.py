@@ -92,7 +92,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Enable CORS for all origins (consider restricting this in production)
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Allows any website to load fonts
+CORS_ALLOW_CREDENTIALS = True
 
 # Installed applications
 INSTALLED_APPS = [
@@ -282,6 +283,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = '/home/collert/POS/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'payments/static/'),
+    os.path.join(BASE_DIR, 'static'),
 ]
 
 # Default primary key field type

@@ -1,0 +1,38 @@
+a:not(.no-style) {
+    text-decoration: none;
+}
+
+a:not(.no-style):visited {
+    --_highlight-color: var(--accent-2);
+}
+
+a:not(.no-style):not(.button) {
+    --_highlight-color: var(--accent-1);
+
+    color: var(--_highlight-color);
+    position: relative;
+    overflow-y: visible;
+    display: inline-block;
+    transition: transform 300ms ease;
+}
+
+a:hover:not(.no-style):not(.button):not(.no-anim) {
+    transform: translateY(-3px);
+}
+
+a:not(.no-style):not(.button):not(.no-anim)::after {
+    content: '';
+    position: absolute;
+    background-color: var(--_highlight-color);
+    height: 2px;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    overflow-y: visible;
+    transition: transform 300ms ease;
+    transform: scaleX(0);
+}
+
+a:hover:not(.no-style):not(.button):not(.no-anim)::after {
+    transform: scaleX(1) translateY(3px);
+}

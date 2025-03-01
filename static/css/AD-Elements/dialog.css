@@ -1,0 +1,42 @@
+dialog:not(.no-style) {
+    background-color: var(--primary-background);
+    padding: 2rem;
+    border-radius: 1rem;
+    animation: drop-dialog 300ms ease;
+    border: 2px solid var(--primary-contrast);
+}
+
+dialog.glass:not(.no-style) {
+    backdrop-filter: blur(6px);
+    border: 2px solid transparent;
+    background: transparent;
+}
+
+dialog.glass:not(.no-style)::backdrop {
+    opacity: 0;
+}
+
+dialog:not(.no-style):not(.glass)::backdrop {
+    background-color: var(--primary-background);
+    opacity: .7;
+    animation: fade-in-backdrop 300ms ease;
+}
+
+dialog.full:not(.no-style) {
+    width: calc(90vw - 4rem);
+    height: calc(90dvh - 4rem);
+}
+
+@keyframes drop-dialog {
+    from {
+        transform: translateY(-30%);
+        opacity: 0;
+    } to {
+        transform: none;
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in-backdrop {
+    from {opacity: 0;} to {opacity: .7;}
+}

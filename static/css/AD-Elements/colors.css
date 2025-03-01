@@ -1,0 +1,31 @@
+:root,
+::backdrop{
+    --primary-background: #222222;
+    --primary-contrast: whitesmoke;
+    --accent-1: #d1af94;
+    --accent-2: #d19494;
+    --error-color: salmon;
+    --success-color: forestgreen;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-background: #222222;
+        --primary-contrast: whitesmoke;
+    }
+    html.force-light {
+        --primary-background: whitesmoke;
+        --primary-contrast: #222222;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --primary-background: whitesmoke;
+        --primary-contrast: #222222;
+    }
+    html.force-dark {
+        --primary-background: #222222;
+        --primary-contrast: whitesmoke;
+    }
+}
