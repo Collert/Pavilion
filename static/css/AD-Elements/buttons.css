@@ -80,7 +80,7 @@ a.button.icon:not(.no-style) {
     --_button-highlight: var(--primary-contrast);
 
     margin: 0;
-    box-sizing: content-box;
+    box-sizing: content-box!important;
     aspect-ratio: 1;
     border-radius: 10px;
     padding: .5rem;
