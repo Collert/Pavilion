@@ -1,0 +1,116 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/dashboard.css' %}">
+{% endblock %}
+
+{% block title %}{% trans "Past business days" %}{% endblock %}
+
+{% block content %}
+<main>
+    <div id="calendar"></div>
+</main>
+<!-- Dialog for Stats -->
+<dialog class="full">
+    <div>
+        <nav>
+            <h1 id="title"></h1>
+            <button id="close" class="icon">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </nav>
+        <iframe></iframe>
+    </div>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.8/index.global.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let calendarEl = document.getElementById('calendar');
+        let dialog = document.querySelector("dialog");
+        let frame = dialog.querySelector("iframe");
+        let title = document.querySelector("#title");
+        let closeDialog = document.querySelector("#close");
+        let loadedMonths = new Set();  // Prevent duplicate API calls
+        let initialLoad = true;
+
+        let initialEvents = JSON.parse("{{ current_month_dates|escapejs }}");
+
+        let calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            height: 'auto',
+            contentHeight: 'auto',
+            events: initialEvents,  // Preload only current month
+            datesSet: function(info) {
+                if (initialLoad) {
+                    initialLoad = false;
+                    return
+                }
+                let year = info.start.getFullYear();
+                let month = info.start.getMonth() + 1;
+
+                if (loadedMonths.has(`${year}-${month}`)) return;
+                loadedMonths.add(`${year}-${month}`);
+
+                fetch(`{% url 'admin-dashboard-history-new-dates' %}?year=${year}&month=${month}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        calendar.addEventSource(data);
+                        noStyleApply();
+                    })
+                    .catch(error => console.error("Error fetching business days:", error));
+            },
+            dateClick: function(info) {
+                // Check if there is an event on the clicked date
+                let events = calendar.getEvents();
+                let hasEvent = events.some(event => {
+                    let eventDate = event.startStr.split("T")[0]; // Extract only "YYYY-MM-DD"
+                    return eventDate === info.dateStr; // Compare with clicked date
+                });
+
+                if (hasEvent) {
+                    openStatsDialog(info.dateStr);
+                }
+            },
+            eventClick: function(info) {
+            // Extract date from event (ignoring time)
+            var eventDate = info.event.startStr.split("T")[0];
+            openStatsDialog(eventDate);
+        }
+        });
+
+        calendar.render();
+
+        function openStatsDialog(dateStr) {
+            var formattedDate = formatDateForBackend(dateStr);
+            frame.src = `{% url 'day_stats' %}?date=${encodeURIComponent(formattedDate)}`;
+            title.textContent = formattedDate;
+            dialog.showModal();
+        }
+
+        function formatDateForBackend(dateStr) {
+            // Create a date object from YYYY-MM-DD (ensuring it's in UTC)
+            var date = new Date(dateStr + "T00:00:00Z"); 
+
+            // Convert to "Month Day, Year" format
+            var options = { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" };
+            return date.toLocaleDateString("en-US", options); 
+        }
+
+
+
+        closeDialog.addEventListener('click', function() {
+            dialog.close();
+        });
+
+        function noStyleApply() {
+            document.querySelectorAll(".fc-event.fc-event-start.fc-event-end.fc-event-past.fc-daygrid-event.fc-daygrid-dot-event").forEach(element => {
+                element.classList.add("no-style");
+            });
+        }
+
+        noStyleApply();
+    });
+</script>
+{% endblock %}

@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
 import datetime
+import calendar
+import json
 
 # Create your views here.
 
@@ -195,3 +197,50 @@ def event_new(request):
             delivery_open = bool(request.POST.get("delivery-channel", False))
         )
         return redirect(reverse("admin-store-events"))
+    
+def dashboard_history(request):
+    now = timezone.localtime(timezone.now())  # Get current local time
+    year, month = now.year, now.month
+
+    # Get first and last day of the month
+    _, last_day = calendar.monthrange(year, month)
+    start_date = timezone.make_aware(datetime.datetime(year, month, 1))  # Ensure timezone-aware
+    end_date = timezone.make_aware(datetime.datetime(year, month, last_day))
+
+    # Query unique order dates (returns `datetime.date` objects)
+    business_days = Order.objects.filter(
+        timestamp__gte=start_date, timestamp__lte=end_date
+    ).dates("timestamp", "day")
+
+    # Convert `datetime.date` to timezone-aware `datetime.datetime`
+    business_dates = [
+        {"title": "Business Day", "start": timezone.localtime(timezone.make_aware(datetime.datetime.combine(day, datetime.datetime.min.time()))).isoformat()}
+        for day in business_days
+    ]
+
+    return render(request, "new_admin/dashboard-history.html", {
+        "current_month_dates": json.dumps(business_dates)  # Pass initial month data
+    })
+
+def get_business_dates(request):
+    """Fetch business days dynamically when user navigates months."""
+    now = timezone.localtime(timezone.now())  # Get current local time
+    year = int(request.GET.get("year", now.year))
+    month = int(request.GET.get("month", now.month))
+
+    _, last_day = calendar.monthrange(year, month)
+
+    # Ensure start and end dates are timezone-aware
+    start_date = timezone.make_aware(datetime.datetime(year, month, 1))
+    end_date = timezone.make_aware(datetime.datetime(year, month, last_day, 23, 59, 59))
+
+    # Query unique business days for the selected month
+    business_days = Order.objects.filter(timestamp__gte=start_date, timestamp__lte=end_date).dates("timestamp", "day")
+
+    # Convert `datetime.date` to timezone-aware `datetime.datetime`
+    business_dates = [
+        {"title": "Business Day", "start": timezone.localtime(timezone.make_aware(datetime.datetime.combine(day, datetime.datetime.min.time()))).isoformat()}
+        for day in business_days
+    ]
+    
+    return JsonResponse(business_dates, safe=False)

@@ -1,0 +1,83 @@
+main {
+    padding: 1rem;
+}
+
+.fc-daygrid-event {
+    cursor: pointer;
+}
+
+#calendar {
+    height: 95dvh;  /* Make calendar take full viewport height */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Apply pointer cursor to entire day cell that has an event */
+.fc-daygrid-day.fc-day-today, 
+.fc-daygrid-day:has(.fc-daygrid-event) {
+    cursor: pointer;
+    background-color: var(--accent-3);
+    max-height: 100%;
+}
+
+dialog>div {
+    height: 95%;
+    display: flex;
+    gap: 1rem;
+    flex-direction: column;
+}
+
+dialog nav {
+    display: flex;
+    justify-content: space-between;
+}
+
+dialog h1 {
+    margin: 0;
+}
+
+iframe {
+    border: none;
+    width: 100%;
+    height: 99%;
+}
+
+#day-stat {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.stat-cell table {
+    border-spacing: .5rem;
+    border-collapse: separate;
+}
+
+.stat-cell table td {
+    text-align: center;
+}
+
+.stat-cell {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
+}
+
+.fc-button.fc-button-primary {
+    background-color: var(--accent-1);
+    border-color: var(--accent-1);
+    color: var(--primary-contrast);
+}
+
+.fc-button.fc-button-primary > span {
+    color: var(--primary-contrast);
+}
+
+.fc-button.fc-button-primary:hover {
+    color: var(--accent-1);
+}
+
+.fc-button.fc-button-primary:hover > span {
+    color: var(--accent-1);
+}
