@@ -2,6 +2,10 @@
 {% load static %}
 {% load i18n %}
 
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/menus.css' %}">
+{% endblock %}
+
 {% block title %}{% trans "Content editing" %}{% endblock %}
 
 {% block content %}

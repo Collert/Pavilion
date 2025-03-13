@@ -1,0 +1,29 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{% static 'new_admin/menus.css' %}">
+{% endblock %}
+
+{% block title %}{% trans "Menus" %}{% endblock %}
+
+{% block content %}
+<main>
+    <h1>
+        {% trans "Menus" %}
+    </h1>
+    <div id="list">
+        {% for menu in menus %}
+            <a href="{% url 'admin-menu-instance' id=menu.id %}" class="menu no-style {% if menu.is_active %}active{% endif %}">
+                <h2>
+                    {{menu.title}}
+                </h2>
+                {% if menu.is_active %}
+                    <small>{% trans "Active" %}</small>
+                {% endif %}
+            </a>
+        {% endfor %}
+    </div>
+</main>
+{% endblock %}

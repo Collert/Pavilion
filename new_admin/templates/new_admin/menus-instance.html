@@ -1,0 +1,178 @@
+{% extends 'new_admin/layout.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{% static 'new_admin/menus.css' %}">
+<link rel="stylesheet" href="{% static 'new_admin/tables.css' %}">
+{% endblock %}
+
+{% block title %}{% trans "Menus" %}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<main>
+    <div id="header">
+        <div>
+            <h1>
+                {{menu.title}}
+            </h1>
+            {% if menu.is_active %}
+            <span id="active-menu-badge">
+                {% trans "Active" %}
+            </span>
+            {% endif %}
+        </div>
+        <nav>
+            <button id="menu-status-toggle" class="icon">
+                {% if menu.is_active %}
+                    <span class="material-symbols-outlined">toggle_off</span>
+                    <span>{% trans "Deactivate <br> menu" %}</span>
+                {% else %}
+                    <span class="material-symbols-outlined">toggle_on</span>
+                    <span>{% trans "Activate <br> menu" %}</span>
+                {% endif %}
+            </button>
+            <button id="edit-colors-button" class="icon">
+                <span class="material-symbols-outlined">palette</span>
+                <span>{% trans "Edit <br> colors" %}</span>
+            </button>
+            <button id="edit-title-button" class="icon">
+                <span class="material-symbols-outlined">edit</span>
+                <span>{% trans "Edit <br> title" %}</span>
+            </button>
+            <button id="delete-menu-button" class="error icon">
+                <span class="material-symbols-outlined">delete</span>
+                <span>{% trans "Delete <br> menu" %}</span>
+            </button>
+        </nav>
+    </div>
+    <table id="dishes" class="resizable">
+        <thead>
+            <tr>
+                <th>{% trans "Dish ID" %}</th>
+                <th>{% trans "Dish name" %}</th>
+                <th>{% trans "Stations" %}</th>
+                <th>{% trans "In stock" %}</th>
+                <th>{% trans "Forced in stock" %}</th>
+                <th>{% trans "Visible" %}</th>
+                <th>{% trans "Actions" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dish in dishes %}
+                <tr>
+                    <td>#{{ dish.id }}</td>
+                    <td>{{ dish.title }}</td>
+                    <td>{{ dish.station }}</td>
+                    <td>
+                        {% if dish.in_stock %}
+                        <span class="material-symbols-outlined">check</span>
+                        {% else %}
+                        <span class="material-symbols-outlined">close</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if dish.force_in_stock %}
+                        <span class="material-symbols-outlined">check</span>
+                        {% else %}
+                        <span class="material-symbols-outlined">close</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if dish.visible_in_menu %}
+                        <span class="material-symbols-outlined">check</span>
+                        {% else %}
+                        <span class="material-symbols-outlined">close</span>
+                        {% endif %}</td>
+                    <td>
+                        <!-- <a class="button icon" href="{% url 'admin-order-retail' id=dish.id %}"><span class="material-symbols-outlined">edit</span></a> -->
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <dialog class="with-nav" id="menu-colors-dialog">
+        <nav>
+            <h2>{% trans "Menu colors" %}</h2>
+            <button class="icon">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </nav>
+        <form action="{% url 'admin-menu-instance' id=menu.id %}" method="post">
+            {% csrf_token %}
+            <div>
+                <div class="accent-wrapper">
+                    <span>Background <br> color:</span>
+                    <input type="color" name="background-color" id="background-color-input" value="{{ menu.background_color }}">
+                </div>
+                <div class="accent-wrapper">
+                    <span>Accent 1:</span>
+                    <input type="color" name="accent-1" id="accent-1-input" value="{{ menu.accent_1 }}">
+                </div>
+                <div class="accent-wrapper">
+                    <span>Accent 2:</span>
+                    <input type="color" name="accent-2" id="accent-2-input" value="{{ menu.accent_2 }}">
+                </div>
+                <div class="accent-wrapper">
+                    <span>Accent 3:</span>
+                    <input type="color" name="accent-3" id="accent-3-input" value="{{ menu.accent_3 }}">
+                </div>
+            </div>
+            <button type="submit">{% trans "Apply" %}</button>
+        </form>
+    </dialog>
+    <dialog class="with-nav" id="menu-title-dialog">
+        <nav>
+            <h2>{% trans "Menu title" %}</h2>
+            <button class="icon">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </nav>
+        <form action="{% url 'admin-menu-instance' id=menu.id %}" method="post">
+            {% csrf_token %}
+            <input type="text" name="title" value="{{ menu.title }}">
+            <button type="submit">{% trans "Apply" %}</button>
+        </form>
+    </dialog>
+</main>
+<script src="{% static 'new_admin/table-resizers.js' %}"></script>
+<script>
+    document.querySelector("#menu-status-toggle").addEventListener("click", () => {
+        fetch(window.location.href, {
+            method: 'PUT',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(response => {
+            if (response.ok) {
+                window.location.href = "{% url 'admin-menus-list' %}";
+            } else {
+                alert("{% trans 'Failed to switch the menu status.' %}");
+            }
+        });
+    });
+    document.querySelector("#delete-menu-button").addEventListener("click", () => {
+        if (confirm("{% trans 'Are you sure you want to delete this menu?' %}")) {
+            fetch(window.location.href, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "{% url 'admin-menus-list' %}";
+                } else {
+                    alert("{% trans 'Failed to delete the menu.' %}");
+                }
+            });
+        }
+    });
+    document.querySelector("#edit-colors-button").addEventListener("click", () => {
+        document.querySelector("#menu-colors-dialog").showModal()
+    });
+    document.querySelector("#edit-title-button").addEventListener("click", () => {
+        document.querySelector("#menu-title-dialog").showModal()
+    });
+</script>
+{% endblock %}

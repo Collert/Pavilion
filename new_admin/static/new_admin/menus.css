@@ -1,0 +1,105 @@
+main {
+    padding: 1rem;
+}
+
+#list {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.menu {
+    border-radius: 10px;
+    border: 2px solid var(--accent-1);
+    aspect-ratio: 1;
+    height: 30vh;
+    max-width: 90vw;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    text-decoration: none;
+    align-content: center;
+}
+.menu.active {
+    border-color: var(--accent-2);
+    background-color: var(--accent-2);
+}
+
+#active-menu-badge {
+    background-color: #80808087;
+    border-radius: 100vh;
+    padding: .5rem;
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    width: fit-content;
+}
+
+#active-menu-badge::before {
+    content: "";
+    background-color: var(--success-color);
+    border-radius: 50%;
+    height: 10px;
+    aspect-ratio: 1;
+}
+
+#header {
+    display: flex;
+    margin-bottom: 1rem;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#header nav {
+    display: flex;
+    gap: 1rem;
+    place-items: center;
+    justify-items: stretch;
+}
+
+#header nav button {
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: initial;
+    height: fit-content;
+    border: none;
+}
+
+#header nav button:hover:not(.error) span {
+    color: var(--background-color);
+}
+
+#menu-colors-dialog > form  { 
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+}
+
+#menu-colors-dialog > form > div {
+    display: flex;
+    justify-content: center;
+}
+
+#menu-colors-dialog > form > button {
+    width: fit-content;
+} 
+
+.accent-wrapper {
+    padding: .5rem;
+    display: grid;
+    gap: 1rem;
+    place-items: end center;
+    text-align: center;
+}
+.accent-wrapper:not(:last-child) {
+    border-right: 1px solid var(--accent-1);
+}
+
+#menu-title-dialog form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+}

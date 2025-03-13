@@ -59,7 +59,7 @@
                     <span>{% trans "Menus" %}</span>
                 </div>
                 <div class="nav-section-body">
-                    <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Menus list" %}</a>
+                    <a class="header-link" href="{% url 'admin-menus-list' %}">{% trans "Menus list" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Create menu" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Dishes" %}</a>
                     <a class="header-link" href="{% url 'admin-dashboard-home' %}">{% trans "Recipes" %}</a>
@@ -163,5 +163,10 @@
     document.querySelector("#portrait-only button").addEventListener("click", e => {
         body.classList.toggle("header-open")
     });
+    document.querySelectorAll("dialog button.icon").forEach(button => {
+        button.addEventListener("click", e => {
+            document.querySelector("dialog[open]").close()
+        });
+    })
 </script>
 </html>

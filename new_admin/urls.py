@@ -11,6 +11,10 @@ urlpatterns = [
     path("dashboard/history", views.dashboard_history, name="admin-dashboard-history"),
     path("dashboard/history/api", views.get_business_dates, name="admin-dashboard-history-new-dates"),
 
+    path("menus", views.menus, name="admin-menus"),
+    path("menus/list", views.menus_list, name="admin-menus-list"),
+    path("menus/<int:id>", views.menu_instance, name="admin-menu-instance"),
+
     path("orders", views.orders, name="admin-orders"),
     path("orders/retail", views.retail_orders, name="admin-orders-retail"),
     path("orders/retail/<int:id>", views.retail_order, name="admin-order-retail"),

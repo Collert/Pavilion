@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.urls import reverse
-from pos_server.models import Order
+from pos_server.models import Order, Menu, Dish
 from online_store.models import PromoContent
 from events.models import Event
 from pos_server.views import collect_order
@@ -31,6 +31,11 @@ def dashboard(request):
 @user_passes_test(lambda u: u.is_superuser)
 def store(request):
     return redirect(reverse("admin-store-branding"))
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def menus(request):
+    return redirect(reverse("admin-menus-list"))
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -244,3 +249,34 @@ def get_business_dates(request):
     ]
     
     return JsonResponse(business_dates, safe=False)
+
+def menus_list(request):
+    menus = Menu.objects.all()
+    return render(request, "new_admin/menus-list.html", {
+        "menus":menus
+    })
+
+def menu_instance(request, id):
+    menu = Menu.objects.get(pk=id)
+    if request.method == "GET":
+        dishes = Dish.objects.filter(menu=menu).all()
+        return render(request, "new_admin/menus-instance.html", {
+            "menu":menu,
+            "dishes":dishes
+        })
+    elif request.method == "POST":
+        menu.background_color = request.POST.get("background-color", menu.background_color)
+        menu.accent_1 = request.POST.get("accent-1", menu.accent_1)
+        menu.accent_2 = request.POST.get("accent-2", menu.accent_2)
+        menu.accent_3 = request.POST.get("accent-3", menu.accent_3)
+        menu.title = request.POST.get("title", menu.title)
+        menu.save()
+        return redirect(reverse("admin-menu-instance", args=[id]))
+    elif request.method == "PUT":
+        menu.is_active = not menu.is_active
+        menu.save()
+        status = "activated" if menu.is_active else "deactivated"
+        return JsonResponse({"message":_(f"Menu {menu.title} {status}!")})
+    elif request.method == "DELETE":
+        menu.delete()
+        return JsonResponse({"message":_(f"Menu {menu.title} deleted!")})
