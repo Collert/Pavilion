@@ -1043,11 +1043,13 @@ def check_card_status(request):
         JsonResponse: A JSON response containing the card status for GET requests,
                       or a confirmation of deletion for DELETE requests.
     """
+    status = cache.get('checkout_card_status')
+    print(status)
     if request.method == "GET":
-        return JsonResponse({"status":cache.get('checkout_card_status')})
+        return JsonResponse({"status":status})
     elif request.method == "DELETE":
         cache.delete('checkout_card_status')
-        return JsonResponse({"status":globals.checkout_card_status})
+        return JsonResponse({"status":status})
 
 def active_orders(request):
     """
