@@ -4,6 +4,7 @@ import uuid
 from django.http import JsonResponse, HttpResponse
 import json
 from pos_server import globals
+from django.core.cache import cache
 from .models import PaymentAuthorization
 
 # Initialize the Square client
@@ -70,7 +71,7 @@ def terminal_checkout(request):
     response = gather_terminal_checkout(amount)
     if response.is_success():
         checkout = response.body
-        globals.checkout_card_status = checkout["checkout"]["status"]
+        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=120)
         return JsonResponse({"message":checkout}, status=200)
     elif response.is_error():
         errors = response.errors
