@@ -71,6 +71,7 @@ def terminal_checkout(request):
     response = gather_terminal_checkout(amount)
     if response.is_success():
         checkout = response.body
+        print(checkout)
         cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=120)
         return JsonResponse({"message":checkout}, status=200)
     elif response.is_error():
