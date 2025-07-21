@@ -163,11 +163,11 @@ if os.getenv('ENVIRONMENT') == "production":
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'heucc_restaurant',
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': 'localhost',
-            'PORT': '',  # Default port
+            'NAME': os.getenv('POSTGRES_DB', 'pavilion_db'),
+            'USER': os.getenv('POSTGRES_USER', 'pavilion_user'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'pavilion_pass'),
+            'HOST': os.getenv('DB_HOST', 'db'),
+            'PORT': os.getenv('DB_PORT', '5432'),
         }
     }
     NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}"
@@ -209,7 +209,7 @@ if os.getenv('ENVIRONMENT') == "production":
             'file': {
                 'level': 'DEBUG',
                 'class': 'logging.FileHandler',
-                'filename': '/home/collert/POS/debug.log',
+                'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
                 'formatter': 'simple',
             },
         },
@@ -280,7 +280,7 @@ PO_FILE_IGNORE_PATTERNS = ["venv/*", "node_modules/*", "migrations/*", ".venv/*"
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = '/home/collert/POS/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') if os.getenv('ENVIRONMENT') == "production" else '/home/collert/POS/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'payments/static/'),
     os.path.join(BASE_DIR, 'static'),

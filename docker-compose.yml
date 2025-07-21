@@ -4,19 +4,30 @@ services:
   web:
     build: .
     container_name: pavilion_app
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - POSTGRES_DB=pavilion_db
+      - POSTGRES_USER=pavilion_user
+      - POSTGRES_PASSWORD=pavilion_pass
+      - DB_HOST=db
+      - DB_PORT=5432
     env_file:
       - pavilion/.env
     depends_on:
       - db
-    # volumes:
-    #   - .:/app  # Syncs local files to the container (useful during development)
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+  # volumes:
+  #   - .:/app  # Syncs local files to the container (useful during development)
 
   db:
     image: postgres:16
     container_name: pavilion_db
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: pavilion_db
       POSTGRES_USER: pavilion_user
@@ -28,3 +39,5 @@ services:
 
 volumes:
   pg_data:
+  static_volume:
+  media_volume:

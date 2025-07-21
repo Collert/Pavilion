@@ -2,7 +2,7 @@ Django
 gunicorn
 squareup
 python-dotenv
-psycopg2
+psycopg2-binary
 cloudinary
 opencv-python 
 scikit-learn 
