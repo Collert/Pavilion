@@ -1,5 +1,5 @@
 # Use official Python 3.9 image
-FROM python:3.9
+FROM python:3.11.8-slim-bullseye
 
 # Set working directory
 WORKDIR /app
@@ -12,7 +12,10 @@ COPY prod.env /app/pavilion/.env
 # Install system dependencies for OpenCV and FFmpeg
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
-    ffmpeg
+    ffmpeg \
+    && apt-get upgrade -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
