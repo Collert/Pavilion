@@ -163,34 +163,44 @@ cardButton.addEventListener("click", e => {
     cardInDialog.showModal();
     const actionLink = e.currentTarget.dataset.actionlink
     createSquarePayment(cart.remainingTotalNum, actionLink)
-    .then(response => {
-        const status = response.status
-        fetch("/restaurant/webhook/square/check_card_status", {
-            headers: {"X-CSRFToken": csrftoken },
-            method:'DELETE'
+        .then(response => {
+            const status = response.status
+            fetch("/restaurant/webhook/square/check_card_status", {
+                headers: { "X-CSRFToken": csrftoken },
+                method: 'DELETE'
+            })
+            cardInDialog.close();
+            cardDoneDialog.querySelector("#transaction-status").textContent = `Transaction ${status.toLowerCase()}!`
+            cardDoneDialog.showModal();
+            if (status === "COMPLETED") {
+                const customerName = document.querySelector("[name='customer-name']").value;
+                const specialInstructions = document.querySelector("[name='special-instructions']").value;
+                const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
+                sendOrder(actionLink, customerName, specialInstructions, toGo);
+                document.querySelector("[name='customer-name']").value = '';
+                document.querySelector("[name='special-instructions']").value = '';
+            }
         })
-        cardInDialog.close();
-        cardDoneDialog.querySelector("#transaction-status").textContent = `Transaction ${status.toLowerCase()}!`
-        cardDoneDialog.showModal();
-        if (status === "COMPLETED") {
-            const customerName = document.querySelector("[name='customer-name']").value;
-            const specialInstructions = document.querySelector("[name='special-instructions']").value;
-            const toGo = document.querySelector("[name='here-to-go']:checked").value === "go";
-            sendOrder(actionLink, customerName, specialInstructions, toGo);
-            document.querySelector("[name='customer-name']").value = '';
-            document.querySelector("[name='special-instructions']").value = '';
-        }
-    })
-    .catch(error => {
-        document.querySelector("dialog[open]").close()
-        errorDialog.querySelector("h2").innerText = error
-        errorDialog.showModal()
-    })
-    .finally(() => {
-        setTimeout(() => {
-            try {document.querySelector("dialog[open]").close()} catch {}
-        }, 10000);
-    });
+        .catch(error => {
+            // Ensure the card dialog is closed
+            if (cardInDialog.open) {
+                cardInDialog.close();
+            }
+            // Clean up the cache status
+            fetch("/restaurant/webhook/square/check_card_status", {
+                headers: { "X-CSRFToken": csrftoken },
+                method: 'DELETE'
+            }).catch(() => { }); // Ignore cleanup errors
+
+            // Show error dialog
+            errorDialog.querySelector("h2").innerText = error.message || error
+            errorDialog.showModal()
+        })
+        .finally(() => {
+            setTimeout(() => {
+                try { document.querySelector("dialog[open]").close() } catch { }
+            }, 10000);
+        });
 })
 
 preCheckoutButton.addEventListener("click", () => {
@@ -223,26 +233,26 @@ discountsLink.addEventListener("click", e => {
 adminAuthorizeForm.addEventListener("submit", e => {
     e.preventDefault();
     fetch("/restaurant/check-su", {
-        headers: {"X-CSRFToken": csrftoken },
-        method:'POST',
+        headers: { "X-CSRFToken": csrftoken },
+        method: 'POST',
         body: JSON.stringify({
-            username:adminAuthorizeForm.querySelector("[name='man-user']").value,
-            password:adminAuthorizeForm.querySelector("[name='man-pass']").value,
+            username: adminAuthorizeForm.querySelector("[name='man-user']").value,
+            password: adminAuthorizeForm.querySelector("[name='man-pass']").value,
         })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.superuser) {
-            suAuthorized = true;
-            adminAuthorizeModal.close();
-            discountModal.showModal();                
-        } else {
-            adminAuthorizeForm.querySelector("span").style.display = "block";
-            adminAuthorizeForm.querySelectorAll("*").forEach(element => {
-                element.classList.add("error")
-            })
-        }
-    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.superuser) {
+                suAuthorized = true;
+                adminAuthorizeModal.close();
+                discountModal.showModal();
+            } else {
+                adminAuthorizeForm.querySelector("span").style.display = "block";
+                adminAuthorizeForm.querySelectorAll("*").forEach(element => {
+                    element.classList.add("error")
+                })
+            }
+        })
 })
 
 scannerButton.addEventListener("click", e => {
@@ -303,23 +313,23 @@ async function fetchInventory() {
 
 function sendOrder(actionLink, customerName, instructions, toGo) {
     fetch(actionLink, {
-        headers: {"X-CSRFToken": csrftoken },
-        method:'POST',
+        headers: { "X-CSRFToken": csrftoken },
+        method: 'POST',
         body: JSON.stringify({
-            cart:cart,
-            name:customerName,
-            instructions:instructions,
-            toGo:toGo
+            cart: cart,
+            name: customerName,
+            instructions: instructions,
+            toGo: toGo
         })
-    }).then(()=>{
+    }).then(() => {
         cart = new Cart()
         resetCard()
         updateCheckoutButton(cart)
         document.querySelector("#cart").innerHTML = ''
         cartChannel.postMessage({
             // id : null, 
-            cart : cart,
-            message : "paid",
+            cart: cart,
+            message: "paid",
             name: customerName
         });
         suAuthorized = isSuperuser;
@@ -336,44 +346,86 @@ function createSquarePayment(amount, actionLink) {
             headers: { "X-CSRFToken": csrftoken },
             method: 'PUT',
             body: JSON.stringify({
-                cart:cart,
+                cart: cart,
                 amount: parseFloat(amount).toFixed(2)
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data)
-            if (data.status === 402) {
-                reject(new Error(data.message));
-            }
-            if (data.message.checkout.status === "PENDING") {
-                checkResponse();
-            } else {
-                reject(new Error('Payment failed'));
-            }
-        })
-        .catch(error => {
-            reject(error);
-        });
-
-        function checkResponse() {
-            fetch("/restaurant/webhook/square/check_card_status")
             .then(response => response.json())
             .then(data => {
                 console.log(data)
-                if (data.status === "COMPLETED") {
-                    resolve(data);
-                } else if (data.status === "CANCELED") {
-                    resolve(data);
+                if (data.status === 402) {
+                    reject(new Error(data.message));
+                }
+                if (data.message.checkout.status === "PENDING") {
+                    checkResponse();
                 } else {
-                    if (cardInDialog.open) {
-                        setTimeout(checkResponse, 1000); // Retry after 1 second
-                    }
+                    reject(new Error('Payment failed'));
                 }
             })
             .catch(error => {
                 reject(error);
             });
+
+        let pollAttempts = 0;
+        const maxPollAttempts = 120; // 2 minutes with 1 second intervals
+        const statusText = document.querySelector("#card-status-text");
+
+        function updateStatusText(message) {
+            if (statusText) {
+                statusText.textContent = message;
+            }
+        }
+
+        function checkResponse() {
+            if (pollAttempts >= maxPollAttempts) {
+                updateStatusText("Payment timeout - please check with staff");
+                reject(new Error('Payment timeout - please check with staff'));
+                return;
+            }
+
+            fetch("/restaurant/webhook/square/check_card_status")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`Poll attempt ${pollAttempts + 1}: Card status check:`, data)
+                    pollAttempts++;
+
+                    if (data.status === "COMPLETED") {
+                        console.log("Payment completed successfully");
+                        updateStatusText("Payment completed successfully!");
+                        resolve(data);
+                    } else if (data.status === "CANCELED") {
+                        console.log("Payment was canceled");
+                        updateStatusText("Payment was canceled");
+                        resolve(data);
+                    } else if (data.status === null || data.status === undefined) {
+                        // Status not yet available in cache, continue polling
+                        console.log("Status not yet available, continuing to poll...");
+                        updateStatusText(`Waiting for payment status... (${pollAttempts}/${maxPollAttempts})`);
+                        setTimeout(checkResponse, 1000);
+                    } else {
+                        // For any other status (like "PENDING"), continue polling
+                        console.log(`Status is ${data.status}, continuing to poll...`);
+                        updateStatusText(`Payment in progress... (${data.status})`);
+                        setTimeout(checkResponse, 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Poll attempt ${pollAttempts + 1} failed:`, error);
+                    pollAttempts++;
+                    // On network errors, retry a few times before giving up
+                    if (pollAttempts < maxPollAttempts) {
+                        updateStatusText(`Connection issue, retrying... (${pollAttempts}/${maxPollAttempts})`);
+                        setTimeout(checkResponse, 1000);
+                    } else {
+                        updateStatusText("Network error - please check with staff");
+                        reject(new Error(`Network error after ${maxPollAttempts} attempts: ${error.message}`));
+                    }
+                });
         }
     });
 }
@@ -400,7 +452,7 @@ document.querySelector("#card-charge-max").addEventListener("click", e => {
 })
 
 document.querySelector("#card-reload").addEventListener("click", e => {
-    
+
 })
 
 document.querySelector("#return-active-gift-card").addEventListener("click", e => {
@@ -419,7 +471,7 @@ function resetCard(newCart = false) {
     document.querySelector("#return-active-gift-card").style.display = "none"
     try {
         document.querySelector("dialog[open]").close()
-    } catch {}
+    } catch { }
     cartChannel.postMessage({
         message: "closeOrderSummary"
     })
@@ -429,58 +481,58 @@ let videoDevice;
 
 async function initCameraSelection() {
     const select = document.getElementById("camera-select");
-  
+
     // Get available video input devices (cameras)
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === "videoinput");
-  
+
     // Populate the select element with available cameras
     videoDevices.forEach((device, index) => {
-      const option = document.createElement("option");
-      option.value = device.deviceId;
-      option.text = device.label || gettext("Camera") + ` ${index + 1}`;
-      select.appendChild(option);
+        const option = document.createElement("option");
+        option.value = device.deviceId;
+        option.text = device.label || gettext("Camera") + ` ${index + 1}`;
+        select.appendChild(option);
     });
-  
+
     // Event listener to change camera
     select.addEventListener("change", () => startScanner(select.value));
-  
+
     // Start with the first camera
     if (videoDevices.length > 0) {
         videoDevice = videoDevices[0].deviceId
         startScanner(videoDevice);
     }
 }
-  
+
 function startScanner(deviceId) {
     try {
         Quagga.stop(); // Stop any previous instance of Quagga
-    } catch {}
-  
+    } catch { }
+
     Quagga.init({
-      inputStream: {
-        type: "LiveStream",
-        target: document.querySelector("#barcode-scanner"),
-        constraints: {
-          deviceId: deviceId,
-          width: 520,
-          height: 360,
-          facingMode: "environment"
+        inputStream: {
+            type: "LiveStream",
+            target: document.querySelector("#barcode-scanner"),
+            constraints: {
+                deviceId: deviceId,
+                width: 520,
+                height: 360,
+                facingMode: "environment"
+            }
+        },
+        decoder: {
+            readers: ["code_128_reader"]
+        },
+        locate: true // Enable locating feature to increase detection accuracy
+    }, function (err) {
+        if (err) {
+            console.error("Quagga initialization error:", err);
+            return;
         }
-      },
-      decoder: {
-        readers: ["code_128_reader"]
-      },
-      locate: true // Enable locating feature to increase detection accuracy
-    }, function(err) {
-      if (err) {
-        console.error("Quagga initialization error:", err);
-        return;
-      }
-      console.log("Barcode scanner initialized with selected camera");
-    //   Quagga.start();
+        console.log("Barcode scanner initialized with selected camera");
+        //   Quagga.start();
     });
-    
+
     Quagga.onDetected(result => {
         if (result && result.codeResult && result.codeResult.code) {
             const code = result.codeResult.code;
@@ -496,6 +548,6 @@ function startScanner(deviceId) {
             console.log("No valid code detected");
         }
     });
-  }
-  
-  document.addEventListener("DOMContentLoaded", initCameraSelection);  
+}
+
+document.addEventListener("DOMContentLoaded", initCameraSelection);  

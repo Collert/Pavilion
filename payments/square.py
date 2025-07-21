@@ -3,7 +3,6 @@ from square.client import Client
 import uuid
 from django.http import JsonResponse, HttpResponse
 import json
-from pos_server import globals
 from django.core.cache import cache
 from .models import PaymentAuthorization
 
@@ -72,7 +71,11 @@ def terminal_checkout(request):
     if response.is_success():
         checkout = response.body
         print(checkout)
-        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=120)
+        checkout_id = checkout["checkout"]["id"]
+        # Store both the status and checkout ID for better tracking
+        # Using 60 second timeout to match active orders caching pattern
+        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=60)
+        cache.set('current_checkout_id', checkout_id, timeout=60)
         return JsonResponse({"message":checkout}, status=200)
     elif response.is_error():
         errors = response.errors

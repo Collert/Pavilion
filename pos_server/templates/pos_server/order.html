@@ -17,13 +17,8 @@
     <div id="items">
         {% for item in items %}
         {% if item.visible_in_menu %}
-        <button 
-            data-id="{{item.id}}"
-            data-has-choices="{{item|has_options}}"
-            data-only-choices="{{item|only_choices}}"
-            class="dish tight" 
-            {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}
-        >
+        <button data-id="{{item.id}}" data-has-choices="{{item|has_options}}" data-only-choices="{{item|only_choices}}"
+            class="dish tight" {% if not item.in_stock and not item.force_in_stock %} disabled {% endif %}>
             <span class="dish-title">{{item.title}}</span>
             <div>
                 <span class="price">${{item.price|floatformat:2}}</span>
@@ -37,7 +32,7 @@
 </div>
 <div id="cart-wrapper">
     <div id="cart">
-        
+
     </div>
     <div id="total-button" class="hidden">
         Total: $<span></span><span id="discount-display"></span>
@@ -55,11 +50,13 @@
             <div id="tenders"></div>
             <div id="tender-total-div">
                 <h2>{% trans "Total:" %} $<span id="tender-total"></span></h2>
-                <button id="reset-partial-payments" class="icon"><span class="material-symbols-outlined">restart_alt</span></button>
+                <button id="reset-partial-payments" class="icon"><span
+                        class="material-symbols-outlined">restart_alt</span></button>
             </div>
         </div>
         <input autocomplete="off" type="text" name="customer-name" placeholder="{% trans 'Customer name' %}">
-        <textarea type="text" name="special-instructions" placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
+        <textarea type="text" name="special-instructions"
+            placeholder='Special instructions E.g. "No onions"/"Extra cheese"'></textarea>
         <div id="here-to-go">
             <input type="radio" id="here-to-go1" name="here-to-go" checked value="here" />
             <label for="here-to-go1" class="here-to-go-label">{% trans "For here" %}</label>
@@ -78,9 +75,9 @@
             <button type="button" class="icon"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <h1 style="text-align: center;">{% trans "How much money<br>did customer give?" %}</h1>
-        <input autocomplete="off" name="cash-provided" step="0.01" placeholder="$" type="number"/>
+        <input autocomplete="off" name="cash-provided" step="0.01" placeholder="$" type="number" />
         <button>{% trans "Accept cash" %}</button>
-    </form>   
+    </form>
 </dialog>
 <dialog id="cash-change">
     <nav>
@@ -94,6 +91,14 @@
         <h2>{% trans "Pass the terminal to customer..."%}</h2>
         <button class="icon"><span class="material-symbols-outlined">close</span></button>
     </nav>
+    <div style="text-align: center; padding: 2rem;">
+        <div style="margin-bottom: 1rem;">
+            <span class="material-symbols-outlined"
+                style="font-size: 3rem; animation: pulse 2s infinite;">credit_card</span>
+        </div>
+        <p id="card-status-text">{% trans "Waiting for customer to complete payment..." %}</p>
+        <small style="color: #666;">{% trans "Status will update automatically" %}</small>
+    </div>
 </dialog>
 <dialog id="card-done">
     <nav>

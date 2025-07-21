@@ -34,7 +34,7 @@ main#pos {
     padding: 2rem;
 }
 
-.dish > div {
+.dish>div {
     display: flex;
     justify-content: space-around;
 }
@@ -107,13 +107,14 @@ main#pos {
         grid-template-columns: none;
         grid-template-rows: 1fr auto;
     }
+
     #cart {
         height: auto;
     }
 }
 
 
-#tender > div,
+#tender>div,
 #cash-in form {
     display: grid;
     gap: 1rem;
@@ -135,15 +136,18 @@ main#pos {
     grid-template-rows: auto 1fr auto;
     padding: 1rem;
 }
-#terminal-setup > * {
+
+#terminal-setup>* {
     display: grid;
     place-items: center;
 }
-#terminal-setup > span {
+
+#terminal-setup>span {
     font-size: 40vh;
     font-weight: 700;
 }
-#terminal-setup > div {
+
+#terminal-setup>div {
     display: flex;
     justify-content: center;
 }
@@ -157,7 +161,7 @@ main#pos {
     display: none;
 }
 
-#here-to-go input[type="radio"] + label {
+#here-to-go input[type="radio"]+label {
     display: inline-block;
     background-color: var(--primary-background);
     color: var(--primary-contrast);
@@ -175,20 +179,20 @@ main#pos {
     border-radius: 0 100vh 100vh 0;
 }
 
-#here-to-go input[type="radio"]:checked + label {
+#here-to-go input[type="radio"]:checked+label {
     background-color: var(--primary-contrast);
     color: var(--primary-background);
     border-color: var(--primary-contrast);
 }
 
-#card-scanner > div,
-#gift-card-dialog > div {
+#card-scanner>div,
+#gift-card-dialog>div {
     display: grid;
     place-items: center;
     gap: .75rem;
 }
 
-#card-scanner > div select {
+#card-scanner>div select {
     background-color: var(--primary-background);
     border: 1px solid var(--primary-contrast);
     border-radius: 100vh;
@@ -209,11 +213,12 @@ h2.error {
     border-radius: 20px;
     box-shadow: var(--primary-contrast) 0px 0px 17px;
 }
+
 #gift-card-dialog h4 {
     margin: 0;
 }
 
-#card-actions{
+#card-actions {
     display: flex;
     gap: 1rem;
     align-items: center;
@@ -223,7 +228,7 @@ h2.error {
     height: 100%;
 }
 
-#card-actions > form {
+#card-actions>form {
     display: flex;
     flex-direction: column;
     gap: .5rem;
@@ -243,10 +248,10 @@ h2.error {
     grid-template-columns: 1fr auto;
 }
 
-#new-cash-drawer > button, 
-#result-cash-drawer > button, 
-#close-cash-drawer > button { 
-    grid-area: 11 / 1 / 12 / 3; 
+#new-cash-drawer>button,
+#result-cash-drawer>button,
+#close-cash-drawer>button {
+    grid-area: 11 / 1 / 12 / 3;
 }
 
 #new-cash-drawer label,
@@ -280,4 +285,19 @@ h2.error {
 
 #error-dialog {
     --primary-background: var(--error-color);
+}
+
+/* Card payment dialog animations */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }

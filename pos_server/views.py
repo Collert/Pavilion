@@ -1024,8 +1024,18 @@ def square_webhook(request):
     if is_from_square:
         # Process the webhook data
         webhook_data = json.loads(request.body.decode('utf8'))
-        cache.set('checkout_card_status', webhook_data["data"]["object"]["checkout"]["status"], timeout=120)
-        globals.checkout_card_status = webhook_data["data"]["object"]["checkout"]["status"]
+        checkout_id = webhook_data["data"]["object"]["checkout"]["id"]
+        current_checkout_id = cache.get('current_checkout_id')
+        
+        # Only update status if this matches our current checkout
+        if current_checkout_id and checkout_id == current_checkout_id:
+            status = webhook_data["data"]["object"]["checkout"]["status"]
+            # Using 60 second timeout to match active orders caching pattern
+            cache.set('checkout_card_status', status, timeout=60)
+            print(f"Updated checkout status: {status} for checkout ID: {checkout_id}")
+        else:
+            print(f"Received webhook for different checkout ID: {checkout_id}, current: {current_checkout_id}")
+        
         return HttpResponse('Webhook processed', status=200)
     else:
         print("invalid signature")
@@ -1044,12 +1054,14 @@ def check_card_status(request):
                       or a confirmation of deletion for DELETE requests.
     """
     status = cache.get('checkout_card_status')
-    print(status)
+    print(f"Card status from cache: {status}")
     if request.method == "GET":
-        return JsonResponse({"status":status})
+        # Return explicit null status if not found in cache
+        return JsonResponse({"status": status if status is not None else None})
     elif request.method == "DELETE":
         cache.delete('checkout_card_status')
-        return JsonResponse({"status":status})
+        cache.delete('current_checkout_id')  # Clean up checkout ID as well
+        return JsonResponse({"status": status if status is not None else None})
 
 def active_orders(request):
     """
