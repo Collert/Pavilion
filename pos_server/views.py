@@ -32,6 +32,9 @@ from django.core.cache import cache
 from gift_cards.models import GiftCard
 from online_store.models import RejectedOrder
 from django.utils.translation import gettext_lazy as _
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create a configparser object
 file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -378,6 +381,7 @@ def pos(request):
         for dish_id, quantity in dish_counts.items():
             dish = dishes_map.get(dish_id)
             if not dish:
+                logger.warning(f"Dish with id {dish_id} not found while processing POS order")
                 continue
             if check_if_only_choice_dish(dish):
                 continue
@@ -1176,8 +1180,8 @@ def collect_order(order, done=False):
     """
     if not order:
         return None
-    # Fetch related OrderDish instances for each order
-    order_dishes = OrderDish.objects.filter(order=order)
+    # Use prefetched OrderDish instances from order.orderdish_set if available
+    order_dishes = order.orderdish_set.all()
 
     # Prepare dish details for this order
     dishes_data = []
@@ -1189,6 +1193,9 @@ def collect_order(order, done=False):
             'station': od.dish.station
         })
 
+    # Use prefetched delivery data if available
+    delivery = order.delivery.first() if hasattr(order, 'delivery') else None
+    
     # Add the order and its dishes to the orders_data list
     return({
         'order_id': order.id,
@@ -1197,7 +1204,7 @@ def collect_order(order, done=False):
         'to_go_order':order.to_go_order,
         'channel':order.channel,
         'phone':order.phone,
-        'address':order.delivery.first().destination if order.delivery.first() else None,
+        'address':delivery.destination if delivery else None,
         "special_instructions": order.special_instructions,
         "timestamp":order.timestamp.isoformat(),
         "timestamp_pretty":order.timestamp,

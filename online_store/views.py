@@ -23,6 +23,9 @@ from django.db.models import Q
 from django.conf import settings
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from django.utils.translation import gettext_lazy as _
+import logging
+
+logger = logging.getLogger(__name__)
 
 def menu(request):
     """
@@ -255,6 +258,7 @@ def place_order(request):
             for dish_id, quantity in dish_counts.items():
                 dish = dishes_map.get(dish_id)
                 if not dish:
+                    logger.warning(f"Dish with id {dish_id} not found while processing online order")
                     continue
                 if check_if_only_choice_dish(dish):
                     continue
