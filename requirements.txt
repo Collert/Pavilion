@@ -17,3 +17,5 @@ python-barcode
 sendgrid
 pywebpush
 whitenoise
+channels
+daphne

@@ -3,8 +3,12 @@ import setClock from "./clock.js";
 
 const inProgressCol = document.querySelector("#col-1 div");
 const readyCol = document.querySelector("#col-2 div");
-const pollEverySecs = 5;
-const pollEveryMilisecs = pollEverySecs * 1000;
+
+// WebSocket connection for real-time order updates
+let ordersSocket = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 10;
+const reconnectDelay = 3000;
 
 const namedAnnouncements = [
     "${name}, your order is ready to go!",
@@ -47,41 +51,154 @@ getLocation();
 getWeather(window.sessionStorage.getItem("latitude"), window.sessionStorage.getItem("longitude"));
 setClock(clock);
 
-let ordersState;
-getOrdersFirst();
-async function getOrdersFirst() {
-    ordersState = await fetchOrders();
-    console.log(ordersState);
-}
+let ordersState = {
+    in_progress: [],
+    ready: []
+};
 
-setInterval(async () => {
-    const newOrders = await fetchOrders()
-    if (newOrders.length >= ordersState.length) {
-        newOrders.forEach(order => {
-            let existingOrder = ordersState.find(item => item.order_id === order.order_id)
-            if (!existingOrder) {
-                appendNewOrder(order);
-            } else if (existingOrder && existingOrder.kitchen_done !== order.kitchen_done) {
-                markOrderReady(order);
-            } else if (existingOrder && existingOrder.picked_up !== order.picked_up) {
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/order-progress/`;
     
-            }
-        })
-    } else {
-        ordersState.forEach(oldOrder => {
-            if (!newOrders.some(item => item.order_id === oldOrder.order_id)) {
-                removeOrder(oldOrder)
-            }
-        })
-    }
-    ordersState = newOrders
-}, pollEveryMilisecs);
-
-async function fetchOrders() {
-    const data = await fetch(checkOrdersLink);
-    const array = await data.json()
-    return array.filter(item => item.kitchen_needed);
+    ordersSocket = new WebSocket(wsUrl);
+    
+    ordersSocket.onopen = function(e) {
+        console.log('WebSocket connected for order progress');
+        reconnectAttempts = 0;
+    };
+    
+    ordersSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+    };
+    
+    ordersSocket.onclose = function(e) {
+        console.log('WebSocket closed. Attempting to reconnect...');
+        if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            setTimeout(connectWebSocket, reconnectDelay);
+        }
+    };
+    
+    ordersSocket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+    };
 }
+
+function handleWebSocketMessage(data) {
+    if (data.type === 'initial_orders') {
+        // Initial orders received on connection
+        ordersState = data.orders;
+        processInitialOrders(data.orders);
+    } else if (data.type === 'order_created') {
+        // New order created
+        if (data.order && isKitchenOrder(data.order)) {
+            handleOrderUpdate(data.order);
+        }
+    } else if (data.type === 'order_updated') {
+        // Order updated
+        if (data.order) {
+            handleOrderUpdate(data.order);
+        }
+    } else if (data.type === 'order_deleted') {
+        // Order deleted
+        removeOrderById(data.order_id);
+    }
+}
+
+function isKitchenOrder(order) {
+    // Check if this is an order that requires kitchen work
+    return order.kitchen_status !== 4;
+}
+
+function processInitialOrders(orders) {
+    // Clear existing displays
+    inProgressCol.innerHTML = '';
+    readyCol.innerHTML = '';
+    
+    // Populate in progress orders
+    if (orders.in_progress) {
+        orders.in_progress.forEach(order => {
+            appendNewOrder(order);
+        });
+    }
+    
+    // Populate ready orders
+    if (orders.ready) {
+        orders.ready.forEach(order => {
+            appendReadyOrder(order);
+        });
+    }
+}
+
+function handleOrderUpdate(order) {
+    if (!isKitchenOrder(order)) return;
+    
+    const existingInProgress = ordersState.in_progress?.find(o => o.order_id === order.order_id);
+    const existingReady = ordersState.ready?.find(o => o.order_id === order.order_id);
+    
+    // Determine current state of order
+    const isInProgress = order.kitchen_status === 1;
+    const isReady = order.kitchen_status === 2 && !order.picked_up;
+    const isPickedUp = order.picked_up;
+    
+    if (isPickedUp) {
+        // Order picked up - remove from display
+        removeOrderById(order.order_id);
+        ordersState.in_progress = ordersState.in_progress?.filter(o => o.order_id !== order.order_id) || [];
+        ordersState.ready = ordersState.ready?.filter(o => o.order_id !== order.order_id) || [];
+    } else if (isReady) {
+        // Order is ready
+        if (!existingReady) {
+            if (existingInProgress) {
+                // Move from in progress to ready
+                markOrderReady(order);
+                ordersState.in_progress = ordersState.in_progress?.filter(o => o.order_id !== order.order_id) || [];
+            } else {
+                // New ready order
+                appendReadyOrder(order);
+            }
+            ordersState.ready = ordersState.ready || [];
+            ordersState.ready.push(order);
+        }
+    } else if (isInProgress) {
+        // Order is in progress
+        if (!existingInProgress) {
+            appendNewOrder(order);
+            ordersState.in_progress = ordersState.in_progress || [];
+            ordersState.in_progress.push(order);
+        }
+    }
+}
+
+function appendReadyOrder(data) {
+    const existingOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
+    if (existingOrder && readyCol.contains(existingOrder)) return;
+    
+    const newOrder = document.createElement("span");
+    const text = document.createElement("span");
+    text.textContent = data.name ? data.name : `Order #${data.order_id}`;
+    newOrder.appendChild(text);
+    newOrder.dataset.orderId = data.order_id;
+    newOrder.dataset.dishQty = data.dishes?.length || 0;
+    newOrder.dataset.dish = data.dishes?.[0]?.name || '';
+    readyCol.appendChild(newOrder);
+}
+
+function removeOrderById(orderId) {
+    const existingOrder = document.querySelector(`span[data-order-id="${orderId}"]`);
+    if (existingOrder) {
+        existingOrder.classList.add("remove");
+        setTimeout(() => {
+            try {
+                existingOrder.parentElement.removeChild(existingOrder);
+            } catch {}
+        }, 500);
+    }
+}
+
+// Initialize WebSocket connection
+connectWebSocket();
 
 function updateWeather(weather) {
     const icon = document.querySelector("#weather-icon");
@@ -223,12 +340,16 @@ function appendNewOrder(data) {
 
 function markOrderReady(data) {
     const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
-    if (data.done) {
+    if (!oldOrder) return;
+    
+    if (data.done || data.picked_up) {
         try {
             console.log("finished")
             oldOrder.classList.add("remove");
             setTimeout(() => {
-                readyCol.removeChild(oldOrder)
+                try {
+                    oldOrder.parentElement.removeChild(oldOrder);
+                } catch {}
             }, 500);
             return
         } catch (error) {}
@@ -239,23 +360,26 @@ function markOrderReady(data) {
     text.textContent = data.name ? data.name : `Order #${data.order_id}`;
     newOrder.appendChild(text)
     newOrder.dataset.orderId = data.order_id;
-    newOrder.dataset.dishQty = data.dishes.length;
-    newOrder.dataset.dish = data.dishes[0].name;
-    newOrder.dataset.barDone === data.bar_done
+    newOrder.dataset.dishQty = data.dishes?.length || 0;
+    newOrder.dataset.dish = data.dishes?.[0]?.name || '';
     oldOrder.classList.add("remove");
     setTimeout(() => {
-        inProgressCol.removeChild(oldOrder)
+        try {
+            inProgressCol.removeChild(oldOrder)
+        } catch {}
     }, 500);
     readyCol.appendChild(newOrder);
     announceOrderReady(data)
 }
 
 function removeOrder(data) {
-    if (!data.kitchen_needed) {return}
     const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
+    if (!oldOrder) return;
     oldOrder.classList.add("remove");
     setTimeout(() => {
-        readyCol.removeChild(oldOrder)
+        try {
+            oldOrder.parentElement.removeChild(oldOrder);
+        } catch {}
     }, 500);
 }
 
