@@ -37,6 +37,10 @@ def ready_orders(request):
     """
     courier = check_if_active_courier(request)
     today = timezone.localdate()
+    
+    # Filter orders that are ready for delivery
+    # An order is ready when all legacy stations are complete (2 or 4)
+    # and no dynamic stations are pending (0) or in progress (1)
     orders = Delivery.objects.filter(
         order__kitchen_status__in = [2, 4],
         order__bar_status__in = [2, 4],
@@ -44,7 +48,13 @@ def ready_orders(request):
         completed=False,
         order__picked_up=False,
         timestamp__date=today
-    )
+    ).exclude(
+        # Exclude orders with pending or in-progress dynamic stations
+        order__status_0_stations__isnull=False
+    ).exclude(
+        order__status_1_stations__isnull=False
+    ).distinct()
+    
     if courier:
         for d in Delivery.objects.filter(completed = False).all():
             if d.courier == request.user:

@@ -160,11 +160,11 @@
 <script>
     const stations = JSON.parse('{{stations|safe}}')
     const filters = JSON.parse('{{filters|safe}}')
-    const orderFilters = {
-        kitchen:filters.includes("kitchen"),
-        bar:filters.includes("bar"),
-        gng:filters.includes("gng")
-    }
+    // Create orderFilters dynamically based on available stations
+    const orderFilters = {}
+    stations.forEach(station => {
+        orderFilters[station] = filters.includes(station)
+    })
 </script>
 <script> 
     const checkOrdersLink = "{% url 'active_orders' %}";
@@ -174,21 +174,16 @@
     document.querySelector("#filters-form")?.addEventListener("submit", e => {
         e.preventDefault()
         let query = '?'
-        if (e.currentTarget.querySelector("#kitchen-filter").checked) {
-            query += "filter=kitchen"
-        }
-        if (e.currentTarget.querySelector("#bar-filter").checked) {
+        
+        // Collect all checked filter checkboxes dynamically
+        const filterCheckboxes = e.currentTarget.querySelectorAll('input[name="filter"]:checked')
+        filterCheckboxes.forEach((checkbox, index) => {
             if (query !== "?") {
                 query += "&"
             }
-            query += "filter=bar"
-        }
-        if (e.currentTarget.querySelector("#gng-filter").checked) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += "filter=gng"
-        }
+            query += `filter=${checkbox.value}`
+        })
+        
         if (e.currentTarget.querySelector("#auto-done-input").value) {
             if (query !== "?") {
                 query += "&"
@@ -201,7 +196,6 @@
             }
             query += `auto-collect=${e.currentTarget.querySelector("#auto-collect-input").value}`
         }
-        // const url = new URL()
         window.location.replace(window.location.href.split('?')[0] + query) 
     })
 </script>
@@ -219,18 +213,30 @@
         <div class="preference-categories">
             <div class="preference-category">
                 <h2>{% trans "Filters" %}</h2>
-                <div class="filter-switch">
-                    <input {% if "kitchen" in filters %}checked{% endif %} type="checkbox" name="filter" id="kitchen-filter">
-                    <label for="kitchen-filter">{% trans "Hot food" %}</label>
-                </div>
-                <div class="filter-switch">
-                    <input {% if "bar" in filters %}checked{% endif %} type="checkbox" name="filter" id="bar-filter">
-                    <label for="bar-filter">{% trans "Drinks & sweets" %}</label>
-                </div>
-                <div class="filter-switch">
-                    <input {% if "gng" in filters %}checked{% endif %} type="checkbox" name="filter" id="gng-filter">
-                    <label for="gng-filter">{% trans "Frozen products" %}</label>
-                </div>
+                {% if station_info %}
+                    {% for station in station_info %}
+                    <div class="filter-switch">
+                        <input {% if station.code in filters %}checked{% endif %} type="checkbox" name="filter" value="{{ station.code }}" id="{{ station.code }}-filter">
+                        <label for="{{ station.code }}-filter">
+                            <span class="material-symbols-outlined">{{ station.icon }}</span>
+                            {{ station.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="filter-switch">
+                        <input {% if "kitchen" in filters %}checked{% endif %} type="checkbox" name="filter" value="kitchen" id="kitchen-filter">
+                        <label for="kitchen-filter">{% trans "Hot food" %}</label>
+                    </div>
+                    <div class="filter-switch">
+                        <input {% if "bar" in filters %}checked{% endif %} type="checkbox" name="filter" value="bar" id="bar-filter">
+                        <label for="bar-filter">{% trans "Drinks & sweets" %}</label>
+                    </div>
+                    <div class="filter-switch">
+                        <input {% if "gng" in filters %}checked{% endif %} type="checkbox" name="filter" value="gng" id="gng-filter">
+                        <label for="gng-filter">{% trans "Frozen products" %}</label>
+                    </div>
+                {% endif %}
             </div>
             <div class="preference-category">
                 <h2>{% trans "Auto-done" %}</h2>

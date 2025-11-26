@@ -50,6 +50,7 @@ def menu(request):
         others (dict): A dictionary where keys are titles of inactive menus and values are dictionaries
                        of grouped dishes by station.
         override_menu (str): The primary key of the menu to be set as active, if provided in the query parameters.
+        station_info (dict): Information about all stations for display purposes.
     """
     query = request.GET.get('actual', None)
     if query:
@@ -62,20 +63,28 @@ def menu(request):
     active_dishes = Dish.objects.filter(menu=active)
     grouped_active = defaultdict(list)
     for dish in active_dishes:
-        grouped_active[dish.station].append({"obj":dish,"json":json.dumps([dish.serialize_with_options()])})
+        station_code = dish.station_code  # Uses new_station.code or falls back to old station field
+        grouped_active[station_code].append({"obj":dish,"json":json.dumps([dish.serialize_with_options()])})
     others = Menu.objects.filter(is_active = False).all()
     grouped_other_menus = defaultdict(dict)
     for menu_obj in others:
         this_grouped = defaultdict(list)
         this_dishes = Dish.objects.filter(menu=menu_obj)
         for dish in this_dishes:
-            this_grouped[dish.station].append(dish)
+            station_code = dish.station_code
+            this_grouped[station_code].append(dish)
         grouped_other_menus[menu_obj.title] = dict(this_grouped)
+    
+    # Get station info for display
+    all_stations = Station.objects.all()
+    station_info = {s.code: {"name": s.friendly_name, "icon": s.icon} for s in all_stations}
+    
     return render(request, "online_store/menu.html", {
         "route":"menu",
         "menu":{"menu":active, "dishes":dict(grouped_active)},
         "others":dict(grouped_other_menus),
-        "override_menu": query
+        "override_menu": query,
+        "station_info": station_info
     })
 
 def dish(request, id):
@@ -241,15 +250,23 @@ def place_order(request):
                 dish = Dish.objects.get(id=dish_id)
                 if check_if_only_choice_dish(dish):
                     continue
-                if dish.station == "bar":
-                    order.bar_status = 0
+                
+                # Use new dynamic station system
+                if dish.new_station:
+                    order.set_station_status(dish.new_station, 0)  # Set to pending
                     order.picked_up = False
-                elif dish.station == "kitchen":
-                    order.kitchen_status = 0
-                    order.picked_up = False
-                elif dish.station == "gng":
-                    order.gng_status = 0
-                    order.picked_up = False
+                else:
+                    # Fallback to legacy station handling
+                    if dish.station == "bar":
+                        order.bar_status = 0
+                        order.picked_up = False
+                    elif dish.station == "kitchen":
+                        order.kitchen_status = 0
+                        order.picked_up = False
+                    elif dish.station == "gng":
+                        order.gng_status = 0
+                        order.picked_up = False
+                
                 for dc in dish.dishcomponent_set.all():
                     if dc.component.crafting_option == "auto":
                         craft_component(dc.component.id, 1)

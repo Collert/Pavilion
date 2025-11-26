@@ -116,40 +116,60 @@ def order_marking(request):
     """
     if request.method == "GET":
         today = timezone.localdate()
-        stations = ["kitchen", "bar", "gng"]
+        # Get all dynamic stations
+        all_stations = Station.objects.all()
+        station_codes = list(all_stations.values_list('code', flat=True))
+        # Include legacy station codes for backward compatibility
+        legacy_stations = ["kitchen", "bar", "gng"]
+        all_station_codes = list(set(station_codes + legacy_stations))
+        
         filters = request.GET.getlist('filter')
         print(filters)
+        
         # Fetch all orders
         conditions = Q(picked_up=False) & Q(start_time__lte=now()) & Q(timestamp__date=today)
-        status_conditions = Q()
-        for station in stations:
+        
+        # Build status conditions for legacy stations
+        legacy_status_conditions = Q()
+        for station in legacy_stations:
             if station in filters:
-                status_conditions |= ~Q(**{f"{station}_status__in": [3, 4]})
-            else:
-                status_conditions |= ~Q(**{f"{station}_status__in": [0, 1, 2, 3, 4]})
-        conditions &= status_conditions
-        orders = Order.objects.filter(conditions)
+                legacy_status_conditions |= ~Q(**{f"{station}_status__in": [3, 4]})
+        
+        # Build status conditions for dynamic stations
+        dynamic_status_conditions = Q()
+        for station_code in filters:
+            try:
+                station = Station.objects.get(code=station_code)
+                # Check if order has this station in status 0, 1, or 2 (pending, approved, completed)
+                dynamic_status_conditions |= Q(status_0_stations=station) | Q(status_1_stations=station) | Q(status_2_stations=station)
+            except Station.DoesNotExist:
+                pass
+        
+        if filters:
+            conditions &= (legacy_status_conditions | dynamic_status_conditions)
+        
+        orders = Order.objects.filter(conditions).distinct()
         print(orders)
 
         # Prepare data for each order
         orders_data = []
         for order in orders:
             orders_data.append(collect_order(order))
+        
+        # Get station info for the filter UI
+        station_info = [{"code": s.code, "name": s.friendly_name, "icon": s.icon} for s in all_stations]
+        
         return render(request, "pos_server/order-marking.html", {
             "route":"markings",
             'orders': orders_data,
             "filters":json.dumps(filters),
-            "stations":json.dumps(stations)
+            "stations":json.dumps(all_station_codes),
+            "station_info": station_info
         })
     elif request.method == "DELETE":
         # Mark order as picked up
         order_id = json.loads(request.body)["orderId"]
         order = Order.objects.get(id=order_id)
-        station_mappings = {
-            "kitchen": order.kitchen_status,
-            "bar": order.bar_status,
-            "gng": order.gng_status,
-        }
         order.picked_up = True
         order.save()
         return JsonResponse({"status":"Order marked picked up"}, status=200)
@@ -159,18 +179,30 @@ def order_marking(request):
         filters = json.loads(request.body)["filters"]
         order = Order.objects.get(id=order_id)
 
-        station_mappings = {
+        # Legacy station mappings for backward compatibility
+        legacy_station_mappings = {
             "kitchen": "kitchen_status",
             "bar": "bar_status",
             "gng": "gng_status",
         }
 
-        for station in filters:
-            if station in station_mappings:
-                field_name = station_mappings[station]
-                current_value = getattr(order, field_name)  # Get the current value of the attribute
-                if current_value != 4:  # Only update if the current value is not 4
-                    setattr(order, field_name, 2)
+        for station_code in filters:
+            # Try legacy station first
+            if station_code in legacy_station_mappings:
+                field_name = legacy_station_mappings[station_code]
+                current_value = getattr(order, field_name)
+                if current_value != 4:  # Only update if not "not required"
+                    setattr(order, field_name, 2)  # Set to completed
+            
+            # Also update dynamic station status
+            try:
+                station = Station.objects.get(code=station_code)
+                current_status = order.get_station_status(station)
+                if current_status != 4:  # Only update if not "not required"
+                    order.set_station_status(station, 2)  # Set to completed
+            except Station.DoesNotExist:
+                pass
+        
         order.save()
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
@@ -180,21 +212,43 @@ def order_marking(request):
         order_id = body["orderId"]
         action = body["action"]
         order = Order.objects.get(id=order_id)
-        station_mappings = {
+        
+        # Legacy station mappings for backward compatibility
+        legacy_station_mappings = {
             "kitchen": "kitchen_status",
             "bar": "bar_status",
             "gng": "gng_status",
         }
+        
         payment_id = order.authorization.payment_id if order.authorization else None
         if action == "approve":
-            for station in filters:
-                if station in station_mappings:
-                    field_name = station_mappings[station]
-                    current_value = getattr(order, field_name)  # Get the current value of the attribute
-                    if current_value != 4:  # Only update if the current value is not 4
-                        setattr(order, field_name, 1)
+            for station_code in filters:
+                # Try legacy station first
+                if station_code in legacy_station_mappings:
+                    field_name = legacy_station_mappings[station_code]
+                    current_value = getattr(order, field_name)
+                    if current_value != 4:  # Only update if not "not required"
+                        setattr(order, field_name, 1)  # Set to approved
+                
+                # Also update dynamic station status
+                try:
+                    station = Station.objects.get(code=station_code)
+                    current_status = order.get_station_status(station)
+                    if current_status != 4:  # Only update if not "not required"
+                        order.set_station_status(station, 1)  # Set to approved
+                except Station.DoesNotExist:
+                    pass
+            
             order.save()
-            all_approved = order.kitchen_status in [1,4] and order.bar_status in [1,4] and order.gng_status in [1,4]
+            
+            # Check if all stations are approved or not required
+            all_approved = order.all_stations_complete() or (
+                order.kitchen_status in [1, 2, 4] and 
+                order.bar_status in [1, 2, 4] and 
+                order.gng_status in [1, 2, 4] and
+                not order.status_0_stations.exists()
+            )
+            
             return JsonResponse({
                 "status":"Order marked approved", 
                 "action":action, 
@@ -330,10 +384,15 @@ def pos(request):
         # Sort dishes by ID before grouping to ensure consistent ordering
         dishes = Dish.objects.filter(menu=menu).order_by('id')
         
-        # Group dishes by station
+        # Group dishes by station using new_station if available
         grouped_dishes = defaultdict(list)
         for dish in dishes:
-            grouped_dishes[dish.station].append(dish)
+            station_key = dish.station_code  # Uses new_station.code or falls back to old station field
+            grouped_dishes[station_key].append(dish)
+        
+        # Get all stations for proper ordering and display names
+        all_stations = Station.objects.all()
+        station_info = {s.code: {"name": s.friendly_name, "icon": s.icon} for s in all_stations}
         
         # Sort each group of dishes by ID to ensure stable ordering within each station
         sorted_grouped_dishes = {station: sorted(items, key=lambda x: x.id) for station, items in grouped_dishes.items()}
@@ -343,7 +402,8 @@ def pos(request):
             "menu": sorted_grouped_dishes,
             "menu_title": menu.title,
             "json": json.dumps([dish.serialize_with_options() for dish in dishes]),
-            "menus": Menu.objects.all()
+            "menus": Menu.objects.all(),
+            "station_info": station_info
         })
     elif request.method == "POST":
         body = json.loads(request.body)
@@ -361,15 +421,23 @@ def pos(request):
             dish = Dish.objects.get(id=dish_id)
             if check_if_only_choice_dish(dish):
                 continue
-            if dish.station == "bar":
-                new_order.bar_status = 1
+            
+            # Use new dynamic station system
+            if dish.new_station:
+                new_order.set_station_status(dish.new_station, 1)  # Set to approved
                 new_order.picked_up = False
-            elif dish.station == "kitchen":
-                new_order.kitchen_status = 1
-                new_order.picked_up = False
-            elif dish.station == "gng":
-                new_order.gng_status = 1
-                new_order.picked_up = False
+            else:
+                # Fallback to legacy station handling
+                if dish.station == "bar":
+                    new_order.bar_status = 1
+                    new_order.picked_up = False
+                elif dish.station == "kitchen":
+                    new_order.kitchen_status = 1
+                    new_order.picked_up = False
+                elif dish.station == "gng":
+                    new_order.gng_status = 1
+                    new_order.picked_up = False
+            
             for dc in dish.dishcomponent_set.all():
                 if dc.component.crafting_option == "auto":
                     craft_component(dc.component.id, 1)
@@ -652,11 +720,12 @@ def day_stats(request):
                 else:
                     stats["item_stats"][item.title] += 1
 
-                # Count the distribution of dishes across stations
-                if item.station not in stats["stations"]:
-                    stats["stations"][item.station] = 1
+                # Count the distribution of dishes across stations using station_code
+                station_code = item.station_code
+                if station_code not in stats["stations"]:
+                    stats["stations"][station_code] = 1
                 else:
-                    stats["stations"][item.station] += 1
+                    stats["stations"][station_code] += 1
 
                 # Track the quantity of each component used in the dish
                 for dc in item.dishcomponent_set.all():
@@ -728,18 +797,19 @@ def compile_menu(menu):
 
     Returns:
         tuple: A tuple containing:
-            - categories (dict): A dictionary with keys 'kitchen', 'bar', and 'gng', each containing a list of prettified dishes.
+            - categories (dict): A dictionary with station codes as keys, each containing a list of prettified dishes.
             - components_out (bool): A boolean indicating if components are out (always False in this implementation).
     """
     components_out = False
-    categories = {
-        "kitchen":[],
-        "bar":[],
-        "gng":[],
-    }
+    
+    # Get all stations and initialize categories dynamically
+    categories = defaultdict(list)
+    
     for dish in menu.dishes.all().order_by("id"):
-        categories[dish.station].append(prettify_dish(dish))
-    return categories, components_out
+        station_code = dish.station_code  # Uses new_station.code or falls back to old station field
+        categories[station_code].append(prettify_dish(dish))
+    
+    return dict(categories), components_out
 
 def prettify_dish(dish):
     """
@@ -1129,6 +1199,7 @@ def collect_order(order, done=False):
             - done (bool): Indicates if the order is done.
             - bar_status (str): The bar status of the order.
             - gng_status (str): The grab-and-go status of the order.
+            - station_statuses (dict): Dynamic station statuses mapping station code to status.
             - picked_up (bool): Indicates if the order has been picked up.
             - payment_id (str): The payment ID associated with the order authorization, if available.
     """
@@ -1144,8 +1215,11 @@ def collect_order(order, done=False):
             'name': od.dish.title,
             'quantity': od.quantity,
             'price': od.dish.price,
-            'station': od.dish.station
+            'station': od.dish.station_code  # Use station_code for backward compatibility
         })
+    
+    # Get dynamic station statuses
+    station_statuses = order.get_all_station_statuses()
 
     # Add the order and its dishes to the orders_data list
     return({
@@ -1164,6 +1238,7 @@ def collect_order(order, done=False):
         "done":done,
         "bar_status":order.bar_status,
         "gng_status":order.gng_status,
+        "station_statuses": station_statuses,
         "picked_up":order.picked_up,
         "payment_id":order.authorization.payment_id if order.authorization else None,
     })

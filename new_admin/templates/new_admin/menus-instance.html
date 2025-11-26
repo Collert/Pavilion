@@ -64,7 +64,13 @@
                 <tr>
                     <td>#{{ dish.id }}</td>
                     <td>{{ dish.title }}</td>
-                    <td>{{ dish.station }}</td>
+                    <td>
+                        {% if dish.new_station %}
+                            {{ dish.new_station.friendly_name }}
+                        {% else %}
+                            {{ dish.station }}
+                        {% endif %}
+                    </td>
                     <td>
                         {% if dish.in_stock %}
                         <span class="material-symbols-outlined">check</span>

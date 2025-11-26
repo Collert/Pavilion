@@ -11,6 +11,16 @@ def has_kitchen_item(dishes):
 def has_bar_item(dishes):
     return any(item["station"] == "bar" for item in dishes)
 
+@register.filter(name='has_station_item')
+def has_station_item(dishes, station_code):
+    """
+    Checks if the dishes list has any item from a specific station.
+    :param dishes: List of dish dictionaries.
+    :param station_code: The station code to check for.
+    :return: True if any dish is from the specified station.
+    """
+    return any(item["station"] == station_code for item in dishes)
+
 @register.filter(name='has_options')
 def has_options(dish):
     return len(dish.serialize_with_options()["fields"]["choice_components"]) > 0
@@ -31,15 +41,21 @@ def pending_other_stations(order:dict, filters:list):
     if not filters:
         filters = []
 
-    # Map the status fields in the Order model
-    station_status_fields = {
-        "kitchen": order["kitchen_status"],
-        "bar": order["bar_status"],
-        "gng": order["gng_status"],
+    # Map the legacy status fields in the Order model
+    legacy_station_status_fields = {
+        "kitchen": order.get("kitchen_status", 4),
+        "bar": order.get("bar_status", 4),
+        "gng": order.get("gng_status", 4),
     }
 
-    # Check stations not covered by filters
-    for station, status in station_status_fields.items():
+    # Check legacy stations not covered by filters
+    for station, status in legacy_station_status_fields.items():
+        if station not in filters and status == 0:  # Pending approval
+            return True
+    
+    # Check dynamic station statuses
+    station_statuses = order.get("station_statuses", {})
+    for station, status in station_statuses.items():
         if station not in filters and status == 0:  # Pending approval
             return True
 
@@ -57,15 +73,21 @@ def pending_self(order:dict, filters:list):
     if not filters:
         filters = []
 
-    # Map the status fields in the Order model
-    station_status_fields = {
-        "kitchen": order["kitchen_status"],
-        "bar": order["bar_status"],
-        "gng": order["gng_status"],
+    # Map the legacy status fields in the Order model
+    legacy_station_status_fields = {
+        "kitchen": order.get("kitchen_status", 4),
+        "bar": order.get("bar_status", 4),
+        "gng": order.get("gng_status", 4),
     }
 
-    # Check stations not covered by filters
-    for station, status in station_status_fields.items():
+    # Check legacy stations covered by filters
+    for station, status in legacy_station_status_fields.items():
+        if station in filters and status == 0:  # Pending approval
+            return True
+    
+    # Check dynamic station statuses
+    station_statuses = order.get("station_statuses", {})
+    for station, status in station_statuses.items():
         if station in filters and status == 0:  # Pending approval
             return True
 
@@ -78,13 +100,44 @@ def all_stations_ready(order:dict):
     :param order: An instance of the Order model parsed via collect_order().
     :return: True if order is ready in all productions stations, False otherwise.
     """
-    return (
-        (order["kitchen_status"] == 2 or order["kitchen_status"] == 4) 
+    # Check legacy stations
+    legacy_ready = (
+        (order.get("kitchen_status", 4) == 2 or order.get("kitchen_status", 4) == 4) 
         and 
-        (order["bar_status"] == 2 or order["bar_status"] == 4) 
+        (order.get("bar_status", 4) == 2 or order.get("bar_status", 4) == 4) 
         and 
-        (order["gng_status"] == 2 or order["gng_status"] == 4)
+        (order.get("gng_status", 4) == 2 or order.get("gng_status", 4) == 4)
     )
+    
+    # Check dynamic station statuses - all must be completed (2) or not present
+    station_statuses = order.get("station_statuses", {})
+    dynamic_ready = all(status in [2, 4] for status in station_statuses.values())
+    
+    return legacy_ready and dynamic_ready
+
+@register.filter(name='get_station_status')
+def get_station_status(order:dict, station_code:str):
+    """
+    Gets the status for a specific station from the order.
+    :param order: An instance of the Order model parsed via collect_order().
+    :param station_code: The station code to check.
+    :return: Status code (0=pending, 1=approved, 2=completed, 3=rejected, 4=not required).
+    """
+    # First check dynamic station statuses
+    station_statuses = order.get("station_statuses", {})
+    if station_code in station_statuses:
+        return station_statuses[station_code]
+    
+    # Fallback to legacy statuses
+    legacy_mapping = {
+        "kitchen": "kitchen_status",
+        "bar": "bar_status",
+        "gng": "gng_status",
+    }
+    if station_code in legacy_mapping:
+        return order.get(legacy_mapping[station_code], 4)
+    
+    return 4  # Not required
 
 @register.filter(name='format_duration')
 def format_duration(value: timedelta):
