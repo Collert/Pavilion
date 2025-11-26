@@ -242,12 +242,7 @@ def order_marking(request):
             order.save()
             
             # Check if all stations are approved or not required
-            all_approved = order.all_stations_complete() or (
-                order.kitchen_status in [1, 2, 4] and 
-                order.bar_status in [1, 2, 4] and 
-                order.gng_status in [1, 2, 4] and
-                not order.status_0_stations.exists()
-            )
+            all_approved = order.all_stations_approved_or_complete()
             
             return JsonResponse({
                 "status":"Order marked approved", 

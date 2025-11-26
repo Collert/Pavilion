@@ -208,3 +208,32 @@ class OrderStationStatusTests(TestCase):
         
         self.assertFalse(self.order.any_station_pending())
         self.assertTrue(self.order.all_stations_complete())
+    
+    def test_all_stations_approved_or_complete(self):
+        """Test all_stations_approved_or_complete method."""
+        # Initially should be True (no stations assigned means all approved)
+        self.assertTrue(self.order.all_stations_approved_or_complete())
+        
+        # Add a pending station
+        self.order.set_station_status(self.station1, 0)
+        self.assertFalse(self.order.all_stations_approved_or_complete())
+        
+        # Approve the station
+        self.order.set_station_status(self.station1, 1)
+        self.assertTrue(self.order.all_stations_approved_or_complete())
+        
+        # Complete the station
+        self.order.set_station_status(self.station1, 2)
+        self.assertTrue(self.order.all_stations_approved_or_complete())
+    
+    def test_all_stations_approved_or_complete_legacy(self):
+        """Test all_stations_approved_or_complete with legacy fields."""
+        self.order.kitchen_status = 0
+        self.order.save()
+        
+        self.assertFalse(self.order.all_stations_approved_or_complete())
+        
+        self.order.kitchen_status = 1
+        self.order.save()
+        
+        self.assertTrue(self.order.all_stations_approved_or_complete())

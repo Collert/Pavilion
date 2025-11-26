@@ -416,6 +416,22 @@ class Order(models.Model):
             return True
         return False
     
+    def all_stations_approved_or_complete(self):
+        """
+        Check if all stations are at least approved (status 1, 2, or 4).
+        This means no station is pending approval (status 0).
+        
+        Returns:
+            bool: True if all stations are at least approved
+        """
+        # Check dynamic station statuses - no pending stations
+        if self.status_0_stations.exists():
+            return False
+        # Also check legacy statuses for backward compatibility
+        if self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0:
+            return False
+        return True
+    
     def progress_status(self):
         """
         Determine the progress status of an order based on various conditions.

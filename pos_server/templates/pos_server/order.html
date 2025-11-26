@@ -8,10 +8,7 @@
 <div id="items-wrapper">
     {% for station, items in menu.items %}
     <h1>
-        {% if station_info and station in station_info %}
-            <span class="material-symbols-outlined">{{ station_info|yesno:station_info|default:"restaurant" }}</span>
-            {{ station_info.name|default:station }}
-        {% elif station == "bar" %}
+        {% if station == "bar" %}
             {% trans "Drinks and sweets" %}
         {% elif station == "kitchen" %}
             {% trans "Hot food" %}
