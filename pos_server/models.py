@@ -88,9 +88,11 @@ class Dish(models.Model):
         Returns:
             bool: True if all components of the dish have child dishes, False otherwise.
         """
-        if not self.components.all():
+        # Use prefetch_related to avoid N+1 queries if not already prefetched
+        components = self.components.prefetch_related('child_dishes').all()
+        if not components:
             return False
-        for component in self.components.all():
+        for component in components:
             if not component.child_dishes.all():
                 return False
         return True
@@ -123,8 +125,14 @@ class Dish(models.Model):
                 - pk (int): The primary key of the dish (same as the ID).
         """
         choice_components = []
-        for component in self.components.all():
-            if component.child_dishes.all():
+        # Prefetch components and child_dishes to avoid N+1 queries
+        components = self.components.prefetch_related('child_dishes').all()
+        all_have_children = True
+        has_components = False
+        for component in components:
+            has_components = True
+            child_dishes = list(component.child_dishes.all())
+            if child_dishes:
                 choices = {
                     "parent":{
                         "title":component.title,
@@ -132,7 +140,7 @@ class Dish(models.Model):
                     },
                     "children":[]
                 }
-                for child in component.child_dishes.all():
+                for child in child_dishes:
                     choices["children"].append({
                         "title":child.title,
                         "id":child.id,
@@ -140,6 +148,10 @@ class Dish(models.Model):
                         "force_in_stock":child.force_in_stock
                     })
                 choice_components.append(choices)
+            else:
+                all_have_children = False
+        # Calculate only_choices inline to avoid redundant query
+        only_choices = has_components and all_have_children
         return {
             "fields":{
                 "title":self.title,
@@ -151,7 +163,7 @@ class Dish(models.Model):
                 "in_stock":self.in_stock,
                 "force_in_stock":self.force_in_stock,
                 "choice_components":choice_components,
-                "only_choices":self.check_if_only_choice_dish()
+                "only_choices":only_choices
             },
             "model":"pos_server.dish",
             "id":self.id,

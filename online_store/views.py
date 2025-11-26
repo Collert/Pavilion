@@ -23,6 +23,9 @@ from django.db.models import Q
 from django.conf import settings
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from django.utils.translation import gettext_lazy as _
+import logging
+
+logger = logging.getLogger(__name__)
 
 def menu(request):
     """
@@ -97,7 +100,13 @@ def dish(request, id):
     allergens, and serialized dish data in JSON format.
     """
     try:
-        item = Dish.objects.get(pk=id)
+        # Prefetch related data to avoid N+1 queries
+        item = Dish.objects.prefetch_related(
+            'dishcomponent_set__component__componentingredient_set__ingredient',
+            'dishcomponent_set__component__child_dishes',
+            'components__child_dishes',
+            'menu'
+        ).get(pk=id)
     except Dish.DoesNotExist:
         return HttpResponseNotFound(_("Dish not found"))
     allergens = set()
@@ -237,8 +246,20 @@ def place_order(request):
                     card.charge_card(payment["amount"])
                     GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=payment["amount"])
             dish_counts = Counter(dish_ids)
+            
+            # Fetch all dishes at once with prefetched data to avoid N+1 queries
+            unique_dish_ids = list(dish_counts.keys())
+            dishes_queryset = Dish.objects.filter(id__in=unique_dish_ids).prefetch_related(
+                'components__child_dishes',
+                'dishcomponent_set__component'
+            )
+            dishes_map = {dish.id: dish for dish in dishes_queryset}
+            
             for dish_id, quantity in dish_counts.items():
-                dish = Dish.objects.get(id=dish_id)
+                dish = dishes_map.get(dish_id)
+                if not dish:
+                    logger.warning(f"Dish with id {dish_id} not found while processing online order")
+                    continue
                 if check_if_only_choice_dish(dish):
                     continue
                 if dish.station == "bar":

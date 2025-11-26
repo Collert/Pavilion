@@ -341,7 +341,10 @@ def craft_component(component_id:int, qty:int):
         - Decreases the inventory of each ingredient used in the component by the required amount, 
             unless the ingredient has unlimited supply.
     """
-    component = Component.objects.get(pk=component_id)
+    # Prefetch componentingredient_set with ingredient to avoid N+1 queries
+    component = Component.objects.prefetch_related(
+        'componentingredient_set__ingredient'
+    ).get(pk=component_id)
     component.inventory += qty
     component.save()
     for ci in component.componentingredient_set.all():
