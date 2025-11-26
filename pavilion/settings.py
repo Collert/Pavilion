@@ -97,12 +97,14 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Installed applications
 INSTALLED_APPS = [
+    'daphne',  # ASGI server for Django Channels
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',  # WebSocket support
     'pos_server.apps.PosServerConfig',  # POS system module
     'webrtc',  # WebRTC communication
     'app_switcher',  # App switcher page module
@@ -295,5 +297,15 @@ CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake',  # Any unique identifier; it differentiates caches if you have multiple ones
+    }
+}
+
+# Django Channels configuration
+ASGI_APPLICATION = 'pavilion.asgi.application'
+
+# Channel layers for WebSocket communication
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
     }
 }
