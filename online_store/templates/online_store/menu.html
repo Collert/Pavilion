@@ -19,13 +19,19 @@
     <div class="menu">
     {% for station, items in menu.dishes.items %}
         <div class="category">
-            {% if station == "bar" %}
-            <h2>{% trans "Drinks and sweets" %}</h2>
-            {% elif station == "kitchen" %}
-            <h2>{% trans "Hot food" %}</h2>
-            {% elif station == "gng" %}
-            <h2>{% trans "Packaged food" %}</h2>
-            {% endif %}
+            <h2>
+                {% if station_info and station in station_info %}
+                    {{ station_info.name }}
+                {% elif station == "bar" %}
+                    {% trans "Drinks and sweets" %}
+                {% elif station == "kitchen" %}
+                    {% trans "Hot food" %}
+                {% elif station == "gng" %}
+                    {% trans "Packaged food" %}
+                {% else %}
+                    {{ station }}
+                {% endif %}
+            </h2>
             <div class="dishes">
                 {% for dish in items %}
                 <div 

@@ -81,6 +81,26 @@ class Dish(models.Model):
     def __str__(self) -> str:
         return self.title
     
+    @property
+    def effective_station(self):
+        """
+        Returns the effective station for this dish.
+        Uses new_station if set, otherwise falls back to old station field.
+        """
+        if self.new_station:
+            return self.new_station
+        return None
+    
+    @property
+    def station_code(self):
+        """
+        Returns the station code for this dish.
+        Uses new_station.code if set, otherwise falls back to old station field.
+        """
+        if self.new_station:
+            return self.new_station.code
+        return self.station
+    
     def check_if_only_choice_dish(self):
         """
         Checks whether the dish only consists of components that point to other dishes.
@@ -147,7 +167,9 @@ class Dish(models.Model):
                 "image":self.image.url if self.image else None,
                 "description":self.description,
                 "menu":self.menu.first().id,
-                "station":self.station,
+                "station":self.new_station.code if self.new_station else self.station,
+                "station_name":self.new_station.friendly_name if self.new_station else self.station,
+                "station_icon":self.new_station.icon if self.new_station else None,
                 "in_stock":self.in_stock,
                 "force_in_stock":self.force_in_stock,
                 "choice_components":choice_components,
@@ -225,13 +247,22 @@ class Order(models.Model):
     gift_cards = models.ManyToManyField(GiftCard, through="gift_cards.GiftCardAuthorization", blank=True)
 
     def save(self, *args, **kwargs):
-        # Calculate prep time if needed
-        if (self.bar_status == 2 or self.bar_status == 4) and (self.kitchen_status == 2 or self.kitchen_status == 4) and (self.gng_status == 2 or self.gng_status == 4):
+        # Calculate prep time if needed using both legacy and dynamic station statuses
+        legacy_complete = (
+            (self.bar_status == 2 or self.bar_status == 4) and 
+            (self.kitchen_status == 2 or self.kitchen_status == 4) and 
+            (self.gng_status == 2 or self.gng_status == 4)
+        )
+        
+        if legacy_complete:
             if not self.prep_time:
                 self.prep_time = timezone.now() - self.timestamp
 
         # Call the original save method
         super().save(*args, **kwargs)
+        
+        # Check dynamic stations for prep time calculation (must be done after save because of M2M)
+        # This will be called in post_save if needed
 
         # Update the active orders cache
         update_active_orders_cache()
@@ -252,6 +283,155 @@ class Order(models.Model):
     def __hash__(self):
         return hash(self.id)
     
+    def get_station_status(self, station):
+        """
+        Get the status of a specific station for this order.
+        
+        Args:
+            station: Station object or station code string
+            
+        Returns:
+            int: Status code (0=pending, 1=approved, 2=completed, 3=rejected, 4=not required)
+        """
+        if isinstance(station, str):
+            # Get station by code
+            try:
+                station = Station.objects.get(code=station)
+            except Station.DoesNotExist:
+                return 4  # Not required if station doesn't exist
+        
+        if self.status_0_stations.filter(pk=station.pk).exists():
+            return 0
+        elif self.status_1_stations.filter(pk=station.pk).exists():
+            return 1
+        elif self.status_2_stations.filter(pk=station.pk).exists():
+            return 2
+        elif self.status_3_stations.filter(pk=station.pk).exists():
+            return 3
+        return 4  # Not required
+    
+    def set_station_status(self, station, status):
+        """
+        Set the status of a specific station for this order.
+        
+        Args:
+            station: Station object or station code string
+            status: int status code (0=pending, 1=approved, 2=completed, 3=rejected, 4=not required)
+        """
+        if isinstance(station, str):
+            try:
+                station = Station.objects.get(code=station)
+            except Station.DoesNotExist:
+                return
+        
+        # Remove from all status fields first
+        self.status_0_stations.remove(station)
+        self.status_1_stations.remove(station)
+        self.status_2_stations.remove(station)
+        self.status_3_stations.remove(station)
+        self.status_4_stations.remove(station)
+        
+        # Add to the appropriate status field
+        if status == 0:
+            self.status_0_stations.add(station)
+        elif status == 1:
+            self.status_1_stations.add(station)
+        elif status == 2:
+            self.status_2_stations.add(station)
+        elif status == 3:
+            self.status_3_stations.add(station)
+        # For status 4, we don't add to any field
+    
+    def get_all_station_statuses(self):
+        """
+        Get a dictionary of all station statuses for this order.
+        
+        Returns:
+            dict: Mapping of station code to status code
+        """
+        result = {}
+        for station in self.status_0_stations.all():
+            result[station.code] = 0
+        for station in self.status_1_stations.all():
+            result[station.code] = 1
+        for station in self.status_2_stations.all():
+            result[station.code] = 2
+        for station in self.status_3_stations.all():
+            result[station.code] = 3
+        return result
+    
+    def get_required_stations(self):
+        """
+        Get all stations that are required for this order (status 0, 1, 2, or 3).
+        
+        Returns:
+            QuerySet: All stations that are required for this order
+        """
+        from django.db.models import Q
+        return Station.objects.filter(
+            Q(status_0_orders=self) | Q(status_1_orders=self) | 
+            Q(status_2_orders=self) | Q(status_3_orders=self)
+        ).distinct()
+    
+    def all_stations_complete(self):
+        """
+        Check if all required stations are complete or not required.
+        
+        Returns:
+            bool: True if all required stations are complete
+        """
+        # Check dynamic station statuses
+        if self.status_0_stations.exists() or self.status_1_stations.exists():
+            return False
+        # Also check legacy statuses for backward compatibility
+        if self.kitchen_status in [0, 1] or self.bar_status in [0, 1] or self.gng_status in [0, 1]:
+            return False
+        return True
+    
+    def any_station_pending(self):
+        """
+        Check if any station is pending approval (status 0).
+        
+        Returns:
+            bool: True if any station is pending approval
+        """
+        if self.status_0_stations.exists():
+            return True
+        # Also check legacy statuses for backward compatibility
+        if self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0:
+            return True
+        return False
+    
+    def any_station_in_progress(self):
+        """
+        Check if any station is in progress (status 1).
+        
+        Returns:
+            bool: True if any station is in progress
+        """
+        if self.status_1_stations.exists():
+            return True
+        # Also check legacy statuses for backward compatibility
+        if self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1:
+            return True
+        return False
+    
+    def all_stations_approved_or_complete(self):
+        """
+        Check if all stations are at least approved (status 1, 2, or 4).
+        This means no station is pending approval (status 0).
+        
+        Returns:
+            bool: True if all stations are at least approved
+        """
+        # Check dynamic station statuses - no pending stations
+        if self.status_0_stations.exists():
+            return False
+        # Also check legacy statuses for backward compatibility
+        if self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0:
+            return False
+        return True
+    
     def progress_status(self):
         """
         Determine the progress status of an order based on various conditions.
@@ -260,36 +440,37 @@ class Order(models.Model):
             int: The status code representing the progress of the order.
                 - 6: Delivery completed.
                 - 5: Order picked up.
-                - 4: Order ready (kitchen, bar, and gng statuses are 2 or 4).
-                - 3: Order in progress (any of kitchen, bar, or gng statuses is 1).
-                - 2: Order not started (any of kitchen, bar, or gng statuses is 0 and start time is in the past).
-                - 1: Order is scheduled (any of kitchen, bar, or gng statuses is 0 and start time is in the future).
+                - 4: Order ready (all stations are completed or not required).
+                - 3: Order in progress (any station is approved/in progress).
+                - 2: Order not started (any station is pending and start time is in the past).
+                - 1: Order is scheduled (any station is pending and start time is in the future).
             None: If the channel is neither "delivery" nor "web".
         """
-        print(timezone.localtime(self.start_time))
-        print(timezone.localtime(timezone.now()))
-        print(timezone.localtime(self.start_time) > timezone.localtime(timezone.now()))
+        all_complete = self.all_stations_complete()
+        any_in_progress = self.any_station_in_progress()
+        any_pending = self.any_station_pending()
+        
         if self.channel == "delivery":
-            if self.delivery.first().completed:
+            if self.delivery.first() and self.delivery.first().completed:
                 status = 6
             elif self.picked_up:
                 status = 5
-            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
+            elif not self.picked_up and all_complete:
                 status = 4
-            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
+            elif not self.picked_up and any_in_progress:
                 status = 3
-            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
+            elif any_pending and self.start_time <= timezone.now():
                 status = 2
             else:
                 status = 1
         elif self.channel == "web":
             if self.picked_up:
                 status = 5
-            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
+            elif not self.picked_up and all_complete:
                 status = 4
-            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
+            elif not self.picked_up and any_in_progress:
                 status = 3
-            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
+            elif any_pending and self.start_time <= timezone.now():
                 status = 2
             else:
                 status = 1
@@ -507,12 +688,41 @@ class EligibleDevice(models.Model):
         return self.name
     
 class Station(models.Model):
+    """
+    Model representing a station where dishes are prepared.
+    Stations can be created dynamically through the admin interface.
+    
+    Attributes:
+        friendly_name (CharField): Human-readable name of the station (e.g., "Kitchen", "Bar").
+        code (CharField): Unique short code for the station (e.g., "kitchen", "bar").
+        icon (CharField): Material Symbols icon name for the station.
+    """
     friendly_name = models.CharField(max_length=50)
-    code = models.CharField(max_length=10)
+    code = models.CharField(max_length=10, unique=True)
     icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
 
     def __str__(self):
         return self.friendly_name
+    
+    @classmethod
+    def get_or_create_default_stations(cls):
+        """
+        Creates default stations if they don't exist.
+        Returns a dictionary mapping old station codes to Station objects.
+        """
+        defaults = [
+            {"code": "kitchen", "friendly_name": "Kitchen", "icon": "restaurant"},
+            {"code": "bar", "friendly_name": "Bar", "icon": "local_cafe"},
+            {"code": "gng", "friendly_name": "Grab & Go", "icon": "kitchen"},
+        ]
+        result = {}
+        for default in defaults:
+            station, _ = cls.objects.get_or_create(
+                code=default["code"],
+                defaults={"friendly_name": default["friendly_name"], "icon": default["icon"]}
+            )
+            result[default["code"]] = station
+        return result
 
 def update_active_orders_cache():
     """

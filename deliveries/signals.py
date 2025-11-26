@@ -9,9 +9,9 @@ def new_delivery(sender, instance, created, **kwargs):
     """
     Signal handler for new delivery creation.
 
-    This function is triggered when a new delivery instance is created. It checks the kitchen, bar, 
-    and general status of the order associated with the delivery instance. If all statuses are either 
-    2 or 4, it triggers a push notification to inform about the new delivery.
+    This function is triggered when a new delivery instance is created. It checks if all stations
+    are complete for the order associated with the delivery instance. If all statuses are complete,
+    it triggers a push notification to inform about the new delivery.
 
     Args:
         sender (Model): The model class that sent the signal.
@@ -22,7 +22,8 @@ def new_delivery(sender, instance, created, **kwargs):
     Returns:
         None
     """
-    if instance.order.kitchen_status in [2, 4] and instance.order.bar_status in [2, 4] and instance.order.gng_status in [2, 4]:
+    # Use the new all_stations_complete method for checking order readiness
+    if instance.order.all_stations_complete():
         trigger_push_notifications(
             "New delivery!",
             "New order available to deliver. Check your app!",

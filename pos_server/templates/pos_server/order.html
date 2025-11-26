@@ -7,13 +7,17 @@
 {% csrf_token %}
 <div id="items-wrapper">
     {% for station, items in menu.items %}
-    {% if station == "bar" %}
-    <h1>{% trans "Drinks and sweets" %}</h1>
-    {% elif station == "kitchen" %}
-    <h1>{% trans "Hot food" %}</h1>
-    {% elif station == "gng" %}
-    <h1>{% trans "Grab & Go" %}</h1>
-    {% endif %}
+    <h1>
+        {% if station == "bar" %}
+            {% trans "Drinks and sweets" %}
+        {% elif station == "kitchen" %}
+            {% trans "Hot food" %}
+        {% elif station == "gng" %}
+            {% trans "Grab & Go" %}
+        {% else %}
+            {{ station }}
+        {% endif %}
+    </h1>
     <div id="items">
         {% for item in items %}
         {% if item.visible_in_menu %}
