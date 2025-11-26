@@ -355,7 +355,7 @@ function approveOrder(orderId, approved, rejection = undefined) {
 }
 
 function markOrderDone(orderId) {
-    const card = cards.find(card => card.dataset.orderId == orderId);
+    const card = cards.find(card => String(card.dataset.orderId) === String(orderId));
     if (!card) return;
     
     const orderDone = stations.every(filter => ["2", "4"].includes(card.dataset[`${filter}Status`]));
@@ -585,7 +585,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const now = new Date();
             cards.forEach(card => {
                 if (card.dataset.progressState == 2) {
-                    const startTime = new Date(card.querySelector(".timestamp").getAttribute('data-last-interaction') || card.querySelector(".timestamp").getAttribute('data-timestamp'));
+                    const timestampEl = card.querySelector(".timestamp");
+                    const startTime = new Date(timestampEl.getAttribute('data-last-interaction') || timestampEl.getAttribute('data-timestamp'));
                     if (now - startTime >= autoDoneTimeout) {
                         markOrderDone(card.dataset.orderId);
                     }
@@ -600,7 +601,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const now = new Date();
             cards.forEach(card => {
                 if (card.dataset.progressState == 3) {
-                    const startTime = new Date(card.querySelector(".timestamp").getAttribute('data-last-interaction') || card.querySelector(".timestamp").getAttribute('data-timestamp'));
+                    const timestampEl = card.querySelector(".timestamp");
+                    const startTime = new Date(timestampEl.getAttribute('data-last-interaction') || timestampEl.getAttribute('data-timestamp'));
                     if (now - startTime >= autoCollectTimeout) {
                         markOrderDone(card.dataset.orderId);
                     }

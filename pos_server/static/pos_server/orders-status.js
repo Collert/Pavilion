@@ -140,9 +140,8 @@ function handleOrderUpdate(order) {
     // Determine current state of order
     const isInProgress = order.kitchen_status === 1;
     const isReady = order.kitchen_status === 2 && !order.picked_up;
-    const isPickedUp = order.picked_up;
     
-    if (isPickedUp) {
+    if (order.picked_up) {
         // Order picked up - remove from display
         removeOrderById(order.order_id);
         ordersState.in_progress = ordersState.in_progress?.filter(o => o.order_id !== order.order_id) || [];
