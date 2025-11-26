@@ -328,7 +328,7 @@ function generateAnnouncement(order) {
 }
 
 function appendNewOrder(data) {
-    console.log("recieved")
+    console.log("received")
     // console.log(data)
     const newOrder = document.createElement("span");
     const text = document.createElement("span");

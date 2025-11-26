@@ -123,7 +123,10 @@ function updateExistingOrder(order) {
 function appendOrder(data) {
     const orderId = data.order_id;
     const existingOrder = document.querySelector(`[data-order-id="${orderId}"]`)
-    if (existingOrder) {return}
+    
+    if (existingOrder) {
+        return;
+    }
     
     if (!cards.length) {
         mainDiv.innerHTML = '';
