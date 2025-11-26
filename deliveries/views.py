@@ -44,11 +44,15 @@ def ready_orders(request):
         completed=False,
         order__picked_up=False,
         timestamp__date=today
-    )
+    ).select_related('order')
     if courier:
-        for d in Delivery.objects.filter(completed = False).all():
-            if d.courier == request.user:
-                return redirect("delivery_order", id=d.id)
+        # Use a single optimized query with select_related to check for user's incomplete delivery
+        user_delivery = Delivery.objects.filter(
+            completed=False, 
+            courier=request.user
+        ).select_related('order').first()
+        if user_delivery:
+            return redirect("delivery_order", id=user_delivery.id)
     return render(request, "deliveries/orders.html", {
         "route":"orders",
         "orders":orders,
@@ -143,10 +147,8 @@ def profile(request):
     working = check_if_active_courier(request) != None
     delivering = False
     if working:
-        for d in Delivery.objects.filter(completed = False).all():
-            if d.courier == request.user:
-                delivering = True
-                break
+        # Use exists() for a more efficient check instead of iterating all deliveries
+        delivering = Delivery.objects.filter(completed=False, courier=request.user).exists()
     return render(request, "deliveries/profile.html", {
         "working":working,
         "delivering":delivering,

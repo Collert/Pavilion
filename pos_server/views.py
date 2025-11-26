@@ -128,7 +128,12 @@ def order_marking(request):
             else:
                 status_conditions |= ~Q(**{f"{station}_status__in": [0, 1, 2, 3, 4]})
         conditions &= status_conditions
-        orders = Order.objects.filter(conditions)
+        # Prefetch related data to avoid N+1 queries in collect_order
+        orders = Order.objects.filter(conditions).prefetch_related(
+            'orderdish_set__dish',
+            'delivery',
+            'authorization'
+        ).select_related('authorization')
         print(orders)
 
         # Prepare data for each order
@@ -328,7 +333,11 @@ def pos(request):
         menu = Menu.objects.filter(is_active=True).first()
         
         # Sort dishes by ID before grouping to ensure consistent ordering
-        dishes = Dish.objects.filter(menu=menu).order_by('id')
+        # Prefetch components and child_dishes to optimize serialize_with_options
+        dishes = Dish.objects.filter(menu=menu).prefetch_related(
+            'components__child_dishes',
+            'menu'
+        ).order_by('id')
         
         # Group dishes by station
         grouped_dishes = defaultdict(list)
@@ -357,8 +366,19 @@ def pos(request):
         new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
         new_order.name = body["name"] if body["name"].strip() != '' else None
         new_order.save()
+        
+        # Fetch all dishes at once with prefetched data to avoid N+1 queries
+        dish_ids = list(dish_counts.keys())
+        dishes_queryset = Dish.objects.filter(id__in=dish_ids).prefetch_related(
+            'components__child_dishes',
+            'dishcomponent_set__component'
+        )
+        dishes_map = {dish.id: dish for dish in dishes_queryset}
+        
         for dish_id, quantity in dish_counts.items():
-            dish = Dish.objects.get(id=dish_id)
+            dish = dishes_map.get(dish_id)
+            if not dish:
+                continue
             if check_if_only_choice_dish(dish):
                 continue
             if dish.station == "bar":
@@ -466,9 +486,11 @@ def check_if_only_choice_dish(dish:Dish):
     Returns:
         bool: True if all components of the dish point to other dishes, False otherwise.
     """
-    if not dish.components.all():
+    # Use prefetch_related to avoid N+1 queries if not already prefetched
+    components = dish.components.prefetch_related('child_dishes').all()
+    if not components:
         return False
-    for component in dish.components.all():
+    for component in components:
         if not component.child_dishes.all():
             return False
     return True
@@ -493,10 +515,14 @@ def component_choice(request):
     """
     dish_id = request.GET.get('dish_id')
     if dish_id:
-        dish = Dish.objects.filter(pk=dish_id).first()
+        # Prefetch components and child_dishes to avoid N+1 queries
+        dish = Dish.objects.filter(pk=dish_id).prefetch_related(
+            'components__child_dishes'
+        ).first()
         choice_components = []
         for component in dish.components.all():
-            if component.child_dishes.all():
+            child_dishes = list(component.child_dishes.all())
+            if child_dishes:
                 choices = {
                     "parent":{
                         "title":component.title,
@@ -504,7 +530,7 @@ def component_choice(request):
                     },
                     "children":[]
                 }
-                for child in component.child_dishes.all():
+                for child in child_dishes:
                     choices["children"].append({
                         "title":child.title,
                         "id":child.id,
@@ -594,7 +620,11 @@ def day_stats(request):
         menu = Dish.objects.all()
 
         # Fetch all orders for the specific date, ordered by timestamp
-        orders = Order.objects.filter(timestamp__date=day).order_by('timestamp')
+        # Prefetch related data to avoid N+1 queries
+        orders = Order.objects.filter(timestamp__date=day).prefetch_related(
+            'orderdish_set__dish__dishcomponent_set__component__componentingredient_set__ingredient',
+            'dishes'
+        ).order_by('timestamp')
 
         # Initialize stats dictionary to store various metrics
         stats = {
@@ -626,7 +656,7 @@ def day_stats(request):
             # Group order occasions into 15-minute time windows
             time_window = get_15_min_window(order.timestamp)
 
-            # Calculate total price of the order
+            # Calculate total price of the order (uses prefetched data)
             order_price = sum(od.quantity * od.dish.price for od in order.orderdish_set.all())
 
             # Update the count and total earnings for the time window
@@ -644,7 +674,7 @@ def day_stats(request):
                     average_prep = data['total_prep_time'] / count
                     stats['prep_times'][window] = average_prep
 
-            # Process each dish in the order
+            # Process each dish in the order (uses prefetched data)
             for item in order.dishes.all():
                 # Count the quantity of each dish sold
                 if item.title not in stats["item_stats"]:
@@ -658,7 +688,7 @@ def day_stats(request):
                 else:
                     stats["stations"][item.station] += 1
 
-                # Track the quantity of each component used in the dish
+                # Track the quantity of each component used in the dish (uses prefetched data)
                 for dc in item.dishcomponent_set.all():
                     if dc.component.title not in stats["components"]:
                         stats["components"][dc.component.title] = [None] * 2
@@ -667,7 +697,7 @@ def day_stats(request):
                     else:
                         stats["components"][dc.component.title][0] += dc.quantity
 
-                    # Track the quantity of each ingredient used in the components
+                    # Track the quantity of each ingredient used in the components (uses prefetched data)
                     for ci in dc.component.componentingredient_set.all():
                         if ci.ingredient.title not in stats["ingredients"]:
                             stats['ingredients'][ci.ingredient.title] = [None] * 2
@@ -737,7 +767,11 @@ def compile_menu(menu):
         "bar":[],
         "gng":[],
     }
-    for dish in menu.dishes.all().order_by("id"):
+    # Prefetch related data to avoid N+1 queries
+    dishes = menu.dishes.prefetch_related(
+        'dishcomponent_set__component__child_dishes'
+    ).all().order_by("id")
+    for dish in dishes:
         categories[dish.station].append(prettify_dish(dish))
     return categories, components_out
 
@@ -761,7 +795,8 @@ def prettify_dish(dish):
         "price":format_float(dish.price),
         "available":(dish.in_stock or dish.force_in_stock) and dish.visible_in_menu,
     }
-    dcs = dish.dishcomponent_set.all()
+    # Use list to leverage prefetched data if available
+    dcs = list(dish.dishcomponent_set.all())
     for index, dc in enumerate(dcs):
         if dc.component.type == "food":
             if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
@@ -784,9 +819,11 @@ def prettify_dish(dish):
         final_dish["components"] += f"{dc.component.title.lower()}"
         if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
             final_dish["components"] += "s"
-        if dc.component.child_dishes.all():
+        # Use prefetched child_dishes
+        child_dishes = list(dc.component.child_dishes.all())
+        if child_dishes:
             final_dish["components"] += _(" (choice of: ")
-            for choice in dc.component.child_dishes.all():
+            for choice in child_dishes:
                 final_dish["components"] += f"{choice.title}/"
             final_dish["components"] = final_dish["components"][:-1]
             final_dish["components"] += ")"
@@ -1084,7 +1121,12 @@ def active_orders(request):
         active_order_ids = cache.get('active_orders')
 
     # Fetch active orders from database using IDs from the cache
-    active_orders = Order.objects.filter(id__in=active_order_ids)
+    # Prefetch related data to avoid N+1 queries in collect_order
+    active_orders = Order.objects.filter(id__in=active_order_ids).prefetch_related(
+        'orderdish_set__dish',
+        'delivery',
+        'authorization'
+    ).select_related('authorization')
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
     return JsonResponse(serialized_orders, safe=False)
 
