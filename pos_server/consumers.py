@@ -7,10 +7,24 @@ approach with a push-based WebSocket approach.
 """
 
 import json
+from datetime import datetime
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils.timezone import now, localdate
 from django.db.models import Q
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects."""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def json_dumps(data):
+    """JSON dumps with datetime support."""
+    return json.dumps(data, cls=DateTimeEncoder)
 
 
 class OrderConsumer(AsyncWebsocketConsumer):
@@ -35,7 +49,7 @@ class OrderConsumer(AsyncWebsocketConsumer):
         
         # Send initial active orders on connection
         orders = await self.get_active_orders()
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': 'initial_orders',
             'orders': orders
         }))
@@ -59,7 +73,7 @@ class OrderConsumer(AsyncWebsocketConsumer):
         
         This is called when an order is created, updated, or deleted.
         """
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': event['update_type'],
             'order': event['order']
         }))
@@ -68,7 +82,7 @@ class OrderConsumer(AsyncWebsocketConsumer):
         """
         Handle order delete events from the channel layer.
         """
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': 'order_deleted',
             'order_id': event['order_id']
         }))
@@ -120,7 +134,7 @@ class OrderProgressConsumer(AsyncWebsocketConsumer):
         
         # Send initial orders on connection
         orders = await self.get_progress_orders()
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': 'initial_orders',
             'orders': orders
         }))
@@ -138,14 +152,14 @@ class OrderProgressConsumer(AsyncWebsocketConsumer):
     
     async def order_update(self, event):
         """Handle order update events."""
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': event['update_type'],
             'order': event['order']
         }))
     
     async def order_delete(self, event):
         """Handle order delete events."""
-        await self.send(text_data=json.dumps({
+        await self.send(text_data=json_dumps({
             'type': 'order_deleted',
             'order_id': event['order_id']
         }))
