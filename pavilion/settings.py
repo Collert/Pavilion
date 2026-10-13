@@ -117,19 +117,17 @@ ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('EN
 LOGIN_URL = reverse_lazy('login_view')
 
 # Allowed hosts - Restrict in production for security purposes
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost',
-    APP_DOMAIN
-]
+# EXTRA_HOSTS: comma-separated extra hostnames, e.g. a temporary ngrok domain (start.bat sets it)
+EXTRA_HOSTS = [host.strip().removeprefix("https://").removeprefix("http://").strip("/")
+               for host in os.getenv('EXTRA_HOSTS', '').split(',') if host.strip()]
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] + ([APP_DOMAIN] if APP_DOMAIN else []) + EXTRA_HOSTS
 
 # CSRF Trusted Origins (allows cross-origin requests from specified domains)
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-if APP_DOMAIN:
-    CSRF_TRUSTED_ORIGINS.append(f"https://{APP_DOMAIN}")
+CSRF_TRUSTED_ORIGINS += [f"https://{host}" for host in ([APP_DOMAIN] if APP_DOMAIN else []) + EXTRA_HOSTS]
 
 # Installed applications
 INSTALLED_APPS = [
@@ -169,7 +167,6 @@ MIDDLEWARE = [
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Prevents iframe clickjacking attacks
 
-WHITENOISE_ROOT = '/online_store'
 
 ROOT_URLCONF = 'pavilion.urls'
 
