@@ -120,11 +120,11 @@ ALLOWED_HOSTS = [
 
 # CSRF Trusted Origins (allows cross-origin requests from specified domains)
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000", 
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://6005-2605-8d80-482-cacb-58a-f30d-f46d-5a0d.ngrok-free.app",
-    "https://{APP_DOMAIN}"
 ]
+if APP_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{APP_DOMAIN}")
 
 # Installed applications
 INSTALLED_APPS = [

@@ -312,7 +312,7 @@ to `logs/debug.log`), `DB_USER`/`DB_PASSWORD` (unused; Postgres reads `POSTGRES_
 3. **FIXED:** `gift-cards/card-api/<n>` POST now needs a logged-in staff user plus CSRF, validates the amount and charges atomically. GET stays public (checkout needs it) but only staff see the owner's email. Card numbers are still the only secret for GET, so keep them unguessable.
 4. **FIXED:** `check_card_status` and `check_inventory` need a login (401 JSON otherwise). `active_orders` returns a redacted list (no phone, address, payment ID, notes, prices) to anonymous callers, since the public status board polls it. The `CORS_*` settings were removed: `django-cors-headers` was never installed, so they did nothing.
 5. The device allowlist is client-side only (§6.8).
-6. `CSRF_TRUSTED_ORIGINS` has a literal `"https://{APP_DOMAIN}"` (missing `f`), plus a stale ngrok URL.
+6. **FIXED:** `CSRF_TRUSTED_ORIGINS` now builds `https://<APP_DOMAIN>` with a real f-string and no longer lists the stale ngrok URL (add your current ngrok origin there if you POST through ngrok in dev).
 
 **Broken right now**
 7. `misc_tools/classes.py:10` has `len(str)`, which crashes every gift-card email (introduced by the latest commit `9a09a27`).
