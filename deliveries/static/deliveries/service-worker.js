@@ -1,14 +1,14 @@
-const CACHE_NAME = 'your-app-cache-v1.1';
-const OFFLINE_URL = '/deliveries/static/deliveries/offline.html';
+const CACHE_NAME = 'pavilion-deliveries-v2';
+const OFFLINE_URL = '/static/deliveries/offline.html';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll([
         '/',
-        '/deliveries/static/deliveries/project-styles.css',
-        '/deliveries/static/deliveries/icon-192x192.png',
-        '/deliveries/static/deliveries/icon-512x512.png',
+        '/static/deliveries/project-styles.css',
+        '/static/deliveries/icon-192x192.png',
+        '/static/deliveries/icon-512x512.png',
         OFFLINE_URL
       ]);
     })

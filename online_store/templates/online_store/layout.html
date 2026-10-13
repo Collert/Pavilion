@@ -193,7 +193,7 @@
             </header>
             <div id="cart-items">
                 <div hidden class="cart-item">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png">
+                    <img src="{% static 'img/no-image.svg' %}">
                     <div>
                         <h2>Title</h2>
                         <small hidden></small>
@@ -676,7 +676,7 @@
             cartItems.innerHTML = "";
             cart.items.forEach((item, index) => {
                 const newNode = cartItemTemplate.cloneNode(true);
-                newNode.querySelector("img").src = item.fields.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png"
+                newNode.querySelector("img").src = item.fields.image || "{% static 'img/no-image.svg' %}"
                 newNode.querySelector("h2").innerHTML = item.fields.title
                 newNode.querySelector(".price").innerHTML = '$' + item.fields.price
                 newNode.querySelector("button").addEventListener("click", e => {

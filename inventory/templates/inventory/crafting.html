@@ -127,6 +127,7 @@
     function showStock(data) {
         for (const ingredient in data) {
             const topVal = document.querySelector(`#top-${ingredient} span`);
+            if (!topVal) continue;  // ingredient not shown on this page
             animateValue(
                 topVal,
                 parseFloat(topVal.innerHTML),

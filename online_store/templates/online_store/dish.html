@@ -17,7 +17,7 @@
     {% if dish.image %}
         {{dish.image.url}}
     {% else %}
-        https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/1665px-No-Image-Placeholder.svg.png
+        {% static 'img/no-image.svg' %}
     {% endif %}
     " alt="{{dish.title}}">
     <h1>{{dish.title}}</h1>
