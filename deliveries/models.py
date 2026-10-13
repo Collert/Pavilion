@@ -16,3 +16,19 @@ class Delivery(models.Model):
     completed = models.BooleanField(default=False)
     eta = models.DateTimeField(blank=True, null=True)
     phone = models.PositiveBigIntegerField()
+
+
+class CourierShift(models.Model):
+    """A courier who is clocked in and taking deliveries. Deleted when they clock out."""
+    modes = (
+        ("driving", "Driving"),
+        ("bicycling", "Bicycling"),
+        ("walking", "Walking"),
+        ("transit", "Transit"),
+    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="courier_shift")
+    mode = models.CharField(max_length=20, default="driving")
+    started_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user} ({self.mode})"

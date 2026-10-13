@@ -6,7 +6,6 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 import requests
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from . import globals
 from .models import *
 import json
 import datetime
@@ -78,10 +77,10 @@ def get_eta(request):
         return HttpResponseBadRequest(_("Destination address needed."))
     customer_requesting = request.GET.get('customer', 'false') == 'true'
     if customer_requesting:
-        if len(globals.active_couriers) == 0:
+        modes = set(CourierShift.objects.values_list("mode", flat=True))
+        if not modes:
             return HttpResponseNotFound(_("No couriers available"))
         times = []
-        modes = {dict(courier)["mode"] for courier in globals.active_couriers}
         for mode in modes:
             url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={origin}&destinations={destination}&mode={mode}&key={settings.GOOGLE_API_KEY}"
             response = requests.get(url)
@@ -130,14 +129,9 @@ def profile(request):
     """
     if request.method == "POST":
         if request.POST.get("act") == "start":
-            method = request.POST["transport-mode"]
-            globals.active_couriers.add(frozenset({"user":request.user, "mode":method}.items()))
+            CourierShift.objects.update_or_create(user=request.user, defaults={"mode": request.POST.get("transport-mode", "driving")})
         elif request.POST.get("act") == "end":
-            for cour in globals.active_couriers:
-                dict_cour = dict(cour)
-                if dict_cour["user"] == request.user:
-                    globals.active_couriers.remove(cour)
-                    break
+            CourierShift.objects.filter(user=request.user).delete()
     working = check_if_active_courier(request) != None
     delivering = False
     if working:
@@ -227,21 +221,10 @@ def order(request, id):
         return JsonResponse({"status":"success"}, status=200)
 
 def check_if_active_courier(request):
-    """
-    Check if the user in the request is an active courier.
+    """{"user": ..., "mode": ...} if the requesting user is clocked in as a courier, else None."""
+    shift = CourierShift.objects.filter(user_id=request.user.id).first()
+    return {"user": shift.user, "mode": shift.mode} if shift else None
 
-    Args:
-        request (HttpRequest): The HTTP request object containing the user information.
-
-    Returns:
-        dict: A dictionary representing the active courier if the user is found, otherwise None.
-    """
-    dict_cour = None
-    for cour in globals.active_couriers:
-        dict_cour = dict(cour)
-        if dict_cour["user"] == request.user:
-            return dict_cour
-        
 def vapid_public_key(request):
     return JsonResponse({'vapidPublicKey': settings.VAPID_PUBLIC_KEY})
 

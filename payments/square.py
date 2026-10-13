@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.http import JsonResponse, HttpResponse
 import json
 from django.core.cache import cache
+from pavilion.realtime import publish
 from .models import PaymentAuthorization, SquareTerminal
 from django.utils.dateparse import parse_datetime
 
@@ -92,8 +93,9 @@ def terminal_checkout(request):
         checkout_id = checkout["checkout"]["id"]
         # Store both the status and checkout ID for better tracking
         # Using 60 second timeout to match active orders caching pattern
-        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=60)
-        cache.set('current_checkout_id', checkout_id, timeout=60)
+        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=180)
+        cache.set('current_checkout_id', checkout_id, timeout=180)
+        publish("checkout")
         return JsonResponse({"message":checkout}, status=200)
     elif response.is_error():
         errors = response.errors

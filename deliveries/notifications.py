@@ -4,7 +4,6 @@ from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.templatetags.static import static
-from . import globals
 
 # This is a bit weird, I know. But that's the best way I could figure out how to do this without making it too complex and with no circular imports.
 class PushSubscription(models.Model):
@@ -72,11 +71,9 @@ def trigger_push_notifications(title, body, action_name, action_endpoint):
         None
     """
     HOST = settings.NOTIFICATIONS_HOST
-    active = []
-    for cour in globals.active_couriers:
-        dict_cour = dict(cour)
-        active.append(dict_cour["user"])
-    subscriptions = PushSubscription.objects.filter(user__in=active)
+    from .models import CourierShift
+    active = CourierShift.objects.values_list("user_id", flat=True)
+    subscriptions = PushSubscription.objects.filter(user_id__in=list(active))
     message_body = {
         "title": title,
         "body": body,

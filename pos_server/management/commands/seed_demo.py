@@ -24,7 +24,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from deliveries.models import Delivery
+from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
 from inventory.models import Packaging, Recipe
@@ -91,6 +91,8 @@ class Command(BaseCommand):
         user("admin", is_staff=True, is_superuser=True)
         for name in ("cashier", "courier"):
             Staff.objects.get_or_create(user=user(name, is_staff=True))
+        # The courier is clocked in, so delivery ETAs and the courier app have someone to work with
+        CourierShift.objects.get_or_create(user=User.objects.get(username="courier"), defaults={"mode": "bicycling"})
         customer = user("customer")
         customer.customer_profile.phone = 6045550100
         customer.customer_profile.home_address = "123 Columbia St, New Westminster, BC"

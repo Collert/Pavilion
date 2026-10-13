@@ -8,7 +8,7 @@
 //   0 waiting for this screen's approval, 1 waiting for another station's approval,
 //   2 being made here, 3 done here (ready to hand out).
 
-const pollEveryMilisecs = 11 * 1000;
+import { onLiveUpdate } from "/static/js/live.js";
 
 const rejectOrderDialog = document.querySelector("#reject-reason");
 const orderManagementDialog = document.querySelector("#order-management");
@@ -366,4 +366,4 @@ function openOrderManagement() {
 
 sync(JSON.parse(document.querySelector("#initial-orders").textContent));
 startTimers();
-setInterval(refresh, pollEveryMilisecs);
+onLiveUpdate("orders", refresh, { fallbackMs: 30000 });

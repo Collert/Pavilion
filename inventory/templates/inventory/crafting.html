@@ -107,8 +107,12 @@
     </form>
 </div>
 
-<script>
-    const eventSource = new EventSource("{% url 'inventory_updates' %}");
+<script type="module">
+    import { onLiveUpdate } from "/static/js/live.js";
+    onLiveUpdate("inventory", async () => {
+        const response = await fetch("{% url 'inventory_updates' %}");
+        if (response.ok) showStock(await response.json());
+    });
 
     const singleButtons = document.querySelectorAll(".singles button");
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
@@ -120,8 +124,7 @@
     const countAnimDuration = 1000;
     console.log(inventory)
 
-    eventSource.onmessage = function(e) {
-        const data = JSON.parse(e.data);
+    function showStock(data) {
         for (const ingredient in data) {
             const topVal = document.querySelector(`#top-${ingredient} span`);
             animateValue(

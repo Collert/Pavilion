@@ -2,10 +2,9 @@ from django.shortcuts import render
 from pos_server.models import *
 from .models import *
 from django.core import serializers
-from django.http import HttpResponseRedirect, StreamingHttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
 import json
-from . import globals
 import time
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
@@ -289,21 +288,6 @@ def recipe(request, recipe_id):
             "route":"recipe"
         })
 
-def event_stream():
-    while True:
-        # print(globals.new_inventory_updates)
-        while globals.new_inventory_updates:
-            ingredients = Ingredient.objects.all()
-            yield f"data: {collect_ing_stock(ingredients)}\n\n"
-            time.sleep(2)
-            try:
-                globals.new_inventory_updates = False
-            except:
-                pass
-        # Send a heartbeat every X seconds
-        yield ":heartbeat\n\n"
-        time.sleep(1)
-
 def collect_ing_stock(ingredients):
     """
     Collects the inventory stock for a list of ingredients and returns it as a JSON string.
@@ -320,10 +304,10 @@ def collect_ing_stock(ingredients):
         inventory[f"{ingredient.id}"] = ingredient.inventory
     return json.dumps(inventory)
 
+@staff_member_required
 def inventory_updates(request):
-    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
-    # response['Cache-Control'] = 'no-cache'
-    return response
+    """Current ingredient stock as {id: inventory}. The crafting page refetches it on 'inventory' events."""
+    return HttpResponse(collect_ing_stock(Ingredient.objects.all()), content_type="application/json")
 
 def craft_component(component_id:int, qty:int):
     """

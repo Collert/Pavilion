@@ -1,10 +1,9 @@
 import setClock from "./clock.js";
+import { onLiveUpdate } from "/static/js/live.js";
 // import weatherIcons from "./weatherCodes.json" assert { type: "json" };
 
 const inProgressCol = document.querySelector("#col-1 div");
 const readyCol = document.querySelector("#col-2 div");
-const pollEverySecs = 5;
-const pollEveryMilisecs = pollEverySecs * 1000;
 
 const namedAnnouncements = [
     "${name}, your order is ready to go!",
@@ -53,7 +52,7 @@ const isReady = order => Object.values(order.stations).every(status => status >=
 const needsStations = order => Object.keys(order.stations).length > 0;
 
 syncOrders(await fetchOrders(), false);
-setInterval(async () => syncOrders(await fetchOrders(), true), pollEveryMilisecs);
+onLiveUpdate("orders", async () => syncOrders(await fetchOrders(), true), { fallbackMs: 20000 });
 
 async function fetchOrders() {
     const response = await fetch(checkOrdersLink);

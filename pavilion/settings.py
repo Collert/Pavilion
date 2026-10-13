@@ -132,6 +132,7 @@ if APP_DOMAIN:
 
 # Installed applications
 INSTALLED_APPS = [
+    'daphne',  # makes `runserver` serve ASGI, which the SSE streams need (pavilion/realtime.py)
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -189,6 +190,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'pavilion.wsgi.application'
+ASGI_APPLICATION = 'pavilion.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -314,7 +316,7 @@ PO_FILE_IGNORE_PATTERNS = ["venv/*", "node_modules/*", "migrations/*", ".venv/*"
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') if os.getenv('ENVIRONMENT') == "production" else '/home/collert/POS/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic target; whitenoise serves it
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'payments/static/'),
     os.path.join(BASE_DIR, 'static'),
@@ -325,9 +327,24 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',  # Any unique identifier; it differentiates caches if you have multiple ones
+# Redis carries the cache and the SSE pub/sub between worker processes. Required in production: with
+# several workers, per-process memory (LocMemCache, the in-process event broker) silently breaks the
+# Square checkout status and live screen updates.
+REDIS_URL = os.getenv('REDIS_URL')
+if os.getenv('ENVIRONMENT') == "production" and not REDIS_URL:
+    raise RuntimeError("REDIS_URL must be set in production")
+
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
+    }

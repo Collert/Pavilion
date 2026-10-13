@@ -1,3 +1,4 @@
+import { onLiveUpdate } from "/static/js/live.js";
 import { addCartItem, updateCheckoutButton, Cart, CashPayment, GiftCardPayment, GiftCard, lookupGiftCard, CashDrawer } from './pos-utils.js';
 import { playBeep } from './sounds.js'
 
@@ -284,19 +285,14 @@ document.querySelectorAll("dialog nav button.icon").forEach(button => {
     })
 })
 
-let inventoryState;
-checkInventory(true);
+onLiveUpdate("inventory", checkInventory);
 
-async function checkInventory(initial = false) {
-    const newInventory = await fetchInventory()
-    if (!initial) {
-        newInventory.forEach(dish => {
-            if (inventoryState.some(item => (item.fields.in_stock !== dish.fields.in_stock || item.fields.force_in_stock !== dish.fields.force_in_stock))) {
-                location.reload()
-            }
-        })
+// Enable/disable dish buttons to match stock, without reloading (a reload would lose the cart)
+async function checkInventory() {
+    for (const dish of await fetchInventory()) {
+        const button = document.querySelector(`button.dish[data-id="${dish.pk}"]`);
+        if (button) button.disabled = !(dish.fields.in_stock || dish.fields.force_in_stock);
     }
-    inventoryState = newInventory;
 }
 
 async function fetchInventory() {
@@ -305,11 +301,6 @@ async function fetchInventory() {
     return JSON.parse(data)
 }
 
-// setInterval(() => {
-//     if (!order.length) {
-//         checkInventory();
-//     }
-// }, 60000);
 
 function sendOrder(actionLink, customerName, instructions, toGo) {
     fetch(actionLink, {
@@ -321,7 +312,14 @@ function sendOrder(actionLink, customerName, instructions, toGo) {
             instructions: instructions,
             toGo: toGo
         })
-    }).then(() => {
+    }).then(async response => {
+        if (!response.ok) {
+            // The server refused the order (out of stock, gift card balance, ...): keep the cart so it can be fixed
+            const data = await response.json().catch(() => ({}));
+            errorDialog.querySelector("h2").innerText = data.message || gettext("The order was not sent. Please try again.");
+            errorDialog.showModal();
+            return;
+        }
         cart = new Cart()
         resetCard()
         updateCheckoutButton(cart)
@@ -333,9 +331,6 @@ function sendOrder(actionLink, customerName, instructions, toGo) {
             name: customerName
         });
         suAuthorized = isSuperuser;
-        setTimeout(() => {
-            checkInventory();
-        }, 4000);
     })
 }
 
