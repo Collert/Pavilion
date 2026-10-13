@@ -525,173 +525,79 @@ def component_choice(request):
         return HttpResponseBadRequest("Please include a valid dish ID in the request")
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def dashboard(request):
-    """
-    Renders the dashboard view with a list of unique order dates.
+    """Old stats dashboard. Superseded by the new admin's history calendar."""
+    return redirect(reverse("admin-dashboard-history"))
 
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered dashboard HTML page with the context containing:
-            - route (str): The current route, set to "dashboard".
-            - dates (QuerySet): A QuerySet of unique dates from the Order model's timestamp field.
-    """
-    unique_days = Order.objects.dates('timestamp', 'day')
-    return render(request, "pos_server/dashboard.html", {
-        "route":"dashboard",
-        "dates":unique_days
-    })
+def parse_stats_date(date_str):
+    """Accept ISO (2025-03-01) and the older 'March 1, 2025' / 'Mar. 1, 2025' formats."""
+    for fmt in ('%Y-%m-%d', '%B %d, %Y', '%b. %d, %Y', '%b %d, %Y'):
+        try:
+            return datetime.datetime.strptime(date_str, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def day_stats(request):
     """
-    View function to generate and display statistics for a specific day based on orders.
-    Args:
-        request (HttpRequest): The HTTP request object containing GET parameters.
-    Returns:
-        HttpResponse: The rendered HTML response with the day's statistics or an error message.
-    The function performs the following steps:
-    1. Parses the 'date' parameter from the GET request.
-    2. Attempts to parse the date string in two formats: 'Month Day, Year' and 'Mon. Day, Year'.
-    3. If parsing fails, returns an error response indicating an invalid date format.
-    4. Converts the parsed date into a timezone-aware datetime object.
-    5. Fetches all available dishes from the database.
-    6. Retrieves all orders for the specified date, ordered by timestamp.
-    7. Initializes a stats dictionary to store various metrics:
-        - item_stats: Count of each dish sold.
-        - stations: Count of dishes prepared by each station.
-        - order_occasions: Order counts and earnings by 15-minute time windows.
-        - prep_times: Average preparation times.
-        - components: Quantities of each dish component used.
-        - ingredients: Quantities of each ingredient used.
-    8. Defines a helper function to round down a datetime object to the nearest 15-minute window.
-    9. Processes each order to populate the stats dictionary:
-        - Groups order occasions into 15-minute time windows.
-        - Calculates total price of each order.
-        - Updates the count and total earnings for each time window.
-        - Tracks preparation times to calculate averages.
-        - Processes each dish in the order to update item_stats, stations, components, and ingredients.
-    10. Converts defaultdicts to regular dicts for rendering.
-    11. Sorts items by quantity sold in descending order.
-    12. Renders the stats in the 'pos_server/day_stats.html' template.
-    Note:
-        - The function assumes the existence of the Dish, Order, and related models.
-        - The function uses Django's timezone utilities for accurate time calculations.
+    Sales statistics for one day (?date=, defaults to today): dishes sold, station load, component and
+    ingredient usage, and order counts / revenue / average prep time per 15-minute window.
+    Embedded in an iframe by new_admin's history calendar.
     """
-    if request.GET.get('date'):
-        date_str = request.GET.get('date')  # Get the date string from the request
-        try:
-            # First, try to parse the date with the original format: Full month name
-            day = datetime.datetime.strptime(date_str, '%B %d, %Y')
-        except ValueError:
-            try:
-                # If parsing with the full month name fails, try parsing with abbreviated month names
-                day = datetime.datetime.strptime(date_str, '%b. %d, %Y')
-            except ValueError:
-                # If both parsing attempts fail, return an error response
-                return render(request, "pos_server/error.html", {
-                    "error": "Invalid date format. Please use 'Month Day, Year' or 'Mon. Day, Year'."
-                })
+    date_str = request.GET.get('date')
+    day = parse_stats_date(date_str) if date_str else timezone.localdate()
+    if day is None:
+        return HttpResponseBadRequest("Invalid date. Use YYYY-MM-DD.")
 
-        # Convert the parsed date into a timezone-aware datetime object
-        day = make_aware(day)
+    orders = (Order.objects.filter(timestamp__date=day).order_by('timestamp')
+              .prefetch_related('orderdish_set__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
 
-        # Fetch all available dishes
-        menu = Dish.objects.all()
+    item_stats = Counter()
+    stations = Counter()
+    components = {}
+    ingredients = {}
+    occasions = defaultdict(lambda: {'count': 0, 'total_earnings': 0.0})
+    prep_totals = defaultdict(lambda: {'total': datetime.timedelta(0), 'count': 0})
 
-        # Fetch all orders for the specific date, ordered by timestamp
-        orders = Order.objects.filter(timestamp__date=day).order_by('timestamp')
+    def get_15_min_window(dt):
+        dt = timezone.localtime(dt)
+        start_time = dt.replace(minute=15 * (dt.minute // 15), second=0, microsecond=0)
+        end_time = start_time + datetime.timedelta(minutes=15)
+        return f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
 
-        # Initialize stats dictionary to store various metrics
-        stats = {
-            "item_stats": {},  # Stores the count of each dish sold
-            "stations": {},  # Stores the count of dishes prepared by each station
-            "order_occasions": {},  # Tracks order counts and earnings by time windows
-            "prep_times": {},  # Stores average preparation times
-            "components": {},  # Tracks quantities of each dish component used
-            "ingredients": {},  # Tracks quantities of each ingredient used
-        }
+    for order in orders:
+        window = get_15_min_window(order.timestamp)
+        order_dishes = order.orderdish_set.all()
+        occasions[window]['count'] += 1
+        occasions[window]['total_earnings'] += sum(od.quantity * od.dish.price for od in order_dishes)
+        if order.prep_time:
+            prep_totals[window]['total'] += order.prep_time
+            prep_totals[window]['count'] += 1
 
-        # Function to round down a datetime object to the nearest 15-minute window
-        def get_15_min_window(dt):
-            # Convert datetime to local timezone for accurate window calculation
-            dt = timezone.localtime(dt)
-            # Round down to the nearest 15 minutes
-            start_minute = 15 * math.floor(dt.minute / 15)
-            start_time = dt.replace(minute=start_minute, second=0, microsecond=0)
-            # Calculate the end of the 15-minute window
-            end_time = start_time + datetime.timedelta(minutes=15)
-            return f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
+        for od in order_dishes:
+            dish = od.dish
+            item_stats[dish.title] += od.quantity
+            stations[dish.station] += od.quantity
+            for dc in dish.dishcomponent_set.all():
+                entry = components.setdefault(dc.component.title, [0, dc.component.unit_of_measurement])
+                entry[0] += dc.quantity * od.quantity
+                for ci in dc.component.componentingredient_set.all():
+                    entry = ingredients.setdefault(ci.ingredient.title, [0, ci.ingredient.unit_of_measurement])
+                    entry[0] += ci.quantity * dc.quantity * od.quantity
 
-        # Initialize defaultdicts for grouping data
-        stats["order_occasions"] = defaultdict(lambda: {'count': 0, 'total_earnings': 0.0})
-        prep_time_data = defaultdict(lambda: {'total_prep_time': datetime.timedelta(0), 'count': 0})
-
-        # Process each order to populate stats
-        for order in orders:
-            # Group order occasions into 15-minute time windows
-            time_window = get_15_min_window(order.timestamp)
-
-            # Calculate total price of the order
-            order_price = sum(od.quantity * od.dish.price for od in order.orderdish_set.all())
-
-            # Update the count and total earnings for the time window
-            stats["order_occasions"][time_window]['count'] += 1
-            stats["order_occasions"][time_window]['total_earnings'] += order_price
-
-            # Track preparation times to calculate averages later
-            prep_time_data[time_window]['total_prep_time'] += order.prep_time
-            prep_time_data[time_window]['count'] += 1
-
-            # Populate average preparation times per time window
-            for window, data in prep_time_data.items():
-                count = data['count']
-                if count > 0:  # Avoid division by zero
-                    average_prep = data['total_prep_time'] / count
-                    stats['prep_times'][window] = average_prep
-
-            # Process each dish in the order
-            for item in order.dishes.all():
-                # Count the quantity of each dish sold
-                if item.title not in stats["item_stats"]:
-                    stats["item_stats"][item.title] = 1
-                else:
-                    stats["item_stats"][item.title] += 1
-
-                # Count the distribution of dishes across stations
-                if item.station not in stats["stations"]:
-                    stats["stations"][item.station] = 1
-                else:
-                    stats["stations"][item.station] += 1
-
-                # Track the quantity of each component used in the dish
-                for dc in item.dishcomponent_set.all():
-                    if dc.component.title not in stats["components"]:
-                        stats["components"][dc.component.title] = [None] * 2
-                        stats["components"][dc.component.title][1] = dc.component.unit_of_measurement
-                        stats["components"][dc.component.title][0] = dc.quantity
-                    else:
-                        stats["components"][dc.component.title][0] += dc.quantity
-
-                    # Track the quantity of each ingredient used in the components
-                    for ci in dc.component.componentingredient_set.all():
-                        if ci.ingredient.title not in stats["ingredients"]:
-                            stats['ingredients'][ci.ingredient.title] = [None] * 2
-                            stats['ingredients'][ci.ingredient.title][1] = ci.ingredient.unit_of_measurement
-                            stats['ingredients'][ci.ingredient.title][0] = ci.quantity
-                        else:
-                            stats['ingredients'][ci.ingredient.title][0] += ci.quantity
-
-        # Convert defaultdicts to regular dicts for rendering
-        stats["order_occasions"] = dict(stats["order_occasions"])
-
-        # Sort items by quantity sold in descending order
-        stats["item_stats"] = dict(sorted(stats["item_stats"].items(), key=lambda item: item[1], reverse=True))
-
-    # Render the stats in the HTML template
+    stats = {
+        "item_stats": dict(item_stats.most_common()),
+        "stations": dict(stations),
+        "order_occasions": dict(occasions),
+        "prep_times": {w: d['total'] / d['count'] for w, d in prep_totals.items() if d['count']},
+        "components": components,
+        "ingredients": ingredients,
+    }
     return render(request, "pos_server/day_stats.html", {
-        "menu": menu,
+        "day": day,
         "stats": stats,
     })
 
