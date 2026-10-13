@@ -46,13 +46,14 @@ go out as "Holy Eucharist Cathedral".
 | 2025-03 → 2025-04 | Menu management in new_admin, dashboard history calendar, Square checkout caching. Menu fonts/styles WIP left in **stash@{0}**. |
 | 2025-07 | Docker/Postgres setup, Copilot instructions file, `classes.py` edit (introduced the gift-card email crash). |
 | 2025-11-26 | Three **Copilot agent branches** pushed to origin (unmerged): WebSockets, dynamic stations, N+1 query fixes. |
-| 2026-10-13 | **Overhaul** on `fix-all-problems-for-real`: security fixes, DB reset with committed migrations, Station model, shared order service, payment fixes, SSE over Redis, Docker with uvicorn, tests, `seed_demo`. |
+| 2026-10-13 | **Overhaul** on `fix-all-problems-for-real`: security fixes, DB reset with committed migrations, Station model, shared order service, payment fixes, SSE over Redis, Docker with uvicorn, tests, `seed_demo`. Then Django 5.1 → 6.1. |
 
 ---
 
 ## 3. Tech stack
 
-- **Django 5.1**, Python 3.12 (Docker and local).
+- **Django 6.1**, Python 3.12+ (Docker and local). Upgraded from 5.1 on 2026-10-13 with no deprecated APIs in use:
+  the test suite runs with every `RemovedInDjango…Warning` turned into an error.
 - Plain Django templates plus vanilla JS ES modules. No frontend build step and no npm.
 - **Server:** ASGI. `manage.py runserver` runs daphne (it's first in `INSTALLED_APPS`); Docker runs uvicorn with several workers.
 - **DB:** SQLite in dev (`db.sqlite3`), PostgreSQL 16 when `ENVIRONMENT=production`.
@@ -62,7 +63,7 @@ go out as "Holy Eucharist Cathedral".
 - **Media:** `./media` served by Django in dev; a RustFS (S3-compatible) bucket via `django-storages` in production.
 - **Integrations:** Square (Terminal API, Web Payments SDK, webhooks) on `squareup==38.x` (later versions replaced
   `square.client.Client`), SendGrid dynamic templates, Google Distance Matrix, OpenWeather, Web Push (VAPID), gTTS +
-  pydub/ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
+  ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
 - **i18n:** `i18n_patterns`, so page URLs carry `/en/`, `/uk/` or `/zh-hk/`. `LANGUAGE_CODE` must be one of `LANGUAGES`
   (`en`), or `reverse()` outside a request builds 404ing `/en-us/` URLs. JS strings use `gettext()` via `/jsi18n/`.
 

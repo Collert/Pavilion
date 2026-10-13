@@ -27,10 +27,11 @@
     <button id="submit">{% trans "Submit" %}</button>
 </form>
 
+{{ json|json_script:"ingredients-data" }}
 <script>
     const addButton = document.querySelector("#add-item");
     const form = document.querySelector("form");
-    const ingredients = JSON.parse('{{json|safe}}');
+    const ingredients = JSON.parse(document.getElementById("ingredients-data").textContent);
     let itemsCounter = 1;
 
     addButton.addEventListener("click", () => {

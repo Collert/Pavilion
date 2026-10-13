@@ -86,12 +86,13 @@
     <main id="thank-you">
         <h1>Thank you!</h1>
     </main>
+    {{ dishes|json_script:"dishes-data" }}
     <script>
         if (sessionStorage.getItem("fsReminderDone") !== "true") {
             alert("{% trans 'Don\'t forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)' %}");
             sessionStorage.setItem("fsReminderDone", "true");
         } 
-        const dishes = JSON.parse('{{dishes|safe}}');
+        const dishes = JSON.parse(document.getElementById("dishes-data").textContent);
         console.log(dishes)
         
         const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');

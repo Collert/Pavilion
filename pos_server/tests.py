@@ -331,3 +331,15 @@ class AccessTests(MenuFixture, TestCase):
         self.assertEqual(self.client.get(reverse("check_inventory")).status_code, 403)
         response = self.client.post(reverse("check_su"), json.dumps({"username": "a", "password": "b"}), content_type="application/json")
         self.assertEqual(response.status_code, 403)
+
+
+class SeedDemoTests(TestCase):
+    """seed_demo must keep working on a fresh database (CLAUDE.md: update it with every model change)."""
+
+    def test_seed_demo_runs(self):
+        from django.core.management import call_command
+        from io import StringIO
+        with self.settings(MEDIA_ROOT=__import__("tempfile").mkdtemp()):
+            call_command("seed_demo", allow_production=True, stdout=StringIO())
+        self.assertTrue(Order.objects.filter(channel="delivery").exists())
+        self.assertEqual(Menu.active().title, "Sunday brunch")

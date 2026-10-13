@@ -107,6 +107,7 @@
     </form>
 </div>
 
+{{ ingredient_inventory|json_script:"ingredient-inventory" }}
 <script type="module">
     import { onLiveUpdate } from "/static/js/live.js";
     onLiveUpdate("inventory", async () => {
@@ -119,7 +120,7 @@
     const popSound = document.querySelector("#pop-sound");
     const levelSound = document.querySelector("#level-sound");
     const form = document.querySelector("#multi-form");
-    let inventory = JSON.parse('{{ingredient_inventory|safe}}');
+    let inventory = JSON.parse(document.getElementById("ingredient-inventory").textContent);
 
     const countAnimDuration = 1000;
     console.log(inventory)

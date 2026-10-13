@@ -1,5 +1,6 @@
 from django.conf import settings
 from square.client import Client
+from square.http.auth.o_auth_2 import BearerAuthCredentials
 import uuid
 from decimal import Decimal
 from django.http import JsonResponse, HttpResponse
@@ -11,7 +12,7 @@ from django.utils.dateparse import parse_datetime
 
 # Initialize the Square client
 square_client = Client(
-    access_token=settings.SQUARE_ACCESS_TOKEN,
+    bearer_auth_credentials=BearerAuthCredentials(access_token=settings.SQUARE_ACCESS_TOKEN),
     environment=settings.SQUARE_ENVIRONMENT
 )
 

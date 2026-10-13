@@ -97,6 +97,13 @@ Dev serves `./media` at `/media/` (stored names are `files/<kind>/<name>`, so fi
 Production uses `storages.backends.s3.S3Storage` against RustFS (`RUSTFS_*`). Never build media URLs by hand or read
 media from disk; use `field.url` / `default_storage`.
 
+## Django version
+
+Django 6.1 (Python 3.12+). Don't use deprecated APIs: check new code against the release notes, and `manage.py test`
+turns every `RemovedInDjango…Warning` into an error (`pavilion/test_runner.py`), so keep it green. Pass data to JavaScript with
+`{{ value|json_script:"id" }}`, never by pasting JSON into a JS string (`JSON.parse('{{ x|safe }}')` broke when
+Django 6.0's serializer started ending output with a newline, and it's an injection risk).
+
 ## Conventions in this codebase
 
 - Function-based views that switch on `request.method` (GET page, POST/PUT/DELETE JSON from `fetch`). JSON bodies
@@ -112,6 +119,6 @@ media from disk; use `field.url` / `default_storage`.
 
 ## Git
 
-- Solo project. Current work is on `fix-all-problems-for-real`.
+- Solo project. Current work is on `fix-all-problems-for-real`. **Don't create new branches unless asked.**
 - Commit each fix as its own commit with a descriptive message; **don't push unless asked**.
 - The three `origin/copilot/*` branches are superseded by the overhaul; `stash@{0}` (menu fonts/styles) is unapplied.

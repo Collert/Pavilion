@@ -251,14 +251,14 @@ def pos(request):
     if request.method == "GET":
         menu = Menu.active()
         if menu is None:
-            return render(request, "pos_server/order.html", {"route": "pos", "sections": [], "json": "[]",
+            return render(request, "pos_server/order.html", {"route": "pos", "sections": [], "json": [],
                                                              "menu_title": _("No active menu"), "menus": Menu.objects.all()})
         dishes = menu.dishes.select_related("station").prefetch_related("components__child_dishes").order_by('station__position', 'id')
         return render(request, "pos_server/order.html", {
             "route": "pos",
             "sections": group_by_station(dishes),
             "menu_title": menu.title,
-            "json": json.dumps([dish.serialize_with_options() for dish in dishes]),
+            "json": [dish.serialize_with_options() for dish in dishes],
             "menus": Menu.objects.all()
         })
     try:
@@ -454,7 +454,7 @@ def pos_out_display(request):
         HttpResponse: The rendered HTML response for the POS output display.
 
     Context:
-        dishes (str): JSON serialized list of dishes associated with the active menu.
+        dishes (list): Serialized dishes of the active menu (rendered with json_script).
         menu (Menu): The active menu object.
         compiled_menu (dict): The compiled menu data.
         components_out (list): List of components for the output display.
@@ -463,7 +463,7 @@ def pos_out_display(request):
     dishes = Dish.objects.filter(menu=menu).order_by("id")
     comp_menu, components_out = compile_menu(menu)
     return render(request, "pos_server/pos-output-display.html", {
-        "dishes": serializers.serialize('json', dishes),
+        "dishes": json.loads(serializers.serialize('json', dishes)),
         "menu":menu,
         "compiled_menu":comp_menu,
         "components_out":components_out

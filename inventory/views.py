@@ -34,7 +34,7 @@ def log_shopping(request):
         return render(request, "inventory/log-shopping.html", {
             "ingredients":ingredients,
             "route":"log_shopping",
-            "json": serializers.serialize('json', ingredients),
+            "json": json.loads(serializers.serialize('json', ingredients)),
         })
     elif request.method == "POST":
         total_quantity = int(request.POST["items-total"])
@@ -123,7 +123,7 @@ def crafting(request):
             "route":"crafting",
             "components":components,
             "ingredients":ingredients,
-            "ingredient_inventory": collect_ing_stock(ingredients),
+            "ingredient_inventory": ingredient_stock(ingredients),
         })
     elif request.method == "POST":
         body = json.loads(request.body)
@@ -287,21 +287,13 @@ def recipe(request, recipe_id):
             "route":"recipe"
         })
 
+def ingredient_stock(ingredients):
+    """{ingredient id (str): inventory} for the given ingredients."""
+    return {f"{ingredient.id}": ingredient.inventory for ingredient in ingredients}
+
 def collect_ing_stock(ingredients):
-    """
-    Collects the inventory stock for a list of ingredients and returns it as a JSON string.
-
-    Args:
-        ingredients (list): A list of ingredient objects, each with an 'id' and 'inventory' attribute.
-
-    Returns:
-        str: A JSON string representing the inventory stock of the ingredients, 
-             where the keys are ingredient IDs and the values are their respective inventory counts.
-    """
-    inventory = {}
-    for ingredient in ingredients:
-        inventory[f"{ingredient.id}"] = ingredient.inventory
-    return json.dumps(inventory)
+    """ingredient_stock() as a JSON string."""
+    return json.dumps(ingredient_stock(ingredients))
 
 @staff_member_required
 def inventory_updates(request):
