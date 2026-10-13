@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from .models import *
 from django.template.loader import render_to_string
@@ -6,7 +7,10 @@ import barcode
 from barcode.writer import ImageWriter
 from io import BytesIO
 import base64
-from payments.models import Transaction
+from payments.models import PaymentError, Transaction
+import logging
+
+logger = logging.getLogger(__name__)
 from misc_tools.funcs import send_template_email
 from misc_tools.classes import SendGridEmailData
 from django.urls import reverse
@@ -117,38 +121,29 @@ def get_card(request):
             "card_images":image_urls
         })
     elif request.method == "POST":
-        uuid = request.POST["transaction_uuid"]
-        image_path = request.POST["image"]
-        email = request.POST["email"]
-        amount = float(request.POST["amount"])
-        name = request.POST["name"]
-        sender = request.POST["sender"]
-        gifted = request.POST["gifted"] == "true"
+        uuid = request.POST.get("transaction_uuid")
+        image_path = request.POST.get("image", "")
+        email = request.POST.get("email", "")
+        name = request.POST.get("name", "")
+        sender = request.POST.get("sender", "")
+        gifted = request.POST.get("gifted") == "true"
         try:
-            transaction = Transaction.objects.get(uuid=uuid)
-            transaction.delete()
-            card = create_card(request, image_path, email, amount, name, sender, gifted)
-        except:
-            card = GiftCard.objects.filter(email=email, image=image_path, available_balance=amount).first()
+            with db_transaction.atomic():
+                # The card is worth what was actually paid, not what the form says
+                transaction = Transaction.consume(uuid, Decimal("0.01"))
+                card = GiftCard.objects.create(email=email, image=image_path, available_balance=transaction.amount)
+        except PaymentError as e:
+            return render(request, "gift_cards/card-confirm.html", {"error": str(e)}, status=402)
+        send_card_email(request, card, email, name, sender, gifted)
         return render(request, "gift_cards/card-confirm.html", {
             "card":card
         })
     
-def create_card(request, image_path, email, amount, name, sender, gifted):
+def send_card_email(request, card, email, name, sender, gifted):
     """
-    Creates a new gift card and sends a confirmation email.
-    Args:
-        request (HttpRequest): The HTTP request object.
-        image_path (str): The path to the image associated with the gift card.
-        email (str): The recipient's email address.
-        amount (float): The initial balance of the gift card.
-        name (str): The recipient's name.
-        sender (str): The sender's name (used if the card is gifted).
-        gifted (bool): Indicates whether the card is a gift.
-    Returns:
-        GiftCard: The created GiftCard object.
+    Email the new card's link to the recipient. A failed email is logged, not raised: the customer
+    has paid and the card exists, and the confirmation page shows the link too.
     """
-    card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
     # Generate the card link
     card_link = request.build_absolute_uri(reverse('card_display', args=[card.number]))
 
@@ -163,14 +158,15 @@ def create_card(request, image_path, email, amount, name, sender, gifted):
     )
     if gifted:
         email_dynamic_data["sender"] = sender
-    email_data.add_recipient(
-        email=email,
-        name=name,
-        dynamic_data=email_dynamic_data
-    )
-    # Send confirmation email
-    send_template_email(email_data)
-    return card
+    try:
+        email_data.add_recipient(
+            email=email,
+            name=name,
+            dynamic_data=email_dynamic_data
+        )
+        send_template_email(email_data)
+    except Exception:
+        logger.exception("Failed to send gift card email for card %s", card.number)
 
 def special(request):
     return render(request, "gift_cards/special.html", {
@@ -197,12 +193,15 @@ def new_card_confirmation(request):
         "card":card
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def email_card_confirmation(request):
+    """Preview of the gift card email template."""
     return render(request, "gift_cards/emails/card-confirm.html", {
         "name":"Jane",
         "gifted":False,
         "sender_name":"Joe",
-        "card_link":request.build_absolute_uri(reverse('card_display', "12345"))
+        "card_number":"1234567890123456",
     })
 
 def card_api(request, card_number):

@@ -48,16 +48,10 @@
             <h1>{{menu.title|title}}</h1>
         </header>
         <div id="menu-actual">
-            {% for category, dishes in compiled_menu.items %}
+            {% for station, dishes in compiled_menu %}
                 {% if dishes %}
                 <div class="title-item-pack">
-                {% if category == "kitchen" %}
-                <h2>{% trans "Hot meals" %}</h2>
-                {% elif category == "bar" %}
-                <h2>{% trans "Drinks and snacks" %}</h2>
-                {% elif category == "gng" %}
-                <h2>{% trans "Pre-packaged food" %}</h2>
-                {% endif %}
+                <h2>{{ station.heading }}</h2>
                 {% for dish in dishes %}
                 {% if dish.available %}
                 <div class="menu-item">

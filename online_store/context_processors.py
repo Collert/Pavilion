@@ -1,6 +1,12 @@
 from django.utils import timezone
 from events.models import Event
 
+
+def current_business_event():
+    """Today's open Event that hasn't ended yet, or None. Online ordering is only possible during one."""
+    now = timezone.localtime(timezone.now())
+    return Event.objects.filter(end__date=now.date(), end__gt=now, restaurant_open=True).order_by("end").first()
+
 def check_business_day(request):
     """
     Checks if the current time falls within a business day for the online store.
@@ -14,11 +20,9 @@ def check_business_day(request):
             - "business_day_start_time" (str or None): The start time of the business day in 'HH:MM' format if it is a business day, None otherwise.
             - "business_day_end_time" (str or None): The end time of the business day in 'HH:MM' format if it is a business day, None otherwise.
     """
-    now = timezone.localtime(timezone.now())
-    event = Event.objects.filter(end__date=now.date(), end__gt=now, restaurant_open=True).order_by("end").first()
+    event = current_business_event()
     return {
         "business_day": event is not None,
         "business_day_start_time": timezone.localtime(event.start).strftime('%H:%M') if event else None,
         "business_day_end_time": timezone.localtime(event.end).strftime('%H:%M') if event else None
     }
-    return {}

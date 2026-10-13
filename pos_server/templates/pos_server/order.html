@@ -6,14 +6,8 @@
 {% block body %}
 {% csrf_token %}
 <div id="items-wrapper">
-    {% for station, items in menu.items %}
-    {% if station == "bar" %}
-    <h1>{% trans "Drinks and sweets" %}</h1>
-    {% elif station == "kitchen" %}
-    <h1>{% trans "Hot food" %}</h1>
-    {% elif station == "gng" %}
-    <h1>{% trans "Grab & Go" %}</h1>
-    {% endif %}
+    {% for station, items in sections %}
+    <h1>{{ station.heading }}</h1>
     <div id="items">
         {% for item in items %}
         {% if item.visible_in_menu %}

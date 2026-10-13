@@ -1,0 +1,20 @@
+{% extends "online_store/layout.html" %}
+{% load i18n %}
+
+{% block body %}
+<style>
+    :root {
+        --primary-background: {{menu.menu.background_color}};
+        --accent-1: {{menu.menu.accent_1}};
+        --accent-2: {{menu.menu.accent_2}};
+        --accent-3: {{menu.menu.accent_3}};
+    }
+    #order-error { padding: 2rem; text-align: center; }
+</style>
+<div id="order-error">
+    <h1>{% trans "We couldn't place your order" %}</h1>
+    <p>{{ message }}</p>
+    <p>{% trans "If you already paid by card for this order, please contact us and we will sort it out." %}</p>
+    <a class="button" href="{% url 'menu' %}">{% trans "Back to the menu" %}</a>
+</div>
+{% endblock %}

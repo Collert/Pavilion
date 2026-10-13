@@ -6,99 +6,9 @@
 
 {% block body %}
 {% csrf_token %}
-{% for order in orders %}
-    <div 
-        data-order-id="{{order.order_id}}" 
-        data-channel="{{order.channel}}"
-        data-payment-id="{{order.payment_id}}"
-        data-kitchen-status="{{order.kitchen_status}}"
-        data-bar-status="{{order.bar_status}}"
-        data-gng-status="{{order.gng_status}}"
-        class="order {% if order|all_stations_ready %}success{% endif %}"
-    >
-        <div class="summary">
-            <h2>
-                {% if order.name %}
-                {{order.name}}
-                {% else %}
-                {% trans "No name" %}
-                {% endif %}
-            </h2>
-            <div class="name-time">
-                <span>{% trans "Order" %} #{{order.order_id}}</span>
-                <span data-timestamp="{{order.start_time}}" class="timestamp">
-                    {%trans "Prep time:" %} <span>{{order.start_time}}</span>
-                </span>
-            </div>
-        </div>
-        <div>
-            <h3>
-                {% if order.channel == "store" %}
-                <span class="material-symbols-outlined">storefront</span> {% trans "In-person" %}
-                {% elif order.channel == "web" %}
-                <span class="material-symbols-outlined">shopping_cart_checkout</span> {% trans "Online pick-up" %}
-                <span class="material-symbols-outlined">call</span> {{order.phone}}
-                {% elif order.channel == "delivery" %}
-                <span class="material-symbols-outlined">local_shipping</span> {% trans "Delivery" %}
-                <span class="material-symbols-outlined">call</span> {{order.phone}}
-                {% endif %}
-            </h3>
-            <div class="progresses">
-                {% if order.kitchen_status != 4 %}
-                    <div class="progress-stack kitchen-progress">
-                        <span class="material-symbols-outlined">restaurant</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>
-                    </div>
-                {% endif %}
-                {% if order.bar_status != 4 %}
-                    <div class="progress-stack bar-progress">
-                        <span class="material-symbols-outlined">local_cafe</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>
-                    </div>
-                {% endif %}
-                {% if order.gng_status != 4 %}
-                    <div class="progress-stack gng-progress">
-                        <span class="material-symbols-outlined">kitchen</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>      
-                    </div>
-                {% endif %}
-            </div>
-            <h3>
-                {% if order.to_go_order %}
-                <span class="material-symbols-outlined">takeout_dining</span> {% trans "Order to-go" %}
-                {% else %}
-                <span class="material-symbols-outlined">restaurant</span> {% trans 'Order for here' %}
-                {% endif %}
-            </h3>
-            <ul>
-                {% for item in order.dishes %}
-                    {% if item.station in filters %}
-                        <li>{{item.quantity}} X {{item.name}}</li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
-            {% if order.special_instructions %}
-            <h3>{% trans "Special instructions:" %}</h3>
-            <p>{{order.special_instructions}}</p>
-            {% endif %}
-        </div>
-    </div>
-{% endfor %}
+{{ orders|json_script:"initial-orders" }}
+{{ stations|json_script:"stations-data" }}
+{{ filters|json_script:"filters-data" }}
 <dialog class="full" id="availability">
     <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
 </dialog>
@@ -158,52 +68,7 @@
 </dialog>
 
 <script>
-    const stations = JSON.parse('{{stations|safe}}')
-    const filters = JSON.parse('{{filters|safe}}')
-    const orderFilters = {
-        kitchen:filters.includes("kitchen"),
-        bar:filters.includes("bar"),
-        gng:filters.includes("gng")
-    }
-</script>
-<script> 
     const checkOrdersLink = "{% url 'active_orders' %}";
-    const approveOrderLink = "{% url 'capture-payment' %}";
-</script>
-<script>
-    document.querySelector("#filters-form")?.addEventListener("submit", e => {
-        e.preventDefault()
-        let query = '?'
-        if (e.currentTarget.querySelector("#kitchen-filter").checked) {
-            query += "filter=kitchen"
-        }
-        if (e.currentTarget.querySelector("#bar-filter").checked) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += "filter=bar"
-        }
-        if (e.currentTarget.querySelector("#gng-filter").checked) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += "filter=gng"
-        }
-        if (e.currentTarget.querySelector("#auto-done-input").value) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += `auto-done=${e.currentTarget.querySelector("#auto-done-input").value}`
-        }
-        if (e.currentTarget.querySelector("#auto-collect-input").value) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += `auto-collect=${e.currentTarget.querySelector("#auto-collect-input").value}`
-        }
-        // const url = new URL()
-        window.location.replace(window.location.href.split('?')[0] + query) 
-    })
 </script>
 <script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
 <script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
@@ -219,18 +84,12 @@
         <div class="preference-categories">
             <div class="preference-category">
                 <h2>{% trans "Filters" %}</h2>
+                {% for station in stations %}
                 <div class="filter-switch">
-                    <input {% if "kitchen" in filters %}checked{% endif %} type="checkbox" name="filter" id="kitchen-filter">
-                    <label for="kitchen-filter">{% trans "Hot food" %}</label>
+                    <input {% if station.code in filters %}checked{% endif %} type="checkbox" name="filter" value="{{ station.code }}" id="{{ station.code }}-filter">
+                    <label for="{{ station.code }}-filter">{{ station.name }}</label>
                 </div>
-                <div class="filter-switch">
-                    <input {% if "bar" in filters %}checked{% endif %} type="checkbox" name="filter" id="bar-filter">
-                    <label for="bar-filter">{% trans "Drinks & sweets" %}</label>
-                </div>
-                <div class="filter-switch">
-                    <input {% if "gng" in filters %}checked{% endif %} type="checkbox" name="filter" id="gng-filter">
-                    <label for="gng-filter">{% trans "Frozen products" %}</label>
-                </div>
+                {% endfor %}
             </div>
             <div class="preference-category">
                 <h2>{% trans "Auto-done" %}</h2>

@@ -1,13 +1,39 @@
 {% extends "pos_server/layout.html" %}
 {% load i18n %}
-{% load static %}
 
 {% block body %}
-{% csrf_token %}
-<h1>{% trans "Square terminal device code:" %}</h1>
-<span>{{code}}</span>
-<div>
-    <button>{% trans "Send test transaction" %}</button>
-    <button>{% trans "Generate new code" %}</button>
+<div style="padding: 1rem; display: grid; gap: 1rem;">
+    <h1>{% trans "Square Terminal pairing" %}</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <p>{% blocktrans %}Create a code, sign in on the Terminal with "Use a device code", enter the code, then reload this page.{% endblocktrans %}</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="new">
+        <input type="text" name="name" placeholder="{% trans 'Terminal name' %}" value="Square Terminal">
+        <button>{% trans "Generate new code" %}</button>
+    </form>
+    <table>
+        <thead><tr><th>{% trans "Name" %}</th><th>{% trans "Code" %}</th><th>{% trans "Status" %}</th><th>{% trans "In use" %}</th><th></th></tr></thead>
+        <tbody>
+        {% for terminal in terminals %}
+            <tr>
+                <td>{{ terminal.name }}</td>
+                <td><b>{{ terminal.code }}</b>{% if terminal.status == "UNPAIRED" and terminal.pair_by %} ({% trans "expires" %} {{ terminal.pair_by|time }}){% endif %}</td>
+                <td>{{ terminal.status }}</td>
+                <td>{% if terminal.is_active %}✓{% endif %}</td>
+                <td>
+                    {% if terminal.status == "PAIRED" and not terminal.is_active %}
+                    <form method="post">{% csrf_token %}
+                        <input type="hidden" name="action" value="activate"><input type="hidden" name="id" value="{{ terminal.id }}">
+                        <button>{% trans "Use this terminal" %}</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5">{% trans "No terminals paired yet." %}{% if fallback_device_id %} {% trans "Using SQUARE_DEVICE_ID from the environment." %}{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

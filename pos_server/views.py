@@ -2,7 +2,9 @@ from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseBadRequest, HttpResponseNotAllowed
+from django.db import transaction
+from decimal import Decimal
 from django.urls import reverse
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
@@ -12,13 +14,14 @@ from .models import *
 import json
 from functools import wraps
 from .devices import device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
+from .orders import OrderError, collect_order, create_order, orders_for_screens, refund_gift_cards, station_list
 from django.utils import timezone
-from . import globals
+
 import datetime
 from collections import defaultdict
 import math
 from payments import square
-import configparser
+from payments.models import SquareTerminal
 import os
 from square.utilities.webhooks_helper import is_valid_webhook_event_signature
 from django.conf import settings
@@ -34,11 +37,10 @@ from django.core.cache import cache
 from gift_cards.models import GiftCard
 from online_store.models import RejectedOrder
 from django.utils.translation import gettext_lazy as _
+import logging
 
-# Create a configparser object
-file_dir = os.path.dirname(os.path.abspath(__file__))
-config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
-config.read(os.path.join(file_dir, 'config.cfg'))
+logger = logging.getLogger(__name__)
+
 
 def index(request):
     return HttpResponseRedirect(reverse("pos"))
@@ -118,112 +120,82 @@ def order_marking(request):
         HttpResponse: The response object with the appropriate status and data based on the request method.
     """
     if request.method == "GET":
-        today = timezone.localdate()
-        stations = ["kitchen", "bar", "gng"]
         filters = request.GET.getlist('filter')
-        print(filters)
-        # Fetch all orders
-        conditions = Q(picked_up=False) & Q(start_time__lte=now()) & Q(timestamp__date=today)
-        status_conditions = Q()
-        for station in stations:
-            if station in filters:
-                status_conditions |= ~Q(**{f"{station}_status__in": [3, 4]})
-            else:
-                status_conditions |= ~Q(**{f"{station}_status__in": [0, 1, 2, 3, 4]})
-        conditions &= status_conditions
-        orders = Order.objects.filter(conditions)
-        print(orders)
-
-        # Prepare data for each order
-        orders_data = []
-        for order in orders:
-            orders_data.append(collect_order(order))
+        orders = orders_for_screens(
+            Order.objects.filter(picked_up=False, start_time__lte=now(), timestamp__date=timezone.localdate(),
+                                 station_statuses__station__code__in=filters,
+                                 station_statuses__status__lt=OrderStation.STATUS_REJECTED)
+            .distinct().order_by("start_time")
+        )
         return render(request, "pos_server/order-marking.html", {
             "route":"markings",
-            'orders': orders_data,
-            "filters":json.dumps(filters),
-            "stations":json.dumps(stations)
+            "orders": [collect_order(order) for order in orders],
+            "filters": filters,
+            "stations": station_list(),
         })
-    elif request.method == "DELETE":
+
+    try:
+        body = json.loads(request.body)
+        order = Order.objects.get(id=body["orderId"])
+    except (ValueError, KeyError, TypeError):
+        return HttpResponseBadRequest("Expected a JSON body with orderId")
+    except Order.DoesNotExist:
+        return JsonResponse({"status": "Order not found"}, status=404)
+    filters = body.get("filters", [])
+
+    if request.method == "DELETE":
         # Mark order as picked up
-        order_id = json.loads(request.body)["orderId"]
-        order = Order.objects.get(id=order_id)
-        station_mappings = {
-            "kitchen": order.kitchen_status,
-            "bar": order.bar_status,
-            "gng": order.gng_status,
-        }
         order.picked_up = True
         order.save()
         return JsonResponse({"status":"Order marked picked up"}, status=200)
     elif request.method == "PUT":
-        # Mark order as completed
-        order_id = json.loads(request.body)["orderId"]
-        filters = json.loads(request.body)["filters"]
-        order = Order.objects.get(id=order_id)
-
-        station_mappings = {
-            "kitchen": "kitchen_status",
-            "bar": "bar_status",
-            "gng": "gng_status",
-        }
-
-        for station in filters:
-            if station in station_mappings:
-                field_name = station_mappings[station]
-                current_value = getattr(order, field_name)  # Get the current value of the attribute
-                if current_value != 4:  # Only update if the current value is not 4
-                    setattr(order, field_name, 2)
-        order.save()
+        # Mark this screen's stations as completed
+        order.set_station_status(filters, OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
         return JsonResponse({"status":"Order marked done"}, status=200)
     elif request.method == "POST":
         # Approve or reject the order
-        body = json.loads(request.body)
-        filters = body["filters"]
-        order_id = body["orderId"]
-        action = body["action"]
-        order = Order.objects.get(id=order_id)
-        station_mappings = {
-            "kitchen": "kitchen_status",
-            "bar": "bar_status",
-            "gng": "gng_status",
-        }
-        payment_id = order.authorization.payment_id if order.authorization else None
+        action = body.get("action")
         if action == "approve":
-            for station in filters:
-                if station in station_mappings:
-                    field_name = station_mappings[station]
-                    current_value = getattr(order, field_name)  # Get the current value of the attribute
-                    if current_value != 4:  # Only update if the current value is not 4
-                        setattr(order, field_name, 1)
-            order.save()
-            all_approved = order.kitchen_status in [1,4] and order.bar_status in [1,4] and order.gng_status in [1,4]
+            order.set_station_status(filters, OrderStation.STATUS_APPROVED, only_from=[OrderStation.STATUS_PENDING])
+            all_approved = OrderStation.STATUS_PENDING not in order.statuses()
+            payment_error = None
+            if all_approved and order.authorization:
+                try:
+                    square.capture_authorization(order.authorization)
+                except Exception as e:
+                    logger.exception("Capturing payment for order %s failed", order.id)
+                    payment_error = str(e)
             return JsonResponse({
-                "status":"Order marked approved", 
-                "action":action, 
-                "payment_id":payment_id,
-                "all_approved":all_approved
+                "status":"Order marked approved",
+                "action":action,
+                "all_approved":all_approved,
+                "payment_error":payment_error,
             }, status=200)
         elif action == "delete":
-            rejection_obj = body["rejection"]
-            print(rejection_obj)
+            rejection_obj = body.get("rejection") or {}
+            reasons = rejection_obj.get("reasons", [])
             rejection_reason = _("We are sorry but we could not complete your order for the following reasons: ")
-            if 'out-of-stock' in rejection_obj["reasons"]:
+            if 'out-of-stock' in reasons:
                 rejection_reason += _("Some of the products you requested are currently out of stock. We will update our menu in a few minutes to reflect the accurate stock levels. ")
-            if 'no-containers' in rejection_obj["reasons"]:
+            if 'no-containers' in reasons:
                 rejection_reason += _("We are currently out of containers to package your order. ")
-            if rejection_obj["reasonExtra"]:
-                rejection_reason += rejection_obj["reasonExtra"]
+            if rejection_obj.get("reasonExtra"):
+                rejection_reason += rejection_obj["reasonExtra"] + " "
             rejection_reason += _("We apologize for the inconvenience. Please try placing your order again later or contact us for more information.")
-            RejectedOrder.objects.create(order_id=order_id, reason=rejection_reason, timestamp=order.timestamp)
-            for card_auth in order.gift_card_auth.all():
-                print(card_auth.charged_balance)
-                print(card_auth.card)
-                print(card_auth.order)
-                card_auth.card.load_card(card_auth.charged_balance)
-            order.delete()
-            return JsonResponse({"status":"Order deleted", "action":action, "payment_id":payment_id}, status=200)
-    
+            if order.authorization:
+                try:
+                    square.void_authorization(order.authorization)
+                except Exception as e:
+                    logger.exception("Voiding payment for order %s failed", order.id)
+                    return JsonResponse({"status": "Could not refund the card payment, order kept", "error": str(e)}, status=502)
+            with transaction.atomic():
+                RejectedOrder.objects.create(order_id=order.id, reason=rejection_reason, timestamp=order.timestamp)
+                refund_gift_cards(order)
+                order.delete()
+            return JsonResponse({"status":"Order deleted", "action":action}, status=200)
+        return HttpResponseBadRequest("Unknown action")
+    return HttpResponseNotAllowed(["GET", "POST", "PUT", "DELETE"])
+
 @login_required
 def menu_select(request):
     """
@@ -240,13 +212,11 @@ def menu_select(request):
         HttpResponseRedirect: A redirect response to the "pos" view.
     """
     if request.method == "POST":
-        cur_menu = Menu.objects.get(is_active = True)
-        cur_menu.is_active = False
-        cur_menu.save()
-        menu = Menu.objects.get(title=request.POST["menu-title"])
-        menu.is_active = True 
-        menu.save()
-        return redirect(reverse("pos"))
+        menu = Menu.objects.filter(title=request.POST.get("menu-title")).first()
+        if menu:
+            menu.is_active = True  # Menu.save() deactivates the others
+            menu.save()
+    return redirect(reverse("pos"))
 
 @login_required
 def device_elig(request):
@@ -332,136 +302,58 @@ def pos(request):
         JsonResponse: A JSON response indicating the result of POST and PUT requests.
     """
     if request.method == "GET":
-        menu = Menu.objects.filter(is_active=True).first()
-        
-        # Sort dishes by ID before grouping to ensure consistent ordering
-        dishes = Dish.objects.filter(menu=menu).order_by('id')
-        
-        # Group dishes by station
-        grouped_dishes = defaultdict(list)
-        for dish in dishes:
-            grouped_dishes[dish.station].append(dish)
-        
-        # Sort each group of dishes by ID to ensure stable ordering within each station
-        sorted_grouped_dishes = {station: sorted(items, key=lambda x: x.id) for station, items in grouped_dishes.items()}
-        
+        menu = Menu.active()
+        if menu is None:
+            return render(request, "pos_server/order.html", {"route": "pos", "sections": [], "json": "[]",
+                                                             "menu_title": _("No active menu"), "menus": Menu.objects.all()})
+        dishes = menu.dishes.select_related("station").prefetch_related("components__child_dishes").order_by('station__position', 'id')
         return render(request, "pos_server/order.html", {
             "route": "pos",
-            "menu": sorted_grouped_dishes,
+            "sections": group_by_station(dishes),
             "menu_title": menu.title,
             "json": json.dumps([dish.serialize_with_options() for dish in dishes]),
             "menus": Menu.objects.all()
         })
-    elif request.method == "POST":
+    try:
         body = json.loads(request.body)
         cart = body["cart"]
-        for payment in cart["partialPayments"]:
-            if payment["type"] == "gift":
-                GiftCard.objects.get(number=payment["number"]).charge_card(payment["amount"])
-        instructions = body["instructions"]
-        is_to_go = body["toGo"]
-        dish_counts = Counter(i["pk"] for i in cart["items"])
-        new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
-        new_order.name = body["name"] if body["name"].strip() != '' else None
-        new_order.save()
-        for dish_id, quantity in dish_counts.items():
-            dish = Dish.objects.get(id=dish_id)
-            if check_if_only_choice_dish(dish):
-                continue
-            if dish.station == "bar":
-                new_order.bar_status = 1
-                new_order.picked_up = False
-            elif dish.station == "kitchen":
-                new_order.kitchen_status = 1
-                new_order.picked_up = False
-            elif dish.station == "gng":
-                new_order.gng_status = 1
-                new_order.picked_up = False
-            for dc in dish.dishcomponent_set.all():
-                if dc.component.crafting_option == "auto":
-                    craft_component(dc.component.id, 1)
-                dc.component.inventory -= dc.quantity
-                dc.component.save()
-            order_dish = OrderDish(order=new_order, dish=dish, quantity=quantity)
-            order_dish.save()
-
-        # All of this underneath is a start to customizing dishes. Won't be used right now.
-
-        # dish_counts = defaultdict(lambda: {"customizations": None, "quantity": 0})
-
-        # for item in cart["items"]:
-        #     dish_id = item["id"]
-        #     customizations = item.get("customizations", None)
-        #     if customizations is None:
-        #         customizations_key = "None"  # Use a string to represent no customizations
-        #     else:
-        #         customizations_key = json.dumps(customizations, sort_keys=True)
-            
-        #     # Use a composite key of dish_id and customizations to count occurrences
-        #     key = (dish_id, customizations_key)
-        #     dish_counts[key]["customizations"] = customizations
-        #     dish_counts[key]["quantity"] += 1
-
-        # # Transform the result into the desired format
-        # result = {}
-        # for (dish_id, customizations), details in dish_counts.items():
-        #     # Ensure the dish_id key exists in the result dictionary
-        #     if dish_id not in result:
-        #         result[dish_id] = []
-        #     result[dish_id].append({
-        #         "customizations": details["customizations"],
-        #         "quantity": details["quantity"]
-        #     })
-
-        # # Output the result
-        # print(json.dumps(result, indent=2))
-        # new_order = Order(special_instructions=instructions, to_go_order=is_to_go, channel="store")
-        # new_order.name = body["name"] if body["name"].strip() != '' else None
-        # new_order.save()
-        # for dish_id, details in result.items():
-        #     dish = Dish.objects.get(id=dish_id)
-        #     for detail in details:
-        #         if detail["customizations"]:
-        #             for parent_str, customization in detail["customizations"].items():
-        #                 parent_id = int(parent_str.split('-')[-1])
-        #                 parent = Component.objects.get(pk=parent_id)
-        #                 ModifiedComponent.objects.create(
-        #                     order = new_order, 
-        #                     dish = dish, 
-        #                     parent = parent,
-        #                     component = Component.objects.get(pk=int(customization["id"])),
-        #                     quantity = 1,
-        #                     operation = "pick"
-        #                 )
-        #         if dish.station == "bar":
-        #             new_order.bar_status = 1
-        #             new_order.picked_up = False
-        #         elif dish.station == "kitchen":
-        #             new_order.kitchen_status = 1
-        #             new_order.picked_up = False
-        #         for dc in dish.dishcomponent_set.all():
-        #             if dc.component.crafting_option == "auto":
-        #                 craft_component(dc.component.id, 1)
-        #             dc.component.inventory -= dc.quantity
-        #             dc.component.save()
-        #         order_dish = OrderDish(order=new_order, dish=dish, quantity=detail["quantity"])
-        #         order_dish.save()
-
-        new_order.save()
+        gift_payments = [(p["number"], p["amount"]) for p in cart.get("partialPayments", []) if p.get("type") == "gift"]
+    except (ValueError, KeyError, TypeError):
+        return HttpResponseBadRequest("Malformed cart")
+    if request.method == "POST":
+        try:
+            create_order(
+                items=cart["items"],
+                channel="store",
+                initial_status=OrderStation.STATUS_APPROVED,
+                gift_card_payments=gift_payments,
+                discount_amount=(cart.get("discounts") or {}).get("amount") or 0,
+                discount_percent=(cart.get("discounts") or {}).get("percent") or 0,
+                special_instructions=body.get("instructions") or None,
+                to_go_order=bool(body.get("toGo")),
+                name=(body.get("name") or "").strip() or None,
+            )
+        except OrderError as e:
+            return JsonResponse({"message": str(e)}, status=400)
         return JsonResponse({"message":"Sent to kitchen"}, status=200)
     elif request.method == "PUT":
-        body = json.loads(request.body)
-        print(body)
-        cart = body["cart"]
-        for payment in cart["partialPayments"]:
-            print(payment)
-            if payment["type"] == "gift":
-                if GiftCard.objects.get(number=payment["number"]).available_balance < payment["amount"]:
-                    return JsonResponse({
-                            "message":_(f"Card x{payment['number'][-4:]} no longer has a sufficient balance to charge ${payment['amount']}"),
-                            "status":402
-                        }, status=402)
+        # Before charging the card terminal, make sure the gift card part can still be charged
+        for number, amount in gift_payments:
+            card = GiftCard.objects.filter(number=number).first()
+            if card is None or card.available_balance < Decimal(str(amount)):
+                return JsonResponse({
+                        "message":_("Card x%(last4)s no longer has a sufficient balance to charge $%(amount)s") % {"last4": str(number)[-4:], "amount": amount},
+                        "status":402
+                    }, status=402)
         return square.terminal_checkout(request)
+    return HttpResponseNotAllowed(["GET", "POST", "PUT"])
+
+def group_by_station(dishes):
+    """[(Station, [dishes...]), ...] in station order, skipping empty stations."""
+    sections = {}
+    for dish in dishes:
+        sections.setdefault(dish.station, []).append(dish)
+    return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
 def check_if_only_choice_dish(dish:Dish):
     """
@@ -553,13 +445,13 @@ def day_stats(request):
         return HttpResponseBadRequest("Invalid date. Use YYYY-MM-DD.")
 
     orders = (Order.objects.filter(timestamp__date=day).order_by('timestamp')
-              .prefetch_related('orderdish_set__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
+              .prefetch_related('orderdish_set__dish__station', 'orderdish_set__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
 
     item_stats = Counter()
     stations = Counter()
     components = {}
     ingredients = {}
-    occasions = defaultdict(lambda: {'count': 0, 'total_earnings': 0.0})
+    occasions = defaultdict(lambda: {'count': 0, 'total_earnings': Decimal('0.00')})
     prep_totals = defaultdict(lambda: {'total': datetime.timedelta(0), 'count': 0})
 
     def get_15_min_window(dt):
@@ -580,7 +472,7 @@ def day_stats(request):
         for od in order_dishes:
             dish = od.dish
             item_stats[dish.title] += od.quantity
-            stations[dish.station] += od.quantity
+            stations[dish.station.name] += od.quantity
             for dc in dish.dishcomponent_set.all():
                 entry = components.setdefault(dc.component.title, [0, dc.component.unit_of_measurement])
                 entry[0] += dc.quantity * od.quantity
@@ -622,7 +514,7 @@ def pos_out_display(request):
         compiled_menu (dict): The compiled menu data.
         components_out (list): List of components for the output display.
     """
-    menu = Menu.objects.get(is_active = True)
+    menu = Menu.active()
     dishes = Dish.objects.filter(menu=menu).order_by("id")
     comp_menu, components_out = compile_menu(menu)
     return render(request, "pos_server/pos-output-display.html", {
@@ -641,17 +533,12 @@ def compile_menu(menu):
 
     Returns:
         tuple: A tuple containing:
-            - categories (dict): A dictionary with keys 'kitchen', 'bar', and 'gng', each containing a list of prettified dishes.
+            - categories (list): [(Station, [prettified dishes])] in station order.
             - components_out (bool): A boolean indicating if components are out (always False in this implementation).
     """
     components_out = False
-    categories = {
-        "kitchen":[],
-        "bar":[],
-        "gng":[],
-    }
-    for dish in menu.dishes.all().order_by("id"):
-        categories[dish.station].append(prettify_dish(dish))
+    dishes = menu.dishes.select_related("station").order_by("station__position", "id")
+    categories = [(station, [prettify_dish(dish) for dish in items]) for station, items in group_by_station(dishes)]
     return categories, components_out
 
 def prettify_dish(dish):
@@ -724,6 +611,7 @@ def format_float(num:float) -> str:
     Returns:
         str: The formatted number as a string.
     """
+    num = float(num)
     if num.is_integer():
         return f"{int(num)}"
     # Otherwise, format the number to remove trailing zeros.
@@ -732,36 +620,38 @@ def format_float(num:float) -> str:
 
 # @local_network_only
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def pair_square_terminal(request):
     """
-    Handles pairing of the Square terminal with the POS system.
-
-    Depending on the HTTP request method, this function performs different actions:
-    - GET: Retrieves the current POS device code from the configuration and renders the pairing page.
-    - PUT: Generates a new POS device code, updates the configuration file, and renders the pairing page with the new code.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered HTML response for the pairing page.
+    Pair a Square Terminal. POST action=new creates a pairing code to enter on the Terminal; GET shows
+    the codes and refreshes any that are still waiting, so reloading the page picks up a finished pairing.
     """
-    if request.method == "GET":
-        code = config.get('POS_device_codes', 'POS_device_code')
-        return render(request, "pos_server/pair_pos.html", {
-            "code":code,
-            "route":"terminal-setup",
-        })
-    elif request.method == "PUT":
-        code = square.create_device_code()
-        config.set('POS device codes', 'POS_device_code', code)
-        with open('config.cfg', 'w') as configfile:
-            config.write(configfile)
-        return render(request, "pos_server/pair_pos.html", {
-            "code":code,
-            "route":"terminal-setup"
-        })
-    
+    error = None
+    if request.method == "POST":
+        try:
+            if request.POST.get("action") == "new":
+                square.create_device_code(request.POST.get("name") or "Square Terminal")
+            elif request.POST.get("action") == "activate":
+                terminal = SquareTerminal.objects.get(pk=request.POST.get("id"), status="PAIRED")
+                terminal.is_active = True
+                terminal.save()
+                SquareTerminal.objects.exclude(pk=terminal.pk).update(is_active=False)
+            return redirect(reverse("pair-terminal"))
+        except Exception as e:
+            logger.exception("Square terminal pairing failed")
+            error = str(e)
+    for terminal in SquareTerminal.objects.filter(status="UNPAIRED"):
+        try:
+            square.refresh_device_code(terminal)
+        except Exception as e:
+            logger.warning("Could not refresh device code %s: %s", terminal.code, e)
+    return render(request, "pos_server/pair_pos.html", {
+        "route":"terminal-setup",
+        "terminals": SquareTerminal.objects.all()[:10],
+        "fallback_device_id": settings.SQUARE_DEVICE_ID,
+        "error": error,
+    })
+
 @login_required
 def create_menu(request):
     """
@@ -845,19 +735,12 @@ def order_progress(request):
 
     Context:
         route (str): The route name for the template.
-        in_progress (QuerySet): A queryset of orders that are currently in progress.
-        ready (QuerySet): A queryset of orders that are ready but not yet picked up.
         menu (Menu): The active menu object.
         weather_API_key (str): The weather API key from the settings.
     """
-    today = timezone.localdate()
-    in_progress = Order.objects.filter(kitchen_status=1, timestamp__date=today)
-    ready = Order.objects.filter(Q(kitchen_status=2) & Q(picked_up=False), timestamp__date=today)
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
-        "in_progress":in_progress,
-        "ready":ready,
-        "menu":Menu.objects.get(is_active=True),
+        "menu":Menu.active(),
         "weather_API_key":settings.WEATHER_API_KEY
     })
         
@@ -1007,13 +890,17 @@ def active_orders(request):
         active_order_ids = cache.get('active_orders')
 
     # Fetch active orders from database using IDs from the cache
-    active_orders = Order.objects.filter(id__in=active_order_ids)
+    active_orders = orders_for_screens(Order.objects.filter(id__in=active_order_ids))
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
     if not (request.user.is_authenticated and is_registered_device(request)):
         # The public status board polls this too: only expose what it displays
         public_keys = ("order_id", "name", "to_go_order", "channel", "timestamp", "timestamp_pretty",
-                       "start_time", "kitchen_status", "bar_status", "gng_status", "done", "picked_up")
-        serialized_orders = [{key: order[key] for key in public_keys} for order in serialized_orders]
+                       "start_time", "stations", "done", "picked_up")
+        serialized_orders = [
+            {**{key: order[key] for key in public_keys},
+             "dishes": [{"name": d["name"], "quantity": d["quantity"]} for d in order["dishes"]]}
+            for order in serialized_orders
+        ]
     return JsonResponse(serialized_orders, safe=False)
 
 @api_login_required
@@ -1032,68 +919,6 @@ def check_inventory(request):
     Returns:
         JsonResponse: A JSON response containing the serialized list of dishes.
     """
-    menu = Menu.objects.filter(is_active = True).first()
+    menu = Menu.active()
     dishes = Dish.objects.filter(menu=menu)
     return JsonResponse(serializers.serialize('json', dishes), safe=False)
-
-def collect_order(order, done=False):
-    """
-    Collects and prepares order details along with related dishes.
-    Args:
-        order (Order): The order instance to collect details from.
-        done (bool, optional): Indicates if the order is done. Defaults to False.
-    Returns:
-        dict: A dictionary containing the order details and related dishes, or None if the order is not provided.
-            The dictionary includes the following keys:
-            - order_id (int): The ID of the order.
-            - dishes (list): A list of dictionaries, each containing 'name', 'quantity', and 'station' of a dish.
-            - name (str): The name associated with the order.
-            - to_go_order (bool): Indicates if the order is a to-go order.
-            - channel (str): The channel through which the order was placed.
-            - phone (str): The phone number associated with the order.
-            - address (str): The delivery address if available, otherwise None.
-            - special_instructions (str): Any special instructions for the order.
-            - timestamp (str): The timestamp of the order in ISO format.
-            - start_time (str): The start time of the order in ISO format.
-            - kitchen_status (str): The kitchen status of the order.
-            - done (bool): Indicates if the order is done.
-            - bar_status (str): The bar status of the order.
-            - gng_status (str): The grab-and-go status of the order.
-            - picked_up (bool): Indicates if the order has been picked up.
-            - payment_id (str): The payment ID associated with the order authorization, if available.
-    """
-    if not order:
-        return None
-    # Fetch related OrderDish instances for each order
-    order_dishes = OrderDish.objects.filter(order=order)
-
-    # Prepare dish details for this order
-    dishes_data = []
-    for od in order_dishes:
-        dishes_data.append({
-            'name': od.dish.title,
-            'quantity': od.quantity,
-            'price': od.dish.price,
-            'station': od.dish.station
-        })
-
-    # Add the order and its dishes to the orders_data list
-    return({
-        'order_id': order.id,
-        'dishes': dishes_data,
-        'name':order.name,
-        'to_go_order':order.to_go_order,
-        'channel':order.channel,
-        'phone':order.phone,
-        'address':order.delivery.first().destination if order.delivery.first() else None,
-        "special_instructions": order.special_instructions,
-        "timestamp":order.timestamp.isoformat(),
-        "timestamp_pretty":order.timestamp,
-        "start_time":order.start_time.isoformat(),
-        "kitchen_status":order.kitchen_status,
-        "done":done,
-        "bar_status":order.bar_status,
-        "gng_status":order.gng_status,
-        "picked_up":order.picked_up,
-        "payment_id":order.authorization.payment_id if order.authorization else None,
-    })

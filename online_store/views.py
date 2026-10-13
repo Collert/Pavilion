@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from pos_server.models import *
 from collections import defaultdict
-from pos_server.views import prettify_dish, check_if_only_choice_dish
+from pos_server.views import prettify_dish, group_by_station
 from .notifications import PushSubscription
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -9,20 +9,20 @@ import json
 from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound
 from django.core import serializers
 import os
-from inventory.views import craft_component
-from collections import Counter
 from .models import *
 from django.shortcuts import redirect
 from django.urls import reverse
 from deliveries.models import Delivery
-from pos_server.views import collect_order
-from payments.models import Transaction
+from pos_server.orders import OrderError, collect_order, create_order
+from payments.models import PaymentError, Transaction
+from django.db import transaction as db_transaction
 import datetime
 from events.models import Event
 from django.db.models import Q
 from django.conf import settings
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from django.utils.translation import gettext_lazy as _
+from .context_processors import current_business_event
 
 def menu(request):
     """
@@ -56,25 +56,23 @@ def menu(request):
         try:
             active = Menu.objects.get(pk=query)
         except:
-            active = Menu.objects.filter(is_active = True).first()
+            active = Menu.active()
     else:
-        active = Menu.objects.filter(is_active = True).first()
-    active_dishes = Dish.objects.filter(menu=active)
-    grouped_active = defaultdict(list)
-    for dish in active_dishes:
-        grouped_active[dish.station].append({"obj":dish,"json":json.dumps([dish.serialize_with_options()])})
+        active = Menu.active()
+    active_dishes = Dish.objects.filter(menu=active).select_related("station").prefetch_related("components__child_dishes")
+    grouped_active = [
+        (station, [{"obj":dish,"json":json.dumps([dish.serialize_with_options()])} for dish in dishes])
+        for station, dishes in group_by_station(active_dishes)
+    ]
     others = Menu.objects.filter(is_active = False).all()
-    grouped_other_menus = defaultdict(dict)
+    grouped_other_menus = {}
     for menu_obj in others:
-        this_grouped = defaultdict(list)
-        this_dishes = Dish.objects.filter(menu=menu_obj)
-        for dish in this_dishes:
-            this_grouped[dish.station].append(dish)
-        grouped_other_menus[menu_obj.title] = dict(this_grouped)
+        this_dishes = Dish.objects.filter(menu=menu_obj).select_related("station")
+        grouped_other_menus[menu_obj.title] = group_by_station(this_dishes)
     return render(request, "online_store/menu.html", {
         "route":"menu",
-        "menu":{"menu":active, "dishes":dict(grouped_active)},
-        "others":dict(grouped_other_menus),
+        "menu":{"menu":active, "dishes":grouped_active},
+        "others":grouped_other_menus,
         "override_menu": query
     })
 
@@ -128,7 +126,7 @@ def index(request):
     Returns:
         HttpResponse: The rendered home page with the context data.
     """
-    menu = Menu.objects.filter(is_active = True).first()
+    menu = Menu.active()
     offers = PromoContent.objects.all()
     now = timezone.localtime(timezone.now())
     next_event = Event.objects.filter(start__gt=now).first()
@@ -166,114 +164,92 @@ def order_status(request, id, from_placing = False):
         "rejected_order":rejected_order,
         "from_placing":bool(from_placing),
         "status":order.progress_status() if order else None,
-        "menu":{"menu":Menu.objects.filter(is_active = True).first()},
+        "menu":{"menu":Menu.active()},
     })
 
 def place_order(request):
     """
-    Handles the placement of an order based on the POST request data.
+    Create an online (pickup or delivery) order from the checkout form.
 
-    Args:
-        request (HttpRequest): The HTTP request object containing order details.
-
-    Returns:
-        HttpResponse: Redirects to the order status page if successful, otherwise returns an error message.
-
-    The function performs the following steps:
-    1. Extracts and processes the cart and payment information from the request.
-    2. Calculates the remaining cart total after applying partial payments.
-    3. Retrieves the transaction object if the cart total is greater than zero.
-    4. Parses and combines the delivery/pickup time with the current date to create a timezone-aware datetime object.
-    5. Creates an Order object with the provided details and saves it.
-    6. Processes gift card payments and updates the gift card balance.
-    7. Iterates through the dishes in the cart, updates inventory, and creates OrderDish objects.
-    8. If the order method is delivery, creates a Delivery object with the provided address and instructions.
-    9. Redirects to the order status page upon successful order placement.
-    10. Returns an error message if any exception occurs during the process.
+    The cart is priced on the server (pos_server.orders). Whatever gift cards don't cover must have been
+    paid by card through the payment popup: the posted `transaction_uuid` has to be a paid, unused
+    Transaction for at least that amount. Orders start pending and must be approved on the KDS.
     """
-    if request.method == "POST":
-        uuid = request.POST["transaction_uuid"]
-        try:
-            cart = json.loads(request.POST["cart-string"])
-            cart_total = float(cart["total"])
-            for payment in cart["partialPayments"]:
-                cart_total -= float(payment["amount"])
-            if cart_total > 0:
-                transaction = Transaction.objects.get(uuid=uuid)
-            else:
-                transaction = None
-            method = request.POST["delivery-pickup-toggle"]
-            name = request.POST["name"]
-            phone = request.POST["phone"]
-            time = request.POST["time"]
-            parsed_time = datetime.datetime.strptime(time, "%H:%M").time()
-            # Combine with current date to create a datetime object (naive)
-            current_date = timezone.localtime(timezone.now()).date()  # Or use any specific date
-            naive_datetime = datetime.datetime.combine(current_date, parsed_time)
-            # Apply timezone to make it an aware datetime object
-            aware_datetime = timezone.make_aware(naive_datetime, timezone.get_current_timezone())
-            order_instructions = request.POST["order-instructions"]
-            dishes = cart["items"]
-            dish_ids = [dish["pk"] for dish in dishes]
-            is_to_go = request.POST["here-to-go-toggle"] == "go"
-            order = Order(
-                special_instructions=order_instructions, 
-                to_go_order=is_to_go, 
-                phone=int(phone) if phone != '' else None, 
-                authorization=transaction.authorization.first() if transaction else None,
-                start_time=aware_datetime
+    if request.method != "POST":
+        return redirect(reverse("menu"))
+    post = request.POST
+    try:
+        cart = json.loads(post["cart-string"])
+        items = cart["items"]
+        gift_payments = [(p["number"], p["amount"]) for p in cart.get("partialPayments", []) if p.get("type") == "gift"]
+        method = post["delivery-pickup-toggle"]
+        if method not in ("pick-up", "delivery"):
+            raise ValueError(method)
+        parsed_time = datetime.datetime.strptime(post["time"], "%H:%M").time()
+        phone = post.get("phone", "").strip()
+        phone = int("".join(ch for ch in phone if ch.isdigit())) if phone else None
+    except (KeyError, ValueError, TypeError):
+        return order_error(request, _("Some of the order details are missing or invalid. Please check the form and try again."))
+
+    if method == "delivery" and not phone:
+        return order_error(request, _("A phone number is required for delivery."))
+
+    # Pickup/delivery time is today, in the restaurant's timezone
+    today = timezone.localtime(timezone.now()).date()
+    start_time = timezone.make_aware(datetime.datetime.combine(today, parsed_time), timezone.get_current_timezone())
+
+    event = current_business_event()
+    if event is None or not (event.delivery_open if method == "delivery" else event.online_open):
+        return order_error(request, _("Sorry, we are not taking online orders right now."))
+    if not (event.start <= start_time <= event.end):
+        return order_error(request, _("Please pick a time between %(start)s and %(end)s.") % {
+            "start": timezone.localtime(event.start).strftime("%H:%M"), "end": timezone.localtime(event.end).strftime("%H:%M")})
+    payment = {}
+
+    def verify_payment(remaining):
+        if remaining > 0:
+            try:
+                transaction = Transaction.consume(post.get("transaction_uuid"), remaining)
+            except PaymentError as e:
+                raise OrderError(str(e))
+            payment["authorization"] = transaction.authorization.first()
+
+    try:
+        with db_transaction.atomic():
+            order = create_order(
+                items=items,
+                channel="delivery" if method == "delivery" else "web",
+                initial_status=OrderStation.STATUS_PENDING,
+                gift_card_payments=gift_payments,
+                verify_payment=verify_payment,
+                special_instructions=post.get("order-instructions") or None,
+                to_go_order=method == "delivery" or post.get("here-to-go-toggle") == "go",
+                phone=phone,
+                start_time=start_time,
+                name=post.get("name", "").strip() or None,
             )
-            order.name = name.strip() if name != '' else None
-            # transaction.delete()
-            if method == "pick-up":
-                order.channel = "web"
-            elif method == "delivery":
-                order.to_go_order = True
-                order.channel = "delivery"
-            order.save()
-            for payment in cart["partialPayments"]:
-                if payment["type"] == "gift":
-                    card = GiftCard.objects.get(number=payment["number"])
-                    card.charge_card(payment["amount"])
-                    GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=payment["amount"])
-            dish_counts = Counter(dish_ids)
-            for dish_id, quantity in dish_counts.items():
-                dish = Dish.objects.get(id=dish_id)
-                if check_if_only_choice_dish(dish):
-                    continue
-                if dish.station == "bar":
-                    order.bar_status = 0
-                    order.picked_up = False
-                elif dish.station == "kitchen":
-                    order.kitchen_status = 0
-                    order.picked_up = False
-                elif dish.station == "gng":
-                    order.gng_status = 0
-                    order.picked_up = False
-                for dc in dish.dishcomponent_set.all():
-                    if dc.component.crafting_option == "auto":
-                        craft_component(dc.component.id, 1)
-                    dc.component.inventory -= dc.quantity
-                    dc.component.save()
-                order_dish = OrderDish(order=order, dish=dish, quantity=quantity)
-                order_dish.save()
-            order.save()
+            if payment.get("authorization"):
+                order.authorization = payment["authorization"]
+                order.save(update_fields=["authorization"])
             if method == "delivery":
-                address = f'{request.POST["delivery-address-1"]}, {request.POST["delivery-address-city"]}, BC {request.POST["delivery-address-postal"]}'
-                unit = request.POST["delivery-address-2"]
-                delivery_instructions = ""
-                if request.POST["delivery-dropoff-method"] == "door":
-                    delivery_instructions = _("Leave the package at the door. ")
-                elif request.POST["delivery-dropoff-method"] == "meet":
-                    delivery_instructions = _("Meet the customer at the door. ")
-                elif request.POST["delivery-dropoff-method"] == "out":
-                    delivery_instructions = _("Meet the customer outside. ")
-                delivery_instructions += request.POST["delivery-instructions"]
-                Delivery.objects.create(order=order, destination=address, address_2=unit, phone=int(phone), instructions=delivery_instructions)
-            return redirect(reverse("order_status", kwargs={"id":order.id, "from_placing":True}))
-        except Exception as e:
-            print(e)
-            return HttpResponse("Don't do this. I will get to implementing a better page soon")
+                address = f'{post.get("delivery-address-1", "")}, {post.get("delivery-address-city", "")}, BC {post.get("delivery-address-postal", "")}'
+                dropoff = {
+                    "door": _("Leave the package at the door. "),
+                    "meet": _("Meet the customer at the door. "),
+                    "out": _("Meet the customer outside. "),
+                }.get(post.get("delivery-dropoff-method"), "")
+                Delivery.objects.create(order=order, destination=address, address_2=post.get("delivery-address-2", ""),
+                                        phone=phone, instructions=f"{dropoff}{post.get('delivery-instructions', '')}")
+    except OrderError as e:
+        return order_error(request, str(e))
+    return redirect(reverse("order_status", kwargs={"id":order.id, "from_placing":True}))
+
+def order_error(request, message):
+    return render(request, "online_store/order-error.html", {
+        "route": "order_error",
+        "message": message,
+        "menu": {"menu": Menu.active()},
+    }, status=400)
 
 def order_history(request):
     """
@@ -315,7 +291,7 @@ def order_history(request):
     print(orders_list)
     return render(request, "online_store/history.html", {
         "route":"history",
-        "menu":{"menu":Menu.objects.filter(is_active = True).first()},
+        "menu":{"menu":Menu.active()},
         "orders":combined_orders
     })
 

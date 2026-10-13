@@ -1,9 +1,8 @@
-from typing import Iterable
+from decimal import Decimal
 from django.db import models
 from django.utils import timezone
 from django.utils.timezone import localtime, now
 from gift_cards.models import GiftCard
-from . import globals
 import json
 import uuid
 from payments.models import PaymentAuthorization
@@ -39,18 +38,28 @@ class Menu(models.Model):
     def __str__(self) -> str:
         return f"Menu: {self.title}"
 
+    def save(self, *args, **kwargs):
+        # Exactly one menu is meant to be active: activating this one deactivates the rest
+        super().save(*args, **kwargs)
+        if self.is_active:
+            Menu.objects.exclude(pk=self.pk).filter(is_active=True).update(is_active=False)
+
+    @classmethod
+    def active(cls):
+        """The active menu, or None if no menu is active."""
+        return cls.objects.filter(is_active=True).first()
+
 class Dish(models.Model):
     """
     Dish model representing a dish in the POS system.
     Attributes:
-        stations (tuple): Choices for the station where the dish is prepared.
         title (CharField): The title of the dish.
-        price (FloatField): The price of the dish.
+        price (DecimalField): The price of the dish.
         image (ImageField): An optional image of the dish.
         description (TextField): An optional description of the dish.
         components (ManyToManyField): Components that make up the dish, related through DishComponent.
         menu (ManyToManyField): Menus that include the dish.
-        station (CharField): The station where the dish is prepared.
+        station (ForeignKey): The Station that prepares the dish.
         in_stock (BooleanField): Indicates if the dish is in stock.
         force_in_stock (BooleanField): Indicates if the dish is forced to be in stock.
         recipe (ForeignKey): The recipe associated with the dish from the inventory.
@@ -60,19 +69,13 @@ class Dish(models.Model):
         check_if_only_choice_dish(): Checks whether the dish only consists of components that point to other dishes.
         serialize_with_options(): Serializes the dish with its options and components.
     """
-    stations = (
-        ("bar", "Bar"),
-        ("kitchen", "Kitchen"),
-        ("gng", "Grab & Go")
-    )
     title = models.CharField(max_length=140)
-    price = models.FloatField()
+    price = models.DecimalField(max_digits=8, decimal_places=2)
     image = models.ImageField(upload_to='files/dish_images', null=True, blank=True)
     description = models.TextField(blank=True)
     components = models.ManyToManyField("Component", through='DishComponent')
     menu = models.ManyToManyField("Menu", related_name = "dishes")
-    station = models.CharField(max_length=50, choices=stations)
-    new_station = models.ForeignKey("Station", related_name="dishes", on_delete=models.DO_NOTHING, null=True, blank=True)
+    station = models.ForeignKey("Station", related_name="dishes", on_delete=models.PROTECT)
     in_stock = models.BooleanField(default=True)
     force_in_stock = models.BooleanField(default=False)
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
@@ -143,11 +146,11 @@ class Dish(models.Model):
         return {
             "fields":{
                 "title":self.title,
-                "price":self.price,
+                "price":float(self.price),  # JS does arithmetic on it
                 "image":self.image.url if self.image else None,
                 "description":self.description,
-                "menu":self.menu.first().id,
-                "station":self.station,
+                "menu":self.menu.first().id if self.menu.exists() else None,
+                "station":self.station.code,
                 "in_stock":self.in_stock,
                 "force_in_stock":self.force_in_stock,
                 "choice_components":choice_components,
@@ -160,142 +163,103 @@ class Dish(models.Model):
 
 class Order(models.Model):
     """
-    Order model representing an order in the POS system.
-    Attributes:
-        order_channels (tuple): Choices for the order channel.
-        station_statuses (tuple): Choices for the status of different stations.
-        timestamp (DateTimeField): The timestamp when the order was created.
-        start_time (DateTimeField): The start time of the order.
-        prep_time (DurationField): The preparation time for the order.
-        dishes (ManyToManyField): The dishes associated with the order.
-        name (CharField): The name number for the order.
-        kitchen_status (PositiveSmallIntegerField): The status of the kitchen station.
-        bar_status (PositiveSmallIntegerField): The status of the bar station.
-        gng_status (PositiveSmallIntegerField): The status of the grab-and-go station.
-        picked_up (BooleanField): Whether the order has been picked up.
-        special_instructions (TextField): Special instructions for the order.
-        to_go_order (BooleanField): Whether the order is a to-go order.
-        final_revenue (DecimalField): The final revenue for the order.
-        channel (CharField): The channel through which the order was placed.
-        phone (PositiveBigIntegerField): The phone number associated with the order.
-        approved (BooleanField): Whether the order has been approved.
-        authorization (ForeignKey): The payment authorization for the order.
-        gift_cards (ManyToManyField): The gift cards associated with the order.
-    Methods:
-        save(*args, **kwargs): Saves the order and updates the active orders cache.
-        delete(*args, **kwargs): Deletes the order and updates the active orders cache.
-        __str__() -> str: Returns a string representation of the order.
-        __eq__(other): Checks if another order is equal to this order.
-        __hash__(): Returns the hash of the order.
-        progress_status(): Returns the progress status of the order.
+    An order from the POS (channel "store"), the online store ("web") or for delivery ("delivery").
+
+    Each station that has to make something for the order gets an OrderStation row holding its status
+    (see OrderStation.STATUS_*). Stations without a row are not involved ("not required").
+
+    `picked_up` defaults to True and is set False when any station is needed; the order is done once it
+    is True. `total` is computed on the server when the order is created (see pos_server.orders).
     """
     order_channels = (
         ("store", "In-person"),
         ("web", "Online pickup"),
         ("delivery", "Delivery")
     )
-    station_statuses = (
-        (0, "Pending approval"),
-        (1, "Approved"),
-        (2, "Completed"),
-        (3, "Rejected"),
-        (4, "Not required"),
-    )
     timestamp = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True, blank=True)
     dishes = models.ManyToManyField(Dish, through="OrderDish")
+    stations = models.ManyToManyField("Station", through="OrderStation", related_name="orders")
     name = models.CharField(null=True, max_length = 140, blank=True)
-    kitchen_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
-    bar_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
-    gng_status = models.PositiveSmallIntegerField(default=4, choices=station_statuses)
-    status_0_stations = models.ManyToManyField("Station", blank=True, related_name="status_0_orders")
-    status_1_stations = models.ManyToManyField("Station", blank=True, related_name="status_1_orders")
-    status_2_stations = models.ManyToManyField("Station", blank=True, related_name="status_2_orders")
-    status_3_stations = models.ManyToManyField("Station", blank=True, related_name="status_3_orders")
-    status_4_stations = models.ManyToManyField("Station", blank=True, related_name="status_4_orders")
     picked_up = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True, blank=True)
     to_go_order = models.BooleanField(default=False)
-    final_revenue = models.DecimalField(max_digits=6, decimal_places=2, default=0.00, null=True)
+    total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="After discount")
+    discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     channel = models.CharField(max_length=10, choices=order_channels)
     phone = models.PositiveBigIntegerField(null=True, blank=True)
-    approved = models.BooleanField(default=True)
-    authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.DO_NOTHING, null=True, blank=True)
+    authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.SET_NULL, null=True, blank=True)
     gift_cards = models.ManyToManyField(GiftCard, through="gift_cards.GiftCardAuthorization", blank=True)
 
     def save(self, *args, **kwargs):
-        # Calculate prep time if needed
-        if (self.bar_status == 2 or self.bar_status == 4) and (self.kitchen_status == 2 or self.kitchen_status == 4) and (self.gng_status == 2 or self.gng_status == 4):
-            if not self.prep_time:
-                self.prep_time = timezone.now() - self.timestamp
-
-        # Call the original save method
+        if self.pk and not self.prep_time and self.station_statuses.exists() and self.all_stations_done():
+            self.prep_time = timezone.now() - self.timestamp
         super().save(*args, **kwargs)
-
-        # Update the active orders cache
         update_active_orders_cache()
 
     def delete(self, *args, **kwargs):
-        # Ensure the cache is updated when an order is deleted
-        super().delete(*args, **kwargs)
+        result = super().delete(*args, **kwargs)
         update_active_orders_cache()
+        return result
 
     def __str__(self) -> str:
         return f"Order {self.id}"
-    
-    def __eq__(self, other):
-        if isinstance(other, Order):
-            return self.id == other.id
-        return False
 
-    def __hash__(self):
-        return hash(self.id)
-    
+    def station_status_map(self) -> dict:
+        """{station code: status} for every station involved. Uses prefetched rows when available."""
+        return {row.station.code: row.status for row in self.station_statuses.all()}
+
+    def statuses(self):
+        return set(self.station_status_map().values())
+
+    def all_stations_done(self) -> bool:
+        return all(status in (OrderStation.STATUS_DONE, OrderStation.STATUS_REJECTED) for status in self.statuses())
+
+    def set_station_status(self, station_codes, status, only_from=None) -> int:
+        """
+        Move the given stations to `status`. `only_from` limits which current statuses may change
+        (e.g. only approve stations that are pending). Returns the number of stations changed.
+        """
+        from .signals import order_ready
+        self.refresh_station_statuses()
+        was_done = self.all_stations_done()
+        rows = self.station_statuses.filter(station__code__in=station_codes)
+        if only_from is not None:
+            rows = rows.filter(status__in=only_from)
+        changed = rows.update(status=status)
+        if changed:
+            self.refresh_station_statuses()
+            self.save()
+            if not was_done and self.all_stations_done():
+                order_ready.send(sender=Order, order=self)
+        return changed
+
+    def refresh_station_statuses(self):
+        """Drop prefetched OrderStation rows so the next read hits the database."""
+        getattr(self, "_prefetched_objects_cache", {}).pop("station_statuses", None)
+
     def progress_status(self):
         """
-        Determine the progress status of an order based on various conditions.
-
-        Returns:
-            int: The status code representing the progress of the order.
-                - 6: Delivery completed.
-                - 5: Order picked up.
-                - 4: Order ready (kitchen, bar, and gng statuses are 2 or 4).
-                - 3: Order in progress (any of kitchen, bar, or gng statuses is 1).
-                - 2: Order not started (any of kitchen, bar, or gng statuses is 0 and start time is in the past).
-                - 1: Order is scheduled (any of kitchen, bar, or gng statuses is 0 and start time is in the future).
-            None: If the channel is neither "delivery" nor "web".
+        Customer-facing progress for online/delivery orders:
+        1 scheduled, 2 not started, 3 in progress, 4 ready, 5 picked up, 6 delivered. None for POS orders.
         """
-        print(timezone.localtime(self.start_time))
-        print(timezone.localtime(timezone.now()))
-        print(timezone.localtime(self.start_time) > timezone.localtime(timezone.now()))
+        if self.channel not in ("web", "delivery"):
+            return None
+        statuses = self.statuses()
         if self.channel == "delivery":
-            if self.delivery.first().completed:
-                status = 6
-            elif self.picked_up:
-                status = 5
-            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
-                status = 4
-            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
-                status = 3
-            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
-                status = 2
-            else:
-                status = 1
-        elif self.channel == "web":
-            if self.picked_up:
-                status = 5
-            elif not self.picked_up and self.kitchen_status in [2, 4] and self.bar_status in [2, 4] and self.gng_status in [2, 4]:
-                status = 4
-            elif not self.picked_up and (self.kitchen_status == 1 or self.bar_status == 1 or self.gng_status == 1):
-                status = 3
-            elif (self.kitchen_status == 0 or self.bar_status == 0 or self.gng_status == 0) and self.start_time <= timezone.now():
-                status = 2
-            else:
-                status = 1
-        else:
-            status = None
-        return status
+            delivery = self.delivery.first()
+            if delivery and delivery.completed:
+                return 6
+        if self.picked_up:
+            return 5
+        if self.all_stations_done():
+            return 4
+        if OrderStation.STATUS_APPROVED in statuses:
+            return 3
+        if self.start_time <= timezone.now():
+            return 2
+        return 1
 
 class OrderDish(models.Model):
     """
@@ -365,26 +329,32 @@ class Component(models.Model):
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
     child_dishes = models.ManyToManyField('Dish', symmetrical=False, blank=True, related_name='parent_component')
 
-    def save(self, *args, **kwargs):
-        if self.pk is not None:
-            try:
-                if kwargs['force_update_stock']:
-                    pass
-            except KeyError:
-                if self.inventory <= 0:
-                    self.in_stock = False
-                else:
-                    self.in_stock = True
-
-            for dc in self.dishcomponent_set.all():
-                if self.inventory < dc.quantity or not self.in_stock:
-                    dc.dish.in_stock = False
-                elif self.inventory >= dc.quantity and dc.dish.force_in_stock:
-                    dc.dish.in_stock = True
-                    dc.dish.force_in_stock = False
-                dc.dish.save()
-        # Call the original save method
-        super().save()
+    def save(self, *args, force_update_stock=False, **kwargs):
+        """
+        Recalculate `in_stock` (unless force_update_stock=True, which keeps a value set by hand), then
+        update the dishes that use this component: they go out of stock when it can't cover them, and come
+        back when this component comes back into stock and every other component of the dish is available.
+        Self-crafting ("auto") components are made on demand, and choice components are available while
+        any of their choices is, so neither is limited by its own inventory.
+        """
+        was_in_stock = Component.objects.filter(pk=self.pk).values_list("in_stock", flat=True).first() if self.pk else None
+        if not force_update_stock:
+            if self.pk and self.child_dishes.exists():
+                self.in_stock = self.child_dishes.filter(models.Q(in_stock=True) | models.Q(force_in_stock=True)).exists()
+            else:
+                self.in_stock = self.crafting_option == "auto" or (self.inventory or 0) > 0
+        super().save(*args, **kwargs)
+        restocked = was_in_stock is False and self.in_stock
+        for dc in self.dishcomponent_set.select_related("dish"):
+            dish = dc.dish
+            if not dc.covers_one():
+                if dish.in_stock and not dish.force_in_stock:
+                    dish.in_stock = False
+                    dish.save(update_fields=["in_stock"])
+            elif restocked and not dish.in_stock and all(other.covers_one() for other in dish.dishcomponent_set.select_related("component")):
+                dish.in_stock = True
+                dish.force_in_stock = False
+                dish.save(update_fields=["in_stock", "force_in_stock"])
 
     def __str__(self) -> str:
         return f"{self.title} ({self.unit_of_measurement.title()})"
@@ -405,6 +375,15 @@ class DishComponent(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.component.title} in {self.dish.title}"
+
+    def covers_one(self) -> bool:
+        """Can the component supply one of this dish right now?"""
+        component = self.component
+        if not component.in_stock:
+            return False
+        if component.crafting_option == "auto" or component.child_dishes.exists():
+            return True
+        return (component.inventory or 0) >= self.quantity
 
 # The next class is a part of dish customization. One day...
 
@@ -507,44 +486,59 @@ class EligibleDevice(models.Model):
         return self.name
     
 class Station(models.Model):
-    friendly_name = models.CharField(max_length=50)
-    code = models.CharField(max_length=10)
+    """
+    A place where dishes are prepared (kitchen, bar, ...). Each KDS screen picks the stations it covers
+    with ?filter=<code>. Menus are grouped into sections by station, using `menu_heading`.
+    """
+    name = models.CharField(max_length=50, help_text="Shown on kitchen screens, e.g. 'Kitchen'")
+    code = models.SlugField(max_length=20, unique=True)
     icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
+    menu_heading = models.CharField(max_length=80, blank=True, help_text="Menu section title, e.g. 'Hot food'. Defaults to the name.")
+    position = models.PositiveSmallIntegerField(default=0, help_text="Order of menu sections and screen filters")
+
+    class Meta:
+        ordering = ["position", "id"]
 
     def __str__(self):
-        return self.friendly_name
+        return self.name
+
+    @property
+    def heading(self):
+        return self.menu_heading or self.name
+
+    def as_dict(self):
+        return {"code": self.code, "name": self.name, "icon": self.icon, "heading": self.heading}
+
+class OrderStation(models.Model):
+    """Status of one station's work on one order."""
+    STATUS_PENDING = 0    # waiting for approval (online/delivery orders)
+    STATUS_APPROVED = 1   # being made
+    STATUS_DONE = 2
+    STATUS_REJECTED = 3
+    statuses = (
+        (STATUS_PENDING, "Pending approval"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_DONE, "Completed"),
+        (STATUS_REJECTED, "Rejected"),
+    )
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="station_statuses")
+    station = models.ForeignKey(Station, on_delete=models.PROTECT, related_name="order_statuses")
+    status = models.PositiveSmallIntegerField(choices=statuses, default=STATUS_PENDING)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["order", "station"], name="unique_order_station")]
+
+    def __str__(self):
+        return f"{self.station} for {self.order}: {self.get_status_display()}"
+
+def active_orders_queryset():
+    """Orders that should be on screens: started, and either still being made or not picked up yet."""
+    return Order.objects.filter(
+        models.Q(start_time__lte=now()) &
+        (models.Q(station_statuses__status__in=[OrderStation.STATUS_PENDING, OrderStation.STATUS_APPROVED]) |
+         models.Q(picked_up=False))
+    ).distinct()
 
 def update_active_orders_cache():
-    """
-    Updates the cache with the list of active orders.
-
-    This function queries the database for orders that are considered active based on their
-    start time and various status fields. It then serializes the relevant order information
-    and stores it in the cache with a timeout of 60 seconds.
-
-    Active orders are defined as orders that:
-    - Have a start time less than or equal to the current time.
-    - Have a kitchen status of 0 or 1.
-    - Have a bar status of 0 or 1.
-    - Have a gng status of 0 or 1.
-    - Have not been picked up.
-
-    The cached data is a list of active order IDs.
-
-    Returns:
-        None
-    """
-    # Query for active orders
-    active_orders = Order.objects.filter(
-        models.Q(start_time__lte=now()) &
-        (models.Q(kitchen_status=0) |
-        models.Q(kitchen_status=1) |
-        models.Q(bar_status=0) |
-        models.Q(bar_status=1) |
-        models.Q(gng_status=0) |
-        models.Q(gng_status=1) |
-        models.Q(picked_up=False))
-    )
-    # Serialize or prepare active orders for caching
-    serialized_orders = [order.id for order in active_orders]  # Or serialize with necessary fields
-    cache.set('active_orders', serialized_orders, timeout=60)  # Cache the list of active order IDs
+    """Cache the IDs of active orders under 'active_orders' (60 s)."""
+    cache.set('active_orders', list(active_orders_queryset().values_list("id", flat=True)), timeout=60)

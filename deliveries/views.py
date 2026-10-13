@@ -1,6 +1,6 @@
 from django.utils import timezone
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponseNotFound, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseNotAllowed, HttpResponseNotFound, HttpResponseForbidden, HttpResponseBadRequest
 from pos_server.models import *
 from django.contrib.auth.decorators import login_required, user_passes_test
 import requests
@@ -24,7 +24,7 @@ def ready_orders(request):
     Handles the view for displaying ready orders for a courier.
 
     This view checks if there is an active courier associated with the request.
-    It then filters the Delivery objects based on the kitchen, bar, and gng status,
+    It then keeps the deliveries whose order is ready at every station,
     ensuring that the orders are not completed, not picked up, and are for the current date.
     If the courier is active and has an incomplete delivery, it redirects to the delivery order page.
     Otherwise, it renders the 'deliveries/orders.html' template with the filtered orders and courier information.
@@ -37,14 +37,12 @@ def ready_orders(request):
     """
     courier = check_if_active_courier(request)
     today = timezone.localdate()
+    # Ready = no station on the order is still pending or being made
     orders = Delivery.objects.filter(
-        order__kitchen_status__in = [2, 4],
-        order__bar_status__in = [2, 4],
-        order__gng_status__in = [2, 4],
         completed=False,
         order__picked_up=False,
         timestamp__date=today
-    )
+    ).exclude(order__station_statuses__status__lt=OrderStation.STATUS_DONE)
     if courier:
         for d in Delivery.objects.filter(completed = False).all():
             if d.courier == request.user:
@@ -279,3 +277,4 @@ def save_subscription(request):
             subscription.auth = subscription_data['keys']['auth']
             subscription.save()
         return JsonResponse({'message': 'Subscription saved.'})
+    return HttpResponseNotAllowed(['POST'])

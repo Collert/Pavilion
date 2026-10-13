@@ -147,48 +147,33 @@
     animation: hourglass-top 3s linear infinite;
 }
 
-.order[data-kitchen-status="0"] .kitchen-progress .hourglass,
-.order[data-bar-status="0"] .bar-progress .hourglass,
-.order[data-gng-status="0"] .gng-progress .hourglass {
+.progress-stack[data-status="0"] .hourglass {
     display: block;
 }
 
-.order[data-kitchen-status="0"] .kitchen-progress .done_all,
-.order[data-bar-status="0"] .bar-progress .done_all,
-.order[data-gng-status="0"] .gng-progress .done_all,
-.order[data-kitchen-status="0"] .kitchen-progress .check,
-.order[data-bar-status="0"] .bar-progress .check,
-.order[data-gng-status="0"] .gng-progress .check {
+.progress-stack[data-status="0"] .done_all,
+.progress-stack[data-status="0"] .check {
     display: none;
 }
 
-.order[data-kitchen-status="1"] .kitchen-progress .check,
-.order[data-bar-status="1"] .bar-progress .check,
-.order[data-gng-status="1"] .gng-progress .check {
+.progress-stack[data-status="1"] .check {
     display: block;
 }
 
-.order[data-kitchen-status="1"] .kitchen-progress .done_all,
-.order[data-bar-status="1"] .bar-progress .done_all,
-.order[data-gng-status="1"] .gng-progress .done_all,
-.order[data-kitchen-status="1"] .kitchen-progress .hourglass,
-.order[data-bar-status="1"] .bar-progress .hourglass,
-.order[data-gng-status="1"] .gng-progress .hourglass {
+.progress-stack[data-status="1"] .done_all,
+.progress-stack[data-status="1"] .hourglass {
     display: none;
 }
 
-.order[data-kitchen-status="2"] .kitchen-progress .done_all,
-.order[data-bar-status="2"] .bar-progress .done_all,
-.order[data-gng-status="2"] .gng-progress .done_all {
+.progress-stack[data-status="2"] .done_all,
+.progress-stack[data-status="3"] .done_all {
     display: block;
 }
 
-.order[data-kitchen-status="2"] .kitchen-progress .check,
-.order[data-bar-status="2"] .bar-progress .check,
-.order[data-gng-status="2"] .gng-progress .check,
-.order[data-kitchen-status="2"] .kitchen-progress .hourglass,
-.order[data-bar-status="2"] .bar-progress .hourglass,
-.order[data-gng-status="2"] .gng-progress .hourglass {
+.progress-stack[data-status="2"] .check,
+.progress-stack[data-status="2"] .hourglass,
+.progress-stack[data-status="3"] .check,
+.progress-stack[data-status="3"] .hourglass {
     display: none;
 }
 

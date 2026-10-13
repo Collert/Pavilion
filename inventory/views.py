@@ -153,7 +153,7 @@ def component_availability(request):
         HttpResponse: The rendered component availability page for GET requests.
         JsonResponse: A JSON response with the updated list of dishes for PUT requests.
     """
-    menu = Menu.objects.get(is_active=True)
+    menu = Menu.active()
     dishes = Dish.objects.filter(menu=menu)
     if request.method == "GET":
         components = Component.objects.all()

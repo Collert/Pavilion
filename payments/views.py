@@ -1,6 +1,9 @@
+from decimal import Decimal, InvalidOperation
+
+from django.db import transaction as db_transaction
 from django.shortcuts import render
 from django.http import JsonResponse
-from .square import create_web_payment, capture_payment
+from .square import create_web_payment
 from django.conf import settings
 import json
 from .models import Transaction, PaymentAuthorization
@@ -41,32 +44,28 @@ def web_payment(request):
         HttpResponse or JsonResponse: Depending on the request method.
     """
     if request.method == "GET":
-        amount = request.GET.get('amount', None)
-        if amount:
-            amount = float("{:.2f}".format(float(amount)))
-            transaction = Transaction.objects.create(amount=amount)
-        else:
-            transaction = None
+        try:
+            amount = Decimal(request.GET.get('amount', '')).quantize(Decimal("0.01"))
+            if amount <= 0:
+                raise InvalidOperation
+        except InvalidOperation:
+            amount = None
+        transaction = Transaction.objects.create(amount=amount) if amount else None
         confirmation_needed = bool(request.GET.get('confirmation_needed', False))
         return render(request, "payments/square-checkout.html", {
             "location_id":settings.SQUARE_LOCATION_ID,
             "app_id":settings.SQUARE_APPLICATION_ID,
-            "amount":int(amount * 100) if amount else None,
+            "amount":int(amount * 100) if amount else None,  # cents
             "transaction":transaction,
             "dev_env": settings.DEBUG,
             "confirmation_needed":confirmation_needed
         })
-    elif request.method == "POST":
+    elif request.method in ("POST", "PUT"):
+        # Read-only status check. Only process_web_payment can mark a transaction paid.
         data = json.loads(request.body)
-        transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
-        transaction.successful = True
-        transaction.save()
-        return JsonResponse({"status":"marked_paid", "uuid":transaction.uuid})
-    elif request.method == "PUT":
-        data = json.loads(request.body)
-        transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
+        transaction = Transaction.objects.filter(uuid=data.get('transaction_uuid')).first()
         if not transaction:
-            return JsonResponse({"error":"transaction not found"})
+            return JsonResponse({"error":"transaction not found"}, status=404)
         return JsonResponse({"paid":transaction.successful, "uuid":transaction.uuid})
 
 def process_web_payment(request):
@@ -91,60 +90,20 @@ def process_web_payment(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         token = data.get('token')
-        amount = int(data.get('amount'))
-        confirmation_needed = bool(data.get('confirmation_needed'))
-        transaction_uuid = data.get('transaction_uuid')
-        transaction = Transaction.objects.get(uuid=transaction_uuid)
-
-        response = create_web_payment(token, float("{:.2f}".format(amount/100)), autocomplete = not confirmation_needed, transaction=transaction)
-
-        if response.is_success():
-            return JsonResponse({'status': 'success', 'payment': response.body})
-        elif response.is_error():
+        confirmation_needed = data.get('confirmation_needed') in (True, "True", "true")
+        with db_transaction.atomic():
+            transaction = Transaction.objects.select_for_update().filter(uuid=data.get('transaction_uuid')).first()
+            if transaction is None:
+                return JsonResponse({'status': 'error', 'errors': ['Unknown transaction']}, status=404)
+            if transaction.successful:
+                return JsonResponse({'status': 'error', 'errors': ['This transaction is already paid']}, status=409)
+            # Charge the amount fixed when the popup opened, never an amount sent by the browser
+            response = create_web_payment(token, transaction.amount, autocomplete = not confirmation_needed, transaction=transaction)
+            if response.is_success():
+                transaction.successful = True
+                transaction.save(update_fields=["successful"])
+                return JsonResponse({'status': 'success', 'payment': response.body})
             return JsonResponse({'status': 'error', 'errors': response.errors})
 
     return JsonResponse({'status': 'method not allowed'}, status=405)
 
-def capture_web_payment(request):
-    """
-    Handle web payment capture and deletion requests.
-
-    Args:
-        request (HttpRequest): The HTTP request object containing the payment data.
-
-    Returns:
-        JsonResponse: A JSON response indicating the status of the operation.
-
-    The function supports two HTTP methods:
-    - POST: Captures a payment based on the provided payment_id.
-    - DELETE: Deletes a payment authorization based on the provided payment_id.
-
-    POST:
-        - Expects a JSON body with a 'payment_id' field.
-        - Attempts to capture the payment and update the authorization status to "del".
-        - Returns a JSON response with the status 'captured' and the captured payment ID.
-        - In case of an error, returns a JSON response with the status 'error' and the error message.
-
-    DELETE:
-        - Expects a JSON body with a 'payment_id' field.
-        - Updates the authorization status to "del".
-        - Returns a JSON response with the status 'deleted' and the authorization ID.
-    """
-    data = json.loads(request.body)
-    if request.method == "POST":
-        payment_id = data.get('payment_id')
-        try:
-            authorization = PaymentAuthorization.objects.get(payment_id=payment_id)
-            if authorization.status == "":
-                captured_payment = capture_payment(payment_id)
-            authorization.status = "del"
-            authorization.save()
-            return JsonResponse({'status': 'captured', 'payment_id': captured_payment['id']})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-    elif request.method == "DELETE":
-        payment_id = data.get('payment_id')
-        authorization = PaymentAuthorization.objects.get(payment_id=payment_id)
-        authorization.status = "del"
-        authorization.save()
-        return JsonResponse({'status': 'deleted', 'payment_id': authorization.id})

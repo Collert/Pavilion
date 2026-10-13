@@ -212,7 +212,7 @@
         </div>
     </dialog>
     <dialog id="finalize-dialog" class="full">
-        <form method="post" id="finalize-form" class="attach-card-payment" action="{% url 'submit_order' %}">
+        <form method="post" id="finalize-form" class="attach-card-payment confirmation-needed" action="{% url 'submit_order' %}">
             {% csrf_token %}
             <header>
                 <h1>{% trans "Finalize cart" %}</h1>
