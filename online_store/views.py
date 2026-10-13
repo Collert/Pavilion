@@ -2,7 +2,6 @@ from django.shortcuts import render
 from pos_server.models import *
 from collections import defaultdict
 from pos_server.views import prettify_dish, group_by_station
-from .notifications import PushSubscription
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
@@ -288,7 +287,6 @@ def order_history(request):
         ro.progress_status = -1
         ro.channel = "web"
     combined_orders = sorted(orders_objs + rejected_orders, key=lambda x: x.id if isinstance(x, Order) else x.order_id, reverse=True)
-    print(orders_list)
     return render(request, "online_store/history.html", {
         "route":"history",
         "menu":{"menu":Menu.active()},
@@ -310,7 +308,6 @@ def service_worker_view(request):
     """
     # Determine the absolute path to the service worker file
     file_path = os.path.join(settings.BASE_DIR, "online_store", 'service-worker.js')
-    print(file_path)
 
     # Check if the file exists
     if not os.path.isfile(file_path):
@@ -322,35 +319,3 @@ def service_worker_view(request):
         response['Service-Worker-Allowed'] = '/'  # Optional, explicitly set scope
         return response
 
-@csrf_exempt
-@login_required
-def save_subscription(request):
-    """
-    Handle saving a push subscription for the current user.
-
-    This view function processes a POST request containing subscription data
-    in JSON format. It either creates a new PushSubscription object or updates
-    an existing one for the current user.
-
-    Args:
-        request (HttpRequest): The HTTP request object containing the subscription data.
-
-    Returns:
-        JsonResponse: A JSON response indicating the subscription has been saved.
-    """
-    if request.method == 'POST':
-        subscription_data = json.loads(request.body)
-        user = request.user
-        subscription, created = PushSubscription.objects.get_or_create(
-            user=user,
-            endpoint=subscription_data['endpoint'],
-            defaults={
-                'p256dh': subscription_data['keys']['p256dh'],
-                'auth': subscription_data['keys']['auth']
-            }
-        )
-        if not created:
-            subscription.p256dh = subscription_data['keys']['p256dh']
-            subscription.auth = subscription_data['keys']['auth']
-            subscription.save()
-        return JsonResponse({'message': 'Subscription saved.'})

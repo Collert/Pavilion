@@ -279,7 +279,6 @@ def recipe(request, recipe_id):
             for ci in recipe.component.first().componentingredient_set.all():
                 ingredients_ul += f"<li>{str(round(ci.quantity * recipe.original_yield, 2))} {ci.ingredient.unit_of_measurement.capitalize()} {ci.ingredient.title}</li>"
         ingredients_ul += "</ul>"
-        print(ingredients_ul)
         return render(request, "inventory/recipe.html", {
             "recipe_obj":recipe,
             "ingredients_ul":ingredients_ul,

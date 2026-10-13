@@ -108,7 +108,6 @@ def promo_content_instance(request, id):
     elif request.method == "POST":
         content.title = request.POST.get('title')
         new_image = request.FILES.get('new-image')
-        print(new_image)
         if new_image:
             content.image = new_image
         content.tagline=request.POST.get('tagline', '')
@@ -137,7 +136,6 @@ def promo_content_new(request):
         })
     elif request.method == "POST":
         content = PromoContent(title = request.POST.get('title'))
-        print(request.FILES)
         new_image = request.FILES['new-image']
         if new_image:
             content.image = new_image

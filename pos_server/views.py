@@ -22,6 +22,7 @@ from collections import defaultdict
 import math
 from payments import square
 from payments.models import SquareTerminal
+from pavilion.realtime import publish
 import os
 from square.utilities.webhooks_helper import is_valid_webhook_event_signature
 from django.conf import settings
@@ -44,58 +45,6 @@ logger = logging.getLogger(__name__)
 
 def index(request):
     return HttpResponseRedirect(reverse("pos"))
-
-def login_view(request):
-    """
-    Handle the login view for the POS server.
-
-    This view supports both GET and POST requests:
-    - GET: Renders the login page.
-    - POST: Authenticates the user and logs them in if credentials are valid.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The HTTP response object. If the request method is GET, 
-                      it returns the login page. If the request method is POST 
-                      and authentication is successful, it redirects to the 
-                      next URL or the main POS page. If authentication fails, 
-                      it re-renders the login page with a failure message.
-    """
-    if request.method == "GET":
-        return render(request, "pos_server/login.html", {
-            "route":"login"
-        })
-    elif request.method == "POST":
-        username = request.POST["username"]
-        password = request.POST["password"]
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            next_url = safe_next_url(request, request.POST.get('next'))
-            if next_url:
-                return redirect(next_url)
-            return HttpResponseRedirect(reverse("pos"))
-        else:
-            return render(request, "pos_server/login.html", {
-                "route":"login",
-                "failed_login":True
-            })
-
-@login_required
-def logout_view(request):
-    """
-    Logs out the user and redirects to the login view.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponseRedirect: A redirect to the login view.
-    """
-    logout(request)
-    return redirect(reverse("login_view"))
 
 @staff_required
 @device_required
@@ -409,7 +358,6 @@ def component_choice(request):
                         "force_in_stock":child.force_in_stock
                     })
                 choice_components.append(choices)
-        print(choice_components)
         return render(request, "pos_server/component-choice.html", {"choices":choice_components})
     else:
         return HttpResponseBadRequest("Please include a valid dish ID in the request")
@@ -822,15 +770,15 @@ def square_webhook(request):
         # Only update status if this matches our current checkout
         if current_checkout_id and checkout_id == current_checkout_id:
             status = webhook_data["data"]["object"]["checkout"]["status"]
-            # Using 60 second timeout to match active orders caching pattern
-            cache.set('checkout_card_status', status, timeout=60)
-            print(f"Updated checkout status: {status} for checkout ID: {checkout_id}")
+            cache.set('checkout_card_status', status, timeout=180)
+            publish("checkout")
+            logger.info("Square checkout %s is now %s", checkout_id, status)
         else:
-            print(f"Received webhook for different checkout ID: {checkout_id}, current: {current_checkout_id}")
+            logger.info("Ignoring webhook for checkout %s (current: %s)", checkout_id, current_checkout_id)
         
         return HttpResponse('Webhook processed', status=200)
     else:
-        print("invalid signature")
+        logger.warning("Square webhook with an invalid signature")
         # Invalid signature, return forbidden
         return HttpResponseForbidden('Invalid signature')
     
@@ -848,7 +796,6 @@ def check_card_status(request):
                       or a confirmation of deletion for DELETE requests.
     """
     status = cache.get('checkout_card_status')
-    print(f"Card status from cache: {status}")
     if request.method == "GET":
         # Return explicit null status if not found in cache
         return JsonResponse({"status": status if status is not None else None})

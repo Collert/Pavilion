@@ -5,6 +5,9 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from django.conf import settings
 from python_http_client import exceptions 
+import logging
+
+logger = logging.getLogger(__name__)
 
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
@@ -52,8 +55,6 @@ def send_template_email(email_data):
     Sends a templated email using SendGrid's dynamic templates.
     :param email_data: An instance of SendGridEmailData containing all email details.
     """
-    print("send_template_email called")
-
     # Extract just the emails for recipients
     to_email_objects = [recipient["email"] for recipient in email_data.recipients]
 
@@ -69,16 +70,11 @@ def send_template_email(email_data):
         # Set personalization data for each recipient
         message.personalizations[index].dynamic_template_data = recipient["dynamic_data"]
 
-    print("email prepped with template:", email_data.template_id)
-
     # Initialize SendGrid client and send email
     try:
-        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
-        response = sg.send(message)
-        print(response.status_code)
-        print(response.body)
-        print(response.headers)
-        print(f"Email sent! Status code: {response.status_code}")
+        response = SendGridAPIClient(settings.SENDGRID_API_KEY).send(message)
     except exceptions.BadRequestsError as e:
-        print("An error occurred while sending the email:")
-        print(e.body)  # Display the detailed error
+        logger.error("SendGrid rejected template %s: %s", email_data.template_id, e.body)
+        raise
+    logger.info("Sent template %s (status %s)", email_data.template_id, response.status_code)
+    return response

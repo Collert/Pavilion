@@ -32,6 +32,7 @@ SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'restaurant@uahelp.ca')  # push services may contact this address
 APP_DOMAIN = os.getenv('APP_DOMAIN')
 
 # Security settings
