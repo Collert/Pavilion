@@ -1,41 +1,25 @@
-# Use official Python 3.9 image
-FROM python:3.11.8-slim-bullseye
+FROM python:3.12-slim-bookworm
 
-# Set working directory
 WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ENVIRONMENT=production
 
-# Copy project files into container
-COPY . .
-
-COPY prod.env /app/pavilion/.env
-
-# Install system dependencies for OpenCV, FFmpeg, and PostgreSQL
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    ffmpeg \
-    libpq-dev \
-    gcc \
-    && apt-get upgrade -y \
-    && apt-get clean \
+# OpenCV (menu colour extraction), ffmpeg (TTS announcements), libpq (Postgres)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 ffmpeg libpq-dev gcc gettext \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create directories for static files and logs
-RUN mkdir -p /app/static /app/logs
+COPY . .
+RUN mkdir -p /app/logs \
+    && SECRET_KEY=build-only REDIS_URL=redis://unused python manage.py collectstatic --noinput \
+    && SECRET_KEY=build-only REDIS_URL=redis://unused python manage.py compilemessages
 
-# Collect static files
-RUN python manage.py collectstatic --noinput || true
-
-# Expose port 8000 for Django
 EXPOSE 8000
 
-# Create a startup script
-RUN echo '#!/bin/bash\n\
-    python manage.py migrate\n\
-    python manage.py collectstatic --noinput\n\
-    python manage.py runserver 0.0.0.0:8000' > /app/start.sh && chmod +x /app/start.sh
-
-# Run the Django application
-CMD ["/app/start.sh"]
+# Migrate, then serve ASGI with several uvicorn workers. Redis (REDIS_URL) shares the cache and the
+# live-update events between workers. WEB_CONCURRENCY sets the worker count.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec uvicorn pavilion.asgi:application --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-3} --proxy-headers --forwarded-allow-ips='*'"]

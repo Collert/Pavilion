@@ -1,5 +1,6 @@
-version: "3.8"
-
+# Production-style stack: app (uvicorn, ASGI) + Postgres + Redis.
+# Secrets and per-site settings come from pavilion/.env (see pavilion/.env.example).
+# Media is stored in a RustFS (S3-compatible) bucket configured with the RUSTFS_* variables.
 services:
   web:
     build: .
@@ -7,37 +8,40 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    environment:
-      - ENVIRONMENT=production
-      - POSTGRES_DB=pavilion_db
-      - POSTGRES_USER=pavilion_user
-      - POSTGRES_PASSWORD=pavilion_pass
-      - DB_HOST=db
-      - DB_PORT=5432
     env_file:
       - pavilion/.env
+    environment:
+      ENVIRONMENT: production
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
-  # volumes:
-  #   - .:/app  # Syncs local files to the container (useful during development)
+      - logs:/app/logs
 
   db:
     image: postgres:16
     container_name: pavilion_db
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: pavilion_db
-      POSTGRES_USER: pavilion_user
-      POSTGRES_PASSWORD: pavilion_pass
+    env_file:
+      - pavilion/.env   # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
     volumes:
       - pg_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-pavilion_user} -d $${POSTGRES_DB:-pavilion_db}"]
+      interval: 5s
+      retries: 10
+    # Not published to the host on purpose; use `docker compose exec db psql` to get in.
+
+  redis:
+    image: redis:7-alpine
+    container_name: pavilion_redis
+    restart: unless-stopped
 
 volumes:
   pg_data:
-  static_volume:
-  media_volume:
+  logs:
