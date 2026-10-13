@@ -288,7 +288,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'  # must be one of LANGUAGES, or reverse() outside a request builds /en-us/ URLs that 404
 
 TIME_ZONE = 'America/Vancouver'
 
