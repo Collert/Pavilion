@@ -14,7 +14,11 @@ working on a feature, and update it when you change how something works or fix a
 - Use **`venv\`** (complete), **not `.venv\`** (missing `whitenoise`, so every request 500s).
   `venv\Scripts\python manage.py runserver` → `http://127.0.0.1:8000/en/apps/`
 - All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`). Only `/jsi18n/` doesn't.
-- `manage.py check` passes. There is **no test suite** on main (`*/tests.py` are empty stubs).
+- Tests: `venv\Scripts\python manage.py test` (pos_server, online_store, gift_cards). Square and SendGrid are mocked.
+- Demo data: `venv\Scripts\python manage.py seed_demo` on an empty DB (logins admin/admin, cashier/cashier,
+  courier/courier, customer/customer). Refuses to run with DEBUG off.
+- **Every time a model is created or changed, update `pos_server/management/commands/seed_demo.py`** so it still runs
+  on a fresh database (`migrate` then `seed_demo`) and fills in the new model/fields with realistic data.
 - Quick smoke test without a server: `django.test.Client(HTTP_HOST='localhost')` + `force_login(superuser)`.
 - Settings switch on `ENVIRONMENT=production` (Postgres, DEBUG off) vs anything else (SQLite `db.sqlite3`, DEBUG on).
   Secrets live in `pavilion/.env`. Never print or commit its values.
