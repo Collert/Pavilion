@@ -1,6 +1,7 @@
 const DEVICE_TOKEN = window.localStorage.getItem("deviceToken") || new URLSearchParams(window.location.search).get("device-token");
+let csrftoken = "";
 try {
-    const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 } catch {
     console.error("CSRF token is not in the page. Make sure to include {% csrf_token %} somewhere in the template.")
 }
@@ -24,7 +25,7 @@ if (!DEVICE_TOKEN) {
     )
     .then(response => {
         if (!response.ok) {
-            window.location.href = "/restaurant/check-device";
+            window.location.href = "/restaurant/check-device?next=" + encodeURIComponent(window.location.pathname + window.location.search);
         }
     })
 }

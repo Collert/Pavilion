@@ -11,6 +11,7 @@ from collections import Counter
 from .models import *
 import json
 from functools import wraps
+from .devices import device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
 from django.utils import timezone
 from . import globals
 import datetime
@@ -70,7 +71,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            next_url = request.POST.get('next')  # Get the next parameter
+            next_url = safe_next_url(request, request.POST.get('next'))
             if next_url:
                 return redirect(next_url)
             return HttpResponseRedirect(reverse("pos"))
@@ -96,6 +97,7 @@ def logout_view(request):
 
 # @local_network_only
 @login_required
+@device_required
 def order_marking(request):
     """
     Handles order marking operations based on the HTTP request method.
@@ -272,15 +274,18 @@ def device_elig(request):
     """
     if request.method == "PUT":
         try:
-            EligibleDevice.objects.filter(token=json.loads(request.body)["token"])
-        except:
+            token = json.loads(request.body)["token"]
+        except (ValueError, KeyError, TypeError):
             return HttpResponseForbidden("Forbidden: Device not recognized.")
-        if EligibleDevice.objects.filter(token=json.loads(request.body)["token"]).exists():
-            return JsonResponse({"status": "device ok"}, status=200)
+        if token_is_registered(token):
+            # Hand the device a signed cookie so the server can check it on later requests
+            return set_device_cookie(JsonResponse({"status": "device ok"}, status=200), token)
+        return HttpResponseForbidden("Forbidden: Device not recognized.")
     elif request.method == "GET":
         return render(request, "pos_server/ineligible-device.html", {
                 "route":"login",
-                "authorized":False
+                "authorized":False,
+                "next_url":safe_next_url(request, request.GET.get("next")) or "/",
             })
     elif request.method == "POST":
         username = request.POST["username"]
@@ -289,14 +294,14 @@ def device_elig(request):
         user = authenticate(request, username=username, password=password)
         if user is not None and user.is_superuser:
             new_device = EligibleDevice.objects.create(name=device_name)
-            next_url = request.POST.get('next')  # Get the next parameter
-            if next_url:
-                return redirect(next_url)
-            return render(request, "pos_server/ineligible-device.html", {
+            # The page stores the token in localStorage, then continues to "next"
+            response = render(request, "pos_server/ineligible-device.html", {
                 "route":"login",
                 "uuid":new_device.token,
-                "authorized":True
+                "authorized":True,
+                "next_url":safe_next_url(request, request.POST.get('next')) or "/",
             })
+            return set_device_cookie(response, new_device.token)
         else:
             return render(request, "pos_server/ineligible-device.html", {
                 "route":"login",
@@ -305,6 +310,7 @@ def device_elig(request):
 
 # @local_network_only
 @login_required
+@device_required
 def pos(request):
     """
     Handles POS (Point of Sale) operations for GET, POST, and PUT requests.
@@ -1052,6 +1058,7 @@ def api_login_required(view):
     return wrapper
 
 @api_login_required
+@device_required
 def check_card_status(request):
     """
     Handle GET and DELETE requests to check or delete the card status.
@@ -1096,7 +1103,7 @@ def active_orders(request):
     # Fetch active orders from database using IDs from the cache
     active_orders = Order.objects.filter(id__in=active_order_ids)
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
-    if not request.user.is_authenticated:
+    if not (request.user.is_authenticated and is_registered_device(request)):
         # The public status board polls this too: only expose what it displays
         public_keys = ("order_id", "name", "to_go_order", "channel", "timestamp", "timestamp_pretty",
                        "start_time", "kitchen_status", "bar_status", "gng_status", "done", "picked_up")
@@ -1104,6 +1111,7 @@ def active_orders(request):
     return JsonResponse(serialized_orders, safe=False)
 
 @api_login_required
+@device_required
 def check_inventory(request):
     """
     Handles the request to check the inventory of active dishes.

@@ -25,7 +25,21 @@
     const UUID = "{{uuid}}"
     window.localStorage.setItem("deviceToken", UUID)
     alert("{% trans 'Device registered! You will now be redirected to homepage.' %}")
-    window.location.href = "/"
+    window.location.href = "{{next_url|escapejs}}"
+</script>
+{% elif not failed_login %}
+<script>
+    // A device that is already registered (token in localStorage) just needs its cookie refreshed.
+    const storedToken = window.localStorage.getItem("deviceToken")
+    if (storedToken) {
+        fetch("{% url 'device_elig' %}", {
+            method: "PUT",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
+            body: JSON.stringify({token: storedToken})
+        }).then(response => {
+            if (response.ok) window.location.href = "{{ next_url|default:"/"|escapejs }}"
+        })
+    }
 </script>
 {% endif %}
 {% endblock %}

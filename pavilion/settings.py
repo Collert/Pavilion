@@ -108,6 +108,10 @@ AVAILABLE_ICONS = (
     ("wine_bar", "Wine glass")
 )
 
+# Registered-device allowlist for POS/KDS views (see pos_server/devices.py).
+# On in production, off in dev unless ENFORCE_DEVICE_CHECK=true.
+ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('ENVIRONMENT') == "production" else 'false').lower() == 'true'
+
 # Default login redirect
 LOGIN_URL = reverse_lazy('login_view')
 
