@@ -35,7 +35,13 @@ VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 APP_DOMAIN = os.getenv('APP_DOMAIN')
 
 # Security settings
-SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'  # WARNING: Change this in production!
+# Generate one with: python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
+# The key that used to be hard-coded here is in git history, so never reuse it.
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if os.getenv('ENVIRONMENT') == "production":
+        raise RuntimeError("SECRET_KEY environment variable must be set in production")
+    SECRET_KEY = 'django-insecure-dev-only-key'  # dev fallback; sessions reset if this changes
 DEBUG = os.getenv('ENVIRONMENT') != "production"  # Debug mode enabled unless in production
 
 # User-uploaded media (dish images, menu decorations, promos, gift card art, receipts).

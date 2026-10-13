@@ -308,7 +308,7 @@ to `logs/debug.log`), `DB_USER`/`DB_PASSWORD` (unused; Postgres reads `POSTGRES_
 
 **Security**
 1. **FIXED (code): dev no longer serves the whole project folder.** Media is `MEDIA_URL='/media/'` / `MEDIA_ROOT=BASE_DIR/'media'` in dev and a RustFS bucket in prod. **Still to do: rotate the Square/SendGrid/Google/VAPID keys in `.env`**, since they were reachable via ngrok while the catch-all existed.
-2. `SECRET_KEY` is hard-coded in `settings.py` and committed.
+2. **FIXED:** `SECRET_KEY` now comes from the `SECRET_KEY` env var (required in production, dev fallback otherwise). The old key is in git history, so it must never be reused.
 3. `gift-cards/card-api/<n>` POST lets anyone charge any gift card (csrf-exempt, no auth).
 4. `webhook/square/check_card_status`, `active_orders`, and `check_inventory` have no auth. `CORS_ALLOW_ALL_ORIGINS = True` with credentials.
 5. The device allowlist is client-side only (§6.8).
