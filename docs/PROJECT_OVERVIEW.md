@@ -1,8 +1,9 @@
 # Pavilion — Full Project Overview
 
-> Written 2026-10-04 from a full read-through of the code, git history, branches, stashes, and the local dev DB.
-> This file is about what the code **actually does**, not what it was meant to do. Where those differ, this file says so.
-> The older [README.md](../README.md) and [.github/copilot-instructions.md](../.github/copilot-instructions.md) are partly wrong (see §10).
+> First written 2026-10-04 from a full read-through of the code, git history, branches, stashes, and the local dev DB.
+> Rewritten 2026-10-13 after the overhaul on branch `fix-all-problems-for-real` (dynamic stations, server-side pricing,
+> payment fixes, SSE, Docker, tests). This file is about what the code **actually does**. Where the code and older docs
+> ([README.md](../README.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md)) disagree, trust this file and the code.
 
 ---
 
@@ -14,73 +15,80 @@ was renamed to `pavilion` on 2025-02-06 (commit `cd409c5`), and has Ukrainian an
 `RESTAURANT_ADDRESS = "501 4th Ave, New Westminster, BC"` is hard-coded in `deliveries/views.py`, and SendGrid emails
 go out as "Holy Eucharist Cathedral".
 
-It started as a simple web POS: a cashier rings in an order, and the order shows up on a kitchen screen. It then grew into:
-
 | Area | What it is | Status |
-|---|---|---|
-| **POS register** | Touch-screen cashier UI, cash/card/gift-card tender, Square Terminal | ✅ Works (core) |
-| **Kitchen/bar display (KDS)** | "Order marking" screen per station: approve, complete, pick up | ✅ Works (polling) |
+| --- | --- | --- |
+| **POS register** | Touch-screen cashier UI, cash/card/gift-card tender, Square Terminal | ✅ Works |
+| **Kitchen display (KDS)** | "Order marking" screen per set of stations: approve, complete, hand out, reject | ✅ Works, live (SSE) |
 | **Customer-facing display** | Second screen mirroring the cart, linked to the POS by `BroadcastChannel` | ✅ Works (same browser only) |
-| **Order status board** | TV screen with in-progress/ready columns, TTS announcements, weather, YouTube player | ⚠️ Half-broken (stale field names) |
-| **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Mostly works |
-| **Events / business days** | Online ordering is only open during an `Event` with `restaurant_open=True` | ✅ Works |
-| **Deliveries** | Courier app: clock in, claim delivery, ETA via Google Distance Matrix, web push | ⚠️ List page crashes, in-memory state |
-| **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ⚠️ Email sending broken by latest commit |
-| **Inventory** | Ingredients → Components → Dishes, crafting, shopping log, recipes, availability toggles | ⚠️ Works, but crafting page still uses SSE |
-| **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial, several stubs |
+| **Order status board** | TV screen with in-progress/ready columns, TTS announcements, weather, YouTube player | ✅ Works, live (SSE) |
+| **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Works (Square popup not re-tested against sandbox) |
+| **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
+| **Deliveries** | Courier app: clock in, claim delivery, ETA via Google Distance Matrix, web push | ✅ Works (push untested end-to-end) |
+| **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ✅ Works |
+| **Inventory** | Ingredients → Components → Dishes, crafting, shopping log, recipes, availability toggles | ✅ Works, crafting page live (SSE) |
+| **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
 | **Users** | Login/register/profile, `Staff`/`Customer` profiles | ✅ Basic |
-| **Misc tools** | K-means image-color extractor (menu theming), gTTS announcement endpoint | ✅ Works |
+| **Misc tools** | K-means image-colour extractor (menu theming), gTTS announcement endpoint | ✅ Works |
 | **App switcher** | Landing tile page: POS / Order marking / Admin | ✅ Trivial |
-| **WebRTC** | Phone↔laptop camera signalling experiment | ❌ Abandoned/broken |
-| **Stations (dynamic)** | `Station` model to replace hard-coded kitchen/bar/gng | ❌ Models only, unused |
+| **Stations** | `Station` model; any number of stations, configured in `/advanced-admin/` | ✅ Done |
 
 ---
 
 ## 2. Timeline (from git)
 
 | When | What happened |
-|---|---|
+| --- | --- |
 | 2023-12 → 2024-03 | Initial build: POS, kitchen/bar screens, Square terminal, dashboard, inventory. ~115 commits. |
-| 2024-05 → 2024-06 | Deployment onto own hardware. **SSE broke in production → switched to polling** (`8502037` "Switched to polling for new orders", `4e447ab` order status screen, `7170e2c` inventory). |
+| 2024-05 → 2024-06 | Deployment onto own hardware. **SSE broke in production → switched to polling** (`8502037`, `4e447ab`, `7170e2c`). |
 | 2024-07 → 2024-08 | Online store + online payment processing, gift cards (PR #11), date/time constraints for online ordering. |
 | 2024-10 → 2024-11 | Thread-safety attempt on active orders, gift card scanner. Started a `screens` app (branch `screens`, abandoned). |
-| 2025-02 (79 commits) | Big push: whitenoise, rename to Pavilion, mostly-AI docstrings, new_admin rebuild, translations (PR #25), events, promo content, Station model added/disabled/re-enabled. |
+| 2025-02 (79 commits) | Whitenoise, rename to Pavilion, mostly-AI docstrings, new_admin rebuild, translations (PR #25), events, promo content, Station model added/disabled/re-enabled. |
 | 2025-03 → 2025-04 | Menu management in new_admin, dashboard history calendar, Square checkout caching. Menu fonts/styles WIP left in **stash@{0}**. |
-| 2025-07 | Docker/Postgres setup, Copilot instructions file, `classes.py` edit (introduced a crash, see §9). |
+| 2025-07 | Docker/Postgres setup, Copilot instructions file, `classes.py` edit (introduced the gift-card email crash). |
 | 2025-11-26 | Three **Copilot agent branches** pushed to origin (unmerged): WebSockets, dynamic stations, N+1 query fixes. |
+| 2026-10-13 | **Overhaul** on `fix-all-problems-for-real`: security fixes, DB reset with committed migrations, Station model, shared order service, payment fixes, SSE over Redis, Docker with uvicorn, tests, `seed_demo`. |
 
 ---
 
 ## 3. Tech stack
 
-- **Django 5.1** (settings comment says 4.2), Python 3.11 in Docker, 3.12 locally.
+- **Django 5.1**, Python 3.12 (Docker and local).
 - Plain Django templates plus vanilla JS ES modules. No frontend build step and no npm.
-- **DB:** SQLite in dev (`db.sqlite3`), PostgreSQL 16 in Docker when `ENVIRONMENT=production`.
-- **Cache:** `LocMemCache`, which is per-process (this matters, see §7).
-- **Static:** whitenoise. The custom CSS kit `static/css/AD-Elements/` is shared by all apps. Each app also has its own `layers.css` and `project-styles.css`. Fonts are served locally (Noto Sans, Material Symbols).
-- **Integrations:** Square (Terminal API, Web Payments SDK, webhooks), SendGrid dynamic templates, Google Distance Matrix, OpenWeather (status board), Web Push (VAPID / pywebpush), gTTS + pydub/ffmpeg, OpenCV + scikit-learn (image colours), python-barcode, QuaggaJS (barcode scan in browser), FullCalendar (admin history).
-- **i18n:** `i18n_patterns`, so every page URL is prefixed with a language code (`/en/...`, `/uk/...`, `/zh-hk/...`). `locale/uk`, `locale/zh_HK`. JS strings use `gettext()` via `/jsi18n/`.
+- **Server:** ASGI. `manage.py runserver` runs daphne (it's first in `INSTALLED_APPS`); Docker runs uvicorn with several workers.
+- **DB:** SQLite in dev (`db.sqlite3`), PostgreSQL 16 when `ENVIRONMENT=production`.
+- **Redis** (`REDIS_URL`, required in production): Django cache + pub/sub for live updates. Without it (dev) the cache is
+  `LocMemCache` and live updates use an in-process broker.
+- **Static:** whitenoise, collected to `staticfiles/`. Shared CSS kit `static/css/AD-Elements/`; shared JS in `static/js/`.
+- **Media:** `./media` served by Django in dev; a RustFS (S3-compatible) bucket via `django-storages` in production.
+- **Integrations:** Square (Terminal API, Web Payments SDK, webhooks) on `squareup==38.x` (later versions replaced
+  `square.client.Client`), SendGrid dynamic templates, Google Distance Matrix, OpenWeather, Web Push (VAPID), gTTS +
+  pydub/ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
+- **i18n:** `i18n_patterns`, so page URLs carry `/en/`, `/uk/` or `/zh-hk/`. `LANGUAGE_CODE` must be one of `LANGUAGES`
+  (`en`), or `reverse()` outside a request builds 404ing `/en-us/` URLs. JS strings use `gettext()` via `/jsi18n/`.
 
 ---
 
 ## 4. URL map
 
-All URLs below are under the language prefix (`/en/`) except `/jsi18n/`.
+All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/events/<topic>`.
 
 | Prefix | App | Key routes |
-|---|---|---|
+| --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
-| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (polling JSON), `check_inventory` (polling JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `dashboard`, `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
+| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `dashboard` (→ admin history), `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
 | `/admin/` | `new_admin` | `dashboard/home`, `dashboard/history[/api]`, `menus/list`, `menus/<id>`, `orders/retail[/<id>[/receipt]]`, `store/branding`, `store/promo-content[/<id>\|/new]`, `store/events[/<id>\|/new]` |
-| `/advanced-admin/` | Django admin | |
-| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting`, `inventory-updates` (**SSE**), `component-availability`, `recipes`, `recipes/<id>` |
+| `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
+| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting`, `inventory-updates` (JSON stock), `component-availability`, `recipes`, `recipes/<id>` |
 | `/deliveries/` | `deliveries` | `""` ready orders, `profile` (clock in/out), `eta`, `order/<id>`, `vapid-public-key/`, `save-subscription/` |
-| `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>` (GET balance / POST charge, csrf-exempt) |
-| `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment`, `capture-payment` |
+| `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
+| `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
 | `/apps/` | `app_switcher` | tile page |
-| `/utils/` | `misc_tools` | `get-image-colors/`, `tts?text=` |
-| `/webrtc/` | `webrtc` | `post_offer`, `get_answer` (broken) |
+| `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
+| `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders` (public), `inventory` (staff), `checkout` (staff + registered device) |
+
+**Access rules.** Customers can register accounts, so staff pages use `staff_required` / `superuser_required` /
+`api_staff_required` (`pos_server/devices.py`), never bare `login_required`. POS/KDS views also use `device_required`.
 
 ---
 
@@ -89,287 +97,270 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/`.
 ### 5.1 Menu → Dish → Component → Ingredient (`pos_server/models.py`)
 
 ```
-Menu (is_active: exactly one is expected to be active; header/footer images; 4 theme colours)
- └─ Dish (M2M menu; price float; station "kitchen"|"bar"|"gng"; in_stock / force_in_stock / visible_in_menu)
+Menu (is_active: saving an active menu deactivates the others; Menu.active() returns it or None)
+ └─ Dish (M2M menu; price Decimal; station FK → Station; in_stock / force_in_stock / visible_in_menu)
      └─ DishComponent (quantity) ─ Component (inventory float; unit; type food|beverage;
                                               crafting_option craft|buy|auto; child_dishes M2M → Dish)
                                       └─ ComponentIngredient (quantity) ─ Ingredient (inventory int; allergen; unlimited; cost)
 ```
 
-- **Choice components:** a `Component` with `child_dishes` acts as a choice, e.g. "Drink" with children Coffee and Tea.
-  A Dish whose components are *all* choice components is an "only-choices" dish (`check_if_only_choice_dish`). It
-  is skipped when creating `OrderDish` rows, and its chosen child dishes are added instead.
-- **Stock cascade:** `Component.save()` sets `in_stock` from `inventory`, then walks `dishcomponent_set` and flips
-  `Dish.in_stock`. Passing `save(force_update_stock=True)` skips the auto-recalculation.
-  Note that `super().save()` is called without args, so `update_fields` etc. are dropped.
-- **Crafting:** `inventory.views.craft_component(id, qty)` adds to the component and subtracts its ingredients
-  (unless `unlimited`). Components with `crafting_option="auto"` are crafted automatically when a dish using them is sold.
-- Ordering a dish decrements each component's inventory by `DishComponent.quantity` × **1**. The order quantity is
-  not used: `pos()` loops over unique dishes, not quantities. **Bug:** stock under-counts when quantity > 1.
-- `pos_server/translation.py` registers `Dish.title/description` with **django-modeltranslation**, but that package
-  is not installed or in `INSTALLED_APPS`. The file is dead code, and the real WIP lives in stash@{0}.
+- **Choice components:** a `Component` with `child_dishes` is a choice, e.g. "Drink" with children Coffee and Tea. A Dish
+  whose components are *all* choices is an "only-choices" dish: it is never prepared itself, its picked children are.
+  Pricing rules are in `pos_server/orders.py` (see §6.1).
+- **Stock:** `Component.save()` recalculates `in_stock` (unless `save(force_update_stock=True)`, used by the manual
+  availability toggle) and updates dishes: a dish goes out of stock when a component can't cover one portion, and comes
+  back when that component is restocked and all its other components are available. `force_in_stock` keeps a dish
+  sellable regardless. Self-crafting (`auto`) components and choice components never limit a dish by their own inventory.
+- **Crafting:** `inventory.views.craft_component(id, qty)` adds to the component and subtracts its ingredients (unless
+  `unlimited`). `auto` components are crafted on demand when a dish using them is sold.
+- Selling `n` of a dish takes `DishComponent.quantity × n` of each component.
 
-### 5.2 Orders
+### 5.2 Stations and orders
 
-`Order` fields that matter:
-
-| Field | Meaning |
-|---|---|
-| `channel` | `store` (POS), `web` (online pickup), `delivery` |
-| `kitchen_status`, `bar_status`, `gng_status` | Per-station status, see codes below. **These are the live fields.** |
-| `status_0_stations` … `status_4_stations` | M2M to `Station`, intended to replace the three fields above. **Unused.** |
-| `picked_up` | Defaults `True`. It is set `False` when any station is needed, and the order is "done" when `True`. |
-| `approved` | Unused. |
-| `start_time` | Scheduled time. Online orders pick a time, and the KDS hides orders until `start_time <= now`. |
-| `prep_time` | Auto-set in `save()` when all stations are 2/4. |
-| `name` | Customer name / table. A 2025-02 commit renamed it to `table` and back. |
-| `authorization` | FK `payments.PaymentAuthorization`, used for delayed-capture Square payments. |
-| `gift_cards` | M2M through `gift_cards.GiftCardAuthorization` (`related_name="gift_card_auth"`). |
-| `phone`, `special_instructions`, `to_go_order`, `final_revenue` (unused) | |
-
-**Station status codes:** `0` pending approval · `1` approved / in progress · `2` completed · `3` rejected · `4` not required (default).
-
-- POS orders start at **1** for needed stations, which means auto-approved.
-- Online and delivery orders start at **0** and must be approved on the KDS.
-
-**`Order.progress_status()`** (customer-facing, web/delivery only):
-1 scheduled → 2 not started → 3 in progress → 4 ready → 5 picked up → 6 delivered. It also contains three
-leftover `print()` calls.
-
-`Order.save()`/`delete()` call `update_active_orders_cache()`. That function puts the IDs of active orders
-(start_time ≤ now AND (any station 0/1 OR not picked up)) into the cache key `active_orders` with a 60 s TTL.
+- `Station(name, code, icon, menu_heading, position)`. `code` is a unique slug used in KDS filters (`?filter=kitchen`).
+  `menu_heading` titles the menu section for that station's dishes ("Hot food"). A data migration creates
+  Kitchen / Bar / Grab & Go. Edit or add stations in `/advanced-admin/`.
+- `Order` fields: `channel` (`store` POS, `web` online pickup, `delivery`), `start_time` (scheduled time; screens hide
+  orders until it passes), `prep_time` (set when the last station finishes), `name`, `phone`, `special_instructions`,
+  `to_go_order`, `picked_up`, `total` (server-computed, after discount), `discount`, `authorization` (Square payment),
+  `gift_cards` (through `GiftCardAuthorization`).
+- `OrderStation(order, station, status)`, one row per station that has work on the order. **Status codes:** `0` pending
+  approval · `1` being made · `2` done · `3` rejected. A station with no row isn't involved.
+  POS orders start at 1; online/delivery orders start at 0 and must be approved on the KDS.
+- `picked_up` defaults True and is set False when any station is involved; "done" means picked up.
+- `Order.set_station_status(codes, status, only_from=...)` is the only way statuses change. It saves the order (which
+  publishes an SSE `orders` event) and sends `pos_server.signals.order_ready` when the last station finishes.
+- `Order.progress_status()` (customer-facing, web/delivery only): 1 scheduled → 2 not started → 3 in progress → 4 ready → 5 picked up → 6 delivered.
+- Rejecting an order **deletes** it and stores an `online_store.RejectedOrder` with the reason.
 
 ### 5.3 Other models
 
-- `EligibleDevice(token uuid, name)` is the device allowlist (see §6.8).
-- `Station(friendly_name, code, icon)` lives in `pos_server`. Icons come from `settings.AVAILABLE_ICONS` (Material Symbols names). The local DB has 3 stations.
-- `payments.Transaction(uuid, amount, successful)` and `payments.PaymentAuthorization(payment_id, amount cents, currency, status cap|del, transaction FK)`.
-- `gift_cards.GiftCard(number 16 digits, available_balance, email, image)`, `GiftCardAuthorization`, `CardPreset`, `SpecialCard(CardPreset)`.
-- `online_store.PromoContent` (home-page banners) and `online_store.RejectedOrder(order_id, reason)`. A rejected order is **deleted** and replaced by this record.
-- `events.Event(start, end, restaurant_open, in_person_open, online_open, delivery_open, location…)` and `EventTemplate(Event)` (unused).
-- `deliveries.Delivery(order FK related_name="delivery", destination, courier FK User, eta, completed, phone)`.
-- `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (markdown table), `Packaging`, `CondimentUse`, `IngredientUsageBuffer` (TODO), and `Waste*` models. The waste models have no UI.
-- `users.Staff` (minutes_worked, allowance) and `users.Customer` (auto-created for **every** new User by a post_save signal).
-- There are **two `PushSubscription` models**, in `online_store/notifications.py` and `deliveries/notifications.py`. Both are declared outside `models.py`, both are registered, and both use `related_name="web_notifications_sub"`. Only the deliveries one is routed.
-- `webrtc.WebRTCSession` is part of the abandoned experiment.
+- `EligibleDevice(token, name)`: registered POS/KDS devices (§6.8).
+- `payments.Transaction(uuid, amount, successful, used)`: one online card payment. Only the server marks it `successful`;
+  `Transaction.consume()` spends it once. `PaymentAuthorization(payment_id, amount cents, currency, status)`: `""`
+  authorized, `cap` captured, `del` voided/refunded. `SquareTerminal`: paired Terminal devices.
+- `gift_cards.GiftCard(number 16 random digits, available_balance, email, image)`, `GiftCardAuthorization` (charge per
+  order, refunded on rejection), `CardPreset`, `SpecialCard(CardPreset)`.
+- `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
+- `events.Event(start, end, restaurant_open, in_person_open, online_open, delivery_open, location…)`, `EventTemplate` (unused).
+- `deliveries.Delivery(order, destination, courier, eta, completed, phone)`, `CourierShift(user, mode)` (who is clocked
+  in), `PushSubscription` (web push, `deliveries/notifications.py`).
+- `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (markdown), `Packaging`,
+  `CondimentUse`, `IngredientUsageBuffer` (TODO), and `Waste*` models (no UI).
+- `users.Staff` (minutes_worked, allowance) and `users.Customer` (auto-created for every new User by a post_save signal).
 
 ---
 
 ## 6. Core flows
 
-### 6.1 In-store POS (`/restaurant/register`)
+### 6.1 Creating orders (`pos_server/orders.py`)
 
-Template `pos_server/order.html`, JS `pos-order.js` + `pos-utils.js` (`Cart`, `CashPayment`, `GiftCardPayment`, `CashDrawer`).
+Both the POS and the online store call `create_order()`. Inside one DB transaction it:
 
-1. Before any item can be added, a cash drawer amount must be set (`localStorage.cashDrawer`). This needs superuser auth, done via `POST check-su` with a username and password.
-2. Tapping a dish adds it to the cart. A choice dish opens `component-choice` as a dialog. The cart is broadcast on `BroadcastChannel('cart_channel')` to the customer display.
-3. **Tender:**
-   - **Cash:** `POST register` creates the order directly.
-   - **Card:** `PUT register` checks gift-card balances and then calls `square.terminal_checkout()`. That creates a Square Terminal checkout and stores `checkout_card_status` + `current_checkout_id` in the cache. The JS then polls `GET webhook/square/check_card_status` every 1 s for up to 120 s. Square calls `POST webhook/square`, which verifies the HMAC and updates the cache status to COMPLETED/CANCELED. After COMPLETED, the JS does `POST register`.
-   - **Gift card (partial payment):** the card is looked up via `card-api/<n>` or scanned with the camera (QuaggaJS, code128). `POST register` then charges it with `GiftCard.charge_card()`. **No `GiftCardAuthorization` is created for POS orders.**
-4. `POST register` creates the `Order` (channel `store`) and an `OrderDish` per dish, sets the needed station statuses to 1, and decrements inventory.
-5. `pair-terminal` is meant to pair a Square Terminal, but it **crashes**: it reads `pos_server/config.cfg`, which doesn't exist (`*.cfg` is gitignored), and the GET and PUT paths use different section names.
+1. Prices the cart from the database (`price_cart`). The browser sends items like `{"pk": dish, "parent": dish}`, and
+   its prices and totals are ignored. A plain dish costs its price; a dish with choices costs its price and each pick is
+   free (one free pick per choice component per parent); picks for an only-choices dish cost their own price. Unknown,
+   out-of-stock, or invalid picks raise `OrderError`.
+2. Applies POS discounts (amount, then percent; staff-only input).
+3. Locks and checks gift cards, and calls `verify_payment(remaining)` (online: the card payment must cover the rest).
+4. Creates the order, `OrderDish` rows, `OrderStation` rows, takes stock, charges gift cards with a `GiftCardAuthorization`.
 
-### 6.2 Kitchen / bar display (`/restaurant/order-marking?filter=kitchen&filter=bar`)
+Any `OrderError` rolls everything back and is shown to the cashier/customer. `collect_order()` serializes an order for
+the screens (`stations` is `{code: status}`); `orders_for_screens()` prefetches what it needs.
 
-Template `order-marking.html`, JS `kitchen-bar.js`.
+### 6.2 In-store POS (`/restaurant/register`)
 
-- `filter` query params choose which stations this screen covers. `auto-done` / `auto-collect` query params (minutes) auto-advance cards.
-- **Polls `GET active_orders` every 11 s** (an interval chosen so it isn't a factor of 10, to dodge a race with the auto-actions). It diffs against the previous state to add and remove cards.
-- **POST** with action `approve` sets the screen's stations to 1. If the order has a Square authorization and all stations are approved, the JS calls `POST payments/capture-payment` to capture it.
-- **POST** with action `delete` (reject) creates a `RejectedOrder` with a reason, refunds the gift cards, deletes the order, and calls `DELETE capture-payment`.
-- **PUT** marks the screen's stations as completed (2). **DELETE** marks the order picked up.
-- Swipe gestures, keyboard selection, a reject-reason dialog, and a preferences dialog are built in.
-- `timeouts.js` reloads the page after 5 min of inactivity.
+Template `pos_server/order.html`, JS `pos-order.js` + `pos-utils.js` (`Cart`, `CashPayment`, `GiftCardPayment`).
 
-### 6.3 Customer-facing display (`/restaurant/pos-output`)
+1. A cash drawer amount must be set first (`localStorage.cashDrawer`), which needs a superuser password via `POST check-su`.
+2. Tapping a dish adds it to the cart; a choice dish opens `component-choice`. The cart is broadcast on
+   `BroadcastChannel('cart_channel')` to the customer display.
+3. **Tender:** cash → `POST register`. Card → `PUT register` (re-checks gift card balances) starts a Square Terminal
+   checkout on the paired terminal (`SquareTerminal`, falling back to `SQUARE_DEVICE_ID`); the JS polls
+   `check_card_status` until the webhook reports COMPLETED, then `POST register`. Gift cards are looked up via `card-api`
+   or scanned (QuaggaJS) and charged inside `create_order`.
+4. If the server refuses the order, the POS keeps the cart and shows the reason. Dish buttons follow stock live (SSE `inventory`).
+5. `pair-terminal` (superuser) creates Square device codes and activates a terminal once Square reports it PAIRED.
 
-Shows the active menu (`compile_menu()` / `prettify_dish()` build human-readable component strings like
-"2 eggs, a cup of coffee (choice of: Latte/Tea)") plus the live cart. It receives the cart from the POS via
-`BroadcastChannel`, so **it must be a second tab/window in the same browser profile on the same machine**.
+### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen&filter=bar`)
 
-### 6.4 Order status board (`/restaurant/orders-progress`)
+Template `order-marking.html`, JS `kitchen-bar.js`. Cards are rendered by JS from server data (`json_script`), with
+`textContent` only. The screen refreshes from `active_orders` on every SSE `orders` event (30 s fallback poll).
 
-TV display. It polls `active_orders` every 5 s, announces ready orders with randomised phrases
-(browser TTS / `utils/tts`), and shows a clock, weather (OpenWeather key passed into the template), and a YouTube
-player (`YTPlayer.js`). **Partly broken:** `orders-status.js` and `orders-status.html` still read
-`kitchen_done`, `kitchen_needed`, and `bar_done`, fields that were replaced by `*_status` in 2024. The server view also
-only looks at `kitchen_status`.
+- `filter` params choose the stations this screen covers; the preferences dialog lists all stations. `auto-done` /
+  `auto-collect` (minutes) auto-advance cards.
+- **POST** `approve` moves this screen's pending stations to 1. When no station is pending anymore and the order has a
+  Square authorization, the server **captures** the payment.
+- **POST** `delete` (reject) **voids or refunds** the card payment on the server (the order is kept if Square fails),
+  refunds gift cards, records a `RejectedOrder`, and deletes the order.
+- **PUT** moves this screen's in-progress stations to 2. **DELETE** marks the order picked up.
+- Keyboard (Enter/5 advances, arrows/2/8 move, Delete rejects, 1 opens availability), swipe, reject reasons, preferences.
+
+### 6.4 Customer display (`/restaurant/pos-output`) and status board (`/restaurant/orders-progress`)
+
+- The customer display shows the active menu grouped by station heading, plus the live cart from the POS via
+  `BroadcastChannel`, so **it must be a second window in the same browser profile on the same machine**.
+- The status board is public. It reads the redacted `active_orders` feed (no phone, address, payment ID, notes or
+  prices), diffs it into "In progress" / "Ready" (ready = every involved station done), and announces newly ready
+  orders by TTS. Clock, weather (OpenWeather) and a YouTube player are on the same screen.
 
 ### 6.5 Online ordering (`/`)
 
-`online_store/layout.html` (942 lines) holds most of the logic: cart in JS, gift-card lookup, delivery ETA, service-worker registration, and push subscription.
+`online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 
-1. A `business_day` context processor (`online_store/context_processors.py`) checks for an `Event` ending today with `restaurant_open=True`. The pickup time input is limited to that event's start/end.
-2. The finalize form has `class="attach-card-payment"`, so `payments/cardPaymentPopup.js` intercepts submit and opens `payments/web-payment-window?amount=` in an iframe (Square Web Payments SDK). The iframe creates a `Transaction`, and `process-web-payment` charges the card. When `confirmation_needed`, it uses `autocomplete=False` and creates a `PaymentAuthorization`. After a `postMessage`, the form is resubmitted with `transaction_uuid` (see [payments/README.MD](../payments/README.MD)).
-3. `submit-order` creates the `Order` with channel `web` or `delivery`, station statuses 0, the gift-card charges + `GiftCardAuthorization`, and a `Delivery` if needed. It then redirects to `order-status/<id>/True`.
-4. The customer's order IDs are kept in `localStorage.orders` and are what `order-history?orders=[...]` shows.
-5. **Important:** the online form does **not** have `confirmation-needed`, so card payments are captured immediately and `order.authorization` is `None`. **Rejecting an online order refunds gift cards but not the card payment.** The delayed-capture path exists but isn't wired up.
-6. Any exception in `place_order` returns the text "Don't do this. I will get to implementing a better page soon".
+1. `check_business_day` (context processor) exposes today's open `Event`; `place_order` re-checks it on the server,
+   including `online_open`/`delivery_open` and that the pickup time is inside the event.
+2. The checkout form (`attach-card-payment confirmation-needed`) opens `payments/web-payment-window?amount=` in an iframe.
+   That creates a `Transaction` for the amount; `process-web-payment` charges **the transaction's amount** via Square
+   (authorize-only) and only then marks it paid. The form is resubmitted with `transaction_uuid`.
+3. `place_order` calls `create_order` with `initial_status=PENDING`. `verify_payment` requires a paid, unused transaction
+   covering the remainder after gift cards and links its `PaymentAuthorization` to the order. Delivery orders get a
+   `Delivery` (phone required). Errors render `order-error.html`.
+4. The customer's order IDs are kept in `localStorage.orders` for `order-history`.
 
 ### 6.6 Deliveries (`/deliveries/`)
 
-Staff-only courier PWA (`deliveries/service-worker.js`, manifest).
-- A courier "clocks in" on `profile` with a transport mode. **The active couriers list is a module-level Python `set`** (`deliveries/globals.py`), so it is lost on restart and not shared between processes.
-- A ready delivery order shows in the list. The courier claims it with `PUT order/<id>` plus an ETA, which also marks the order picked up. `DELETE` completes it.
-- `get_eta` calls the Google Distance Matrix API for each active courier's transport mode.
-- `deliveries/signals.py` sends web push "New delivery!" on `Delivery` save, but only if the order is already ready at that moment. That never happens for a new delivery, so in practice no push is sent.
-- **The list page (`/deliveries/`) currently 500s:** `orders.html:30` has `{% trans "... "Job" tab." %}`, and the nested quotes are a template syntax error.
+Staff-only courier PWA. A courier clocks in on `profile` (creates a `CourierShift`). Ready delivery orders (every
+station done) show in the list; the courier claims one with `PUT order/<id>` plus an ETA (marks it picked up),
+`DELETE` completes it. `get_eta` uses Google Distance Matrix per clocked-in transport mode. When a delivery order becomes
+ready, `order_ready` → `deliveries.signals` sends a web push to clocked-in couriers.
 
 ### 6.7 Gift cards (`/gift-cards/`)
 
-- `get-card`: choose a preset (`CardPreset`) or a personal design (images in `files/gift-cards/{presets,personal}`). Payment goes through the same `attach-card-payment` popup. On POST, `create_card()` makes a `GiftCard` and sends a SendGrid dynamic-template email (hard-coded template IDs, from `restaurant@uahelp.ca`).
-- `card/<number>` renders a code128 barcode (base64 PNG).
-- `card-api/<number>`: GET returns the balance, POST charges the card. It is `csrf_exempt` with **no auth**, so anyone who knows a card number can drain it.
-- **Currently broken:** `misc_tools/classes.py` → `SendGridEmailData.add_recipient` does `if len(str) > 100`. `str` is the builtin type, so this raises `TypeError` on every call. The card is still created, but the email fails, and `get_card`'s bare `except:` then looks up the card by email/image/amount instead.
+- `get-card`: pick a preset or personal design (images listed from storage under `files/gift-cards/{presets,personal}`),
+  pay through the same popup. On POST the card is created **only from a paid, unused transaction, for the amount paid**,
+  then emailed via SendGrid (an email failure is logged; the confirmation page still shows the card link).
+- `card/<number>` renders a code128 barcode. `card-api/<number>`: GET is public (balance, image; email for staff only),
+  POST charges and needs staff + CSRF.
 
-### 6.8 Device authorisation
+### 6.8 Device registration
 
-`authorizedDeviceCheck.js` is included on the POS and KDS. It reads `deviceToken` from `localStorage` or `?device-token=` and `PUT`s it to `/restaurant/check-device`. If the token is missing or wrong, it redirects to a page where a superuser logs in, which creates an `EligibleDevice` and shows the new UUID.
-**This is only a client-side redirect.** No server view checks the token, so the copilot-instructions claim
-("always validate device tokens") is aspirational.
+POS/KDS views use `device_required`: when `ENFORCE_DEVICE_CHECK` is on (default in production), the browser needs a
+signed HttpOnly `pavilion_device` cookie for a registered `EligibleDevice`. Unregistered browsers are redirected to
+`check-device`, where a superuser registers them; a browser that already has the token in `localStorage` re-sends it
+automatically and gets the cookie back. `seed_demo` creates a demo device; open any POS page with
+`?device-token=00000000-0000-4000-8000-000000000001` once to register a dev browser.
 
 ### 6.9 Admin
 
-- `new_admin` (`/admin/`) is the custom superuser UI. Orders list + detail + printable receipt (restaurant name/address are placeholders), menu list/edit/activate, promo content CRUD, event CRUD, and a calendar of business days. `dashboard_home` and `store_branding` are essentially empty. `menus_list`, `menu_instance`, `dashboard_history`, and `get_business_dates` have **no auth decorators**.
-- `pos_server.dashboard` renders a template that doesn't exist (`pos_server/dashboard.html`), and `day_stats` crashes without `?date=`. Both are older versions of what new_admin is replacing.
-- Django admin at `/advanced-admin/` is used for everything else (dishes, components, stations, devices).
+`new_admin` (`/admin/`, superuser): orders list + detail + printable receipt (restaurant name/address are placeholders),
+menu list/edit/activate, promo content CRUD, event CRUD, and a calendar of business days that opens `day_stats` per day.
+`dashboard_home` and `store_branding` are empty stubs. Django admin at `/advanced-admin/` handles everything else.
 
 ---
 
-## 7. The real-time story (SSE → polling), and how to do it properly
+## 7. Real-time: history and current design
 
-**What existed (before June 2024):** `pos_server/signals.py` appended `Order` objects to module-level Python lists
-(`globals.new_data_queue`, `kitchen_update_queue`, …). Views like `order_updates` returned a `StreamingHttpResponse`
-wrapping an infinite generator that popped from those lists and slept with `time.sleep(1)`. You can see it in
-`git show 8502037`.
+**What existed before June 2024:** `pos_server/signals.py` appended orders to module-level Python lists, and views
+returned a `StreamingHttpResponse` wrapping an infinite `while True: sleep(1)` generator. It worked under `runserver` and
+died in production because (1) every worker process had its own lists, (2) each stream pinned a sync worker, (3) the
+queues were consumed destructively so two screens stole events from each other, and (4) proxies buffered the stream.
+The app then switched to polling, but the same per-process problem remained in `LocMemCache` (Square checkout status),
+the in-memory courier set, and the inventory crafting page's SSE.
 
-**Why it worked locally and died when deployed:**
-1. **Per-process memory.** `runserver` is one process, so everything shared the same lists. Production
-   (gunicorn with several workers) gives every worker its own copy of `globals`. An order saved in worker A
-   never reaches a stream held open by worker B.
-2. **Each SSE connection pins a worker.** A sync WSGI worker stuck in `while True: sleep()` can't serve anything
-   else. With a few screens open, all workers are busy and the site hangs.
-3. **The queues were consumed destructively** (`queue.remove(data)`). With two screens connected, whichever stream read an
-   event first "stole" it from the other.
-4. **Proxy buffering** (nginx/Cloudflare) holds streamed responses. `X-Accel-Buffering: no` only fixes nginx.
+**Now (`pavilion/realtime.py`, SSE as decided):**
 
-**What exists now:** all screens poll small JSON endpoints (`active_orders`, `check_inventory`,
-`check_card_status`). That is robust and honestly fine for a one-location café.
+- Model signals call `publish("orders" | "inventory")` (and the Square code `publish("checkout")`). Events are sent
+  after the DB transaction commits, at most one per topic per transaction.
+- With `REDIS_URL`, events go through Redis pub/sub, so every worker's streams receive them. Without it (dev, one
+  process) an in-process broker is used.
+- `/events/<topic>` is an async view, so open streams don't hold worker threads (daphne in dev, uvicorn in production).
+  Heartbeats every 15 s; `X-Accel-Buffering: no` for nginx.
+- Events are only nudges ("orders changed"). Screens refetch their normal JSON endpoint, so access rules and redaction
+  live in one place. `static/js/live.js` (`onLiveUpdate(topic, refresh)`) adds a debounce and a slow fallback poll.
+- Redis is also the cache in production, so the Square checkout status is shared between workers. Couriers are in the
+  `CourierShift` table.
 
-**The same root cause is still present in three places:**
-- `LocMemCache` is per-process. The Square webhook may land in worker A while the POS polls worker B, so the POS
-  never sees COMPLETED. It only works today because Docker runs `manage.py runserver` (a single process).
-- `deliveries/globals.active_couriers` is an in-memory set.
-- `inventory/crafting.html` still opens an `EventSource` to `inventory/inventory-updates`. That is an infinite
-  generator driven by `inventory/globals.new_inventory_updates`, so it has all four problems above.
-
-**Proper fix options:**
-- **Keep polling (simplest):** move shared state into the DB or a shared cache (Redis, or Django's DB cache
-  backend). Then polling works with any number of workers. Convert the crafting page to polling as well.
-- **Real push:** use Django Channels with **`channels_redis.core.RedisChannelLayer`**, run under daphne/uvicorn (ASGI),
-  and send group messages from `post_save` signals. Branch `origin/copilot/upgrade-order-display-flow` already
-  implements this (`pos_server/consumers.py`, `routing.py`, reworked `kitchen-bar.js` and `orders-status.js`), **but it
-  uses `InMemoryChannelLayer`**. That reproduces bug #1 as soon as there is more than one process. Switch it to
-  Redis, add a Redis service to docker-compose, and serve with daphne before relying on it.
+The Copilot WebSockets branch is superseded by this.
 
 ---
 
 ## 8. Config, running, deploying
 
-### Environment (`pavilion/.env`, loaded by python-dotenv)
-`SQUARE_ACCESS_TOKEN`, `SQUARE_ENVIRONMENT` (sandbox|production), `SQUARE_DEVICE_ID`, `SQUARE_LOCATION_ID`,
-`SQUARE_APPLICATION_ID`, `SQUARE_WEBHOOK_SIGNATURE_KEY`, `ENVIRONMENT` (production → Postgres, DEBUG off, file logging
-to `logs/debug.log`), `DB_USER`/`DB_PASSWORD` (unused; Postgres reads `POSTGRES_*`, `DB_HOST`, `DB_PORT`),
-`WEATHER_API_KEY`, `SENDGRID_API_KEY`, `GOOGLE_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `APP_DOMAIN`.
-`pavilion/.env.example` is incomplete and has an unterminated quote at the end.
+### Environment (`pavilion/.env`, see `pavilion/.env.example`)
+
+`ENVIRONMENT` (production → Postgres, DEBUG off, Redis, S3 media, file logging), `SECRET_KEY` (required in production),
+`APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`,
+`REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
+`ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/LOCATION_ID/DEVICE_ID/WEBHOOK_SIGNATURE_KEY`,
+`SENDGRID_API_KEY`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
 
 ### Local dev (Windows)
-- Use **`venv/`** (Python 3.12.2, has every dependency). **`.venv/` is incomplete** because it's missing `whitenoise`, so every request 500s with it.
-- `venv\Scripts\python manage.py runserver`, then go to `http://127.0.0.1:8000/en/apps/`.
-- `start.bat` / `start.sh` start ngrok, **rewrite `ALLOWED_HOSTS` inside `settings.py`**, collectstatic, compilemessages, and runserver. The rewrite modifies a tracked file. Better to put the ngrok host in `APP_DOMAIN` instead.
-- `make_translations.(bat|sh)` → `makemessages -l uk -l zh_HK`, then `compilemessages` (`.mo` files are gitignored).
-- Dev `STATIC_ROOT` is hard-coded to `/home/collert/POS/static/`, a leftover from the self-hosted Linux box.
 
-### Migrations — read before running `makemigrations`
-- **`*/migrations/` is gitignored.** Migrations exist only on your machine, so a fresh clone or the Docker build has to run `makemigrations` itself.
-- Your local `pos_server` migrations 0045–0047 and `new_admin` 0001 came from **stash@{0}** (modeltranslation fields, Menu fonts/style, `MenuStationPosition`, `new_admin.Font`) and **are applied to `db.sqlite3`**. The current code doesn't have those fields. Running `makemigrations` now generates `0048_remove_dish_description_en…`, which would drop them. Decide whether to `git stash pop` that work or let the drop happen.
-- The local DB has real data: 364 orders, 2 menus, 14 dishes, 3 stations.
+- Use **`venv/`**. `venv\Scripts\python manage.py runserver` (ASGI via daphne), then `http://127.0.0.1:8000/en/apps/`.
+- Fresh database: `manage.py migrate` then `manage.py seed_demo` (admin/admin, cashier/cashier, courier/courier, customer/customer).
+- Tests: `manage.py test` (Square and SendGrid are mocked). `pip install -r requirements-dev.txt` adds `fakeredis` for the Redis broker test.
+- `start.bat` / `start.sh` start ngrok and pass its domain to Django via `EXTRA_HOSTS`. This exposes a DEBUG server; don't leave it running.
+- Translations: `make_translations.(bat|sh)` → `makemessages -l uk -l zh_HK`, then `compilemessages` (`.mo` files are gitignored).
+
+### Migrations
+
+Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (the old DB is kept locally as
+`db-old-2026-10-13.sqlite3`). Run `makemigrations` with every model change, commit the migration with it, and update
+`seed_demo`. `stash@{0}` (menu fonts/styles) was **not** applied.
 
 ### Docker (`Dockerfile`, `docker-compose.yml`)
-- python:3.11 slim + ffmpeg + libgl + libpq. It copies `prod.env` (which contains only `ENVIRONMENT=production`) over `pavilion/.env`, and compose also loads `pavilion/.env`.
-- **Runs `manage.py runserver 0.0.0.0:8000` in production**, not gunicorn. It does run `migrate`, but with no migrations in git and no `makemigrations`, a clean build has **no tables for the project apps**.
-- Postgres credentials are hard-coded in compose (`pavilion_pass`), and port 5432 is published to the host.
-- **(Fixed: media now goes to a RustFS S3 bucket in production, `./media` in dev.)** Previously: media wasn't served when DEBUG is off. `MEDIA_URL=''`, and `static()` returns nothing in production, so dish images, gift-card images, and promo images 404 in Docker. The `media_volume` mounts `/app/media`, but uploads go to `/app/files/`.
+
+- Python 3.12 slim + ffmpeg, libgl, libpq, gettext. Collects static and compiles translations at build time; the
+  container runs `migrate`, then `uvicorn pavilion.asgi:application --workers ${WEB_CONCURRENCY:-3}`.
+- Compose: `web` + `db` (Postgres 16, healthchecked, port not published) + `redis`. Secrets come from `pavilion/.env`.
+  `.dockerignore` keeps `.env`, databases and media out of the image.
+- Media lives in the RustFS bucket, which must allow anonymous reads (images are embedded in emails and cached by the PWA).
+- Put a TLS-terminating proxy in front (nginx, Caddy, Cloudflare). For nginx, don't buffer `/events/`.
 
 ---
 
-## 9. Known bugs (verified), most important first
+## 9. Open issues and limits
 
-**Security**
-1. **FIXED (code): dev no longer serves the whole project folder.** Media is `MEDIA_URL='/media/'` / `MEDIA_ROOT=BASE_DIR/'media'` in dev and a RustFS bucket in prod. **Still to do: rotate the Square/SendGrid/Google/VAPID keys in `.env`**, since they were reachable via ngrok while the catch-all existed.
-2. **FIXED:** `SECRET_KEY` now comes from the `SECRET_KEY` env var (required in production, dev fallback otherwise). The old key is in git history, so it must never be reused.
-3. **FIXED:** `gift-cards/card-api/<n>` POST now needs a logged-in staff user plus CSRF, validates the amount and charges atomically. GET stays public (checkout needs it) but only staff see the owner's email. Card numbers are still the only secret for GET, so keep them unguessable.
-4. **FIXED:** `check_card_status` and `check_inventory` need a login (401 JSON otherwise). `active_orders` returns a redacted list (no phone, address, payment ID, notes, prices) to anonymous callers, since the public status board polls it. The `CORS_*` settings were removed: `django-cors-headers` was never installed, so they did nothing.
-5. **FIXED (mostly):** the device allowlist is now enforced server-side (`pos_server/devices.py`). A registered device gets a signed HttpOnly `pavilion_device` cookie via `check-device` PUT, and `pos`, `order_marking`, `check_card_status`, `check_inventory` and the full `active_orders` feed require it. On by default in production, off in dev (`ENFORCE_DEVICE_CHECK=true` to test). Existing devices self-heal: the redirect to `check-device` re-sends the token from localStorage and returns. Not yet covered: `payments/` and `inventory/` endpoints. Also fixed an open redirect on `next` and the `csrftoken` scoping bug in `authorizedDeviceCheck.js`.
-6. **FIXED:** `CSRF_TRUSTED_ORIGINS` now builds `https://<APP_DOMAIN>` with a real f-string and no longer lists the stale ngrok URL (add your current ngrok origin there if you POST through ngrok in dev).
+### Needs action from you
 
-**Broken right now**
-7. `misc_tools/classes.py:10` has `len(str)`, which crashes every gift-card email (introduced by the latest commit `9a09a27`).
-8. `/deliveries/` 500s (template quote error, `deliveries/templates/deliveries/orders.html:30`).
-9. `/restaurant/dashboard` 500s (missing template). `/restaurant/day_stats` 500s without `?date=` and references a missing `error.html`.
-10. `/restaurant/pair-terminal` 500s (missing `config.cfg`, mismatched section names, and it writes `config.cfg` to the CWD).
-11. Order status board uses removed `kitchen_done`/`kitchen_needed`/`bar_done` fields.
-12. `webrtc/get_answer` URL has no `session_id`, and `phone.html` uses undefined URL names `get_offer`/`post_answer`.
-13. `payments.capture_web_payment` sets `status = "del"` on capture (should be `"cap"`). If the status isn't `""`, `captured_payment` is undefined, which causes a NameError that gets swallowed into an error response. DELETE never cancels the payment with Square.
+1. **Rotate the Square, SendGrid, Google, VAPID and RustFS keys.** The old dev server served the whole project folder
+   (including `.env`) and was exposed through ngrok. The old hard-coded `SECRET_KEY` is in git history; never reuse it.
+2. Re-test against real services: Square Web Payments popup (authorize → capture on approval, void on reject), Square
+   Terminal pairing and checkout, SendGrid gift card email, web push to couriers. All are covered by mocked tests only.
+3. Run the stack once with Docker + Redis (`docker compose up`) to check multi-worker live updates; locally only the
+   in-process broker and a fakeredis test were exercised.
 
-**Logic bugs**
-14. Rejected online orders don't refund card payments (§6.5 point 5).
-15. POS gift-card charges create no `GiftCardAuthorization`, so they can't be refunded.
-16. Inventory decrement ignores order quantity (§5.1).
-17. **Gift-card partial payments with cents crash** (verified: `Decimal -= float` → `TypeError`). `pos()` and `place_order()` pass the raw JSON amount to `GiftCard.charge_card`. Whole-dollar amounts arrive as `int` and happen to work, but `3.50` doesn't. At the POS this happens *after* the Square terminal has already charged the rest. Online, the order row is already saved when it crashes, and the customer gets the "Don't do this" page. `card_api` does it correctly with `Decimal(...)`.
-18. `kitchen-bar.js` mixes `data-orderid` and `data-order-id` selectors, so the duplicate-card check can miss.
-19. `deliveries` push notification only fires if the order is already ready at creation.
-20. `gift_cards/urls.py`: `special` route points at `get_card`, not `special`.
-21. `Menu.objects.get(is_active=True)` is used in several views and crashes when zero or two menus are active. `new_admin` lets you toggle any number of menus active.
-22. Prices are a `FloatField` (Dish) mixed with `DecimalField` (gift cards, Ingredient). Square amounts are computed as `amount * 100` on floats; `gather_terminal_checkout` sends a float, not an int.
+### Known limits (not bugs, but worth knowing)
 
-**Cruft**
-- Debug `print()` calls throughout (including in `Order.progress_status`).
-- Duplicate login/logout views in `pos_server/views.py` (unrouted; `users` has the live ones).
-- `pos_server/globals.py`, `pos_server/signals.py` (all commented out), and `pos_server/translation.py` (dead).
-- `new_admin/templates/new_admin/store_promo_content-instance copy.html`, and a `receipt-printer.js` that prints a hard-coded order 123.
-- The local `screens/` folder (untracked, only `__pycache__`/migrations) is a leftover of the `screens` branch.
-- The docstrings were "mostly AI generated so beware" (commit message, 2025-02-10).
+- POS card payments: the server trusts the POS that the Terminal checkout completed (the POS is staff-only and device-gated).
+- Customer order pages use sequential order IDs, so anyone can view any order's dish list and progress (no names, phones or addresses are shown).
+- `card-api` GET is public: the 16-digit card number is the only secret for checking a balance.
+- `RESTAURANT_ADDRESS`, receipt name/address and the SendGrid sender are hard-coded for the cathedral café.
+- Old migrations were discarded, so `db-old-2026-10-13.sqlite3` can't be migrated forward. Its data would need a manual import.
+- `new_admin` `dashboard_home` and `store_branding` are stubs; the `Waste*` inventory models have no UI.
+- `Staff.allowance` is still a float.
+
+**Fixed in the 2026-10-13 overhaul** (details in the commit messages on `fix-all-problems-for-real`): media catch-all
+serving `.env`; hard-coded `SECRET_KEY`; open gift card API; unauthenticated POS endpoints; client-side-only device
+check; staff pages open to any logged-in customer; open redirect on `next`; `CSRF_TRUSTED_ORIGINS` f-string; KDS
+script injection via names/instructions; browser-set prices and totals; browser-marked payments and reusable
+transactions; free gift cards; gift-card cents crash; no `GiftCardAuthorization` at the POS; rejected online orders not
+refunded; payment capture endpoint that never worked; stock ignoring quantity; self-crafting components blocking dishes;
+multiple active menus crashing views; `/deliveries/`, dashboard, `day_stats`, `pair-terminal`, email preview and template
+syntax 500s; status board using removed fields; courier push never firing; missing `users` migrations; `en-us`
+URLs; per-process state (cache, couriers, SSE); Docker running `runserver` without migrations; start scripts editing
+`settings.py`; webrtc, debug prints and other dead code.
 
 ---
 
 ## 10. Branches, stashes, and other in-flight work
 
 | Ref | Contents | Recommendation |
-|---|---|---|
-| `main` | Everything above | |
-| `origin/copilot/upgrade-order-display-flow` (5 commits, 2025-11-26) | Django Channels WebSockets: `consumers.py`, `routing.py`, ASGI router, signal broadcasts, rewritten KDS/status JS | Best starting point for real-time, **after switching to the Redis channel layer** |
-| `origin/copilot/upgrade-station-management-system` (4 commits) | Dynamic `Station` system replacing kitchen/bar/gng, admin support, 238 lines of tests | Review carefully. It touches models, views, filters, and templates. |
-| `origin/copilot/improve-inefficient-code` (3 commits) | `select_related`/`prefetch_related` N+1 fixes | Low risk; likely conflicts with the station branch |
-| `stash@{0}` "Idk" (2025-04-26) | Menu `style` + fonts (`new_admin.Font`), `MenuStationPosition`, modeltranslation enabled, customer-display redesign | **Matches migrations already applied to your local DB** |
-| `stash@{1}` "Calendar" (2025-02-24) | Early dashboard-history calendar | Superseded by main; probably drop |
-| `stash@{2}` "Started screens" (2024-11-16) | On the old `heucc_pos/` layout | Obsolete |
-| `screens` (local) | Abandoned digital-signage app, old layout | Obsolete |
-| `websockets` (local), `Translations` | Fully merged into main (0 commits ahead) | Safe to delete |
-| `origin/recovery` | Unrelated history (no merge base), 2024 gift-card work | Archive only |
-
-The Copilot branches are newer than `main`'s last commit and have **not** been merged.
-`.github/copilot-instructions.md` describes some of them as if they were done. It also says `webrtc` serves kitchen
-displays (it doesn't) and that device tokens are validated server-side (they aren't).
+| --- | --- | --- |
+| `fix-all-problems-for-real` | The 2026-10-13 overhaul (everything in this file) | Merge into `main` once tested |
+| `origin/copilot/upgrade-order-display-flow` | Channels WebSockets with `InMemoryChannelLayer` | Superseded by SSE (§7); close |
+| `origin/copilot/upgrade-station-management-system` | Dynamic stations alongside the old fields | Superseded by the Station model (§5.2); close |
+| `origin/copilot/improve-inefficient-code` | `select_related`/`prefetch_related` fixes | Mostly superseded (`orders_for_screens`); cherry-pick leftovers if wanted |
+| `stash@{0}` "Idk" (2025-04-26) | Menu `style` + fonts (`new_admin.Font`), `MenuStationPosition`, modeltranslation, customer-display redesign | Not applied. Would need porting to the new models and fresh migrations |
+| `stash@{1}`, `stash@{2}`, `screens`, `websockets`, `Translations` | Superseded / obsolete / merged | Safe to drop |
+| `origin/recovery` | Unrelated history, 2024 gift-card work | Archive only |
 
 ---
 
-## 11. Suggested path to "finished"
+## 11. What's next
 
-1. **Stop the bleeding:** fix the media catch-all, rotate the keys, move `SECRET_KEY` to env, fix `len(str)`, the deliveries template, and the gift-card Decimal crash.
-2. **Make it deployable:** commit migrations (un-ignore them) after deciding on stash@{0}; use gunicorn (or daphne) instead of runserver; add Redis (cache + channel layer); serve media properly.
-3. **Pick the real-time strategy:** either polling + shared cache, or Channels + Redis via the Copilot branch. Then convert the inventory crafting SSE page and fix the status board fields.
-4. **Finish stations:** decide between the `Station` model and the hard-coded three. The Copilot branch is a head start. Then remove the dead fields.
-5. **Money correctness:** use Decimal everywhere, wire up delayed capture or refunds for rejected online orders, create `GiftCardAuthorization` at the POS, and lock down `card-api`.
-6. **Tests:** only the Copilot station branch has any. Add tests around order creation, station status transitions, and payments first.
+1. Rotate keys; test the Square/SendGrid/push flows and the Docker stack (§9).
+2. Merge `fix-all-problems-for-real` into `main` and deploy.
+3. Product work: finish `new_admin` (dashboard home, branding, station management), make restaurant name/address
+   configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.
