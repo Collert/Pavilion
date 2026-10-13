@@ -1,4 +1,0 @@
-@layer ADE, my-styles;
-
-@import url("/static/css/AD-Elements/main.css") layer(ADE);
-@import "project-styles.css" layer(my-styles);

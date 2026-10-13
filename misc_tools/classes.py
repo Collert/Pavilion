@@ -8,7 +8,7 @@ class SendGridEmailData:
 
     def add_recipient(self, email, name=None, dynamic_data=None):
         # Simple email format validation
-        if len(str) > 100:
+        if len(email) > 254:  # RFC 5321 max address length
             raise ValueError("Input too long")
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             raise ValueError(f"Invalid email address: {email}")
