@@ -6,7 +6,8 @@ from django.core.files.base import ContentFile
 from . import funcs
 from gtts import gTTS
 import io
-from pydub import AudioSegment
+import subprocess
+import tempfile
 import os
 import random
 from django.conf import settings
@@ -60,26 +61,26 @@ def tts(request):
     text = request.GET.get('text', 'Hello')[:300]  # public (the status board uses it); keep it short
 
     # Generate TTS audio from text
-    tts = gTTS(text=text, lang='en')
     tts_buffer = io.BytesIO()
-    tts.write_to_fp(tts_buffer)
-    tts_buffer.seek(0)
-    tts_audio = AudioSegment.from_file(tts_buffer, format="mp3")
+    gTTS(text=text, lang='en').write_to_fp(tts_buffer)
 
-    # Load intro audio
-    intro_dir_path  = os.path.join(settings.BASE_DIR, 'misc_tools', 'static', 'misc_tools', 'announcement_chimes')
+    # Pick a random intro chime
+    intro_dir_path = os.path.join(settings.BASE_DIR, 'misc_tools', 'static', 'misc_tools', 'announcement_chimes')
     files = [f for f in os.listdir(intro_dir_path) if os.path.isfile(os.path.join(intro_dir_path, f))]
-    intro_file = random.choice(files)
-    intro_path = os.path.join(intro_dir_path, intro_file)
-    intro_audio = AudioSegment.from_mp3(intro_path)
+    intro_path = os.path.join(intro_dir_path, random.choice(files))
 
-    # Combine the intro audio with the TTS audio
-    combined_audio = intro_audio + tts_audio
-
-    # Create an in-memory bytes buffer for the combined audio
-    combined_buffer = io.BytesIO()
-    combined_audio.export(combined_buffer, format="mp3")
-    combined_buffer.seek(0)
+    # Chime + speech in one MP3. ffmpeg re-encodes both so differing sample rates join cleanly.
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as speech_file:
+        speech_file.write(tts_buffer.getvalue())
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", intro_path, "-i", speech_file.name,
+             "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1", "-f", "mp3", "pipe:1"],
+            capture_output=True, check=True, timeout=30,
+        )
+    finally:
+        os.remove(speech_file.name)
+    combined_buffer = io.BytesIO(result.stdout)
 
     # Create an HTTP response with the combined audio content
     response = HttpResponse(combined_buffer.getvalue(), content_type="audio/mpeg")
