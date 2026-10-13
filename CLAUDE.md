@@ -3,8 +3,7 @@
 Pavilion is a Django restaurant-management app (POS, kitchen display, online ordering, deliveries, gift cards,
 inventory). It was built for a small church-community café in New Westminster, BC. Solo hobby project. It was
 overhauled on 2026-10-13 (branch `fix-all-problems-for-real`), but **verify behaviour in the code before trusting
-docstrings, the README, or `.github/copilot-instructions.md`.** The docstrings are mostly AI-generated and the other two
-files are partly out of date.
+docstrings or the README.** The docstrings are mostly AI-generated and the README is partly out of date.
 
 **Full deep-dive: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)**. It covers every app, the flows, the
 real-time design, open issues, and branches/stashes. Read the relevant section before working on a feature, and update

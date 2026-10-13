@@ -3,7 +3,7 @@
 > First written 2026-10-04 from a full read-through of the code, git history, branches, stashes, and the local dev DB.
 > Rewritten 2026-10-13 after the overhaul on branch `fix-all-problems-for-real` (dynamic stations, server-side pricing,
 > payment fixes, SSE, Docker, tests). This file is about what the code **actually does**. Where the code and older docs
-> ([README.md](../README.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md)) disagree, trust this file and the code.
+> ([README.md](../README.md)) disagree, trust this file and the code.
 
 ---
 
