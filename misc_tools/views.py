@@ -35,11 +35,7 @@ def dom_image_colors(request):
     elif request.method == "POST":
         num_colors = 4
         uploaded_image = request.FILES['image']
-        image_path = default_storage.save('temp_image.jpg', ContentFile(uploaded_image.read()))
-        
-        color_dict = funcs.get_image_colors(image_path, num_colors)
-
-        default_storage.delete(image_path)
+        color_dict = funcs.get_image_colors(uploaded_image.read(), num_colors)
 
         return JsonResponse(color_dict)
     

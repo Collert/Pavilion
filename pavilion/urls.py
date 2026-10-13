@@ -42,5 +42,5 @@ urlpatterns += i18n_patterns(
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Dev only; in production media lives in the S3 bucket (see settings.STORAGES).
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

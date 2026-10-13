@@ -17,3 +17,4 @@ python-barcode
 sendgrid
 pywebpush
 whitenoise
+django-storages[s3]

@@ -83,7 +83,7 @@ needs Redis to work in production. Details in the overview, §7.
 
 ## Known landmines (full list: overview §9)
 
-- **Dev serves the whole project dir**: `MEDIA_URL=''` makes a catch-all route, so `/pavilion/.env` returns 200. Don't expose dev via ngrok until this is fixed.
+- **Media**: dev serves `./media` at `/media/` (stored names are `files/<kind>/<name>`, so physical path is `media/files/...`). Production uses `storages.backends.s3.S3Storage` against RustFS (`RUSTFS_*` env vars, see `settings.py`). Never build media URLs by hand or read them from disk; use `field.url` / `default_storage`. The old catch-all that served `.env` is fixed, but the keys in `.env` were exposed while it existed, so rotate them.
 - `misc_tools/classes.py` `len(str)` crashes gift-card emails. Gift-card charges with cents crash (`Decimal -= float`).
 - `/deliveries/`, `/restaurant/dashboard`, `/restaurant/day_stats` (no date), and `/restaurant/pair-terminal` return 500.
 - The status board JS uses removed fields (`kitchen_done`, `kitchen_needed`, `bar_done`).

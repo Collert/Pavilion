@@ -300,18 +300,14 @@ to `logs/debug.log`), `DB_USER`/`DB_PASSWORD` (unused; Postgres reads `POSTGRES_
 - python:3.11 slim + ffmpeg + libgl + libpq. It copies `prod.env` (which contains only `ENVIRONMENT=production`) over `pavilion/.env`, and compose also loads `pavilion/.env`.
 - **Runs `manage.py runserver 0.0.0.0:8000` in production**, not gunicorn. It does run `migrate`, but with no migrations in git and no `makemigrations`, a clean build has **no tables for the project apps**.
 - Postgres credentials are hard-coded in compose (`pavilion_pass`), and port 5432 is published to the host.
-- **Media isn't served when DEBUG is off.** `MEDIA_URL=''`, and `static()` returns nothing in production, so dish images, gift-card images, and promo images 404 in Docker. The `media_volume` mounts `/app/media`, but uploads go to `/app/files/`.
+- **(Fixed: media now goes to a RustFS S3 bucket in production, `./media` in dev.)** Previously: media wasn't served when DEBUG is off. `MEDIA_URL=''`, and `static()` returns nothing in production, so dish images, gift-card images, and promo images 404 in Docker. The `media_volume` mounts `/app/media`, but uploads go to `/app/files/`.
 
 ---
 
 ## 9. Known bugs (verified), most important first
 
 **Security**
-1. **In dev mode the whole project folder is served over HTTP.** `MEDIA_URL = ''` + `MEDIA_ROOT = ""` +
-   `static(settings.MEDIA_URL, ...)` creates a catch-all `^(?P<path>.*)$` route rooted at the CWD. Verified:
-   `GET /pavilion/.env` → 200 and `GET /db.sqlite3` → 200 without logging in. Because `start.bat` exposes the dev server
-   through ngrok, **assume the Square/SendGrid/Google/VAPID keys in `.env` have leaked and rotate them.** Fix: set
-   `MEDIA_URL = '/media/'` and `MEDIA_ROOT = BASE_DIR / 'media'`, and move `files/` into it.
+1. **FIXED (code): dev no longer serves the whole project folder.** Media is `MEDIA_URL='/media/'` / `MEDIA_ROOT=BASE_DIR/'media'` in dev and a RustFS bucket in prod. **Still to do: rotate the Square/SendGrid/Google/VAPID keys in `.env`**, since they were reachable via ngrok while the catch-all existed.
 2. `SECRET_KEY` is hard-coded in `settings.py` and committed.
 3. `gift-cards/card-api/<n>` POST lets anyone charge any gift card (csrf-exempt, no auth).
 4. `webhook/square/check_card_status`, `active_orders`, and `check_inventory` have no auth. `CORS_ALLOW_ALL_ORIGINS = True` with credentials.

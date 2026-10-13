@@ -880,9 +880,8 @@ def create_menu(request):
         num_colors = 4
         header_image = request.FILES['header']
         footer_image = request.FILES['footer']
-        image_path = default_storage.save('temp_image.jpg', ContentFile(header_image.read()))
-        color_dict = funcs.get_image_colors(image_path, num_colors)
-        default_storage.delete(image_path)
+        color_dict = funcs.get_image_colors(header_image.read(), num_colors)
+        header_image.seek(0)  # the model save below needs the file from the start
         title = request.POST["title"]
         Menu.objects.create(
             title=title,

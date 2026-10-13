@@ -11,7 +11,7 @@
 <div class="cards-container">
     {% for card in cards %}
         <div data-card-id="{{card.id}}" class="card">
-            <img src="/{{card.image}}" alt="" class="card-img">
+            <img src="{{card.image.url}}" alt="" class="card-img">
             <div class="card-info">
                 <span class="card-title">{{card.name}}</span>
                 <span class="card-price">${{card.amount}}</span>
@@ -32,7 +32,7 @@
         </button>
         <div id="cards-personal">
             {% for card in card_images %}
-            <img src="{{card}}" alt="" class="card-img personal{% if forloop.first %} selected {% endif %}">
+            <img src="{{card.url}}" data-name="{{card.name}}" alt="" class="card-img personal{% if forloop.first %} selected {% endif %}">
             {% endfor %}
         </div>
         <button id="carousel-forward">
@@ -62,7 +62,7 @@
 <dialog id="dialog-{{card.id}}">
     <form>
         <div class="dialog-body">
-            <img src="/pavilion/{{card.image}}" alt="" class="card-img">
+            <img src="{{card.image.url}}" alt="" class="card-img">
             <h3>{{card.name}}</h3>
             <h4>${{card.amount}}</h4>
             {% blocktrans %}
@@ -197,7 +197,7 @@
         // TODO fix gifted input in the old form and add here
         const form = document.querySelector("#create-card");
         const popup = document.querySelector("#payment-popup");
-        form.querySelector("#hidden-image").value = document.querySelector(".card-img.personal.selected").getAttribute("src")
+        form.querySelector("#hidden-image").value = document.querySelector(".card-img.personal.selected").dataset.name
         form.querySelector("#transaction-amount").value = personalCardForm.querySelector("#transaction-amount").value
         form.querySelector("#hidden-email").value = e.currentTarget.querySelector("#card-personal-recipient").value;
         form.querySelector("#hidden-name").value = e.currentTarget.querySelector("#card-personal-name").value;

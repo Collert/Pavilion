@@ -38,9 +38,38 @@ APP_DOMAIN = os.getenv('APP_DOMAIN')
 SECRET_KEY = 'django-insecure-)mvvs#%dtv$1s)5ak4%!&g63-!&%tn8wtn0s21&ux*=!#9$b^$'  # WARNING: Change this in production!
 DEBUG = os.getenv('ENVIRONMENT') != "production"  # Debug mode enabled unless in production
 
-# URL for media files (currently empty, should be set if needed)
-MEDIA_URL = ''
-MEDIA_ROOT = ""
+# User-uploaded media (dish images, menu decorations, promos, gift card art, receipts).
+# Stored names look like "files/dish_images/x.png" (see each model's upload_to).
+# Dev: served by Django from ./media. Production: stored in a RustFS (S3-compatible) bucket.
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+if os.getenv('ENVIRONMENT') == "production":
+    # Requires the bucket to allow anonymous reads (images are embedded in emails and cached
+    # by the PWA, so signed URLs that expire would break them).
+    AWS_S3_ENDPOINT_URL = os.getenv('RUSTFS_ENDPOINT_URL')  # internal/server-side endpoint
+    AWS_ACCESS_KEY_ID = os.getenv('RUSTFS_ACCESS_KEY')
+    AWS_SECRET_ACCESS_KEY = os.getenv('RUSTFS_SECRET_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('RUSTFS_BUCKET', 'pavilion-media')
+    AWS_S3_REGION_NAME = os.getenv('RUSTFS_REGION', 'us-east-1')
+    AWS_S3_ADDRESSING_STYLE = 'path'  # RustFS/MinIO-style buckets live under the path, not a subdomain
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_QUERYSTRING_AUTH = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False  # same behaviour as local storage: add a suffix instead of clobbering
+    # Browser-facing base URL, e.g. "media.example.com/pavilion-media" (no scheme). If unset the
+    # endpoint URL is used, which only works when the endpoint is reachable from browsers.
+    if os.getenv('RUSTFS_PUBLIC_URL'):
+        AWS_S3_CUSTOM_DOMAIN = os.getenv('RUSTFS_PUBLIC_URL')
+        AWS_S3_URL_PROTOCOL = os.getenv('RUSTFS_PUBLIC_PROTOCOL', 'https:')
+    _default_storage = {"BACKEND": "storages.backends.s3.S3Storage"}
+else:
+    _default_storage = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
+STORAGES = {
+    "default": _default_storage,
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
 
 # Icons from google fonts
 AVAILABLE_ICONS = (

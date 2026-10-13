@@ -14,6 +14,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpRe
 import json
 from decimal import Decimal
 import os
+from django.core.files.storage import default_storage
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
@@ -99,13 +100,16 @@ def get_card(request):
         subfolders = ['presets', 'personal']
         image_urls = []
         for subfolder in subfolders:
-            folder_path = os.path.join(settings.BASE_DIR, f"files/gift-cards/{subfolder}/")
-            if os.path.exists(folder_path):
-                for file_name in os.listdir(folder_path):
-                    if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                        # Construct the URL
-                        image_url = f"/files/gift-cards/{subfolder}/{file_name}"
-                        image_urls.append(image_url)
+            folder = f"files/gift-cards/{subfolder}"
+            try:
+                _dirs, file_names = default_storage.listdir(folder)
+            except FileNotFoundError:
+                continue
+            for file_name in file_names:
+                if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                    name = f"{folder}/{file_name}"
+                    # "name" is what gets stored on the GiftCard, "url" is what the browser loads
+                    image_urls.append({"name": name, "url": default_storage.url(name)})
         return render(request, "gift_cards/get-card.html", {
             "route":"get_card",
             "cards": templates,

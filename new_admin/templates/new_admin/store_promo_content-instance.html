@@ -24,7 +24,7 @@
                 {% if new or not content.image %}
                     <img id="card-image" src="https://adaptcommunitynetwork.org/wp-content/uploads/2022/01/ef3-placeholder-image.jpg" alt="">
                 {% else %}
-                    <img id="card-image" src="/{{content.image}}" alt="">
+                    <img id="card-image" src="{{content.image.url}}" alt="">
                 {% endif %}
                 <span class="material-symbols-outlined">edit_square</span>
             </div>

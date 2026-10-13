@@ -9,17 +9,17 @@ from python_http_client import exceptions
 def rgb_to_hex(rgb):
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
 
-def get_image_colors(image_path:str, num_colors:int):
+def get_image_colors(image_bytes:bytes, num_colors:int):
     """
     Extracts the most dominant colors from an image using K-means clustering.
     Args:
-        image_path (str): The path to the image file.
+        image_bytes (bytes): The raw contents of the image file.
         num_colors (int): The number of dominant colors to extract.
     Returns:
         dict: A dictionary where keys are "Color 1", "Color 2", ..., "Color N" and values are the corresponding RGB hex strings of the dominant colors.
     """
     # Load the image
-    image = cv2.imread(image_path)
+    image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # Reshape the image to a list of pixels
