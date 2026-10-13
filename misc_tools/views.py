@@ -1,3 +1,4 @@
+from django.contrib.admin.views.decorators import staff_member_required
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.core.files.storage import default_storage
@@ -12,6 +13,7 @@ from django.conf import settings
 
 # Create your views here.
 
+@staff_member_required
 def dom_image_colors(request):
     """
     Handle GET and POST requests to process an image and extract dominant colors.
@@ -55,7 +57,7 @@ def tts(request):
     """
     
     # Get the text from query params
-    text = request.GET.get('text', 'Hello')
+    text = request.GET.get('text', 'Hello')[:300]  # public (the status board uses it); keep it short
 
     # Generate TTS audio from text
     tts = gTTS(text=text, lang='en')

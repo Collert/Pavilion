@@ -83,7 +83,7 @@ def day_display(request, day_id):
         "day":day
     })
 
-@login_required
+@staff_member_required
 def crafting(request):
     """
     Handle crafting-related requests.
@@ -136,7 +136,7 @@ def crafting(request):
         craft_component(component_id, 1)
         return JsonResponse({"message":"crafted"})
 
-@login_required
+@staff_member_required
 def component_availability(request):
     """
     Handle the availability of components and dishes in the inventory.

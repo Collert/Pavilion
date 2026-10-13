@@ -306,3 +306,28 @@ class ActiveOrdersFeedTests(MenuFixture, TestCase):
         self.assertNotIn("phone", data[0])
         self.assertNotIn("payment_id", data[0])
         self.assertEqual(data[0]["stations"], {"bar": 0})
+
+
+@override_settings(ENFORCE_DEVICE_CHECK=False)
+class AccessTests(MenuFixture, TestCase):
+    """Customers can register accounts, so staff pages must check is_staff, not just login."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.customer = User.objects.create_user("customer", password="x")
+
+    def test_customer_cannot_reach_staff_pages(self):
+        self.client.force_login(self.customer)
+        for name, kwargs in [("pos", {}), ("order_marking", {}), ("pos_output", {}), ("create_menu", {}),
+                             ("component_availability", {}), ("crafting", {}), ("utils_get_image_colors", {}),
+                             ("admin-menus-list", {}), ("admin-menu-instance", {"id": self.menu.id}),
+                             ("admin-dashboard-history", {})]:
+            response = self.client.get(reverse(name, kwargs=kwargs))
+            self.assertIn(response.status_code, (302, 403), name)
+
+    def test_customer_cannot_use_staff_apis(self):
+        self.client.force_login(self.customer)
+        self.assertEqual(self.client.get(reverse("check_inventory")).status_code, 403)
+        response = self.client.post(reverse("check_su"), json.dumps({"username": "a", "password": "b"}), content_type="application/json")
+        self.assertEqual(response.status_code, 403)

@@ -9,6 +9,7 @@ import uuid
 from functools import wraps
 
 from django.conf import settings
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -61,4 +62,25 @@ def device_required(view):
         if request.method == "GET" and "text/html" in request.headers.get("Accept", ""):
             return redirect(f'{reverse("device_elig")}?{urlencode({"next": request.get_full_path()})}')
         return JsonResponse({"error": "Device not authorized"}, status=403)
+    return wrapper
+
+
+def staff_required(view):
+    """Logged in *and* staff. Customers can register accounts, so login_required alone isn't enough."""
+    return login_required(user_passes_test(lambda u: u.is_staff)(view))
+
+
+def superuser_required(view):
+    return login_required(user_passes_test(lambda u: u.is_superuser)(view))
+
+
+def api_staff_required(view):
+    """For fetch() endpoints: 401/403 JSON instead of a redirect to the login page."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+        if not request.user.is_staff:
+            return JsonResponse({"error": "Staff only"}, status=403)
+        return view(request, *args, **kwargs)
     return wrapper

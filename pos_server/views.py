@@ -13,7 +13,7 @@ from collections import Counter
 from .models import *
 import json
 from functools import wraps
-from .devices import device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
+from .devices import api_staff_required, staff_required, superuser_required, device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
 from .orders import OrderError, collect_order, create_order, orders_for_screens, refund_gift_cards, station_list
 from django.utils import timezone
 
@@ -97,8 +97,7 @@ def logout_view(request):
     logout(request)
     return redirect(reverse("login_view"))
 
-# @local_network_only
-@login_required
+@staff_required
 @device_required
 def order_marking(request):
     """
@@ -196,7 +195,7 @@ def order_marking(request):
         return HttpResponseBadRequest("Unknown action")
     return HttpResponseNotAllowed(["GET", "POST", "PUT", "DELETE"])
 
-@login_required
+@superuser_required
 def menu_select(request):
     """
     Handles the selection of a menu via a POST request.
@@ -278,8 +277,7 @@ def device_elig(request):
                 "failed_login":True,
             })
 
-# @local_network_only
-@login_required
+@staff_required
 @device_required
 def pos(request):
     """
@@ -493,8 +491,7 @@ def day_stats(request):
         "stats": stats,
     })
 
-# @local_network_only
-@login_required
+@staff_required
 def pos_out_display(request):
     """
     Handles the display of the POS output screen.
@@ -652,7 +649,7 @@ def pair_square_terminal(request):
         "error": error,
     })
 
-@login_required
+@superuser_required
 def create_menu(request):
     """
     Handle the creation of a menu via GET and POST requests.
@@ -744,7 +741,7 @@ def order_progress(request):
         "weather_API_key":settings.WEATHER_API_KEY
     })
         
-@csrf_exempt
+@api_staff_required
 @require_POST
 def check_superuser_status(request):
     """
@@ -837,16 +834,7 @@ def square_webhook(request):
         # Invalid signature, return forbidden
         return HttpResponseForbidden('Invalid signature')
     
-def api_login_required(view):
-    """Like login_required, but answers fetch() callers with a 401 instead of redirecting to the login page."""
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-        return view(request, *args, **kwargs)
-    return wrapper
-
-@api_login_required
+@api_staff_required
 @device_required
 def check_card_status(request):
     """
@@ -892,7 +880,7 @@ def active_orders(request):
     # Fetch active orders from database using IDs from the cache
     active_orders = orders_for_screens(Order.objects.filter(id__in=active_order_ids))
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
-    if not (request.user.is_authenticated and is_registered_device(request)):
+    if not (request.user.is_authenticated and request.user.is_staff and is_registered_device(request)):
         # The public status board polls this too: only expose what it displays
         public_keys = ("order_id", "name", "to_go_order", "channel", "timestamp", "timestamp_pretty",
                        "start_time", "stations", "done", "picked_up")
@@ -903,7 +891,7 @@ def active_orders(request):
         ]
     return JsonResponse(serialized_orders, safe=False)
 
-@api_login_required
+@api_staff_required
 @device_required
 def check_inventory(request):
     """

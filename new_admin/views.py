@@ -203,6 +203,8 @@ def event_new(request):
         )
         return redirect(reverse("admin-store-events"))
     
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def dashboard_history(request):
     now = timezone.localtime(timezone.now())  # Get current local time
     year, month = now.year, now.month
@@ -227,6 +229,8 @@ def dashboard_history(request):
         "current_month_dates": json.dumps(business_dates)  # Pass initial month data
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def get_business_dates(request):
     """Fetch business days dynamically when user navigates months."""
     now = timezone.localtime(timezone.now())  # Get current local time
@@ -250,12 +254,16 @@ def get_business_dates(request):
     
     return JsonResponse(business_dates, safe=False)
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def menus_list(request):
     menus = Menu.objects.all()
     return render(request, "new_admin/menus-list.html", {
         "menus":menus
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def menu_instance(request, id):
     menu = Menu.objects.get(pk=id)
     if request.method == "GET":
