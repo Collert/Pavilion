@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from collections import Counter
 from .models import *
 import json
+from functools import wraps
 from django.utils import timezone
 from . import globals
 import datetime
@@ -1041,6 +1042,16 @@ def square_webhook(request):
         # Invalid signature, return forbidden
         return HttpResponseForbidden('Invalid signature')
     
+def api_login_required(view):
+    """Like login_required, but answers fetch() callers with a 401 instead of redirecting to the login page."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+        return view(request, *args, **kwargs)
+    return wrapper
+
+@api_login_required
 def check_card_status(request):
     """
     Handle GET and DELETE requests to check or delete the card status.
@@ -1085,8 +1096,14 @@ def active_orders(request):
     # Fetch active orders from database using IDs from the cache
     active_orders = Order.objects.filter(id__in=active_order_ids)
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
+    if not request.user.is_authenticated:
+        # The public status board polls this too: only expose what it displays
+        public_keys = ("order_id", "name", "to_go_order", "channel", "timestamp", "timestamp_pretty",
+                       "start_time", "kitchen_status", "bar_status", "gng_status", "done", "picked_up")
+        serialized_orders = [{key: order[key] for key in public_keys} for order in serialized_orders]
     return JsonResponse(serialized_orders, safe=False)
 
+@api_login_required
 def check_inventory(request):
     """
     Handles the request to check the inventory of active dishes.

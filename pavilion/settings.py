@@ -126,10 +126,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://{APP_DOMAIN}"
 ]
 
-# Enable CORS for all origins (consider restricting this in production)
-CORS_ALLOW_ALL_ORIGINS = True  # Allows any website to load fonts
-CORS_ALLOW_CREDENTIALS = True
-
 # Installed applications
 INSTALLED_APPS = [
     'django.contrib.admin',

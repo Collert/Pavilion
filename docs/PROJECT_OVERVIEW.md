@@ -310,7 +310,7 @@ to `logs/debug.log`), `DB_USER`/`DB_PASSWORD` (unused; Postgres reads `POSTGRES_
 1. **FIXED (code): dev no longer serves the whole project folder.** Media is `MEDIA_URL='/media/'` / `MEDIA_ROOT=BASE_DIR/'media'` in dev and a RustFS bucket in prod. **Still to do: rotate the Square/SendGrid/Google/VAPID keys in `.env`**, since they were reachable via ngrok while the catch-all existed.
 2. **FIXED:** `SECRET_KEY` now comes from the `SECRET_KEY` env var (required in production, dev fallback otherwise). The old key is in git history, so it must never be reused.
 3. **FIXED:** `gift-cards/card-api/<n>` POST now needs a logged-in staff user plus CSRF, validates the amount and charges atomically. GET stays public (checkout needs it) but only staff see the owner's email. Card numbers are still the only secret for GET, so keep them unguessable.
-4. `webhook/square/check_card_status`, `active_orders`, and `check_inventory` have no auth. `CORS_ALLOW_ALL_ORIGINS = True` with credentials.
+4. **FIXED:** `check_card_status` and `check_inventory` need a login (401 JSON otherwise). `active_orders` returns a redacted list (no phone, address, payment ID, notes, prices) to anonymous callers, since the public status board polls it. The `CORS_*` settings were removed: `django-cors-headers` was never installed, so they did nothing.
 5. The device allowlist is client-side only (§6.8).
 6. `CSRF_TRUSTED_ORIGINS` has a literal `"https://{APP_DOMAIN}"` (missing `f`), plus a stale ngrok URL.
 
