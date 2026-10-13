@@ -21,12 +21,11 @@ working on a feature, and update it when you change how something works or fix a
 - Translations: `make_translations.bat` (makemessages uk, zh_HK) → `manage.py compilemessages`.
 - Avoid `start.bat`/`start.sh` unless asked. They start ngrok and **rewrite `ALLOWED_HOSTS` inside settings.py**.
 
-## ⚠️ Migrations trap
+## Migrations
 
-`*/migrations/` is **gitignored**, so migrations exist only on this machine. The local DB has migrations from
-`stash@{0}` applied (Menu fonts/style, `MenuStationPosition`, `new_admin.Font`, modeltranslation fields) that the
-current code lacks, so `makemigrations` will generate **drops** for them. Ask the user before running
-`makemigrations`/`migrate`, and never run them against `db.sqlite3` casually. It holds real order history.
+Migrations are committed (they used to be gitignored). The DB was reset on 2026-10-13 and all apps restarted from
+`0001_initial`; the old DB is kept locally as `db-old-2026-10-13.sqlite3`. Always run `makemigrations` after model
+changes and commit the result with the model change. `stash@{0}` (menu fonts/styles) was **not** applied.
 
 ## Architecture map
 
