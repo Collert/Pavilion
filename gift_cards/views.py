@@ -10,7 +10,8 @@ from payments.models import Transaction
 from misc_tools.funcs import send_template_email
 from misc_tools.classes import SendGridEmailData
 from django.urls import reverse
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
+from django.db import transaction as db_transaction
+from django.http import HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
 import json
 from decimal import Decimal
 import os
@@ -204,7 +205,6 @@ def email_card_confirmation(request):
         "card_link":request.build_absolute_uri(reverse('card_display', "12345"))
     })
 
-@csrf_exempt
 def card_api(request, card_number):
     """
     Handle API requests for gift card operations.
@@ -218,29 +218,38 @@ def card_api(request, card_number):
         HttpResponseNotFound: If the gift card does not exist.
 
     Methods:
-        GET: Retrieve gift card details including email, image URL, available balance, and card number.
-        POST: Charge the gift card with a specified amount. Returns a message indicating success or insufficient balance.
+        GET: Retrieve the card's image URL, available balance, and number. The owner's email is only
+            included for logged-in staff. Public because customers look up their cards at checkout.
+        POST: Charge the gift card with a specified amount (staff only, CSRF-protected). Orders normally
+            charge cards server-side; this is for manual adjustments.
     """
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+    if request.method == "POST" and not (request.user.is_authenticated and request.user.is_staff):
+        return HttpResponseForbidden()
     try:
-        card = GiftCard.objects.get(number=card_number)
         if request.method == "GET":
-                return JsonResponse({
-                    "email":card.email,
-                    "image":card.image.url,
-                    "available_balance":card.available_balance,
-                    "number":card.number
-                }, status=200)
-        elif request.method == "POST":
-            body = json.loads(request.body)
-            amount = Decimal(body["amount"])
+            card = GiftCard.objects.get(number=card_number)
+            data = {
+                "image":card.image.url if card.image else None,
+                "available_balance":card.available_balance,
+                "number":card.number
+            }
+            if request.user.is_authenticated and request.user.is_staff:
+                data["email"] = card.email
+            return JsonResponse(data, status=200)
+        # POST
+        try:
+            amount = Decimal(str(json.loads(request.body)["amount"]))
+        except (ValueError, KeyError, TypeError, ArithmeticError):
+            return JsonResponse({"message":"Invalid amount."}, status=400)
+        if amount <= 0:
+            return JsonResponse({"message":"Invalid amount."}, status=400)
+        with db_transaction.atomic():
+            card = GiftCard.objects.select_for_update().get(number=card_number)
             response = card.charge_card(amount)
-            if response == 200:
-                return JsonResponse({
-                    "message":f"Card charged ${amount}"
-                }, status=200)
-            elif response == 402:
-                return JsonResponse({
-                    "message":"Insufficient card balance."
-                }, status=402)
+        if response == 200:
+            return JsonResponse({"message":f"Card charged ${amount}"}, status=200)
+        return JsonResponse({"message":"Insufficient card balance."}, status=402)
     except GiftCard.DoesNotExist:
         return HttpResponseNotFound()
