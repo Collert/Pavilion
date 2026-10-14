@@ -166,7 +166,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'pavilion.realtime.LiveOriginMiddleware',  # tags SSE events with the tab that caused them
 ]
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Prevents iframe clickjacking attacks

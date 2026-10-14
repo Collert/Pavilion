@@ -333,7 +333,7 @@ export function mountAvailability(root, { keyTarget = window } = {}) {
     // Live updates only while the panel is on screen: a popup connects when it opens and lets go when it closes,
     // so a closed popup doesn't hold one of the browser's few connections to the server.
     let stopLive = null;
-    const listen = () => { stopLive ??= onLiveUpdate("inventory", refresh, { skipOwn: true }); };  // our POSTs return the data
+    const listen = () => { stopLive ??= onLiveUpdate("inventory", refresh); };
     if (dialog) dialog.addEventListener("close", () => { stopLive?.(); stopLive = null; });
     else listen();
 

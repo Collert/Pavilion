@@ -343,8 +343,6 @@ Design `docs/mockups/cookery`; template `inventory/cookery.html`, JS `inventory/
 - Recipes and transforms are edited in `/advanced-admin/` (Recipe has inline ingredients and steps). Counting and
   transform amounts show friendlier units (kg for g, L for ml, pcs for ea) and convert back. `manage.py seed_recipes`
   adds the mockup's recipes (pierogi, beef stock, brioche, smash sauce, caramelized onion, freeze/thaw) to any DB.
-- The page's own actions return the new snapshot, so it listens with `onLiveUpdate(..., {skipOwn: true})`: events
-  carry the tab that caused them (`X-Live-Origin` header → `LiveOriginMiddleware`), and a tab skips its own echo.
 
 ## 7. Real-time: history and current design
 
