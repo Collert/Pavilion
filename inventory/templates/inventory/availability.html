@@ -1,0 +1,17 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Availability" %} · Pavilion{% endblock %}
+
+{% block body %}
+<main class="avail-page">
+    {% include "inventory/availability_panel.html" %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { mountAvailability } from "{% static 'inventory/availability.js' %}";
+    mountAvailability(document.querySelector("[data-avail]"), { keyTarget: window });  // loads once its live stream connects
+</script>
+{% endblock %}

@@ -83,6 +83,11 @@ class Command(BaseCommand):
                     RegisterSignIn.record(device, User.objects.get(username=username))
             Packaging.objects.get_or_create(name="Takeout container", defaults={"quantity": 200, "cost": Decimal("0.35")})
             self.seed_orders()
+            # Availability overrides, as in the mockup (after the orders, which need these to sell):
+            # a component turned off (its dish becomes unavailable) and a sold-out dish kept selling past zero
+            for obj, mode in ((Component.objects.get(title="Halloumi"), "off"), (Dish.objects.get(title="Cold brew"), "always")):
+                obj.availability = mode
+                obj.save()
         self.stdout.write(self.style.SUCCESS(
             "Seeded. Log in as admin/admin, or on the register's lock screen as Dana (PIN 1234). Register this "
             f"browser as a device with ?device-token={DEMO_DEVICE_TOKEN} (only needed when ENFORCE_DEVICE_CHECK is on)."

@@ -2,13 +2,17 @@ from django.shortcuts import render
 from pos_server.models import *
 from .models import *
 from django.core import serializers
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.db import transaction
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse
 from django.urls import reverse
 import json
 import time
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 import markdown
+
+from pos_server.devices import api_staff_required, staff_required
+from .availability import apply_changes, catalog
 
 # Create your views here.
 
@@ -136,50 +140,28 @@ def crafting(request):
         craft_component(component_id, 1)
         return JsonResponse({"message":"crafted"})
 
-@staff_member_required
+@staff_required
 def component_availability(request):
+    """The Availability screen (docs/mockups/Availability-html). The panel itself is availability_panel.html."""
+    return render(request, "inventory/availability.html", {"nav": "inventory"})
+
+
+@api_staff_required
+def availability_data(request):
     """
-    Handle the availability of components and dishes in the inventory.
-
-    This view handles both GET and PUT requests:
-    - GET: Renders the component availability page with the list of components and dishes.
-    - PUT: Toggles the in_stock status of a component or dish based on the request body.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered component availability page for GET requests.
-        JsonResponse: A JSON response with the updated list of dishes for PUT requests.
+    The Availability panel's data. GET: inventory.availability.catalog(). POST {"changes": [{kind, id, mode}]}:
+    set those modes (all or nothing), then return the catalog again.
     """
-    menu = Menu.active()
-    dishes = Dish.objects.filter(menu=menu)
-    if request.method == "GET":
-        components = Component.objects.all()
-        return render(request, "inventory/component-availability.html", {
-            "components":components,
-            "dishes":dishes,
-            "route":"component_availability"
-        })
-    elif request.method == "PUT":
-        body = json.loads(request.body)
-        if body["type"] == "component":
-            component = Component.objects.get(pk=body["id"])
-            component.in_stock = not component.in_stock
-            component.save(force_update_stock = True)
-        else:
-            dish = Dish.objects.get(pk=body["id"])
-            was_forced = dish.force_in_stock
-            for dc in dish.dishcomponent_set.all():
-                if dc.component.inventory < dc.quantity:
-                    dish.force_in_stock = not dish.force_in_stock
-                    break
-            if not dish.force_in_stock:
-                if not was_forced:
-                    dish.in_stock = not dish.in_stock
-            dish.save()
-        return JsonResponse({"dishes":serializers.serialize('json', dishes)})
-    
+    if request.method == "POST":
+        try:
+            with transaction.atomic():
+                apply_changes(json.loads(request.body).get("changes"))
+        except (ValueError, AttributeError) as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    elif request.method != "GET":
+        return HttpResponseNotAllowed(["GET", "POST"])
+    return JsonResponse(catalog())
+
 @staff_member_required
 def recipes(request):
     """

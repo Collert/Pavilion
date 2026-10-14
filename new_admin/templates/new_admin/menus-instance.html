@@ -54,7 +54,7 @@
                 <th>{% trans "Dish name" %}</th>
                 <th>{% trans "Stations" %}</th>
                 <th>{% trans "In stock" %}</th>
-                <th>{% trans "Forced in stock" %}</th>
+                <th>{% trans "Availability" %}</th>
                 <th>{% trans "Visible" %}</th>
                 <th>{% trans "Actions" %}</th>
             </tr>
@@ -73,11 +73,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if dish.force_in_stock %}
-                        <span class="material-symbols-outlined">check</span>
-                        {% else %}
-                        <span class="material-symbols-outlined">close</span>
-                        {% endif %}
+                        {{ dish.get_availability_display }}
                     </td>
                     <td>
                         {% if dish.visible_in_menu %}

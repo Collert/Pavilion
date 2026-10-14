@@ -26,7 +26,7 @@
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
                 {% trans "Orders" %}
             </a>
-            <a class="rail-item" href="{% url 'component_availability' %}">
+            <a class="rail-item" href="{% url 'component_availability' %}" {% if nav == "inventory" %}aria-current="page"{% endif %}>
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>
                 {% trans "Inventory" %}
             </a>

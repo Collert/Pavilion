@@ -49,6 +49,15 @@ class Menu(models.Model):
         """The active menu, or None if no menu is active."""
         return cls.objects.filter(is_active=True).first()
 
+# How a dish or component is sold (the Availability screen): "off" stops it now, "auto" follows inventory,
+# "always" keeps selling past zero (inventory goes negative).
+AVAILABILITY = (
+    ("off", "Off: stop selling now"),
+    ("auto", "Auto: follow inventory"),
+    ("always", "Always: sell past zero"),
+)
+
+
 class Dish(models.Model):
     """
     Dish model representing a dish in the POS system.
@@ -60,8 +69,9 @@ class Dish(models.Model):
         components (ManyToManyField): Components that make up the dish, related through DishComponent.
         menu (ManyToManyField): Menus that include the dish.
         station (ForeignKey): The Station that prepares the dish.
-        in_stock (BooleanField): Indicates if the dish is in stock.
-        force_in_stock (BooleanField): Indicates if the dish is forced to be in stock.
+        in_stock (BooleanField): Every component can supply one right now (kept up to date by update_stock()).
+        availability (CharField): Off / Auto / Always (see AVAILABILITY and `available`).
+        blocked (BooleanField): One of its components is turned off.
         recipe (ForeignKey): The recipe associated with the dish from the inventory.
         visible_in_menu (BooleanField): Indicates if the dish is visible in the menu.
     Methods:
@@ -77,7 +87,8 @@ class Dish(models.Model):
     menu = models.ManyToManyField("Menu", related_name = "dishes")
     station = models.ForeignKey("Station", related_name="dishes", on_delete=models.PROTECT)
     in_stock = models.BooleanField(default=True)
-    force_in_stock = models.BooleanField(default=False)
+    availability = models.CharField(max_length=6, choices=AVAILABILITY, default="auto")
+    blocked = models.BooleanField(default=False, help_text="One of its components is turned off")
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
     visible_in_menu = models.BooleanField(default=True)
 
@@ -89,14 +100,17 @@ class Dish(models.Model):
 
     @property
     def available(self) -> bool:
-        return self.in_stock or self.force_in_stock
+        """Sellable now: not turned off, no component turned off, and in stock (or set to sell past zero)."""
+        return self.availability != "off" and not self.blocked and (self.availability == "always" or self.in_stock)
 
     def update_stock(self):
-        """In stock while every component can supply one (force_in_stock overrides it)."""
-        in_stock = all(dc.covers_one() for dc in self.dishcomponent_set.select_related("component"))
-        if in_stock != self.in_stock:
-            self.in_stock = in_stock
-            self.save(update_fields=["in_stock"])
+        """Recompute `in_stock` (every component can supply one) and `blocked` (a component is turned off)."""
+        parts = list(self.dishcomponent_set.select_related("component"))
+        in_stock = all(dc.covers_one() for dc in parts)
+        blocked = any(dc.component.availability == "off" for dc in parts)
+        if (in_stock, blocked) != (self.in_stock, self.blocked):
+            self.in_stock, self.blocked = in_stock, blocked
+            self.save(update_fields=["in_stock", "blocked"])
 
 
 class Combo(models.Model):
@@ -583,7 +597,8 @@ class Component(models.Model):
         inventory (FloatField): The current inventory level of the component.
         unit_of_measurement (CharField): The unit of measurement for the component.
         type (CharField): The type of food (food or beverage).
-        in_stock (BooleanField): Indicates if the component is in stock.
+        in_stock (BooleanField): Usable right now (computed on save from `availability` and the inventory).
+        availability (CharField): Off / Auto / Always (see AVAILABILITY).
         crafting_option (CharField): The crafting option for the component.
         recipe (ForeignKey): The recipe associated with the component.
         extra_price (DecimalField): Charge for each portion above the standard amount in a dish (an extra patty).
@@ -613,33 +628,27 @@ class Component(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     type = models.CharField(max_length=10, choices=food_types)
     in_stock = models.BooleanField(default=False)
+    availability = models.CharField(max_length=6, choices=AVAILABILITY, default="auto")
     crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
     extra_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
                                       help_text="Charge for each portion above the standard amount, e.g. an extra patty")
 
-    def save(self, *args, force_update_stock=False, **kwargs):
+    def save(self, *args, **kwargs):
         """
-        Recalculate `in_stock` (unless force_update_stock=True, which keeps a value set by hand), then
-        update the dishes that use this component: they go out of stock when it can't cover them, and come
-        back when this component comes back into stock and every other component of the dish is available.
-        Self-crafting ("auto") components are made on demand, so they are never limited by their inventory.
+        Recalculate `in_stock` from `availability`: off never, always always, auto while there's inventory
+        (self-crafting components are made on demand, so they always count as available). Then bring the dishes
+        that use this component up to date.
         """
-        was_in_stock = Component.objects.filter(pk=self.pk).values_list("in_stock", flat=True).first() if self.pk else None
-        if not force_update_stock:
+        if self.availability == "auto":
             self.in_stock = self.crafting_option == "auto" or (self.inventory or 0) > 0
+        else:
+            self.in_stock = self.availability == "always"
+        if kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = {*kwargs["update_fields"], "in_stock"}
         super().save(*args, **kwargs)
-        restocked = was_in_stock is False and self.in_stock
         for dc in self.dishcomponent_set.select_related("dish"):
-            dish = dc.dish
-            if not dc.covers_one():
-                if dish.in_stock and not dish.force_in_stock:
-                    dish.in_stock = False
-                    dish.save(update_fields=["in_stock"])
-            elif restocked and not dish.in_stock and all(other.covers_one() for other in dish.dishcomponent_set.select_related("component")):
-                dish.in_stock = True
-                dish.force_in_stock = False
-                dish.save(update_fields=["in_stock", "force_in_stock"])
+            dc.dish.update_stock()
 
     def __str__(self) -> str:
         return f"{self.title} ({self.unit_of_measurement.title()})"
@@ -680,11 +689,11 @@ class DishComponent(models.Model):
         return result
 
     def covers_one(self) -> bool:
-        """Can the component supply one of this dish right now?"""
+        """Can the component supply one of this dish right now? Off never; Always and self-crafting always."""
         component = self.component
-        if not component.in_stock:
+        if component.availability == "off":
             return False
-        if component.crafting_option == "auto":
+        if component.availability == "always" or component.crafting_option == "auto":
             return True
         return (component.inventory or 0) >= self.quantity
 

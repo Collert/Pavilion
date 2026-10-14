@@ -22,6 +22,11 @@
         <span class="rail-badge" id="auto-badge" hidden>{% trans "On" %}</span>
         <kbd class="kbd on-dark rail-kbd">A</kbd>
     </button>
+    <button class="rail-item" id="avail-open" aria-haspopup="dialog">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>
+        {% trans "Stock" %}
+        <kbd class="kbd on-dark rail-kbd">S</kbd>
+    </button>
     <div class="rail-spacer"></div>
     {% include "pos_server/rail_foot.html" %}
 </nav>
@@ -97,6 +102,10 @@
         <button class="btn" data-close>{% trans "Cancel" %} <kbd class="kbd">Esc</kbd></button>
         <button class="btn btn-primary" id="auto-save">{% trans "Save" %} <kbd class="kbd">Enter</kbd></button>
     </div>
+</dialog>
+
+<dialog class="sheet avail-dialog" id="avail-sheet" aria-label="{% trans 'Availability' %}">
+    {% include "inventory/availability_panel.html" with dialog=True %}
 </dialog>
 
 <dialog class="sheet kds-sheet w-reject" id="reject-sheet" aria-labelledby="reject-title">

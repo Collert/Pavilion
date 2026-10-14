@@ -1,0 +1,62 @@
+{% load static i18n %}{% comment %}
+The Availability panel (docs/mockups/Availability-html): include it anywhere, then mount it with availability.js:
+    {% include "inventory/availability_panel.html" %}                 (a page; the page's title comes with it)
+    {% include "inventory/availability_panel.html" with dialog=True %}  (inside a <dialog>: adds a close button)
+    mountAvailability(document.querySelector("[data-avail]"), {keyTarget: window or the dialog})
+It loads its data from `availability_data`, so the including view needs nothing.
+{% endcomment %}
+<link href="{% static 'inventory/availability.css' %}" rel="stylesheet">
+<div class="avail{% if dialog %} in-dialog{% endif %}" data-avail data-url="{% url 'availability_data' %}">
+    <header class="avail-head">
+        <div class="grow">
+            <div class="overline">{% trans "Inventory" %}</div>
+            <h1 class="avail-title">{% trans "Availability" %}</h1>
+        </div>
+        <label class="avail-search">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4-4"></path></svg>
+            <input type="search" data-search aria-label="{% trans 'Search items' %}" placeholder="{% trans 'Type to search' %}">
+        </label>
+        <button class="avail-overrides" data-overrides aria-pressed="false">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"></path></svg>
+            {% trans "Overrides only" %}
+            <span class="avail-count" data-override-count>0</span>
+        </button>
+        {% if dialog %}
+        <button class="icon-btn avail-close" data-close aria-label="{% trans 'Close' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+        {% endif %}
+    </header>
+
+    <div class="avail-bar">
+        <div class="avail-tabs-wrap">
+            <div role="tablist" aria-label="{% trans 'Item type' %}" class="avail-tabs" data-tabs></div>
+            <kbd class="kbd">Tab</kbd>
+        </div>
+        <div class="avail-key">
+            <span class="key-pill"><span class="mode-dot off"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M5.6 5.6l12.8 12.8"></path></svg></span><span><strong>{% trans "Off" %}</strong> {% trans "stop now" %}</span></span>
+            <span class="key-pill"><span class="mode-dot auto"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3 M20 4v4h-4 M20 12a8 8 0 0 1-14 5.3 M4 20v-4h4"></path></svg></span><span><strong>{% trans "Auto" %}</strong> {% trans "follow stock" %}</span></span>
+            <span class="key-pill"><span class="mode-dot always"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.5-3.6-4-5.5-4a4 4 0 0 0 0 8c1.9 0 3.5-1.5 5.5-4zm0 0c2 2.5 3.6 4 5.5 4a4 4 0 0 0 0-8c-1.9 0-3.5 1.5-5.5 4z"></path></svg></span><span><strong>{% trans "Always" %}</strong> {% trans "sell past zero" %}</span></span>
+        </div>
+    </div>
+
+    <section class="avail-sheet" data-section>
+        <div class="avail-summary-row">
+            <div class="avail-summary" data-summary></div>
+            <button class="avail-reset" data-reset>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3 M20 4v4h-4 M20 12a8 8 0 0 1-14 5.3 M4 20v-4h4"></path></svg>
+                <span data-reset-label></span>
+            </button>
+        </div>
+        <div class="avail-list" data-list></div>
+        <div class="avail-hints cap">
+            <span><kbd class="kbd">←</kbd><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd><kbd class="kbd">→</kbd> {% trans "Move" %}</span>
+            <span><kbd class="kbd">Enter</kbd> {% trans "Change" %}</span>
+            <span><kbd class="kbd">Tab</kbd> {% trans "Next tab" %}</span>
+            <span>{% trans "Type to search" %}</span>
+            <span><kbd class="kbd">Ctrl Z</kbd> {% trans "Undo" %}</span>
+            {% if dialog %}<span><kbd class="kbd">Esc</kbd> {% trans "Close" %}</span>{% endif %}
+        </div>
+    </section>
+    <div data-avail-toast></div>
+</div>

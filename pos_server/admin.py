@@ -28,7 +28,7 @@ class ComponentOptionGroupInline(admin.TabularInline):
 
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
-    list_display = ("title", "unit_of_measurement", "inventory", "in_stock", "crafting_option", "extra_price")
+    list_display = ("title", "unit_of_measurement", "inventory", "in_stock", "availability", "crafting_option", "extra_price")
     list_filter = ("type", "crafting_option", "in_stock")
     search_fields = ("title",)
     inlines = [ComponentIngredientInline, ComponentOptionGroupInline]
@@ -60,7 +60,7 @@ class DishExtraInline(admin.TabularInline):
 
 @admin.register(Dish)
 class DishAdmin(admin.ModelAdmin):
-    list_display = ("title", "price", "station", "in_stock", "force_in_stock", "visible_in_menu")
+    list_display = ("title", "price", "station", "in_stock", "availability", "visible_in_menu")
     list_filter = ("station", "menu", "in_stock")
     search_fields = ("title",)
     inlines = [DishComponentInline, DishOptionGroupInline, DishExtraInline]

@@ -9,6 +9,7 @@
 //   ready      mine are ready, another station isn't             (waits)
 //   pickup     every station is ready                            Enter marks it picked up (couriers take deliveries)
 // Picked up orders leave every screen. Everything is keyboard driven; the <kbd> hints show the keys.
+// S opens the Availability panel as a popup (inventory/availability.js), which takes the keyboard until it closes.
 //
 // Auto (?auto-ready=<min>&auto-pickup=<min>, set in the Auto sheet): marks this screen's part ready <min> after the
 // order went in progress (Order.in_progress_since), and marks it picked up <min> after this screen marked it ready
@@ -17,6 +18,7 @@
 import { onLiveUpdate } from "/static/js/live.js";
 import { $, el, post, wireSheets } from "./staff-ui.js";
 import { bumpStats } from "./device-stats.js";
+import { mountAvailability } from "../inventory/availability.js";
 
 const t = (text) => gettext(text);
 const fmtText = (text, ...args) => interpolate(gettext(text), args);
@@ -792,6 +794,16 @@ autoSheet.addEventListener("keydown", (e) => {
 });
 renderAutoButton();
 
+// ---------- availability popup (inventory/availability_panel.html) ----------
+
+const availSheet = $("#avail-sheet");
+const availability = mountAvailability(availSheet.querySelector("[data-avail]"), { keyTarget: availSheet });
+function openAvailability() {
+    availability.reset();
+    availSheet.showModal();  // focuses the search box; the panel takes every key while it's open
+}
+$("#avail-open").addEventListener("click", openAvailability);
+
 // ---------- keyboard ----------
 
 window.addEventListener("keydown", (e) => {
@@ -825,6 +837,11 @@ window.addEventListener("keydown", (e) => {
         case "A":
             e.preventDefault();
             openAuto();
+            break;
+        case "s":
+        case "S":
+            e.preventDefault();
+            openAvailability();
             break;
         case "PageDown":
         case "PageUp":

@@ -25,7 +25,7 @@ go out as "Holy Eucharist Cathedral".
 | **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
 | **Deliveries** | Courier app: clock in, claim delivery, ETA via Google Distance Matrix, web push | ✅ Works (push untested end-to-end) |
 | **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ✅ Works |
-| **Inventory** | Ingredients → Components → Dishes, crafting, shopping log, recipes, availability toggles | ✅ Works, crafting page live (SSE) |
+| **Inventory** | Ingredients → Components → Dishes, crafting, shopping log, recipes, Availability screen (Off / Auto / Always) | ✅ Works, crafting and availability live (SSE) |
 | **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
 | **Users** | Login/register/profile, `Staff`/`Customer` profiles | ✅ Basic |
 | **Misc tools** | K-means image-colour extractor (menu theming), gTTS announcement endpoint | ✅ Works |
@@ -79,7 +79,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `dashboard` (→ admin history), `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
 | `/admin/` | `new_admin` | `dashboard/home`, `dashboard/history[/api]`, `menus/list`, `menus/<id>`, `orders/retail[/<id>[/receipt]]`, `store/branding`, `store/promo-content[/<id>\|/new]`, `store/events[/<id>\|/new]` |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
-| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting`, `inventory-updates` (JSON stock), `component-availability`, `recipes`, `recipes/<id>` |
+| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting`, `inventory-updates` (JSON stock), `component-availability` (page), `availability/data` (its JSON + POST changes), `recipes`, `recipes/<id>` |
 | `/deliveries/` | `deliveries` | `""` ready orders, `profile` (clock in/out), `eta`, `order/<id>`, `vapid-public-key/`, `save-subscription/` |
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
@@ -101,7 +101,7 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 
 ```
 Menu (is_active: saving an active menu deactivates the others; Menu.active() returns it or None)
- ├─ Dish (M2M menu; price Decimal; station FK; in_stock / force_in_stock / visible_in_menu)
+ ├─ Dish (M2M menu; price Decimal; station FK; in_stock / availability / blocked / visible_in_menu)
  │   ├─ DishComponent (quantity per portion; adjustable; max_portions) ─ Component (inventory; extra_price; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned, e.g. Size, Dressing) ─ Option (price change; extra component + quantity; multiplier)
@@ -119,7 +119,17 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - **Combos** cost `combo.price + each pick's price change + each pick's customizations + combo extras`. A combo is
   listed in the menu section of its first slot's standard dish. Every picked dish is made at its own station.
 - **Stock:** `Component.save()` recalculates `in_stock` and updates the dishes that use it; adding or removing a
-  `DishComponent` re-checks its dish. Sold dishes take what was actually picked (portions × multipliers, swapped
+  `DishComponent` re-checks its dish.
+- **Availability** (`availability` on Dish and Component, `AVAILABILITY` in `pos_server/models.py`): **Off** stops
+  selling now, **Auto** follows inventory, **Always** keeps selling past zero (inventory goes negative). A component
+  that's Off makes its dishes `blocked` (unavailable even when they're set to Always). `Dish.available` combines it all;
+  `Option`/`Extra` availability follows their component's `in_stock`. The **Availability screen**
+  (`/inventory/component-availability`, design `docs/mockups/Availability-html`) is a partial,
+  `inventory/availability_panel.html` + `inventory/static/inventory/availability.js` (`mountAvailability`), fed by
+  `inventory/availability.py` through `availability/data`; it is also a popup on the KDS. Tabs: dishes (active menu
+  and its combos, by station), components & add-ons, condiments (components only used as condiments). Keys: arrows
+  move, Enter cycles Off → Auto → Always, Tab switches tabs, typing searches, Ctrl+Z undoes, Esc clears the search
+  and then closes the popup. Sold dishes take what was actually picked (portions × multipliers, swapped
   components, add-ons, condiments). `craft_component` and `auto` components work as before.
 - Choice components (`Component.child_dishes`) and "only-choice" dishes were removed: use combos or option groups.
 
@@ -246,7 +256,7 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
 - `Enter` keeps the order open; a card only moves on when its order leaves the screen.
 - Keyboard only (hints are shown as `<kbd>` labels): `↑`/`↓` open the previous/next order (scrolled into view),
   `PgUp`/`PgDn` scroll, `Enter` = the open order's next step (confirm / mark ready / picked up), `Esc` rejects an
-  unconfirmed order, `F` filter, `A` auto. In the reject sheet `Ctrl`+`1…6` toggle quick reasons, typing goes into the reason box, `Enter`
+  unconfirmed order, `F` filter, `A` auto, `S` the Availability popup (it takes the keyboard until closed). In the reject sheet `Ctrl`+`1…6` toggle quick reasons, typing goes into the reason box, `Enter`
   rejects, `Esc` cancels. In the filter sheet `1…9` toggle stations, `A` selects all, `Enter`/`Esc` close.
   Browsers may keep `Ctrl`+digit for switching tabs: run the KDS in kiosk/app mode, or use `Alt`+digit.
 
