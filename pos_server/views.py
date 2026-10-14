@@ -69,7 +69,8 @@ def station_filters(values, codes):
 def order_marking(request):
     """
     The kitchen display (KDS). ?filter=<station code> (repeatable, or comma-separated) picks the stations this
-    screen works for; without it the screen covers every station.
+    screen works for; without it the screen covers every station. ?auto-ready=<min>&auto-pickup=<min> turn on the
+    screen's auto steps (run by the screen, see order-marking.js), timed from OrderStation.confirmed_at/ready_at.
 
     GET renders the screen with every active order (the screen filters them and refetches `active_orders` on
     each SSE "orders" event). POST {orderId, action, filters} acts for the stations in `filters`:
@@ -86,6 +87,7 @@ def order_marking(request):
             "filters": station_filters(request.GET.getlist("filter"), codes),
             "stations": stations,
             "reasons": [{"code": code, "label": str(label)} for code, label in REJECT_REASONS],
+            "server_now": now().isoformat(),  # the screen corrects its clock with this for the auto timers
         })
     if request.method != "POST":
         return HttpResponseNotAllowed(["GET", "POST"])

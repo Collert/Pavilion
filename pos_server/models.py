@@ -315,6 +315,16 @@ class Order(models.Model):
         """{station code: status} for every station involved. Uses prefetched rows when available."""
         return {row.station.code: row.status for row in self.station_statuses.all()}
 
+    def in_progress_since(self):
+        """
+        When the order went in progress: the last station's confirmation, or the scheduled start if that's later.
+        None while a station still has to confirm. Uses prefetched rows when available.
+        """
+        rows = list(self.station_statuses.all())
+        if not rows or any(row.status == OrderStation.STATUS_PENDING for row in rows):
+            return None
+        return max([self.start_time] + [row.confirmed_at for row in rows if row.confirmed_at])
+
     def statuses(self):
         return set(self.station_status_map().values())
 
@@ -332,7 +342,8 @@ class Order(models.Model):
         rows = self.station_statuses.filter(station__code__in=station_codes)
         if only_from is not None:
             rows = rows.filter(status__in=only_from)
-        changed = rows.update(status=status)
+        stamp = {OrderStation.STATUS_APPROVED: "confirmed_at", OrderStation.STATUS_DONE: "ready_at"}.get(status)
+        changed = rows.update(status=status, **({stamp: timezone.now()} if stamp else {}))
         if changed:
             self.refresh_station_statuses()
             self.save()
@@ -799,6 +810,8 @@ class OrderStation(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="station_statuses")
     station = models.ForeignKey(Station, on_delete=models.PROTECT, related_name="order_statuses")
     status = models.PositiveSmallIntegerField(choices=statuses, default=STATUS_PENDING)
+    confirmed_at = models.DateTimeField(null=True, blank=True, help_text="When this station confirmed the order")
+    ready_at = models.DateTimeField(null=True, blank=True, help_text="When this station marked its part ready")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["order", "station"], name="unique_order_station")]

@@ -16,6 +16,12 @@
         <span class="rail-badge" id="filter-count"></span>
         <kbd class="kbd on-dark rail-kbd">F</kbd>
     </button>
+    <button class="rail-item" id="auto-open" aria-haspopup="dialog" aria-pressed="false">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7.5V12l3 2"></path></svg>
+        {% trans "Auto" %}
+        <span class="rail-badge" id="auto-badge" hidden>{% trans "On" %}</span>
+        <kbd class="kbd on-dark rail-kbd">A</kbd>
+    </button>
     <div class="rail-spacer"></div>
     <a class="rail-item" href="{% url 'app_switcher_index' %}">
         <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="5.5" r="2"></circle><circle cx="12" cy="5.5" r="2"></circle><circle cx="18.5" cy="5.5" r="2"></circle><circle cx="5.5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18.5" cy="12" r="2"></circle><circle cx="5.5" cy="18.5" r="2"></circle><circle cx="12" cy="18.5" r="2"></circle><circle cx="18.5" cy="18.5" r="2"></circle></svg>
@@ -65,6 +71,42 @@
     </div>
 </dialog>
 
+<dialog class="sheet kds-sheet w-filter" id="auto-sheet" aria-labelledby="auto-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Auto" %}</div>
+            <h2 class="sheet-title" id="auto-title">{% trans "Move orders along by themselves" %}</h2>
+            <div class="sheet-sub">{% trans "For the orders on this screen and its stations. Leave a box empty to turn that step off." %}</div>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+    </div>
+    <div class="auto-rows">
+        <label class="auto-row" for="auto-ready">
+            <span class="auto-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M8 12.4l2.8 2.8 5.2-5.6"></path></svg></span>
+            <span class="grow">
+                <span class="strong">{% trans "Mark ready" %}</span>
+                <span class="cap">{% trans "Minutes after an order goes in progress (every station has confirmed it)." %}</span>
+            </span>
+            <span class="auto-input"><input class="input" id="auto-ready" type="number" min="1" max="240" inputmode="numeric" placeholder="{% trans 'Off' %}"><span class="cap">{% trans "min" %}</span></span>
+        </label>
+        <label class="auto-row" for="auto-pickup">
+            <span class="auto-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z M9 8V6.5a3 3 0 0 1 6 0V8 M9.5 14l2 2 3.5-4"></path></svg></span>
+            <span class="grow">
+                <span class="strong">{% trans "Mark picked up" %}</span>
+                <span class="cap">{% trans "Minutes after this screen marks it ready. While other stations are still on it, it tries again every minute. Not for deliveries." %}</span>
+            </span>
+            <span class="auto-input"><input class="input" id="auto-pickup" type="number" min="1" max="240" inputmode="numeric" placeholder="{% trans 'Off' %}"><span class="cap">{% trans "min" %}</span></span>
+        </label>
+    </div>
+    <div class="sheet-foot">
+        <span class="sub grow">{% trans "Tab moves between the boxes." %}</span>
+        <button class="btn" data-close>{% trans "Cancel" %} <kbd class="kbd">Esc</kbd></button>
+        <button class="btn btn-primary" id="auto-save">{% trans "Save" %} <kbd class="kbd">Enter</kbd></button>
+    </div>
+</dialog>
+
 <dialog class="sheet kds-sheet w-reject" id="reject-sheet" aria-labelledby="reject-title">
     <div class="sheet-head">
         <div>
@@ -98,6 +140,7 @@
 {{ stations|json_script:"kds-stations" }}
 {{ filters|json_script:"kds-filters" }}
 {{ reasons|json_script:"kds-reasons" }}
+{{ server_now|json_script:"kds-now" }}
 {% url 'active_orders' as feed_url %}{{ feed_url|json_script:"kds-feed" }}
 {% endblock %}
 

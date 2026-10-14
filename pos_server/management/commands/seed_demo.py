@@ -511,6 +511,7 @@ class Command(BaseCommand):
             when = now - datetime.timedelta(minutes=minutes_ago)
             Order.objects.filter(pk=created.pk).update(timestamp=when, start_time=when)
             created.payments.update(timestamp=when)
+            created.station_statuses.filter(confirmed_at__isnull=False).update(confirmed_at=when)
             created.refresh_from_db()
             return created
 
@@ -533,7 +534,9 @@ class Command(BaseCommand):
                 past = order(carts[random.randrange(len(carts))](), "store", OrderStation.STATUS_APPROVED, minutes,
                              method=random.choice(["cash", "card", "card"]), drawer=drawer, cashier=self.cashier)
                 past.set_station_status([s.code for s in past.stations.all()], OrderStation.STATUS_DONE)
-                Order.objects.filter(pk=past.pk).update(picked_up=True, prep_time=datetime.timedelta(minutes=random.randint(3, 15)))
+                prep = datetime.timedelta(minutes=random.randint(3, 15))
+                Order.objects.filter(pk=past.pk).update(picked_up=True, prep_time=prep)
+                past.station_statuses.update(ready_at=past.timestamp + prep)
             CashMovement.objects.create(drawer=drawer, amount=Decimal("-12.50"), reason="Bought ice", user=self.cashier,
                                         timestamp=opened + datetime.timedelta(hours=1))
             cash = sum((p.amount for p in drawer.payments.filter(method="cash")), Decimal("0"))
@@ -555,6 +558,7 @@ class Command(BaseCommand):
               cashier=self.cashier)
         ready = order([dish("Halloumi grain bowl"), dish("Fresh lemonade")], "store", OrderStation.STATUS_APPROVED, 9, name="Mark")
         ready.set_station_status(["kitchen", "bar"], OrderStation.STATUS_DONE)
+        ready.station_statuses.update(ready_at=now - datetime.timedelta(minutes=3))
         order([kids("Green salad")], "web", OrderStation.STATUS_PENDING, 1, name="Iris", phone=5555550123,
               gift_card_payments=[(self.gift_cards[0].number, "5.00")], verify_payment=lambda remaining: None)
         delivery = order([dish("Pulled pork plate"), dish("Charred corn")], "delivery", OrderStation.STATUS_PENDING, 3, name="Sofia",

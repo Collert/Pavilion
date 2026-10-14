@@ -418,6 +418,28 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         self.assertEqual(self.send(order, "pickup", ["bar"]).status_code, 200)
         self.assertTrue(Order.objects.get(pk=order.pk).picked_up)
 
+    def test_stations_record_when_they_confirm_and_finish(self):
+        order = self.online_order()
+        feed = lambda: self.client.get(self.url).context["orders"][0]
+        self.assertIsNone(feed()["in_progress_at"])
+        with mock.patch("django.utils.timezone.now", return_value=order.timestamp + datetime.timedelta(minutes=2)):
+            self.send(order, "confirm", ["kitchen"])
+        with mock.patch("django.utils.timezone.now", return_value=order.timestamp + datetime.timedelta(minutes=5)):
+            self.send(order, "confirm", ["bar"])
+        # In progress from the last confirmation
+        self.assertEqual(feed()["in_progress_at"], (order.timestamp + datetime.timedelta(minutes=5)).isoformat())
+        self.assertEqual(feed()["ready_at"], {})
+        with mock.patch("django.utils.timezone.now", return_value=order.timestamp + datetime.timedelta(minutes=9)):
+            self.send(order, "ready", ["kitchen"])
+        self.assertEqual(feed()["ready_at"], {"kitchen": (order.timestamp + datetime.timedelta(minutes=9)).isoformat()})
+
+    def test_register_orders_are_in_progress_from_the_start(self):
+        order = create_order(lines=[self.dish(self.burger)], channel="store", initial_status=OrderStation.STATUS_APPROVED)
+        self.assertEqual(order.in_progress_since(), order.timestamp)
+        later = order.timestamp + datetime.timedelta(minutes=30)
+        Order.objects.filter(pk=order.pk).update(start_time=later)  # scheduled: counts from the start time
+        self.assertEqual(Order.objects.get(pk=order.pk).in_progress_since(), later)
+
     def test_ready_waits_for_every_station_to_confirm(self):
         order = self.online_order()
         self.send(order, "confirm", ["kitchen"])

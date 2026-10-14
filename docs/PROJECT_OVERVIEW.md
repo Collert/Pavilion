@@ -138,7 +138,8 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   cash; linked to the register's `CashDrawerSession`).
 - `OrderStation(order, station, status)`, one row per station that has work on the order. **Status codes:** `0` pending
   approval · `1` being made · `2` done · `3` rejected. A station with no row isn't involved.
-  POS orders start at 1; online/delivery orders start at 0 and must be approved on the KDS.
+  POS orders start at 1; online/delivery orders start at 0 and must be approved on the KDS. Each row records
+  `confirmed_at` and `ready_at`; `Order.in_progress_since()` is the last confirmation (or the scheduled start).
 - `picked_up` defaults True and is set False when any station is involved; "done" means picked up.
 - `Order.set_station_status(codes, status, only_from=...)` is the only way statuses change. It saves the order (which
   publishes an SSE `orders` event) and sends `pos_server.signals.order_ready` when the last station finishes.
@@ -230,9 +231,15 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
   `reject` with `reasons` (codes from `views.REJECT_REASONS`) and/or `text` (≤ 200 chars). Reject **voids or refunds**
   the card payment (the order is kept if Square fails), refunds gift cards, records a `RejectedOrder` with the
   reason the customer sees, and deletes the order.
+- **Auto** (rail button, `A`): `?auto-ready=<min>` marks this screen's part ready that long after the order went in
+  progress (`in_progress_at`); `?auto-pickup=<min>` marks it picked up that long after this screen marked it ready
+  (`ready_at`), and while another station is still on it, tries again every minute. Not for deliveries. The screen
+  runs these (every 5 s, on the server's clock), so they only happen while a screen with them on is open. Cards show
+  the countdown.
+- `Enter` keeps the order open; a card only moves on when its order leaves the screen.
 - Keyboard only (hints are shown as `<kbd>` labels): `↑`/`↓` open the previous/next order (scrolled into view),
   `PgUp`/`PgDn` scroll, `Enter` = the open order's next step (confirm / mark ready / picked up), `Esc` rejects an
-  unconfirmed order. In the reject sheet `Ctrl`+`1…6` toggle quick reasons, typing goes into the reason box, `Enter`
+  unconfirmed order, `F` filter, `A` auto. In the reject sheet `Ctrl`+`1…6` toggle quick reasons, typing goes into the reason box, `Enter`
   rejects, `Esc` cancels. In the filter sheet `1…9` toggle stations, `A` selects all, `Enter`/`Esc` close.
   Browsers may keep `Ctrl`+digit for switching tabs: run the KDS in kiosk/app mode, or use `Alt`+digit.
 

@@ -140,7 +140,9 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
     consume_stock(use)
 
     OrderStation.objects.bulk_create(
-        OrderStation(order=order, station_id=station_id, status=initial_status) for station_id in station_ids
+        OrderStation(order=order, station_id=station_id, status=initial_status,
+                     confirmed_at=order.timestamp if initial_status == OrderStation.STATUS_APPROVED else None)
+        for station_id in station_ids
     )
     for card, amount in charges:
         card.charge_card(amount)
@@ -255,6 +257,8 @@ def collect_order(order, done=False):
         'discounts': [{"label": d.label, "amount": float(d.amount), "item": d.item_id} for d in order.discounts.all()],
         'payments': [{"method": p.method, "amount": float(p.amount)} for p in order.payments.all()],
         'stations': order.station_status_map(),
+        'in_progress_at': in_progress.isoformat() if (in_progress := order.in_progress_since()) else None,
+        'ready_at': {row.station.code: row.ready_at.isoformat() for row in order.station_statuses.all() if row.ready_at},
         'name': order.name,
         'to_go_order': order.to_go_order,
         'channel': order.channel,

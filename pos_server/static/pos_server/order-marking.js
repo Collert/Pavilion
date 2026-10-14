@@ -9,6 +9,10 @@
 //   ready      mine are ready, another station isn't             (waits)
 //   pickup     every station is ready                            Enter marks it picked up (couriers take deliveries)
 // Picked up orders leave every screen. Everything is keyboard driven; the <kbd> hints show the keys.
+//
+// Auto (?auto-ready=<min>&auto-pickup=<min>, set in the Auto sheet): marks this screen's part ready <min> after the
+// order went in progress (Order.in_progress_since), and marks it picked up <min> after this screen marked it ready
+// (OrderStation.ready_at), trying again every minute while other stations are still on it.
 
 import { onLiveUpdate } from "/static/js/live.js";
 import { $, el, post, wireSheets } from "./staff-ui.js";
@@ -22,6 +26,16 @@ const REASONS = data("kds-reasons");
 const FEED_URL = data("kds-feed");
 const stationBy = Object.fromEntries(STATIONS.map((s) => [s.code, s]));
 
+// The device's clock may be off; timers and auto steps run on the server's time
+let clockOffset = Date.parse(data("kds-now")) - Date.now();
+const nowMs = () => Date.now() + clockOffset;
+
+const params = new URLSearchParams(window.location.search);
+const minutesParam = (name) => {
+    const minutes = parseInt(params.get(name), 10);
+    return minutes > 0 ? Math.min(minutes, 240) : null;
+};
+
 const state = {
     orders: new Map(),          // every active order from the feed, by id
     filters: data("kds-filters"),
@@ -30,6 +44,8 @@ const state = {
     lastIndex: 0,               // where the open card was, to open its neighbour when it leaves
     busy: false,
     reject: { id: null, picked: new Set() },
+    auto: { ready: minutesParam("auto-ready"), pickup: minutesParam("auto-pickup") },
+    retryAt: new Map(),         // "<order id>:<action>" -> when auto may try that step again
 };
 data("kds-orders").forEach((order) => state.orders.set(order.order_id, order));
 
@@ -91,7 +107,7 @@ function fmtElapsed(seconds) {
     const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
     return h ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 }
-const ageOf = (order) => (Date.now() - new Date(order.start_time)) / 1000;
+const ageOf = (order) => (nowMs() - Date.parse(order.start_time)) / 1000;
 const stationNames = (codes) => codes.map((code) => stationBy[code]?.name ?? code);
 
 // ---------- order state, relative to this screen ----------
@@ -143,6 +159,52 @@ function primaryAction(order) {
     if (key === "progress") return "ready";
     if (key === "pickup" && order.channel !== "delivery") return "pickup";
     return null;
+}
+
+// ---------- auto ----------
+
+// When auto should take the order's next step here: {action, at} (ms, server time), or null
+function autoStep(order) {
+    const key = statusKey(order);
+    const retry = (action) => state.retryAt.get(`${order.order_id}:${action}`) ?? 0;
+    if (state.auto.ready && key === "progress" && order.in_progress_at) {
+        return { action: "ready", at: Math.max(Date.parse(order.in_progress_at) + state.auto.ready * 60000, retry("ready")) };
+    }
+    if (state.auto.pickup && (key === "ready" || key === "pickup") && order.channel !== "delivery") {
+        const readyTimes = mine(order).map((code) => Date.parse(order.ready_at?.[code] ?? "")).filter(Number.isFinite);
+        if (!readyTimes.length) return null;
+        return { action: "pickup", at: Math.max(Math.max(...readyTimes) + state.auto.pickup * 60000, retry("pickup")) };
+    }
+    return null;
+}
+
+// Every few seconds: take the first step that's due. Pickup waits a minute more while another station is still on it.
+async function runAuto() {
+    if (state.busy || (!state.auto.ready && !state.auto.pickup)) return;
+    let bumped = false;
+    for (const order of visibleOrders()) {
+        const step = autoStep(order);
+        if (!step || step.at > nowMs()) continue;
+        const retryKey = `${order.order_id}:${step.action}`;
+        if (step.action === "pickup" && statusKey(order) !== "pickup") {
+            state.retryAt.set(retryKey, nowMs() + 60000);
+            bumped = true;
+            continue;
+        }
+        state.retryAt.set(retryKey, nowMs() + 60000);  // if it fails, don't hammer the server
+        await act(order.order_id, step.action, {}, { auto: true });
+        return;
+    }
+    if (bumped) render();  // show the new countdown
+}
+setInterval(runAuto, 5000);
+
+const autoLabel = (action) => action === "ready" ? t("Auto ready in %s") : t("Auto pickup in %s");
+function autoDue(order) {
+    const step = autoStep(order);
+    if (!step) return null;
+    return el("span", { className: "cap auto-due", attrs: { "data-due": step.at, "data-label": autoLabel(step.action) } },
+        [icon(P.clock, 14, 2.4), el("span", { text: "" })]);
 }
 
 // ---------- cards ----------
@@ -238,7 +300,7 @@ function waitBox(order, key) {
     return el("div", { className: "wait-box", attrs: { role: "status" } }, [
         el("span", { className: "round" }, [icon(P.hourglass, 22)]),
         el("div", { className: "grow" }, [el("div", { className: "disp", text: t("Waiting on other stations") }), el("div", { className: "cap", text: sub })]),
-        el("span", { className: "cap you" }, [icon(P.check, 16, 2.6), key === "confirmed" ? t("You confirmed") : t("You marked it ready")]),
+        (key === "ready" && autoDue(order)) || el("span", { className: "cap you" }, [icon(P.check, 16, 2.6), key === "confirmed" ? t("You confirmed") : t("You marked it ready")]),
     ]);
 }
 
@@ -263,7 +325,7 @@ function actions(order, key) {
         buttons.push(el("button", { className: "act pickup", on: { click: () => act(order.order_id, "pickup") } },
             [icon(P.handoff, 20, 2.2), t("Picked up"), kbd("Enter", true)]));
     }
-    return el("div", { className: "actions" }, [el("span", { className: "cap hint", text: hint }), ...buttons]);
+    return el("div", { className: "actions" }, [el("span", { className: "cap hint", text: hint }), autoDue(order), ...buttons]);
 }
 
 function timerClass(order) {
@@ -352,7 +414,7 @@ function render() {
     let scrollTo = null;
     for (const order of shown) {
         const open = order.order_id === state.openId;
-        const sig = JSON.stringify([order, open, filterKey]);
+        const sig = JSON.stringify([order, open, filterKey, autoStep(order)]);
         let card = cards.get(order.order_id);
         if (!card || card.sig !== sig) {
             const node = buildCard(order, open);
@@ -431,6 +493,9 @@ setInterval(() => {
         node.lastElementChild.textContent = fmtElapsed(ageOf(order));
         node.className = timerClass(order);
     });
+    listNode.querySelectorAll(".auto-due[data-due]").forEach((node) => {
+        node.lastElementChild.textContent = interpolate(node.dataset.label, [fmtElapsed((Number(node.dataset.due) - nowMs()) / 1000)]);
+    });
     tickHeader();
 }, 1000);
 tick();
@@ -464,6 +529,8 @@ async function refresh() {
         try {
             const response = await fetch(FEED_URL, { headers: { Accept: "application/json" } });
             if (!response.ok) return;
+            const serverDate = Date.parse(response.headers.get("Date"));
+            if (Number.isFinite(serverDate) && Math.abs(serverDate - nowMs()) > 2000) clockOffset = serverDate - Date.now();
             const orders = await response.json();
             state.orders = new Map(orders.map((order) => [order.order_id, order]));
             render();
@@ -475,7 +542,7 @@ async function refresh() {
 }
 
 // Do `action` for this screen's stations. The open order stays open (unless it leaves the screen).
-async function act(id, action, extra = {}) {
+async function act(id, action, extra = {}, { auto = false } = {}) {
     if (state.busy) return;
     const before = state.orders.get(id);
     if (!before) return;
@@ -483,25 +550,27 @@ async function act(id, action, extra = {}) {
     try {
         const { ok, data: result } = await post(window.location.pathname, { orderId: id, action, filters: mine(before), ...extra });
         if (!ok) {
-            say(result.error || t("That didn't work. Try again."), "error");
+            const error = result.error || t("That didn't work. Try again.");
+            say(auto ? fmtText("Auto: %s", error) : error, "error");
             await refresh();
             return false;
         }
         await refresh();
         const order = state.orders.get(id);
+        const tell = (text, kind) => say(auto ? fmtText("Auto: %s", text) : text, kind);
         if (action === "confirm") {
             const pending = order ? stationNames(involved(order).filter((code) => statusOf(order, code) === 0)) : [];
-            if (result.payment_error) say(fmtText("Order #%s confirmed, but taking the card payment failed: %s", id, result.payment_error), "error");
-            else if (pending.length) say(fmtText("Order #%s confirmed · waiting on %s", id, joinNames(pending)), "wait");
-            else say(fmtText("Order #%s confirmed by every station · cooking", id));
+            if (result.payment_error) tell(fmtText("Order #%s confirmed, but taking the card payment failed: %s", id, result.payment_error), "error");
+            else if (pending.length) tell(fmtText("Order #%s confirmed · waiting on %s", id, joinNames(pending)), "wait");
+            else tell(fmtText("Order #%s confirmed by every station · cooking", id));
         } else if (action === "ready") {
             const making = order ? stationNames(involved(order).filter((code) => statusOf(order, code) === 1)) : [];
-            if (making.length) say(fmtText("Order #%s ready here · waiting on %s", id, joinNames(making)), "wait");
-            else say(fmtText("Order #%s is ready for pickup", id));
+            if (making.length) tell(fmtText("Order #%s ready here · waiting on %s", id, joinNames(making)), "wait");
+            else tell(fmtText("Order #%s is ready for pickup", id));
         } else if (action === "pickup") {
-            say(fmtText("Order #%s picked up", id));
+            tell(fmtText("Order #%s picked up", id));
         } else if (action === "reject") {
-            say(fmtText("Order #%s rejected · %s", id, result.reason), "reject");
+            tell(fmtText("Order #%s rejected · %s", id, result.reason), "reject");
         }
         return true;
     } finally {
@@ -674,6 +743,61 @@ filterSheet.addEventListener("keydown", (e) => {
     }
 });
 
+// ---------- auto sheet ----------
+
+const autoSheet = $("#auto-sheet");
+const autoButton = $("#auto-open");
+const autoInputs = { ready: $("#auto-ready"), pickup: $("#auto-pickup") };
+
+function renderAutoButton() {
+    const on = Boolean(state.auto.ready || state.auto.pickup);
+    autoButton.setAttribute("aria-pressed", String(on));
+    $("#auto-badge").hidden = !on;
+    const parts = [];
+    if (state.auto.ready) parts.push(fmtText("ready after %s min", state.auto.ready));
+    if (state.auto.pickup) parts.push(fmtText("picked up after %s min", state.auto.pickup));
+    autoButton.setAttribute("aria-label", on ? fmtText("Auto: %s", parts.join(", ")) : t("Auto: off"));
+}
+
+function openAuto() {
+    autoInputs.ready.value = state.auto.ready ?? "";
+    autoInputs.pickup.value = state.auto.pickup ?? "";
+    autoSheet.showModal();
+    autoInputs.ready.focus();
+    autoInputs.ready.select();
+}
+
+function saveAuto() {
+    const minutes = (input) => {
+        const value = parseInt(input.value, 10);
+        return value > 0 ? Math.min(value, 240) : null;
+    };
+    state.auto = { ready: minutes(autoInputs.ready), pickup: minutes(autoInputs.pickup) };
+    state.retryAt.clear();
+    const query = new URLSearchParams(window.location.search);
+    for (const [name, value] of [["auto-ready", state.auto.ready], ["auto-pickup", state.auto.pickup]]) {
+        if (value) query.set(name, value);
+        else query.delete(name);
+    }
+    const search = query.toString();
+    history.replaceState(null, "", window.location.pathname + (search ? "?" + search : ""));
+    autoSheet.close();
+    renderAutoButton();
+    render();
+    runAuto();
+}
+
+autoButton.addEventListener("click", openAuto);
+$("#auto-save").addEventListener("click", saveAuto);
+autoSheet.addEventListener("keydown", (e) => {
+    e.stopPropagation();  // keep Enter away from the screen's handler
+    if (e.key === "Enter") {
+        e.preventDefault();
+        saveAuto();
+    }
+});
+renderAutoButton();
+
 // ---------- keyboard ----------
 
 window.addEventListener("keydown", (e) => {
@@ -702,6 +826,11 @@ window.addEventListener("keydown", (e) => {
         case "F":
             e.preventDefault();
             openFilter();
+            break;
+        case "a":
+        case "A":
+            e.preventDefault();
+            openAuto();
             break;
         case "PageDown":
         case "PageUp":
