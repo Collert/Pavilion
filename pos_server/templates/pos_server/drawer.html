@@ -1,0 +1,126 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Cash drawer" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'pos_server/drawer.css' %}" rel="stylesheet">{% endblock %}
+
+{% block body %}
+<main class="drawer-main">
+    <header class="reg-header">
+        <div class="grow">
+            <h1 class="h1">{% trans "Cash drawer" %}</h1>
+            <div class="sub">{{ device_name }} · {{ boot.user }}</div>
+        </div>
+        <div role="status" class="status-pill" id="status"><span class="status-dot"></span><span id="status-text"></span></div>
+    </header>
+
+    <!-- Open the drawer / count the cash -->
+    <div class="drawer-view rise" id="entry-view" hidden>
+        <section class="panel entry-panel">
+            <div>
+                <div class="overline" id="entry-over"></div>
+                <h2 class="h2 h2-30" id="entry-title"></h2>
+            </div>
+            <div class="amount-box"><span class="amount money" id="entry-amount"></span></div>
+            <div class="entry-help">
+                <div role="group" aria-label="{% trans 'Starting amount' %}" class="amount-chips" id="entry-chips"></div>
+                <div class="sub entry-hint" id="entry-hint">{% trans "Count every note and coin, then enter the total." %}</div>
+            </div>
+            <div class="keypad" id="entry-keys"></div>
+            <div class="entry-foot">
+                <button class="btn" id="count-cancel" hidden>{% trans "Cancel" %}</button>
+                <button class="btn btn-primary grow" id="entry-go" disabled></button>
+            </div>
+        </section>
+        <section class="panel dark side-panel">
+            <div class="blob big" aria-hidden="true"></div>
+            <div class="blob amber" aria-hidden="true"></div>
+            <div class="side-content">
+                <div class="overline on-dark" id="side-over"></div>
+                <div class="side-title" id="side-title"></div>
+                <div class="side-body" id="side-body"></div>
+                <div class="facts" id="side-facts"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- The drawer is open -->
+    <div class="drawer-view rise" id="open-view" hidden>
+        <section class="panel tiles-panel">
+            <div>
+                <div class="overline">{% trans "Today so far" %}</div>
+                <h2 class="h2 h2-30">{% trans "The drawer is open" %}</h2>
+            </div>
+            <div class="tiles" id="tiles"></div>
+        </section>
+        <section class="panel dark opened-panel">
+            <div class="blob mid" aria-hidden="true"></div>
+            <div class="side-content grow-col">
+                <div class="overline on-dark">{% trans "Opened with" %}</div>
+                <div class="big-amount money" id="opened-amount"></div>
+                <div class="side-body" id="opened-text"></div>
+                <div class="grow"></div>
+                <button class="btn btn-primary" id="start-close">{% trans "Close the drawer" %}</button>
+                <button class="btn btn-md ghost-dark" id="open-move">{% trans "Add or remove cash" %}</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Closed: the result -->
+    <div class="drawer-view rise" id="done-view" hidden>
+        <section class="hero" id="hero">
+            <div class="hero-icon pop" id="hero-icon"></div>
+            <div class="overline hero-over">{% trans "Closing difference" %}</div>
+            <div role="status" class="hero-amount money" id="hero-amount"></div>
+            <div class="hero-words" id="hero-words"></div>
+            <div class="hero-note" id="hero-note"></div>
+        </section>
+        <section class="panel result-panel">
+            <div>
+                <div class="overline" id="closed-over"></div>
+                <h2 class="h2 h2-30">{% trans "Drawer closed" %}</h2>
+            </div>
+            <div class="rows" id="rows"></div>
+            <div class="grow"></div>
+            <div class="entry-foot no-print">
+                <button class="btn" id="print">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"></path><rect x="7" y="14" width="10" height="6" rx="1"></rect></svg>
+                    {% trans "Print report" %}
+                </button>
+                <button class="btn btn-primary grow" id="finish">{% trans "Done" %}</button>
+            </div>
+        </section>
+    </div>
+</main>
+
+<dialog class="sheet w-sm" id="move-sheet" aria-labelledby="move-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Cash drawer" %}</div>
+            <h2 class="h2" id="move-title">{% trans "Add or remove cash" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div role="group" aria-label="{% trans 'Direction' %}" class="seg" id="move-dir">
+        <button aria-pressed="true" data-dir="in">{% trans "Put cash in" %}</button>
+        <button aria-pressed="false" data-dir="out">{% trans "Take cash out" %}</button>
+    </div>
+    <label class="field overline">{% trans "Amount" %}
+        <input class="input" id="move-amount" inputmode="decimal" placeholder="$0.00" autocomplete="off">
+    </label>
+    <label class="field overline">{% trans "Reason" %}
+        <input class="input" id="move-reason" maxlength="140" placeholder="{% trans 'e.g. change from the bank, paid a supplier' %}" autocomplete="off">
+    </label>
+    <div class="sheet-foot">
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary grow" id="move-save">{% trans "Save" %}</button>
+    </div>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+{{ boot|json_script:"drawer-boot" }}
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'pos_server/drawer.js' %}"></script>
+{% endblock %}

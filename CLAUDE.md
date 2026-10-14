@@ -15,7 +15,8 @@ it when you change how something works.
   `http://127.0.0.1:8000/en/apps/`
 - All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`). Only `/jsi18n/` and `/events/<topic>` don't.
 - Fresh DB: `manage.py migrate` then `manage.py seed_demo` (logins admin/admin, cashier/cashier, courier/courier,
-  customer/customer). `seed_demo` refuses to run with DEBUG off or on a DB that already has dishes/orders.
+  customer/customer; register PINs Alex 0000, Dana 1234, Priya 2468). `seed_demo` refuses to run with DEBUG off or
+  on a DB that already has dishes/orders.
 - **Every time a model is created or changed, update `pos_server/management/commands/seed_demo.py`** so it still runs
   on a fresh database (`migrate` then `seed_demo`) and fills in the new model/fields with realistic data.
 - Tests: `venv\Scripts\python manage.py test` (pavilion, pos_server, online_store, gift_cards). Square and SendGrid are
@@ -38,7 +39,7 @@ without asking.
 
 | App | Prefix | Role |
 | --- | --- | --- |
-| `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Component, Ingredient, Station, Order, OrderStation, OrderDish, EligibleDevice. POS register, KDS, customer display, status board, Square webhook. `orders.py` = order creation/pricing/serialization; `devices.py` = access decorators. |
+| `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Combo, Component, OptionGroup/Option, Extra, Ingredient, Station, Order, OrderItem, OrderDiscount, OrderPayment, Discount, CashDrawerSession, EligibleDevice. Register + lock screen + cash drawer (`register.py`), KDS, customer display, status board, Square webhook. `pricing.py` = cart pricing/discounts/tax; `orders.py` = order creation/serialization; `devices.py` = access decorators. |
 | `online_store` | `/` | Customer PWA: menu, cart, checkout (`place_order`), order status/history. PromoContent, RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
 | `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; SendGrid email; barcode page; `card-api`. |
@@ -51,21 +52,33 @@ without asking.
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 
-Frontend: Django templates plus vanilla ES-module JS in `<app>/static/<app>/`. No build step. Shared CSS kit is
+Frontend: Django templates plus vanilla ES-module JS in `<app>/static/<app>/`. No build step, no frameworks (the
+mockups in `docs/mockups/` use React only as a viewer; don't bring it in). The register, drawer and lock screens share
+`pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`. Shared CSS kit is
 `static/css/AD-Elements/`, shared JS in `static/js/` (`live.js`). Each app has its own `layout.html`, `layers.css`,
 and `project-styles.css`. JS strings use `gettext()`. Build DOM from data with `textContent`, never `innerHTML` with
 customer-supplied text.
 
 ## Domain essentials
 
-- **Menu → Dish → DishComponent → Component → ComponentIngredient → Ingredient.** A Component with `child_dishes` is a
-  *choice* (e.g. "Drink" → Coffee/Tea). A Dish made only of choices is never prepared itself; its picks are.
+- **Menu → Dish → DishComponent → Component → ComponentIngredient → Ingredient.** `DishComponent.adjustable` parts can
+  be left out or doubled (extra portions cost `Component.extra_price`). `OptionGroup`/`Option` are pick-one adjustments
+  owned by a Component (offered by every dish using it; an option can swap the component, e.g. oat milk) or by a Dish
+  (size, dressing). `Extra` = add-ons (charged) and condiments (free, counted) for a dish or combo.
+- **Combo → ComboSlot → ComboSlotOption(dish, price change).** A slot may `ask_on_add` ("Choose a drink") or
+  `allow_none`. Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.
 - **Stations:** `Dish.station` → `Station` (code, name, icon, menu_heading, position). Per-order status is
   `OrderStation(order, station, status)`: 0 pending approval · 1 being made · 2 done · 3 rejected; no row = not involved.
   POS orders start at 1, online/delivery at 0 (approved on the KDS). Change statuses only via `Order.set_station_status()`.
-- **Create orders only via `pos_server.orders.create_order()`.** It prices the cart from the DB (never trust browser
-  prices/totals), checks stock, takes stock per quantity, charges gift cards with a `GiftCardAuthorization`, and rolls
-  back on `OrderError`. `collect_order()` is the order → dict serializer for screens.
+- **Create orders only via `pos_server.orders.create_order()`.** It prices the cart *lines* with
+  `pricing.price_cart()` (never trust browser prices/totals; line format is in `pricing.py`'s docstring), checks stock,
+  takes stock for what was actually picked, records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
+  with a `GiftCardAuthorization`, and rolls back on `OrderError`. `collect_order()` is the order → dict serializer for
+  screens (`dishes` = what stations make, `lines` = what was sold).
+- **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*
+  (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
+  dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need `pos_server.apply_manual_discount`.
+  Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
 - **Money is Decimal** (`Dish.price`, `Order.total`, gift cards, transactions). Square wants integer cents: `square.to_cents()`.
   Send `float()` only in JSON for JS.
 - **Online payments:** only the server marks a `Transaction` paid; `Transaction.consume()` spends it once. Online card
@@ -77,7 +90,9 @@ customer-supplied text.
 ## Access control
 
 Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`
-from `pos_server/devices.py`, never bare `login_required`.** POS/KDS views also use `device_required` (signed cookie
+from `pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen),
+never bare `login_required`.** On the register, staff sign in with a hashed 4-digit `Staff.pin` (set in
+`/advanced-admin/` → Users), rate-limited per device. POS/KDS views also use `device_required` (signed cookie
 for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default on in production). Redirects to a
 `next` URL go through `safe_next_url()`.
 

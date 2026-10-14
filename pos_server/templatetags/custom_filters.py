@@ -3,14 +3,6 @@ from datetime import timedelta
 
 register = template.Library()
 
-@register.filter(name='has_options')
-def has_options(dish):
-    return len(dish.serialize_with_options()["fields"]["choice_components"]) > 0
-
-@register.filter(name='only_choices')
-def only_choices(dish):
-    return dish.check_if_only_choice_dish()
-
 @register.filter(name='format_duration')
 def format_duration(value: timedelta):
     try:
@@ -25,3 +17,12 @@ def format_duration(value: timedelta):
         return f"{minutes:02d}:{seconds:02d}"
     except (ValueError, TypeError, AttributeError):
         return ""
+
+@register.simple_tag
+def kds_url():
+    """The kitchen display covering every station."""
+    from django.urls import reverse
+    from django.utils.http import urlencode
+    from pos_server.models import Station
+    codes = list(Station.objects.values_list("code", flat=True))
+    return reverse("order_marking") + ("?" + urlencode([("filter", code) for code in codes]) if codes else "")

@@ -1,0 +1,80 @@
+/* The lock screen (see docs/mockups/Lock screen-html). */
+
+.grow { flex: 1; }
+.lock-status {
+    position: relative; flex: 1; min-width: 0; border-radius: 28px; background: var(--ink); color: #fff; overflow: hidden;
+    display: flex; flex-direction: column; padding: 44px 52px;
+}
+.blob { position: absolute; border-radius: 50%; }
+.blob.big { right: -150px; bottom: -230px; width: 560px; height: 560px; background: var(--brand); }
+.blob.amber { right: 150px; bottom: 120px; width: 132px; height: 132px; background: var(--amber); }
+.blob.small { right: 60px; top: 60px; width: 56px; height: 56px; background: rgba(255, 255, 255, .08); }
+@keyframes drift { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-14px) } }
+.drift { animation: drift 9s ease-in-out infinite; }
+.drift2 { animation: drift 12s ease-in-out infinite reverse; }
+
+.brand-row { position: relative; display: flex; align-items: center; gap: 14px; }
+.brand-logo { width: 48px; height: 48px; border-radius: 16px; background: var(--amber); display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.brand-logo svg { width: 26px; height: 26px; }
+.brand-name { font-family: var(--heading); font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.lock-center { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+.overline.on-dark { color: var(--rail-ink); }
+.clock { display: flex; align-items: baseline; gap: 14px; font-family: var(--heading); font-weight: 700; letter-spacing: -.04em; }
+.clock #clock-time { font-size: clamp(96px, 12vw, 176px); line-height: .9; }
+.clock .ampm { font-size: 40px; letter-spacing: -.02em; color: var(--amber); }
+.lock-facts { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; margin-top: 10px; }
+.locked-pill {
+    display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px 0 14px; border-radius: 22px;
+    background: rgba(255, 255, 255, .1); font-size: 15px; font-weight: 700;
+}
+.lock-line { font-size: 14px; font-weight: 600; color: var(--rail-ink); padding-left: 4px; }
+
+.lock-panel {
+    width: 480px; flex: none; border-radius: 28px; background: var(--surface); box-shadow: var(--shadow-panel);
+    padding: 40px; display: flex; flex-direction: column; overflow-y: auto;
+}
+.lock-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.lock-title { margin-top: 6px; line-height: 1.1; }
+.staff-list { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.staff-btn {
+    flex: 1 1 120px; height: 52px; padding: 0 14px 0 6px; border-radius: 26px; border: none; display: inline-flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 700; background: var(--soft); color: var(--ink); min-width: 0;
+}
+.staff-btn span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.staff-btn[aria-pressed=true] { background: var(--brand); color: #fff; }
+.avatar {
+    width: 40px; height: 40px; border-radius: 20px; flex: none; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; background: var(--mint); color: var(--ink);
+}
+.staff-btn[aria-pressed=true] .avatar { background: var(--amber); }
+.pin-prompt { margin-top: 28px; text-align: center; font-size: 15px; font-weight: 600; color: var(--muted); }
+.dots { display: flex; justify-content: center; gap: 18px; margin-top: 16px; height: 20px; }
+.dots span { width: 20px; height: 20px; border-radius: 10px; border: 2px solid var(--brand); background: transparent; }
+.dots span.on { background: var(--brand); animation: dotIn .22s ease-out both; }
+.dots.bad span { border-color: var(--danger); }
+.dots.bad span.on { background: var(--danger); }
+.dots.shake { animation: shake .42s ease both; }
+@keyframes dotIn { 0% { transform: scale(.5) } 60% { transform: scale(1.25) } 100% { transform: scale(1) } }
+@keyframes shake {
+    0%, 100% { transform: translateX(0) } 18% { transform: translateX(-10px) } 36% { transform: translateX(9px) }
+    54% { transform: translateX(-6px) } 72% { transform: translateX(4px) }
+}
+.pin-error { min-height: 22px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--danger); }
+.lock-keys { gap: 12px; margin-top: 10px; }
+.lock-keys .key { height: 72px; border-radius: 24px; font-size: 30px; }
+.lock-keys .key.text { font-size: 16px; }
+.lock-keys .key svg { width: 26px; height: 26px; }
+.lock-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 16px; }
+.lock-foot a { color: var(--brand); font-weight: 700; }
+.no-pins { font-size: 15px; font-weight: 600; color: var(--muted); line-height: 1.45; margin-top: 20px; }
+
+.welcome { align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.welcome-icon { width: 96px; height: 96px; border-radius: 48px; background: var(--amber); color: var(--ink); display: flex; align-items: center; justify-content: center; }
+.welcome .h2 { margin-top: 10px; }
+.welcome-text { font-size: 15px; font-weight: 600; color: var(--muted); max-width: 280px; }
+
+@media (max-width: 960px) {
+    .app { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
+    .lock-status { padding: 28px; min-height: 280px; }
+    .lock-panel { width: 100%; padding: 28px; }
+}

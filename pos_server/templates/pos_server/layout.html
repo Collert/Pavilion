@@ -30,50 +30,18 @@
     <header>
         <nav class="button-row">
             <a class="button icon" href="{% url 'component_availability' %}"><span class="material-symbols-outlined">inventory_2</span></a>
-            {% if route == "pos" %}
-            <button id="barcode-scanner-button" class="icon"><span class="material-symbols-outlined">barcode_scanner</span></button>
-            <button id="return-active-gift-card" class="icon" style="display: none;"><span class="material-symbols-outlined">redeem</span></button>
-            <button id="dropdown">
-                <span id="drop-but">{% trans "Menu" %}</span>
-                <div id="dropdown-content">
-                    <a href="#" id="utils-link">{% trans "Utilities" %}</a>
-                    <a href="#" id="discounts-link">{% trans "Discounts" %}</a>
-                </div>
-            </button>
-            {% endif %}
             {% block marking-nav %}{% endblock %}
             {% if user.is_authenticated %}
-            <a class="button" href="{% url 'logout_view' %}">{% trans "Lock POS" %}</a>
+            <a class="button" href="{% url 'register_lock' %}">{% trans "Lock" %}</a>
             {% else %}
             <button>{% trans "Login" %}</button>
             {% endif %}
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>
-    {% if route == "pos" %}
-    <dialog id="utils">
-        <div>
-            <button id="open-menu">{% trans "Open menu" %}</button>
-            <button id="open-pairing">{% trans "Pair terminal" %}</button>
-            <button id="select-menu">{% trans "Select menu" %}</button>
-            <button id="cash-drawer-button">{% trans "Cash drawer" %}</button>
-        </div>
-    </dialog>
-    <dialog id="menus">
-        <form action="{% url 'menu_select' %}" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="menu-title">
-            {% for menu in menus %}
-            <button data-menu="{{menu.title}}">{{menu.title|title}}</button>
-            {% endfor %}
-        </form>
-    </dialog>
-    {% endif %}
 </body>
 {% block register-scripts %}{% endblock %}
 <script>
-    const isSuperuser = "{{user.is_superuser}}" == "True";
-    let suAuthorized = isSuperuser;
     const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     const closeButtons = document.querySelectorAll(".close-button");
 
@@ -87,39 +55,4 @@
     //     document.querySelector("body").classList.toggle("portrait");
     // })
 </script>
-{% if route == "pos" %}
-<script>    
-    const utilsLink = document.querySelector("#utils-link");
-    const utilsDialog = document.querySelector("#utils");
-    const openMenuButton = document.querySelector("#open-menu");
-    const pairTerminalButton = document.querySelector("#open-pairing");
-    const selectMenuButton = document.querySelector("#select-menu");
-    const selectMenuDialog = document.querySelector("#menus");
-
-    selectMenuDialog.querySelectorAll("form button").forEach(button => {
-        button.addEventListener("click", e => {
-            selectMenuDialog.querySelector("form input[name='menu-title']").value = e.currentTarget.dataset.menu;
-        })
-    })
-
-    utilsLink.addEventListener("click", e => {
-        e.preventDefault()
-        utilsDialog.showModal()
-    })
-    openMenuButton.addEventListener("click", () => {
-        openInNewTab("{% url 'pos_output' %}")
-    })
-    pairTerminalButton.addEventListener("click", () => {
-        openInNewTab("{% url 'pair-terminal' %}")
-    })
-    selectMenuButton.addEventListener("click", () => {
-        selectMenuDialog.showModal()
-    })
-    function openInNewTab(url) {
-        window.open(url, '_blank');
-        utilsDialog.close();
-    }
-    
-</script>
-{% endif %}
 </html>

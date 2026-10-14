@@ -34,14 +34,19 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in order.dishes %}
+                    {% for item in order.lines %}
                         <tr>
-                            <td>{{item.name}}</td>
+                            <td>{{item.name}}{% for child in item.children %}<br><small>{{child.slot}}: {{child.name}}{% if child.mods %} ({{child.mods|join:", "}}){% endif %}</small>{% endfor %}{% if item.mods %}<br><small>{{item.mods|join:" · "}}</small>{% endif %}{% if item.note %}<br><small>“{{item.note}}”</small>{% endif %}</td>
                             <td>{{item.quantity}}</td>
-                            <td>${{item.price}}</td>
-                            <td>${{item.price|mul:item.quantity}}</td>
+                            <td>${{item.price|floatformat:2}}</td>
+                            <td>${{item.total|floatformat:2}}{% if item.discount %}<br><small>−${{item.discount|floatformat:2}}</small>{% endif %}</td>
                         </tr>
                     {% endfor %}
+                    <tr><td colspan="3">{% trans "Subtotal" %}</td><td>${{order.subtotal|floatformat:2}}</td></tr>
+                    {% for discount in order.discounts %}<tr><td colspan="3">{{discount.label}}</td><td>−${{discount.amount|floatformat:2}}</td></tr>{% endfor %}
+                    {% if order.tax %}<tr><td colspan="3">{% trans "Tax" %}</td><td>${{order.tax|floatformat:2}}</td></tr>{% endif %}
+                    <tr><td colspan="3"><b>{% trans "Total" %}</b></td><td><b>${{order.total|floatformat:2}}</b></td></tr>
+                    {% for payment in order.payments %}<tr><td colspan="3">{% trans "Paid" %} ({{payment.method}})</td><td>${{payment.amount|floatformat:2}}</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>

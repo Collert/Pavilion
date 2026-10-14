@@ -1,64 +1,96 @@
 """
-Tests for order creation, pricing, stock, station status transitions and the KDS.
+Tests for pricing (customizations, combos, discounts, tax), order creation, stock, station status
+transitions, the KDS, the register (quote, payments, cash drawer, PIN lock) and access rules.
 
 Run with: venv\\Scripts\\python manage.py test
 Square is never called: payments.square functions are patched where they'd be used.
 """
+import datetime
 import json
 from decimal import Decimal
 from unittest import mock
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from online_store.models import RejectedOrder
 from payments.models import PaymentAuthorization, Transaction
-from .models import Component, Dish, DishComponent, Menu, Order, OrderStation, Station
-from .orders import OrderError, create_order, price_cart
+from users.models import Staff
+from .models import (CashDrawerSession, Combo, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
+                     Extra, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
+from .orders import OrderError, create_order
+from .pricing import price_cart
 
 
 class MenuFixture:
-    """A tiny menu: perogies (kitchen), coffee/tea (bar), breakfast with a free drink, and a pay-per-pick drink."""
+    """
+    A small menu: a burger (kitchen) with adjustable parts, a patty-temperature option, a bun swap, an add-on
+    and a condiment; coffee (bar) with a size option; and a lunch combo (burger + a drink it asks for).
+    """
 
     @classmethod
     def build_menu(cls):
         cls.kitchen = Station.objects.get(code="kitchen")
         cls.bar = Station.objects.get(code="bar")
 
-        def component(title, inventory, option="buy"):
-            return Component.objects.create(title=title, unit_of_measurement="ea", type="food",
-                                            crafting_option=option, inventory=inventory)
+        def component(title, inventory, option="buy", extra_price="0"):
+            return Component.objects.create(title=title, unit_of_measurement="ea", type="food", crafting_option=option,
+                                            inventory=inventory, extra_price=Decimal(extra_price))
 
-        def dish(title, price, station, parts=()):
-            obj = Dish.objects.create(title=title, price=Decimal(price), station=station)
-            for comp, qty in parts:
-                DishComponent.objects.create(dish=obj, component=comp, quantity=qty)
-            return obj
+        cls.bun = component("Bun", 100)
+        cls.gf_bun = component("Gluten-free bun", 10)
+        cls.patty = component("Patty", 100, extra_price="4.00")
+        cls.onion = component("Onion", 100)
+        cls.avocado = component("Avocado", 20)
+        cls.ketchup = component("Ketchup packet", 100)
+        cls.shot = component("Espresso shot", 0, option="auto")
 
-        cls.perogy = component("Perogy", 100)
-        cls.coffee_shot = component("Coffee shot", 0, option="auto")
-        cls.perogies = dish("Perogies", "9.50", cls.kitchen, [(cls.perogy, 8)])
-        cls.coffee = dish("Coffee", "2.50", cls.bar, [(cls.coffee_shot, 1)])
-        cls.tea = dish("Tea", "2.00", cls.bar)
+        cls.burger = Dish.objects.create(title="Burger", price=Decimal("14.50"), station=cls.kitchen)
+        cls.dc_bun = DishComponent.objects.create(dish=cls.burger, component=cls.bun, quantity=1, adjustable=True)
+        cls.dc_patty = DishComponent.objects.create(dish=cls.burger, component=cls.patty, quantity=1, adjustable=True)
+        cls.dc_onion = DishComponent.objects.create(dish=cls.burger, component=cls.onion, quantity=1, adjustable=True)
+        temp = OptionGroup.objects.create(title="Temperature", component=cls.patty)
+        cls.medium = Option.objects.create(group=temp, title="Medium", is_default=True)
+        cls.well = Option.objects.create(group=temp, title="Well done")
+        cls.temp_key = f"{temp.id}.{cls.dc_patty.id}"
+        bun_group = OptionGroup.objects.create(title="Bun", component=cls.bun)
+        Option.objects.create(group=bun_group, title="Brioche", is_default=True)
+        cls.gf = Option.objects.create(group=bun_group, title="Gluten-free", price=Decimal("1.50"), component=cls.gf_bun)
+        cls.bun_key = f"{bun_group.id}.{cls.dc_bun.id}"
+        cls.avocado_addon = Extra.objects.create(dish=cls.burger, component=cls.avocado, kind=Extra.ADDON, price=Decimal("2.25"))
+        cls.ketchup_side = Extra.objects.create(dish=cls.burger, component=cls.ketchup, kind=Extra.CONDIMENT, title="Ketchup")
 
-        drink = component("Breakfast drink", 0)
-        drink.child_dishes.set([cls.coffee, cls.tea])
-        cls.breakfast = dish("Breakfast", "12.00", cls.kitchen, [(drink, 1)])
-        # Breakfast also needs perogies, so it isn't an "only choices" dish
-        DishComponent.objects.create(dish=cls.breakfast, component=cls.perogy, quantity=2)
+        cls.coffee = Dish.objects.create(title="Coffee", price=Decimal("2.50"), station=cls.bar)
+        DishComponent.objects.create(dish=cls.coffee, component=cls.shot, quantity=1)
+        size = OptionGroup.objects.create(title="Size", dish=cls.coffee)
+        Option.objects.create(group=size, title="Regular", is_default=True)
+        cls.large = Option.objects.create(group=size, title="Large", price=Decimal("0.60"), multiplier=2)
+        cls.size_key = str(size.id)
+        cls.tea = Dish.objects.create(title="Tea", price=Decimal("2.00"), station=cls.bar)
 
-        pick = component("Hot drink choice", 0)
-        pick.child_dishes.set([cls.coffee, cls.tea])
-        cls.hot_drink = dish("Hot drink", "0.00", cls.bar, [(pick, 1)])
+        cls.combo = Combo.objects.create(title="Lunch combo", price=Decimal("16.00"))
+        main = ComboSlot.objects.create(combo=cls.combo, title="Main", position=0)
+        ComboSlotOption.objects.create(slot=main, dish=cls.burger, is_default=True)
+        cls.drink = ComboSlot.objects.create(combo=cls.combo, title="Drink", position=1, ask_on_add=True,
+                                             allow_none=True, none_price=Decimal("-1.50"))
+        ComboSlotOption.objects.create(slot=cls.drink, dish=cls.coffee, is_default=True)
+        ComboSlotOption.objects.create(slot=cls.drink, dish=cls.tea, price=Decimal("0.50"))
 
         cls.menu = Menu.objects.create(title="Test menu", is_active=True)
-        cls.menu.dishes.set([cls.perogies, cls.coffee, cls.tea, cls.breakfast, cls.hot_drink])
+        cls.menu.dishes.set([cls.burger, cls.coffee, cls.tea])
+        cls.menu.combos.set([cls.combo])
 
     @staticmethod
-    def item(dish, parent=None):
-        return {"pk": dish.id, **({"parent": parent.id} if parent else {})}
+    def dish(dish, qty=1, cust=None, discount=None):
+        return {"type": "dish", "id": dish.id, "qty": qty, "cust": cust or {}, **({"discount": discount} if discount else {})}
+
+    @classmethod
+    def lunch(cls, drink=None, qty=1, **extra):
+        drink = drink or cls.coffee
+        return {"type": "combo", "id": cls.combo.id, "qty": qty, "slots": {str(cls.drink.id): {"dish": drink.id}}, **extra}
 
 
 class PricingTests(MenuFixture, TestCase):
@@ -67,41 +99,144 @@ class PricingTests(MenuFixture, TestCase):
         cls.build_menu()
 
     def test_plain_dishes_are_priced_from_the_database(self):
-        counts, total = price_cart([self.item(self.perogies), self.item(self.perogies), self.item(self.coffee)])
-        self.assertEqual(total, Decimal("21.50"))
-        self.assertEqual(counts[self.perogies], 2)
+        cart = price_cart([self.dish(self.burger, 2), self.dish(self.coffee)])
+        self.assertEqual(cart.subtotal, Decimal("31.50"))
+        self.assertEqual(cart.total, Decimal("31.50"))
 
-    def test_choice_child_is_free_with_its_parent(self):
-        counts, total = price_cart([self.item(self.breakfast), self.item(self.tea, parent=self.breakfast)])
-        self.assertEqual(total, Decimal("12.00"))
-        self.assertEqual(counts[self.tea], 1)
+    def test_extra_portions_cost_the_component_extra_price(self):
+        cart = price_cart([self.dish(self.burger, cust={"parts": {str(self.dc_patty.id): 2, str(self.dc_onion.id): 0}})])
+        self.assertEqual(cart.subtotal, Decimal("18.50"))
+        self.assertEqual(cart.lines[0].picks[0].mods, ["2× patty", "No onion"])
 
-    def test_only_choice_dish_charges_the_pick_and_is_not_prepared(self):
-        counts, total = price_cart([self.item(self.hot_drink), self.item(self.coffee, parent=self.hot_drink)])
-        self.assertEqual(total, Decimal("2.50"))
-        self.assertNotIn(self.hot_drink, counts)
+    def test_options_addons_condiments_and_allergies(self):
+        cust = {"options": {self.temp_key: self.well.id, self.bun_key: self.gf.id}, "addons": [self.avocado_addon.id],
+                "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Milk"], "note": "Cut in half"}
+        cart = price_cart([self.dish(self.burger, cust=cust)])
+        self.assertEqual(cart.subtotal, Decimal("18.25"))  # 14.50 + 1.50 bun + 2.25 avocado
+        picked = cart.lines[0].picks[0]
+        self.assertEqual(picked.mods, ["Gluten-free", "Well done", "+ Avocado", "2× Ketchup", "Allergy: milk"])
+        self.assertEqual(picked.note, "Cut in half")
+        # The swapped bun is what gets used
+        self.assertEqual(picked.use[self.gf_bun.id], 1)
+        self.assertNotIn(self.bun.id, picked.use)
 
-    def test_free_picks_are_limited(self):
+    def test_options_of_a_removed_part_are_ignored(self):
+        cart = price_cart([self.dish(self.burger, cust={"parts": {str(self.dc_bun.id): 0}, "options": {self.bun_key: self.gf.id}})])
+        self.assertEqual(cart.subtotal, Decimal("14.50"))
+
+    def test_size_scales_what_is_used(self):
+        cart = price_cart([self.dish(self.coffee, cust={"options": {self.size_key: self.large.id}})])
+        self.assertEqual(cart.subtotal, Decimal("3.10"))
+        self.assertEqual(cart.lines[0].picks[0].use[self.shot.id], 2)
+
+    def test_invalid_customizations_are_refused(self):
+        for cust in ({"parts": {str(self.dc_patty.id): 9}}, {"options": {self.temp_key: self.gf.id}},
+                     {"addons": [self.ketchup_side.id]}, {"allergies": ["Glitter"]}):
+            with self.assertRaises(OrderError, msg=cust):
+                price_cart([self.dish(self.burger, cust=cust)])
+
+    def test_combo_price_with_swaps(self):
+        cart = price_cart([self.lunch(self.tea)])
+        self.assertEqual(cart.subtotal, Decimal("16.50"))
+        self.assertEqual([p.dish for p in cart.lines[0].picks], [self.burger, self.tea])
+
+    def test_combo_slot_can_be_left_out(self):
+        line = self.lunch()
+        line["slots"][str(self.drink.id)] = {"dish": None}
+        cart = price_cart([line])
+        self.assertEqual(cart.subtotal, Decimal("14.50"))
+        self.assertEqual(len(cart.lines[0].picks), 1)
+
+    def test_combo_must_ask_its_question(self):
         with self.assertRaises(OrderError):
-            price_cart([self.item(self.breakfast), self.item(self.tea, parent=self.breakfast),
-                        self.item(self.coffee, parent=self.breakfast)])
+            price_cart([{"type": "combo", "id": self.combo.id, "qty": 1, "slots": {}}])
 
-    def test_free_pick_needs_its_parent_in_the_cart(self):
+    def test_combo_pick_must_be_an_option(self):
+        line = self.lunch()
+        line["slots"][str(self.drink.id)] = {"dish": self.burger.id}
         with self.assertRaises(OrderError):
-            price_cart([self.item(self.tea, parent=self.breakfast)])
-
-    def test_child_must_be_an_option_of_the_parent(self):
-        with self.assertRaises(OrderError):
-            price_cart([self.item(self.breakfast), self.item(self.perogies, parent=self.breakfast)])
+            price_cart([line])
 
     def test_out_of_stock_dish_is_rejected(self):
         Dish.objects.filter(pk=self.tea.pk).update(in_stock=False)
         with self.assertRaises(OrderError):
-            price_cart([self.item(self.tea)])
-
-    def test_unknown_dish_is_rejected(self):
+            price_cart([self.dish(self.tea)])
         with self.assertRaises(OrderError):
-            price_cart([{"pk": 999999}])
+            price_cart([self.lunch(self.tea)])
+
+    def test_unknown_items_are_rejected(self):
+        with self.assertRaises(OrderError):
+            price_cart([{"type": "dish", "id": 999999, "qty": 1}])
+        with self.assertRaises(OrderError):
+            price_cart([{"type": "dish", "id": self.tea.id, "qty": 0}])
+
+    @override_settings(TAX_RATE="0.05")
+    def test_tax_is_charged_after_discounts(self):
+        cart = price_cart([self.dish(self.burger)], order_discount={"manual": {"kind": "amt", "value": "4.50"}}, can_manual=True)
+        self.assertEqual(cart.tax, Decimal("0.50"))
+        self.assertEqual(cart.total, Decimal("10.50"))
+
+
+class DiscountTests(MenuFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.student = Discount.objects.create(name="Student", kind="pct", value=Decimal("15"))
+        cls.coupon = Discount.objects.create(name="Welcome", kind="amt", value=Decimal("5"), scope="order", code="welcome",
+                                             online=True, max_uses=1)
+
+    def test_item_and_order_discounts(self):
+        cart = price_cart([self.dish(self.burger, 2, discount={"offer": self.student.id}), self.dish(self.coffee)],
+                          order_discount={"code": "WELCOME"})
+        self.assertEqual(cart.lines[0].discount.amount, Decimal("4.35"))  # 15% of 29.00
+        self.assertEqual(cart.order_discount.amount, Decimal("5.00"))
+        self.assertEqual(cart.total, Decimal("31.50") - Decimal("9.35"))
+
+    def test_codes_are_case_insensitive_and_checked(self):
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.burger)], order_discount={"code": "NOPE"})
+        with self.assertRaises(OrderError):  # an order coupon can't go on one item
+            price_cart([self.dish(self.burger, discount={"code": "welcome"})])
+
+    def test_manual_discounts_need_permission(self):
+        spec = {"manual": {"kind": "pct", "value": "10"}}
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.burger)], order_discount=spec)
+        self.assertEqual(price_cart([self.dish(self.burger)], order_discount=spec, can_manual=True).discount, Decimal("1.45"))
+
+    def test_conditions(self):
+        happy = Discount.objects.create(name="Happy hour", kind="pct", value=Decimal("10"), weekdays="12345",
+                                        start_time=datetime.time(14), end_time=datetime.time(17), min_items=2)
+        tz = timezone.get_current_timezone()
+        tuesday_3pm = datetime.datetime(2026, 10, 13, 15, 0, tzinfo=tz)
+        lines = [self.dish(self.burger), self.dish(self.coffee)]
+        self.assertEqual(price_cart(lines, order_discount={"offer": happy.id}, now=tuesday_3pm).discount, Decimal("1.70"))
+        for when, cart_lines in ((tuesday_3pm.replace(hour=18), lines), (tuesday_3pm + datetime.timedelta(days=5), lines),
+                                 (tuesday_3pm, lines[:1])):
+            with self.assertRaises(OrderError):
+                price_cart(cart_lines, order_discount={"offer": happy.id}, now=when)
+
+    def test_item_discount_limited_to_some_dishes(self):
+        self.student.dishes.set([self.coffee])
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.burger, discount={"offer": self.student.id})])
+
+    def test_lenient_quote_reports_instead_of_failing(self):
+        cart = price_cart([self.dish(self.burger)], order_discount={"code": "NOPE"}, strict=False)
+        self.assertEqual(cart.discount, 0)
+        self.assertEqual(cart.order_discount_error, "That code isn't valid.")
+
+    def test_use_is_counted_and_limited(self):
+        create_order(lines=[self.dish(self.burger)], channel="web", initial_status=0, order_discount={"code": "welcome"})
+        self.coupon.refresh_from_db()
+        self.assertEqual(self.coupon.times_used, 1)
+        with self.assertRaises(OrderError):
+            create_order(lines=[self.dish(self.burger)], channel="web", initial_status=0, order_discount={"code": "welcome"})
+
+    def test_register_only_coupons_are_refused_online(self):
+        Discount.objects.create(name="Staff", kind="pct", value=Decimal("50"), code="STAFF")
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.burger)], order_discount={"code": "STAFF"}, channel="web")
 
 
 class CreateOrderTests(MenuFixture, TestCase):
@@ -109,61 +244,85 @@ class CreateOrderTests(MenuFixture, TestCase):
     def setUpTestData(cls):
         cls.build_menu()
 
-    def test_pos_order_creates_rows_and_statuses(self):
-        order = create_order(items=[self.item(self.perogies), self.item(self.perogies), self.item(self.coffee)],
-                             channel="store", initial_status=OrderStation.STATUS_APPROVED, name="Olena")
-        self.assertEqual(order.total, Decimal("21.50"))
+    def test_order_rows_and_statuses(self):
+        cust = {"parts": {str(self.dc_onion.id): 0}, "note": "Extra crispy"}
+        order = create_order(lines=[self.dish(self.burger, 2, cust=cust), self.lunch(self.tea)], channel="store",
+                             initial_status=OrderStation.STATUS_APPROVED, name="Olena")
+        self.assertEqual(order.total, Decimal("45.50"))
         self.assertFalse(order.picked_up)
         self.assertEqual(order.station_status_map(), {"kitchen": 1, "bar": 1})
-        self.assertEqual(order.orderdish_set.get(dish=self.perogies).quantity, 2)
+        burger = order.items.get(dish=self.burger, parent=None)
+        self.assertEqual((burger.quantity, burger.mods, burger.note), (2, ["No onion"], "Extra crispy"))
+        combo = order.items.get(combo=self.combo)
+        self.assertEqual([(c.title, c.slot) for c in combo.children.all()], [("Burger", "Main"), ("Tea", "Drink")])
 
-    def test_stock_is_taken_per_quantity(self):
-        create_order(items=[self.item(self.perogies)] * 3, channel="store", initial_status=OrderStation.STATUS_APPROVED)
-        self.perogy.refresh_from_db()
-        self.assertEqual(self.perogy.inventory, 100 - 3 * 8)
+    def test_stock_follows_customizations(self):
+        cust = {"parts": {str(self.dc_patty.id): 2}, "options": {self.bun_key: self.gf.id}}
+        create_order(lines=[self.dish(self.burger, 3, cust=cust)], channel="store", initial_status=1)
+        for component, left in ((self.patty, 94), (self.gf_bun, 7), (self.bun, 100), (self.onion, 97)):
+            component.refresh_from_db()
+            self.assertEqual(component.inventory, left, component.title)
 
     def test_dish_goes_out_of_stock_when_component_runs_low(self):
-        create_order(items=[self.item(self.perogies)] * 12, channel="store", initial_status=OrderStation.STATUS_APPROVED)
-        self.perogies.refresh_from_db()
-        self.assertFalse(self.perogies.in_stock)  # 4 perogies left, the dish needs 8
+        create_order(lines=[self.dish(self.burger, 5, cust={"options": {self.bun_key: self.gf.id}}),
+                            self.dish(self.burger, 5, cust={"options": {self.bun_key: self.gf.id}})],
+                     channel="store", initial_status=1)
+        self.gf.refresh_from_db()
+        self.assertFalse(self.gf.available)
+        self.assertTrue(Dish.objects.get(pk=self.burger.pk).in_stock)  # the standard bun is still there
+
+    def test_adding_a_missing_component_takes_a_dish_out_of_stock(self):
+        empty = Component.objects.create(title="Empty", unit_of_measurement="ea", type="food", inventory=0)
+        DishComponent.objects.create(dish=self.tea, component=empty, quantity=1)
+        self.assertFalse(Dish.objects.get(pk=self.tea.pk).in_stock)
 
     def test_self_crafting_component_never_blocks_its_dish(self):
-        create_order(items=[self.item(self.coffee)] * 5, channel="store", initial_status=OrderStation.STATUS_APPROVED)
-        self.coffee.refresh_from_db()
-        self.assertTrue(self.coffee.in_stock)
+        create_order(lines=[self.dish(self.coffee, 5)], channel="store", initial_status=1)
+        self.assertTrue(Dish.objects.get(pk=self.coffee.pk).in_stock)
 
-    def test_discount(self):
-        order = create_order(items=[self.item(self.perogies)], channel="store", initial_status=1,
-                             discount_amount="1.50", discount_percent="10")
-        self.assertEqual(order.total, Decimal("7.05"))  # 9.50 - 1.50 - 0.95
-        self.assertEqual(order.discount, Decimal("2.45"))
+    def test_register_payments_must_add_up(self):
+        drawer = CashDrawerSession.objects.create(opening_amount=Decimal("100"))
+        with self.assertRaises(OrderError):
+            create_order(lines=[self.dish(self.tea)], channel="store", initial_status=1, drawer=drawer,
+                         payments=[{"method": "cash", "amount": "1.00"}])
+        with self.assertRaises(OrderError):  # cash needs an open drawer
+            create_order(lines=[self.dish(self.tea)], channel="store", initial_status=1,
+                         payments=[{"method": "cash", "amount": "2.00"}])
+        order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=1, drawer=drawer,
+                             payments=[{"method": "cash", "amount": "2.00", "tendered": "5.00"}])
+        self.assertEqual(order.payments.get().change, Decimal("3.00"))
+
+    def test_expected_total_must_match(self):
+        with self.assertRaises(OrderError):
+            create_order(lines=[self.dish(self.tea)], channel="store", initial_status=1, expected_total="1.00")
 
     def test_gift_card_partial_payment_with_cents(self):
         card = GiftCard.objects.create(available_balance=Decimal("10.00"))
-        order = create_order(items=[self.item(self.perogies)], channel="store", initial_status=1,
+        order = create_order(lines=[self.dish(self.burger)], channel="store", initial_status=1,
                              gift_card_payments=[(card.number, 3.5)])
         card.refresh_from_db()
         self.assertEqual(card.available_balance, Decimal("6.50"))
         self.assertEqual(GiftCardAuthorization.objects.get(order=order).charged_balance, Decimal("3.50"))
+        self.assertEqual(order.payments.get().method, OrderPayment.GIFT)
 
     def test_failed_order_rolls_everything_back(self):
         card = GiftCard.objects.create(available_balance=Decimal("1.00"))
         with self.assertRaises(OrderError):
-            create_order(items=[self.item(self.perogies)], channel="store", initial_status=1,
+            create_order(lines=[self.dish(self.burger)], channel="store", initial_status=1,
                          gift_card_payments=[(card.number, "5.00")])
         self.assertFalse(Order.objects.exists())
-        self.perogy.refresh_from_db()
-        self.assertEqual(self.perogy.inventory, 100)
+        self.patty.refresh_from_db()
+        self.assertEqual(self.patty.inventory, 100)
 
     def test_payment_check_can_block_the_order(self):
         def unpaid(remaining):
             raise OrderError("unpaid")
         with self.assertRaises(OrderError):
-            create_order(items=[self.item(self.tea)], channel="web", initial_status=0, verify_payment=unpaid)
+            create_order(lines=[self.dish(self.tea)], channel="web", initial_status=0, verify_payment=unpaid)
         self.assertFalse(Order.objects.exists())
 
     def test_prep_time_set_when_last_station_finishes(self):
-        order = create_order(items=[self.item(self.perogies), self.item(self.tea)], channel="store", initial_status=1)
+        order = create_order(lines=[self.dish(self.burger), self.dish(self.tea)], channel="store", initial_status=1)
         order.set_station_status(["kitchen"], OrderStation.STATUS_DONE)
         self.assertIsNone(Order.objects.get(pk=order.pk).prep_time)
         order.set_station_status(["bar"], OrderStation.STATUS_DONE)
@@ -175,7 +334,7 @@ class CreateOrderTests(MenuFixture, TestCase):
         handler = lambda sender, order, **kw: received.append(order.pk)
         order_ready.connect(handler)
         try:
-            order = create_order(items=[self.item(self.perogies), self.item(self.tea)], channel="store", initial_status=1)
+            order = create_order(lines=[self.dish(self.burger), self.dish(self.tea)], channel="store", initial_status=1)
             order.set_station_status(["kitchen"], OrderStation.STATUS_DONE)
             order.set_station_status(["bar"], OrderStation.STATUS_DONE)
             order.set_station_status(["bar"], OrderStation.STATUS_DONE)
@@ -205,19 +364,22 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         self.url = reverse("order_marking")
 
     def online_order(self, **fields):
-        return create_order(items=[self.item(self.perogies), self.item(self.tea)], channel="web",
+        return create_order(lines=[self.dish(self.burger), self.dish(self.tea)], channel="web",
                             initial_status=OrderStation.STATUS_PENDING, **fields)
 
     def send(self, method, body):
         return getattr(self.client, method)(self.url, json.dumps(body), content_type="application/json")
 
-    def test_screen_lists_orders_for_its_stations(self):
-        self.online_order()
-        response = self.client.get(self.url, {"filter": "bar"})
+    def test_screen_lists_orders_for_its_stations_with_their_customizations(self):
+        create_order(lines=[self.lunch(), self.dish(self.burger, cust={"parts": {str(self.dc_onion.id): 0}})],
+                     channel="store", initial_status=1)
+        response = self.client.get(self.url, {"filter": "kitchen"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.context["orders"]), 1)
-        response = self.client.get(self.url, {"filter": "gng"})
-        self.assertEqual(len(response.context["orders"]), 0)
+        dishes = response.context["orders"][0]["dishes"]
+        self.assertIn({"name": "Burger", "quantity": 1, "station": "kitchen", "mods": [], "note": "",
+                       "combo": "Lunch combo", "slot": "Main"}, dishes)
+        self.assertIn(["No onion"], [d["mods"] for d in dishes])
+        self.assertEqual(len(self.client.get(self.url, {"filter": "gng"}).context["orders"]), 0)
 
     def test_approve_done_pickup(self):
         order = self.online_order()
@@ -236,8 +398,8 @@ class KitchenDisplayTests(MenuFixture, TestCase):
 
     @mock.patch("payments.square.capture_authorization")
     def test_payment_captured_once_every_station_approves(self, capture):
-        transaction = Transaction.objects.create(amount=Decimal("11.50"), successful=True)
-        auth = PaymentAuthorization.objects.create(payment_id="p1", amount=1150, currency="CAD", transaction=transaction)
+        transaction = Transaction.objects.create(amount=Decimal("16.50"), successful=True)
+        auth = PaymentAuthorization.objects.create(payment_id="p1", amount=1650, currency="CAD", transaction=transaction)
         order = self.online_order(authorization=auth)
         self.send("post", {"orderId": order.id, "action": "approve", "filters": ["kitchen"]})
         capture.assert_not_called()
@@ -261,8 +423,8 @@ class KitchenDisplayTests(MenuFixture, TestCase):
 
     @mock.patch("payments.square.void_authorization", side_effect=Exception("Square down"))
     def test_reject_keeps_order_if_refund_fails(self, void):
-        transaction = Transaction.objects.create(amount=Decimal("11.50"), successful=True)
-        auth = PaymentAuthorization.objects.create(payment_id="p3", amount=1150, currency="CAD", transaction=transaction)
+        transaction = Transaction.objects.create(amount=Decimal("16.50"), successful=True)
+        auth = PaymentAuthorization.objects.create(payment_id="p3", amount=1650, currency="CAD", transaction=transaction)
         order = self.online_order(authorization=auth)
         response = self.send("post", {"orderId": order.id, "action": "delete", "filters": ["kitchen"], "rejection": {"reasons": ["no-containers"]}})
         self.assertEqual(response.status_code, 502)
@@ -270,28 +432,116 @@ class KitchenDisplayTests(MenuFixture, TestCase):
 
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
-class PosRegisterTests(MenuFixture, TestCase):
+class RegisterTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
-        cls.staff = User.objects.create_user("cashier", password="x", is_staff=True)
+        cls.staff = User.objects.create_user("cashier", password="x", is_staff=True, first_name="Dana")
+        cls.offer = Discount.objects.create(name="Student", kind="pct", value=Decimal("10"))
 
-    def test_register_creates_an_approved_order(self):
+    def setUp(self):
         self.client.force_login(self.staff)
-        cart = {"items": [self.item(self.breakfast), self.item(self.coffee, parent=self.breakfast)],
-                "partialPayments": [], "discounts": {"amount": 0, "percent": 0}}
-        response = self.client.post(reverse("pos"), json.dumps({"cart": cart, "instructions": "", "toGo": False, "name": "Taras"}),
-                                    content_type="application/json")
+
+    def post(self, name, body):
+        return self.client.post(reverse(name), json.dumps(body), content_type="application/json")
+
+    def test_page_and_catalog(self):
+        response = self.client.get(reverse("pos"))
         self.assertEqual(response.status_code, 200)
-        order = Order.objects.get()
-        self.assertEqual(order.total, Decimal("12.00"))
-        self.assertEqual(order.station_status_map(), {"kitchen": 1, "bar": 1})
+        catalog = self.client.get(reverse("register_catalog")).json()
+        self.assertEqual({i["title"] for i in catalog["items"]}, {"Burger", "Coffee", "Tea", "Lunch combo"})
+        self.assertEqual(next(i for i in catalog["items"] if i["type"] == "combo")["ask"], "Choose a drink")
+        kit = catalog["dishes"][str(self.burger.id)]["kit"]
+        self.assertEqual([p["title"] for p in kit["parts"]], ["Bun", "Patty", "Onion"])
+        self.assertEqual({g["title"] for g in kit["groups"]}, {"Temperature", "Bun"})
 
-    def test_register_reports_order_errors(self):
-        self.client.force_login(self.staff)
-        cart = {"items": [{"pk": 424242}], "partialPayments": []}
-        response = self.client.post(reverse("pos"), json.dumps({"cart": cart, "name": ""}), content_type="application/json")
-        self.assertEqual(response.status_code, 400)
+    def test_quote(self):
+        data = self.post("register_quote", {"lines": [self.dish(self.burger, discount={"offer": self.offer.id}), self.lunch()],
+                                            "orderDiscount": {"code": "NOPE"}}).json()
+        self.assertEqual((data["subtotal"], data["discount"], data["total"]), (3050, 145, 2905))
+        self.assertEqual(data["orderDiscountError"], "That code isn't valid.")
+        self.assertEqual(self.post("register_quote", {"lines": [{"type": "dish", "id": 0}]}).status_code, 400)
+
+    def test_cash_sale_needs_an_open_drawer(self):
+        body = {"lines": [self.dish(self.burger)], "payments": [{"method": "cash", "amount": "14.50", "tendered": "20.00"}],
+                "total": "14.50", "name": "Taras", "toGo": True}
+        self.assertEqual(self.post("pos", body).status_code, 400)
+        self.post("cash_drawer", {"action": "open", "amount": "200.00"})
+        response = self.post("pos", body)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["change"], 550)
+        order = Order.objects.get()
+        self.assertEqual((order.cashier, order.name, order.to_go_order), (self.staff, "Taras", True))
+
+    def test_split_payment_with_a_gift_card(self):
+        card = GiftCard.objects.create(available_balance=Decimal("5.00"))
+        response = self.post("pos", {"lines": [self.dish(self.burger)], "total": "14.50", "payments": [
+            {"method": "gift", "number": card.number, "amount": "5.00"}, {"method": "card", "amount": "9.50"}]})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(sorted(Order.objects.get().payments.values_list("method", flat=True)), ["card", "gift"])
+
+    def test_manual_discount_needs_the_permission(self):
+        body = {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": {"kind": "amt", "value": "1.00"}},
+                "total": "1.00", "payments": [{"method": "card", "amount": "1.00"}]}
+        self.assertEqual(self.post("pos", body).status_code, 400)
+        self.staff.user_permissions.add(Permission.objects.get(codename="apply_manual_discount"))
+        self.assertEqual(self.post("pos", body).status_code, 200)
+
+    @mock.patch("payments.square.gather_terminal_checkout")
+    def test_card_checkout_checks_the_cart_first(self, checkout):
+        checkout.return_value = mock.Mock(is_success=lambda: True, body={"checkout": {"id": "c1", "status": "PENDING"}})
+        body = {"lines": [self.dish(self.burger)], "total": "14.50", "amount": "14.50", "payments": []}
+        self.assertEqual(self.post("register_card", {**body, "total": "9.00"}).status_code, 400)
+        self.assertEqual(self.post("register_card", {**body, "amount": "20.00"}).status_code, 400)
+        checkout.assert_not_called()
+        self.assertEqual(self.post("register_card", body).json()["checkoutId"], "c1")
+
+    def test_drawer_open_move_close(self):
+        self.assertEqual(self.client.get(reverse("cash_drawer")).status_code, 200)
+        self.post("cash_drawer", {"action": "open", "amount": "200.00"})
+        self.assertEqual(self.post("cash_drawer", {"action": "open", "amount": "1"}).status_code, 409)
+        self.post("pos", {"lines": [self.dish(self.burger)], "total": "14.50", "payments": [{"method": "cash", "amount": "14.50"}]})
+        self.post("cash_drawer", {"action": "move", "amount": "-10.00", "reason": "Ice"})
+        closed = self.post("cash_drawer", {"action": "close", "counted": "200.00"}).json()["closed"]
+        self.assertEqual((closed["cashSales"], closed["paidOut"], closed["expected"]), (1450, 1000, 20450))
+        drawer = CashDrawerSession.objects.get()
+        self.assertEqual(drawer.difference, Decimal("-4.50"))
+        self.assertFalse(drawer.is_open)
+
+
+@override_settings(ENFORCE_DEVICE_CHECK=False)
+class LockScreenTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana")
+        self.staff = Staff.objects.create(user=self.user)
+        self.staff.set_pin("1234")
+        self.staff.save()
+
+    def unlock(self, pin):
+        return self.client.post(reverse("register_lock"), json.dumps({"staff": self.staff.id, "pin": pin}),
+                                content_type="application/json")
+
+    def test_pin_signs_in_and_lock_signs_out(self):
+        page = self.client.get(reverse("register_lock"))
+        self.assertEqual(page.context["staff"], [{"id": self.staff.id, "name": "Dana"}])
+        self.assertNotEqual(self.staff.pin, "1234")  # stored hashed
+        self.assertEqual(self.unlock("1111").status_code, 403)
+        response = self.unlock("1234")
+        self.assertEqual(response.json()["name"], "Dana")
+        self.assertEqual(self.client.get(reverse("pos")).status_code, 200)
+        self.client.post(reverse("register_lock"), {"action": "lock"})
+        self.assertRedirects(self.client.get(reverse("pos")), f'{reverse("register_lock")}?next=%2Fen%2Frestaurant%2Fregister',
+                             fetch_redirect_response=False)
+
+    def test_wrong_pins_lock_the_person_out(self):
+        for _ in range(5):
+            self.unlock("0000")
+        self.assertEqual(self.unlock("1234").status_code, 429)
+
+    def test_customers_cannot_use_a_pin(self):
+        self.user.is_staff = False
+        self.user.save()
+        self.assertEqual(self.unlock("1234").status_code, 403)
 
 
 class ActiveOrdersFeedTests(MenuFixture, TestCase):
@@ -300,12 +550,14 @@ class ActiveOrdersFeedTests(MenuFixture, TestCase):
         cls.build_menu()
 
     def test_anonymous_feed_is_redacted(self):
-        create_order(items=[self.item(self.tea)], channel="web", initial_status=0, phone=6045550100, name="Iryna")
+        create_order(lines=[self.dish(self.tea)], channel="web", initial_status=0, phone=6045550100, name="Iryna")
         data = self.client.get(reverse("active_orders")).json()
         self.assertEqual(data[0]["name"], "Iryna")
         self.assertNotIn("phone", data[0])
         self.assertNotIn("payment_id", data[0])
+        self.assertNotIn("lines", data[0])
         self.assertEqual(data[0]["stations"], {"bar": 0})
+        self.assertEqual(data[0]["dishes"], [{"name": "Tea", "quantity": 1}])
 
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
@@ -319,7 +571,7 @@ class AccessTests(MenuFixture, TestCase):
 
     def test_customer_cannot_reach_staff_pages(self):
         self.client.force_login(self.customer)
-        for name, kwargs in [("pos", {}), ("order_marking", {}), ("pos_output", {}), ("create_menu", {}),
+        for name, kwargs in [("pos", {}), ("cash_drawer", {}), ("order_marking", {}), ("pos_output", {}), ("create_menu", {}),
                              ("component_availability", {}), ("crafting", {}), ("utils_get_image_colors", {}),
                              ("admin-menus-list", {}), ("admin-menu-instance", {"id": self.menu.id}),
                              ("admin-dashboard-history", {})]:
@@ -328,9 +580,11 @@ class AccessTests(MenuFixture, TestCase):
 
     def test_customer_cannot_use_staff_apis(self):
         self.client.force_login(self.customer)
-        self.assertEqual(self.client.get(reverse("check_inventory")).status_code, 403)
-        response = self.client.post(reverse("check_su"), json.dumps({"username": "a", "password": "b"}), content_type="application/json")
-        self.assertEqual(response.status_code, 403)
+        for name in ("register_catalog",):
+            self.assertEqual(self.client.get(reverse(name), HTTP_ACCEPT="application/json").status_code, 401, name)
+        for name in ("register_quote", "register_card", "pos"):
+            response = self.client.post(reverse(name), "{}", content_type="application/json", HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 401, name)
 
 
 class SeedDemoTests(TestCase):
@@ -342,4 +596,6 @@ class SeedDemoTests(TestCase):
         with self.settings(MEDIA_ROOT=__import__("tempfile").mkdtemp()):
             call_command("seed_demo", allow_production=True, stdout=StringIO())
         self.assertTrue(Order.objects.filter(channel="delivery").exists())
-        self.assertEqual(Menu.active().title, "Sunday brunch")
+        self.assertEqual(Menu.active().title, "Lunch")
+        self.assertTrue(Order.objects.filter(items__children__isnull=False).exists())  # a combo was sold
+        self.assertTrue(Staff.objects.get(user__username="cashier").check_pin("1234"))

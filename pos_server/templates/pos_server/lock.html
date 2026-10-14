@@ -1,0 +1,73 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Locked" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block body %}
+<section class="lock-status" aria-label="{% trans 'Register status' %}">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">Pavilion</div>
+    </div>
+
+    <div class="lock-center">
+        <div class="overline on-dark" id="today"></div>
+        <div class="clock"><span id="clock-time"></span><span class="ampm" id="clock-ampm"></span></div>
+        <div class="lock-facts">
+            <div class="locked-pill">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                {% blocktrans with name=device_name %}{{ name }} is locked{% endblocktrans %}
+            </div>
+            <div class="lock-line">
+                {% if drawer %}{% blocktrans with amount=drawer.opening_amount|floatformat:2 %}Drawer open · ${{ amount }}{% endblocktrans %}{% else %}{% trans "Drawer closed" %}{% endif %}{% if last_sale %} · {% blocktrans with time=last_sale|time:"g:i A" %}Last sale at {{ time }}{% endblocktrans %}{% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<aside class="lock-panel" aria-label="{% trans 'Sign in' %}">
+    <div class="lock-view rise" id="signin">
+        <div class="overline">{% trans "Sign in" %}</div>
+        <h1 class="h1 lock-title">{% trans "Who's at the register?" %}</h1>
+
+        {% if staff %}
+        <div role="group" aria-label="{% trans 'Staff' %}" class="staff-list" id="staff"></div>
+        <div class="pin-prompt" id="prompt"></div>
+        <div class="dots" role="img" id="dots"></div>
+        <div class="pin-error" role="alert" id="pin-error"></div>
+        <div class="keypad lock-keys" id="keys"></div>
+        {% else %}
+        <p class="no-pins">{% trans "No one has a register PIN yet. A manager can set PINs in the advanced admin (Users › Staff)." %}</p>
+        {% endif %}
+
+        <div class="grow"></div>
+        <div class="lock-foot">
+            <span>{% trans "Forgot your PIN? Ask a manager" %}</span>
+            <a href="{% url 'login_view' %}?next={{ next_url|urlencode }}">{% trans "Sign in with a password" %}</a>
+        </div>
+    </div>
+
+    <div class="lock-view welcome swap" id="welcome" hidden>
+        <div class="welcome-icon pop">
+            <svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+        </div>
+        <h2 class="h2" role="status" id="welcome-title"></h2>
+        <div class="welcome-text" id="welcome-text"></div>
+    </div>
+</aside>
+
+{{ staff|json_script:"lock-staff" }}
+{{ next_url|json_script:"lock-next" }}
+{{ device_name|json_script:"lock-device" }}
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'pos_server/lock.js' %}"></script>
+{% endblock %}

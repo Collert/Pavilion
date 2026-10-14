@@ -81,85 +81,187 @@ class Dish(models.Model):
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
     visible_in_menu = models.BooleanField(default=True)
 
+    class Meta:
+        verbose_name_plural = "dishes"
+
     def __str__(self) -> str:
         return self.title
-    
-    def check_if_only_choice_dish(self):
-        """
-        Checks whether the dish only consists of components that point to other dishes.
 
-        Returns:
-            bool: True if all components of the dish have child dishes, False otherwise.
-        """
-        if not self.components.all():
-            return False
-        for component in self.components.all():
-            if not component.child_dishes.all():
+    @property
+    def available(self) -> bool:
+        return self.in_stock or self.force_in_stock
+
+    def update_stock(self):
+        """In stock while every component can supply one (force_in_stock overrides it)."""
+        in_stock = all(dc.covers_one() for dc in self.dishcomponent_set.select_related("component"))
+        if in_stock != self.in_stock:
+            self.in_stock = in_stock
+            self.save(update_fields=["in_stock"])
+
+
+class Combo(models.Model):
+    """
+    A set of dishes sold together at one price, e.g. "Lunch combo" = burger + side + drink.
+
+    Each ComboSlot ("Main", "Side", "Drink") offers dishes to pick from, each with a price change; one of them
+    is the standard pick. Every picked dish is made at its own station, so a combo has no station itself. It
+    is listed in the menu section of its first slot's standard dish.
+    """
+    title = models.CharField(max_length=140)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    image = models.ImageField(upload_to='files/dish_images', null=True, blank=True)
+    description = models.TextField(blank=True)
+    menu = models.ManyToManyField("Menu", related_name="combos", blank=True)
+    visible_in_menu = models.BooleanField(default=True)
+
+    def __str__(self) -> str:
+        return self.title
+
+    def section_station(self):
+        """The station whose menu section lists this combo."""
+        slot = self.slots.first()
+        option = slot and (slot.default_option() or slot.options.first())
+        return option.dish.station if option else None
+
+    @property
+    def available(self) -> bool:
+        """Sellable while every slot has something to pick (or can be left out)."""
+        for slot in self.slots.all():
+            if not slot.allow_none and not any(option.dish.available for option in slot.options.all()):
                 return False
         return True
 
-    def serialize_with_options(self):
-        """
-        Serializes the dish object with its components and options.
 
-        Returns:
-            dict: A dictionary containing the serialized data of the dish, including:
-                - fields (dict): Contains the following keys:
-                    - title (str): The title of the dish.
-                    - price (float): The price of the dish.
-                    - image (str or None): The URL of the dish's image, or None if no image is available.
-                    - description (str): The description of the dish.
-                    - menu (int): The ID of the first menu associated with the dish.
-                    - station (str): The station associated with the dish.
-                    - in_stock (bool): Whether the dish is in stock.
-                    - force_in_stock (bool): Whether the dish is forced to be in stock.
-                    - choice_components (list): A list of dictionaries representing the components and their child dishes, each containing:
-                        - parent (dict): Contains the title and ID of the parent component.
-                        - children (list): A list of dictionaries representing the child dishes, each containing:
-                            - title (str): The title of the child dish.
-                            - id (int): The ID of the child dish.
-                            - in_stock (bool): Whether the child dish is in stock.
-                            - force_in_stock (bool): Whether the child dish is forced to be in stock.
-                    - only_choices (bool): Whether the dish is an only choice dish.
-                - model (str): The model name, which is "pos_server.dish".
-                - id (int): The ID of the dish.
-                - pk (int): The primary key of the dish (same as the ID).
-        """
-        choice_components = []
-        for component in self.components.all():
-            if component.child_dishes.all():
-                choices = {
-                    "parent":{
-                        "title":component.title,
-                        "id":component.id
-                    },
-                    "children":[]
-                }
-                for child in component.child_dishes.all():
-                    choices["children"].append({
-                        "title":child.title,
-                        "id":child.id,
-                        "in_stock":child.in_stock,
-                        "force_in_stock":child.force_in_stock
-                    })
-                choice_components.append(choices)
-        return {
-            "fields":{
-                "title":self.title,
-                "price":float(self.price),  # JS does arithmetic on it
-                "image":self.image.url if self.image else None,
-                "description":self.description,
-                "menu":self.menu.first().id if self.menu.exists() else None,
-                "station":self.station.code,
-                "in_stock":self.in_stock,
-                "force_in_stock":self.force_in_stock,
-                "choice_components":choice_components,
-                "only_choices":self.check_if_only_choice_dish()
-            },
-            "model":"pos_server.dish",
-            "id":self.id,
-            "pk":self.id
-        }
+class ComboSlot(models.Model):
+    """One part of a combo, e.g. "Drink". `ask_on_add` makes the register ask for it when the combo is added."""
+    combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="slots")
+    title = models.CharField(max_length=60, help_text="e.g. 'Main', 'Side', 'Drink'")
+    prompt = models.CharField(max_length=80, blank=True, help_text="Question asked when the combo is added, e.g. 'Choose a drink'")
+    ask_on_add = models.BooleanField(default=False, help_text="Ask for this pick when the combo is added")
+    allow_none = models.BooleanField(default=False, help_text="The customer may leave this part out")
+    none_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
+                                     help_text="Price change when left out, e.g. -1.50")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.combo}: {self.title}"
+
+    def default_option(self):
+        options = list(self.options.all())
+        return next((o for o in options if o.is_default), options[0] if options else None)
+
+
+class ComboSlotOption(models.Model):
+    """A dish that can fill a combo slot, and what picking it adds to (or takes off) the combo price."""
+    slot = models.ForeignKey(ComboSlot, on_delete=models.CASCADE, related_name="options")
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="combo_options")
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Price change, e.g. 0.50")
+    is_default = models.BooleanField(default=False, help_text="The standard pick")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.dish} in {self.slot}"
+
+
+class OptionGroup(models.Model):
+    """
+    A pick-one adjustment, e.g. "Patty temperature", "Milk" or "Size".
+
+    It belongs either to a Component (then every dish using that component offers it, and an option can swap
+    the component for another, e.g. oat milk) or to a Dish (e.g. "Size", or a salad's "Dressing").
+    A dish's customization sheet gathers the groups of the dish and of all its components.
+    """
+    title = models.CharField(max_length=80)
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="option_groups", null=True, blank=True)
+    component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="option_groups", null=True, blank=True)
+    note = models.CharField(max_length=80, blank=True, help_text="Shown next to the title, e.g. 'Cooked to order'")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [models.CheckConstraint(
+            condition=(models.Q(dish__isnull=True) & models.Q(component__isnull=False)) |
+                      (models.Q(dish__isnull=False) & models.Q(component__isnull=True)),
+            name="option_group_has_one_owner")]
+
+    def __str__(self):
+        return f"{self.title} ({self.dish or self.component.title})"
+
+    def default_option(self):
+        options = list(self.options.all())
+        return next((o for o in options if o.is_default), options[0] if options else None)
+
+
+class Option(models.Model):
+    """
+    One choice in an OptionGroup.
+
+    `component`: for a component's group, the component used *instead* (oat milk instead of whole milk); for a
+    dish's group, a component used *in addition* (`quantity` of it, e.g. a dressing).
+    `multiplier` scales how much is used: the group's component, or every component of the dish for a dish's
+    group (e.g. Large = 1.5).
+    """
+    group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, related_name="options")
+    title = models.CharField(max_length=80)
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Price change, e.g. 0.60")
+    component = models.ForeignKey("Component", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    quantity = models.FloatField(default=1, help_text="Amount of `component` used (dish groups only)")
+    multiplier = models.FloatField(default=1)
+    is_default = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.group.title}: {self.title}"
+
+    @property
+    def available(self) -> bool:
+        return self.component is None or self.component.in_stock
+
+
+class Extra(models.Model):
+    """
+    A component offered with a dish or combo: an add-on (charged, e.g. avocado or a syrup) or a condiment
+    (usually free, counted out "on the side", e.g. ketchup packets or napkins).
+    """
+    ADDON = "addon"
+    CONDIMENT = "condiment"
+    kinds = ((ADDON, "Add-on"), (CONDIMENT, "Condiment"))
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="extras", null=True, blank=True)
+    combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="extras", null=True, blank=True)
+    component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="extra_uses")
+    kind = models.CharField(max_length=10, choices=kinds)
+    title = models.CharField(max_length=80, blank=True, help_text="Defaults to the component's title")
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Charged for each one")
+    quantity = models.FloatField(default=1, help_text="Amount of the component used for each one")
+    max_count = models.PositiveSmallIntegerField(default=4, help_text="Condiments: how many can be asked for")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [models.CheckConstraint(
+            condition=(models.Q(dish__isnull=True) & models.Q(combo__isnull=False)) |
+                      (models.Q(dish__isnull=False) & models.Q(combo__isnull=True)),
+            name="extra_has_one_owner")]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.label} for {self.dish or self.combo}"
+
+    @property
+    def label(self):
+        return self.title or self.component.title
+
+    @property
+    def available(self) -> bool:
+        return self.component.in_stock
 
 class Order(models.Model):
     """
@@ -169,7 +271,8 @@ class Order(models.Model):
     (see OrderStation.STATUS_*). Stations without a row are not involved ("not required").
 
     `picked_up` defaults to True and is set False when any station is needed; the order is done once it
-    is True. `total` is computed on the server when the order is created (see pos_server.orders).
+    is True. The money fields are computed on the server when the order is created (see pos_server.orders):
+    total = subtotal - discount + tax.
     """
     order_channels = (
         ("store", "In-person"),
@@ -179,16 +282,19 @@ class Order(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(default=timezone.now)
     prep_time = models.DurationField(null=True, blank=True)
-    dishes = models.ManyToManyField(Dish, through="OrderDish")
     stations = models.ManyToManyField("Station", through="OrderStation", related_name="orders")
     name = models.CharField(null=True, max_length = 140, blank=True)
     picked_up = models.BooleanField(default=True)
     special_instructions = models.TextField(null=True, blank=True)
+    note_for_kitchen = models.BooleanField(default=True, help_text="Show special_instructions on kitchen screens")
     to_go_order = models.BooleanField(default=False)
-    total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="After discount")
+    subtotal = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Before discounts and tax")
     discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    tax = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="What the customer pays")
     channel = models.CharField(max_length=10, choices=order_channels)
     phone = models.PositiveBigIntegerField(null=True, blank=True)
+    cashier = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.SET_NULL, null=True, blank=True)
     gift_cards = models.ManyToManyField(GiftCard, through="gift_cards.GiftCardAuthorization", blank=True)
 
@@ -261,27 +367,178 @@ class Order(models.Model):
             return 2
         return 1
 
-class OrderDish(models.Model):
+class OrderItem(models.Model):
     """
-    OrderDish model represents the relationship between an order and a dish, 
-    including the quantity of the dish in the order.
-    Attributes:
-        order (ForeignKey): A reference to the Order model. When the referenced order is deleted, 
-                            the related OrderDish instances will also be deleted.
-        dish (ForeignKey): A reference to the Dish model. When the referenced dish is deleted, 
-                           the related OrderDish instances will also be deleted.
-        quantity (IntegerField): The quantity of the dish in the order. Defaults to 1.
-    Methods:
-        __str__(): Returns a string representation of the OrderDish instance, 
-                   showing the quantity of the dish and the order ID.
+    One line of an order: a dish or a combo, with its customizations.
+
+    A combo line has one child row per slot (the picked dish, `parent` set). Rows with a dish are what the
+    kitchen makes: they carry the station and `mods`, the customizations as readable lines ("No onion",
+    "Medium rare"). Prices live on top-level rows: `unit_price` includes customizations, `discount` is the
+    line discount for the whole line. Titles are copied so old orders still read right if the menu changes.
     """
-    order = models.ForeignKey(Order, on_delete = models.CASCADE)
-    dish = models.ForeignKey(Dish, on_delete = models.CASCADE)
-    quantity = models.IntegerField(default=1)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="children")
+    dish = models.ForeignKey(Dish, on_delete=models.SET_NULL, null=True, blank=True, related_name="order_items")
+    combo = models.ForeignKey(Combo, on_delete=models.SET_NULL, null=True, blank=True, related_name="order_items")
+    station = models.ForeignKey("Station", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    title = models.CharField(max_length=140)
+    slot = models.CharField(max_length=60, blank=True, help_text="Combo slot this dish fills, e.g. 'Drink'")
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    mods = models.JSONField(default=list, blank=True)
+    note = models.CharField(max_length=140, blank=True)
+    selection = models.JSONField(default=dict, blank=True, help_text="The validated choices, for records")
+
+    class Meta:
+        ordering = ["id"]
 
     def __str__(self) -> str:
-        return f"{self.quantity} X {self.dish.title} in order {self.order.id}"
-    
+        return f"{self.quantity} x {self.title} in order {self.order_id}"
+
+    @property
+    def gross(self) -> Decimal:
+        return self.unit_price * self.quantity
+
+    @property
+    def line_total(self) -> Decimal:
+        return self.gross - self.discount
+
+
+class OrderDiscount(models.Model):
+    """A discount applied to an order: to one line (`item`) or to the whole order."""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="discounts")
+    item = models.ForeignKey(OrderItem, on_delete=models.CASCADE, null=True, blank=True, related_name="discounts")
+    discount = models.ForeignKey("Discount", on_delete=models.SET_NULL, null=True, blank=True, related_name="uses")
+    label = models.CharField(max_length=80)
+    kind = models.CharField(max_length=3, choices=(("pct", "Percent"), ("amt", "Amount")))
+    value = models.DecimalField(max_digits=8, decimal_places=2)
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    applied_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    def __str__(self):
+        return f"{self.label} -{self.amount} on order {self.order_id}"
+
+
+class OrderPayment(models.Model):
+    """How (part of) an order was paid. Cash payments are tied to the drawer that took them."""
+    CASH, CARD, GIFT = "cash", "card", "gift"
+    methods = ((CASH, "Cash"), (CARD, "Card"), (GIFT, "Gift card"))
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="payments")
+    method = models.CharField(max_length=5, choices=methods)
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    tendered = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Cash handed over")
+    drawer = models.ForeignKey("CashDrawerSession", on_delete=models.SET_NULL, null=True, blank=True, related_name="payments")
+    gift_card = models.ForeignKey(GiftCard, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.get_method_display()} {self.amount} for order {self.order_id}"
+
+    @property
+    def change(self) -> Decimal:
+        return (self.tendered - self.amount) if self.tendered is not None else Decimal("0.00")
+
+
+class Discount(models.Model):
+    """
+    A percent or amount off one item or the whole order.
+
+    Without a `code` it is an *offer*, listed on the register. With a code it is a *coupon*: staff or online
+    customers type the code. The conditions below must all hold; blank means "no condition".
+    Manual (typed-in) discounts on the register don't use this model and need the
+    `pos_server.apply_manual_discount` permission.
+    """
+    PERCENT, AMOUNT = "pct", "amt"
+    kinds = ((PERCENT, "Percent off"), (AMOUNT, "Amount off"))
+    ITEM, ORDER, ANY = "item", "order", "any"
+    scopes = ((ITEM, "One item"), (ORDER, "Whole order"), (ANY, "Item or order"))
+
+    name = models.CharField(max_length=80)
+    note = models.CharField(max_length=120, blank=True, help_text="Shown under the name, e.g. 'Weekdays, 2 to 5 pm'")
+    kind = models.CharField(max_length=3, choices=kinds, default=PERCENT)
+    value = models.DecimalField(max_digits=8, decimal_places=2, help_text="Percent (10 = 10%) or dollar amount")
+    scope = models.CharField(max_length=5, choices=scopes, default=ANY)
+    code = models.CharField(max_length=40, unique=True, null=True, blank=True,
+                            help_text="Coupon code. Leave blank for an offer listed on the register.")
+    active = models.BooleanField(default=True)
+    on_register = models.BooleanField(default=True, help_text="Usable on the register")
+    online = models.BooleanField(default=False, help_text="Coupon usable in the online store")
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    weekdays = models.CharField(max_length=7, blank=True,
+                                help_text="Days it applies: 1 = Monday ... 7 = Sunday, e.g. 12345 for weekdays. Blank for every day.")
+    start_time = models.TimeField(null=True, blank=True, help_text="Daily window, e.g. 14:00")
+    end_time = models.TimeField(null=True, blank=True)
+    min_subtotal = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    min_items = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Items in the order")
+    dishes = models.ManyToManyField(Dish, blank=True, related_name="discounts", help_text="Item discounts: only these")
+    combos = models.ManyToManyField(Combo, blank=True, related_name="discounts", help_text="Item discounts: only these")
+    max_uses = models.PositiveIntegerField(null=True, blank=True)
+    times_used = models.PositiveIntegerField(default=0)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        permissions = [("apply_manual_discount", "Can type in a manual discount on the register")]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})" if self.code else self.name
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper() if self.code else None
+        super().save(*args, **kwargs)
+
+    @property
+    def is_coupon(self) -> bool:
+        return bool(self.code)
+
+
+class CashDrawerSession(models.Model):
+    """
+    One register's cash drawer from opening to closing.
+
+    Cash payments taken on the device while it is open link here, so closing compares what was counted
+    with what should be there: opening + cash sales + paid in - paid out.
+    """
+    device = models.ForeignKey("EligibleDevice", on_delete=models.SET_NULL, null=True, blank=True, related_name="drawers")
+    opened_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    opened_at = models.DateTimeField(default=timezone.now)
+    opening_amount = models.DecimalField(max_digits=8, decimal_places=2)
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    closed_at = models.DateTimeField(null=True, blank=True)
+    counted_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    expected_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        ordering = ["-opened_at"]
+
+    def __str__(self):
+        return f"Drawer {self.device or '?'} opened {localtime(self.opened_at):%Y-%m-%d %H:%M}"
+
+    @property
+    def is_open(self) -> bool:
+        return self.closed_at is None
+
+    @property
+    def difference(self):
+        if self.counted_amount is None or self.expected_amount is None:
+            return None
+        return self.counted_amount - self.expected_amount
+
+
+class CashMovement(models.Model):
+    """Cash put into (positive) or taken out of (negative) an open drawer outside a sale."""
+    drawer = models.ForeignKey(CashDrawerSession, on_delete=models.CASCADE, related_name="movements")
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    reason = models.CharField(max_length=140, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.amount} ({self.reason})"
+
+
 class Component(models.Model):
     """
     Component model representing an item in the inventory.
@@ -298,7 +555,7 @@ class Component(models.Model):
         in_stock (BooleanField): Indicates if the component is in stock.
         crafting_option (CharField): The crafting option for the component.
         recipe (ForeignKey): The recipe associated with the component.
-        child_dishes (ManyToManyField): Dishes that use this component.
+        extra_price (DecimalField): Charge for each portion above the standard amount in a dish (an extra patty).
     Methods:
         save(*args, **kwargs): Custom save method to update stock status and related dishes.
         __str__() -> str: String representation of the component.
@@ -327,22 +584,19 @@ class Component(models.Model):
     in_stock = models.BooleanField(default=False)
     crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
-    child_dishes = models.ManyToManyField('Dish', symmetrical=False, blank=True, related_name='parent_component')
+    extra_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
+                                      help_text="Charge for each portion above the standard amount, e.g. an extra patty")
 
     def save(self, *args, force_update_stock=False, **kwargs):
         """
         Recalculate `in_stock` (unless force_update_stock=True, which keeps a value set by hand), then
         update the dishes that use this component: they go out of stock when it can't cover them, and come
         back when this component comes back into stock and every other component of the dish is available.
-        Self-crafting ("auto") components are made on demand, and choice components are available while
-        any of their choices is, so neither is limited by its own inventory.
+        Self-crafting ("auto") components are made on demand, so they are never limited by their inventory.
         """
         was_in_stock = Component.objects.filter(pk=self.pk).values_list("in_stock", flat=True).first() if self.pk else None
         if not force_update_stock:
-            if self.pk and self.child_dishes.exists():
-                self.in_stock = self.child_dishes.filter(models.Q(in_stock=True) | models.Q(force_in_stock=True)).exists()
-            else:
-                self.in_stock = self.crafting_option == "auto" or (self.inventory or 0) > 0
+            self.in_stock = self.crafting_option == "auto" or (self.inventory or 0) > 0
         super().save(*args, **kwargs)
         restocked = was_in_stock is False and self.in_stock
         for dc in self.dishcomponent_set.select_related("dish"):
@@ -365,40 +619,43 @@ class DishComponent(models.Model):
     Attributes:
         dish (ForeignKey): A reference to the Dish model.
         component (ForeignKey): A reference to the Component model.
-        quantity (FloatField): The quantity of the component used in the dish.
+        quantity (FloatField): The quantity of the component used in one standard portion of the dish.
+        adjustable (BooleanField): Customers can leave it out or ask for more (up to max_portions);
+            each portion above one costs the component's extra_price.
     Methods:
         __str__(): Returns a string representation of the DishComponent instance.
     """
     dish = models.ForeignKey('Dish', on_delete=models.CASCADE)
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
     quantity = models.FloatField()
+    adjustable = models.BooleanField(default=False, help_text="Customers can remove it or ask for more")
+    max_portions = models.PositiveSmallIntegerField(default=3)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
 
     def __str__(self):
         return f"{self.quantity} x {self.component.title} in {self.dish.title}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.dish.update_stock()
+
+    def delete(self, *args, **kwargs):
+        dish = self.dish
+        result = super().delete(*args, **kwargs)
+        dish.update_stock()
+        return result
 
     def covers_one(self) -> bool:
         """Can the component supply one of this dish right now?"""
         component = self.component
         if not component.in_stock:
             return False
-        if component.crafting_option == "auto" or component.child_dishes.exists():
+        if component.crafting_option == "auto":
             return True
         return (component.inventory or 0) >= self.quantity
-
-# The next class is a part of dish customization. One day...
-
-# class ModifiedComponent(models.Model):
-#     operations = (
-#         ("rem","Remove component"),
-#         ("add","Add component"),
-#         ("pick","Choose component")
-#     )
-#     order = models.ForeignKey(Order, on_delete = models.CASCADE, related_name="mods")
-#     dish = models.ForeignKey(Dish, on_delete = models.CASCADE)
-#     parent = models.ForeignKey(Component, on_delete = models.CASCADE)
-#     component = models.ForeignKey(Component, on_delete = models.CASCADE, related_name="mods")
-#     quantity = models.FloatField()
-#     operation = models.CharField(max_length=5, choices=operations)
 
 class Ingredient(models.Model):
     """
@@ -413,7 +670,6 @@ class Ingredient(models.Model):
         allergen (str): The allergen associated with the ingredient.
         unlimited (bool): Indicates if the ingredient has unlimited supply.
         cost (DecimalField): The cost of the ingredient.
-        condiment_price (DecimalField): The price of the ingredient if sold as a condiment.
     Methods:
         __str__(): Returns a string representation of the ingredient.
     """
@@ -442,8 +698,7 @@ class Ingredient(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
-    cost = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True) 
-    condiment_price = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True) # Price for this ingredient if sold as a condiment. Leave blank to treat as a free condiment or if not given as a condiment.
+    cost = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self) -> str:
         qty = self.inventory

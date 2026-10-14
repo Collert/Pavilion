@@ -113,6 +113,9 @@ AVAILABLE_ICONS = (
 # On in production, off in dev unless ENFORCE_DEVICE_CHECK=true.
 ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('ENVIRONMENT') == "production" else 'false').lower() == 'true'
 
+# Sales tax charged on orders after discounts, as a fraction (0.05 = 5%). 0 = no tax.
+TAX_RATE = os.getenv('TAX_RATE', '0')
+
 # Default login redirect
 LOGIN_URL = reverse_lazy('login_view')
 

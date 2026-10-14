@@ -51,6 +51,13 @@
     font-size: larger;
 }
 
+.order li .dish-mods {
+    display: block;
+    font-size: .8em;
+    font-weight: 600;
+    opacity: .85;
+}
+
 .order > * {
     overflow: hidden;
 }

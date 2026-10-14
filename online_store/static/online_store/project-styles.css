@@ -516,7 +516,8 @@ button.loading .circle {
     }
 }
 
-#gift-card-inout-group {
+#gift-card-inout-group,
+#coupon-group {
     display: flex;
     align-items: center;
     gap: .5rem;
@@ -527,7 +528,8 @@ button.loading .circle {
 }
 
 @media (orientation:portrait) {
-    #gift-card-inout-group {
+    #gift-card-inout-group,
+    #coupon-group {
         flex-direction: column;
     }
     #who {

@@ -94,9 +94,17 @@ function renderCard(order) {
     const progresses = el("div", { className: "progresses" },
         Object.entries(order.stations).map(([code, status]) => progressStack(code, status)));
 
+    // Each dish with what's different about it (customizations, its combo, its note)
     const dishes = el("ul", {}, order.dishes
         .filter(dish => filters.includes(dish.station))
-        .map(dish => el("li", { text: `${dish.quantity} X ${dish.name}` })));
+        .map(dish => {
+            const item = el("li", { text: `${dish.quantity} X ${dish.name}` });
+            const details = [...(dish.mods ?? [])];
+            if (dish.combo) details.unshift(`${dish.combo}${dish.slot ? " · " + dish.slot : ""}`);
+            if (dish.note) details.push(`“${dish.note}”`);
+            if (details.length) item.append(el("small", { className: "dish-mods", text: details.join(" · ") }));
+            return item;
+        }));
 
     const body = el("div", {}, [
         channelLine(order),
@@ -105,7 +113,7 @@ function renderCard(order) {
                       document.createTextNode(" " + (order.to_go_order ? gettext("Order to-go") : gettext("Order for here")))]),
         dishes,
     ]);
-    if (order.special_instructions) {
+    if (order.special_instructions && order.note_for_kitchen !== false) {
         body.append(el("h3", { text: gettext("Special instructions:") }), el("p", { text: order.special_instructions }));
     }
 

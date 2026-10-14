@@ -305,6 +305,16 @@
                     <h3 class="error" style="display: none;" id="gift-card-errors"></h3>
                     <button role="button" type="button" id="card-number-lookup-button">{% trans "Look up" %}</button>
                 </div>
+                <span class="line-divider"></span>
+                <h2>{% trans "Have a coupon?" %}</h2>
+                <div id="coupon-group">
+                    <input type="text" maxlength="40" id="coupon-input" autocomplete="off" style="text-transform: uppercase;">
+                    <button role="button" type="button" id="coupon-apply">{% trans "Apply" %}</button>
+                </div>
+                <h3 class="error" hidden id="coupon-error"></h3>
+                <p hidden id="coupon-applied"></p>
+                <span class="line-divider"></span>
+                <div id="order-summary"></div>
             </div>
             <span class="line-divider"></span>
             <button type="button" id="proceed-to-checkout">{% trans "Proceed to secure checkout" %}</button>
@@ -313,12 +323,15 @@
             <small>*{% trans "You will only be charged when we confirm your order" %}</small>
         </form>
     </dialog>
-    <dialog class="full" id="component-choices-dialog">
+    <dialog class="full" id="combo-choice-dialog">
         <nav>
-            <h2>{% trans "Pick the options" %}</h2>
+            <h2 id="combo-choice-title"></h2>
             <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
         </nav>
-        <iframe style="width: 100%; height: 90%;" frameborder="0"></iframe>
+        <form method="dialog" id="combo-choice-form">
+            <div id="combo-choice-options"></div>
+            <button id="combo-choice-add">{% trans "Add to cart" %}</button>
+        </form>
     </dialog>
     <dialog class="full" id="gift-card-dialog">
         <nav>
@@ -326,32 +339,32 @@
             <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
         </nav>
         <div>
-            <img id="found-card-image" src="">
+            <img id="found-card-image" src="" alt="">
             <h2>{% trans "Card #" %}<span id="found-card-number"></span></h2>
             <h4>{% trans "Available balance:" %}</h4>
             <h1>$<span id="found-card-balance"></span></h1>
-            <h4 hidden class="card-hold">Held in a different transaction:</h4>
-            <h1 hidden class="card-hold">$<span id="found-card-hold"></span></h1>
             <div id="card-actions">
                 <form hidden id="card-charge-amount">
                     <input type="number" min="0.01" step=".01" id="card-charge-amount-inp">
-                    <button id="card-charge-amount-button">{% trans "Charge card" %}</button>
                 </form>
                 <button id="card-charge-max">{% trans "Use this card" %}</button>
-                <button hidden id="card-reload">{% trans "Reload card" %}</button>
             </div>
         </div>
     </dialog>
-    <script type="module" src="{% static 'pos_server/componentChoices.js' %}"></script>
     <script src="{% url 'javascript-catalog' %}"></script>
     <script type="module">
-        import { componentChoices } from "/static/pos_server/componentChoices.js"
-        import { Cart, GiftCardPayment, lookupGiftCard } from "/static/pos_server/pos-utils.js"
+        import { OnlineCart, GiftCardPayment, lookupGiftCard } from "{% static 'online_store/cart.js' %}"
 
         const CartDB = {
             save: (cart) => saveCartToIndexedDB(cart),
             load: () => getCartFromIndexedDB(),
         };
+        const quoteUrl = "{% url 'cart_quote' %}";
+        const csrftoken = document.querySelector("input[name=csrfmiddlewaretoken]").value;
+        const storeItemsNode = document.getElementById("store-items");
+        const storeItems = storeItemsNode ? JSON.parse(storeItemsNode.textContent) : {};
+        const fmt = (cents) => (cents / 100).toFixed(2);
+        let quoteSeq = 0;
 
         const cartButton = document.querySelectorAll(".cart-button");
         const cartDialog = document.querySelector("#cart");
@@ -363,9 +376,10 @@
         const checkoutBtn = document.querySelector("#checkout");
         const finalizeCheckoutBtn = document.querySelector("#proceed-to-checkout")
         const submitOrderBtn = document.querySelector("#proceed-to-checkout-free")
-        const existingCart = await CartDB.load();
-        let cart = existingCart ? new Cart(existingCart) : new Cart();
-        
+        const saved = await CartDB.load();
+        // Carts saved before the menu redesign have `items` instead of `lines`; they start over
+        let cart = new OnlineCart(saved && Array.isArray(saved.lines) ? saved : null);
+
         const finalizeDialog = document.querySelector("#finalize-dialog");
         const deliveryPickupToggles = document.querySelectorAll("[name = delivery-pickup-toggle]");
         const finalizeMenu = document.querySelector("#finalize-menu");
@@ -374,23 +388,15 @@
         const deliveryEta = document.querySelector("#delivery-eta");
         const giftCardDialog = document.querySelector("#gift-card-dialog")
         const giftCardInput = document.querySelector("#card-number-input")
-        
+
         updateCart();
-        
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('{% url "service_worker_serve" %}')
-                .then((swReg) => {
-                    // console.log('Service Worker registered with scope:', swReg.scope);
-
-                    // Check if the service worker is already controlling the page
+                .then(() => {
+                    // Reload once so the service worker controls the page
                     if (!navigator.serviceWorker.controller) {
-                        // console.warn('Service Worker is not yet controlling the page.');
-
-                        // Wait for the service worker to be ready
                         navigator.serviceWorker.ready.then(() => {
-                            // console.log('Service Worker is ready and controlling the page.');
-
-                            // Reload the page, but only once
                             if (!sessionStorage.getItem('sw-reloaded')) {
                                 sessionStorage.setItem('sw-reloaded', 'true');
                                 window.location.reload();
@@ -398,17 +404,11 @@
                         });
                     }
                 })
-                .catch((error) => {
-                    console.error('Service Worker registration failed:', error);
-                });
+                .catch((error) => console.error('Service Worker registration failed:', error));
         }
 
         const now = new Date();
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const currentTime = `${hours}:${minutes}`;
-
-        const choicesChannel = new BroadcastChannel('choices_channel');
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
         let activeGiftCard;
 
@@ -417,68 +417,35 @@
             giftCardInput.value = ""
         })
 
-        // Adds an event listener to the element with the ID "card-charge-max" that triggers when the element is clicked.
-        // The event listener performs the following actions:
-        // 1. Calculates the amount to be charged, which is the minimum of the remaining total in the cart and the available balance on the active gift card.
-        // 2. Adds a new payment to the cart using the gift card number and the calculated amount.
-        // 3. Deducts the charged amount from the available balance of the active gift card.
-        // 4. Updates the displayed balance of the gift card.
-        // 5. Calls the updateCart() function to refresh the cart's state.
-        // 6. Closes any open dialog.
-        // 7. Displays an alert indicating the amount redeemed.
-        document.querySelector("#card-charge-max").addEventListener("click", async e => {
-            const amount = Math.min(cart.remainingTotalNum, activeGiftCard.availableBalance)
-            cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount))
-            activeGiftCard.availableBalance -= amount
-            document.querySelector("#found-card-balance").textContent = activeGiftCard.availableBalance
+        // Put as much of the order as the card covers on it
+        document.querySelector("#card-charge-max").addEventListener("click", async () => {
+            const already = cart.partialPayments.filter(p => p.number === activeGiftCard.number).reduce((sum, p) => sum + p.amount, 0);
+            const amount = Math.min(cart.remainingTotalNum, activeGiftCard.availableBalance - already)
+            if (amount <= 0) return
+            cart.addPayment(new GiftCardPayment(activeGiftCard.number, amount.toFixed(2)))
             updateCart()
             document.querySelector("dialog[open]").close()
-            alert(`Redeemed $${amount}`)
+            alert(interpolate(gettext("Redeemed $%s"), [amount.toFixed(2)]))
         })
 
-        // This script selects all elements with the class "history-button" and appends a query parameter to their href attribute.
-        // The query parameter "orders" is set to the value of the "orders" item stored in the browser's local storage, encoded for URL compatibility.
+        // The order history link carries the IDs of this browser's orders
         document.querySelectorAll(".history-button").forEach(element => {
             element.href += `?orders=${encodeURIComponent(window.localStorage.getItem("orders"))}`
         })
 
-        // This script selects all input elements of type 'time' within the finalizeDialog element and updates their 'min' attribute to be either the current time or the time specified in the 'min' attribute, whichever is later.
-        // For each time input element, it performs the following actions:
-        // 1. Splits the 'min' attribute value (in the format 'HH:MM') into hours and minutes.
-        // 2. Creates a Date object using the current year, month, date, and the extracted hours and minutes.
-        // 3. Compares the created Date object with the current date and time (now).
-        // 4. If the created Date object is earlier than the current date and time, it updates the 'min' attribute of the input element to the current time.
-        const timeInputs = finalizeDialog.querySelectorAll("input[type='time']");
-        timeInputs.forEach(element => {
-            // Crazy aah constructor, all because of timezones grr
+        // Pickup times can't be in the past
+        finalizeDialog.querySelectorAll("input[type='time']").forEach(element => {
             const [hours, minutes] = element.min.split(':').map(Number);
-            const inputDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-            if (inputDateTime < now) {
-                element.min = currentTime;
-            }
+            if (new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes) < now) element.min = currentTime;
         })
 
-        // This script adds event listeners to elements with the class 'deliveryPickupToggles'.
-        // When the value of these elements changes, it updates the class name of the 'finalizeMenu' element
-        // based on the selected value ("delivery" or "pick-up").
-        
-        // If the selected value is "delivery":
-        // - It sets the 'required' attribute to true for all elements with the class 'delivery-item' and a 'data-required' attribute set to "true".
-        // - It sets the 'required' attribute to false for all elements with the class 'pick-up-item' and a 'data-required' attribute set to "true".
-        
-        // If the selected value is "pick-up":
-        // - It sets the 'required' attribute to false for all elements with the class 'delivery-item' and a 'data-required' attribute set to "true".
-        // - It sets the 'required' attribute to true for all elements with the class 'pick-up-item' and a 'data-required' attribute set to "true".
+        // Pickup vs delivery changes which fields are required
         deliveryPickupToggles.forEach(toggle => {
             toggle.addEventListener("change", e => {
                 finalizeMenu.className = e.currentTarget.value
-                if (e.currentTarget.value === "delivery") {
-                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {el.required = true});
-                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {el.required = false});
-                } else if (e.currentTarget.value === "pick-up") {
-                    document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => {el.required = false});
-                    document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => {el.required = true});
-                }
+                const delivery = e.currentTarget.value === "delivery";
+                document.querySelectorAll('.delivery-item[data-required="true"]').forEach(el => { el.required = delivery });
+                document.querySelectorAll('.pick-up-item[data-required="true"]').forEach(el => { el.required = !delivery });
             })
         })
 
@@ -487,95 +454,51 @@
         })
 
         closeButtons.forEach(button => {
-            button.addEventListener("click", () => { 
-                document.querySelector("dialog[open]").close()
-            })
+            button.addEventListener("click", () => { document.querySelector("dialog[open]").close() })
         })
 
-        // Function: getDish
-        // Description: Retrieves a dish object by its ID from the HTML document.
-        // Parameters:
-        //     id (string): The ID of the dish to retrieve.
-        // Returns:
-        //     Object: The dish object corresponding to the provided ID.
-        // Details:
-        //     - The function searches for an element with the class 'dish-json' and the specified data-id attribute.
-        //     - If such an element is found, its innerHTML is parsed as JSON and the first element of the resulting array is returned.
-        //     - If no such element is found, the innerHTML of the element with the ID 'item-json' is parsed as JSON and the first element of the resulting array is returned.
-        function getDish(id) {
-            return JSON.parse(
-                    document.querySelector(`.dish-json[data-id="${id}"]`)
-                    ? 
-                    document.querySelector(`.dish-json[data-id="${id}"]`).innerHTML
-                    : 
-                    document.querySelector("#item-json").innerHTML
-                )[0];
-        }
+        // Adding to the cart. A combo that needs a pick (e.g. its drink) asks for it first.
+        const comboDialog = document.querySelector("#combo-choice-dialog");
+        let pendingCombo = null;
 
-        // This script adds event listeners to all elements with the class "add-to-cart".
-        // When an "add-to-cart" button is clicked, it retrieves the dish data using the 
-        // `getDish` function, processes the cart item, and adds it to the cart. 
-        // Finally, it updates the cart display.
-        document.querySelectorAll(".add-to-cart").forEach(but => {
-            but.addEventListener("click", e => {
-                const dishData = getDish(
-                    e.currentTarget.parentElement.querySelector(".dish-json")?.dataset.id
-                )
-                processCartItem(dishData).forEach(item => {
-                    cart.addItem(item, item.noPayment)
-                })
-                updateCart();
-            })
-        })
-        
-        // This script listens for messages on the choicesChannel. 
-        // When a message is received, it processes the cart item based on the dish ID and choices provided in the message data. 
-        // The processed items are then added to the cart, and the cart is updated. Finally, the choices dialog component is closed.
-        choicesChannel.addEventListener("message", e => {
-            const newItems = processCartItem(getDish(parseInt(e.data.dishId)), e.data.choices)
-            newItems.forEach(item => {
-                cart.addItem(item, item.noPayment)
-            })
+        function addItem(item, slots = {}) {
+            const pick = Object.values(slots)[0]?.dish;
+            const option = item.ask?.options.find(o => o.dish === pick);
+            cart.add({
+                type: item.type, id: item.id, slots: { ...(item.slots || {}), ...slots },
+                title: item.title, image: item.image, unit: item.price + (option?.price || 0),
+                pick: option?.title || "",
+            });
             updateCart();
-            document.querySelector("#component-choices-dialog").close()
-        })
-        
-        // Processes a cart item by handling its customizations and choices, and returns a list of processed items.
-
-        // Details:
-        // - If the dish has choice components and choices are provided, it processes each choice recursively.
-        // - If the dish has choice components but no choices are provided, it calls `componentChoices` to handle the choices.
-        // - If the dish is a child of another dish, it sets the parent and determines if the parent is an "only choices" dish.
-        // - Adds a `noPayment` flag to the dish if it is a child and the parent is an "only choices" dish.
-        // - Constructs a customizations string from the choices and adds it to the dish data.
-        function processCartItem(dishData, choices = {}, parent = undefined) {
-            let customizationsString = ""
-            let parentOnlyChoiceDish = false;
-            let final = []
-            // console.log(dishData)
-            if (dishData.fields.choice_components.length) {
-                if (Object.keys(choices).length) {
-                        dishData.children = []
-                    for (const v of Object.values(choices)) {
-                        final = final.concat(processCartItem(getDish(parseInt(v.id)), {}, dishData.id))
-                        if (dishData.fields.only_choices) return final
-                        dishData.children.push(v)
-                        customizationsString += v.title + ", "
-                    }
-                    customizationsString = customizationsString.slice(0, -2)
-                    dishData.customizationsString = customizationsString
-                } else {
-                    componentChoices(dishData.id)
-                    return final
-                }
-            } else if (parent) {
-                dishData.parent = parent
-                parentOnlyChoiceDish = getDish(parent).fields.only_choices
-            }
-            dishData.noPayment = parent && !parentOnlyChoiceDish
-            final.push(dishData)
-            return final
         }
+
+        document.querySelectorAll(".add-to-cart").forEach(button => {
+            button.addEventListener("click", () => {
+                const item = storeItems[button.dataset.key];
+                if (!item || !item.available) return;
+                if (!item.ask) return addItem(item);
+                pendingCombo = item;
+                document.querySelector("#combo-choice-title").textContent = item.ask.title;
+                const options = document.querySelector("#combo-choice-options");
+                options.replaceChildren(...item.ask.options.map((option, index) => {
+                    const id = `combo-option-${index}`;
+                    const input = Object.assign(document.createElement("input"), { type: "radio", name: "combo-option", id, value: option.dish, required: true, disabled: !option.available });
+                    const label = Object.assign(document.createElement("label"), { htmlFor: id, className: "choice-label" });
+                    label.textContent = option.title + (option.price ? ` (+$${fmt(option.price)})` : "") + (option.available ? "" : ` · ${gettext("Sold out")}`);
+                    const wrap = document.createElement("div");
+                    wrap.append(input, label);
+                    return wrap;
+                }));
+                comboDialog.showModal();
+            })
+        })
+
+        document.querySelector("#combo-choice-form").addEventListener("submit", e => {
+            const picked = e.currentTarget.querySelector("input:checked");
+            if (!picked || !pendingCombo) { e.preventDefault(); return; }
+            addItem(pendingCombo, { [pendingCombo.ask.slot]: { dish: parseInt(picked.value) } });
+            pendingCombo = null;
+        })
 
         checkoutBtn.addEventListener("click", () => {
             if ("{{business_day}}" === "True") {
@@ -585,35 +508,31 @@
                 alert("{% trans 'Sorry, we are closed today. Check the home page for the next date.' %}")
             }
         })
-        
+
+        // Coupons are checked by the server as part of the quote
+        const couponInput = document.querySelector("#coupon-input");
+        couponInput.value = cart.coupon;
+        document.querySelector("#coupon-apply").addEventListener("click", async () => {
+            cart.coupon = couponInput.value.trim().toUpperCase();
+            await updateCart();
+        })
+
         const noCourBadge = document.querySelector("#no-cour");
         const longDeliveryBadge = document.querySelector("#long-delivery");
         const tooLongDeliveryBadge = document.querySelector("#too-long-delivery");
 
-        // This script adds an event listener to each element in the deliveryAddressFields array.
-        // When a field loses focus (blur event), it checks if all fields are filled.
-        // If any field is empty, it exits the function.
-        // If all fields are filled, it enables the finalizeCheckoutBtn and hides all badges.
-        // It then constructs a destination string from the field values and calls the checkETA function to get the estimated time of arrival (ETA).
-        // If the response status is 404, it shows the noCourBadge and disables the finalizeCheckoutBtn.
-        // If the ETA is between 30 and 45 minutes, it shows the longDeliveryBadge.
-        // If the ETA is 45 minutes or more, it shows the tooLongDeliveryBadge and disables the finalizeCheckoutBtn.
-        // It updates the deliveryEta element with the ETA text and makes its parent element visible.
+        // Once the delivery address is filled in, check that a courier can get there in time
         deliveryAddressFields.forEach(element => {
-            element.addEventListener("blur", async e => {
+            element.addEventListener("blur", async () => {
                 for (const field of deliveryAddressFields) {
-                    if (field.value === "") {
-                        return // Check if all fields are filled
-                    }
+                    if (field.value === "") return
                 }
                 finalizeCheckoutBtn.disabled = false;
                 noCourBadge.hidden = true;
                 longDeliveryBadge.hidden = true;
                 tooLongDeliveryBadge.hidden = true;
-                
                 const destination = `${deliveryAddressFields[0].value}, ${deliveryAddressFields[2].value}, BC ${deliveryAddressFields[4].value}`
                 const response = await checkETA(destination);
-                // console.log(response)
                 if (response.status === 404) {
                     noCourBadge.hidden = false;
                     finalizeCheckoutBtn.disabled = true;
@@ -626,125 +545,111 @@
                     tooLongDeliveryBadge.hidden = false;
                     finalizeCheckoutBtn.disabled = true;
                 }
-                if (etas.one_time) {
-                    deliveryEta.innerHTML = etas.one_time.text;
-                } else {
-                    deliveryEta.innerHTML = `${etas.min_time.text} - ${etas.max_time.text}`;
-                }
+                deliveryEta.textContent = etas.one_time ? etas.one_time.text : `${etas.min_time.text} - ${etas.max_time.text}`;
                 deliveryEta.parentElement.hidden = false;
             })
         });
-        
-        // Function: updateCartCount
-        // Description: Updates the cart count display based on the number of items in the cart that require payment.
-        // - If there are items that require payment, the cart count elements are shown and updated with the number of such items.
-        // - If there are no items that require payment, the cart count elements are hidden.
+
         function updateCartCount() {
-            const freeItems = cart.items.reduce((accumulator, value) => value.noPayment ? accumulator + 1 : accumulator, 0)
-            const actualLength = cart.items.length - freeItems
-            if (actualLength) {
-                cartCount.forEach(element => {
-                    element.hidden = false;
-                })
-                cartCount.forEach(element => {
-                    element.innerHTML = actualLength;
-                })
-            } else {
-                cartCount.forEach(element => {
-                    element.hidden = true;
-                })
-            }
+            cartCount.forEach(element => {
+                element.hidden = !cart.count;
+                element.textContent = cart.count;
+            })
         }
 
-        let cartUpdateAllowed = true;
-
-        // Function: updateCartItems
-        // Description: Updates the cart items displayed in the cart by clearing the current items and re-adding them from the cart object. 
-        //              It also handles the removal of items and their children from the cart, updates the cart string, and manages the 
-        //              display of item customizations and images.
-        // Side Effects: 
-        //     - Modifies the innerHTML of the cartItems element.
-        //     - Adds event listeners to the remove buttons of each cart item.
-        //     - Updates the value of the #cart-string element with the JSON stringified cart object.
-        // Dependencies: 
-        //     - cart: An object representing the shopping cart.
-        //     - cartItems: A DOM element where the cart items are displayed.
-        //     - cartItemTemplate: A DOM element template used to clone new cart items.
-        //     - cartUpdateAllowed: A boolean flag to control the update process.
-        //     - updateCart: A function to update the cart display.
         function updateCartItems() {
-            cartItems.innerHTML = "";
-            cart.items.forEach((item, index) => {
-                const newNode = cartItemTemplate.cloneNode(true);
-                newNode.querySelector("img").src = item.fields.image || "{% static 'img/no-image.svg' %}"
-                newNode.querySelector("h2").innerHTML = item.fields.title
-                newNode.querySelector(".price").innerHTML = '$' + item.fields.price
-                newNode.querySelector("button").addEventListener("click", e => {
-                    if (cartUpdateAllowed) {
-                        cartUpdateAllowed = false
-                        // console.log(item)
-                        item.children?.forEach(child => {
-                            const foundChild = cart.items.findIndex(i => i.id == child.id && i.noPayment && i.parent === item.id)
-                            // console.log(child)
-                            cart.items.splice(foundChild, 1);
-                        })
-                        cart.removeItem(item, {children:item.children});
-                        updateCart()
-                        setTimeout(() => {
-                            cartUpdateAllowed = true
-                        }, 500);
-                    }
+            cartItems.replaceChildren(cartItemTemplate);
+            cart.lines.forEach((line, index) => {
+                const node = cartItemTemplate.cloneNode(true);
+                node.querySelector("img").src = line.image || "{% static 'img/no-image.svg' %}"
+                node.querySelector("h2").textContent = line.qty > 1 ? `${line.qty} × ${line.title}` : line.title
+                const quoted = cart.quote?.lines[index];
+                node.querySelector(".price").textContent = '$' + fmt(quoted ? quoted.gross : line.unit * line.qty)
+                node.querySelector("button").addEventListener("click", () => {
+                    cart.remove(line.key);
+                    updateCart();
                 })
-                if (item.customizationsString) {
-                    const customizationNode = newNode.querySelector("small")
-                    customizationNode.innerHTML = `With ${item.customizationsString}`
-                    customizationNode.hidden = false
+                if (line.pick) {
+                    const small = node.querySelector("small");
+                    small.textContent = interpolate(gettext("With %s"), [line.pick]);
+                    small.hidden = false;
                 }
-                if (!item.noPayment) {
-                    newNode.hidden = false;
-                }
-                cartItems.appendChild(newNode);
+                node.hidden = false;
+                cartItems.appendChild(node);
             })
-            document.querySelector("#cart-string").value = JSON.stringify(cart);
+            document.querySelector("#cart-string").value = JSON.stringify({
+                lines: cart.serverLines(), coupon: cart.coupon, partialPayments: cart.partialPayments,
+            });
+        }
+
+        function updateSummary() {
+            const quote = cart.quote;
+            const summary = document.querySelector("#order-summary");
+            const rows = [];
+            if (quote) {
+                rows.push([gettext("Subtotal"), fmt(quote.subtotal)]);
+                if (quote.discount) rows.push([quote.orderDiscount ? `${quote.orderDiscount.label} · ${quote.orderDiscount.short}` : gettext("Discount"), "−" + fmt(quote.discount)]);
+                if (quote.tax) rows.push([gettext("Tax"), fmt(quote.tax)]);
+                if (cart.giftCents) rows.push([gettext("Gift cards"), "−" + fmt(cart.giftCents)]);
+                rows.push([gettext("To pay"), fmt(Math.max(0, quote.total - cart.giftCents))]);
+            }
+            summary.replaceChildren(...rows.map(([label, value]) => {
+                const row = document.createElement("p");
+                row.textContent = `${label}: $${value}`.replace("$−", "−$");
+                return row;
+            }));
+            const couponError = document.querySelector("#coupon-error");
+            couponError.textContent = quote?.orderDiscountError || "";
+            couponError.hidden = !quote?.orderDiscountError;
+            const applied = document.querySelector("#coupon-applied");
+            applied.textContent = quote?.orderDiscount ? interpolate(gettext("%s applied · %s"), [quote.orderDiscount.label, quote.orderDiscount.short]) : "";
+            applied.hidden = !quote?.orderDiscount;
         }
 
         window.addEventListener("message", e => {
-            try {
-                if (e.data.transactionSuccessful) {
-                    fullResetCart();
-                }
-            } catch (error) {
-                console.log(error)
-            }
+            if (e.data?.transactionSuccessful) fullResetCart();
         })
 
         function fullResetCart() {
-            cart = new Cart();
+            cart = new OnlineCart();
             updateCart();
         }
 
-        function resetCartPayments() {
-            cart.partialPayments = [];
-            updateCart();
+        // Ask the server for the real total (discount, tax), then refresh everything that shows the cart
+        async function requestQuote() {
+            const seq = ++quoteSeq;
+            if (!cart.lines.length) {
+                cart.quote = null;
+                return;
+            }
+            try {
+                const response = await fetch(quoteUrl, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/json" },
+                    body: JSON.stringify({ lines: cart.serverLines(), coupon: cart.coupon }),
+                });
+                const data = await response.json();
+                if (seq !== quoteSeq) return;
+                cart.quote = response.ok ? data : null;
+                cart.quoteError = response.ok ? "" : data.message;
+                if (response.ok && data.orderDiscountError) cart.coupon = "";
+            } catch {
+                cart.quote = null;
+            }
         }
 
-        // Function: updateCart
-        // Description: This asynchronous function updates the cart's state and UI elements based on the current items in the cart.
-        // - Updates the cart count and items displayed.
-        // - Enables or disables the checkout button based on whether the cart has items.
-        // - Toggles the display of the finalize checkout button and submit order button based on the remaining total number in the cart.
-        // - Sets the transaction amount input value to the cart's remaining total number.
-        // - Updates the inner HTML of elements displaying the cart subtotal.
-        // - Saves the cart state to the CartDB.
         async function updateCart() {
-            // window.sessionStorage.setItem("cart", cart.stringifySelf);
+            [checkoutBtn, finalizeCheckoutBtn, submitOrderBtn].forEach(button => { button.disabled = true });
             updateCartCount();
             updateCartItems();
-            if (cart.items.length > 0) {
-                checkoutBtn.disabled = false
-            } else {
-                checkoutBtn.disabled = true
-            }
+            await requestQuote();
+            updateCartItems();
+            updateSummary();
+            const ready = cart.lines.length > 0 && cart.quote;
+            checkoutBtn.disabled = !ready;
+            finalizeCheckoutBtn.disabled = !ready;
+            submitOrderBtn.disabled = !ready;
+            if (cart.quoteError) alert(cart.quoteError);
             if (cart.remainingTotalNum) {
                 finalizeCheckoutBtn.style.display = "block"
                 submitOrderBtn.style.display = "none"
@@ -752,34 +657,18 @@
                 finalizeCheckoutBtn.style.display = "none"
                 submitOrderBtn.style.display = "block"
             }
-            document.querySelector("#transaction-amount").value = cart.remainingTotalNum;
-            cartSubtotal.forEach(element => {
-                element.innerHTML = cart.remainingTotal
-            })
-            // cart.renewLastUpdate();
-            CartDB.save(cart);
-            // registerResetSync();
+            document.querySelector("#transaction-amount").value = cart.remainingTotal;
+            cartSubtotal.forEach(element => { element.textContent = cart.remainingTotal })
+            CartDB.save(cart.toJSON());
         }
 
-        // This script adds event listeners to the finalizeCheckoutBtn and submitOrderBtn buttons. 
-        // When either button is clicked, the following actions are performed:
-
-        // 1. If there are partial payments in the cart:
-        //     a. Validate all required form fields. If any required field is empty, trigger a form submission to highlight errors and exit.
-        //     b. Disable the clicked button, add a loading class, and change its inner HTML to indicate that gift cards are being checked.
-        //     c. Fetch the available balance for each gift card in the cart.
-        //     d. Check if any gift card's available balance is less than the amount in the cart. If so, remove the card from the cart and store its last four digits.
-        //     e. Update the cart.
-        //     f. If any gift cards were removed due to insufficient balance, alert the user, re-enable the button, remove the loading class, restore the button's original text, and close any open dialog.
-        //     g. If the remaining total in the cart is zero, submit the form, reset the cart, and exit.
-
-        // 2. If there are no partial payments or after handling partial payments, trigger a form submission to handle validation and submission.
+        // Before paying, make sure the gift cards still have what this order takes from them
         [finalizeCheckoutBtn, submitOrderBtn].forEach(button => {
-            button.addEventListener("click", async e => {
+            button.addEventListener("click", async () => {
                 if (cart.partialPayments.length) {
                     for (const element of document.querySelectorAll("[required]")) {
                         if (!element.value) {
-                            // Basically do form validation with error highlighting.
+                            // Let the browser highlight the missing fields
                             document.querySelector("#true-submit-button").click()
                             return
                         }
@@ -788,25 +677,21 @@
                     button.disabled = true
                     button.classList.add("loading")
                     button.innerHTML = "<span class='circle'></span><span>{% trans 'Checking your gift cards' %}</span>"
-                    const fetchPromises = cart.partialPayments.map(async card => {
+                    const results = await Promise.all(cart.partialPayments.map(async card => {
                         const response = await fetch(`/gift-cards/card-api/${card.number}`);
                         return response.json();
-                    });
-                    const results = await Promise.all(fetchPromises);
-                    let removedNumbers = []
+                    }));
+                    const removed = []
                     results.forEach(card => {
-                        const index = cart.partialPayments.findIndex(element => element.number === card.number && element.amount > parseFloat(card.available_balance))
+                        const index = cart.partialPayments.findIndex(p => p.number === card.number && p.amount > parseFloat(card.available_balance))
                         if (index !== -1) {
-                            removedNumbers.push(cart.partialPayments[index].number.slice(-4))
-                            console.log(index)
-                            console.log("Removed:")
-                            console.log(cart.partialPayments[index])
+                            removed.push(cart.partialPayments[index].number.slice(-4))
                             cart.partialPayments.splice(index, 1);
                         }
                     })
-                    updateCart();
-                    if (removedNumbers.length) {
-                        alert(gettext(`Looks like ${removedNumbers.length === 1 ? "one" : "some"} of your gift cards ${removedNumbers.length === 1 ? "has" : "have"} changed since you redeemed them. Card${removedNumbers.length === 1 ? "" : "s"} ending with ${removedNumbers} ha${removedNumbers.length === 1 ? "s" : "ve"} insufficient balance and ha${removedNumbers.length === 1 ? "s" : "ve"} been removed. Input the number${removedNumbers.length === 1 ? "" : "s"} again to see the updated balance.`))
+                    await updateCart();
+                    if (removed.length) {
+                        alert(interpolate(gettext("The balance on gift card(s) ending in %s changed since you added them, so they were removed. Enter them again to see the new balance."), [removed.join(", ")]))
                         button.disabled = false
                         button.classList.remove("loading")
                         button.innerHTML = oldText
@@ -814,125 +699,47 @@
                         return
                     }
                     if (cart.remainingTotalNum === 0) {
-                        finalizeForm.submit()   
+                        finalizeForm.submit()
                         fullResetCart()
                         return
                     }
                 }
-                // This is awkward but it solves the form validation as well as submission.
+                // Submitting through a real button gives form validation as well as submission
                 document.querySelector("#true-submit-button").click()
             })
         })
 
         async function checkETA(destination) {
-            return fetch(`{% url 'eta' %}?destination=${destination}&customer=true`)
+            return fetch(`{% url 'eta' %}?destination=${encodeURIComponent(destination)}&customer=true`)
         }
 
-        function registerResetSync() {
-            if ('serviceWorker' in navigator && 'SyncManager' in window) {
-                navigator.serviceWorker.ready
-                    .then((registration) => {
-                        // console.log('Service Worker is ready:', registration);
-                        // Register the sync task
-                        registration.sync.register('reset-cart-payments');
-                        // console.log('Background sync registered for cart reset.');
-                    })
-                    .catch((error) => {
-                        console.error('Failed to register background sync:', error);
-                    });
-            } else {
-                console.warn('Background Sync is not supported in this browser.');
-            }
-        }
-
-        // Function: saveCartToIndexedDB
-
-        // Description:
-        // This function saves the provided cart data to the IndexedDB database named 'CartDB'. 
-        // If the database or the 'cart' object store does not exist, they are created.
-
-        // Parameters:
-        // - cart (Object): The cart data to be saved in the IndexedDB.
-
-        // IndexedDB Operations:
-        // - Opens the 'CartDB' database with version 1.
-        // - If the database upgrade is needed (i.e., the database is being created for the first time or a new version is specified), 
-        //   it creates an object store named 'cart' with 'id' as the keyPath.
-        // - On successful opening of the database, it starts a readwrite transaction on the 'cart' object store and 
-        //   stores the provided cart data with 'currentCart' as the key.
+        // The cart is kept in IndexedDB (the service worker can read it there)
         function saveCartToIndexedDB(cart) {
-            const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)
-
+            const request = indexedDB.open('CartDB', 1);
             request.onupgradeneeded = function (event) {
                 const db = event.target.result;
-                if (!db.objectStoreNames.contains('cart')) {
-                    db.createObjectStore('cart', { keyPath: 'id' }); // Create the 'cart' object store
-                    // console.log('Object store "cart" created.');
-                }
+                if (!db.objectStoreNames.contains('cart')) db.createObjectStore('cart', { keyPath: 'id' });
             };
-
             request.onsuccess = function (event) {
                 const db = event.target.result;
-                const transaction = db.transaction(['cart'], 'readwrite');
-                const store = transaction.objectStore('cart');
-                store.put({ id: 'currentCart', data: cart });
+                db.transaction(['cart'], 'readwrite').objectStore('cart').put({ id: 'currentCart', data: cart });
             };
         }
 
-        // Function: getCartFromIndexedDB
-
-        // Description:
-        // This function retrieves the current cart data from an IndexedDB database named 'CartDB'. 
-        // It returns a Promise that resolves with the cart data or null if the data is not found or an error occurs.
-
-        // Usage:
-        // getCartFromIndexedDB().then(cartData => {
-        //     // Use the cart data
-        // }).catch(error => {
-        //     // Handle any errors
-        // });
-
-        // IndexedDB Structure:
-        // - Database: CartDB (version 1)
-        // - Object Store: cart (keyPath: 'id')
-
-        // Returns:
-        // - Promise: Resolves with the cart data or null if not found or an error occurs.
-
-        // Error Handling:
-        // - Logs an error message to the console if the database fails to open or if the cart data retrieval fails.
         function getCartFromIndexedDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open('CartDB', 1); // Ensure the version number is correct (1 in this case)
-
+            return new Promise((resolve) => {
+                const request = indexedDB.open('CartDB', 1);
                 request.onupgradeneeded = function (event) {
                     const db = event.target.result;
-                    if (!db.objectStoreNames.contains('cart')) {
-                        db.createObjectStore('cart', { keyPath: 'id' }); // Create the 'cart' object store
-                        // console.log('Object store "cart" created.');
-                    }
+                    if (!db.objectStoreNames.contains('cart')) db.createObjectStore('cart', { keyPath: 'id' });
                 };
-
                 request.onsuccess = function (event) {
                     const db = event.target.result;
-                    const transaction = db.transaction(['cart'], 'readonly');
-                    const store = transaction.objectStore('cart');
-                    const getRequest = store.get('currentCart');
-
-                    getRequest.onsuccess = function () {
-                        resolve(getRequest.result ? getRequest.result.data : null); // Return the cart data or null
-                    };
-
-                    getRequest.onerror = function () {
-                        console.error('Failed to retrieve cart from IndexedDB');
-                        resolve(null); // Resolve with null on error
-                    };
+                    const getRequest = db.transaction(['cart'], 'readonly').objectStore('cart').get('currentCart');
+                    getRequest.onsuccess = () => resolve(getRequest.result ? getRequest.result.data : null);
+                    getRequest.onerror = () => resolve(null);
                 };
-
-                request.onerror = function () {
-                    console.error('Failed to open IndexedDB');
-                    resolve(null); // Resolve with null if the database fails to open
-                };
+                request.onerror = () => resolve(null);
             });
         }
     </script>

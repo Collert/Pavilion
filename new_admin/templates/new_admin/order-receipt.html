@@ -59,27 +59,35 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in order.dishes %}
+            {% for item in order.lines %}
                 <tr>
-                    <td>{{item.name}}</td>
+                    <td>{{item.name}}{% for child in item.children %}<br><small>{{child.name}}</small>{% endfor %}{% if item.mods %}<br><small>{{item.mods|join:", "}}</small>{% endif %}</td>
                     <td>{{item.quantity}}</td>
                     <td>${{item.price|floatformat:2}}</td>
-                    <td>${{item.price|mul:item.quantity|floatformat:2}}</td>
+                    <td>${{item.gross|floatformat:2}}</td>
                 </tr>
             {% endfor %}
     </table>
     <hr>
-    {% if tax %}
-    {% for tax_type in tax %}
-        <div class="spread-content">
-            <h3>{{tax_type.title}}</h3>
-            <h3>{{tax_type.amount}}</h3>
-        </div>
+    <div class="spread-content">
+        <h3>{% trans "Subtotal" %}:</h3>
+        <h3>${{order.subtotal|floatformat:2}}</h3>
+    </div>
+    {% for discount in order.discounts %}
+    <div class="spread-content">
+        <h3>{{discount.label}}</h3>
+        <h3>−${{discount.amount|floatformat:2}}</h3>
+    </div>
     {% endfor %}
+    {% if order.tax %}
+    <div class="spread-content">
+        <h3>{% trans "Tax" %}</h3>
+        <h3>${{order.tax|floatformat:2}}</h3>
+    </div>
     {% endif %}
     <div class="spread-content">
         <h3>{% trans "TOTAL" %}:</h3>
-        <h3>{{total}}</h3>
+        <h3>${{order.total|floatformat:2}}</h3>
     </div>
     <h2>{% trans "THANK YOU!" %}</h2>
 </body>

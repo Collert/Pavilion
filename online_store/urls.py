@@ -8,6 +8,7 @@ urlpatterns = [
     path("menu", views.menu, name="menu"),
     path("dish/<int:id>", views.dish, name="dish"),
     path("submit-order", views.place_order, name="submit_order"),
+    path("cart-quote", views.cart_quote, name="cart_quote"),
     path("order-status/<int:id>", views.order_status, name="order_status"),
     path("order-status/<int:id>/<str:from_placing>", views.order_status, name="order_status"), 
     path("order-history", views.order_history, name="order_history"),

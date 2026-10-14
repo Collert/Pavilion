@@ -226,141 +226,12 @@ def device_elig(request):
                 "failed_login":True,
             })
 
-@staff_required
-@device_required
-def pos(request):
-    """
-    Handles POS (Point of Sale) operations for GET, POST, and PUT requests.
-    GET:
-    - Retrieves the active menu and groups dishes by station.
-    - Renders the order page with the menu and other relevant data.
-    POST:
-    - Processes an order from the cart.
-    - Handles partial payments, including gift card charges.
-    - Creates a new order with special instructions and dish quantities.
-    - Updates inventory and order statuses based on dish components.
-    PUT:
-    - Validates partial payments, including gift card balances.
-    - Initiates a terminal checkout process.
-    Args:
-        request (HttpRequest): The HTTP request object.
-    Returns:
-        HttpResponse: The rendered order page for GET requests.
-        JsonResponse: A JSON response indicating the result of POST and PUT requests.
-    """
-    if request.method == "GET":
-        menu = Menu.active()
-        if menu is None:
-            return render(request, "pos_server/order.html", {"route": "pos", "sections": [], "json": [],
-                                                             "menu_title": _("No active menu"), "menus": Menu.objects.all()})
-        dishes = menu.dishes.select_related("station").prefetch_related("components__child_dishes").order_by('station__position', 'id')
-        return render(request, "pos_server/order.html", {
-            "route": "pos",
-            "sections": group_by_station(dishes),
-            "menu_title": menu.title,
-            "json": [dish.serialize_with_options() for dish in dishes],
-            "menus": Menu.objects.all()
-        })
-    try:
-        body = json.loads(request.body)
-        cart = body["cart"]
-        gift_payments = [(p["number"], p["amount"]) for p in cart.get("partialPayments", []) if p.get("type") == "gift"]
-    except (ValueError, KeyError, TypeError):
-        return HttpResponseBadRequest("Malformed cart")
-    if request.method == "POST":
-        try:
-            create_order(
-                items=cart["items"],
-                channel="store",
-                initial_status=OrderStation.STATUS_APPROVED,
-                gift_card_payments=gift_payments,
-                discount_amount=(cart.get("discounts") or {}).get("amount") or 0,
-                discount_percent=(cart.get("discounts") or {}).get("percent") or 0,
-                special_instructions=body.get("instructions") or None,
-                to_go_order=bool(body.get("toGo")),
-                name=(body.get("name") or "").strip() or None,
-            )
-        except OrderError as e:
-            return JsonResponse({"message": str(e)}, status=400)
-        return JsonResponse({"message":"Sent to kitchen"}, status=200)
-    elif request.method == "PUT":
-        # Before charging the card terminal, make sure the gift card part can still be charged
-        for number, amount in gift_payments:
-            card = GiftCard.objects.filter(number=number).first()
-            if card is None or card.available_balance < Decimal(str(amount)):
-                return JsonResponse({
-                        "message":_("Card x%(last4)s no longer has a sufficient balance to charge $%(amount)s") % {"last4": str(number)[-4:], "amount": amount},
-                        "status":402
-                    }, status=402)
-        return square.terminal_checkout(request)
-    return HttpResponseNotAllowed(["GET", "POST", "PUT"])
-
 def group_by_station(dishes):
     """[(Station, [dishes...]), ...] in station order, skipping empty stations."""
     sections = {}
     for dish in dishes:
         sections.setdefault(dish.station, []).append(dish)
     return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
-
-def check_if_only_choice_dish(dish:Dish):
-    """
-    Checks whether the dish only consists of components that point to other dishes.
-
-    Args:
-        dish (Dish): The dish to check.
-
-    Returns:
-        bool: True if all components of the dish point to other dishes, False otherwise.
-    """
-    if not dish.components.all():
-        return False
-    for component in dish.components.all():
-        if not component.child_dishes.all():
-            return False
-    return True
-
-def component_choice(request):
-    """
-    Handles the selection of components for a given dish.
-
-    This view function retrieves the dish ID from the request's GET parameters,
-    fetches the corresponding dish from the database, and constructs a list of
-    choice components. Each choice component includes the parent component and
-    its child dishes, along with their titles, IDs, stock status, and forced stock status.
-
-    Args:
-        request (HttpRequest): The HTTP request object containing GET parameters.
-
-    Returns:
-        HttpResponse: Renders the 'component-choice.html' template with the choice components
-                      if a valid dish ID is provided.
-        HttpResponseBadRequest: Returns a bad request response if the dish ID is not provided
-                                or invalid.
-    """
-    dish_id = request.GET.get('dish_id')
-    if dish_id:
-        dish = Dish.objects.filter(pk=dish_id).first()
-        choice_components = []
-        for component in dish.components.all():
-            if component.child_dishes.all():
-                choices = {
-                    "parent":{
-                        "title":component.title,
-                        "id":component.id
-                    },
-                    "children":[]
-                }
-                for child in component.child_dishes.all():
-                    choices["children"].append({
-                        "title":child.title,
-                        "id":child.id,
-                        "in_stock":child.in_stock,
-                        "force_in_stock":child.force_in_stock
-                    })
-                choice_components.append(choices)
-        return render(request, "pos_server/component-choice.html", {"choices":choice_components})
-    else:
-        return HttpResponseBadRequest("Please include a valid dish ID in the request")
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -391,7 +262,7 @@ def day_stats(request):
         return HttpResponseBadRequest("Invalid date. Use YYYY-MM-DD.")
 
     orders = (Order.objects.filter(timestamp__date=day).order_by('timestamp')
-              .prefetch_related('orderdish_set__dish__station', 'orderdish_set__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
+              .prefetch_related('items__station', 'items__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
 
     item_stats = Counter()
     stations = Counter()
@@ -408,23 +279,27 @@ def day_stats(request):
 
     for order in orders:
         window = get_15_min_window(order.timestamp)
-        order_dishes = order.orderdish_set.all()
         occasions[window]['count'] += 1
-        occasions[window]['total_earnings'] += sum(od.quantity * od.dish.price for od in order_dishes)
+        occasions[window]['total_earnings'] += order.total
         if order.prep_time:
             prep_totals[window]['total'] += order.prep_time
             prep_totals[window]['count'] += 1
 
-        for od in order_dishes:
-            dish = od.dish
-            item_stats[dish.title] += od.quantity
-            stations[dish.station.name] += od.quantity
-            for dc in dish.dishcomponent_set.all():
+        for item in order.items.all():
+            if not item.parent_id:
+                item_stats[item.title] += item.quantity  # what was sold: dishes and combos
+            if item.station is None:
+                continue
+            stations[item.station.name] += item.quantity  # what was made: dishes, including those in combos
+            if item.dish is None:
+                continue
+            # Standard recipe; customizations (extra portions, swaps) aren't counted here
+            for dc in item.dish.dishcomponent_set.all():
                 entry = components.setdefault(dc.component.title, [0, dc.component.unit_of_measurement])
-                entry[0] += dc.quantity * od.quantity
+                entry[0] += dc.quantity * item.quantity
                 for ci in dc.component.componentingredient_set.all():
                     entry = ingredients.setdefault(ci.ingredient.title, [0, ci.ingredient.unit_of_measurement])
-                    entry[0] += ci.quantity * dc.quantity * od.quantity
+                    entry[0] += ci.quantity * dc.quantity * item.quantity
 
     stats = {
         "item_stats": dict(item_stats.most_common()),
@@ -442,63 +317,43 @@ def day_stats(request):
 @staff_required
 def pos_out_display(request):
     """
-    Handles the display of the POS output screen.
-
-    This view retrieves the active menu and its associated dishes, compiles the menu,
-    and renders the 'pos_server/pos-output-display.html' template with the necessary context.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered HTML response for the POS output display.
-
-    Context:
-        dishes (list): Serialized dishes of the active menu (rendered with json_script).
-        menu (Menu): The active menu object.
-        compiled_menu (dict): The compiled menu data.
-        components_out (list): List of components for the output display.
+    The customer-facing display: the active menu, and the cart while the cashier rings it up. The cart
+    arrives from the register over BroadcastChannel, so this must run in the same browser as the register.
     """
     menu = Menu.active()
-    dishes = Dish.objects.filter(menu=menu).order_by("id")
-    comp_menu, components_out = compile_menu(menu)
     return render(request, "pos_server/pos-output-display.html", {
-        "dishes": json.loads(serializers.serialize('json', dishes)),
-        "menu":menu,
-        "compiled_menu":comp_menu,
-        "components_out":components_out
+        "menu": menu,
+        "compiled_menu": compile_menu(menu) if menu else [],
     })
 
 def compile_menu(menu):
-    """
-    Compiles the menu into categorized dishes and determines if components are out.
+    """[(Station, [prettified dishes and combos])] in station order, for the customer display."""
+    dishes = menu.dishes.select_related("station").prefetch_related("dishcomponent_set__component").order_by("station__position", "id")
+    categories = {station: [prettify_dish(dish) for dish in items] for station, items in group_by_station(dishes)}
+    for combo in menu.combos.prefetch_related("slots__options__dish__station").filter(visible_in_menu=True):
+        station = combo.section_station()
+        if station is not None:
+            categories.setdefault(station, []).append(prettify_combo(combo))
+    return sorted(categories.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
-    Args:
-        menu (Menu): The menu object containing dishes to be compiled.
-
-    Returns:
-        tuple: A tuple containing:
-            - categories (list): [(Station, [prettified dishes])] in station order.
-            - components_out (bool): A boolean indicating if components are out (always False in this implementation).
-    """
-    components_out = False
-    dishes = menu.dishes.select_related("station").order_by("station__position", "id")
-    categories = [(station, [prettify_dish(dish) for dish in items]) for station, items in group_by_station(dishes)]
-    return categories, components_out
+def prettify_combo(combo):
+    """A combo for menu boards: its standard picks as the description."""
+    picks = []
+    for slot in combo.slots.all():
+        option = slot.default_option()
+        if option:
+            picks.append(option.dish.title.lower())
+    return {
+        "title": combo.title,
+        "components": ", ".join(picks),
+        "price": format_float(combo.price),
+        "available": combo.available and combo.visible_in_menu,
+    }
 
 def prettify_dish(dish):
     """
-    Converts a dish object into a dictionary with a human-readable format.
-
-    Args:
-        dish (Dish): The dish object to be converted.
-
-    Returns:
-        dict: A dictionary containing the prettified dish information with the following keys:
-            - title (str): The title of the dish.
-            - components (str): A string describing the components of the dish.
-            - price (str): The formatted price of the dish.
-            - available (bool): Availability status of the dish.
+    A dish for menu boards and the online dish page: title, price, availability, and its components as
+    readable text ("8 perogies, a cup of coffee").
     """
     final_dish = {
         "title":dish.title,
@@ -524,20 +379,11 @@ def prettify_dish(dish):
             if dc.quantity == 1:
                 quantity_str = _("a cup of ")
             else:
-                quantity_str = _(f"{int(dc.quantity)} cups of ")
+                quantity_str = _("%(count)s cups of ") % {"count": int(dc.quantity)}
         final_dish["components"] += f"{quantity_str}"
         final_dish["components"] += f"{dc.component.title.lower()}"
         if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
             final_dish["components"] += "s"
-        if dc.component.child_dishes.all():
-            final_dish["components"] += _(" (choice of: ")
-            for choice in dc.component.child_dishes.all():
-                final_dish["components"] += f"{choice.title}/"
-            final_dish["components"] = final_dish["components"][:-1]
-            final_dish["components"] += ")"
-        if dc.component.inventory < dc.quantity:
-            # final_dish["components"] += "*"
-            components_out = True
         if index != len(dcs) - 1:
             final_dish["components"] += ", "
     return final_dish
@@ -689,37 +535,6 @@ def order_progress(request):
         "weather_API_key":settings.WEATHER_API_KEY
     })
         
-@api_staff_required
-@require_POST
-def check_superuser_status(request):
-    """
-    Check if the authenticated user is a superuser.
-    Args:
-        request (HttpRequest): The HTTP request object containing the user's credentials in the body.
-    Returns:
-        JsonResponse: A JSON response indicating whether the user is a superuser or not, or an error message if the request is invalid or authentication fails.
-    Possible JSON responses:
-        - {'superuser': True} if the user is authenticated and is a superuser.
-        - {'superuser': False} if the user is authenticated but is not a superuser.
-        - {'error': 'Invalid request'} if the request body is invalid.
-        - {'error': 'Authentication failed'} if the authentication fails.
-    """
-    try:
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-    except (ValueError, KeyError):
-        return JsonResponse({'error': 'Invalid request'}, status=400)
-
-    user = authenticate(username=username, password=password)
-
-    if user is not None and user.is_superuser:
-        return JsonResponse({'superuser': True})
-    elif user is not None:
-        return JsonResponse({'superuser': False})
-    else:
-        return JsonResponse({'error': 'Authentication failed'}, status=401)
-
 @require_POST
 @csrf_exempt  # Disable CSRF for this view as it's an external API
 def square_webhook(request):
@@ -837,23 +652,3 @@ def active_orders(request):
             for order in serialized_orders
         ]
     return JsonResponse(serialized_orders, safe=False)
-
-@api_staff_required
-@device_required
-def check_inventory(request):
-    """
-    Handles the request to check the inventory of active dishes.
-
-    This view function retrieves the first active menu and then fetches all dishes
-    associated with that menu. The list of dishes is then serialized to JSON format
-    and returned as a JsonResponse.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        JsonResponse: A JSON response containing the serialized list of dishes.
-    """
-    menu = Menu.active()
-    dishes = Dish.objects.filter(menu=menu)
-    return JsonResponse(serializers.serialize('json', dishes), safe=False)

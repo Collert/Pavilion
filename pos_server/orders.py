@@ -2,145 +2,78 @@
 Order creation and serialization, shared by the POS (pos_server.views.pos) and the online store
 (online_store.views.place_order).
 
-Carts come from the browser as a list of items like {"pk": <dish id>, "parent": <dish id>}. The browser's
-prices and totals are never trusted: everything is priced here from the database.
-
-Pricing rules (they mirror what the cart JS shows):
-- A plain dish costs its price.
-- A dish with choice components (e.g. "Breakfast" with a "Drink" choice) costs its price, and each chosen
-  child (Coffee) is free. The child arrives as {"pk": coffee, "parent": breakfast}.
-- An "only choices" dish (every component is a choice) is never ordered itself; its chosen children are
-  charged at their own price.
+Carts are priced in pos_server.pricing (the browser's prices and totals are never trusted). This module turns
+a priced cart into an Order with its items, discounts and payments, takes the stock, and charges gift cards.
 """
 from collections import Counter
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import F
 from django.utils.translation import gettext as _
 
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from inventory.views import craft_component
-from .models import Dish, Order, OrderDish, OrderStation, Station
+from .models import Component, Discount, Order, OrderDiscount, OrderItem, OrderPayment, OrderStation, Station
+from .pricing import OrderError, price_cart, to_money  # noqa: F401 (OrderError and to_money are re-exported)
 
-CENT = Decimal("0.01")
-
-
-class OrderError(Exception):
-    """A cart that can't become an order. The message is safe to show to the customer or cashier."""
+ZERO = Decimal("0.00")
 
 
-def to_money(value) -> Decimal:
-    """Parse a user-supplied amount into a non-negative Decimal with 2 places."""
-    try:
-        amount = Decimal(str(value)).quantize(CENT)
-    except (InvalidOperation, ValueError, TypeError):
-        raise OrderError(_("Invalid amount: %(value)s") % {"value": value})
-    if amount < 0 or not amount.is_finite():
-        raise OrderError(_("Invalid amount: %(value)s") % {"value": value})
-    return amount
+def consume_stock(use: Counter):
+    """Take {component id: amount} out of inventory, crafting self-crafting components first."""
+    for component in Component.objects.filter(pk__in=use):
+        needed = use[component.id]
+        if component.crafting_option == "auto":
+            craft_component(component.id, needed)
+            component.refresh_from_db()
+        component.inventory = (component.inventory or 0) - needed
+        component.save()
 
 
-def _choice_options(dish):
-    """Components of `dish` that are choices, as a list of sets of allowed child dish IDs."""
-    return [
-        {child.id for child in component.child_dishes.all()}
-        for component in dish.components.all()
-        if component.child_dishes.exists()
-    ]
-
-
-def price_cart(items):
-    """
-    Validate and price a cart.
-
-    Returns (counts, total): counts is a Counter {Dish: quantity} of the dishes to prepare (only-choice
-    parents are left out), total is the Decimal amount to charge.
-    """
-    try:
-        ids = {int(item["pk"]) for item in items}
-        ids |= {int(item["parent"]) for item in items if item.get("parent")}
-    except (KeyError, TypeError, ValueError):
-        raise OrderError(_("The cart is malformed."))
-    dishes = Dish.objects.select_related("station").prefetch_related("components__child_dishes").in_bulk(ids)
-    missing = ids - set(dishes)
-    if missing:
-        raise OrderError(_("Some items in your cart no longer exist. Please refresh the menu."))
-
-    only_choice = {dish_id: dish.check_if_only_choice_dish() for dish_id, dish in dishes.items()}
-
-    # How many free picks each priced parent dish allows: one per choice component, per parent in the cart.
-    free_picks = Counter()
-    for item in items:
-        if not item.get("parent"):
-            dish = dishes[int(item["pk"])]
-            if not only_choice[dish.id]:
-                free_picks[dish.id] += len(_choice_options(dish))
-
-    counts = Counter()
-    total = Decimal("0.00")
-    for item in items:
-        dish = dishes[int(item["pk"])]
-        if not (dish.in_stock or dish.force_in_stock):
-            raise OrderError(_("%(dish)s is out of stock.") % {"dish": dish.title})
-        parent_id = int(item["parent"]) if item.get("parent") else None
-        if parent_id:
-            parent = dishes[parent_id]
-            if not any(dish.id in options for options in _choice_options(parent)):
-                raise OrderError(_("%(dish)s is not an option for %(parent)s.") % {"dish": dish.title, "parent": parent.title})
-            if only_choice[parent_id]:
-                total += dish.price
-            else:
-                free_picks[parent_id] -= 1
-                if free_picks[parent_id] < 0:
-                    raise OrderError(_("Too many choices for %(parent)s.") % {"parent": parent.title})
-        elif only_choice[dish.id]:
-            continue  # the parent of a choice; the children carry the price
-        else:
-            total += dish.price
-        counts[dish] += 1
-    return counts, total.quantize(CENT)
-
-
-def consume_stock(dish, quantity):
-    """Take the components for `quantity` x `dish` out of inventory, crafting self-crafting ones first."""
-    for dc in dish.dishcomponent_set.select_related("component"):
-        needed = dc.quantity * quantity
-        if dc.component.crafting_option == "auto":
-            craft_component(dc.component.id, needed)
-            dc.component.refresh_from_db()
-        dc.component.inventory -= needed
-        dc.component.save()
+def _count_discount_uses(cart):
+    """Count each coupon/offer use, refusing ones that ran out while this cart was being rung up."""
+    for _line, applied in cart.applied_discounts():
+        if applied.discount is None:
+            continue
+        discount = Discount.objects.select_for_update().get(pk=applied.discount.pk)
+        if discount.max_uses is not None and discount.times_used >= discount.max_uses:
+            raise OrderError(_("%(name)s has been used up.") % {"name": discount.name})
+        Discount.objects.filter(pk=discount.pk).update(times_used=F("times_used") + 1)
 
 
 @transaction.atomic
-def create_order(*, items, channel, initial_status, gift_card_payments=(), verify_payment=None,
-                 discount_amount=0, discount_percent=0, **fields):
+def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
+                 verify_payment=None, can_manual_discount=False, expected_total=None, drawer=None, **fields):
     """
     Create an order from a cart.
 
     Args:
-        items: cart items from the browser (see module docstring).
+        lines: cart lines from the browser (see pos_server.pricing).
         channel: "store", "web" or "delivery".
         initial_status: OrderStation status for every station involved. POS orders start APPROVED,
             online orders start PENDING and wait for approval on the KDS.
+        order_discount: discount spec for the whole order (see pricing).
+        payments: register payments, [{"method": "cash"|"card", "amount": ..., "tendered": ...}]. When given
+            (the register), they plus the gift cards must add up to exactly the total.
         gift_card_payments: iterable of (card number, amount) to charge to gift cards.
         verify_payment: optional callable(remaining: Decimal) that raises OrderError if the part of the
-            total not covered by gift cards hasn't been paid. Called inside the transaction.
-        discount_amount, discount_percent: POS discounts (staff only; never pass customer input here).
-            Applied like the POS cart does: total - amount - total * percent / 100, floored at 0.
-        **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization).
+            total not covered by gift cards hasn't been paid (online). Called inside the transaction.
+        can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
+        expected_total: the total the cashier saw. If the server's total differs, the order is refused.
+        drawer: the register's open CashDrawerSession. Cash needs one; every register payment is linked to it.
+        **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier).
 
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """
-    counts, subtotal = price_cart(items)
-    if not counts:
+    cart = price_cart(lines, order_discount=order_discount, channel=channel, can_manual=can_manual_discount)
+    if not cart.lines:
         raise OrderError(_("The cart is empty."))
-    percent = to_money(discount_percent)
-    if percent > 100:
-        raise OrderError(_("A discount can't be more than 100%."))
-    total = max(subtotal - to_money(discount_amount) - (subtotal * percent / 100), Decimal("0")).quantize(CENT)
+    total = cart.total
+    if expected_total is not None and to_money(expected_total) != total:
+        raise OrderError(_("The total changed to $%(total)s. Please check the order and try again.") % {"total": total})
 
-    gift_total = Decimal("0.00")
+    gift_total = ZERO
     charges = []
     for number, amount in gift_card_payments:
         amount = to_money(amount)
@@ -155,21 +88,68 @@ def create_order(*, items, channel, initial_status, gift_card_payments=(), verif
         gift_total += amount
     if gift_total > total:
         raise OrderError(_("Gift card payments are more than the order total."))
+
+    tenders = []
+    for payment in payments:
+        method = payment.get("method") if isinstance(payment, dict) else None
+        if method not in (OrderPayment.CASH, OrderPayment.CARD):
+            raise OrderError(_("Unknown payment method."))
+        amount = to_money(payment.get("amount"))
+        tendered = None
+        if method == OrderPayment.CASH:
+            if drawer is None:
+                raise OrderError(_("Open the cash drawer before taking cash."))
+            tendered = to_money(payment.get("tendered") or amount)
+            if tendered < amount:
+                raise OrderError(_("Not enough cash was handed over."))
+        tenders.append((method, amount, tendered))
+    if payments and gift_total + sum((t[1] for t in tenders), ZERO) != total:
+        raise OrderError(_("The payments don't add up to the total of $%(total)s.") % {"total": total})
     if verify_payment:
         verify_payment(total - gift_total)
 
-    order = Order.objects.create(channel=channel, total=total, discount=subtotal - total, **fields)
+    _count_discount_uses(cart)
+    order = Order.objects.create(channel=channel, subtotal=cart.subtotal, discount=cart.discount, tax=cart.tax,
+                                 total=total, **fields)
+
+    use = Counter()
     station_ids = set()
-    for dish, quantity in counts.items():
-        OrderDish.objects.create(order=order, dish=dish, quantity=quantity)
-        station_ids.add(dish.station_id)
-        consume_stock(dish, quantity)
+    for line in cart.lines:
+        parent = OrderItem.objects.create(
+            order=order, title=line.item.title, quantity=line.quantity, unit_price=line.unit_price,
+            discount=line.discount.amount if line.discount else ZERO, note=line.note, selection=line.selection,
+            **({"dish": line.item, "station": line.item.station, "mods": line.picks[0].mods} if line.kind == "dish"
+               else {"combo": line.item, "mods": line.mods}),
+        )
+        if line.discount:
+            OrderDiscount.objects.create(order=order, item=parent, discount=line.discount.discount, label=line.discount.label,
+                                         kind=line.discount.kind, value=line.discount.value, amount=line.discount.amount,
+                                         applied_by=fields.get("cashier"))
+        for picked in line.picks:
+            if line.kind == "combo":
+                OrderItem.objects.create(order=order, parent=parent, dish=picked.dish, station=picked.dish.station,
+                                         title=picked.dish.title, slot=picked.slot, quantity=line.quantity,
+                                         mods=picked.mods, note=picked.note, selection=picked.selection)
+            station_ids.add(picked.dish.station_id)
+            for component_id, amount in picked.use.items():
+                use[component_id] += amount * line.quantity
+    if cart.order_discount:
+        applied = cart.order_discount
+        OrderDiscount.objects.create(order=order, discount=applied.discount, label=applied.label, kind=applied.kind,
+                                     value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"))
+    consume_stock(use)
+
     OrderStation.objects.bulk_create(
         OrderStation(order=order, station_id=station_id, status=initial_status) for station_id in station_ids
     )
     for card, amount in charges:
         card.charge_card(amount)
         GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=amount)
+        OrderPayment.objects.create(order=order, method=OrderPayment.GIFT, amount=amount, gift_card=card, drawer=drawer)
+    for method, amount, tendered in tenders:
+        OrderPayment.objects.create(order=order, method=method, amount=amount, tendered=tendered, drawer=drawer)
+    if verify_payment and total - gift_total > 0:
+        OrderPayment.objects.create(order=order, method=OrderPayment.CARD, amount=total - gift_total)
     order.picked_up = not station_ids
     order.save()
     return order
@@ -184,31 +164,68 @@ def refund_gift_cards(order):
 def orders_for_screens(queryset):
     """Prefetch everything collect_order() touches."""
     return queryset.select_related("authorization").prefetch_related(
-        "station_statuses__station", "orderdish_set__dish__station", "delivery",
+        "station_statuses__station", "items__station", "discounts", "payments", "delivery",
     )
+
+
+def _kitchen_rows(order):
+    """What stations make: standalone dishes and the dishes inside combos."""
+    items = list(order.items.all())
+    parents = {item.id: item for item in items if item.combo_id or item.dish_id is None}
+    rows = []
+    for item in items:
+        if item.station_id is None:
+            continue
+        parent = parents.get(item.parent_id)
+        rows.append({
+            "name": item.title,
+            "quantity": item.quantity,
+            "station": item.station.code,
+            "mods": item.mods,
+            "note": item.note,
+            "combo": parent.title if parent else None,
+            "slot": item.slot,
+        })
+    return rows
+
+
+def _priced_lines(order):
+    """Top-level lines with prices, for receipts and the admin."""
+    items = list(order.items.all())
+    children = {}
+    for item in items:
+        if item.parent_id:
+            children.setdefault(item.parent_id, []).append(item)
+    return [{
+        "name": item.title,
+        "quantity": item.quantity,
+        "price": float(item.unit_price),
+        "gross": float(item.gross),
+        "discount": float(item.discount),
+        "total": float(item.line_total),
+        "mods": item.mods,
+        "note": item.note,
+        "children": [{"name": child.title, "slot": child.slot, "mods": child.mods, "note": child.note}
+                     for child in children.get(item.id, [])],
+    } for item in items if not item.parent_id]
 
 
 def collect_order(order, done=False):
     """
     Serialize an order for the screens (KDS, status board, admin, order status page).
 
-    `stations` maps each involved station's code to its OrderStation status. Stations that aren't
-    involved are left out.
+    `dishes` is what the stations make (combos are split into their dishes); `lines` is what was sold, with
+    prices. `stations` maps each involved station's code to its OrderStation status.
     """
     if not order:
         return None
     delivery = order.delivery.first()
     return {
         'order_id': order.id,
-        'dishes': [
-            {
-                'name': od.dish.title,
-                'quantity': od.quantity,
-                'price': float(od.dish.price),
-                'station': od.dish.station.code,
-            }
-            for od in order.orderdish_set.all()
-        ],
+        'dishes': _kitchen_rows(order),
+        'lines': _priced_lines(order),
+        'discounts': [{"label": d.label, "amount": float(d.amount), "item": d.item_id} for d in order.discounts.all()],
+        'payments': [{"method": p.method, "amount": float(p.amount)} for p in order.payments.all()],
         'stations': order.station_status_map(),
         'name': order.name,
         'to_go_order': order.to_go_order,
@@ -216,9 +233,13 @@ def collect_order(order, done=False):
         'phone': order.phone,
         'address': delivery.destination if delivery else None,
         "special_instructions": order.special_instructions,
+        "note_for_kitchen": order.note_for_kitchen,
         "timestamp": order.timestamp.isoformat(),
         "timestamp_pretty": order.timestamp,
         "start_time": order.start_time.isoformat(),
+        "subtotal": float(order.subtotal),
+        "discount": float(order.discount),
+        "tax": float(order.tax),
         "total": float(order.total),
         "done": done,
         "picked_up": order.picked_up,

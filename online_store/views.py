@@ -2,10 +2,11 @@ from django.shortcuts import render
 from pos_server.models import *
 from collections import defaultdict
 from pos_server.views import prettify_dish, group_by_station
+from pos_server.pricing import combo_queryset, price_cart, to_cents
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
-from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound
+from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotAllowed, HttpResponseNotFound
 from django.core import serializers
 import os
 from .models import *
@@ -23,76 +24,64 @@ from gift_cards.models import GiftCard, GiftCardAuthorization
 from django.utils.translation import gettext_lazy as _
 from .context_processors import current_business_event
 
+def store_item(obj):
+    """A dish or combo as the online store's JS needs it (money in cents). Combos list the pick they ask for."""
+    if isinstance(obj, Combo):
+        ask = None
+        base = {}
+        for slot in obj.slots.all():
+            options = list(slot.options.all())
+            if slot.ask_on_add:
+                ask = {"slot": slot.id, "title": slot.prompt or slot.title, "options": [
+                    {"dish": o.dish_id, "title": o.dish.title, "price": to_cents(o.price), "available": o.dish.available}
+                    for o in options]}
+                continue
+            # A slot whose standard dish is sold out starts on the first one that isn't
+            default = slot.default_option()
+            if default and not default.dish.available:
+                other = next((o for o in options if o.dish.available), None)
+                if other:
+                    base[str(slot.id)] = {"dish": other.dish_id}
+        return {"key": f"c{obj.id}", "type": "combo", "id": obj.id, "title": obj.title, "price": to_cents(obj.price),
+                "image": obj.image.url if obj.image else None, "available": obj.available, "ask": ask, "slots": base}
+    return {"key": f"d{obj.id}", "type": "dish", "id": obj.id, "title": obj.title, "price": to_cents(obj.price),
+            "image": obj.image.url if obj.image else None, "available": obj.available}
+
+
+def menu_sections(menu):
+    """[(Station, [Dish or Combo])] for a menu: dishes by station, each combo with its first dish's station."""
+    if menu is None:
+        return []
+    dishes = Dish.objects.filter(menu=menu).select_related("station").order_by("station__position", "id")
+    sections = dict(group_by_station(dishes))
+    for combo in combo_queryset().filter(menu=menu):
+        station = combo.section_station()
+        if station is not None:
+            sections.setdefault(station, []).append(combo)
+    return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
+
+
 def menu(request):
     """
-    Handles the menu view for the online store.
-
-    This view retrieves the active menu and its associated dishes, groups them by station,
-    and also retrieves other inactive menus and their dishes, grouping them by station as well.
-    The data is then rendered to the "online_store/menu.html" template.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered HTML response for the menu view.
-
-    Query Parameters:
-        actual (str, optional): The primary key of the menu to be set as active. If not provided,
-                                the first active menu will be used.
-
-    Template Context:
-        route (str): The route name, set to "menu".
-        menu (dict): A dictionary containing the active menu and its grouped dishes.
-            - menu (Menu): The active menu object.
-            - dishes (dict): A dictionary where keys are station names and values are lists of dishes.
-        others (dict): A dictionary where keys are titles of inactive menus and values are dictionaries
-                       of grouped dishes by station.
-        override_menu (str): The primary key of the menu to be set as active, if provided in the query parameters.
+    The online menu: the active menu (or ?actual=<menu id>) by section, and the other menus' dishes for
+    browsing. `store_items` feeds the cart JS (json_script).
     """
     query = request.GET.get('actual', None)
-    if query:
-        try:
-            active = Menu.objects.get(pk=query)
-        except:
-            active = Menu.active()
-    else:
-        active = Menu.active()
-    active_dishes = Dish.objects.filter(menu=active).select_related("station").prefetch_related("components__child_dishes")
-    grouped_active = [
-        (station, [{"obj":dish,"json":json.dumps([dish.serialize_with_options()])} for dish in dishes])
-        for station, dishes in group_by_station(active_dishes)
-    ]
-    others = Menu.objects.filter(is_active = False).all()
-    grouped_other_menus = {}
-    for menu_obj in others:
-        this_dishes = Dish.objects.filter(menu=menu_obj).select_related("station")
-        grouped_other_menus[menu_obj.title] = group_by_station(this_dishes)
+    active = Menu.objects.filter(pk=query).first() if query and str(query).isdigit() else None
+    active = active or Menu.active()
+    sections = menu_sections(active)
+    others = {menu_obj.title: menu_sections(menu_obj) for menu_obj in Menu.objects.filter(is_active=False)}
     return render(request, "online_store/menu.html", {
         "route":"menu",
-        "menu":{"menu":active, "dishes":grouped_active},
-        "others":grouped_other_menus,
-        "override_menu": query
+        "menu":{"menu":active, "dishes":[(station, [{"obj": obj, "key": store_item(obj)["key"], "is_combo": isinstance(obj, Combo)}
+                                                    for obj in items]) for station, items in sections]},
+        "others":others,
+        "override_menu": query,
+        "store_items": {store_item(obj)["key"]: store_item(obj) for _station, items in sections for obj in items},
     })
 
 def dish(request, id):
-    """
-    View function to display details of a specific dish.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-        id (int): The primary key of the dish to be retrieved.
-
-    Returns:
-        HttpResponse: Renders the dish details page if the dish exists.
-        HttpResponseNotFound: Returns a 404 response if the dish does not exist.
-
-    The function retrieves the dish by its primary key. If the dish is found,
-    it collects all allergens associated with the dish's components and their
-    ingredients. If there are multiple allergens, it removes 'None' from the set.
-    Finally, it renders the dish details page with the dish information, menu,
-    allergens, and serialized dish data in JSON format.
-    """
+    """A dish's page: description, what it's made of, allergens, and an add-to-cart button."""
     try:
         item = Dish.objects.get(pk=id)
     except Dish.DoesNotExist:
@@ -100,17 +89,36 @@ def dish(request, id):
     allergens = set()
     for dc in item.dishcomponent_set.all():
         for ci in dc.component.componentingredient_set.all():
-            allergens.add(ci.ingredient.allergen)
-    if len(allergens) > 1:
-        allergens.discard(None)
+            if ci.ingredient.allergen:
+                allergens.add(ci.ingredient.allergen)
     return render(request, "online_store/dish.html", {
         "route":"dish",
         "dish":item,
         "pretty_dish":prettify_dish(item),
         "menu":{"menu":item.menu.first()},
-        "allergens":', '.join(a for a in allergens if a is not None) if None not in allergens else None,
-        "json":json.dumps([item.serialize_with_options()])
+        "allergens":", ".join(sorted(allergens)) or None,
+        "store_items": {f"d{item.id}": store_item(item)},
     })
+
+
+def cart_quote(request):
+    """
+    Price the online cart for display: {"lines": [...], "coupon": "CODE"} (see pos_server.pricing). A coupon
+    that can't be used is reported in `orderDiscountError` and left out of the totals.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    try:
+        body = json.loads(request.body)
+        lines = body.get("lines") or []
+        coupon = str(body.get("coupon") or "").strip()
+    except (ValueError, TypeError, AttributeError):
+        return JsonResponse({"message": _("The cart is malformed.")}, status=400)
+    try:
+        cart = price_cart(lines, order_discount={"code": coupon} if coupon else None, channel="web", strict=False)
+    except OrderError as e:
+        return JsonResponse({"message": str(e)}, status=400)
+    return JsonResponse(cart.as_json())
 
 def index(request):
     """
@@ -170,7 +178,7 @@ def place_order(request):
     """
     Create an online (pickup or delivery) order from the checkout form.
 
-    The cart is priced on the server (pos_server.orders). Whatever gift cards don't cover must have been
+    The cart (lines and an optional coupon) is priced on the server (pos_server.pricing). Whatever gift cards don't cover must have been
     paid by card through the payment popup: the posted `transaction_uuid` has to be a paid, unused
     Transaction for at least that amount. Orders start pending and must be approved on the KDS.
     """
@@ -179,7 +187,8 @@ def place_order(request):
     post = request.POST
     try:
         cart = json.loads(post["cart-string"])
-        items = cart["items"]
+        lines = cart["lines"]
+        coupon = str(cart.get("coupon") or "").strip()
         gift_payments = [(p["number"], p["amount"]) for p in cart.get("partialPayments", []) if p.get("type") == "gift"]
         method = post["delivery-pickup-toggle"]
         if method not in ("pick-up", "delivery"):
@@ -216,7 +225,8 @@ def place_order(request):
     try:
         with db_transaction.atomic():
             order = create_order(
-                items=items,
+                lines=lines,
+                order_discount={"code": coupon} if coupon else None,
                 channel="delivery" if method == "delivery" else "web",
                 initial_status=OrderStation.STATUS_PENDING,
                 gift_card_payments=gift_payments,
