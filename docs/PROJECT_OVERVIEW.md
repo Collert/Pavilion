@@ -29,7 +29,7 @@ go out as "Holy Eucharist Cathedral".
 | **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
 | **Users** | Login/register/profile, `Staff`/`Customer` profiles | ✅ Basic |
 | **Misc tools** | K-means image-colour extractor (menu theming), gTTS announcement endpoint | ✅ Works |
-| **App switcher** | Landing tile page: POS / Order marking / Admin | ✅ Trivial |
+| **App switcher** | Staff launcher: device overview (clock, who's signed in, today's stats for this device) + app tiles | ✅ Done |
 | **Stations** | `Station` model; any number of stations, configured in `/advanced-admin/` | ✅ Done |
 
 ---
@@ -84,7 +84,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
-| `/apps/` | `app_switcher` | tile page |
+| `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
 | `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders` (public), `inventory` (staff), `checkout` (staff + registered device) |
 
@@ -188,6 +188,11 @@ store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`e
 
 Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one
 file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff-ui.js`. Designs: `docs/mockups/`.
+Every rail ends with `rail_foot.html`: Apps, Lock (register screens only), a divider and the clock (ticked by
+`staff-page.js`, which every staff screen loads). The **app switcher** (`/apps/`, `app_switcher`, design
+`docs/mockups/App switcher-html`) is staff-only and almost query-free (session, user, and the device's name): its
+"Today on this device" numbers (sales and orders rung up, KDS tickets moved, time since the first screen) live in the
+tab's `sessionStorage` (`device-stats.js`, reset daily), bumped by the register and the KDS.
 In portrait the rail is a row along the bottom (`staff.css`) and each screen stacks its panels: the register's menu
 above the order, the drawer's and lock screen's panels top to bottom, the KDS header above the list.
 
@@ -260,7 +265,7 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
 0. The menu lists dishes and combos; a combo that asks for a pick opens a picker. The cart
    (`online_store/static/online_store/cart.js`, kept in IndexedDB) is priced by `cart-quote`; checkout has a coupon
    field. Dishes are added as standard (no customization sheet online yet).
-1. `check_business_day` (context processor) exposes today's open `Event`; `place_order` re-checks it on the server,
+1. `check_business_day` (context processor) exposes today's open `Event` (lazily: only pages that use it query it); `place_order` re-checks it on the server,
    including `online_open`/`delivery_open` and that the pickup time is inside the event.
 2. The checkout form (`attach-card-payment confirmation-needed`) opens `payments/web-payment-window?amount=` in an iframe.
    That creates a `Transaction` for the amount; `process-web-payment` charges **the transaction's amount** via Square

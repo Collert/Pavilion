@@ -35,18 +35,12 @@
                 {% trans "Drawer" %}
             </a>
             <div class="rail-spacer"></div>
-            <form method="post" action="{% url 'register_lock' %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="lock">
-                <button class="rail-item" aria-label="{% trans 'Lock register' %}">
-                    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
-                    {% trans "Lock" %}
-                </button>
-            </form>
+            {% include "pos_server/rail_foot.html" with lock=True %}
         </nav>
         {% endblock %}
         {% block body %}{% endblock %}
     </div>
+    <script type="module" src="{% static 'pos_server/staff-page.js' %}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

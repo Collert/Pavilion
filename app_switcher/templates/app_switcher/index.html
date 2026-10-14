@@ -1,48 +1,81 @@
-{% load static %}
-{% load i18n %}
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    {% csrf_token %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="{% static 'app_switcher/layers.css' %}" rel="stylesheet">
-    <link href="{% static 'app_switcher/project-styles.css' %}" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <title>{% trans "Apps switcher" %}</title>
-    
-    <script type="module" src="{% static 'app_switcher/readabilitySwitch.js' %}"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <style>
-        .material-symbols-outlined {
-          font-variation-settings:
-          'FILL' 0,
-          'wght' 400,
-          'GRAD' 0,
-          'opsz' 48
-        }
-    </style>
-</head>
-<body>
-    <main>
-        <a href="{% url 'pos' %}" class="card">
-            <span class="material-symbols-outlined">point_of_sale</span>
-            <div><!--<span class="material-symbols-outlined">lan</span> --> {% trans "Point Of Sale" %}</div>
+{% block title %}{% trans "Apps" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'app_switcher/apps.css' %}" rel="stylesheet">{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block body %}
+<aside class="overview" aria-label="{% trans 'This device' %}">
+    <div class="blob drift" aria-hidden="true"></div>
+    <div class="blob dot" aria-hidden="true"></div>
+
+    <div class="brand-row">
+        <div class="rail-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div>
+            <div class="brand-name">Pavilion</div>
+            <div class="brand-sub">{% if device_name %}{{ device_name }}{% else %}{% trans "This device" %}{% endif %}</div>
+        </div>
+    </div>
+
+    <div class="clock-block">
+        <div class="overline on-dark" id="today"></div>
+        <div class="big-clock"><span id="clock-time"></span><span class="ampm" id="clock-ampm"></span></div>
+        <div class="greeting" id="greeting"></div>
+    </div>
+
+    <div class="who">
+        <span class="who-avatar">{{ first_name|first|upper }}</span>
+        <span class="grow">
+            <span class="who-name">{{ first_name }}</span>
+            <span class="who-sub">{% if user.is_superuser %}{% trans "Manager" %}{% else %}{% trans "Staff" %}{% endif %}{% if user.last_login %} · {% blocktrans with time=user.last_login|time:"g:i A" %}signed in at {{ time }}{% endblocktrans %}{% endif %}</span>
+        </span>
+    </div>
+
+    <div class="today">
+        <div class="overline on-dark">{% trans "Today on this device" %}</div>
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="grow-space"></div>
+    <div class="overview-actions">
+        <form method="post" action="{% url 'register_lock' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="lock">
+            <button class="ov-btn lock">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                {% trans "Lock" %}
+            </button>
+        </form>
+        <a class="ov-btn" href="{% url 'logout_view' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"></path><path d="M10 16l-4-4 4-4"></path><path d="M6 12h10"></path></svg>
+            {% trans "Sign out" %}
         </a>
-        <a href="{% url 'order_marking' %}" class="card">
-            <span class="material-symbols-outlined">order_approve</span>
-            <div><!--<span class="material-symbols-outlined">lan</span> --> {% trans "Order marking" %}</div>
+    </div>
+</aside>
+
+<main class="apps-main">
+    <header class="apps-header">
+        <div>
+            <div class="overline">Pavilion</div>
+            <h1 class="apps-title">{% trans "Apps" %}</h1>
+        </div>
+        <div class="net-pill" id="net" role="status"><span class="net-dot"></span><span id="net-text"></span></div>
+    </header>
+    <nav class="app-grid" aria-label="{% trans 'Apps' %}">
+        {% for app in apps %}
+        <a class="app-card tile-in" href="{{ app.url }}" style="animation-delay: {% widthratio forloop.counter0 1 40 %}ms">
+            <span class="app-icon" style="background: {{ app.bg }}; color: {{ app.fg }}">
+                <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ app.path }}"></path></svg>
+            </span>
+            <span class="app-name">{{ app.title }}</span>
+            <span class="app-desc">{{ app.desc }}</span>
         </a>
-        <a href="{% url 'admin-index' %}" class="card">
-            <span class="material-symbols-outlined">store</span>
-            <div>{% trans "Admin interface" %}</div>
-        </a>
-    </main>
-    <!-- <footer>
-        <span class="material-symbols-outlined">lan</span> indicate tools accessible only on the same network as the server.
-    </footer> -->
-</body>
-</html>
+        {% endfor %}
+    </nav>
+</main>
+{{ first_name|json_script:"apps-name" }}
+{% endblock %}
+
+{% block scripts %}<script type="module" src="{% static 'app_switcher/apps.js' %}"></script>{% endblock %}

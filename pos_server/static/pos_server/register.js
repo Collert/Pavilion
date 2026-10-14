@@ -6,6 +6,7 @@
 // Money is in integer cents throughout.
 import { onLiveUpdate } from "/static/js/live.js";
 import { $, csrftoken, dollars, el, fmt, fmtSigned, post, toCents, toast, wireSheets } from "./staff-ui.js";
+import { bumpStats } from "./device-stats.js";
 
 const boot = JSON.parse(document.getElementById("register-boot").textContent);
 const urls = boot.urls;
@@ -1361,6 +1362,7 @@ async function submitOrder() {
         return;
     }
     const number = pad(result.data.orderId);
+    bumpStats({ orders: 1, sales: ui.quote.total });
     const name = state.name;
     ui.orderNumber = result.data.nextNumber;
     cartChannel.postMessage({ message: "paid", name });

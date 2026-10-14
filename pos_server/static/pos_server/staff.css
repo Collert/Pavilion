@@ -86,6 +86,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .rail-spacer { flex: 1; }
 .rail form { margin: 0; }
 
+/* Rail footer (rail_foot.html): Apps, Lock, a divider, the clock */
+.rail-rule { width: 48px; height: 1px; background: rgba(255, 255, 255, .12); margin: 4px 0 6px; }
+.rail-clock { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 4px; }
+.rail-time { font-family: var(--heading); font-weight: 700; font-size: 18px; line-height: 22px; color: #fff; font-variant-numeric: tabular-nums; }
+.rail-day { font-size: 11px; font-weight: 700; color: var(--rail-ink); }
+
 /* Portrait (vertical TVs, tablets): the rail becomes a row along the bottom, same items in the same order. Each
    screen stacks its own panels in an `@media (orientation: portrait)` block; new staff screens must do the same. */
 @media (orientation: portrait) {
@@ -96,6 +102,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
         position: sticky; bottom: 16px; z-index: 5;  /* stays in view on screens that scroll the page */
     }
     .rail-logo { margin: 0 16px 0 0; }
+    .rail-rule { width: 1px; height: 48px; margin: 0 6px; }
 }
 
 /* ---------- type ---------- */

@@ -16,6 +16,7 @@
 
 import { onLiveUpdate } from "/static/js/live.js";
 import { $, el, post, wireSheets } from "./staff-ui.js";
+import { bumpStats } from "./device-stats.js";
 
 const t = (text) => gettext(text);
 const fmtText = (text, ...args) => interpolate(gettext(text), args);
@@ -481,12 +482,6 @@ function tickHeader(shown = visibleOrders()) {
 
 // ---------- timers ----------
 
-function tick() {
-    const now = new Date();
-    $("#clock").textContent = clockOf(now).replace(/\s?[AP]M$/i, "");
-    $("#day").textContent = now.toLocaleDateString(lang, { weekday: "short" });
-}
-
 setInterval(() => {
     listNode.querySelectorAll(".timer[data-start]").forEach((node) => {
         const order = { start_time: node.dataset.start };
@@ -498,8 +493,6 @@ setInterval(() => {
     });
     tickHeader();
 }, 1000);
-tick();
-setInterval(tick, 10000);
 
 // ---------- toast ----------
 
@@ -555,6 +548,7 @@ async function act(id, action, extra = {}, { auto = false } = {}) {
             await refresh();
             return false;
         }
+        bumpStats({ tickets: 1 });
         await refresh();
         const order = state.orders.get(id);
         const tell = (text, kind) => say(auto ? fmtText("Auto: %s", text) : text, kind);

@@ -54,7 +54,8 @@ without asking.
 
 Frontend: Django templates plus vanilla ES-module JS in `<app>/static/<app>/`. No build step, no frameworks (the
 mockups in `docs/mockups/` use React only as a viewer; don't bring it in). The register, drawer, lock and order
-marking (KDS) screens share `pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`. **Staff screens must work in
+marking (KDS) screens and the app switcher share `pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`; every
+rail ends with `rail_foot.html` (Apps, Lock on register screens, clock). **Staff screens must work in
 portrait** (the KDS runs on vertical TVs): `staff.css` turns the nav rail into a bottom row, and each screen stacks its
 panels in an `@media (orientation: portrait)` block placed last in its CSS. Check new screens at 1080×1920, 800×1280
 and 1280×800. Shared CSS kit is

@@ -1,0 +1,23 @@
+{% load i18n %}{% comment %}
+The bottom of every staff screen's nav rail (docs/mockups/Rail footer-html): Apps, Lock (register screens only:
+{% include ... with lock=True %}), then the clock, which staff-page.js keeps ticking.
+{% endcomment %}
+<a class="rail-item" href="{% url 'app_switcher_index' %}">
+    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="5.5" r="2"></circle><circle cx="12" cy="5.5" r="2"></circle><circle cx="18.5" cy="5.5" r="2"></circle><circle cx="5.5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18.5" cy="12" r="2"></circle><circle cx="5.5" cy="18.5" r="2"></circle><circle cx="12" cy="18.5" r="2"></circle><circle cx="18.5" cy="18.5" r="2"></circle></svg>
+    {% trans "Apps" %}
+</a>
+{% if lock %}
+<form method="post" action="{% url 'register_lock' %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="lock">
+    <button class="rail-item" aria-label="{% trans 'Lock register' %}">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+        {% trans "Lock" %}
+    </button>
+</form>
+{% endif %}
+<div class="rail-rule"></div>
+<div class="rail-clock">
+    <span class="rail-time" id="rail-time"></span>
+    <span class="rail-day" id="rail-day"></span>
+</div>

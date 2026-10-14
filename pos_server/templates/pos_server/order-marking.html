@@ -23,15 +23,7 @@
         <kbd class="kbd on-dark rail-kbd">A</kbd>
     </button>
     <div class="rail-spacer"></div>
-    <a class="rail-item" href="{% url 'app_switcher_index' %}">
-        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="5.5" r="2"></circle><circle cx="12" cy="5.5" r="2"></circle><circle cx="18.5" cy="5.5" r="2"></circle><circle cx="5.5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18.5" cy="12" r="2"></circle><circle cx="5.5" cy="18.5" r="2"></circle><circle cx="12" cy="18.5" r="2"></circle><circle cx="18.5" cy="18.5" r="2"></circle></svg>
-        {% trans "Apps" %}
-    </a>
-    <div class="rail-rule"></div>
-    <div class="rail-clock">
-        <span class="rail-time" id="clock"></span>
-        <span class="rail-day" id="day"></span>
-    </div>
+    {% include "pos_server/rail_foot.html" %}
 </nav>
 {% endblock %}
 

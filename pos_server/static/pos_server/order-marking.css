@@ -32,10 +32,6 @@
 .rail-kbd { position: absolute; bottom: -4px; right: 2px; min-width: 18px; height: 18px; font-size: 10px; color: #fff; }
 .rail-item:hover, .rail-item:focus-visible { background-color: rgba(255, 255, 255, .08); }
 .rail-item[aria-expanded=true] { background: rgba(255, 255, 255, .14); color: #fff; }
-.rail-rule { width: 48px; height: 1px; background: rgba(255, 255, 255, .12); margin: 4px 0 6px; }
-.rail-clock { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 4px; }
-.rail-time { font-family: var(--heading); font-weight: 700; font-size: 18px; line-height: 22px; color: #fff; font-variant-numeric: tabular-nums; }
-.rail-day { font-size: 11px; font-weight: 700; color: var(--rail-ink); }
 
 /* ---------- main ---------- */
 
@@ -271,7 +267,6 @@ dialog.sheet.w-reject { width: min(640px, calc(100vw - 32px)); gap: 18px; }
 
 /* Portrait (vertical TV): the header stacks; the rail (a bottom row, see staff.css) gets a vertical divider */
 @media (orientation: portrait) {
-    .rail-rule { width: 1px; height: 48px; margin: 0 6px; }
     .kds-header { flex-direction: column; align-items: stretch; gap: 12px; }
     .kds-side { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
     .kds-summary { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }  /* wraps instead of running off */
