@@ -24,6 +24,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import F
+from django.core.management import call_command
 from django.utils import timezone
 
 from deliveries.models import CourierShift, Delivery
@@ -75,6 +76,7 @@ class Command(BaseCommand):
             self.seed_inventory()
             self.seed_menus()
             self.seed_cookery()
+            call_command("seed_recipes", stdout=io.StringIO())  # the Cookery mockup's recipes too
             self.seed_discounts()
             self.seed_events()
             self.seed_store()

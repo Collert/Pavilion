@@ -228,3 +228,19 @@ class CookeryTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get(self.url).status_code, 401)
         self.assertEqual(self.client.get(reverse("crafting")).status_code, 302)
+
+
+class SeedRecipesTests(TestCase):
+    def test_adds_the_mockup_recipes_once_and_keeps_existing_ones(self):
+        from django.core.management import call_command
+        from io import StringIO
+        kept = Recipe.objects.create(yield_quantity=5)
+        Component.objects.create(title="Smash sauce", unit_of_measurement="ml", type="food", crafting_option="craft", recipe=kept)
+        call_command("seed_recipes", stdout=StringIO())
+        self.assertEqual(Component.objects.get(title="Smash sauce").recipe, kept)  # had one: left alone
+        pierogi = Component.objects.get(title="Pierogi, potato & cheese")
+        self.assertEqual((pierogi.recipe.yield_quantity, pierogi.recipe.steps.count()), (60, 6))
+        self.assertEqual(Transformation.objects.filter(name__in=["Freeze pierogi", "Thaw patties"]).count(), 2)
+        counts = (Recipe.objects.count(), Component.objects.count(), Ingredient.objects.count())
+        call_command("seed_recipes", stdout=StringIO())
+        self.assertEqual((Recipe.objects.count(), Component.objects.count(), Ingredient.objects.count()), counts)
