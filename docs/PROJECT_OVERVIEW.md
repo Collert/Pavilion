@@ -326,9 +326,11 @@ Design `docs/mockups/cookery`; template `inventory/cookery.html`, JS `inventory/
 `inventory` (stock).
 
 - **Craft** lists components with crafting option *Craftable*. With a `Recipe` they cook in batches: the recipe's
-  ingredients × batch size leave inventory when the batch starts (unlimited ingredients aren't counted, shortages are
-  allowed and go negative), guided cooking walks the `RecipeStep`s with per-step timers, then the yield is counted
-  and added to the component on Finish. The done screen compares it with `yield_quantity × batch` (waste/extra).
+  ingredients × batch size are **reserved** when the batch starts (`IngredientReservation`; they leave inventory right
+  away so no count offers them, the recipe screen shows what other batches hold; unlimited ingredients aren't counted;
+  shortages are allowed and go negative). Guided cooking walks the `RecipeStep`s with per-step timers, then the yield
+  is counted and added to the component on Finish. Short of `yield_quantity × batch`, the unused share of each
+  reservation becomes `WasteIngredient` (linked to the batch); the done screen shows it.
   Without a recipe a component is made one at a time: count as you go; its `ComponentIngredient` amounts per unit
   leave inventory on Finish. `Component.par` drives the stock bar and "Low".
 - **Transform**: a `Transformation` turns `from_component` into `to_component` (× `ratio`) over `duration`, e.g. fresh
@@ -339,7 +341,10 @@ Design `docs/mockups/cookery`; template `inventory/cookery.html`, JS `inventory/
   anyone on shift can Pick up a batch (`holder`). Finished sessions stay as the record of what was made (`made`,
   `expected`). Timers ring with a short chime on the screen that has Cookery open.
 - Recipes and transforms are edited in `/advanced-admin/` (Recipe has inline ingredients and steps). Counting and
-  transform amounts show friendlier units (kg for g, L for ml, pcs for ea) and convert back.
+  transform amounts show friendlier units (kg for g, L for ml, pcs for ea) and convert back. `manage.py seed_recipes`
+  adds the mockup's recipes (pierogi, beef stock, brioche, smash sauce, caramelized onion, freeze/thaw) to any DB.
+- The page's own actions return the new snapshot, so it listens with `onLiveUpdate(..., {skipOwn: true})`: events
+  carry the tab that caused them (`X-Live-Origin` header → `LiveOriginMiddleware`), and a tab skips its own echo.
 
 ## 7. Real-time: history and current design
 

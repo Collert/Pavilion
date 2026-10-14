@@ -16,7 +16,8 @@ it when you change how something works.
 - All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`). Only `/jsi18n/` and `/events/<topic>` don't.
 - Fresh DB: `manage.py migrate` then `manage.py seed_demo` (logins admin/admin, cashier/cashier, courier/courier,
   customer/customer; register PINs Alex 0000, Dana 1234, Priya 2468). `seed_demo` refuses to run with DEBUG off or
-  on a DB that already has dishes/orders.
+  on a DB that already has dishes/orders. `manage.py seed_recipes` adds the Cookery mockup's recipes to any DB
+  (safe on real data, re-runnable).
 - **Every time a model is created or changed, update `pos_server/management/commands/seed_demo.py`** so it still runs
   on a fresh database (`migrate` then `seed_demo`) and fills in the new model/fields with realistic data.
 - Tests: `venv\Scripts\python manage.py test` (pavilion, pos_server, online_store, gift_cards). Square and SendGrid are
@@ -83,6 +84,8 @@ customer-supplied text.
   (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
   dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need `pos_server.apply_manual_discount`.
   Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
+- **Quantities are in the smallest unit**: ingredients and components are counted in `g`, `ml` or `ea` only (no kg/l), and every
+  amount measured in them (recipes, dish parts, stock, par) uses that unit. Screens show kg / L when numbers get big.
 - **Money is Decimal** (`Dish.price`, `Order.total`, gift cards, transactions). Square wants integer cents: `square.to_cents()`.
   Send `float()` only in JSON for JS.
 - **Online payments:** only the server marks a `Transaction` paid; `Transaction.consume()` spends it once. Online card
