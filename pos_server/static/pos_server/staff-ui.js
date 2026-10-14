@@ -1,4 +1,5 @@
 // Helpers shared by the register, cash drawer and lock screens. Money is in integer cents.
+import { LIVE_ORIGIN } from "/static/js/live.js";
 
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const csrftoken = document.querySelector("input[name=csrfmiddlewaretoken]")?.value;
@@ -68,7 +69,7 @@ export function toast(message, { error = false } = {}) {
 export async function post(url, body) {
     const response = await fetch(url, {
         method: "POST",
-        headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/json", "Accept": "application/json" },
+        headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/json", "Accept": "application/json", "X-Live-Origin": LIVE_ORIGIN },
         body: JSON.stringify(body),
     });
     let data = {};

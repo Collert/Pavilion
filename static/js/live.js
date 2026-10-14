@@ -6,7 +6,15 @@
 //
 // The server sends a "ping" event every 15 s. If nothing arrives for `staleMs` (a connection that died without
 // the browser noticing, e.g. behind a proxy), the stream is reopened, which refreshes once on "ready".
-export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000 } = {}) {
+//
+// skipOwn: ignore events caused by this tab's own requests (sent with the X-Live-Origin: LIVE_ORIGIN header, as
+// staff-ui.js post() does). For screens whose POST already returns the fresh data, so they don't fetch and
+// render it a second time.
+
+// This tab's id, sent with its requests and stamped by the server on the events they cause
+export const LIVE_ORIGIN = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000, skipOwn = false } = {}) {
     let timer = null;
     let source = null;
     let lastHeard = Date.now();
@@ -19,7 +27,15 @@ export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000
         source?.close();
         heard();
         source = new EventSource(`/events/${topic}`);
-        source.addEventListener(topic, () => { heard(); trigger(); });
+        source.addEventListener(topic, (event) => {
+            heard();
+            if (skipOwn) {
+                try {
+                    if (JSON.parse(event.data).origin === LIVE_ORIGIN) return;
+                } catch { /* not JSON: treat as someone else's */ }
+            }
+            trigger();
+        });
         source.addEventListener("ready", () => { heard(); trigger(); });
         source.addEventListener("ping", heard);
     };

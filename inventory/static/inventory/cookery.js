@@ -853,8 +853,9 @@ function goneView() {
 
 // ---------- start ----------
 
-onLiveUpdate("cookery", refresh);
-onLiveUpdate("inventory", refresh);
+// Our own actions come back in the POST response, so skip their echo (no second fetch, no second render)
+onLiveUpdate("cookery", refresh, { skipOwn: true });
+onLiveUpdate("inventory", refresh, { skipOwn: true });
 (async () => {
     const response = await fetch(URL_, { headers: { Accept: "application/json" } });
     take(await response.json());

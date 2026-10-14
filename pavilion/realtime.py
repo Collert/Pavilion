@@ -3,7 +3,9 @@ Server-sent events (SSE) for the screens.
 
 How it works:
 - Code that changes something a screen shows calls `publish(topic)` (usually from a model signal, after the
-  transaction commits). Topics: "orders", "inventory", "checkout".
+  transaction commits). Topics: "orders", "inventory", "checkout", "cookery".
+- Each event says which browser tab caused it ("origin", from the X-Live-Origin header of the request that made the
+  change, see LiveOriginMiddleware). A screen whose POST already returned the new data skips its own echo.
 - Screens open an EventSource on `/events/<topic>` (see `stream_view`). Each event is a small JSON nudge;
   the screen then refetches its normal JSON endpoint (e.g. active_orders). The JSON endpoints stay the single
   source of truth, including what anonymous screens are allowed to see.
@@ -19,6 +21,7 @@ Streams are async generators, so under ASGI (daphne in dev via `runserver`, uvic
 stream doesn't tie up a worker thread.
 """
 import asyncio
+import contextvars
 import json
 import logging
 import threading
@@ -30,6 +33,23 @@ from django.db import transaction
 from django.http import Http404, HttpResponseForbidden, StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
+
+# The browser tab making the current request (X-Live-Origin header), stamped on the events it causes
+_origin = contextvars.ContextVar("live_origin", default=None)
+
+
+class LiveOriginMiddleware:
+    """Remember which tab sent this request, so publish() can tell its screens "this one was you"."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        token = _origin.set(request.headers.get("X-Live-Origin", "")[:64] or None)
+        try:
+            return self.get_response(request)
+        finally:
+            _origin.reset(token)
 
 TOPICS = ("orders", "inventory", "checkout", "cookery")
 HEARTBEAT_SECONDS = 15
@@ -114,8 +134,10 @@ def publish(topic, **data):
     if connection.in_atomic_block and any(getattr(entry[1], "realtime_topic", None) == topic for entry in connection.run_on_commit):
         return  # already queued for this transaction; one nudge is enough
 
+    origin = _origin.get()
+
     def send():
-        message = json.dumps({"topic": topic, "at": time.time(), **data})
+        message = json.dumps({"topic": topic, "at": time.time(), **({"origin": origin} if origin else {}), **data})
         try:
             get_broker().publish(topic, message)
         except Exception:
