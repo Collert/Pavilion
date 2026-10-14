@@ -1,0 +1,24 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+<div class="view swap done-view panel">
+    {% for f in confetti %}<span class="confetti" aria-hidden="true" style="left:{{ f.left }}%;width:{{ f.w }}px;height:{{ f.h }}px;border-radius:{{ f.radius }};background:{{ f.color }};animation-delay:{{ f.delay }}ms"></span>{% endfor %}
+    <div class="done-badge pop">{% icon "big" 50 2.6 %}</div>
+    <h1 class="done-title" role="status">{{ title }}</h1>
+    <div class="done-sub">{% blocktrans with qty=c.inventory|shown:c.unit_of_measurement %}Added to inventory · {{ qty }} on hand now{% endblocktrans %}</div>
+    <div class="done-stats">{% for x in stats %}
+        <div class="stat{% if x.warn %} warn{% endif %}"><div class="overline">{{ x.label }}</div><div class="disp stat-value">{{ x.value }}</div><div class="stat-sub">{{ x.sub }}</div></div>{% endfor %}
+    </div>
+    {% if next %}
+    <div class="overline gap-top-lg">{% trans "What's next?" %}</div>
+    <div class="next-row-btns">{% for tf in next %}
+        <a class="next-btn" href="{% url 'cookery_transform' tf.id %}" data-live>
+            <span class="scene-box sm">{% cook_scene tf.scene True 80 %}</span>
+            <span><span class="strong block">{{ tf.name }}</span><span class="next-sub">{% blocktrans with to=tf.to_component.title|lower time=tf.duration.total_seconds|duration %}Move them to {{ to }} · {{ time }}{% endblocktrans %}</span></span>
+        </a>{% endfor %}
+    </div>
+    {% endif %}
+    <a class="btn-soft" href="{% url 'crafting' %}" data-live>{% trans "Back to Cookery" %}</a>
+</div>
+{% endblock %}

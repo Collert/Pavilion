@@ -118,7 +118,7 @@ class AvailabilityTests(TestCase):
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class CookeryTests(TestCase):
-    """Cookery: batches from recipes, one-at-a-time making, shared sessions with timers, and transforms."""
+    """Cookery pages: batches from recipes, one-at-a-time making, shared batches with timers, and transforms."""
 
     @classmethod
     def setUpTestData(cls):
@@ -143,91 +143,112 @@ class CookeryTests(TestCase):
 
     def setUp(self):
         self.client.force_login(self.cook)
-        self.url = reverse("cookery_data")
-
-    def act(self, action, **body):
-        return self.client.post(self.url, json.dumps({"action": action, **body}), content_type="application/json")
 
     def fresh(self, obj):
         return type(obj).objects.get(pk=obj.pk)
 
-    def test_snapshot(self):
-        data = self.client.get(self.url).json()
-        self.assertEqual([c["name"] for c in data["components"] if c["makeable"]], ["Patty", "Pierogi"])
-        self.assertIn("Pierogi, frozen", [c["name"] for c in data["components"]])  # it's in a transform
-        recipe = data["recipes"][str(self.recipe.id)]
-        self.assertEqual([s["title"] for s in recipe["steps"]], ["Mix", "Rest"])
-        self.assertEqual(recipe["steps"][1]["dur"], 1800)
-        self.assertEqual(len(recipe["steps"][0]["uses"]), 1)
+    def start(self, component, **form):
+        response = self.client.post(reverse("cookery_start", args=[component.id]), form)
+        session = CookingSession.objects.latest("id")
+        self.assertRedirects(response, reverse("cookery_batch", args=[session.id]), fetch_redirect_response=False)
+        return session
 
-    def test_recipe_batch_takes_ingredients_then_adds_what_was_made(self):
-        data = self.act("start", component=self.pierogi.id, batch=2).json()
-        session = data["session"]
-        # Reserved for the batch: out of inventory, and shown as held by batches in progress
-        self.assertEqual(self.fresh(self.flour).inventory, 400)  # 2 x 300 g
-        self.assertEqual(data["ingredients"][str(self.flour.id)]["reserved"], 600)
+    def post(self, session, **form):
+        return self.client.post(reverse("cookery_batch", args=[session.id]), form)
+
+    def test_pages(self):
+        home = self.client.get(reverse("crafting"))
+        self.assertContains(home, "Pierogi")
+        self.assertContains(home, 'data-region="panel"')
+        self.assertNotContains(home, "Pierogi, frozen")  # made by a transform, not here
+        self.assertContains(self.client.get(reverse("cookery_transforms")), "Freeze pierogi")
+        recipe = self.client.get(reverse("cookery_recipe", args=[self.pierogi.id]), {"batch": 2})
+        self.assertContains(recipe, "Mix")
+        self.assertContains(recipe, "600 g")  # 2 batches x 300 g flour
+        self.assertContains(self.client.get(reverse("cookery_transform", args=[self.freeze.id])), "How many?")
+
+    def test_recipe_batch_reserves_ingredients_and_logs_the_shortfall_as_waste(self):
+        session = self.start(self.pierogi, batch=2, phase="guided")
+        self.assertEqual(self.fresh(self.flour).inventory, 400)  # 2 x 300 g reserved, out of inventory
         self.assertEqual(self.fresh(self.water).inventory, 0)  # unlimited: not counted or reserved
         self.assertEqual(list(IngredientReservation.objects.values_list("ingredient__title", "quantity")), [("Flour", 600)])
-        self.act("step", session=session, step=1)
-        self.act("timer", session=session, step=1, op="start")
-        timers = CookingSession.objects.get(pk=session).timers
-        self.assertEqual(timers["1"]["dur"], 1800)
-        self.act("timer", session=session, step=1, op="pause")
-        self.assertIsNotNone(CookingSession.objects.get(pk=session).timers["1"]["paused"])
-        self.act("count", session=session, amount=50)
-        self.act("count", session=session, amount=5)
-        self.act("uncount", session=session)
-        response = self.act("finish", session=session).json()
-        self.assertEqual((response["done"]["made"], response["done"]["expected"]), (50, 120))
+        self.assertContains(self.client.get(reverse("cookery_recipe", args=[self.pierogi.id])), "in batches cooking")
+        self.assertContains(self.client.get(reverse("cookery_batch", args=[session.id])), "Step 1 of 2")
+
+        self.post(session, action="step:1")
+        self.post(session, action="timer:start", step=1)
+        self.assertEqual(self.fresh(session).timers["1"]["dur"], 1800)
+        self.assertContains(self.client.get(reverse("cookery_batch", args=[session.id])), "data-ends=")
+        self.post(session, action="timer:pause", step=1)
+        self.assertIsNotNone(self.fresh(session).timers["1"]["paused"])
+
+        self.post(session, action="phase:yield")
+        self.assertContains(self.client.get(reverse("cookery_batch", args=[session.id])), "Recording yield")
+        self.post(session, action="count", amount="50")
+        self.post(session, action="count", amount="5")
+        self.post(session, action="uncount")
+        response = self.post(session, action="finish")
+        self.assertRedirects(response, reverse("cookery_done", args=[session.id]), fetch_redirect_response=False)
         self.assertEqual(self.fresh(self.pierogi).inventory, 60)
-        self.assertEqual(response["sessions"], [])
         # 70 of the expected 120 weren't made: that share of the reserved flour is waste
-        self.assertEqual(list(WasteIngredient.objects.values_list("ingredient__title", "quantity", "session")), [("Flour", 350, session)])
-        self.assertEqual(response["done"]["waste"], [{"ingredient": self.flour.id, "qty": 350}])
-        self.assertEqual(response["ingredients"][str(self.flour.id)]["reserved"], 0)
+        self.assertEqual(list(WasteIngredient.objects.values_list("ingredient__title", "quantity", "session")), [("Flour", 350, session.id)])
+        done = self.client.get(reverse("cookery_done", args=[session.id]))
+        self.assertContains(done, "Yay! You made 50 pierogi")
+        self.assertContains(done, "350 g flour")
 
     def test_no_waste_when_the_batch_makes_enough(self):
-        session = self.act("start", component=self.pierogi.id).json()["session"]
-        self.act("count", session=session, amount=64)
-        self.assertEqual(self.act("finish", session=session).json()["done"]["waste"], [])
+        session = self.start(self.pierogi, phase="yield")
+        self.post(session, action="count", amount="64")
+        self.post(session, action="finish")
         self.assertFalse(WasteIngredient.objects.exists())
 
     def test_one_at_a_time_takes_ingredients_per_unit_at_the_end(self):
-        session = self.act("start", component=self.patty.id).json()["session"]
-        self.assertEqual(CookingSession.objects.get(pk=session).phase, "yield")
+        session = self.start(self.patty)
+        self.assertEqual(session.phase, "yield")
         self.assertEqual(self.fresh(self.beef).inventory, 1000)
-        self.act("count", session=session, amount=3)
-        self.act("finish", session=session)
+        self.post(session, action="count", amount="3")
+        self.post(session, action="finish")
         self.assertEqual((self.fresh(self.patty).inventory, self.fresh(self.beef).inventory), (3, 640))
 
-    def test_anyone_can_pick_up_a_batch(self):
-        session = self.act("start", component=self.pierogi.id).json()["session"]
-        self.client.force_login(self.other)
-        holder = [s["holder"]["name"] for s in self.act("take", session=session).json()["sessions"]]
-        self.assertEqual(holder, ["Dana"])
+    def test_amounts_are_typed_in_friendly_units(self):
+        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", type="food", crafting_option="craft")
+        session = self.start(sauce)
+        self.post(session, action="count", amount="1.5")  # litres
+        self.assertEqual(session.log.get().amount, 1500)
 
-    def test_cannot_finish_empty_or_twice(self):
-        session = self.act("start", component=self.patty.id).json()["session"]
-        self.assertEqual(self.act("finish", session=session).status_code, 400)
-        self.act("count", session=session, amount=1)
-        self.act("finish", session=session)
-        self.assertEqual(self.act("finish", session=session).status_code, 400)
-        self.assertEqual(self.act("count", session=session, amount=-1).status_code, 400)
+    def test_anyone_can_pick_up_a_batch(self):
+        session = self.start(self.pierogi)
+        self.client.force_login(self.other)
+        response = self.client.post(reverse("cookery_take", args=[session.id]))
+        self.assertRedirects(response, reverse("cookery_batch", args=[session.id]), fetch_redirect_response=False)
+        self.assertEqual(self.fresh(session).holder, self.other)
+
+    def test_mistakes_become_messages_not_errors(self):
+        session = self.start(self.patty)
+        response = self.post(session, action="finish")  # nothing counted
+        self.assertRedirects(response, reverse("cookery_batch", args=[session.id]), fetch_redirect_response=False)
+        self.assertContains(self.client.get(reverse("cookery_batch", args=[session.id])), "Count what you made first.")
+        self.post(session, action="count", amount="nope")
+        self.assertFalse(session.log.exists())
 
     def test_transform_moves_stock(self):
-        session = self.act("transform", transform=self.freeze.id, qty=4).json()["session"]
+        self.client.post(reverse("cookery_transform", args=[self.freeze.id]), {"qty": "4"})
+        session = CookingSession.objects.get(kind="transform")
         self.assertEqual((self.fresh(self.pierogi).inventory, self.fresh(self.frozen).inventory), (6, 0))
-        self.act("transform_done", session=session)
+        self.assertContains(self.client.get(reverse("cookery_transforming", args=[session.id])), "Time left")
+        self.client.post(reverse("cookery_transforming", args=[session.id]), {"action": "done"})
         self.assertEqual(self.fresh(self.frozen).inventory, 4)
-        session = self.act("transform", transform=self.freeze.id, qty=2).json()["session"]
-        self.act("transform_cancel", session=session)
+        self.client.post(reverse("cookery_transform", args=[self.freeze.id]), {"qty": "2"})
+        second = CookingSession.objects.filter(kind="transform").latest("id")
+        self.client.post(reverse("cookery_transforming", args=[second.id]), {"action": "cancel"})
         self.assertEqual(self.fresh(self.pierogi).inventory, 6)
-        self.assertEqual(self.act("transform", transform=self.freeze.id, qty=99).status_code, 400)  # only 6 on hand
+        self.client.post(reverse("cookery_transform", args=[self.freeze.id]), {"qty": "99"})  # more than on hand: all 6
+        self.assertEqual(self.fresh(self.pierogi).inventory, 0)
 
     def test_staff_only(self):
         self.client.logout()
-        self.assertEqual(self.client.get(self.url).status_code, 401)
-        self.assertEqual(self.client.get(reverse("crafting")).status_code, 302)
+        for url in (reverse("crafting"), reverse("cookery_recipe", args=[self.pierogi.id])):
+            self.assertEqual(self.client.get(url).status_code, 302)
 
 
 class SeedRecipesTests(TestCase):
@@ -244,3 +265,20 @@ class SeedRecipesTests(TestCase):
         counts = (Recipe.objects.count(), Component.objects.count(), Ingredient.objects.count())
         call_command("seed_recipes", stdout=StringIO())
         self.assertEqual((Recipe.objects.count(), Component.objects.count(), Ingredient.objects.count()), counts)
+
+
+@override_settings(ENFORCE_DEVICE_CHECK=False)
+class CookeryInPageTests(TestCase):
+    def test_background_posts_get_the_page_back_without_a_redirect(self):
+        cook = User.objects.create_user("cook", password="x", is_staff=True)
+        patty = Component.objects.create(title="Patty", unit_of_measurement="ea", type="food", crafting_option="craft")
+        session = CookingSession.objects.create(kind="cook", component=patty, holder=cook, phase="yield")
+        self.client.force_login(cook)
+        url = reverse("cookery_batch", args=[session.id])
+        response = self.client.post(url, {"action": "count", "amount": "2"}, HTTP_SEC_FETCH_MODE="cors")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="disp yield-total" aria-live="polite">2<')
+        navigation = self.client.post(url, {"action": "count", "amount": "1"}, HTTP_SEC_FETCH_MODE="navigate")
+        self.assertRedirects(navigation, url, fetch_redirect_response=False)
+        finished = self.client.post(url, {"action": "finish"}, HTTP_SEC_FETCH_MODE="cors")  # a new page: still redirects
+        self.assertRedirects(finished, reverse("cookery_done", args=[session.id]), fetch_redirect_response=False)

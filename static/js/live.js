@@ -6,8 +6,12 @@
 //
 // The server sends a "ping" event every 15 s. If nothing arrives for `staleMs` (a connection that died without
 // the browser noticing, e.g. behind a proxy), the stream is reopened, which refreshes once on "ready".
-export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000 } = {}) {
+//
+// refreshOnConnect: false skips the refresh when the stream first connects, for pages that arrive with their data
+// already rendered. Reconnects still refresh (that's how missed events are caught up).
+export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000, refreshOnConnect = true } = {}) {
     let timer = null;
+    let connectedBefore = false;
     let source = null;
     let lastHeard = Date.now();
     const trigger = () => {
@@ -20,7 +24,11 @@ export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000
         heard();
         source = new EventSource(`/events/${topic}`);
         source.addEventListener(topic, () => { heard(); trigger(); });
-        source.addEventListener("ready", () => { heard(); trigger(); });
+        source.addEventListener("ready", () => {
+            heard();
+            if (connectedBefore || refreshOnConnect) trigger();
+            connectedBefore = true;
+        });
         source.addEventListener("ping", heard);
     };
     connect();

@@ -320,10 +320,16 @@ menu list/edit/activate, promo content CRUD, event CRUD, and a calendar of busin
 
 ### 6.10 Cookery (`/inventory/crafting`)
 
-Design `docs/mockups/cookery`; template `inventory/cookery.html`, JS `inventory/static/inventory/cookery.js` (+
-`cook-scene.js`, the animated scenes), server `inventory/cookery.py` (`snapshot()` and `act()`), endpoint
-`crafting/data` (GET snapshot, POST `{action, ...}`). Live over the SSE `cookery` topic (sessions, recipes) and
-`inventory` (stock).
+Design `docs/mockups/cookery`. **Server-rendered**: each screen is a Django template in
+`inventory/templates/inventory/cookery/` with its own URL (`crafting`, `crafting/transforms`, `crafting/recipe/<id>`,
+`crafting/batch/<id>` (guided or counting), `crafting/done/<id>`, `crafting/transform/<id>`, `crafting/transforming/<id>`),
+views in `inventory/cookery_views.py`, the work in `inventory/cookery.py` (`act()`). Every button is a form that POSTs
+and redirects back (works without JS); toasts are Django messages; the animated scenes are the `{% cook_scene %}`
+inclusion tag and formatting lives in `inventory/templatetags/cookery_tags.py`. `static/js/live-page.js` (generic, for
+any such page) submits forms in the background and swaps in only the `data-region`s whose HTML changed, refetches the
+page on SSE `cookery`/`inventory` nudges (identical HTML changes nothing on screen), and ticks `data-ends` countdowns.
+A background POST that stays on the same page gets the page back directly (`Sec-Fetch-Mode` isn't `navigate`)
+instead of a redirect.
 
 - **Craft** lists components with crafting option *Craftable*. With a `Recipe` they cook in batches: the recipe's
   ingredients × batch size are **reserved** when the batch starts (`IngredientReservation`; they leave inventory right

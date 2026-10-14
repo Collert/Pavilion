@@ -11,7 +11,6 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 
 from pos_server.devices import api_staff_required, staff_required
-from . import cookery
 from .availability import apply_changes, catalog
 
 # Create your views here.
@@ -86,31 +85,6 @@ def day_display(request, day_id):
     return render(request, "inventory/day-display.html", {
         "day":day
     })
-
-@staff_required
-def crafting(request):
-    """Cookery (docs/mockups/cookery): make components and transform them. Everything runs in cookery.js."""
-    return render(request, "inventory/cookery.html", {"nav": "cookery"})
-
-
-@api_staff_required
-def cookery_data(request):
-    """
-    GET: inventory.cookery.snapshot(). POST {"action": ..., ...}: do it (see cookery.ACTIONS), then return the
-    snapshot with the action's result merged in, or {"error"} with status 400.
-    """
-    if request.method == "POST":
-        try:
-            body = json.loads(request.body)
-            result = cookery.act(request.user, body if isinstance(body, dict) else {})
-        except ValueError:
-            return JsonResponse({"error": "Expected a JSON body"}, status=400)
-        except cookery.CookeryError as e:
-            return JsonResponse({"error": str(e)}, status=400)
-        return JsonResponse({**cookery.snapshot(request.user), **result})
-    if request.method != "GET":
-        return HttpResponseNotAllowed(["GET", "POST"])
-    return JsonResponse(cookery.snapshot(request.user))
 
 @staff_required
 def component_availability(request):

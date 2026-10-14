@@ -53,7 +53,10 @@ without asking.
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 
-Frontend: Django templates plus vanilla ES-module JS in `<app>/static/<app>/`. No build step, no frameworks (the
+Frontend: **render with Django templates and keep pages current with SSE**; don't build screens in JS. New screens
+follow Cookery: each screen a template + URL, buttons are POST forms that redirect back, Django messages for toasts,
+`static/js/live-page.js` for background submits, swapping changed `data-region`s and SSE refetches. JS is for what
+HTML can't do (countdowns, keypads). Vanilla ES-module JS lives in `<app>/static/<app>/`. No build step, no frameworks (the
 mockups in `docs/mockups/` use React only as a viewer; don't bring it in). The register, drawer, lock and order
 marking (KDS) screens and the app switcher share `pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`; every
 rail ends with `rail_foot.html` (Apps, Lock on register screens, clock). **Staff screens must work in

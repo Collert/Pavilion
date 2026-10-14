@@ -1,0 +1,37 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+<div class="view swap split">
+    <section class="panel tf-panel" aria-label="{% trans 'Transform' %}" data-region="tf-main" id="tf-main">
+        <a class="pill-btn" href="{% url 'cookery_transforms' %}" data-live>{% icon "back" %}{% trans "Transform" %}</a>
+        <div class="overline gap-top">{% trans "Transform" %}</div>
+        <h1 class="big-title">{{ tf.name }}</h1>
+        {% include "inventory/cookery/flow.html" %}
+        <form class="how-many-form" method="post">{% csrf_token %}
+            <div class="how-many">
+                <div class="overline ink">{% trans "How many?" %}</div>
+                <div class="qty-row">
+                    {% if can_less %}<a class="round-btn xl" href="{{ less }}" data-live aria-label="{% trans 'Fewer' %}">{% icon "minus" 30 2.6 %}</a>{% else %}<span class="round-btn xl off" aria-hidden="true">{% icon "minus" 30 2.6 %}</span>{% endif %}
+                    <span class="qty-col">
+                        <input class="disp qty-in" name="qty" type="text" inputmode="decimal" value="{{ qty }}" aria-label="{% blocktrans %}How many, up to {{ available }}{% endblocktrans %}">
+                        <span class="muted strong">{% if over %}{% blocktrans %}Only {{ available }} {{ unit }} available, using {{ available }}{% endblocktrans %}{% else %}{% blocktrans %}{{ unit }} of {{ available }} available · tap the number to type{% endblocktrans %}{% endif %}</span>
+                    </span>
+                    {% if can_more %}<a class="round-btn xl" href="{{ more }}" data-live aria-label="{% trans 'More' %}">{% icon "plus" 30 2.6 %}</a>{% else %}<span class="round-btn xl off" aria-hidden="true">{% icon "plus" 30 2.6 %}</span>{% endif %}
+                </div>
+                <div class="chip-row">{% for q in quick %}<a class="chip-btn" href="{{ q.url }}" data-live aria-pressed="{{ q.on|yesno:'true,false' }}">{{ q.label }}</a>{% endfor %}</div>
+            </div>
+            <button class="btn-amber big{% if qty_value <= 0 %} off{% endif %}" {% if qty_value <= 0 %}disabled{% endif %}>{% icon "play" 22 %}{% if qty_value > 0 %}{% blocktrans with verb=verb|lower %}Start {{ verb }}{% endblocktrans %}{% else %}{% trans "Nothing to move" %}{% endif %}</button>
+        </form>
+        <div class="fine">{% blocktrans with from=tf.from_component.title|lower to=tf.to_component.title|lower %}They leave {{ from }} right away and land in {{ to }} when you mark it done.{% endblocktrans %}</div>
+    </section>
+    <aside class="panel side-panel tf-side" aria-label="{% trans 'Transform timer' %}">
+        <div class="scene-frame">{% cook_scene tf.scene False 300 %}</div>
+        <div class="overline gap-top">{% trans "Takes about" %}</div>
+        <div class="disp tf-big">{{ dur|duration }}</div>
+        <div class="brand strong">{% blocktrans with time=ready_at|time:"g:i A" %}Ready around {{ time }}{% endblocktrans %}</div>
+        <div class="grow"></div>
+        {% if tf.instructions %}<div class="how-box">{{ tf.instructions }}</div>{% endif %}
+    </aside>
+</div>
+{% endblock %}

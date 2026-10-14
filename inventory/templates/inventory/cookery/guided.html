@@ -1,0 +1,89 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+{% url 'cookery_batch' s.id as here %}
+<div class="view swap column">
+    <header class="cook-head" data-region="guided-head" id="guided-head">
+        <a class="circle-btn" href="{% url 'crafting' %}" data-live aria-label="{% trans 'Back to Cookery, keep this batch in Ongoing' %}">{% icon "back" 22 %}</a>
+        <div class="grow">
+            <div class="overline">{% blocktrans with n=s.batch time=s.started_at|time:"g:i A" %}Guided cooking · batch ×{{ n }} · started {{ time }}{% endblocktrans %}</div>
+            <h1 class="cook-title sm">{{ c.title }}</h1>
+        </div>
+        {% for o in others %}
+        <form method="post" action="{{ here }}">{% csrf_token %}<input type="hidden" name="action" value="step">
+            <button class="other-timer{% if o.done %} done breathe{% endif %}" name="step" value="{{ o.step }}">{% icon "clock" 16 %}<span>{{ o.title }}</span>
+                {% if o.done %}<span class="num-tab">{% trans "done" %}</span>
+                {% elif o.ends %}<span class="num-tab" data-ends="{{ o.ends }}" data-done-text="{% trans 'done' %}" data-chime>{{ o.left|clock_left }}</span>
+                {% else %}<span class="num-tab">{{ o.left|clock_left }}</span>{% endif %}
+            </button>
+        </form>
+        {% endfor %}
+        <form method="post" action="{{ here }}">{% csrf_token %}<input type="hidden" name="action" value="phase">
+            <button class="pill-btn white" name="phase" value="yield">{% trans "Record yield" %}{% icon "next" 18 %}</button>
+        </form>
+    </header>
+
+    <form class="segments" method="post" action="{{ here }}" aria-label="{% trans 'Steps' %}" data-region="segments" id="segments">{% csrf_token %}
+        <input type="hidden" name="action" value="step">
+        {% for seg in segments %}<button class="segment" name="step" value="{{ seg.n }}" aria-label="{% blocktrans with n=seg.n|add:1 title=seg.title %}Step {{ n }}: {{ title }}{% endblocktrans %}" {% if seg.state == "now" %}aria-current="step"{% endif %}><span class="seg-bar {{ seg.state }}"></span></button>{% endfor %}
+    </form>
+
+    <div class="split grow-fill">
+        <section class="panel step-panel" aria-label="{% trans 'Current step' %}" data-region="step" id="step">
+            <div class="overline brand">{% blocktrans with n=i|add:1 of=steps|length %}Step {{ n }} of {{ of }}{% endblocktrans %}</div>
+            <h2 class="step-title">{{ step.title }}</h2>
+            <p class="step-text">{{ step.text }}</p>
+            {% if uses %}<div class="gap-top"><div class="overline">{% trans "For this step" %}</div>
+                <div class="use-row">{% for u in uses %}<span class="use-chip"><span class="disp">{{ u.amount }}</span>{{ u.name }}</span>{% endfor %}</div>
+            </div>{% endif %}
+            <div class="grow"></div>
+            <form class="step-nav" method="post" action="{{ here }}">{% csrf_token %}
+                {% if i > 0 %}<button class="btn-soft nav" name="action" value="step:{{ i|add:-1 }}">{% icon "back" %}{% trans "Back" %}</button>
+                {% else %}<button class="btn-soft nav" disabled>{% icon "back" %}{% trans "Back" %}</button>{% endif %}
+                <div class="grow"></div>
+                {% if last %}<button class="btn-amber nav" name="action" value="phase:yield">{% trans "Record yield" %}{% icon "next" %}</button>
+                {% else %}<button class="btn-amber nav" name="action" value="step:{{ i|add:1 }}">{% trans "Next step" %}{% icon "next" %}</button>{% endif %}
+            </form>
+        </section>
+
+        <aside class="side-col">
+            <div data-region="timer" id="timer">{% if card %}
+                <section class="panel timer-card{% if card.state == 'done' %} done{% endif %}" aria-label="{% trans 'Step timer' %}">
+                    <div class="timer-top">
+                        <span class="overline">{% blocktrans with time=card.dur|duration %}Timer · {{ time }}{% endblocktrans %}</span>
+                        <span class="timer-status {{ card.state }}">{% if card.state == "done" %}{% trans "Time's up!" %}{% elif card.state == "running" %}{{ card.verb }}…{% elif card.state == "paused" %}{% trans "Paused" %}{% else %}{% trans "Ready" %}{% endif %}</span>
+                    </div>
+                    <div class="scene-frame{% if card.state == 'done' %} ring{% endif %}">{% cook_scene step.scene card.running 260 %}</div>
+                    {% if card.state == "running" %}<div class="timer-time disp" role="timer" data-ends="{{ card.timer.ends }}" data-done-text="0:00" data-chime>{{ card.left|clock_left }}</div>
+                    {% elif card.state == "done" %}<div class="timer-time disp" role="timer">0:00</div>
+                    {% else %}<div class="timer-time disp" role="timer">{{ card.left|clock_left }}</div>{% endif %}
+                    <div class="timer-track"><div class="timer-bar"{% if card.state == "running" %} data-bar-ends="{{ card.timer.ends }}" data-bar-total="{{ card.total }}"{% endif %} style="width:{{ card.pct }}%"></div></div>
+                    <form class="timer-buttons" method="post" action="{{ here }}">{% csrf_token %}
+                        <input type="hidden" name="step" value="{{ i }}">
+                        {% if card.state == "done" %}
+                            {% if last %}<button class="timer-main" name="action" value="phase:yield">{% icon "next" %}{% trans "Record yield" %}</button>
+                            {% else %}<button class="timer-main" name="action" value="step:{{ i|add:1 }}">{% icon "next" %}{% trans "Next step" %}</button>{% endif %}
+                        {% elif card.state == "running" %}<button class="timer-main dark" name="action" value="timer:pause">{% icon "pause" %}{% trans "Pause" %}</button>
+                        {% elif card.state == "paused" %}<button class="timer-main" name="action" value="timer:resume">{% icon "play" %}{% trans "Resume" %}</button>
+                        {% else %}<button class="timer-main" name="action" value="timer:start">{% icon "play" %}{% trans "Start timer" %}</button>{% endif %}
+                        <button class="timer-side" name="action" value="timer:add" aria-label="{% trans 'Add one minute' %}" {% if card.state == "idle" %}disabled{% endif %}>{% trans "+1 min" %}</button>
+                        <button class="timer-side square" name="action" value="timer:reset" aria-label="{% trans 'Reset timer' %}" {% if card.state == "idle" %}disabled{% endif %}>{% icon "reset" 20 2.2 %}</button>
+                    </form>
+                </section>
+            {% else %}
+                <section class="panel no-timer">
+                    <div class="scene-frame">{% cook_scene "prep" True 240 %}</div>
+                    <div class="strong gap-sm">{% trans "No timer on this step" %}</div>
+                    <div class="muted">{% trans "Tap Next when you're done." %}</div>
+                </section>
+            {% endif %}</div>
+            <section class="panel up-next" aria-label="{% trans 'Up next' %}" data-region="next" id="next">
+                <div class="overline">{% trans "Up next" %}</div>
+                {% for n, next in next_steps %}<div class="next-row"><span class="num sm">{{ n|add:1 }}</span><span class="grow ellipsis">{{ next.title }}</span><span class="muted">{% if next.duration %}{{ next.duration_seconds|duration }}{% endif %}</span></div>{% endfor %}
+                {% if near_end %}<div class="muted gap-sm">{% trans "After this: count what you made." %}</div>{% endif %}
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}

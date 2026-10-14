@@ -11,90 +11,25 @@ them between states (freezing, thawing).
   and arrives in `to_component` (times the ratio) when it's marked done.
 - Batches in progress are CookingSessions, shared: anyone on shift sees them and can pick them up.
 
-snapshot() is everything the screen shows; act() performs one action and is all-or-nothing.
+act() performs one action, all or nothing; the pages are inventory/cookery_views.py.
 """
 import time
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from pos_server.models import Component, ComponentIngredient, Ingredient
-from .models import CookingSession, IngredientReservation, Recipe, Transformation, WasteIngredient, YieldEntry
+from .models import CookingSession, IngredientReservation, Transformation, WasteIngredient, YieldEntry
 
 
 class CookeryError(Exception):
     """A request that can't be done; the message is shown to staff."""
 
 
-def _ms(dt):
-    return int(dt.timestamp() * 1000) if dt else None
-
-
 def _now_ms():
     return int(time.time() * 1000)
-
-
-def _person(user):
-    return {"id": user.id, "name": user.first_name or user.username} if user else None
-
-
-def snapshot(user):
-    """Everything Cookery shows. Times are epoch milliseconds (the screen corrects for its own clock)."""
-    transforms = list(Transformation.objects.select_related("from_component", "to_component"))
-    involved = {t.from_component_id for t in transforms} | {t.to_component_id for t in transforms}
-    components = list(Component.objects.filter(crafting_option="craft") | Component.objects.filter(pk__in=involved))
-    recipe_ids = {c.recipe_id for c in components if c.recipe_id}
-    recipes = Recipe.objects.filter(pk__in=recipe_ids).prefetch_related("ingredients__ingredient", "steps__uses")
-    per_unit = {}
-    for ci in ComponentIngredient.objects.filter(component__in=components).select_related("ingredient"):
-        per_unit.setdefault(ci.component_id, []).append(ci)
-
-    ingredients = {}
-    reserved = dict(IngredientReservation.objects.filter(session__finished_at=None, session__cancelled=False)
-                    .values_list("ingredient").annotate(total=Sum("quantity")))
-
-    def ingredient(obj):
-        ingredients[obj.id] = {"name": obj.title, "unit": obj.unit_of_measurement, "have": obj.inventory or 0,
-                               "unlimited": obj.unlimited, "reserved": reserved.get(obj.id, 0)}
-        return obj.id
-
-    recipe_data = {}
-    for recipe in recipes:
-        recipe_data[recipe.id] = {
-            "yield": recipe.yield_quantity,
-            "notes": recipe.notes,
-            "ingredients": [{"id": ri.id, "ingredient": ingredient(ri.ingredient), "qty": ri.quantity} for ri in recipe.ingredients.all()],
-            "steps": [{"title": step.title, "text": step.text, "dur": step.duration_seconds, "scene": step.scene,
-                       "uses": [ri.id for ri in step.uses.all()]} for step in recipe.steps.all()],
-        }
-
-    sessions = CookingSession.objects.filter(finished_at=None, cancelled=False).select_related("holder", "started_by").prefetch_related("log")
-    return {
-        "now": _now_ms(),
-        "me": user.id,
-        "components": [{
-            "id": c.id, "name": c.title, "unit": c.unit_of_measurement, "have": c.inventory or 0, "par": c.par,
-            "makeable": c.crafting_option == "craft",
-            "recipe": c.recipe_id if c.recipe_id in recipe_data else None,
-            "per_unit": [{"ingredient": ingredient(ci.ingredient), "qty": ci.quantity} for ci in per_unit.get(c.id, [])],
-        } for c in sorted(components, key=lambda c: c.title.lower())],
-        "ingredients": ingredients,
-        "recipes": recipe_data,
-        "transforms": [{
-            "id": t.id, "name": t.name, "scene": t.scene, "from": t.from_component_id, "to": t.to_component_id,
-            "ratio": t.ratio, "dur": int(t.duration.total_seconds()), "how": t.instructions,
-        } for t in transforms],
-        "sessions": [{
-            "id": s.id, "kind": s.kind, "component": s.component_id, "recipe": s.recipe_id, "batch": s.batch,
-            "transform": s.transformation_id, "qty": s.quantity, "holder": _person(s.holder),
-            "started_by": _person(s.started_by), "started_at": _ms(s.started_at), "phase": s.phase, "step": s.step,
-            "timers": s.timers, "ends_at": _ms(s.ends_at),
-            "log": [{"id": entry.id, "amt": entry.amount, "at": _ms(entry.at)} for entry in s.log.all()],
-        } for s in sessions],
-    }
 
 
 def _number(body, key, positive=True):

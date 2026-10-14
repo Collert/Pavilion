@@ -1,0 +1,60 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+<div class="view swap split">
+    <section class="panel scroll-panel" aria-label="{% trans 'Recipe' %}" data-region="recipe-main" id="recipe-main">
+        <a class="pill-btn" href="{% url 'crafting' %}" data-live>{% icon "back" %}{% trans "Craft" %}</a>
+        <div class="overline gap-top">{% trans "Recipe" %}</div>
+        <h1 class="big-title">{{ c.title }}</h1>
+        <div class="meta-row">
+            <span class="meta-chip">{% icon "yield" 16 2.2 %}{% blocktrans %}Makes about {{ makes }}{% endblocktrans %}</span>
+            <span class="meta-chip">{% icon "clock" 16 2.2 %}{{ total|duration }}</span>
+            <span class="meta-chip">{% icon "steps" 16 2.2 %}{% blocktrans count n=steps|length %}{{ n }} step{% plural %}{{ n }} steps{% endblocktrans %}</span>
+            <span class="meta-chip">{% icon "clock" 16 2.2 %}{% blocktrans count n=timers %}{{ n }} timer{% plural %}{{ n }} timers{% endblocktrans %}</span>
+        </div>
+        <div class="batch-box">
+            <div class="grow">
+                <div class="strong">{% trans "Batch size" %}</div>
+                <div class="batch-note">{% if batch == 1 %}{% blocktrans with qty=makes_one %}One batch · about {{ qty }}{% endblocktrans %}{% else %}{% blocktrans %}{{ batch }} batches · about {{ makes }}{% endblocktrans %}{% endif %}</div>
+            </div>
+            <div class="stepper-pill">
+                {% if batch > 1 %}<a class="round-btn" href="?batch={{ batch|add:-1 }}" data-live aria-label="{% trans 'Smaller batch' %}">{% icon "minus" 20 2.6 %}</a>
+                {% else %}<span class="round-btn off" aria-hidden="true">{% icon "minus" 20 2.6 %}</span>{% endif %}
+                <span class="disp stepper-value">×{{ batch }}</span>
+                {% if batch < 10 %}<a class="round-btn" href="?batch={{ batch|add:1 }}" data-live aria-label="{% trans 'Bigger batch' %}">{% icon "plus" 20 2.6 %}</a>
+                {% else %}<span class="round-btn off" aria-hidden="true">{% icon "plus" 20 2.6 %}</span>{% endif %}
+            </div>
+        </div>
+        <div class="section-cap gap-top"><span class="overline ink">{% trans "Ingredients" %}</span><span class="muted">{% trans "Taken out of inventory when you start" %}</span></div>
+        <div class="ing-list">{% for row in rows %}
+            <div class="ing-row">
+                <span class="ing-mark{% if row.short %} short{% endif %}">{% if row.short %}{% icon "warn" 14 3 %}{% else %}{% icon "check" 14 3 %}{% endif %}</span>
+                <span class="grow ing-name">{{ row.ing.title }}</span>
+                <span class="ing-have">{% if row.ing.unlimited %}{% trans "not counted" %}{% else %}{% blocktrans with qty=row.have %}{{ qty }} on hand{% endblocktrans %}{% endif %}
+                    {% if row.reserved %}<span class="ing-reserved">{% blocktrans with qty=row.reserved %}{{ qty }} in batches cooking{% endblocktrans %}</span>{% endif %}</span>
+                <span class="ing-need">{{ row.need }}</span>
+            </div>{% endfor %}
+        </div>
+        {% if shorts %}<div class="short-alert" role="alert">{% icon "alert" 20 2.2 %}<div>{% blocktrans %}Short on {{ shorts }}. You can still start; inventory for that will go below zero.{% endblocktrans %}</div></div>{% endif %}
+        {% if recipe.notes %}<div class="notes-box">{{ recipe.notes }}</div>{% endif %}
+    </section>
+
+    <aside class="panel side-panel" aria-label="{% trans 'Steps at a glance' %}" data-region="recipe-side" id="recipe-side">
+        <div class="overline ink">{% trans "Steps at a glance" %}</div>
+        <div class="glance">{% for step in steps %}
+            <div class="glance-row">
+                <span class="num">{{ forloop.counter }}</span>
+                <span class="grow"><span class="glance-title">{{ step.title }}</span><span class="glance-text">{{ step.text }}</span></span>
+                {% if step.duration %}<span class="dur-chip">{% icon "clock" 14 2.4 %}{{ step.duration_seconds|duration }}</span>{% endif %}
+            </div>{% endfor %}
+        </div>
+        <form method="post" action="{% url 'cookery_start' c.id %}" class="start-form">{% csrf_token %}
+            <input type="hidden" name="batch" value="{{ batch }}">
+            <button class="btn-amber big" name="phase" value="guided">{% icon "play" 22 %}{% trans "Start guided cooking" %}</button>
+            <button class="btn-soft" name="phase" value="yield">{% trans "Skip to recording yield" %}{% icon "next" 18 %}</button>
+        </form>
+        <div class="fine">{% trans "Either way, the batch shows up in Ongoing so anyone can pick it up." %}</div>
+    </aside>
+</div>
+{% endblock %}

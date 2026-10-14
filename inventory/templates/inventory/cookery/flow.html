@@ -1,0 +1,7 @@
+{% load i18n cookery_tags %}<div class="flow-row">
+    <div class="flow-box"><div class="overline">{% trans "From" %}</div><div class="flow-name">{{ tf.from_component.title }}</div>
+        <div class="muted strong">{% blocktrans with qty=tf.from_component.inventory|shown:tf.from_component.unit_of_measurement %}{{ qty }} on hand{% endblocktrans %}</div></div>
+    <span class="flow-arrow">{% icon "next" 22 %}</span>
+    <div class="flow-box cold"><div class="overline">{% trans "To" %}</div><div class="flow-name">{{ tf.to_component.title }}</div>
+        <div class="strong cold-ink">{% blocktrans with qty=tf.to_component.inventory|shown:tf.to_component.unit_of_measurement %}{{ qty }} on hand{% endblocktrans %}{% if on_the_way %} · {% blocktrans %}{{ on_the_way }} on the way{% endblocktrans %}{% endif %}</div></div>
+</div>

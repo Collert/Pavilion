@@ -310,3 +310,24 @@
     .tf-grid { grid-template-columns: 1fr; }
     .ongoing-card { width: 320px; }
 }
+
+/* ---------- server-rendered markup (forms wrap the buttons) ---------- */
+
+.rail-modes, .tile-form { display: contents; }
+.start-form { display: flex; flex-direction: column; }
+.adds { display: flex; flex-direction: column; flex: none; }
+.log-area { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.round-btn.off { opacity: .35; }
+a.round-btn, a.pill-btn, a.circle-btn, a.chip-btn, a.btn-soft, a.tile, a.next-btn { text-decoration: none; color: inherit; }
+a.chip-btn { display: inline-flex; align-items: center; }
+a.chip-btn[aria-pressed=true] { color: #fff; }
+.entry-box input.entry {
+    width: 100%; min-width: 0; border: none; background: transparent; text-align: right; font-size: 40px; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--ink); padding: 0;
+}
+.entry-box input.entry::placeholder { color: #B8C4BD; }
+.entry-box input.entry:focus, .entry-box input.entry:focus-visible { outline: none; }
+.entry-box:focus-within { box-shadow: inset 0 0 0 2px var(--brand); }
+.yield-total { animation: bump .32s ease-out both; }
+.step-nav, .timer-buttons, .segments { margin: 0; }
+.keypad-panel form .btn-amber.wide, .keypad-panel form .btn-dark.wide { width: 100%; }
