@@ -9,7 +9,8 @@ from django.urls import reverse
 from pos_server.models import Component, ComponentIngredient, Dish, DishComponent, Extra, Ingredient, Menu, Station
 from pos_server.orders import OrderError, create_order
 
-from .models import CookingSession, Recipe, RecipeIngredient, RecipeStep, Transformation
+from .models import (CookingSession, IngredientReservation, Recipe, RecipeIngredient, RecipeStep, Transformation,
+                     WasteIngredient)
 
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
@@ -160,9 +161,13 @@ class CookeryTests(TestCase):
         self.assertEqual(len(recipe["steps"][0]["uses"]), 1)
 
     def test_recipe_batch_takes_ingredients_then_adds_what_was_made(self):
-        session = self.act("start", component=self.pierogi.id, batch=2).json()["session"]
+        data = self.act("start", component=self.pierogi.id, batch=2).json()
+        session = data["session"]
+        # Reserved for the batch: out of inventory, and shown as held by batches in progress
         self.assertEqual(self.fresh(self.flour).inventory, 400)  # 2 x 300 g
-        self.assertEqual(self.fresh(self.water).inventory, 0)  # unlimited: not counted
+        self.assertEqual(data["ingredients"][str(self.flour.id)]["reserved"], 600)
+        self.assertEqual(self.fresh(self.water).inventory, 0)  # unlimited: not counted or reserved
+        self.assertEqual(list(IngredientReservation.objects.values_list("ingredient__title", "quantity")), [("Flour", 600)])
         self.act("step", session=session, step=1)
         self.act("timer", session=session, step=1, op="start")
         timers = CookingSession.objects.get(pk=session).timers
@@ -176,6 +181,16 @@ class CookeryTests(TestCase):
         self.assertEqual((response["done"]["made"], response["done"]["expected"]), (50, 120))
         self.assertEqual(self.fresh(self.pierogi).inventory, 60)
         self.assertEqual(response["sessions"], [])
+        # 70 of the expected 120 weren't made: that share of the reserved flour is waste
+        self.assertEqual(list(WasteIngredient.objects.values_list("ingredient__title", "quantity", "session")), [("Flour", 350, session)])
+        self.assertEqual(response["done"]["waste"], [{"ingredient": self.flour.id, "qty": 350}])
+        self.assertEqual(response["ingredients"][str(self.flour.id)]["reserved"], 0)
+
+    def test_no_waste_when_the_batch_makes_enough(self):
+        session = self.act("start", component=self.pierogi.id).json()["session"]
+        self.act("count", session=session, amount=64)
+        self.assertEqual(self.act("finish", session=session).json()["done"]["waste"], [])
+        self.assertFalse(WasteIngredient.objects.exists())
 
     def test_one_at_a_time_takes_ingredients_per_unit_at_the_end(self):
         session = self.act("start", component=self.patty.id).json()["session"]

@@ -154,6 +154,20 @@ class CookingSession(models.Model):
         return f"{self.get_kind_display()}: {what}"
 
 
+class IngredientReservation(models.Model):
+    """
+    What a recipe batch took for itself when it started (recipe amount x batch size). It's out of inventory from that
+    moment, so no count offers it to anyone else. When the batch finishes short of the recipe's yield, the unused
+    share becomes WasteIngredient.
+    """
+    session = models.ForeignKey(CookingSession, on_delete=models.CASCADE, related_name="reservations")
+    ingredient = models.ForeignKey("pos_server.Ingredient", on_delete=models.CASCADE, related_name="reservations")
+    quantity = models.FloatField()
+
+    def __str__(self):
+        return f"{self.quantity} {self.ingredient.unit_of_measurement} {self.ingredient.title} for {self.session}"
+
+
 class YieldEntry(models.Model):
     """One amount counted while recording a batch's yield (undo removes the latest)."""
     session = models.ForeignKey(CookingSession, on_delete=models.CASCADE, related_name="log")
@@ -207,11 +221,13 @@ class WasteIngredient(models.Model):
     Attributes:
         date (DateTimeField): The date and time when the waste entry was created. Automatically set to the current date and time when the object is created.
         ingredient (ForeignKey): Reference to the Ingredient model in the pos_server app. When the referenced Ingredient is deleted, this waste entry will also be deleted.
-        quantity (PositiveIntegerField): The quantity of the ingredient wasted.
+        quantity (FloatField): The quantity of the ingredient wasted, in its unit.
+        session (ForeignKey): The Cookery batch it was reserved for, when it came from one (made less than expected).
     """
     date = models.DateTimeField(auto_now_add = True)
     ingredient = models.ForeignKey("pos_server.Ingredient", on_delete = models.CASCADE)
-    quantity = models.PositiveIntegerField()
+    quantity = models.FloatField()
+    session = models.ForeignKey("CookingSession", on_delete=models.SET_NULL, null=True, blank=True, related_name="waste")
 
 class WasteComponent(models.Model):
     """

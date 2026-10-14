@@ -5,6 +5,9 @@
 // the server's snapshot (refetched on the "cookery" and "inventory" live events), so a batch started on one
 // screen can be picked up on another. The URL hash keeps your place (#recipe/3, #batch/12, #transform/2, ...).
 //
+// Starting a recipe batch reserves its ingredients (they leave inventory; the recipe screen shows what other batches
+// hold), and finishing short of the recipe's yield logs the unused share as waste (inventory/cookery.py).
+//
 // Amounts are stored in each item's own unit, always the smallest: g, ml or ea. Counting and transforms use a friendlier display
 // unit (kg for g, L for ml, pcs for ea) and convert back when they send.
 
@@ -412,7 +415,10 @@ function recipeView() {
         return el("div", { className: "ing-row" }, [
             el("span", { className: "ing-mark" + (short ? " short" : "") }, [icon(short ? P.warn : P.check, 14, 3)]),
             el("span", { className: "grow ing-name", text: ing.name }),
-            el("span", { className: "ing-have", text: ing.unlimited ? t("not counted") : fmt("%s on hand", amount(ing.have, ing.unit)) }),
+            el("span", { className: "ing-have" }, [
+                ing.unlimited ? t("not counted") : fmt("%s on hand", amount(ing.have, ing.unit)),
+                ing.reserved ? el("span", { className: "ing-reserved", text: fmt("%s in batches cooking", amount(ing.reserved, ing.unit)) }) : null,
+            ]),
             el("span", { className: "ing-need", text: amount(need, ing.unit) }),
         ]);
     });
@@ -700,13 +706,13 @@ function doneView() {
         const waste = Math.max(0, expected - made);
         const pct = Math.round((waste / expected) * 100);
         const over = made > expected;
-        const top = recipe.ingredients.filter((row) => ingredient(row.ingredient).unit !== "ea")
-            .sort((a, b) => b.qty - a.qty).slice(0, 2)
-            .map((row) => `${amount((row.qty * d.batch * waste) / expected, ingredient(row.ingredient).unit)} ${ingredient(row.ingredient).name.toLowerCase()}`);
+        // Recorded as ingredient waste by the server: the unused share of what the batch reserved
+        const top = (d.waste ?? []).slice(0, 2)
+            .map((row) => `${amount(row.qty, ingredient(row.ingredient)?.unit ?? "")} ${(ingredient(row.ingredient)?.name ?? "").toLowerCase()}`);
         stats.push({ label: t("Expected"), value: `${trim(expected)} ${unit}`, sub: t("from the recipe") });
         stats.push({
             label: over ? t("Extra") : t("Waste"), value: over ? `+${trim(made - expected)} ${unit}` : `${trim(waste)} ${unit}`,
-            sub: over ? t("more than the recipe says") : waste ? `${pct}% · ${fmt("about %s", top.join(", "))}` : t("none, nice work"), warn: !over && pct >= 10,
+            sub: over ? t("more than the recipe says") : waste ? `${pct}%` + (top.length ? ` · ${fmt("logged as waste: %s", top.join(", "))}` : "") : t("none, nice work"), warn: !over && pct >= 10,
         });
     }
     stats.push({ label: t("Time"), value: fmtDur(d.minutes * 60), sub: t("from start to finish") });

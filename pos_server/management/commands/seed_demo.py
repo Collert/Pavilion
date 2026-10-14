@@ -23,13 +23,14 @@ from django.contrib.auth.models import Permission, User
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
-from inventory.models import (CookingSession, Packaging, Recipe, RecipeIngredient, RecipeStep, Transformation,
-                              YieldEntry)
+from inventory.models import (CookingSession, IngredientReservation, Packaging, Recipe, RecipeIngredient, RecipeStep,
+                              Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
                                ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
@@ -486,14 +487,20 @@ class Command(BaseCommand):
         priya = User.objects.get(username="priya")
         pork = Component.objects.get(pk=c["Pulled pork"].pk)
         braise_end = now + minutes(72)
-        CookingSession.objects.create(kind="cook", component=pork, recipe=pork.recipe, started_by=priya, holder=priya,
-                                      started_at=now - minutes(190), step=2,
-                                      timers={"2": {"end": int(braise_end.timestamp() * 1000), "dur": 240 * 60, "paused": None}})
+        braising = CookingSession.objects.create(kind="cook", component=pork, recipe=pork.recipe, started_by=priya, holder=priya,
+                                                 started_at=now - minutes(190), step=2,
+                                                 timers={"2": {"end": int(braise_end.timestamp() * 1000), "dur": 240 * 60, "paused": None}})
         lemonade = Component.objects.get(pk=c["Lemonade"].pk)
         counting = CookingSession.objects.create(kind="cook", component=lemonade, recipe=lemonade.recipe, started_by=self.cashier,
                                                  holder=self.cashier, started_at=now - minutes(75), phase="yield", step=2)
         for amount, ago in ((4000, 9), (4000, 4)):
             YieldEntry.objects.create(session=counting, amount=amount, at=now - minutes(ago))
+        # Batches reserve their ingredients when they start (out of inventory)
+        for batch in (braising, counting):
+            for ri in batch.recipe.ingredients.select_related("ingredient"):
+                if not ri.ingredient.unlimited:
+                    IngredientReservation.objects.create(session=batch, ingredient=ri.ingredient, quantity=ri.quantity)
+                    Ingredient.objects.filter(pk=ri.ingredient_id).update(inventory=F("inventory") - ri.quantity)
         thaw = transforms["Thaw patties"]
         CookingSession.objects.create(kind="transform", transformation=thaw, component=thaw.from_component, quantity=40,
                                       started_by=self.cashier, holder=self.cashier, started_at=now - minutes(540),

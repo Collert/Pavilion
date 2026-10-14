@@ -3,8 +3,9 @@ Cookery (docs/mockups/cookery, inventory/static/inventory/cookery.js): making co
 them between states (freezing, thawing).
 
 - Components with crafting_option "craft" are made here. With a Recipe they cook in batches: the recipe's
-  ingredients (times the batch size) leave inventory when the batch starts, guided cooking walks through the steps
-  with timers, then what was made is counted. Without a recipe they're made one at a time and counted as they go;
+  ingredients (times the batch size) are reserved for the batch when it starts (out of inventory, recorded as
+  IngredientReservations), guided cooking walks through the steps with timers, then what was made is counted. If it
+  comes out short of the recipe's yield, that share of the reserved ingredients is recorded as WasteIngredient. Without a recipe they're made one at a time and counted as they go;
   their ComponentIngredient amounts leave inventory per unit when it's finished.
 - A Transformation turns one component into another over time: the amount leaves `from_component` when it starts
   and arrives in `to_component` (times the ratio) when it's marked done.
@@ -16,11 +17,12 @@ import time
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from pos_server.models import Component, ComponentIngredient, Ingredient
-from .models import CookingSession, Recipe, Transformation, YieldEntry
+from .models import CookingSession, IngredientReservation, Recipe, Transformation, WasteIngredient, YieldEntry
 
 
 class CookeryError(Exception):
@@ -51,10 +53,12 @@ def snapshot(user):
         per_unit.setdefault(ci.component_id, []).append(ci)
 
     ingredients = {}
+    reserved = dict(IngredientReservation.objects.filter(session__finished_at=None, session__cancelled=False)
+                    .values_list("ingredient").annotate(total=Sum("quantity")))
 
     def ingredient(obj):
         ingredients[obj.id] = {"name": obj.title, "unit": obj.unit_of_measurement, "have": obj.inventory or 0,
-                               "unlimited": obj.unlimited}
+                               "unlimited": obj.unlimited, "reserved": reserved.get(obj.id, 0)}
         return obj.id
 
     recipe_data = {}
@@ -145,14 +149,17 @@ def start_cook(user, body):
             batch = max(1, min(int(body.get("batch") or 1), 20))
         except (TypeError, ValueError):
             raise CookeryError(_("The batch size isn't a number."))
-        for ri in recipe.ingredients.select_related("ingredient"):
-            if not ri.ingredient.unlimited:
-                _adjust(Ingredient, ri.ingredient_id, -ri.quantity * batch)
     phase = "yield" if not recipe or body.get("phase") == "yield" else "guided"
     steps = recipe.steps.count() if recipe else 0
     session = CookingSession.objects.create(
         kind=CookingSession.COOK, component=component, recipe=recipe, batch=batch, started_by=user, holder=user,
         phase=phase, step=max(0, steps - 1) if phase == "yield" else 0)
+    if recipe:
+        # Reserve the ingredients: out of inventory now, so nothing else counts on them
+        for ri in recipe.ingredients.select_related("ingredient"):
+            if not ri.ingredient.unlimited:
+                _adjust(Ingredient, ri.ingredient_id, -ri.quantity * batch)
+                IngredientReservation.objects.create(session=session, ingredient=ri.ingredient, quantity=ri.quantity * batch)
     return {"session": session.id}
 
 
@@ -251,9 +258,19 @@ def finish(user, body):
     session.made = made
     session.expected = session.recipe.yield_quantity * session.batch if session.recipe else None
     session.save()
+    # Made less than the recipe says: the unused share of what was reserved is waste
+    waste = []
+    if session.expected and made < session.expected:
+        share = (session.expected - made) / session.expected
+        for reservation in session.reservations.select_related("ingredient"):
+            amount = round(reservation.quantity * share, 3)
+            if amount > 0:
+                WasteIngredient.objects.create(ingredient=reservation.ingredient, quantity=amount, session=session)
+                waste.append({"ingredient": reservation.ingredient_id, "qty": amount})
+    waste.sort(key=lambda w: -w["qty"])
     minutes = max(1, round((session.finished_at - session.started_at).total_seconds() / 60))
     return {"done": {"component": component.id, "made": made, "expected": session.expected, "minutes": minutes,
-                     "batch": session.batch, "recipe": session.recipe_id, "have": component.inventory}}
+                     "batch": session.batch, "recipe": session.recipe_id, "have": component.inventory, "waste": waste}}
 
 
 def start_transform(user, body):

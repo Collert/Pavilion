@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from .models import CookingSession, Recipe, RecipeIngredient, RecipeStep, StockUpdate, Transformation, YieldEntry
+from .models import (CookingSession, IngredientReservation, Recipe, RecipeIngredient, RecipeStep, StockUpdate, Transformation,
+                     WasteIngredient, YieldEntry)
 
 admin.site.register(StockUpdate)
 
@@ -36,9 +37,26 @@ class YieldEntryInline(admin.TabularInline):
     extra = 0
 
 
+class ReservationInline(admin.TabularInline):
+    model = IngredientReservation
+    extra = 0
+
+
+class WasteInline(admin.TabularInline):
+    model = WasteIngredient
+    extra = 0
+    readonly_fields = ("date",)
+
+
+@admin.register(WasteIngredient)
+class WasteIngredientAdmin(admin.ModelAdmin):
+    list_display = ("date", "ingredient", "quantity", "session")
+    list_filter = ("ingredient",)
+
+
 @admin.register(CookingSession)
 class CookingSessionAdmin(admin.ModelAdmin):
     """Batches in Cookery, ongoing and finished (finished ones are the record of what was made)."""
     list_display = ("__str__", "holder", "started_at", "finished_at", "made", "expected", "cancelled")
     list_filter = ("kind", "cancelled")
-    inlines = [YieldEntryInline]
+    inlines = [ReservationInline, YieldEntryInline, WasteInline]
