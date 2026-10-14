@@ -32,7 +32,7 @@
             <a class="button icon" href="{% url 'component_availability' %}"><span class="material-symbols-outlined">inventory_2</span></a>
             {% block marking-nav %}{% endblock %}
             {% if user.is_authenticated %}
-            <a class="button" href="{% url 'register_lock' %}">{% trans "Lock" %}</a>
+            <a class="button" href="{% url 'logout_view' %}">{% trans "Sign out" %}</a>
             {% else %}
             <button>{% trans "Login" %}</button>
             {% endif %}

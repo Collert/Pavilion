@@ -38,19 +38,23 @@
         <h1 class="h1 lock-title">{% trans "Who's at the register?" %}</h1>
 
         {% if staff %}
-        <div role="group" aria-label="{% trans 'Staff' %}" class="staff-list" id="staff"></div>
+        <div role="group" aria-label="{% trans 'Recent staff on this register' %}" class="staff-list" id="staff"></div>
+        <a class="someone-else" href="{{ password_url }}">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
+            {% trans "Someone else? Sign in with a password" %}
+        </a>
         <div class="pin-prompt" id="prompt"></div>
         <div class="dots" role="img" id="dots"></div>
         <div class="pin-error" role="alert" id="pin-error"></div>
         <div class="keypad lock-keys" id="keys"></div>
         {% else %}
-        <p class="no-pins">{% trans "No one has a register PIN yet. A manager can set PINs in the advanced admin (Users › Staff)." %}</p>
+        <p class="no-pins">{% trans "Sign in with your password to start. After that, you can unlock this register with your 4-digit PIN." %}</p>
+        <a class="btn btn-primary sign-in-first" href="{{ password_url }}">{% trans "Sign in with a password" %}</a>
         {% endif %}
 
         <div class="grow"></div>
         <div class="lock-foot">
             <span>{% trans "Forgot your PIN? Ask a manager" %}</span>
-            <a href="{% url 'login_view' %}?next={{ next_url|urlencode }}">{% trans "Sign in with a password" %}</a>
         </div>
     </div>
 

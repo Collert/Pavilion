@@ -1,5 +1,6 @@
 // The lock screen (see docs/mockups/Lock screen-html and pos_server/register.py: lock).
-// Pick your name, type your 4-digit PIN; the server signs you in and the register opens.
+// Pick your name (the register's last few users), type your 4-digit PIN; the server signs you in and the
+// register opens. Anyone else signs in with their password, which lists them here next time.
 import { $, el, keypad, post } from "./staff-ui.js";
 
 const t = (text) => gettext(text);
@@ -19,7 +20,7 @@ tick();
 setInterval(tick, 10000);
 
 const state = {
-    who: staff.find((s) => String(s.id) === localStorage.getItem("pavilion-last-staff"))?.id ?? staff[0]?.id,
+    who: staff[0]?.id,  // the list is the register's latest users, most recent first
     pin: "",
     error: "",
     shaking: false,
@@ -54,7 +55,6 @@ async function press(digit) {
         .catch(() => ({ ok: false, data: { message: t("The register is offline. Check the connection.") } }));
     state.busy = false;
     if (result.ok) {
-        localStorage.setItem("pavilion-last-staff", String(state.who));
         $("#signin").hidden = true;
         $("#welcome").hidden = false;
         $("#welcome-title").textContent = interpolate(t("Welcome back, %s"), [result.data.name]);

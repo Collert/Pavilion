@@ -91,8 +91,9 @@ customer-supplied text.
 
 Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`
 from `pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen),
-never bare `login_required`.** On the register, staff sign in with a hashed 4-digit `Staff.pin` (set in
-`/advanced-admin/` → Users), rate-limited per device. POS/KDS views also use `device_required` (signed cookie
+never bare `login_required`.** On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set in
+`/advanced-admin/` → Users), rate-limited per device; the lock screen lists the device's last 3 users
+(`RegisterSignIn`), and anyone else signs in with their password first. POS/KDS views also use `device_required` (signed cookie
 for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default on in production). Redirects to a
 `next` URL go through `safe_next_url()`.
 

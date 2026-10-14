@@ -526,6 +526,27 @@ class CashDrawerSession(models.Model):
         return self.counted_amount - self.expected_amount
 
 
+class RegisterSignIn(models.Model):
+    """
+    Who used a register lately. Updated whenever someone opens the register on a device; its lock screen offers
+    PIN sign-in to the most recent few (see pos_server.register.recent_staff). Everyone else signs in with a
+    password, which puts them on the list.
+    """
+    device = models.ForeignKey("EligibleDevice", on_delete=models.CASCADE, null=True, blank=True, related_name="sign_ins")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="register_sign_ins")
+    last_used = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-last_used"]
+
+    def __str__(self):
+        return f"{self.user} on {self.device or 'the register'}"
+
+    @classmethod
+    def record(cls, device, user):
+        cls.objects.update_or_create(device=device, user=user, defaults={"last_used": timezone.now()})
+
+
 class CashMovement(models.Model):
     """Cash put into (positive) or taken out of (negative) an open drawer outside a sale."""
     drawer = models.ForeignKey(CashDrawerSession, on_delete=models.CASCADE, related_name="movements")

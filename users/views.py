@@ -6,29 +6,35 @@ from django.shortcuts import redirect
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.shortcuts import render
+from pos_server.devices import safe_next_url
 
 # Create your views here.
 
 def login_view(request):
-    if request.method == "GET":
-        return render(request, "users/login.html", {
-            "route":"login"
-        })
-    elif request.method == "POST":
-        username = request.POST["username"]
-        password = request.POST["password"]
-        user = authenticate(request, username=username, password=password)
+    """
+    Sign in with an email or username and a password. Unchecking "Stay signed in" ends the session when the
+    browser closes. Afterwards: the safe `next` URL, else the register for staff and the store for everyone else.
+    (On the register, staff unlock with a PIN instead; see pos_server.register.lock.)
+    """
+    next_url = safe_next_url(request, request.POST.get("next") or request.GET.get("next")) or ""
+    context = {"route": "login", "next_url": next_url, "identifier": "", "remember": True}
+    if request.method == "POST":
+        identifier = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+        username = identifier
+        if "@" in identifier:
+            matches = list(User.objects.filter(email__iexact=identifier).values_list("username", flat=True)[:2])
+            if len(matches) == 1:
+                username = matches[0]
+        user = authenticate(request, username=username, password=password) if identifier and password else None
         if user is not None:
             login(request, user)
-            next_url = request.POST.get('next')  # Get the next parameter
-            if next_url:
-                return redirect(next_url)
-            return HttpResponseRedirect(reverse("pos"))
-        else:
-            return render(request, "users/login.html", {
-                "route":"login",
-                "failed_login":True
-            })
+            if not request.POST.get("remember"):
+                request.session.set_expiry(0)
+            return redirect(next_url or reverse("pos" if user.is_staff else "store_home"))
+        context.update(identifier=identifier, remember=bool(request.POST.get("remember")), failed=True,
+                       missing_identifier=not identifier, missing_password=not password)
+    return render(request, "users/login.html", context, status=400 if request.method == "POST" else 200)
 
 @login_required
 def logout_view(request):

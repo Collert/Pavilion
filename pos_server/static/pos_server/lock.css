@@ -35,9 +35,9 @@
 }
 .lock-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .lock-title { margin-top: 6px; line-height: 1.1; }
-.staff-list { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+.staff-list { display: flex; gap: 8px; margin-top: 20px; }
 .staff-btn {
-    flex: 1 1 120px; height: 52px; padding: 0 14px 0 6px; border-radius: 26px; border: none; display: inline-flex; align-items: center; gap: 8px;
+    flex: 1 1 0; height: 52px; padding: 0 14px 0 6px; border-radius: 26px; border: none; display: inline-flex; align-items: center; gap: 8px;
     font-size: 15px; font-weight: 700; background: var(--soft); color: var(--ink); min-width: 0;
 }
 .staff-btn span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -47,7 +47,14 @@
     font-size: 16px; font-weight: 700; background: var(--mint); color: var(--ink);
 }
 .staff-btn[aria-pressed=true] .avatar { background: var(--amber); }
-.pin-prompt { margin-top: 28px; text-align: center; font-size: 15px; font-weight: 600; color: var(--muted); }
+.someone-else {
+    display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; margin-top: 10px;
+    border-radius: 24px; border: 1.5px dashed var(--dash); color: var(--brand); font-size: 15px; font-weight: 700;
+    text-decoration: none; transition: background-color .2s ease;
+}
+.someone-else:hover { background: var(--soft); }
+.sign-in-first { margin-top: 24px; text-decoration: none; }
+.pin-prompt { margin-top: 24px; text-align: center; font-size: 15px; font-weight: 600; color: var(--muted); }
 .dots { display: flex; justify-content: center; gap: 18px; margin-top: 16px; height: 20px; }
 .dots span { width: 20px; height: 20px; border-radius: 10px; border: 2px solid var(--brand); background: transparent; }
 .dots span.on { background: var(--brand); animation: dotIn .22s ease-out both; }

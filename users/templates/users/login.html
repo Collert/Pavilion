@@ -1,18 +1,108 @@
-{% extends "users/layout.html" %}
-{% load i18n %}
-{% load static %}
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Sign in" %} · Pavilion{% endblock %}
+{% block head %}
+<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'users/login.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}{% endblock %}
 
 {% block body %}
-<form id="login" method="post" action="{% url 'login_view' %}">
-    {% csrf_token %}
-    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="Username"/>
-    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="Password"/>
-    {% if request.GET.next %}
-    <input type="hidden" name="next" value="{{ request.GET.next }}">
-    {% endif %}
-    <button {% if failed_login %}class="error"{% endif %}>{% trans "Log in" %}</button>
-    {% if failed_login %}
-    <span>{% trans "Failed to authenticate, please try again" %}</span>
-    {% endif %}
-</form>
+<section class="lock-status" aria-label="Pavilion">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">Pavilion</div>
+    </div>
+
+    <div class="lock-center">
+        <h2 class="tagline">{% trans "Sign in once." %}<br><span>{% trans "PIN" %}</span> {% trans "in all day." %}</h2>
+    </div>
+</section>
+
+<aside class="lock-panel" aria-label="{% trans 'Account sign in' %}">
+    <form method="post" action="{% url 'login_view' %}" class="lock-view rise sign-in" id="sign-in" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <div class="overline">{% trans "Sign in" %}</div>
+        <h1 class="h1 lock-title">{% trans "Welcome back" %}</h1>
+        <div class="sign-in-sub">{% trans "Use the account your restaurant set up for you." %}</div>
+
+        <div class="fields{% if failed %} shake{% endif %}">
+            <div>
+                <label for="si-user" class="field-label">{% trans "Email or username" %}</label>
+                <div class="si-field{% if missing_identifier %} bad{% endif %}">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
+                    <input id="si-user" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false"
+                           placeholder="{% trans 'you@restaurant.com' %}" value="{{ identifier }}" {% if not identifier %}autofocus{% endif %}
+                           {% if missing_identifier %}aria-invalid="true"{% endif %} aria-describedby="si-user-err">
+                </div>
+                <div class="field-error" id="si-user-err">{% if missing_identifier %}{% trans "Enter your email or username" %}{% endif %}</div>
+            </div>
+            <div>
+                <label for="si-pass" class="field-label">{% trans "Password" %}</label>
+                <div class="si-field{% if missing_password %} bad{% endif %}">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                    <input id="si-pass" name="password" type="password" autocomplete="current-password" placeholder="{% trans 'Your password' %}"
+                           {% if identifier %}autofocus{% endif %} {% if missing_password %}aria-invalid="true"{% endif %} aria-describedby="si-pass-err">
+                    <button type="button" class="eye" id="show-pass" aria-label="{% trans 'Show password' %}" aria-pressed="false">
+                        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0"></path></svg>
+                    </button>
+                </div>
+                <div class="field-error" id="si-pass-err">{% if missing_password %}{% trans "Enter your password" %}{% endif %}</div>
+            </div>
+        </div>
+
+        <label class="toggle-row stay">
+            <span>
+                <span class="toggle-title">{% trans "Stay signed in" %}</span>
+                <span class="sub">{% trans "On this device, until you sign out" %}</span>
+            </span>
+            <input type="checkbox" name="remember" value="1" class="switch-input" {% if remember %}checked{% endif %}>
+            <span class="switch-track" aria-hidden="true"><span></span></span>
+        </label>
+
+        <div class="form-error" role="alert">
+            {% if failed and not missing_identifier and not missing_password %}
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.01"></path></svg>
+            {% trans "That email or username and password don't match." %}
+            {% endif %}
+        </div>
+
+        <button class="btn btn-primary submit" id="si-submit">
+            <svg class="spin" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+            <span>{% trans "Sign in" %}</span>
+        </button>
+
+        <div class="grow"></div>
+        <div class="sign-in-foot">
+            {% trans "Can't sign in? Ask a manager to reset your password." %}
+            <a href="{% url 'register' %}">{% trans "New here? Create an account" %}</a>
+        </div>
+    </form>
+</aside>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Show/hide the password, and show that the form is working while the password is checked
+    const pass = document.querySelector("#si-pass");
+    const eye = document.querySelector("#show-pass");
+    eye.addEventListener("click", () => {
+        const showing = pass.type === "text";
+        pass.type = showing ? "password" : "text";
+        eye.setAttribute("aria-pressed", String(!showing));
+        eye.setAttribute("aria-label", showing ? gettext("Show password") : gettext("Hide password"));
+    });
+    document.querySelector("#sign-in").addEventListener("submit", () => {
+        const submit = document.querySelector("#si-submit");
+        submit.classList.add("loading");
+        submit.querySelector("span").textContent = gettext("Signing in…");
+    });
+</script>
 {% endblock %}

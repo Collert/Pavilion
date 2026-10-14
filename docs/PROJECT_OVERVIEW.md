@@ -188,9 +188,12 @@ store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`e
 Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one
 file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff-ui.js`. Designs: `docs/mockups/`.
 
-1. **Lock screen** (`/restaurant/lock`): pick your name, type your 4-digit PIN (`Staff.pin`, hashed; set in
-   `/advanced-admin/` → Users → Staff). It signs that staff member in (registered devices only when the device check
-   is on); 5 wrong tries lock that person out for a minute on that device. The rail's Lock button signs out.
+1. **Lock screen** (`/restaurant/lock`): lists the last 3 staff with a PIN who used this register
+   (`RegisterSignIn`, updated whenever someone opens the register on the device). Pick your name, type your 4-digit
+   PIN (`Staff.pin`, cheap salted hash; set in `/advanced-admin/` → Users → Staff); only listed people can use a PIN.
+   Everyone else taps "Someone else? Sign in with a password", which signs them in (`users.login_view`: email or
+   username, "stay signed in") and lands them on the register, so they're listed next time. 5 wrong PINs lock that
+   person out for a minute on that device. PINs are register-only; other screens use the password sign-in.
 2. **Register** (`/restaurant/register`): sections are stations; tap a dish to add it; a combo that asks ("Choose a
    drink") opens a picker. Tap or swipe left on a line for Discount / Customize; swipe right removes it. The cart is
    kept in `sessionStorage`, priced live by the quote endpoint and broadcast to the customer display

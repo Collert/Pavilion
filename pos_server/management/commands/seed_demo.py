@@ -5,7 +5,7 @@ Fill an empty database with demo data for local development and testing.
     python manage.py seed_demo --force    # seed anyway (adds to what's there)
 
 Creates users (admin/admin, cashier/cashier, courier/courier, customer/customer; register PINs: Alex 0000,
-Dana 1234, Priya 2468), stations, ingredients, components with options, dishes with adjustable parts, add-ons
+Dana 1234, Priya 2468, recently used on the register so its lock screen lists them), stations, ingredients, components with options, dishes with adjustable parts, add-ons
 and condiments, combos, an active and an inactive menu, offers and coupons, today's business-day event, promo
 banners, gift card presets and cards, a registered device, past cash drawers, and orders in every state across
 the last few days.
@@ -32,7 +32,7 @@ from inventory.models import Packaging, Recipe
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
                                ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
-                               Menu, Option, OptionGroup, Order, OrderStation, Station)
+                               Menu, Option, OptionGroup, Order, OrderStation, RegisterSignIn, Station)
 from pos_server.orders import create_order
 from pos_server.pricing import price_cart
 from users.models import Staff
@@ -77,6 +77,10 @@ class Command(BaseCommand):
             self.seed_store()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
+            # The register's lock screen offers PIN sign-in to whoever used it last
+            for username in ("admin", "priya", "cashier"):  # Dana (cashier) most recent
+                for device in (None, self.device):
+                    RegisterSignIn.record(device, User.objects.get(username=username))
             Packaging.objects.get_or_create(name="Takeout container", defaults={"quantity": 200, "cost": Decimal("0.35")})
             self.seed_orders()
         self.stdout.write(self.style.SUCCESS(

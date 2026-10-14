@@ -19,7 +19,7 @@ from gift_cards.models import GiftCard, GiftCardAuthorization
 from online_store.models import RejectedOrder
 from payments.models import PaymentAuthorization, Transaction
 from users.models import Staff
-from .models import (CashDrawerSession, Combo, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
+from .models import (CashDrawerSession, RegisterSignIn, Combo, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
                      Extra, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
 from .orders import OrderError, create_order
 from .pricing import price_cart
@@ -516,6 +516,7 @@ class LockScreenTests(TestCase):
         self.staff = Staff.objects.create(user=self.user)
         self.staff.set_pin("1234")
         self.staff.save()
+        RegisterSignIn.record(None, self.user)  # Dana used this register before
 
     def unlock(self, pin):
         return self.client.post(reverse("register_lock"), json.dumps({"staff": self.staff.id, "pin": pin}),
@@ -548,6 +549,40 @@ class LockScreenTests(TestCase):
         self.staff.refresh_from_db()
         self.assertTrue(self.staff.pin.startswith("pin_pbkdf2_sha256$"))
         self.assertTrue(self.staff.check_pin("4321"))
+
+    def make_staff(self, name, pin="1111"):
+        user = User.objects.create_user(name.lower(), password="x", is_staff=True, first_name=name)
+        staff = Staff.objects.create(user=user)
+        if pin:
+            staff.set_pin(pin)
+            staff.save()
+        return staff
+
+    def test_lists_the_last_three_users_with_a_pin(self):
+        for name in ("Ana", "Ben", "Cal", "Dee"):
+            RegisterSignIn.record(None, self.make_staff(name).user)
+        RegisterSignIn.record(None, self.make_staff("Nopin", pin="").user)
+        names = [s["name"] for s in self.client.get(reverse("register_lock")).context["staff"]]
+        self.assertEqual(names, ["Dee", "Cal", "Ben"])  # most recent first; Dana and Ana fell off
+
+    def test_only_listed_staff_can_use_a_pin(self):
+        other = self.make_staff("Eve", pin="5555")  # has a PIN, never used this register
+        response = self.client.post(reverse("register_lock"), json.dumps({"staff": other.id, "pin": "5555"}),
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_opening_the_register_lists_you(self):
+        eve = self.make_staff("Eve", pin="5555")
+        self.client.force_login(eve.user)
+        self.client.get(reverse("pos"))
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("register_lock")).context["staff"][0]["name"], "Eve")
+
+    def test_empty_list_points_to_the_password_sign_in(self):
+        RegisterSignIn.objects.all().delete()
+        page = self.client.get(reverse("register_lock"))
+        self.assertEqual(page.context["staff"], [])
+        self.assertContains(page, f'{reverse("login_view")}?next=%2Fen%2Frestaurant%2Fregister')
 
     def test_wrong_pins_lock_the_person_out(self):
         for _ in range(5):

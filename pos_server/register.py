@@ -29,9 +29,9 @@ from django.utils.translation import gettext as _
 
 from gift_cards.models import GiftCard
 from payments import square
-from users.models import Staff
 from .devices import DEVICE_COOKIE, device_required, safe_next_url, token_is_registered
-from .models import CashDrawerSession, CashMovement, EligibleDevice, Menu, Order, OrderPayment, OrderStation, Station
+from .models import (CashDrawerSession, CashMovement, EligibleDevice, Menu, Order, OrderPayment, OrderStation,
+                     RegisterSignIn, Station)
 from .orders import OrderError, create_order
 from .pricing import (ALLERGENS, DishKit, combo_queryset, dish_queryset, offers_for_register, price_cart, tax_rate,
                       to_cents, to_money)
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 PIN_ATTEMPTS = 5          # wrong PINs allowed per staff member and device ...
 PIN_LOCKOUT_SECONDS = 60  # ... before they have to wait this long
+RECENT_ON_LOCK_SCREEN = 3  # the lock screen offers PIN sign-in to this many of the device's latest users
 
 
 def current_device(request):
@@ -143,6 +144,7 @@ def register(request):
         return HttpResponseNotAllowed(["GET", "POST"])
     menu = Menu.active()
     device = current_device(request)
+    RegisterSignIn.record(device, request.user)  # puts them on this register's lock screen
     drawer = open_drawer(device)
     next_number = (Order.objects.aggregate(last=Max("id"))["last"] or 0) + 1
     return render(request, "pos_server/register.html", {
@@ -289,6 +291,14 @@ def card_checkout(request):
 
 # ---------- lock screen ----------
 
+def recent_staff(device):
+    """The staff with a PIN who used this register most recently (at most RECENT_ON_LOCK_SCREEN)."""
+    recent = (RegisterSignIn.objects.filter(device=device, user__is_active=True, user__is_staff=True)
+              .exclude(user__staff_profile__pin="").exclude(user__staff_profile__isnull=True)
+              .select_related("user__staff_profile")[:RECENT_ON_LOCK_SCREEN])
+    return [entry.user.staff_profile for entry in recent]
+
+
 def _pin_key(device, staff_id):
     return f"pin-fails:{device.id if device else 0}:{staff_id}"
 
@@ -296,21 +306,24 @@ def _pin_key(device, staff_id):
 @device_required
 def lock(request):
     """
-    GET: the lock screen.
+    GET: the lock screen. It lists the few staff who used this register last (recent_staff); anyone else
+    signs in with their password, which lists them next time.
     POST (form) action=lock: sign out and show the lock screen.
-    POST {"staff": <Staff id>, "pin": "1234"}: sign that staff member in.
+    POST {"staff": <Staff id>, "pin": "1234"}: sign that staff member in (only someone the screen lists).
     """
     device = current_device(request)
     if request.method == "GET":
         drawer = open_drawer(device)
         last_sale = Order.objects.filter(channel="store").order_by("-timestamp").values_list("timestamp", flat=True).first()
-        staff = Staff.objects.filter(user__is_active=True, user__is_staff=True).exclude(pin="").select_related("user").order_by("user__first_name", "user__username")
+        staff = recent_staff(device)
+        next_url = safe_next_url(request, request.GET.get("next")) or reverse("pos")
         return render(request, "pos_server/lock.html", {
             "device_name": device.name if device else _("The register"),
             "drawer": drawer,
             "last_sale": timezone.localtime(last_sale) if last_sale and timezone.localdate(last_sale) == timezone.localdate() else None,
             "staff": [{"id": s.id, "name": s.display_name} for s in staff],
-            "next_url": safe_next_url(request, request.GET.get("next")) or reverse("pos"),
+            "next_url": next_url,
+            "password_url": f'{reverse("login_view")}?{urlencode({"next": next_url})}',
             "signed_in": staff_name(request.user) if request.user.is_authenticated and request.user.is_staff else None,
         })
     if request.method != "POST":
@@ -326,12 +339,13 @@ def lock(request):
     key = _pin_key(device, staff_id)
     if cache.get(key, 0) >= PIN_ATTEMPTS:
         return JsonResponse({"message": _("Too many tries. Wait a minute, then try again.")}, status=429)
-    staff = Staff.objects.filter(pk=staff_id, user__is_active=True, user__is_staff=True).select_related("user").first()
+    staff = next((s for s in recent_staff(device) if s.id == staff_id), None)
     if staff is None or not staff.check_pin(pin):
         cache.set(key, cache.get(key, 0) + 1, timeout=PIN_LOCKOUT_SECONDS)
         return JsonResponse({"message": _("That PIN didn't match. Try again.")}, status=403)
     cache.delete(key)
     login(request, staff.user, backend="django.contrib.auth.backends.ModelBackend")
+    RegisterSignIn.record(device, staff.user)
     drawer = open_drawer(device)
     return JsonResponse({
         "name": staff.display_name,
