@@ -52,7 +52,7 @@ const isReady = order => Object.values(order.stations).every(status => status >=
 const needsStations = order => Object.keys(order.stations).length > 0;
 
 syncOrders(await fetchOrders(), false);
-onLiveUpdate("orders", async () => syncOrders(await fetchOrders(), true), { fallbackMs: 20000 });
+onLiveUpdate("orders", async () => syncOrders(await fetchOrders(), true));
 
 async function fetchOrders() {
     const response = await fetch(checkOrdersLink);

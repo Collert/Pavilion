@@ -1394,19 +1394,17 @@ async function chargeCard(amount) {
         if (status === "COMPLETED" || status === "CANCELED" || status === "CANCEL_REQUESTED") {
             finished = true;
             stopCardWatch?.();
-            clearInterval(poll);
             await fetch(urls.cardStatus, { method: "DELETE", headers: { "X-CSRFToken": csrftoken } }).catch(() => {});
             ui.card = "idle";
             if (status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card") });
             else { renderPay(); toast(t("The card payment was canceled."), { error: true }); }
         }
     };
-    const poll = setInterval(check, 3000);
-    stopCardWatch = onLiveUpdate("checkout", check, { fallbackMs: 3000 });
+    // Square's webhook updates the status and the server sends a "checkout" event
+    stopCardWatch = onLiveUpdate("checkout", check);
     $("#card-cancel").onclick = () => {
         finished = true;
         stopCardWatch?.();
-        clearInterval(poll);
         ui.card = "idle";
         renderPay();
     };

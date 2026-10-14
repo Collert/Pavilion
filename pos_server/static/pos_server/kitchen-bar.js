@@ -374,4 +374,4 @@ function openOrderManagement() {
 
 sync(JSON.parse(document.querySelector("#initial-orders").textContent));
 startTimers();
-onLiveUpdate("orders", refresh, { fallbackMs: 30000 });
+onLiveUpdate("orders", refresh);

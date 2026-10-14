@@ -599,3 +599,32 @@ class SeedDemoTests(TestCase):
         self.assertEqual(Menu.active().title, "Lunch")
         self.assertTrue(Order.objects.filter(items__children__isnull=False).exists())  # a combo was sold
         self.assertTrue(Staff.objects.get(user__username="cashier").check_pin("1234"))
+
+
+class RealtimeTests(MenuFixture, TestCase):
+    """Screens don't poll: whatever changes the register's catalog must send an "inventory" event."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def published(self, change):
+        from django.db import connection
+        # The fixture's saves queued events in the test's outer transaction that never commit; publish() sends one
+        # event per topic per transaction, so drop them to see what `change` sends on its own.
+        connection.run_on_commit = []
+        with mock.patch("pavilion.realtime.get_broker") as broker, self.captureOnCommitCallbacks(execute=True):
+            change()
+        return [call.args[0] for call in broker.return_value.publish.call_args_list]
+
+    def test_running_out_sends_an_event(self):
+        def run_out():
+            self.gf_bun.inventory = 0
+            self.gf_bun.save()
+        self.assertEqual(self.published(run_out), ["inventory"])
+
+    def test_menu_edits_send_an_event(self):
+        for change in (lambda: Option.objects.create(group=self.medium.group, title="Rare"),
+                       lambda: self.avocado_addon.delete(),
+                       lambda: ComboSlotOption.objects.filter(dish=self.tea).delete()):
+            self.assertIn("inventory", self.published(change))

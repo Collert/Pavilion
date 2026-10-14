@@ -100,7 +100,7 @@ for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default
 
 Screens update over **SSE** (`pavilion/realtime.py`). Model signals call `publish("orders"|"inventory"|"checkout")`
 after commit; `/events/<topic>` streams nudges; screens refetch their JSON endpoint via `onLiveUpdate()` in
-`static/js/live.js`, with a slow fallback poll. Redis (`REDIS_URL`) carries events and the cache between workers in
+`static/js/live.js` (no polling: screens refetch on each event and on every (re)connect, and reconnect if the 15 s `ping` heartbeat stops). Redis (`REDIS_URL`) carries events and the cache between workers in
 production; without it an in-process broker is used. POS ↔ customer display talk via `BroadcastChannel` (same browser).
 **Don't add module-level/global state for cross-request data**: per-process memory is what broke the original SSE.
 Use the DB, the cache, or `publish()`.

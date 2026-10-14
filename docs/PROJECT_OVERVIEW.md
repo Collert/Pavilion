@@ -208,7 +208,7 @@ file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff
 ### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen&filter=bar`)
 
 Template `order-marking.html`, JS `kitchen-bar.js`. Cards are rendered by JS from server data (`json_script`), with
-`textContent` only. The screen refreshes from `active_orders` on every SSE `orders` event (30 s fallback poll).
+`textContent` only. The screen refreshes from `active_orders` on every SSE `orders` event (no polling).
 
 - Tickets show each dish's customizations, its combo and slot, and its note.
 - `filter` params choose the stations this screen covers; the preferences dialog lists all stations. `auto-done` /
@@ -294,7 +294,7 @@ the in-memory courier set, and the inventory crafting page's SSE.
 - `/events/<topic>` is an async view, so open streams don't hold worker threads (daphne in dev, uvicorn in production).
   Heartbeats every 15 s; `X-Accel-Buffering: no` for nginx.
 - Events are only nudges ("orders changed"). Screens refetch their normal JSON endpoint, so access rules and redaction
-  live in one place. `static/js/live.js` (`onLiveUpdate(topic, refresh)`) adds a debounce and a slow fallback poll.
+  live in one place. `static/js/live.js` (`onLiveUpdate(topic, refresh)`) adds a debounce, refetches on every (re)connect, and reopens the stream if the 15 s `ping` heartbeat stops. No screen polls.
 - Redis is also the cache in production, so the Square checkout status is shared between workers. Couriers are in the
   `CourierShift` table.
 

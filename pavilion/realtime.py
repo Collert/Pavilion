@@ -7,7 +7,8 @@ How it works:
 - Screens open an EventSource on `/events/<topic>` (see `stream_view`). Each event is a small JSON nudge;
   the screen then refetches its normal JSON endpoint (e.g. active_orders). The JSON endpoints stay the single
   source of truth, including what anonymous screens are allowed to see.
-- Screens also keep a slow fallback poll, so a dropped stream only delays updates.
+- Screens don't poll. They refetch whenever the stream (re)connects, and reconnect if the heartbeat stops
+  (static/js/live.js), so a dropped stream only delays updates.
 
 Why Redis: production runs several worker processes. An event published in one process has to reach streams
 held open by the others, which an in-memory list can't do (that's what broke the original SSE in 2024).
@@ -127,7 +128,7 @@ def publish(topic, **data):
 # ---------- streaming ----------
 
 async def event_stream(topic):
-    """SSE body: a 'ready' event, then one event per published message, with heartbeat comments."""
+    """SSE body: a 'ready' event, then one event per published message, with a 'ping' event as a heartbeat."""
     yield f"retry: 3000\nevent: ready\ndata: {{}}\n\n"
     messages = get_broker().subscribe(topic).__aiter__()
     next_message = asyncio.ensure_future(messages.__anext__())
@@ -135,7 +136,7 @@ async def event_stream(topic):
         while True:
             done, _ = await asyncio.wait({next_message}, timeout=HEARTBEAT_SECONDS)
             if not done:
-                yield ": heartbeat\n\n"
+                yield "event: ping\ndata: {}\n\n"  # an event, not a comment, so clients can tell the stream is alive
                 continue
             message = next_message.result()
             yield f"event: {topic}\ndata: {message}\n\n"
