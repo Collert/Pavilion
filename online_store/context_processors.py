@@ -1,3 +1,5 @@
+import functools
+
 from django.utils import timezone
 from events.models import Event
 
@@ -9,20 +11,20 @@ def current_business_event():
 
 def check_business_day(request):
     """
-    Checks if the current time falls within a business day for the online store.
+    Today's business hours for the online store's templates: `business_day` (bool), `business_day_start_time` and
+    `business_day_end_time` ('HH:MM' or None).
 
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        dict: A dictionary containing:
-            - "business_day" (bool): True if it is a business day, False otherwise.
-            - "business_day_start_time" (str or None): The start time of the business day in 'HH:MM' format if it is a business day, None otherwise.
-            - "business_day_end_time" (str or None): The end time of the business day in 'HH:MM' format if it is a business day, None otherwise.
+    The values are functions (templates call them), so the Event query only runs on pages that use them, once.
     """
-    event = current_business_event()
+    @functools.cache
+    def event():
+        return current_business_event()
+
+    def local_time(field):
+        return lambda: timezone.localtime(getattr(event(), field)).strftime("%H:%M") if event() else None
+
     return {
-        "business_day": event is not None,
-        "business_day_start_time": timezone.localtime(event.start).strftime('%H:%M') if event else None,
-        "business_day_end_time": timezone.localtime(event.end).strftime('%H:%M') if event else None
+        "business_day": lambda: event() is not None,
+        "business_day_start_time": local_time("start"),
+        "business_day_end_time": local_time("end"),
     }
