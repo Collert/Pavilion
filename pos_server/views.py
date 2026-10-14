@@ -376,9 +376,9 @@ def prettify_dish(dish):
     dcs = dish.dishcomponent_set.all()
     for index, dc in enumerate(dcs):
         if dc.component.type == "food":
-            if dc.component.unit_of_measurement == "l" or dc.component.unit_of_measurement == "ml":
+            if dc.component.unit_of_measurement == "ml":
                 quantity_str = _("a bowl of ")
-            elif dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg":
+            elif dc.component.unit_of_measurement == "g":
                     quantity_str = f"{int(dc.quantity)}{dc.component.unit_of_measurement} of "
             else:
                 if dc.quantity == 1:

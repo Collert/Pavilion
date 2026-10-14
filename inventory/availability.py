@@ -45,7 +45,7 @@ def _dish_rows(menu):
 def _component_rows():
     components = Component.objects.prefetch_related("dishcomponent_set", "extra_uses").order_by("title")
     swapped_in = set(Option.objects.exclude(component=None).values_list("component_id", flat=True))
-    unit = {"ea": _("on hand"), "kg": "kg", "g": "g", "l": "L", "ml": "mL"}
+    unit = {"ea": _("on hand"), "g": "g", "ml": "mL"}
     tabs = {"parts": {}, "condiments": {}}
     for component in components:
         parts = list(component.dishcomponent_set.all())
@@ -54,6 +54,10 @@ def _component_rows():
         condiment = not parts and not addons and component.id not in swapped_in and any(e.kind == Extra.CONDIMENT for e in extras)
         used_in = len({("dish", dc.dish_id) for dc in parts} | {("dish", e.dish_id) if e.dish_id else ("combo", e.combo_id) for e in extras})
         counted = component.crafting_option != "auto"
+        # Stored in g / ml; a kilo or more reads better as kg / L
+        shown_stock, shown_unit = component.inventory or 0, unit.get(component.unit_of_measurement, component.unit_of_measurement)
+        if component.unit_of_measurement in ("g", "ml") and abs(shown_stock) >= 1000:
+            shown_stock, shown_unit = shown_stock / 1000, "kg" if component.unit_of_measurement == "g" else "L"
         smallest = min((q for q in [dc.quantity for dc in parts] + [e.quantity for e in extras] if q), default=1)
         if addons:
             what = _("Add-on +$%(price)s") % {"price": f"{min(e.price for e in addons):.2f}"}
@@ -64,8 +68,8 @@ def _component_rows():
         tab.setdefault(group, []).append({
             "key": f"component:{component.id}", "kind": "component", "id": component.id, "name": component.title,
             "mode": component.availability,
-            "stock": _number(component.inventory) if counted else None,
-            "unit": unit.get(component.unit_of_measurement, component.unit_of_measurement) if counted else _("made to order"),
+            "stock": _number(shown_stock) if counted else None,
+            "unit": shown_unit if counted else _("made to order"),
             "low": counted and (component.inventory or 0) / smallest <= LOW,
             "blocked_by": [],
             "used_in": used_in,

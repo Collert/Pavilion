@@ -5,7 +5,7 @@
 // the server's snapshot (refetched on the "cookery" and "inventory" live events), so a batch started on one
 // screen can be picked up on another. The URL hash keeps your place (#recipe/3, #batch/12, #transform/2, ...).
 //
-// Amounts are stored in each item's own unit (g, ml, kg, l, ea). Counting and transforms use a friendlier display
+// Amounts are stored in each item's own unit, always the smallest: g, ml or ea. Counting and transforms use a friendlier display
 // unit (kg for g, L for ml, pcs for ea) and convert back when they send.
 
 import { onLiveUpdate } from "/static/js/live.js";
@@ -58,17 +58,15 @@ function ago(ms) {
     if (m < 1) return t("just now");
     return m < 60 ? fmt("%s min ago", m) : fmt("%s h ago", Math.floor(m / 60));
 }
-// An ingredient amount: small kilos as grams, big grams as kilos, and so on
+// An ingredient amount (stored in g, ml or pieces): big grams as kilos, big millilitres as litres
 function amount(n, unit) {
-    if (unit === "kg" && Math.abs(n) < 1) return `${trim(n * 1000)} g`;
     if (unit === "g" && Math.abs(n) >= 1000) return `${trim(n / 1000)} kg`;
-    if (unit === "l" && Math.abs(n) < 1) return `${trim(n * 1000)} ml`;
     if (unit === "ml" && Math.abs(n) >= 1000) return `${trim(n / 1000)} L`;
     if (unit === "ea") return trim(n);
-    return `${trim(n)} ${unit === "l" ? "L" : unit}`;
+    return `${trim(n)} ${unit}`;
 }
 // Counting and transforms: the unit people think in, and how many stored units make one of it
-const DISPLAY = { ea: [t("pcs"), 1], g: ["kg", 1000], ml: ["L", 1000], kg: ["kg", 1], l: ["L", 1] };
+const DISPLAY = { ea: [t("pcs"), 1], g: ["kg", 1000], ml: ["L", 1000] };
 const shown = (unit) => DISPLAY[unit] ?? [unit, 1];
 const qty = (n, unit) => `${trim(n / shown(unit)[1])} ${shown(unit)[0]}`;
 

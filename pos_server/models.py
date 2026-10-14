@@ -49,6 +49,14 @@ class Menu(models.Model):
         """The active menu, or None if no menu is active."""
         return cls.objects.filter(is_active=True).first()
 
+# Everything is counted in its smallest unit (grams, millilitres or pieces); screens show kilos and litres when
+# the numbers get big. Quantities of a component or ingredient anywhere (recipes, dish parts, stock) use its unit.
+UNITS = (
+    ("g", "Grams"),
+    ("ml", "Millilitres"),
+    ("ea", "Each"),
+)
+
 # How a dish or component is sold (the Availability screen): "off" stops it now, "auto" follows inventory,
 # "always" keeps selling past zero (inventory goes negative).
 AVAILABILITY = (
@@ -606,13 +614,7 @@ class Component(models.Model):
         save(*args, **kwargs): Custom save method to update stock status and related dishes.
         __str__() -> str: String representation of the component.
     """
-    units = (
-        ("kg", "Kilogram"),
-        ("g", "Gram"),
-        ("l", "Liter"),
-        ("ml", "Milliliter"),
-        ("ea", "Each")
-    )
+    units = UNITS
     food_types = (
         ("food", "Food"),
         ("beverage", "Beverage")
@@ -715,13 +717,7 @@ class Ingredient(models.Model):
     Methods:
         __str__(): Returns a string representation of the ingredient.
     """
-    units = (
-        ("kg", "Kilogram"),
-        ("g", "Gram"),
-        ("l", "Liter"),
-        ("ml", "Milliliter"),
-        ("ea", "Each")
-    )
+    units = UNITS
     allergens = (
         ("Eggs", "Eggs"),
         ("Milk", "Milk"),
@@ -740,7 +736,7 @@ class Ingredient(models.Model):
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)
-    cost = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    cost = models.DecimalField(max_digits=14, decimal_places=6, blank=True, null=True, help_text="Cost of one unit (a gram, a millilitre or a piece)")
 
     def __str__(self) -> str:
         qty = self.inventory
