@@ -90,6 +90,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
    screen stacks its own panels in an `@media (orientation: portrait)` block; new staff screens must do the same. */
 @media (orientation: portrait) {
     .app { flex-direction: column; }
+    .app > :not(.rail) { min-height: 0; }  /* in a column, panels shrink to fit and scroll inside, not under the rail */
     .rail {
         order: 1; width: auto; flex: none; flex-direction: row; padding: 5px 20px;
         position: sticky; bottom: 16px; z-index: 5;  /* stays in view on screens that scroll the page */
