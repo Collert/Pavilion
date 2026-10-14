@@ -4,7 +4,10 @@ from .models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlo
                      Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, Menu, Option, OptionGroup, Order,
                      OrderDiscount, OrderItem, OrderPayment, Station)
 
-admin.site.register(Ingredient)
+@admin.register(Ingredient)
+class IngredientAdmin(admin.ModelAdmin):
+    list_display = ("title", "unit_of_measurement", "inventory", "unlimited", "allergen")
+    search_fields = ("title",)
 admin.site.register(Menu)
 admin.site.register(Station)
 admin.site.register(EligibleDevice)
@@ -28,7 +31,7 @@ class ComponentOptionGroupInline(admin.TabularInline):
 
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
-    list_display = ("title", "unit_of_measurement", "inventory", "in_stock", "availability", "crafting_option", "extra_price")
+    list_display = ("title", "unit_of_measurement", "inventory", "par", "in_stock", "availability", "crafting_option", "extra_price")
     list_filter = ("type", "crafting_option", "in_stock")
     search_fields = ("title",)
     inlines = [ComponentIngredientInline, ComponentOptionGroupInline]

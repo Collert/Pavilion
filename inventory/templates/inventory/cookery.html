@@ -1,0 +1,31 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Cookery" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'inventory/cookery.css' %}" rel="stylesheet">{% endblock %}
+
+{% block rail %}
+<nav class="rail" aria-label="{% trans 'Cookery' %}">
+    <div class="rail-logo">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14.5h10V20H7z"></path><path d="M7 14.5a4 4 0 0 1-1.3-7.8A4.6 4.6 0 0 1 12 4a4.6 4.6 0 0 1 6.3 2.7A4 4 0 0 1 17 14.5"></path><path d="M10 17.5h4"></path></svg>
+    </div>
+    <button class="rail-item" data-mode="make">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z M2 10h20 M9 6.5c0-1.5 1-2 1-3.5 M14 6.5c0-1.5 1-2 1-3.5"></path></svg>
+        {% trans "Craft" %}
+    </button>
+    <button class="rail-item" data-mode="transform">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3 M20 16H7l3 3"></path></svg>
+        {% trans "Transform" %}
+    </button>
+    <div class="rail-spacer"></div>
+    {% include "pos_server/rail_foot.html" %}
+</nav>
+{% endblock %}
+
+{% block body %}
+<main class="cook-main" id="cook-main" aria-live="polite"></main>
+<div id="cook-toast"></div>
+{% url 'cookery_data' as data_url %}{{ data_url|json_script:"cook-url" }}
+{% endblock %}
+
+{% block scripts %}<script type="module" src="{% static 'inventory/cookery.js' %}"></script>{% endblock %}

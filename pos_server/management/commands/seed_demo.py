@@ -28,7 +28,8 @@ from django.utils import timezone
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
-from inventory.models import Packaging, Recipe
+from inventory.models import (CookingSession, Packaging, Recipe, RecipeIngredient, RecipeStep, Transformation,
+                              YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
                                ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
@@ -72,6 +73,7 @@ class Command(BaseCommand):
             self.seed_stations()
             self.seed_inventory()
             self.seed_menus()
+            self.seed_cookery()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -164,10 +166,6 @@ class Command(BaseCommand):
                 "unit_of_measurement": unit, "inventory": inventory, "allergen": allergen,
                 "unlimited": unlimited, "cost": Decimal(cost) if cost else None})
 
-        recipe, _ = Recipe.objects.get_or_create(
-            markdown_text="|||\n|-|-|\n|Step 1:|Roll 120 g of beef into a ball.|\n|Step 2:|Smash it on a hot griddle, season, flip after 2 minutes.|\n",
-            defaults={"original_yield": 1})
-
         # title, unit, type, crafting option, inventory, extra price, [(ingredient, qty)]
         component_specs = [
             ("Brioche bun", "ea", "food", "buy", 120, "0", [("Flour", 60), ("Eggs", 0.2)]),
@@ -239,7 +237,7 @@ class Command(BaseCommand):
         for title, unit, food_type, option, inventory, extra_price, parts in component_specs:
             component, created = Component.objects.get_or_create(title=title, defaults={
                 "unit_of_measurement": unit, "type": food_type, "crafting_option": option, "inventory": inventory,
-                "extra_price": Decimal(extra_price), "recipe": recipe if title == "Beef patty" else None})
+                "extra_price": Decimal(extra_price)})
             if created:
                 for ingredient, qty in parts:
                     ComponentIngredient.objects.create(component=component, ingredient=self.ingredients[ingredient], quantity=qty)
@@ -419,6 +417,87 @@ class Command(BaseCommand):
                    bun, croissant, brownie, tart, cookie, loaf]
         menu("Lunch", True, visible, [lunch, kids], "#1f4a3a")
         menu("Breakfast", False, [latte, flat_white, matcha, bun, croissant, cookie], [], "#b5791f")
+
+    def seed_cookery(self):
+        """Recipes, par levels, frozen versions with their transforms, and a few batches in progress (like the mockup)."""
+        c, ing = self.components, self.ingredients
+        minutes = lambda m: datetime.timedelta(minutes=m)
+        recipes = {
+            # component: (makes, [(ingredient, qty)], [(title, text, minutes, scene, [ingredients used])])
+            "Pulled pork": (4000, [("Pork shoulder", 5000), ("Sugar", 100), ("Vegetables", 500)], [
+                ("Rub the shoulders", "Mix the sugar with salt and spices and rub it all over the pork.", 0, "prep", ["Pork shoulder", "Sugar"]),
+                ("Sear", "Brown the shoulders on every side in the big rondeau.", 10, "fry", []),
+                ("Braise low", "Add the onions and a little water, cover tight and braise at 150 °C until it falls apart.", 240, "bake", ["Vegetables"]),
+                ("Shred", "Pull the meat apart with two forks, mix in the juices and portion into tubs.", 0, "prep", []),
+            ]),
+            "Cornbread": (24, [("Flour", 1200), ("Eggs", 6), ("Milk", 900), ("Butter", 200), ("Sugar", 150)], [
+                ("Mix the batter", "Whisk the wet into the dry with the melted butter until just combined.", 0, "prep", ["Flour", "Eggs", "Milk", "Butter", "Sugar"]),
+                ("Rest the batter", "Let it sit so the flour hydrates.", 15, "rest", []),
+                ("Bake", "Pour into the buttered half sheet and bake at 200 °C until golden and springy.", 25, "bake", []),
+                ("Cool", "Cool on a rack before cutting, or it crumbles.", 10, "chill", []),
+                ("Cut", "Cut the sheet into 24 squares and count them onto the tray.", 0, "prep", []),
+            ]),
+            "Lemonade": (12000, [("Lemons", 60), ("Sugar", 1500), ("Water", 11000)], [
+                ("Juice the lemons", "Roll, halve and juice every lemon; strain out the seeds.", 0, "prep", ["Lemons"]),
+                ("Make the syrup", "Simmer the sugar with 1.5 L of the water until clear.", 10, "simmer", ["Sugar"]),
+                ("Mix and chill", "Stir the juice, syrup and the rest of the water together and chill the jugs.", 60, "chill", ["Water"]),
+            ]),
+            "Chicken bites": (120, [("Chicken", 3000), ("Flour", 500), ("Eggs", 6)], [
+                ("Cut the chicken", "Cut the thighs into 25 g pieces.", 0, "prep", ["Chicken"]),
+                ("Bread", "Egg, then seasoned flour, pressing it on well.", 0, "prep", ["Flour", "Eggs"]),
+                ("Chill", "Rest the breaded bites in the walk-in so the coating sets.", 20, "chill", []),
+                ("Par-fry", "Fry at 170 °C in small batches, then cool on racks.", 6, "fry", []),
+            ]),
+        }
+        for title, (makes, parts, steps) in recipes.items():
+            recipe = Recipe.objects.create(yield_quantity=makes)
+            rows = {name: RecipeIngredient.objects.create(recipe=recipe, ingredient=ing[name], quantity=qty, position=n)
+                    for n, (name, qty) in enumerate(parts)}
+            for n, (step_title, text, mins, scene, uses) in enumerate(steps):
+                step = RecipeStep.objects.create(recipe=recipe, position=n, title=step_title, text=text, scene=scene,
+                                                 duration=minutes(mins) if mins else None)
+                step.uses.set([rows[name] for name in uses])
+            Component.objects.filter(pk=c[title].pk).update(recipe=recipe)
+        for title, par in (("Beef patty", 200), ("Pulled pork", 8000), ("Cornbread", 40), ("Lemonade", 15000),
+                           ("Chicken bites", 300), ("Spicy mayo", 2000), ("Slaw", 5000), ("Garlic aioli", 2000)):
+            Component.objects.filter(pk=c[title].pk).update(par=par)
+        Component.objects.filter(pk=c["Beef patty"].pk).update(inventory=46)  # running low, as in the mockup
+
+        frozen = {}
+        for title, unit, inventory, par in (("Beef patty, frozen", "ea", 80, 120), ("Pulled pork, frozen", "g", 6000, 8000)):
+            frozen[title] = Component.objects.create(title=title, unit_of_measurement=unit, type="food", inventory=inventory,
+                                                     par=par, crafting_option="transform")
+        how = {
+            "freeze": "Lay them out on parchment-lined trays in the blast freezer, then bag them once they are hard.",
+            "thaw": "Move them to the walk-in on a tray, single layer. Never thaw at room temperature.",
+        }
+        specs = [  # name, from, to, scene, minutes
+            ("Freeze patties", c["Beef patty"], frozen["Beef patty, frozen"], "freeze", 90),
+            ("Thaw patties", frozen["Beef patty, frozen"], c["Beef patty"], "thaw", 720),
+            ("Freeze pulled pork", c["Pulled pork"], frozen["Pulled pork, frozen"], "freeze", 120),
+            ("Thaw pulled pork", frozen["Pulled pork, frozen"], c["Pulled pork"], "thaw", 480),
+        ]
+        transforms = {name: Transformation.objects.create(name=name, from_component=source, to_component=target, scene=scene,
+                                                          duration=minutes(mins), instructions=how[scene], position=n)
+                      for n, (name, source, target, scene, mins) in enumerate(specs)}
+
+        # In progress: Priya's pork is braising, Dana is counting lemonade, and patties are thawing
+        now = timezone.now()
+        priya = User.objects.get(username="priya")
+        pork = Component.objects.get(pk=c["Pulled pork"].pk)
+        braise_end = now + minutes(72)
+        CookingSession.objects.create(kind="cook", component=pork, recipe=pork.recipe, started_by=priya, holder=priya,
+                                      started_at=now - minutes(190), step=2,
+                                      timers={"2": {"end": int(braise_end.timestamp() * 1000), "dur": 240 * 60, "paused": None}})
+        lemonade = Component.objects.get(pk=c["Lemonade"].pk)
+        counting = CookingSession.objects.create(kind="cook", component=lemonade, recipe=lemonade.recipe, started_by=self.cashier,
+                                                 holder=self.cashier, started_at=now - minutes(75), phase="yield", step=2)
+        for amount, ago in ((4000, 9), (4000, 4)):
+            YieldEntry.objects.create(session=counting, amount=amount, at=now - minutes(ago))
+        thaw = transforms["Thaw patties"]
+        CookingSession.objects.create(kind="transform", transformation=thaw, component=thaw.from_component, quantity=40,
+                                      started_by=self.cashier, holder=self.cashier, started_at=now - minutes(540),
+                                      ends_at=now + minutes(180))
 
     def seed_discounts(self):
         specs = [

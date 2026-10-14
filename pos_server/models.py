@@ -620,7 +620,8 @@ class Component(models.Model):
     crafting_options = (
         ("craft","Craftable"),
         ("buy","Purchased"),
-        ("auto","Self-crafting")
+        ("auto","Self-crafting"),
+        ("transform", "Made by a transform"),  # e.g. frozen pierogi: only ever made from another component (Cookery)
     )
     title = models.CharField(max_length=140)
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
@@ -631,6 +632,7 @@ class Component(models.Model):
     availability = models.CharField(max_length=6, choices=AVAILABILITY, default="auto")
     crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
     recipe = models.ForeignKey("inventory.Recipe", related_name="component", on_delete=models.DO_NOTHING, null=True, blank=True)
+    par = models.FloatField(null=True, blank=True, help_text="How much to keep on hand (Cookery shows how close you are)")
     extra_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
                                       help_text="Charge for each portion above the standard amount, e.g. an extra patty")
 
@@ -705,7 +707,7 @@ class Ingredient(models.Model):
         units (tuple): Choices for unit of measurement.
         allergens (tuple): Choices for allergens.
         title (str): The name of the ingredient.
-        inventory (int): The quantity of the ingredient in inventory.
+        inventory (float): The quantity of the ingredient in inventory, in its unit.
         unit_of_measurement (str): The unit of measurement for the ingredient.
         allergen (str): The allergen associated with the ingredient.
         unlimited (bool): Indicates if the ingredient has unlimited supply.
@@ -734,7 +736,7 @@ class Ingredient(models.Model):
         ("Crustaceans", "Crustaceans")
     )
     title = models.CharField(max_length=140)
-    inventory = models.IntegerField(default = 0, null = True)
+    inventory = models.FloatField(default=0, null=True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
     unlimited = models.BooleanField(default=False)

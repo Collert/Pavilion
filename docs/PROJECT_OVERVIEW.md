@@ -25,7 +25,7 @@ go out as "Holy Eucharist Cathedral".
 | **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
 | **Deliveries** | Courier app: clock in, claim delivery, ETA via Google Distance Matrix, web push | ✅ Works (push untested end-to-end) |
 | **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ✅ Works |
-| **Inventory** | Ingredients → Components → Dishes, crafting, shopping log, recipes, Availability screen (Off / Auto / Always) | ✅ Works, crafting and availability live (SSE) |
+| **Inventory** | Ingredients → Components → Dishes, Cookery (recipes, guided cooking, transforms), shopping log, Availability screen (Off / Auto / Always) | ✅ Works, Cookery and availability live (SSE) |
 | **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
 | **Users** | Login/register/profile, `Staff`/`Customer` profiles | ✅ Basic |
 | **Misc tools** | K-means image-colour extractor (menu theming), gTTS announcement endpoint | ✅ Works |
@@ -79,7 +79,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `dashboard` (→ admin history), `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
 | `/admin/` | `new_admin` | `dashboard/home`, `dashboard/history[/api]`, `menus/list`, `menus/<id>`, `orders/retail[/<id>[/receipt]]`, `store/branding`, `store/promo-content[/<id>\|/new]`, `store/events[/<id>\|/new]` |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
-| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting`, `inventory-updates` (JSON stock), `component-availability` (page), `availability/data` (its JSON + POST changes), `recipes`, `recipes/<id>` |
+| `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` ready orders, `profile` (clock in/out), `eta`, `order/<id>`, `vapid-public-key/`, `save-subscription/` |
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
@@ -168,7 +168,9 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `events.Event(start, end, restaurant_open, in_person_open, online_open, delivery_open, location…)`, `EventTemplate` (unused).
 - `deliveries.Delivery(order, destination, courier, eta, completed, phone)`, `CourierShift(user, mode)` (who is clocked
   in), `PushSubscription` (web push, `deliveries/notifications.py`).
-- `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (markdown), `Packaging`,
+- `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (`yield_quantity`,
+  `notes`) with `RecipeIngredient` (per batch) and `RecipeStep` (title, text, optional timer, scene, ingredients it uses),
+  `Transformation`, `CookingSession` + `YieldEntry` (§6.10), `Packaging`,
   `CondimentUse`, `IngredientUsageBuffer` (TODO), and `Waste*` models (no UI).
 - `users.Staff` (minutes_worked, allowance) and `users.Customer` (auto-created for every new User by a post_save signal).
 
@@ -315,6 +317,29 @@ menu list/edit/activate, promo content CRUD, event CRUD, and a calendar of busin
 `dashboard_home` and `store_branding` are empty stubs. Django admin at `/advanced-admin/` handles everything else.
 
 ---
+
+### 6.10 Cookery (`/inventory/crafting`)
+
+Design `docs/mockups/cookery`; template `inventory/cookery.html`, JS `inventory/static/inventory/cookery.js` (+
+`cook-scene.js`, the animated scenes), server `inventory/cookery.py` (`snapshot()` and `act()`), endpoint
+`crafting/data` (GET snapshot, POST `{action, ...}`). Live over the SSE `cookery` topic (sessions, recipes) and
+`inventory` (stock).
+
+- **Craft** lists components with crafting option *Craftable*. With a `Recipe` they cook in batches: the recipe's
+  ingredients × batch size leave inventory when the batch starts (unlimited ingredients aren't counted, shortages are
+  allowed and go negative), guided cooking walks the `RecipeStep`s with per-step timers, then the yield is counted
+  and added to the component on Finish. The done screen compares it with `yield_quantity × batch` (waste/extra).
+  Without a recipe a component is made one at a time: count as you go; its `ComponentIngredient` amounts per unit
+  leave inventory on Finish. `Component.par` drives the stock bar and "Low".
+- **Transform**: a `Transformation` turns `from_component` into `to_component` (× `ratio`) over `duration`, e.g. fresh
+  ↔ frozen pierogi. Frozen versions are their own components (crafting option *Made by a transform*, hidden from
+  Craft), so they keep their own stock and par and dishes keep using the fresh one. The amount leaves the source when
+  it starts; Mark as done adds it to the target; Cancel puts it back.
+- **Ongoing**: every unfinished `CookingSession` (step, phase, timers as epoch ms, `YieldEntry` counts) is shared;
+  anyone on shift can Pick up a batch (`holder`). Finished sessions stay as the record of what was made (`made`,
+  `expected`). Timers ring with a short chime on the screen that has Cookery open.
+- Recipes and transforms are edited in `/advanced-admin/` (Recipe has inline ingredients and steps). Counting and
+  transform amounts show friendlier units (kg for g, L for ml, pcs for ea) and convert back.
 
 ## 7. Real-time: history and current design
 

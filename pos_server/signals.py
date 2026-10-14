@@ -24,3 +24,12 @@ def connect_realtime():
     for model in (Dish, Component, Ingredient, DishComponent, OptionGroup, Option, Extra, Combo, ComboSlot, ComboSlotOption):
         post_save.connect(inventory_changed, sender=model, dispatch_uid=f"realtime-{model.__name__}-save")
         post_delete.connect(inventory_changed, sender=model, dispatch_uid=f"realtime-{model.__name__}-delete")
+    # Cookery: batches in progress (timers, steps, counts) shared between screens, and the recipes behind them
+    from inventory.models import CookingSession, Recipe, RecipeIngredient, RecipeStep, Transformation, YieldEntry
+
+    def cookery_changed(sender, **kwargs):
+        publish("cookery")
+
+    for model in (CookingSession, YieldEntry, Recipe, RecipeIngredient, RecipeStep, Transformation):
+        post_save.connect(cookery_changed, sender=model, dispatch_uid=f"realtime-{model.__name__}-save")
+        post_delete.connect(cookery_changed, sender=model, dispatch_uid=f"realtime-{model.__name__}-delete")

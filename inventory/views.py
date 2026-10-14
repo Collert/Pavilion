@@ -9,9 +9,9 @@ import json
 import time
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
-import markdown
 
 from pos_server.devices import api_staff_required, staff_required
+from . import cookery
 from .availability import apply_changes, catalog
 
 # Create your views here.
@@ -87,58 +87,30 @@ def day_display(request, day_id):
         "day":day
     })
 
-@staff_member_required
+@staff_required
 def crafting(request):
+    """Cookery (docs/mockups/cookery): make components and transform them. Everything runs in cookery.js."""
+    return render(request, "inventory/cookery.html", {"nav": "cookery"})
+
+
+@api_staff_required
+def cookery_data(request):
     """
-    Handle crafting-related requests.
-
-    This view function handles GET, POST, and PUT requests for crafting components.
-
-    GET:
-        - Retrieves components with the crafting option set to "craft".
-        - Retrieves all ingredients.
-        - Renders the "inventory/crafting.html" template with the following context:
-            - route: "crafting"
-            - components: List of components with crafting option "craft"
-            - ingredients: List of all ingredients
-            - ingredient_inventory: Inventory of ingredients collected by `collect_ing_stock`
-
-    POST:
-        - Parses the request body as JSON.
-        - Iterates over the component IDs in the request body.
-        - Crafts the specified quantity of each component.
-        - Returns a JSON response with a success message.
-
-    PUT:
-        - Parses the request body to get the component ID.
-        - Crafts one unit of the specified component.
-        - Returns a JSON response with a success message.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The HTTP response object.
+    GET: inventory.cookery.snapshot(). POST {"action": ..., ...}: do it (see cookery.ACTIONS), then return the
+    snapshot with the action's result merged in, or {"error"} with status 400.
     """
-    if request.method == "GET":
-        components = Component.objects.filter(crafting_option="craft")
-        ingredients = Ingredient.objects.all()
-        return render(request, "inventory/crafting.html", {
-            "route":"crafting",
-            "components":components,
-            "ingredients":ingredients,
-            "ingredient_inventory": ingredient_stock(ingredients),
-        })
-    elif request.method == "POST":
-        body = json.loads(request.body)
-        for component_id in body:
-            if body[component_id]:
-                craft_component(component_id, body[component_id])
-        return JsonResponse({"message":"crafted"})
-    elif request.method == "PUT":
-        component_id = int(request.body)
-        craft_component(component_id, 1)
-        return JsonResponse({"message":"crafted"})
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            result = cookery.act(request.user, body if isinstance(body, dict) else {})
+        except ValueError:
+            return JsonResponse({"error": "Expected a JSON body"}, status=400)
+        except cookery.CookeryError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        return JsonResponse({**cookery.snapshot(request.user), **result})
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET", "POST"])
+    return JsonResponse(cookery.snapshot(request.user))
 
 @staff_required
 def component_availability(request):
@@ -161,126 +133,6 @@ def availability_data(request):
     elif request.method != "GET":
         return HttpResponseNotAllowed(["GET", "POST"])
     return JsonResponse(catalog())
-
-@staff_member_required
-def recipes(request):
-    """
-    Handle the recipes view for GET and POST requests.
-
-    GET:
-    - If the request method is GET, it attempts to retrieve and parse the 'edit' parameter from the request.
-    - Based on the 'edit' parameter, it fetches the corresponding Dish or Component object and extracts recipe steps.
-    - Renders the 'inventory/recipes.html' template with the list of recipes, components, dishes, and editing context.
-
-    POST:
-    - If the request method is POST, it processes the form data to create a new recipe.
-    - Retrieves the item type (dish or component) and its ID from the form data.
-    - Constructs the markdown text for the recipe steps.
-    - Creates a new Recipe object and associates it with the corresponding Dish or Component.
-    - Redirects to the 'recipes' view after saving the new recipe.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The rendered HTML response for GET requests.
-        HttpResponseRedirect: A redirect response to the 'recipes' view for POST requests.
-    """
-    if request.method == "GET":
-        try:
-            type = request.GET['edit'].split("-")[0]
-            id = request.GET['edit'].split("-")[1]
-            obj = Dish.objects.get(pk=int(id)) if type == "d" else Component.objects.get(pk=int(id))
-            steps = obj.recipe.markdown_text.split("|")[8: -1: 3]
-            editing = (type, id, obj, obj.recipe, steps)
-        except:
-            editing = None
-        objs = Recipe.objects.all()
-        components = Component.objects.filter(recipe=None).all()
-        dishes = Dish.objects.filter(recipe=None).all()
-        return render(request, "inventory/recipes.html", {
-            "recipes":objs,
-            "components":components,
-            "dishes":dishes,
-            "editing":editing,
-            "route":"recipes"
-        })
-    elif request.method == "POST":
-        qty_steps = int(request.POST["qty-steps"])
-        item_type = request.POST["item"].split("-")[0]
-        try:
-            recipe_yield = int(request.POST['default-yield'])
-        except ValueError:
-            recipe_yield = 1
-        method_md = ""
-        if item_type == "dish":
-            item = Dish.objects.get(pk=request.POST["item"].split("-")[1])
-        else:
-            item = Component.objects.get(pk=request.POST["item"].split("-")[1])
-        method_md += "|||\n|-|-|\n"
-        empty_steps = 0
-        for index in range(qty_steps):
-            if request.POST[f'step-{index + 1}']:
-                method_md += f"|Step {index + 1 - empty_steps}:|{request.POST[f'step-{index + 1}']}|\n"
-            else:
-                empty_steps += 1
-        new_recipe = Recipe.objects.create(markdown_text=method_md, original_yield=recipe_yield)
-        item.recipe = new_recipe
-        item.save()
-        return HttpResponseRedirect(reverse("recipes"))
-
-@staff_member_required
-def recipe(request, recipe_id):
-    """
-    Handles the recipe view for a given recipe ID.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-        recipe_id (int): The ID of the recipe to be displayed.
-
-    Returns:
-        HttpResponse: The rendered HTML page displaying the recipe details.
-
-    This view handles GET requests to display the details of a recipe. It retrieves the recipe
-    object from the database using the provided recipe ID. Depending on whether the recipe is
-    a dish or a component, it generates an HTML unordered list of ingredients with their
-    quantities adjusted by the original yield of the recipe. The view then renders the
-    "inventory/recipe.html" template with the recipe object, the generated ingredients list,
-    the type of the recipe (dish or component), the converted markdown text of the recipe,
-    and the route name.
-    """
-    if request.method == "GET":
-        md = markdown.Markdown(extensions=['tables'])
-        recipe = Recipe.objects.get(pk=recipe_id)
-        recipe_obj_type = "dish" if recipe.dish.first() else "component"
-        ingredients_ul = "<ul>"
-        if recipe_obj_type == "dish":
-            for dc in recipe.dish.first().dishcomponent_set.all():
-                ingredients_ul += f"<li>{str(round(dc.quantity * recipe.original_yield, 2))} {dc.component.unit_of_measurement.capitalize()} {dc.component.title}</li>"
-        else:
-            for ci in recipe.component.first().componentingredient_set.all():
-                ingredients_ul += f"<li>{str(round(ci.quantity * recipe.original_yield, 2))} {ci.ingredient.unit_of_measurement.capitalize()} {ci.ingredient.title}</li>"
-        ingredients_ul += "</ul>"
-        return render(request, "inventory/recipe.html", {
-            "recipe_obj":recipe,
-            "ingredients_ul":ingredients_ul,
-            "recipe_obj_type":recipe_obj_type,
-            "recipe_md":md.convert(recipe.markdown_text),
-            "route":"recipe"
-        })
-
-def ingredient_stock(ingredients):
-    """{ingredient id (str): inventory} for the given ingredients."""
-    return {f"{ingredient.id}": ingredient.inventory for ingredient in ingredients}
-
-def collect_ing_stock(ingredients):
-    """ingredient_stock() as a JSON string."""
-    return json.dumps(ingredient_stock(ingredients))
-
-@staff_member_required
-def inventory_updates(request):
-    """Current ingredient stock as {id: inventory}. The crafting page refetches it on 'inventory' events."""
-    return HttpResponse(collect_ing_stock(Ingredient.objects.all()), content_type="application/json")
 
 def craft_component(component_id:int, qty:int):
     """

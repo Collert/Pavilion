@@ -43,7 +43,7 @@ without asking.
 | `online_store` | `/` | Customer PWA: menu, cart, checkout (`place_order`), order status/history. PromoContent, RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
 | `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; SendGrid email; barcode page; `card-api`. |
-| `inventory` | `/inventory/` | Crafting, shopping log, recipes, availability toggles. `craft_component()` lives here. |
+| `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
 | `deliveries` | `/deliveries/` | Courier PWA, CourierShift, Google ETA, web push. |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
 | `new_admin` | `/admin/` | Custom superuser dashboard. Django admin is at `/advanced-admin/` (stations, devices, dishes...). |
