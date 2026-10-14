@@ -53,8 +53,11 @@ without asking.
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 
 Frontend: Django templates plus vanilla ES-module JS in `<app>/static/<app>/`. No build step, no frameworks (the
-mockups in `docs/mockups/` use React only as a viewer; don't bring it in). The register, drawer and lock screens share
-`pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`. Shared CSS kit is
+mockups in `docs/mockups/` use React only as a viewer; don't bring it in). The register, drawer, lock and order
+marking (KDS) screens share `pos_server/staff_layout.html`, `staff.css` and `staff-ui.js`. **Staff screens must work in
+portrait** (the KDS runs on vertical TVs): `staff.css` turns the nav rail into a bottom row, and each screen stacks its
+panels in an `@media (orientation: portrait)` block placed last in its CSS. Check new screens at 1080×1920, 800×1280
+and 1280×800. Shared CSS kit is
 `static/css/AD-Elements/`, shared JS in `static/js/` (`live.js`). Each app has its own `layout.html`, `layers.css`,
 and `project-styles.css`. JS strings use `gettext()`. Build DOM from data with `textContent`, never `innerHTML` with
 customer-supplied text.

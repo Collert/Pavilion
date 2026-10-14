@@ -116,3 +116,11 @@
     .app { height: auto; padding: 0; }
     .panel { box-shadow: none; }
 }
+
+/* Portrait (last, so it wins over the width rules above): panels stack; keypads and amounts keep a comfortable width */
+@media (orientation: portrait) {
+    .drawer-view { flex-direction: column; }
+    .entry-panel, .opened-panel, .hero { width: auto; }
+    .entry-panel > * { width: 100%; max-width: 640px; margin-inline: auto; }
+    .side-panel { min-height: 220px; }
+}

@@ -328,3 +328,12 @@
     .lines { max-height: 50vh; }
     .choice-grid { grid-template-columns: 1fr; }
 }
+
+/* Portrait (last, so it wins over the width rules above): the menu on top, the order underneath */
+@media (orientation: portrait) {
+    .app { height: 100dvh; min-height: 0; overflow: hidden; }  /* the menu scrolls, the order and rail stay put */
+    .reg-main { min-height: 0; }
+    .grid { overflow-y: auto; }
+    .order-panel { width: auto; height: clamp(560px, 52dvh, 780px); }
+    .lines { max-height: none; }
+}

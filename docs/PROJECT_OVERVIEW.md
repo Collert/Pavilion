@@ -188,6 +188,8 @@ store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`e
 
 Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one
 file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff-ui.js`. Designs: `docs/mockups/`.
+In portrait the rail is a row along the bottom (`staff.css`) and each screen stacks its panels: the register's menu
+above the order, the drawer's and lock screen's panels top to bottom, the KDS header above the list.
 
 1. **Lock screen** (`/restaurant/lock`): lists the last 3 staff with a PIN who used this register
    (`RegisterSignIn`, updated whenever someone opens the register on the device). Pick your name, type your 4-digit

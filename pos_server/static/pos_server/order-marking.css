@@ -268,3 +268,11 @@ dialog.sheet.w-reject { width: min(640px, calc(100vw - 32px)); gap: 18px; }
     .facts { flex-direction: column; }
     .stations-box .overline { text-align: left; }
 }
+
+/* Portrait (vertical TV): the header stacks; the rail (a bottom row, see staff.css) gets a vertical divider */
+@media (orientation: portrait) {
+    .rail-rule { width: 1px; height: 48px; margin: 0 6px; }
+    .kds-header { flex-direction: column; align-items: stretch; gap: 12px; }
+    .kds-side { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .kds-summary { justify-content: flex-start; }
+}

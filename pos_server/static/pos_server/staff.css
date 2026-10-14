@@ -86,6 +86,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .rail-spacer { flex: 1; }
 .rail form { margin: 0; }
 
+/* Portrait (vertical TVs, tablets): the rail becomes a row along the bottom, same items in the same order. Each
+   screen stacks its own panels in an `@media (orientation: portrait)` block; new staff screens must do the same. */
+@media (orientation: portrait) {
+    .app { flex-direction: column; }
+    .rail {
+        order: 1; width: auto; flex: none; flex-direction: row; padding: 5px 20px;
+        position: sticky; bottom: 16px; z-index: 5;  /* stays in view on screens that scroll the page */
+    }
+    .rail-logo { margin: 0 16px 0 0; }
+}
+
 /* ---------- type ---------- */
 
 .h1 { margin: 0; font-family: var(--heading); font-size: 30px; line-height: 1.05; font-weight: 700; letter-spacing: -.02em; }
