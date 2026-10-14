@@ -329,5 +329,6 @@ a.chip-btn[aria-pressed=true] { color: #fff; }
 .entry-box input.entry:focus, .entry-box input.entry:focus-visible { outline: none; }
 .entry-box:focus-within { box-shadow: inset 0 0 0 2px var(--brand); }
 .yield-total { animation: bump .32s ease-out both; }
-.step-nav, .timer-buttons, .segments { margin: 0; }
+.step-nav, .segments { margin: 0; }
+.timer-buttons { margin: 16px 0 0; }
 .keypad-panel form .btn-amber.wide, .keypad-panel form .btn-dark.wide { width: 100%; }
