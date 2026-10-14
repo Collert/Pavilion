@@ -356,41 +356,99 @@ function sectionCount(code) {
     return state.lines.reduce((sum, line) => (itemOf(line)?.section === code ? sum + line.qty : sum), 0);
 }
 
+// Re-render without rebuilding: nodes are cached by key and only rebuilt when their signature (what they
+// show) changes, and only moved when the order changes. Rebuilding everything on each change restarted the
+// CSS animations and hover states, which made the screen jerk on every tap.
+function patchKeyed(container, entries, { before = null } = {}) {
+    const cache = container.__keyed ??= new Map();
+    const wanted = entries.map(({ key, sig, build }) => {
+        const cached = cache.get(key);
+        if (cached && cached.sig === sig) return cached.node;
+        const node = build();
+        if (cached) cached.node.replaceWith(node);
+        cache.set(key, { sig, node });
+        return node;
+    });
+    const keep = new Set(entries.map((e) => e.key));
+    for (const [key, { node }] of cache) {
+        if (!keep.has(key)) { node.remove(); cache.delete(key); }
+    }
+    // Put nodes in order, touching only the ones that are out of place
+    let cursor = before ? before.nextSibling : container.firstChild;
+    for (const node of wanted) {
+        if (node !== cursor) container.insertBefore(node, cursor);
+        else cursor = cursor.nextSibling;
+        cursor = node.nextSibling;
+    }
+}
+
+// One-shot animations are removed once they've played, so moving the node later doesn't replay them.
+function playOnce(node, className) {
+    node.classList.add(className);
+    node.addEventListener("animationend", () => node.classList.remove(className), { once: true });
+    return node;
+}
+
 function renderTabs() {
-    const tabs = catalog.sections.map((section) => {
+    patchKeyed($("#tabs"), catalog.sections.map((section) => {
         const count = sectionCount(section.code);
         const selected = !ui.search && ui.section === section.code;
-        return el("button", {
-            className: "tab", attrs: { role: "tab", "aria-selected": String(selected) },
-            on: { click: () => { ui.section = section.code; ui.search = ""; $("#search").value = ""; renderTabs(); renderGrid(); } },
-        }, [section.name, count ? el("span", { className: "tab-badge", text: count }) : null]);
-    });
-    $("#tabs").replaceChildren(...tabs);
+        return {
+            key: section.code, sig: JSON.stringify([section.name, count, selected]),
+            build: () => el("button", {
+                className: "tab", attrs: { role: "tab", "aria-selected": String(selected) },
+                on: { click: () => { ui.section = section.code; ui.search = ""; $("#search").value = ""; renderTabs(); renderGrid(); } },
+            }, [section.name, count ? el("span", { className: "tab-badge", text: count }) : null]),
+        };
+    }));
+}
+
+// Dish cards are built once per catalog item and updated in place (a rebuilt card under the finger would
+// lose its hover lift and jump).
+const cards = new Map();
+
+function dishCard(item) {
+    const sig = JSON.stringify([item.title, item.price, item.available, item.ask]);
+    const cached = cards.get(item.key);
+    if (cached && cached.sig === sig) return cached;
+    const badge = el("span", { className: "dish-qty", attrs: { hidden: true } });
+    const node = el("button", {
+        className: "dish", attrs: { disabled: !item.available }, on: { click: () => tapItem(item) },
+    }, [
+        el("span", { className: "dish-top" }, [item.ask ? el("span", { className: "dish-ask", text: item.ask, icon: "chevron" }) : null, badge]),
+        el("span", { className: "dish-name", text: item.title }),
+        el("span", { className: "dish-bottom" }, [
+            el("span", { className: "dish-price", text: fmt(item.price) }),
+            item.available ? el("span", { className: "plus", icon: "plusBig" }) : el("span", { className: "dish-out", text: t("Sold out") }),
+        ]),
+    ]);
+    const card = { sig, node, badge, qty: 0 };
+    if (cached) cached.node.replaceWith(node);
+    cards.set(item.key, card);
+    return card;
 }
 
 function renderGrid() {
     const query = ui.search.trim().toLowerCase();
     const items = catalog.items.filter((item) => (query ? item.title.toLowerCase().includes(query) : item.section === ui.section));
-    const cards = items.map((item) => {
+    const grid = $("#grid");
+    const nodes = items.map((item) => {
+        const card = dishCard(item);
         const qty = state.lines.reduce((sum, l) => (l.type === item.type && l.id === item.id ? sum + l.qty : sum), 0);
-        return el("button", {
-            className: "dish" + (qty ? " in-cart" : ""), attrs: { disabled: !item.available }, on: { click: () => tapItem(item) },
-        }, [
-            el("span", { className: "dish-top" }, [
-                item.ask ? el("span", { className: "dish-ask", text: item.ask, icon: "chevron" }) : null,
-                qty ? el("span", { className: "dish-qty pop", text: qty }) : null,
-            ]),
-            el("span", { className: "dish-name", text: item.title }),
-            el("span", { className: "dish-bottom" }, [
-                el("span", { className: "dish-price", text: fmt(item.price) }),
-                item.available ? el("span", { className: "plus", icon: "plusBig" }) : el("span", { className: "dish-out", text: t("Sold out") }),
-            ]),
-        ]);
+        if (qty !== card.qty) {
+            card.badge.textContent = qty;
+            card.badge.hidden = !qty;
+            card.node.classList.toggle("in-cart", qty > 0);
+            if (qty > card.qty) playOnce(card.badge, "pop");
+            card.qty = qty;
+        }
+        return card.node;
     });
-    if (!cards.length) {
-        cards.push(el("div", { className: "grid-empty", text: query ? t("No dishes match your search.") : t("Nothing on the menu here yet.") }));
+    if (!nodes.length) {
+        nodes.push(el("div", { className: "grid-empty", text: query ? t("No dishes match your search.") : t("Nothing on the menu here yet.") }));
     }
-    $("#grid").replaceChildren(...cards);
+    const current = [...grid.children];
+    if (current.length !== nodes.length || current.some((node, i) => node !== nodes[i])) grid.replaceChildren(...nodes);
 }
 
 // ---------- rendering: cart ----------
@@ -400,12 +458,24 @@ let renderWhenDropped = false;
 
 function renderLines() {
     if (drag?.on) { renderWhenDropped = true; return; }
-    const container = $("#lines");
-    const nodes = state.lines.map(lineNode);
+    patchKeyed($("#lines"), state.lines.map((line) => ({
+        key: line.key, sig: lineSignature(line),
+        build: () => {
+            const node = lineNode(line);
+            if (ui.newKeys.has(line.key)) playOnce(node, "line-in");
+            return node;
+        },
+    })), { before: $("#empty-cart") });
     $("#empty-cart").hidden = state.lines.length > 0;
-    container.replaceChildren($("#empty-cart"), ...nodes);
     ui.newKeys.clear();
     $("#swipe-hint").hidden = !state.lines.length;
+}
+
+// Everything a line shows; when it doesn't change, the line isn't touched.
+function lineSignature(line) {
+    const quoted = quotedLine(line);
+    return JSON.stringify([titleOf(line), line.qty, unitPrice(line), quoted?.discount, line.discount?.short,
+                           lineSummary(line), lineAskedPick(line), ui.moreKey === line.key]);
 }
 
 function lineNode(line) {
@@ -466,7 +536,7 @@ function lineNode(line) {
         ]),
     ])]) : null;
 
-    return el("div", { className: "line" + (ui.newKeys.has(line.key) ? " line-in" : "") }, [
+    return el("div", { className: "line" }, [
         el("div", { className: "line-swipe" }, [background, row]), tray,
     ]);
 }
@@ -1437,7 +1507,9 @@ $("#menu-switch").addEventListener("click", () => $("#menu-sheet").showModal());
 onLiveUpdate("inventory", async () => {
     const response = await fetch(urls.catalog).catch(() => null);
     if (!response || !response.ok) return;
-    catalog = await response.json();
+    const fresh = await response.json();
+    if (JSON.stringify(fresh) === JSON.stringify(catalog)) return;
+    catalog = fresh;
     if (!catalog.sections.some((s) => s.code === ui.section)) ui.section = catalog.sections[0]?.code;
     renderAll();
     requestQuote();
