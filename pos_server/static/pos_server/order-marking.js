@@ -474,6 +474,7 @@ async function refresh() {
     try { await refreshing; } finally { refreshing = null; }
 }
 
+// Do `action` for this screen's stations. The open order stays open (unless it leaves the screen).
 async function act(id, action, extra = {}) {
     if (state.busy) return;
     const before = state.orders.get(id);
@@ -486,7 +487,6 @@ async function act(id, action, extra = {}) {
             await refresh();
             return false;
         }
-        if (action === "ready" || action === "pickup") state.autoOpen = true;  // move on to the next order
         await refresh();
         const order = state.orders.get(id);
         if (action === "confirm") {
@@ -498,7 +498,6 @@ async function act(id, action, extra = {}) {
             const making = order ? stationNames(involved(order).filter((code) => statusOf(order, code) === 1)) : [];
             if (making.length) say(fmtText("Order #%s ready here · waiting on %s", id, joinNames(making)), "wait");
             else say(fmtText("Order #%s is ready for pickup", id));
-            if (state.openId === id) moveOpenAfter(id);
         } else if (action === "pickup") {
             say(fmtText("Order #%s picked up", id));
         } else if (action === "reject") {
@@ -507,18 +506,6 @@ async function act(id, action, extra = {}) {
         return true;
     } finally {
         state.busy = false;
-    }
-}
-
-// After marking ready, the order stays (waiting on others or for pickup): open the next one
-function moveOpenAfter(id) {
-    const ids = visibleOrders().map((o) => o.order_id);
-    const index = ids.indexOf(id);
-    const next = ids[index + 1];
-    if (next !== undefined) {
-        state.openId = next;
-        state.autoOpen = false;
-        render();
     }
 }
 
