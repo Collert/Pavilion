@@ -142,7 +142,14 @@ async def event_stream(topic):
             yield f"event: {topic}\ndata: {message}\n\n"
             next_message = asyncio.ensure_future(messages.__anext__())
     finally:
+        # The browser went away. Stop the pending read and let it actually finish before closing the
+        # subscription: cancel() only requests it, and aclose() on a generator that is still mid-await raises
+        # "asynchronous generator is already running".
         next_message.cancel()
+        try:
+            await next_message
+        except (asyncio.CancelledError, StopAsyncIteration):
+            pass
         await messages.aclose()
 
 

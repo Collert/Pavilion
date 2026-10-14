@@ -52,3 +52,25 @@ class PublishTests(TestCase):
         topics = [call.args[0] for call in broker.publish.call_args_list]
         self.assertEqual(sorted(topics), ["inventory", "orders"])
         self.assertEqual(json.loads(broker.publish.call_args_list[0].args[1])["topic"], topics[0])
+
+
+class EventStreamTests(SimpleTestCase):
+    def test_client_disconnecting_while_the_stream_waits(self):
+        """A dropped connection cancels the stream mid-wait; cleanup must not fail and must unsubscribe."""
+        broker = realtime.LocalBroker()
+
+        async def run():
+            with mock.patch.object(realtime, "get_broker", return_value=broker):
+                stream = realtime.event_stream("orders")
+                self.assertIn("event: ready", await stream.__anext__())
+                waiting = asyncio.ensure_future(stream.__anext__())
+                await asyncio.sleep(0.05)
+                waiting.cancel()  # what the ASGI handler does when the browser goes away
+                try:
+                    await waiting
+                except asyncio.CancelledError:
+                    pass
+                await stream.aclose()
+
+        asyncio.run(run())
+        self.assertEqual(broker._subscribers, set())
