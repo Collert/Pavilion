@@ -169,3 +169,4 @@ ngrok.exe
 
 # User uploads (dev). Production media lives in the RustFS bucket.
 media/
+/docs/mockups/

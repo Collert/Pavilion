@@ -84,7 +84,7 @@ class OptionGroupAdmin(admin.ModelAdmin):
 class ComboSlotInline(admin.TabularInline):
     """The parts of the combo. Save, then open a slot to list the dishes it offers."""
     model = ComboSlot
-    fields = ("title", "prompt", "ask_on_add", "allow_none", "none_price", "position")
+    fields = ("title", "ask_on_add", "allow_none", "none_price", "position")
     extra = 0
     show_change_link = True
 

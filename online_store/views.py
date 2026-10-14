@@ -32,7 +32,7 @@ def store_item(obj):
         for slot in obj.slots.all():
             options = list(slot.options.all())
             if slot.ask_on_add:
-                ask = {"slot": slot.id, "title": slot.prompt or slot.title, "options": [
+                ask = {"slot": slot.id, "title": slot.title, "options": [
                     {"dish": o.dish_id, "title": o.dish.title, "price": to_cents(o.price), "available": o.dish.available}
                     for o in options]}
                 continue

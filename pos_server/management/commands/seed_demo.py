@@ -383,12 +383,12 @@ class Command(BaseCommand):
             ("Main", [(smash, "0"), (chicken, "0"), (melt, "0"), (bowl, "0.50"), (pork, "2.00")], {}),
             ("Side", [(corn, "0"), (fries, "0"), (salad, "0")], {"allow_none": True, "none_price": Decimal("-1.50")}),
             ("Drink", [(latte, "0"), (flat_white, "0"), (lemonade, "0"), (spritz, "0.50"), (matcha, "1.00"), (cold_brew, "0")],
-             {"ask_on_add": True, "prompt": "Choose a drink", "allow_none": True, "none_price": Decimal("-1.50")}),
+             {"ask_on_add": True, "allow_none": True, "none_price": Decimal("-1.50")}),
         ], "A main, a side and a drink.")
         kids = combo("Kids meal", "9.95", [
             ("Main", [(kids_burger, "0"), (bites, "0")], {}),
             ("Side", [(corn, "0"), (fries, "0"), (salad, "0")],
-             {"ask_on_add": True, "prompt": "Choose a side", "allow_none": True, "none_price": Decimal("-1.00")}),
+             {"ask_on_add": True, "allow_none": True, "none_price": Decimal("-1.00")}),
             ("Drink", [(lemonade, "0"), (spritz, "0.50"), (latte, "1.00")], {"allow_none": True, "none_price": Decimal("-1.50")}),
         ], "A small main, a side and a drink.")
         extras(kids, condiments=["Extra napkins"])

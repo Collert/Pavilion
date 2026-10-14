@@ -98,7 +98,7 @@ def register_catalog(menu):
         ask = next((slot for slot in combo.slots.all() if slot.ask_on_add), None)
         items.append({"key": f"c{combo.id}", "type": "combo", "id": combo.id, "section": station.code if station else "",
                       "title": combo.title, "price": to_cents(combo.price), "available": combo.available,
-                      "ask": (ask.prompt or _("Choose a %(slot)s") % {"slot": ask.title.lower()}) if ask else None})
+                      "ask": _("Choose a %(slot)s") % {"slot": ask.title.lower()} if ask else None})
     position = {station.code: index for index, station in enumerate(stations)}
     items.sort(key=lambda item: (position.get(item["section"], 99), item["type"] == "combo"))
     used = {item["section"] for item in items}
@@ -118,7 +118,7 @@ def register_catalog(menu):
         "combos": {combo.id: {
             "id": combo.id, "title": combo.title, "price": to_cents(combo.price),
             "slots": [{
-                "id": slot.id, "title": slot.title, "prompt": slot.prompt, "ask": slot.ask_on_add,
+                "id": slot.id, "title": slot.title, "ask": slot.ask_on_add,
                 "allowNone": slot.allow_none, "nonePrice": to_cents(slot.none_price),
                 "options": [{"dish": o.dish_id, "price": to_cents(o.price), "default": o.is_default} for o in slot.options.all()],
             } for slot in combo.slots.all()],

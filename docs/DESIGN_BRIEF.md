@@ -2,8 +2,7 @@
 
 Pavilion is self-hosted restaurant management software. One installation runs a restaurant's point of sale, kitchen
 screens, customer-facing displays, online ordering, deliveries, gift cards and inventory. Each restaurant sets up its
-own menus, stations, opening days and colours. The interface is multilingual (currently English, Ukrainian and
-Cantonese).
+own menus, stations, opening days and colours.
 
 ## Who uses it
 
@@ -53,24 +52,24 @@ Cantonese).
 
 ### Customers
 
-9. **Online store.**
+1. **Online store.**
    - Home: promotion banners and upcoming opening days.
    - Menu by section; dish page with description and allergens.
    - Cart and checkout: pickup or delivery, a time within today's opening hours, address for delivery, gift card payments, card payment in a popup.
    - "Closed today" state showing the next opening day.
    - Order status tracker: scheduled → being reviewed → being prepared → ready → picked up / delivered, plus a rejected state with the reason.
    - Order history.
-10. **Gift cards.**
+2. **Gift cards.**
     - Buy: choose a preset card or a design, amount, recipient name and email, gift or for yourself, pay.
     - Confirmation page.
     - Card page: card artwork, balance and a barcode that is scanned at the register.
 
 ### Managers
 
-11. **Admin dashboard.**
+ 1. **Admin dashboard.**
     - Orders: list, detail and printable receipt.
     - Menus: create, edit and activate. Each menu has a header and footer image and its own colours; customer-facing screens use them.
     - Promotion banners for the online store.
     - Events: the days and hours the restaurant is open, and which channels (in person, online, delivery) are open.
     - Calendar of past business days, each opening that day's sales statistics: items sold, station load, ingredient use, revenue and prep times by time of day.
-12. **Settings managed in the advanced admin.** Dishes and their ingredients, stations (name, icon, order), registered devices, users and staff.
+ 2. **Settings managed in the advanced admin.** Dishes and their ingredients, stations (name, icon, order), registered devices, users and staff.

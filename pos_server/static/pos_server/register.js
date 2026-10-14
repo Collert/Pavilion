@@ -676,7 +676,7 @@ let choice = null;
 function openChoice(item, combo, slot) {
     choice = { item, combo, slot, pick: null };
     $("#choice-over").textContent = `${combo.title} · ${fmt(combo.price)}`;
-    $("#choice-title").textContent = slot.prompt || interpolate(t("Choose a %s"), [slot.title.toLowerCase()]);
+    $("#choice-title").textContent = interpolate(t("Choose a %s"), [slot.title.toLowerCase()]);
     renderChoice();
     $("#choice-sheet").showModal();
 }

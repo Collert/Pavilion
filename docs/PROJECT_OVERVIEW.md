@@ -106,7 +106,7 @@ Menu (is_active: saving an active menu deactivates the others; Menu.active() ret
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned, e.g. Size, Dressing) ─ Option (price change; extra component + quantity; multiplier)
  │   └─ Extra (kind addon | condiment; component; price; max_count)
- └─ Combo (M2M menu; price) ─ ComboSlot (Main/Side/Drink; ask_on_add + prompt; allow_none + none_price)
+ └─ Combo (M2M menu; price) ─ ComboSlot (Main/Side/Drink; ask_on_add; allow_none + none_price)
          │                       └─ ComboSlotOption (dish; price change; is_default)
          └─ Extra (combo condiments/add-ons)
 Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Option (component = swap it for this one)

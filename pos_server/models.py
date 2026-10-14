@@ -136,7 +136,6 @@ class ComboSlot(models.Model):
     """One part of a combo, e.g. "Drink". `ask_on_add` makes the register ask for it when the combo is added."""
     combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="slots")
     title = models.CharField(max_length=60, help_text="e.g. 'Main', 'Side', 'Drink'")
-    prompt = models.CharField(max_length=80, blank=True, help_text="Question asked when the combo is added, e.g. 'Choose a drink'")
     ask_on_add = models.BooleanField(default=False, help_text="Ask for this pick when the combo is added")
     allow_none = models.BooleanField(default=False, help_text="The customer may leave this part out")
     none_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
