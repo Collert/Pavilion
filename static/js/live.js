@@ -25,11 +25,20 @@ export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000
     };
     connect();
     const watchdog = setInterval(() => {
-        if (Date.now() - lastHeard > staleMs) connect();
+        if (source && Date.now() - lastHeard > staleMs) connect();
     }, staleMs / 3);
+    // Leaving the page: let go of the stream. Browsers may keep the old page (back/forward cache) with its
+    // stream still open, and a handful of those use up every connection to the server, so new pages hang.
+    // Coming back to a cached page reconnects, which refreshes it.
+    const hide = () => { source?.close(); source = null; };
+    const show = (event) => { if (event.persisted) connect(); };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
     return () => {
         clearTimeout(timer);
         clearInterval(watchdog);
-        source.close();
+        window.removeEventListener("pagehide", hide);
+        window.removeEventListener("pageshow", show);
+        hide();
     };
 }
