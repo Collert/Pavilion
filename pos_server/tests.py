@@ -363,47 +363,87 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         self.client.force_login(self.staff)
         self.url = reverse("order_marking")
 
-    def online_order(self, **fields):
-        return create_order(lines=[self.dish(self.burger), self.dish(self.tea)], channel="web",
+    def online_order(self, channel="web", **fields):
+        return create_order(lines=[self.dish(self.burger), self.dish(self.tea)], channel=channel,
                             initial_status=OrderStation.STATUS_PENDING, **fields)
 
-    def send(self, method, body):
-        return getattr(self.client, method)(self.url, json.dumps(body), content_type="application/json")
+    def send(self, order, action, stations=(), **extra):
+        body = {"orderId": order.id, "action": action, "filters": list(stations), **extra}
+        return self.client.post(self.url, json.dumps(body), content_type="application/json")
 
-    def test_screen_lists_orders_for_its_stations_with_their_customizations(self):
+    def statuses(self, order):
+        return Order.objects.get(pk=order.pk).station_status_map()
+
+    def test_screen_lists_active_orders_with_their_customizations(self):
         create_order(lines=[self.lunch(), self.dish(self.burger, cust={"parts": {str(self.dc_onion.id): 0}})],
-                     channel="store", initial_status=1)
+                     channel="store", initial_status=1, cashier=self.staff)
         response = self.client.get(self.url, {"filter": "kitchen"})
         self.assertEqual(response.status_code, 200)
-        dishes = response.context["orders"][0]["dishes"]
-        self.assertIn({"name": "Burger", "quantity": 1, "station": "kitchen", "mods": [], "note": "",
-                       "combo": "Lunch combo", "slot": "Main"}, dishes)
-        self.assertIn(["No onion"], [d["mods"] for d in dishes])
-        self.assertEqual(len(self.client.get(self.url, {"filter": "gng"}).context["orders"]), 0)
+        order = response.context["orders"][0]
+        self.assertEqual(order["cashier"], "cook")
+        burger = next(d for d in order["dishes"] if d["combo"])
+        self.assertEqual((burger["name"], burger["combo"], burger["slot"], burger["station"]), ("Burger", "Lunch combo", "Main", "kitchen"))
+        self.assertIn([{"text": "No onion", "kind": "no"}], [d["tags"] for d in order["dishes"]])
 
-    def test_approve_done_pickup(self):
+    def test_filters_come_from_the_query(self):
+        def filters(query):
+            return self.client.get(self.url + query).context["filters"]
+        codes = list(Station.objects.values_list("code", flat=True))
+        self.assertEqual(filters("?filter=bar&filter=kitchen"), ["kitchen", "bar"])
+        self.assertEqual(filters("?filter=bar,nope"), ["bar"])
+        self.assertEqual(filters(""), codes)
+
+    def test_mod_tags_say_what_kind_of_change_each_mod_is(self):
+        cust = {"parts": {str(self.dc_onion.id): 0, str(self.dc_patty.id): 2}, "options": {self.temp_key: self.well.id},
+                "addons": [self.avocado_addon.id], "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Peanuts"]}
+        create_order(lines=[self.dish(self.burger, cust=cust), self.lunch(slots={str(self.drink.id): {"dish": None}})],
+                     channel="store", initial_status=1)
+        dishes = self.client.get(self.url).context["orders"][0]["dishes"]
+        self.assertEqual([(t["text"], t["kind"]) for t in dishes[0]["tags"]],
+                         [("2× patty", "add"), ("No onion", "no"), ("Well done", "opt"), ("+ Avocado", "add"), ("2× Ketchup", "side")])
+        self.assertEqual(dishes[0]["allergies"], ["Peanuts"])
+        self.assertEqual(dishes[1]["combo_tags"], [{"text": "No drink", "kind": "no"}])
+        self.assertNotEqual(dishes[0]["line"], dishes[1]["line"])
+
+    def test_confirm_ready_pickup(self):
         order = self.online_order()
-        self.send("post", {"orderId": order.id, "action": "approve", "filters": ["kitchen"]})
-        self.assertEqual(Order.objects.get(pk=order.pk).station_status_map(), {"kitchen": 1, "bar": 0})
-        self.send("post", {"orderId": order.id, "action": "approve", "filters": ["bar"]})
-        self.send("put", {"orderId": order.id, "filters": ["kitchen", "bar"]})
-        self.assertEqual(Order.objects.get(pk=order.pk).station_status_map(), {"kitchen": 2, "bar": 2})
-        self.send("delete", {"orderId": order.id})
+        self.assertEqual(self.send(order, "confirm", ["kitchen"]).json()["all_confirmed"], False)
+        self.assertEqual(self.statuses(order), {"kitchen": 1, "bar": 0})
+        self.send(order, "confirm", ["bar"])
+        self.assertEqual(self.send(order, "ready", ["kitchen"]).json()["all_ready"], False)
+        self.assertEqual(self.send(order, "pickup", ["kitchen"]).status_code, 409)
+        self.assertEqual(self.send(order, "ready", ["bar"]).json()["all_ready"], True)
+        self.assertEqual(self.statuses(order), {"kitchen": 2, "bar": 2})
+        self.assertFalse(Order.objects.get(pk=order.pk).picked_up)
+        self.assertEqual(self.send(order, "pickup", ["bar"]).status_code, 200)
         self.assertTrue(Order.objects.get(pk=order.pk).picked_up)
 
-    def test_done_does_not_skip_approval(self):
+    def test_ready_waits_for_every_station_to_confirm(self):
         order = self.online_order()
-        self.send("put", {"orderId": order.id, "filters": ["kitchen"]})
-        self.assertEqual(Order.objects.get(pk=order.pk).station_status_map()["kitchen"], 0)
+        self.send(order, "confirm", ["kitchen"])
+        self.assertEqual(self.send(order, "ready", ["kitchen"]).status_code, 409)
+        self.assertEqual(self.statuses(order)["kitchen"], 1)
+
+    def test_couriers_pick_up_delivery_orders(self):
+        order = self.online_order(channel="delivery")
+        self.send(order, "confirm", ["kitchen", "bar"])
+        self.send(order, "ready", ["kitchen", "bar"])
+        self.assertEqual(self.send(order, "pickup", ["kitchen"]).status_code, 409)
+        self.assertFalse(Order.objects.get(pk=order.pk).picked_up)
+
+    def test_unknown_action_and_method(self):
+        order = self.online_order()
+        self.assertEqual(self.send(order, "explode").status_code, 400)
+        self.assertEqual(self.client.put(self.url, "{}", content_type="application/json").status_code, 405)
 
     @mock.patch("payments.square.capture_authorization")
-    def test_payment_captured_once_every_station_approves(self, capture):
+    def test_payment_captured_once_every_station_confirms(self, capture):
         transaction = Transaction.objects.create(amount=Decimal("16.50"), successful=True)
         auth = PaymentAuthorization.objects.create(payment_id="p1", amount=1650, currency="CAD", transaction=transaction)
         order = self.online_order(authorization=auth)
-        self.send("post", {"orderId": order.id, "action": "approve", "filters": ["kitchen"]})
+        self.send(order, "confirm", ["kitchen"])
         capture.assert_not_called()
-        self.send("post", {"orderId": order.id, "action": "approve", "filters": ["bar"]})
+        self.send(order, "confirm", ["bar"])
         capture.assert_called_once_with(auth)
 
     @mock.patch("payments.square.void_authorization")
@@ -412,21 +452,28 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         transaction = Transaction.objects.create(amount=Decimal("5.00"), successful=True)
         auth = PaymentAuthorization.objects.create(payment_id="p2", amount=500, currency="CAD", transaction=transaction)
         order = self.online_order(authorization=auth, gift_card_payments=[(card.number, "6.50")])
-        response = self.send("post", {"orderId": order.id, "action": "delete", "filters": ["kitchen"],
-                                      "rejection": {"reasons": ["out-of-stock"], "reasonExtra": ""}})
+        response = self.send(order, "reject", ["kitchen"], reasons=["stock", "capacity"], text="  No buns left ")
         self.assertEqual(response.status_code, 200)
         void.assert_called_once_with(auth)
         self.assertFalse(Order.objects.filter(pk=order.pk).exists())
-        self.assertTrue(RejectedOrder.objects.filter(order_id=order.id).exists())
+        self.assertEqual(RejectedOrder.objects.get(order_id=order.id).reason,
+                         "Item out of stock; Kitchen at capacity: No buns left")
         card.refresh_from_db()
         self.assertEqual(card.available_balance, Decimal("20.00"))
+
+    def test_reject_needs_a_known_reason(self):
+        order = self.online_order()
+        self.assertEqual(self.send(order, "reject", reasons=[], text=" ").status_code, 400)
+        self.assertEqual(self.send(order, "reject", reasons=["bored"]).status_code, 400)
+        self.assertEqual(self.send(order, "reject", text="Fryer is down").status_code, 200)
+        self.assertEqual(RejectedOrder.objects.get(order_id=order.id).reason, "Fryer is down")
 
     @mock.patch("payments.square.void_authorization", side_effect=Exception("Square down"))
     def test_reject_keeps_order_if_refund_fails(self, void):
         transaction = Transaction.objects.create(amount=Decimal("16.50"), successful=True)
         auth = PaymentAuthorization.objects.create(payment_id="p3", amount=1650, currency="CAD", transaction=transaction)
         order = self.online_order(authorization=auth)
-        response = self.send("post", {"orderId": order.id, "action": "delete", "filters": ["kitchen"], "rejection": {"reasons": ["no-containers"]}})
+        response = self.send(order, "reject", ["kitchen"], reasons=["closing"])
         self.assertEqual(response.status_code, 502)
         self.assertTrue(Order.objects.filter(pk=order.pk).exists())
 

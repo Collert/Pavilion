@@ -46,41 +46,49 @@ logger = logging.getLogger(__name__)
 def index(request):
     return HttpResponseRedirect(reverse("pos"))
 
+# Quick reasons on the KDS reject sheet: code -> what the customer is told.
+REJECT_REASONS = [
+    ("stock", _("Item out of stock")),
+    ("capacity", _("Kitchen at capacity")),
+    ("closing", _("Closing soon")),
+    ("change", _("Can't make a requested change")),
+    ("allergy", _("Can't accommodate the allergy")),
+    ("duplicate", _("Duplicate order")),
+]
+REJECT_TEXT_LIMIT = 200
+
+
+def station_filters(values, codes):
+    """The stations a KDS covers, from ?filter=kitchen&filter=bar or ?filter=kitchen,bar. None given = all."""
+    picked = {code.strip() for value in values for code in value.split(",")}
+    return [code for code in codes if code in picked] or list(codes)
+
+
 @staff_required
 @device_required
 def order_marking(request):
     """
-    Handles order marking operations based on the HTTP request method.
-    GET:
-        Fetches and filters orders based on the provided filters and current date.
-        Renders the 'order-marking' template with the filtered orders and filters.
-    DELETE:
-        Marks an order as picked up based on the provided order ID.
-    PUT:
-        Marks an order as completed based on the provided order ID and filters.
-    POST:
-        Approves or rejects an order based on the provided order ID, action, and filters.
-        If approved, updates the order status for the specified stations.
-        If rejected, creates a RejectedOrder entry and deletes the order.
-    Args:
-        request (HttpRequest): The HTTP request object containing method, body, and GET parameters.
-    Returns:
-        HttpResponse: The response object with the appropriate status and data based on the request method.
+    The kitchen display (KDS). ?filter=<station code> (repeatable, or comma-separated) picks the stations this
+    screen works for; without it the screen covers every station.
+
+    GET renders the screen with every active order (the screen filters them and refetches `active_orders` on
+    each SSE "orders" event). POST {orderId, action, filters} acts for the stations in `filters`:
+      confirm  pending -> being made. Once no station is pending, an online card payment is captured.
+      reject   {reasons: [codes], text}: voids/refunds payments, records a RejectedOrder, deletes the order.
+      ready    being made -> done. Only once every station has confirmed.
+      pickup   marks the order picked up. Only once every station is done; delivery orders go to the courier.
     """
     if request.method == "GET":
-        filters = request.GET.getlist('filter')
-        orders = orders_for_screens(
-            Order.objects.filter(picked_up=False, start_time__lte=now(), timestamp__date=timezone.localdate(),
-                                 station_statuses__station__code__in=filters,
-                                 station_statuses__status__lt=OrderStation.STATUS_REJECTED)
-            .distinct().order_by("start_time")
-        )
+        stations = station_list()
+        codes = [station["code"] for station in stations]
         return render(request, "pos_server/order-marking.html", {
-            "route":"markings",
-            "orders": [collect_order(order) for order in orders],
-            "filters": filters,
-            "stations": station_list(),
+            "orders": [collect_order(order) for order in orders_for_screens(active_orders_queryset().order_by("start_time"))],
+            "filters": station_filters(request.GET.getlist("filter"), codes),
+            "stations": stations,
+            "reasons": [{"code": code, "label": str(label)} for code, label in REJECT_REASONS],
         })
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["GET", "POST"])
 
     try:
         body = json.loads(request.body)
@@ -88,61 +96,63 @@ def order_marking(request):
     except (ValueError, KeyError, TypeError):
         return HttpResponseBadRequest("Expected a JSON body with orderId")
     except Order.DoesNotExist:
-        return JsonResponse({"status": "Order not found"}, status=404)
-    filters = body.get("filters", [])
+        return JsonResponse({"error": _("That order is gone. It was picked up or rejected on another screen.")}, status=404)
+    filters = body.get("filters") or []
+    if not isinstance(filters, list):
+        return HttpResponseBadRequest("filters must be a list of station codes")
+    action = body.get("action")
+    statuses = order.statuses()
 
-    if request.method == "DELETE":
-        # Mark order as picked up
+    if action == "confirm":
+        order.set_station_status(filters, OrderStation.STATUS_APPROVED, only_from=[OrderStation.STATUS_PENDING])
+        all_confirmed = OrderStation.STATUS_PENDING not in order.statuses()
+        payment_error = None
+        if all_confirmed and order.authorization:
+            try:
+                square.capture_authorization(order.authorization)
+            except Exception as e:
+                logger.exception("Capturing payment for order %s failed", order.id)
+                payment_error = str(e)
+        return JsonResponse({"all_confirmed": all_confirmed, "payment_error": payment_error})
+
+    if action == "ready":
+        if OrderStation.STATUS_PENDING in statuses:
+            return JsonResponse({"error": _("Every station has to confirm the order first.")}, status=409)
+        order.set_station_status(filters, OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
+        return JsonResponse({"all_ready": order.all_stations_done()})
+
+    if action == "pickup":
+        if not order.all_stations_done():
+            return JsonResponse({"error": _("The order isn't ready at every station yet.")}, status=409)
+        if order.channel == "delivery":
+            return JsonResponse({"error": _("The courier picks up delivery orders.")}, status=409)
         order.picked_up = True
         order.save()
-        return JsonResponse({"status":"Order marked picked up"}, status=200)
-    elif request.method == "PUT":
-        # Mark this screen's stations as completed
-        order.set_station_status(filters, OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
-        return JsonResponse({"status":"Order marked done"}, status=200)
-    elif request.method == "POST":
-        # Approve or reject the order
-        action = body.get("action")
-        if action == "approve":
-            order.set_station_status(filters, OrderStation.STATUS_APPROVED, only_from=[OrderStation.STATUS_PENDING])
-            all_approved = OrderStation.STATUS_PENDING not in order.statuses()
-            payment_error = None
-            if all_approved and order.authorization:
-                try:
-                    square.capture_authorization(order.authorization)
-                except Exception as e:
-                    logger.exception("Capturing payment for order %s failed", order.id)
-                    payment_error = str(e)
-            return JsonResponse({
-                "status":"Order marked approved",
-                "action":action,
-                "all_approved":all_approved,
-                "payment_error":payment_error,
-            }, status=200)
-        elif action == "delete":
-            rejection_obj = body.get("rejection") or {}
-            reasons = rejection_obj.get("reasons", [])
-            rejection_reason = _("We are sorry but we could not complete your order for the following reasons: ")
-            if 'out-of-stock' in reasons:
-                rejection_reason += _("Some of the products you requested are currently out of stock. We will update our menu in a few minutes to reflect the accurate stock levels. ")
-            if 'no-containers' in reasons:
-                rejection_reason += _("We are currently out of containers to package your order. ")
-            if rejection_obj.get("reasonExtra"):
-                rejection_reason += rejection_obj["reasonExtra"] + " "
-            rejection_reason += _("We apologize for the inconvenience. Please try placing your order again later or contact us for more information.")
-            if order.authorization:
-                try:
-                    square.void_authorization(order.authorization)
-                except Exception as e:
-                    logger.exception("Voiding payment for order %s failed", order.id)
-                    return JsonResponse({"status": "Could not refund the card payment, order kept", "error": str(e)}, status=502)
-            with transaction.atomic():
-                RejectedOrder.objects.create(order_id=order.id, reason=rejection_reason, timestamp=order.timestamp)
-                refund_gift_cards(order)
-                order.delete()
-            return JsonResponse({"status":"Order deleted", "action":action}, status=200)
-        return HttpResponseBadRequest("Unknown action")
-    return HttpResponseNotAllowed(["GET", "POST", "PUT", "DELETE"])
+        return JsonResponse({"picked_up": True})
+
+    if action == "reject":
+        labels = dict(REJECT_REASONS)
+        codes = body.get("reasons") or []
+        text = str(body.get("text") or "").strip()[:REJECT_TEXT_LIMIT]
+        if not isinstance(codes, list) or any(code not in labels for code in codes):
+            return HttpResponseBadRequest("Unknown rejection reason")
+        reason = "; ".join(str(labels[code]) for code in dict.fromkeys(codes))
+        reason = f"{reason}: {text}" if reason and text else reason or text
+        if not reason:
+            return JsonResponse({"error": _("Pick a reason or write one.")}, status=400)
+        if order.authorization:
+            try:
+                square.void_authorization(order.authorization)
+            except Exception as e:
+                logger.exception("Voiding payment for order %s failed", order.id)
+                return JsonResponse({"error": _("Couldn't refund the card payment, so the order was kept: %(error)s") % {"error": e}}, status=502)
+        with transaction.atomic():
+            RejectedOrder.objects.create(order_id=order.id, reason=reason, timestamp=order.timestamp)
+            refund_gift_cards(order)
+            order.delete()
+        return JsonResponse({"rejected": True, "reason": reason})
+
+    return HttpResponseBadRequest("Unknown action")
 
 @superuser_required
 def menu_select(request):

@@ -163,9 +163,33 @@ def refund_gift_cards(order):
 
 def orders_for_screens(queryset):
     """Prefetch everything collect_order() touches."""
-    return queryset.select_related("authorization").prefetch_related(
+    return queryset.select_related("authorization", "cashier").prefetch_related(
         "station_statuses__station", "items__station", "discounts", "payments", "delivery",
     )
+
+
+def _mod_tags(item):
+    """
+    An item's mods as [{"text", "kind"}] for the kitchen display, kind being "no" (left out), "add" (extra or
+    add-on), "opt" (option) or "side" (condiment). Mods are stored as readable text, so the kind comes from the
+    order pricing.price_dish()/price_line() writes them in, counted from `selection`. The allergy line is left out
+    (see `allergies` in _kitchen_rows). Anything that doesn't add up is shown as an option.
+    """
+    mods, selection = list(item.mods or []), item.selection or {}
+    if item.combo_id:
+        extras = selection.get("extras") or {}
+        kinds = ["no"] * sum(1 for value in selection.values() if value is None)
+    else:
+        extras = selection
+        if selection.get("allergies") and mods:
+            mods.pop()  # price_dish() adds the allergy line last
+        kinds = ["no" if count == 0 else "add" for count in (selection.get("parts") or {}).values()]
+        kinds += ["opt"] * len(selection.get("options") or {})
+    kinds += ["add"] * len(extras.get("addons") or [])
+    kinds += ["side"] * len(extras.get("condiments") or {})
+    if len(kinds) != len(mods):
+        kinds = ["opt"] * len(mods)
+    return [{"text": text, "kind": kind} for text, kind in zip(mods, kinds)]
 
 
 def _kitchen_rows(order):
@@ -182,8 +206,12 @@ def _kitchen_rows(order):
             "quantity": item.quantity,
             "station": item.station.code,
             "mods": item.mods,
+            "tags": _mod_tags(item),
+            "allergies": (item.selection or {}).get("allergies", []),
             "note": item.note,
             "combo": parent.title if parent else None,
+            "combo_tags": _mod_tags(parent) if parent else [],
+            "line": parent.id if parent else item.id,
             "slot": item.slot,
         })
     return rows
@@ -231,6 +259,7 @@ def collect_order(order, done=False):
         'to_go_order': order.to_go_order,
         'channel': order.channel,
         'phone': order.phone,
+        'cashier': (order.cashier.first_name or order.cashier.username) if order.cashier else None,
         'address': delivery.destination if delivery else None,
         "special_instructions": order.special_instructions,
         "note_for_kitchen": order.note_for_kitchen,

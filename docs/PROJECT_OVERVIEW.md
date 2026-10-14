@@ -18,7 +18,7 @@ go out as "Holy Eucharist Cathedral".
 | Area | What it is | Status |
 | --- | --- | --- |
 | **POS register** | Touch-screen cashier UI, cash/card/gift-card tender, Square Terminal | ✅ Works |
-| **Kitchen display (KDS)** | "Order marking" screen per set of stations: approve, complete, hand out, reject | ✅ Works, live (SSE) |
+| **Kitchen display (KDS)** | "Order marking" screen per set of stations: confirm, mark ready, hand out, reject; keyboard only | ✅ Works, live (SSE) |
 | **Customer-facing display** | Second screen mirroring the cart, linked to the POS by `BroadcastChannel` | ✅ Works (same browser only) |
 | **Order status board** | TV screen with in-progress/ready columns, TTS announcements, weather, YouTube player | ✅ Works, live (SSE) |
 | **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Works (Square popup not re-tested against sandbox) |
@@ -208,20 +208,33 @@ file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff
    difference. One open `CashDrawerSession` per registered device (one shared session when the device check is off).
 5. `pair-terminal` (superuser) pairs Square Terminals as before.
 
-### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen&filter=bar`)
+### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen,bar`)
 
-Template `order-marking.html`, JS `kitchen-bar.js`. Cards are rendered by JS from server data (`json_script`), with
-`textContent` only. The screen refreshes from `active_orders` on every SSE `orders` event (no polling).
+Template `order-marking.html` on `staff_layout.html`, JS `order-marking.js`, CSS `order-marking.css`. Design:
+`docs/mockups/Order marking-html` (plus the keyboard and "ready for pickup" changes below). Cards are rendered by JS
+from server data (`json_script`), with `textContent` only. The screen refreshes from `active_orders` on every SSE
+`orders` event (no polling).
 
-- Tickets show each dish's customizations, its combo and slot, and its note.
-- `filter` params choose the stations this screen covers; the preferences dialog lists all stations. `auto-done` /
-  `auto-collect` (minutes) auto-advance cards.
-- **POST** `approve` moves this screen's pending stations to 1. When no station is pending anymore and the order has a
-  Square authorization, the server **captures** the payment.
-- **POST** `delete` (reject) **voids or refunds** the card payment on the server (the order is kept if Square fails),
-  refunds gift cards, records a `RejectedOrder`, and deletes the order.
-- **PUT** moves this screen's in-progress stations to 2. **DELETE** marks the order picked up.
-- Keyboard (Enter/5 advances, arrows/2/8 move, Delete rejects, 1 opens availability), swipe, reject reasons, preferences.
+- `?filter=` picks the stations the screen works for: repeat it or comma-separate codes; unknown codes are dropped and
+  no filter means every station. The filter sheet (rail button, `F`) changes it and rewrites the URL, so the screen can
+  be bookmarked per station.
+- Each order shows only the dishes for this screen's stations: combos grouped, mods coloured by kind (`tags`: left
+  out / extra / option / condiment, worked out in `orders._mod_tags`), allergies as red flags plus an alert banner,
+  the order note, where it came from, and every involved station's status.
+- Flow, per station (`OrderStation`): **confirm** (0 → 1) → once every station has confirmed, the order is
+  *in progress* → **ready** (1 → 2) → once every station is ready, the order is *ready for pickup* → any station marks
+  it **picked up** (`picked_up = True`, the order leaves every screen). Delivery orders wait for the courier instead.
+  A station that has confirmed or finished early sees "waiting on <stations>".
+- **POST** `{orderId, action, filters}` with `action` = `confirm` (captures the Square payment once nobody is pending),
+  `ready` (409 until every station confirmed), `pickup` (409 until every station is ready; never for delivery), or
+  `reject` with `reasons` (codes from `views.REJECT_REASONS`) and/or `text` (≤ 200 chars). Reject **voids or refunds**
+  the card payment (the order is kept if Square fails), refunds gift cards, records a `RejectedOrder` with the
+  reason the customer sees, and deletes the order.
+- Keyboard only (hints are shown as `<kbd>` labels): `↑`/`↓` open the previous/next order (scrolled into view),
+  `PgUp`/`PgDn` scroll, `Enter` = the open order's next step (confirm / mark ready / picked up), `Esc` rejects an
+  unconfirmed order. In the reject sheet `Ctrl`+`1…6` toggle quick reasons, typing goes into the reason box, `Enter`
+  rejects, `Esc` cancels. In the filter sheet `1…9` toggle stations, `A` selects all, `Enter`/`Esc` close.
+  Browsers may keep `Ctrl`+digit for switching tabs: run the KDS in kiosk/app mode, or use `Alt`+digit.
 
 ### 6.4 Customer display (`/restaurant/pos-output`) and status board (`/restaurant/orders-progress`)
 
