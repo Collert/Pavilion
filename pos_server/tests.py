@@ -533,6 +533,22 @@ class LockScreenTests(TestCase):
         self.assertRedirects(self.client.get(reverse("pos")), f'{reverse("register_lock")}?next=%2Fen%2Frestaurant%2Fregister',
                              fetch_redirect_response=False)
 
+    def test_pins_are_quick_to_check_and_old_hashes_upgrade(self):
+        import time
+        from django.contrib.auth.hashers import make_password
+        self.assertTrue(self.staff.pin.startswith("pin_pbkdf2_sha256$"))
+        started = time.perf_counter()
+        self.assertTrue(self.staff.check_pin("1234"))
+        self.assertLess(time.perf_counter() - started, 0.2)
+        # A PIN stored the old way (a full password hash) still works and is re-hashed the fast way
+        self.staff.pin = make_password("4321")
+        self.staff.save()
+        self.assertFalse(self.staff.check_pin("1111"))
+        self.assertTrue(self.staff.check_pin("4321"))
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.pin.startswith("pin_pbkdf2_sha256$"))
+        self.assertTrue(self.staff.check_pin("4321"))
+
     def test_wrong_pins_lock_the_person_out(self):
         for _ in range(5):
             self.unlock("0000")
