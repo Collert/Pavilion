@@ -95,26 +95,33 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 
 ## 5. Domain model
 
-### 5.1 Menu → Dish → Component → Ingredient (`pos_server/models.py`)
+### 5.1 Menu → Dish / Combo → Component → Ingredient (`pos_server/models.py`)
+
+Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/mockups/`.
 
 ```
 Menu (is_active: saving an active menu deactivates the others; Menu.active() returns it or None)
- └─ Dish (M2M menu; price Decimal; station FK → Station; in_stock / force_in_stock / visible_in_menu)
-     └─ DishComponent (quantity) ─ Component (inventory float; unit; type food|beverage;
-                                              crafting_option craft|buy|auto; child_dishes M2M → Dish)
-                                      └─ ComponentIngredient (quantity) ─ Ingredient (inventory int; allergen; unlimited; cost)
+ ├─ Dish (M2M menu; price Decimal; station FK; in_stock / force_in_stock / visible_in_menu)
+ │   ├─ DishComponent (quantity per portion; adjustable; max_portions) ─ Component (inventory; extra_price; …)
+ │   │                                                                     └─ ComponentIngredient ─ Ingredient
+ │   ├─ OptionGroup (dish-owned, e.g. Size, Dressing) ─ Option (price change; extra component + quantity; multiplier)
+ │   └─ Extra (kind addon | condiment; component; price; max_count)
+ └─ Combo (M2M menu; price) ─ ComboSlot (Main/Side/Drink; ask_on_add + prompt; allow_none + none_price)
+         │                       └─ ComboSlotOption (dish; price change; is_default)
+         └─ Extra (combo condiments/add-ons)
+Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Option (component = swap it for this one)
 ```
 
-- **Choice components:** a `Component` with `child_dishes` is a choice, e.g. "Drink" with children Coffee and Tea. A Dish
-  whose components are *all* choices is an "only-choices" dish: it is never prepared itself, its picked children are.
-  Pricing rules are in `pos_server/orders.py` (see §6.1).
-- **Stock:** `Component.save()` recalculates `in_stock` (unless `save(force_update_stock=True)`, used by the manual
-  availability toggle) and updates dishes: a dish goes out of stock when a component can't cover one portion, and comes
-  back when that component is restocked and all its other components are available. `force_in_stock` keeps a dish
-  sellable regardless. Self-crafting (`auto`) components and choice components never limit a dish by their own inventory.
-- **Crafting:** `inventory.views.craft_component(id, qty)` adds to the component and subtracts its ingredients (unless
-  `unlimited`). `auto` components are crafted on demand when a dish using them is sold.
-- Selling `n` of a dish takes `DishComponent.quantity × n` of each component.
+- **A dish's customization sheet** = its adjustable parts (0 = "No onion", 2 = double; extra portions cost the
+  component's `extra_price`), its own option groups, the option groups of each of its components (hidden while that
+  part is left out), add-ons, condiments, allergy flags (the `Ingredient.allergens` list) and a note.
+- **Variants** (small/regular/large) are a dish option group whose options change the price and `multiplier`.
+- **Combos** cost `combo.price + each pick's price change + each pick's customizations + combo extras`. A combo is
+  listed in the menu section of its first slot's standard dish. Every picked dish is made at its own station.
+- **Stock:** `Component.save()` recalculates `in_stock` and updates the dishes that use it; adding or removing a
+  `DishComponent` re-checks its dish. Sold dishes take what was actually picked (portions × multipliers, swapped
+  components, add-ons, condiments). `craft_component` and `auto` components work as before.
+- Choice components (`Component.child_dishes`) and "only-choice" dishes were removed: use combos or option groups.
 
 ### 5.2 Stations and orders
 
@@ -122,9 +129,13 @@ Menu (is_active: saving an active menu deactivates the others; Menu.active() ret
   `menu_heading` titles the menu section for that station's dishes ("Hot food"). A data migration creates
   Kitchen / Bar / Grab & Go. Edit or add stations in `/advanced-admin/`.
 - `Order` fields: `channel` (`store` POS, `web` online pickup, `delivery`), `start_time` (scheduled time; screens hide
-  orders until it passes), `prep_time` (set when the last station finishes), `name`, `phone`, `special_instructions`,
-  `to_go_order`, `picked_up`, `total` (server-computed, after discount), `discount`, `authorization` (Square payment),
-  `gift_cards` (through `GiftCardAuthorization`).
+  orders until it passes), `prep_time` (set when the last station finishes), `name`, `phone`, `special_instructions`
+  (+ `note_for_kitchen`), `to_go_order`, `picked_up`, `subtotal`/`discount`/`tax`/`total` (server-computed),
+  `cashier`, `authorization` (Square payment), `gift_cards` (through `GiftCardAuthorization`).
+- `OrderItem`: one per cart line (dish or combo; `unit_price`, `quantity`, line `discount`, `mods` as readable lines,
+  `note`, `selection` JSON). A combo line has a child row per filled slot; rows with a dish carry the station.
+- `OrderDiscount` (line or whole order; label, kind, value, amount), `OrderPayment` (cash/card/gift; `tendered` for
+  cash; linked to the register's `CashDrawerSession`).
 - `OrderStation(order, station, status)`, one row per station that has work on the order. **Status codes:** `0` pending
   approval · `1` being made · `2` done · `3` rejected. A station with no row isn't involved.
   POS orders start at 1; online/delivery orders start at 0 and must be approved on the KDS.
@@ -154,40 +165,52 @@ Menu (is_active: saving an active menu deactivates the others; Menu.active() ret
 
 ## 6. Core flows
 
-### 6.1 Creating orders (`pos_server/orders.py`)
+### 6.1 Pricing and creating orders (`pos_server/pricing.py`, `pos_server/orders.py`)
 
-Both the POS and the online store call `create_order()`. Inside one DB transaction it:
+Carts are lists of lines (`{"type": "dish"|"combo", "id", "qty", "cust", "slots", "discount"}`; the full format is
+in the `pricing.py` docstring). `price_cart()` validates every customization, combo pick and stock, applies at most
+one discount per line and one on the order (after line discounts), then tax (`TAX_RATE`, default 0). It is used by:
 
-1. Prices the cart from the database (`price_cart`). The browser sends items like `{"pk": dish, "parent": dish}`, and
-   its prices and totals are ignored. A plain dish costs its price; a dish with choices costs its price and each pick is
-   free (one free pick per choice component per parent); picks for an only-choices dish cost their own price. Unknown,
-   out-of-stock, or invalid picks raise `OrderError`.
-2. Applies POS discounts (amount, then percent; staff-only input).
-3. Locks and checks gift cards, and calls `verify_payment(remaining)` (online: the card payment must cover the rest).
-4. Creates the order, `OrderDish` rows, `OrderStation` rows, takes stock, charges gift cards with a `GiftCardAuthorization`.
+- the register's live quote (`register/quote`, lenient: a discount that stops applying is reported, not fatal),
+- the online store's quote (`cart-quote`, coupons only),
+- `create_order()` (strict), which also takes payments, counts coupon uses (`max_uses`, row-locked), records
+  `OrderItem`/`OrderDiscount`/`OrderPayment`, takes stock and charges gift cards. Register payments must add up to the
+  total exactly, cash needs an open drawer, and `expected_total` refuses the order if the price changed under the
+  cashier. Any `OrderError` rolls everything back.
 
-Any `OrderError` rolls everything back and is shown to the cashier/customer. `collect_order()` serializes an order for
-the screens (`stations` is `{code: status}`); `orders_for_screens()` prefetches what it needs.
+`Discount`: an *offer* (no code, listed on the register) or a *coupon* (code; `online=True` to accept it in the
+store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`end_time`, `min_subtotal`,
+`min_items`, eligible `dishes`/`combos` (item discounts), `max_uses`. Typed-in ("manual") discounts need the
+`pos_server.apply_manual_discount` permission (superusers have it; `seed_demo` gives it to Priya).
 
-### 6.2 In-store POS (`/restaurant/register`)
+### 6.2 Register, lock screen and cash drawer (`pos_server/register.py`)
 
-Template `pos_server/order.html`, JS `pos-order.js` + `pos-utils.js` (`Cart`, `CashPayment`, `GiftCardPayment`).
+Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one
+file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff-ui.js`. Designs: `docs/mockups/`.
 
-1. A cash drawer amount must be set first (`localStorage.cashDrawer`), which needs a superuser password via `POST check-su`.
-2. Tapping a dish adds it to the cart; a choice dish opens `component-choice`. The cart is broadcast on
-   `BroadcastChannel('cart_channel')` to the customer display.
-3. **Tender:** cash → `POST register`. Card → `PUT register` (re-checks gift card balances) starts a Square Terminal
-   checkout on the paired terminal (`SquareTerminal`, falling back to `SQUARE_DEVICE_ID`); the JS polls
-   `check_card_status` until the webhook reports COMPLETED, then `POST register`. Gift cards are looked up via `card-api`
-   or scanned (QuaggaJS) and charged inside `create_order`.
-4. If the server refuses the order, the POS keeps the cart and shows the reason. Dish buttons follow stock live (SSE `inventory`).
-5. `pair-terminal` (superuser) creates Square device codes and activates a terminal once Square reports it PAIRED.
+1. **Lock screen** (`/restaurant/lock`): pick your name, type your 4-digit PIN (`Staff.pin`, hashed; set in
+   `/advanced-admin/` → Users → Staff). It signs that staff member in (registered devices only when the device check
+   is on); 5 wrong tries lock that person out for a minute on that device. The rail's Lock button signs out.
+2. **Register** (`/restaurant/register`): sections are stations; tap a dish to add it; a combo that asks ("Choose a
+   drink") opens a picker. Tap or swipe left on a line for Discount / Customize; swipe right removes it. The cart is
+   kept in `sessionStorage`, priced live by the quote endpoint and broadcast to the customer display
+   (`BroadcastChannel('cart_channel')`). Order note with a "show on the kitchen ticket" switch. Stock changes arrive by
+   SSE `inventory` (the register refetches `register/catalog`).
+3. **Pay:** cash (quick amounts, change due; blocked until the drawer is open), card (`register/card` checks the whole
+   cart first, then starts a Square Terminal checkout; the result arrives by webhook → SSE `checkout`), gift card
+   (typed, keyboard-wedge scanner, or camera via QuaggaJS). "Split payment" takes part now with one method and the
+   rest with another. The order is posted once everything is paid.
+4. **Cash drawer** (`/restaurant/drawer`): open with a starting amount (keypad), see cash/card sales and paid in/out
+   for the session, record paid in/out, close by counting (the expected amount stays hidden until then) and see the
+   difference. One open `CashDrawerSession` per registered device (one shared session when the device check is off).
+5. `pair-terminal` (superuser) pairs Square Terminals as before.
 
 ### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen&filter=bar`)
 
 Template `order-marking.html`, JS `kitchen-bar.js`. Cards are rendered by JS from server data (`json_script`), with
 `textContent` only. The screen refreshes from `active_orders` on every SSE `orders` event (30 s fallback poll).
 
+- Tickets show each dish's customizations, its combo and slot, and its note.
 - `filter` params choose the stations this screen covers; the preferences dialog lists all stations. `auto-done` /
   `auto-collect` (minutes) auto-advance cards.
 - **POST** `approve` moves this screen's pending stations to 1. When no station is pending anymore and the order has a
@@ -209,6 +232,9 @@ Template `order-marking.html`, JS `kitchen-bar.js`. Cards are rendered by JS fro
 
 `online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 
+0. The menu lists dishes and combos; a combo that asks for a pick opens a picker. The cart
+   (`online_store/static/online_store/cart.js`, kept in IndexedDB) is priced by `cart-quote`; checkout has a coupon
+   field. Dishes are added as standard (no customization sheet online yet).
 1. `check_business_day` (context processor) exposes today's open `Event`; `place_order` re-checks it on the server,
    including `online_open`/`delivery_open` and that the pickup time is inside the event.
 2. The checkout form (`attach-card-payment confirmation-needed`) opens `payments/web-payment-window?amount=` in an iframe.
@@ -363,5 +389,8 @@ URLs; per-process state (cache, couriers, SSE); Docker running `runserver` witho
 
 1. Rotate keys; test the Square/SendGrid/push flows and the Docker stack (§9).
 2. Merge `fix-all-problems-for-real` into `main` and deploy.
-3. Product work: finish `new_admin` (dashboard home, branding, station management), make restaurant name/address
+3. Register redesign follow-ups: the customization sheet in the online store; a manager UI for dishes, combos,
+   options and discounts (today: `/advanced-admin/`); refunds (the drawer has no refund row yet); translations for the
+   new strings (`make_translations`); Orders/Inventory screens in the register's look.
+4. Product work: finish `new_admin` (dashboard home, branding, station management), make restaurant name/address
    configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.
