@@ -47,6 +47,7 @@ without asking.
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
 | `deliveries` | `/deliveries/` | Courier PWA, CourierShift, Google ETA, web push. |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
+| `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
 | `new_admin` | `/admin/` | Custom superuser dashboard. Django admin is at `/advanced-admin/` (stations, devices, dishes...). |
 | `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, SendGrid helper. |
@@ -96,6 +97,36 @@ customer-supplied text.
 - `Order.picked_up` defaults True and is set False when any station is involved. "Done" means picked up.
 - Rejecting an order **deletes** it and stores an `online_store.RejectedOrder` with the reason.
 - One active menu: saving an active `Menu` deactivates the others. Use `Menu.active()` (may be None), never `.get(is_active=True)`.
+
+## Screens and widgets
+
+Admins build screens (`/screens/<slug>`, e.g. the pickup `order-board`) out of pre-made widgets; edit them in
+`/advanced-admin/` → Screens (the form lists every widget and its params). `Screen.layout` is one node,
+`{"widget": "name", "params": {...}, "children": [...]}`; only `rows`/`columns` take `children` (one per slot, `null`
+= empty), so screens are grids nested as deep as needed. `width`/`height` are the design canvas: every size in a
+widget is a design pixel, written `calc(var(--u) * 24)` in CSS (`{{ 24|u }}` in templates), so a screen scales to
+any display. The server renders the whole tree (`screens/layout.py`); `live-page.js` refetches on the widgets' SSE
+topics and swaps the leaf widgets whose HTML changed. Editing a Screen publishes `screens`, which reloads open ones.
+
+**Adding a widget** (all four files share the widget's name, lowercase with `_`):
+- `screens/widgets/<name>.json`: `title`, `description`, `template`, optional `context` (dotted path to
+  `fn(request, params) -> dict`, given to the template as `data`; put it in `screens/providers.py`), `live` (SSE
+  topics), `css`/`js` (static paths, loaded once per screen), `slots` (int param giving the number of children; containers
+  only) and `params`: `{name: {type, default, label, help, options|item|min|max}}`. Types: `string`, `text`, `url`
+  (`/...` or `https://` only), `int`, `number`, `bool`, `choice` (`options`), `color` (`#hex`), `size` (number = fr,
+  or `"132px"`/`"40%"`/`"auto"`), `list` (`item` = the item's param spec; `min`/`max` = length).
+- `screens/templates/screens/widgets/<name>.html`: a partial with `params` (validated, defaults filled in), `data`,
+  `children` (rendered HTML, containers only), `node_id`, `widget`, `request`. One root element; it's wrapped in
+  `<div class="widget widget--<name>" data-region>`. Use the `.screen-card` look and the `:root` colours in
+  `screens/static/screens/screens.css`. Params are autoescaped; only `color`/`size`/`choice` values go in `style`.
+- `screens/static/screens/widgets/<name>.css` (and `.js` only for what HTML can't do, e.g. the ticking clock).
+- A test in `screens/tests.py` (`WidgetDefinitionTests` already checks every definition's files and defaults).
+
+Providers run on every refetch and on public screens: keep them cheap, cache outside calls (weather is fetched on
+the server and cached 15 min, so the key never reaches the browser) and return only what a public board may show
+(order lists show "Priya S." and the number). A widget that needs a refetch at a set time (a highlight ending, a
+cache expiring) renders `<span hidden data-ends="<epoch ms>">`. A bad saved param falls back to its default and a
+missing or failing widget renders a placeholder, so one widget never takes a screen down.
 
 ## Access control
 

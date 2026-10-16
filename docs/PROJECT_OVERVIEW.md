@@ -84,9 +84,10 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
+| `/screens/` | `screens` | `""` list of screens + widget catalogue (staff), `<slug>` a screen (public or staff, per screen) |
 | `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
-| `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders` (public), `inventory` (staff), `checkout` (staff + registered device) |
+| `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders` and `screens` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
 
 **Access rules.** Customers can register accounts, so staff pages use `staff_required` / `superuser_required` /
 `api_staff_required` (`pos_server/devices.py`), never bare `login_required`. POS/KDS views also use `device_required`.
@@ -262,7 +263,10 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
   rejects, `Esc` cancels. In the filter sheet `1…9` toggle stations, `A` selects all, `Enter`/`Esc` close.
   Browsers may keep `Ctrl`+digit for switching tabs: run the KDS in kiosk/app mode, or use `Alt`+digit.
 
-### 6.4 Customer display (`/restaurant/pos-output`) and status board (`/restaurant/orders-progress`)
+### 6.4 Customer display (`/restaurant/pos-output`) and old status board (`/restaurant/orders-progress`)
+
+The old status board is superseded by the `order-board` screen (§6.11) and no longer on the app switcher; it still
+works at its URL until it's removed.
 
 - The customer display shows the active menu grouped by station heading, plus the live cart from the POS via
   `BroadcastChannel`, so **it must be a second window in the same browser profile on the same machine**.
@@ -349,6 +353,31 @@ instead of a redirect.
 - Recipes and transforms are edited in `/advanced-admin/` (Recipe has inline ingredients and steps). Counting and
   transform amounts show friendlier units (kg for g, L for ml, pcs for ea) and convert back. `manage.py seed_recipes`
   adds the mockup's recipes (pierogi, beef stock, brioche, smash sauce, caramelized onion, freeze/thaw) to any DB.
+
+### 6.11 Screens (`/screens/`)
+
+Design `docs/mockups/screens/OrderBoard-html`. Restaurants build their own displays from **pre-made widgets**; the
+format for adding widgets is in CLAUDE.md ("Screens and widgets").
+
+- `Screen(name, slug, layout, public, width, height, background, padding)`. `layout` is a JSON tree of widget nodes;
+  `rows`/`columns` hold child slots sized by `weights` (numbers are fr, or `"132px"`), so a screen is a nested grid.
+  It's validated on save (`screens/layout.py`, `layout_errors()` names the slot and param at fault) and edited as
+  JSON in `/advanced-admin/`, which shows the widget reference under the field. There's no visual editor yet.
+- Widgets are defined by `screens/widgets/<name>.json` (title, template, params with types and defaults, optional
+  data provider, SSE topics, CSS/JS) plus a template partial and CSS. Built in: `rows`, `columns`, `order_list`
+  (preparing or ready, live on `orders`), `clock`, `weather` (weatherapi.com, fetched server-side and cached),
+  `now_playing` (placeholder showing typed-in tracks; no player yet), `text_card` (specials/announcements), `image`.
+- Rendering is server-side: `render_screen()` renders the tree children-first, collects each widget's CSS/JS and
+  topics, and wraps every leaf in a `data-region`. `static/js/live-page.js` refetches the page on those topics and
+  swaps the leaves that changed; containers aren't regions, so one list updating doesn't restart animations elsewhere.
+  Node ids include a hash of the layout, so editing a screen (which publishes `screens`) reloads open copies.
+- Sizes are design pixels of `width` × `height`; `--u` scales them to the display (`min(100vw/W, 100vh/H)`). Design
+  portrait screens (vertical TVs) as their own 1080×1920 screens. `seed_demo` adds `pickup-portrait` as an example.
+- `order_list` shows pickup orders only (delivery is for couriers): preparing = a station still pending or making it
+  (oldest first), ready = every station done and not picked up (newest first). Names are shortened to "Priya S.";
+  a just-ready tile is highlighted for `fresh_seconds` and asks the page to refetch when that ends.
+- Migration `screens/0002` creates the `order-board` screen (public). The old board's TTS announcements, YouTube
+  player and the mockup's promo slideshow aren't widgets yet.
 
 ## 7. Real-time: history and current design
 
