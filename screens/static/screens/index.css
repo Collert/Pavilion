@@ -1,0 +1,44 @@
+.screens-index {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 32px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.screens-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.screens-head h1 { margin: 4px 0 0; font-family: var(--heading); font-size: 36px; }
+.screens-list, .screens-widgets {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 12px;
+    box-shadow: var(--shadow-panel);
+}
+.screen-row { display: flex; align-items: center; gap: 12px; padding: 4px; }
+.screen-row + .screen-row { border-top: 1px solid var(--line); }
+.screen-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    color: inherit;
+    text-decoration: none;
+}
+.screen-open:hover { background: var(--soft); }
+.screen-name { font-family: var(--heading); font-size: 20px; font-weight: 700; }
+.screens-widgets { padding: 20px 24px; }
+.screens-widgets h2 { margin: 0 0 8px; font-family: var(--heading); }
+
+.widget-reference details { border-top: 1px solid var(--line); padding: 10px 0; }
+.widget-reference summary { cursor: pointer; font-weight: 700; }
+.widget-reference table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.widget-reference th, .widget-reference td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+
+@media (orientation: portrait) {
+    .screens-index { padding: 20px 16px; }
+    .widget-reference table { font-size: 12px; }
+}

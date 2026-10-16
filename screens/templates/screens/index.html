@@ -1,0 +1,40 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Screens" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'screens/index.css' %}" rel="stylesheet">{% endblock %}
+
+{% block body %}
+<main class="screens-index">
+    <header class="screens-head">
+        <div>
+            <div class="overline">{% trans "Displays" %}</div>
+            <h1>{% trans "Screens" %}</h1>
+        </div>
+        {% if perms.screens.add_screen %}
+        <a class="btn btn-dark btn-md" href="{% url 'admin:screens_screen_add' %}">{% trans "New screen" %}</a>
+        {% endif %}
+    </header>
+
+    <section class="screens-list" aria-label="{% trans 'Screens' %}">
+        {% for screen in screens %}
+        <div class="screen-row">
+            <a class="screen-open" href="{% url 'screen' slug=screen.slug %}">
+                <span class="screen-name">{{ screen.name }}</span>
+                <span class="sub">/screens/{{ screen.slug }} · {{ screen.width }}×{{ screen.height }}{% if screen.public %} · {% trans "public" %}{% endif %}</span>
+            </a>
+            {% if perms.screens.change_screen %}
+            <a class="btn btn-sm" href="{% url 'admin:screens_screen_change' screen.pk %}">{% trans "Edit" %}</a>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="sub">{% trans "No screens yet." %}</p>
+        {% endfor %}
+    </section>
+
+    <section class="screens-widgets">
+        <h2>{% trans "Widgets" %}</h2>
+        {% include "screens/widget_reference.html" %}
+    </section>
+</main>
+{% endblock %}

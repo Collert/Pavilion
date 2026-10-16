@@ -3,7 +3,7 @@ Server-sent events (SSE) for the screens.
 
 How it works:
 - Code that changes something a screen shows calls `publish(topic)` (usually from a model signal, after the
-  transaction commits). Topics: "orders", "inventory", "checkout".
+  transaction commits). Topics: "orders", "inventory", "checkout", "cookery", "screens" (a Screen was edited).
 - Screens open an EventSource on `/events/<topic>` (see `stream_view`). Each event is a small JSON nudge;
   the screen then refetches its normal JSON endpoint (e.g. active_orders). The JSON endpoints stay the single
   source of truth, including what anonymous screens are allowed to see.
@@ -31,7 +31,7 @@ from django.http import Http404, HttpResponseForbidden, StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
 
-TOPICS = ("orders", "inventory", "checkout", "cookery")
+TOPICS = ("orders", "inventory", "checkout", "cookery", "screens")
 HEARTBEAT_SECONDS = 15
 CHANNEL_PREFIX = "pavilion:"
 
@@ -163,8 +163,8 @@ def stream_response(topic):
 @sync_to_async
 def _can_listen(request, topic):
     from pos_server.devices import is_registered_device
-    if topic == "orders":
-        return True  # the public status board listens too; the nudge itself carries no order data
+    if topic in ("orders", "screens"):
+        return True  # public screens listen too; a nudge carries no data, the page they refetch decides what to show
     user = request.user
     if not user.is_authenticated:
         return False

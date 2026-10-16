@@ -1,0 +1,27 @@
+{# Every widget a layout can use, with its params. Shown under the layout field in the admin and on /screens/. #}
+<div class="widget-reference">
+    <p>A layout is one widget node: <code>{"widget": "name", "params": {...}, "children": [...]}</code>.
+       Only Rows and Columns take <code>children</code> (one per slot, <code>null</code> for an empty one).
+       Sizes are pixels of the screen's design width × height.</p>
+    {% for widget in widgets %}
+    <details>
+        <summary><code>{{ widget.name }}</code> · {{ widget.title }}{% if widget.live %} <small>(live: {{ widget.live|join:", " }})</small>{% endif %}</summary>
+        <p>{{ widget.description }}</p>
+        {% if widget.params %}
+        <table>
+            <thead><tr><th>Param</th><th>Type</th><th>Default</th><th>Notes</th></tr></thead>
+            <tbody>
+            {% for param in widget.params.values %}
+            <tr>
+                <td><code>{{ param.name }}</code></td>
+                <td>{{ param.type }}{% if param.item %} of {{ param.item.type }}{% endif %}{% if param.options %}: {{ param.options|join:" / " }}{% endif %}{% if param.min is not None or param.max is not None %} ({{ param.min|default_if_none:"" }}–{{ param.max|default_if_none:"" }}){% endif %}</td>
+                <td><code>{{ param.default|default_if_none:"" }}</code></td>
+                <td>{{ param.label }}{% if param.help %}: {{ param.help }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </details>
+    {% endfor %}
+</div>

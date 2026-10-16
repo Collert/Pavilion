@@ -38,6 +38,7 @@ from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot
                                Menu, Option, OptionGroup, Order, OrderStation, RegisterSignIn, Station)
 from pos_server.orders import create_order
 from pos_server.pricing import price_cart
+from screens.models import Screen
 from users.models import Staff
 
 # A fixed token so a dev browser can be registered once: ?device-token=<this> on any POS page
@@ -80,6 +81,7 @@ class Command(BaseCommand):
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
+            self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
             # The register's lock screen offers PIN sign-in to whoever used it last
@@ -549,6 +551,24 @@ class Command(BaseCommand):
                 "tagline": tagline, "call_to_action": "Order now", "color": color, "accent": "#ffffff", "link": "/en/menu"})
             if created:
                 promo.image.save(f"{title.lower().replace(' ', '_')}.png", placeholder_image(title, color), save=True)
+
+    def seed_screens(self):
+        # The order board comes with migrations (screens/0002); add a portrait one for a vertical TV
+        Screen.objects.get_or_create(slug="pickup-portrait", defaults={
+            "name": "Pickup (portrait)", "public": True, "width": 1080, "height": 1920, "padding": 32,
+            "layout": {"widget": "rows", "params": {"count": 3, "weights": [1, 1.3, "340px"], "gap": 24}, "children": [
+                {"widget": "order_list", "params": {"show": "preparing", "columns": 3, "limit": 9}},
+                {"widget": "order_list", "params": {
+                    "show": "ready", "title": "Ready for pickup", "subtitle": "Please collect at the counter",
+                    "icon": "bag", "theme": "dark", "limit": 8}},
+                {"widget": "columns", "params": {"count": 2, "weights": ["420px", 1]}, "children": [
+                    {"widget": "rows", "params": {"count": 2, "gap": 24}, "children": [{"widget": "clock"}, {"widget": "weather"}]},
+                    {"widget": "text_card", "params": {
+                        "tag": "New", "title": "Maple oat latte", "footer": "$5.75", "background": "#F6D9C4",
+                        "text": "Double shot, steamed oat milk and a little maple syrup."}},
+                ]},
+            ]},
+        })
 
     def seed_gift_cards(self):
         for amount, color in [(10, "#2c7a7b"), (25, "#6b46c1"), (50, "#c05621")]:

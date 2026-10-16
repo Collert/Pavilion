@@ -1,0 +1,3 @@
+<div class="image-widget{% if params.rounded %} is-rounded{% endif %}" style="background: {{ params.background }}">
+    {% if params.src %}<img src="{{ params.src }}" alt="{{ params.alt }}" style="object-fit: {{ params.fit }}">{% endif %}
+</div>

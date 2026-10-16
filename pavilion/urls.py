@@ -39,6 +39,7 @@ urlpatterns += i18n_patterns(
     path('payments/', include("payments.urls")),
     path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
+    path("screens/", include("screens.urls")),
 )
 
 if settings.DEBUG:

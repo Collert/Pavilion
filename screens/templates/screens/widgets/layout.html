@@ -1,0 +1,4 @@
+{% load screens %}{# rows and columns: each child is a grid item, so the weights become grid tracks #}
+<div class="layout layout--{{ widget.name }}" style="gap: {{ params.gap|u }}; grid-template-{% if widget.name == 'rows' %}rows{% else %}columns{% endif %}: {{ params.weights|tracks:params.count }}">
+    {% for child in children %}{{ child }}{% endfor %}
+</div>

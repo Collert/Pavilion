@@ -1,0 +1,12 @@
+{
+  "title": "Rows",
+  "description": "Stacks widgets top to bottom. Each row's height is its weight: a number is a share (fr) of the space left, or a fixed size like 132px.",
+  "template": "screens/widgets/layout.html",
+  "css": ["screens/widgets/layout.css"],
+  "slots": "count",
+  "params": {
+    "count": {"type": "int", "default": 2, "min": 1, "max": 12, "label": "How many", "help": "Number of slots; put a widget (or null for an empty slot) in each child"},
+    "weights": {"type": "list", "item": {"type": "size"}, "default": [], "max": 12, "label": "Weights", "help": "One per slot, e.g. [1, 1.18, \"132px\"]; missing ones are 1"},
+    "gap": {"type": "int", "default": 24, "min": 0, "max": 400, "label": "Gap", "help": "Space between slots, in design pixels"}
+  }
+}

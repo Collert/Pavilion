@@ -1,0 +1,13 @@
+{
+  "title": "Now playing",
+  "description": "What's playing in the restaurant, and what's up next. Placeholder: it shows the track you type in; the music player isn't connected yet.",
+  "template": "screens/widgets/now_playing.html",
+  "css": ["screens/widgets/now_playing.css"],
+  "params": {
+    "title": {"type": "string", "default": "Sunday Market", "label": "Track"},
+    "artist": {"type": "string", "default": "The Lantern Club", "label": "Artist"},
+    "show_up_next": {"type": "bool", "default": true, "label": "Show \"Up next\""},
+    "next_title": {"type": "string", "default": "Paper Boats", "label": "Next track"},
+    "next_artist": {"type": "string", "default": "Mira Okafor", "label": "Next artist"}
+  }
+}

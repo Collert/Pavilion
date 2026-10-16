@@ -1,0 +1,31 @@
+{% load i18n %}
+<div class="screen-card now-playing" role="group" aria-label="{% trans 'Now playing' %}">
+    <svg class="np-art" aria-hidden="true" viewBox="0 0 100 100">
+        <rect width="100" height="100" fill="#F6D9C4"></rect>
+        <circle cx="34" cy="40" r="26" fill="#E27D4E"></circle>
+        <circle cx="66" cy="64" r="20" fill="#F2C14E" opacity=".9"></circle>
+        <rect x="0" y="70" width="100" height="14" fill="#1C2321" opacity=".85"></rect>
+    </svg>
+    <div class="np-main">
+        <div class="np-label">
+            <span class="np-eq" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            <span class="np-kicker">{% trans "Now playing" %}</span>
+        </div>
+        <div class="np-track">
+            <span class="np-title">{{ params.title }}</span>
+            <span class="np-artist">{{ params.artist }}</span>
+        </div>
+        <div class="np-progress">
+            <span class="np-time">0:00</span>
+            <div class="np-bar" role="progressbar" aria-label="{% trans 'Song progress' %}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+            <span class="np-time np-time--end">0:00</span>
+        </div>
+    </div>
+    {% if params.show_up_next and params.next_title %}
+    <div class="np-next">
+        <div class="np-kicker">{% trans "Up next" %}</div>
+        <div class="np-next-title">{{ params.next_title }}</div>
+        <div class="np-next-artist">{{ params.next_artist }}</div>
+    </div>
+    {% endif %}
+</div>

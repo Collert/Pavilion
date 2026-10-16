@@ -1,0 +1,22 @@
+{% load i18n %}{% with now=data.current %}
+<div class="weather{% if params.card %} screen-card{% endif %}" role="img" aria-label="{% if now %}{% blocktrans with temp=now.temp condition=now.condition %}Weather: {{ temp }}°, {{ condition }}{% endblocktrans %}{% else %}{% trans 'Weather unavailable' %}{% endif %}">
+    <svg class="weather-icon" aria-hidden="true" viewBox="0 0 64 64">
+        {% if now.kind == "sun" or now.kind == "partly" %}<circle cx="{% if now.kind == 'sun' %}32{% else %}40{% endif %}" cy="{% if now.kind == 'sun' %}32{% else %}20{% endif %}" r="{% if now.kind == 'sun' %}14{% else %}11{% endif %}" fill="#F2C14E"></circle>{% endif %}
+        {% if now.kind == "sun" %}<path d="M32 6v6M32 52v6M6 32h6M52 32h6M13.6 13.6l4.2 4.2M46.2 46.2l4.2 4.2M13.6 50.4l4.2-4.2M46.2 17.8l4.2-4.2" stroke="#F2C14E" stroke-width="4" stroke-linecap="round"></path>{% endif %}
+        {% if now.kind == "night" %}<path d="M40 12a20 20 0 1 0 14 30A16 16 0 0 1 40 12z" fill="#F2C14E" stroke="#1C2321" stroke-width="2.5" stroke-linejoin="round"></path>{% endif %}
+        {% if now.kind != "sun" and now.kind != "night" %}<path d="M18 44a11 11 0 0 1 1.5-21.9A15 15 0 0 1 47 26a9 9 0 0 1-1 18z" fill="#DDD8CC" stroke="#1C2321" stroke-width="2.5" stroke-linejoin="round"></path>{% endif %}
+        {% if now.kind == "rain" or now.kind == "storm" %}
+        <path class="weather-drop" d="M24 50l-2 5" stroke="#5B8DB8" stroke-width="3" stroke-linecap="round"></path>
+        <path class="weather-drop" d="M33 50l-2 5" stroke="#5B8DB8" stroke-width="3" stroke-linecap="round" style="animation-delay: .4s"></path>
+        <path class="weather-drop" d="M42 50l-2 5" stroke="#5B8DB8" stroke-width="3" stroke-linecap="round" style="animation-delay: .8s"></path>
+        {% endif %}
+        {% if now.kind == "storm" %}<path d="M34 40l-5 9h6l-4 9" stroke="#F2C14E" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>{% endif %}
+        {% if now.kind == "snow" %}<g fill="#9DB8CF"><circle cx="24" cy="53" r="2.5"></circle><circle cx="33" cy="57" r="2.5"></circle><circle cx="42" cy="53" r="2.5"></circle></g>{% endif %}
+    </svg>
+    <div class="weather-text">
+        <div class="weather-temp">{% if now %}{{ now.temp }}°{% else %}—{% endif %}</div>
+        <div class="weather-cond">{% if now %}{{ now.condition }}{% else %}{% trans "No weather yet" %}{% endif %}</div>
+    </div>
+    {% if data.refresh_at %}<span hidden data-ends="{{ data.refresh_at }}"></span>{% endif %}
+</div>
+{% endwith %}

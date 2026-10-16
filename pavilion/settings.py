@@ -153,6 +153,7 @@ INSTALLED_APPS = [
     'payments',  # Payment processing
     'events',  # Event handling
     'new_admin',  # Custom admin interface
+    'screens',  # Screens built from widgets (status boards, signage)
 ]
 
 # Middleware - Handles request processing, security, and session management

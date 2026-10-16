@@ -1,0 +1,13 @@
+{
+  "title": "Image",
+  "description": "A picture that fills its slot.",
+  "template": "screens/widgets/image.html",
+  "css": ["screens/widgets/image.css"],
+  "params": {
+    "src": {"type": "url", "default": "", "label": "Image address", "help": "A /static/... or /media/... path, or an https:// address"},
+    "alt": {"type": "string", "default": "", "label": "Description", "help": "For screen readers; leave empty if it's decoration"},
+    "fit": {"type": "choice", "options": ["cover", "contain"], "default": "cover", "label": "Fit", "help": "cover fills the slot (cropping), contain shows all of it"},
+    "background": {"type": "color", "default": "#FFFFFF", "label": "Background"},
+    "rounded": {"type": "bool", "default": true, "label": "Rounded corners"}
+  }
+}

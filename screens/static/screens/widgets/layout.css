@@ -1,0 +1,7 @@
+.layout {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+}
+.layout--rows { grid-template-columns: minmax(0, 1fr); }
+.layout--columns { grid-template-rows: minmax(0, 1fr); }

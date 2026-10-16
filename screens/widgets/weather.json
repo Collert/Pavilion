@@ -1,0 +1,12 @@
+{
+  "title": "Weather",
+  "description": "Current temperature and conditions from weatherapi.com (needs WEATHER_API_KEY). Fetched on the server every 15 minutes.",
+  "template": "screens/widgets/weather.html",
+  "context": "screens.providers.weather",
+  "css": ["screens/widgets/weather.css"],
+  "params": {
+    "location": {"type": "string", "default": "auto:ip", "label": "Location", "help": "A city (\"New Westminster, BC\"), a postcode, \"lat,lon\", or auto:ip for wherever the server is"},
+    "units": {"type": "choice", "options": ["c", "f"], "default": "c", "label": "Units"},
+    "card": {"type": "bool", "default": true, "label": "On a card"}
+  }
+}

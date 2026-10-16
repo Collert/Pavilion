@@ -1,0 +1,16 @@
+{
+  "title": "Text card",
+  "description": "A coloured card with a tag, a heading, some text and a big footer line (a price, say). For specials and announcements.",
+  "template": "screens/widgets/text_card.html",
+  "css": ["screens/widgets/text_card.css"],
+  "params": {
+    "tag": {"type": "string", "default": "", "label": "Tag", "help": "A small pill above the heading"},
+    "title": {"type": "string", "default": "", "label": "Heading"},
+    "text": {"type": "text", "default": "", "label": "Text"},
+    "footer": {"type": "string", "default": "", "label": "Footer", "help": "Big text at the bottom, e.g. a price"},
+    "image": {"type": "url", "default": "", "label": "Image", "help": "Optional picture above the text: a /static/... or https:// address"},
+    "background": {"type": "color", "default": "#FBE7B5", "label": "Background"},
+    "color": {"type": "color", "default": "#1C2321", "label": "Text colour"},
+    "align": {"type": "choice", "options": ["top", "center", "bottom"], "default": "bottom", "label": "Text position"}
+  }
+}

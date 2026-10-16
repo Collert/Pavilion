@@ -22,7 +22,7 @@ APPS = [
      "M3 6h18v12H3z M12 9.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 1 0 0-5.2z", "#14261F", "#F4A93B", False),
     ("pos_output", _("Customer display"), _("The menu and the order being rung up, for customers"),
      "M3 4h18v12H3z M8 20h8 M12 16v4", "#E6ECE8", "#1F4A3A", False),
-    ("order_progress", _("Status board"), _("Orders in progress and ready, for the pickup counter"),
+    ("screens", _("Screens"), _("Status boards and signage built from widgets"),
      "M4 5h16 M4 10h16 M4 15h10 M4 20h7", "#FBE9E5", "#8E2914", False),
     ("admin-index", _("Admin"), _("Menus, staff, stations and reports"),
      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1",

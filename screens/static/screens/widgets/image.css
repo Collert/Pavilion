@@ -1,0 +1,3 @@
+.image-widget { position: relative; overflow: hidden; }
+.image-widget.is-rounded { border-radius: calc(var(--u) * 36); }
+.image-widget img { position: absolute; inset: 0; width: 100%; height: 100%; }

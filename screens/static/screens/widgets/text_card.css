@@ -1,0 +1,61 @@
+.text-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: calc(var(--u) * 36);
+    overflow: hidden;
+}
+.text-card-image {
+    flex: 1 1 40%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--u) * 40) calc(var(--u) * 40) 0;
+}
+.text-card-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.text-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: calc(var(--u) * 40);
+}
+.text-card-body > * { flex: none; }
+/* Auto margins rather than justify-content, so text that doesn't fit is cut at the bottom, never the top */
+.text-card--center .text-card-body > :first-child,
+.text-card--bottom .text-card-body > :first-child { margin-top: auto; }
+.text-card--center .text-card-body > :last-child { margin-bottom: auto; }
+.text-card-tag {
+    align-self: flex-start;
+    height: calc(var(--u) * 38);
+    padding: 0 calc(var(--u) * 16);
+    border-radius: calc(var(--u) * 19);
+    background: var(--ink);
+    color: var(--accent);
+    font-size: calc(var(--u) * 17);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+}
+.text-card h3 {
+    margin: calc(var(--u) * 18) 0 0;
+    font-size: calc(var(--u) * 52);
+    line-height: 1.04;
+    font-weight: 800;
+    letter-spacing: -.03em;
+}
+.text-card-body > h3:first-child { margin-top: 0; }
+.text-card p {
+    margin: calc(var(--u) * 14) 0 0;
+    font-size: calc(var(--u) * 22);
+    line-height: 1.45;
+    font-weight: 500;
+    opacity: .72;
+}
+.text-card-footer {
+    margin-top: calc(var(--u) * 28);
+    font-size: calc(var(--u) * 56);
+    font-weight: 800;
+    letter-spacing: -.03em;
+}
+.text-card--top .text-card-footer { margin-top: auto; padding-top: calc(var(--u) * 28); }

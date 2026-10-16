@@ -1,0 +1,186 @@
+/* Order list (docs/mockups/screens/OrderBoard-html). Sizes are design pixels. */
+.orders {
+    display: flex;
+    flex-direction: column;
+}
+.orders--dark {
+    background: var(--night);
+    color: var(--paper);
+    box-shadow: 0 calc(var(--u) * 30) calc(var(--u) * 60) calc(var(--u) * -30) rgba(28, 35, 33, .6);
+}
+
+.orders-head {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 14);
+}
+.orders-icon {
+    width: calc(var(--u) * 52);
+    height: calc(var(--u) * 52);
+    border-radius: calc(var(--u) * 16);
+    background: var(--paper);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+}
+.orders-icon svg { width: calc(var(--u) * 30); height: calc(var(--u) * 30); }
+.orders--dark .orders-icon { background: var(--accent); }
+
+.orders-titles { flex: 1; min-width: 0; }
+.orders h2 {
+    margin: 0;
+    font-size: calc(var(--u) * 36);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -.03em;
+}
+.orders-sub {
+    font-size: calc(var(--u) * 18);
+    font-weight: 500;
+    color: var(--muted);
+    margin-top: calc(var(--u) * 4);
+}
+.orders--dark .orders-sub { color: rgba(244, 241, 234, .65); }
+
+.orders-count {
+    height: calc(var(--u) * 44);
+    min-width: calc(var(--u) * 44);
+    padding: 0 calc(var(--u) * 14);
+    border-radius: calc(var(--u) * 22);
+    background: var(--paper);
+    font-size: calc(var(--u) * 22);
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+.orders--dark .orders-count { background: var(--accent); color: var(--ink); }
+
+.orders-grid {
+    margin-top: calc(var(--u) * 24);
+    display: grid;
+    gap: calc(var(--u) * 12);
+    align-content: start;
+    min-height: 0;
+    overflow: hidden;
+}
+.orders--ready .orders-grid { gap: calc(var(--u) * 14); }
+
+/* ---------- tiles ---------- */
+
+.order-tile {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 14);
+    transition: background-color .6s ease, color .6s ease;
+}
+.order-main { flex: 1; min-width: 0; display: block; }
+.order-name {
+    display: block;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.order-meta { display: flex; align-items: center; gap: calc(var(--u) * 12); }
+.order-number { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Preparing: compact, on paper, with a "working" ellipsis */
+.orders--preparing .order-tile {
+    height: calc(var(--u) * 96);
+    border-radius: calc(var(--u) * 22);
+    padding: 0 calc(var(--u) * 20);
+    background: var(--paper);
+    color: var(--ink);
+}
+.orders--preparing .order-name { font-size: calc(var(--u) * 32); }
+.orders--preparing .order-meta { margin-top: calc(var(--u) * 6); }
+.orders--preparing .order-number { font-size: calc(var(--u) * 18); color: var(--faint); }
+.orders--preparing .order-tile.is-entering { animation: tile-slide-in .75s cubic-bezier(.2, .8, .2, 1) both; }
+
+.order-dots { display: flex; gap: calc(var(--u) * 5); flex: none; }
+.order-dots span {
+    width: calc(var(--u) * 9);
+    height: calc(var(--u) * 9);
+    border-radius: 50%;
+    background: #C9C3B5;
+    animation: order-dots 1.4s ease-in-out infinite;
+}
+.order-dots span:nth-child(2) { animation-delay: .2s; }
+.order-dots span:nth-child(3) { animation-delay: .4s; }
+
+/* Ready: big names; just-ready ones glow yellow */
+.orders--ready .order-tile {
+    height: calc(var(--u) * 132);
+    border-radius: calc(var(--u) * 24);
+    padding: 0 calc(var(--u) * 24);
+    background: var(--night-tile);
+    color: var(--paper);
+}
+.orders--light.orders--ready .order-tile { background: var(--paper); color: var(--ink); }
+.orders--ready .order-name { font-size: calc(var(--u) * 44); }
+.orders--ready .order-meta { margin-top: calc(var(--u) * 8); }
+.orders--ready .order-number { font-size: calc(var(--u) * 22); color: rgba(244, 241, 234, .5); }
+.orders--light.orders--ready .order-number { color: var(--faint); }
+.orders--ready .order-tile.is-fresh {
+    background: var(--accent);
+    color: var(--ink);
+    animation: tile-fresh 1.6s ease-in-out infinite;
+}
+.orders--ready .order-tile.is-fresh .order-number { color: rgba(28, 35, 33, .6); }
+.orders--ready .order-tile.is-entering {
+    animation: tile-pop-in .8s cubic-bezier(.2, .8, .2, 1) both, tile-fresh 1.6s ease-in-out .8s infinite;
+}
+.order-badge {
+    height: calc(var(--u) * 30);
+    padding: 0 calc(var(--u) * 12);
+    border-radius: calc(var(--u) * 15);
+    background: var(--night);
+    color: var(--accent);
+    font-size: calc(var(--u) * 15);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.orders-more, .orders-empty {
+    margin: calc(var(--u) * 14) 0 0;
+    font-size: calc(var(--u) * 18);
+    font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+}
+.orders-empty { grid-column: 1 / -1; }
+.orders--dark .orders-more, .orders--dark .orders-empty { color: rgba(244, 241, 234, .65); }
+
+.orders-footer {
+    margin-top: auto;
+    padding-top: calc(var(--u) * 14);
+    font-size: calc(var(--u) * 17);
+    font-weight: 500;
+    color: var(--muted);
+}
+.orders--dark .orders-footer { color: rgba(244, 241, 234, .55); }
+
+@keyframes order-dots { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+@keyframes tile-fresh {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(242, 193, 78, 0); }
+    50% { box-shadow: 0 0 0 calc(var(--u) * 10) rgba(242, 193, 78, .35); }
+}
+@keyframes tile-slide-in {
+    0% { opacity: 0; transform: translateY(calc(var(--u) * 28)) scale(.92); }
+    60% { opacity: 1; transform: translateY(calc(var(--u) * -4)) scale(1.02); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes tile-pop-in {
+    0% { opacity: 0; transform: translateX(calc(var(--u) * -120)) scale(.8); }
+    55% { opacity: 1; transform: translateX(calc(var(--u) * 8)) scale(1.04); }
+    100% { opacity: 1; transform: none; }
+}
