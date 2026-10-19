@@ -24,3 +24,4 @@ python-barcode~=0.15
 sendgrid~=6.11
 pywebpush~=2.0
 gTTS~=2.5
+sentry-sdk~=2.0

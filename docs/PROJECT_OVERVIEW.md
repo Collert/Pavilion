@@ -414,6 +414,8 @@ The Copilot WebSockets branch is superseded by this.
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
 `ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/LOCATION_ID/DEVICE_ID/WEBHOOK_SIGNATURE_KEY`,
 `SENDGRID_API_KEY`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
+`BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
+`BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
 
 ### Local dev (Windows)
 

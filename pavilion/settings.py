@@ -9,6 +9,8 @@ installed applications, middleware, and other project-specific settings.
 
 from pathlib import Path
 import os
+import sys
+import sentry_sdk
 from dotenv import load_dotenv
 from django.urls import reverse_lazy
 import socket
@@ -345,3 +347,15 @@ else:
             'LOCATION': 'unique-snowflake',
         }
     }
+# Error reporting to Bugsink (Sentry-compatible). The DSN is public by design (it only allows sending events).
+# Set BUGSINK_SEND_PII=true on deployments that may attach user data (username, email, IP) to events.
+BUGSINK_DSN = os.getenv('BUGSINK_DSN', 'https://183054b18a2f448aa503ef88e279e13e@bugs.adpit.space/2')
+BUGSINK_SEND_PII = os.getenv('BUGSINK_SEND_PII', 'false').lower() == 'true'
+if BUGSINK_DSN and 'test' not in sys.argv:
+    sentry_sdk.init(
+        dsn=BUGSINK_DSN,
+        environment=os.getenv('ENVIRONMENT', 'development'),
+        send_default_pii=BUGSINK_SEND_PII,
+        traces_sample_rate=0,  # Bugsink does not use performance traces
+        max_request_body_size='never',  # request bodies can hold PINs, card data and passwords
+    )
