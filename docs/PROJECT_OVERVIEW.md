@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -483,6 +483,16 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   selections), filters and the rule ("3 free, then $0.10"). Pricing per order is `pricing._charge_condiments`;
   the register's sheet says "3 free per order, then +$0.10". Dine-in mode and ask-on-takeout are saved but the
   register doesn't prompt before bagging yet. Components that are only condiments leave the Components list.
+- **Disposables** (`admin_disposables`, `disposables.py`, 2026-10-21): `Disposable` (size, category, material, bin,
+  order types, counted per dish / per order / per guest / on request, dishes, count, fee label and price) sits on an
+  ingredient counted in ea that holds the buying (supplier, units per case, case price) and the stock. When an order
+  is created, `pricing.disposables_for` picks the per-dish and per-order ones for its type (`models.order_type`:
+  delivery, pickup = to go, else dine-in), `orders.use_disposables` counts them off stock (`DisposableUse`) and fees
+  become `OrderFee` lines (`Order.fees`, after tax, on the register's and store's totals and the receipts). The
+  register sends `toGo` and the store `method`/`toGo` with their quotes. On-request items (the register's "Need
+  cutlery?" prompt, the store's checkbox) and per-guest items (catering) aren't counted yet. The list has KPIs
+  (packaging per takeout order, stock value, compostable share, under par), filters and days of stock left; the
+  editor follows the mockup. Disposables' ingredients leave the Ingredients list and the recipe picker.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

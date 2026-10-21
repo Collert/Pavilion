@@ -95,7 +95,8 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   POS orders start at 1, online/delivery at 0 (approved on the KDS). Change statuses only via `Order.set_station_status()`.
 - **Create orders only via `pos_server.orders.create_order()`.** It prices the cart *lines* with
   `pricing.price_cart()` (never trust browser prices/totals; line format is in `pricing.py`'s docstring), checks stock,
-  takes stock for what was actually picked, records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
+  takes stock for what was actually picked, counts disposables (packaging) off stock for the order type and adds their
+  fees (`OrderFee`, after tax: total = subtotal − discount + tax + fees), records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
   with a `GiftCardAuthorization`, and rolls back on `OrderError`. `collect_order()` is the order → dict serializer for
   screens (`dishes` = what stations make, `lines` = what was sold).
 - **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*

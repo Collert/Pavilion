@@ -14,7 +14,8 @@ from django.utils.translation import gettext as _
 
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from inventory.views import craft_component
-from .models import Component, Discount, Order, OrderDiscount, OrderItem, OrderPayment, OrderStation, Station
+from .models import (Component, Discount, DisposableUse, Ingredient, Order, OrderDiscount, OrderFee, OrderItem, OrderPayment,
+                     OrderStation, Station)
 from .pricing import OrderError, price_cart, to_money  # noqa: F401 (OrderError and to_money are re-exported)
 
 ZERO = Decimal("0.00")
@@ -29,6 +30,17 @@ def consume_stock(use: Counter):
             component.refresh_from_db()
         component.inventory = (component.inventory or 0) - needed
         component.save()
+
+
+def use_disposables(order, cart):
+    """Count the cart's disposables off stock, record them for the numbers, and add its fee lines."""
+    for disposable, count in cart.disposables:
+        ingredient = disposable.ingredient
+        DisposableUse.objects.create(order=order, disposable=disposable, quantity=count, cost=ingredient.cost or 0)
+        if not ingredient.unlimited:
+            Ingredient.objects.filter(pk=ingredient.pk).update(inventory=F("inventory") - count)
+    for fee in cart.fees:
+        OrderFee.objects.create(order=order, disposable=fee.disposable, label=fee.label, quantity=fee.quantity, amount=fee.amount)
 
 
 def _count_discount_uses(cart):
@@ -68,7 +80,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
 
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """
-    cart = price_cart(lines, order_discount=order_discount, channel=channel, can_manual=can_manual_discount)
+    cart = price_cart(lines, order_discount=order_discount, channel=channel, to_go=bool(fields.get("to_go_order")),
+                      can_manual=can_manual_discount)
     if not cart.lines:
         raise OrderError(_("The cart is empty."))
     total = cart.total
@@ -113,7 +126,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
 
     _count_discount_uses(cart)
     order = Order.objects.create(channel=channel, subtotal=cart.subtotal, discount=cart.discount, tax=cart.tax,
-                                 total=total, **fields)
+                                 fees=cart.fee_total, total=total, **fields)
 
     use = Counter()
     station_ids = set()
@@ -141,6 +154,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         OrderDiscount.objects.create(order=order, discount=applied.discount, label=applied.label, kind=applied.kind,
                                      value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"))
     consume_stock(use)
+    use_disposables(order, cart)
 
     OrderStation.objects.bulk_create(
         OrderStation(order=order, station_id=station_id, status=initial_status,

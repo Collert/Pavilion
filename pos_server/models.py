@@ -360,6 +360,53 @@ class Option(models.Model):
         return self.component is None or self.component.in_stock
 
 
+class Disposable(models.Model):
+    """
+    Packaging and other disposables (clamshells, cups, napkins, bags): what they are and how orders use them, on top
+    of the ingredient that holds the buying (supplier, units per case, case price, so the cost) and the stock.
+    Counted off stock when an order is created (pos_server/orders.py) for the order types it's used on: one per
+    dish for `dishes`, `count` per order, `count` per catering guest (once catering exists) or when asked for (the
+    register and store don't ask yet). With `fee`, the customer pays `fee_price` for each (OrderFee). Edited on the
+    admin's Disposables page.
+    """
+    CATEGORIES = [("containers", "Food containers"), ("cups", "Cups and lids"), ("cutlery", "Cutlery and napkins"),
+                  ("bags", "Bags and carriers"), ("plates", "Plates and trays"), ("wraps", "Wraps and liners")]
+    MATERIALS = [("bagasse", "Bagasse (sugarcane)"), ("paper", "Paper or paperboard"), ("kraft", "Kraft paper"),
+                 ("fibre", "Moulded fibre"), ("pla", "PLA (plant plastic)"), ("pet", "PET plastic"), ("pp", "PP plastic #5"),
+                 ("wood", "Wood"), ("alu", "Aluminum"), ("mixed", "Mixed materials")]
+    BINS = [("compost", "Compost"), ("recycle", "Recycling"), ("landfill", "Garbage")]
+    ORDER_TYPES = [("dine_in", "Dine-in"), ("pickup", "Pickup"), ("delivery", "Delivery"), ("catering", "Catering")]
+    PER_DISH, PER_ORDER, PER_GUEST, ON_REQUEST = "dish", "order", "guest", "request"
+    COUNTED = [(PER_DISH, "Per dish"), (PER_ORDER, "Per order"), (PER_GUEST, "Per guest"), (ON_REQUEST, "On request")]
+
+    ingredient = models.OneToOneField("Ingredient", on_delete=models.CASCADE, related_name="disposable")
+    size = models.CharField(max_length=40, blank=True, help_text="e.g. 16 oz")
+    category = models.CharField(max_length=12, choices=CATEGORIES, default="containers")
+    material = models.CharField(max_length=10, choices=MATERIALS, default="paper")
+    bin = models.CharField(max_length=10, choices=BINS, default="compost", help_text="Where it goes after use")
+    order_types = models.JSONField(default=list, blank=True, help_text="Keys of ORDER_TYPES it's used on")
+    counted = models.CharField(max_length=8, choices=COUNTED, default=PER_DISH)
+    dishes = models.ManyToManyField("Dish", blank=True, related_name="disposables", help_text="Per dish: one goes out with each")
+    count = models.PositiveSmallIntegerField(default=1, help_text="Per order or per guest")
+    fee = models.BooleanField(default=False, help_text="Charge the customer for each one")
+    fee_label = models.CharField(max_length=60, blank=True, help_text="The receipt line, e.g. Paper bag")
+    fee_price = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0.00"))
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def title(self):
+        return f"{self.ingredient.title}, {self.size}" if self.size else self.ingredient.title
+
+
+def order_type(channel, to_go=False) -> str:
+    """The Disposable.ORDER_TYPES key of an order: delivery, pickup (packed to go, at the counter or online) or dine-in."""
+    if channel == "delivery":
+        return "delivery"
+    return "pickup" if to_go else "dine_in"
+
+
 class Condiment(models.Model):
     """
     A condiment (ketchup packets, house garlic aioli): how it's served and charged, on top of the component that
@@ -430,7 +477,8 @@ class Order(models.Model):
 
     `picked_up` defaults to True and is set False when any station is needed; the order is done once it
     is True. The money fields are computed on the server when the order is created (see pos_server.orders):
-    total = subtotal - discount + tax.
+    total = subtotal - discount + tax + fees (disposables charged to the customer, like a bag fee: OrderFee rows,
+    not taxed or discounted).
     """
     order_channels = (
         ("store", "In-person"),
@@ -449,6 +497,7 @@ class Order(models.Model):
     subtotal = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Before discounts and tax")
     discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     tax = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
+    fees = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Disposables charged to the customer (OrderFee)")
     total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="What the customer pays")
     channel = models.CharField(max_length=10, choices=order_channels)
     phone = models.PositiveBigIntegerField(null=True, blank=True)
@@ -582,6 +631,29 @@ class OrderItem(models.Model):
     @property
     def line_total(self) -> Decimal:
         return self.gross - self.discount
+
+
+class OrderFee(models.Model):
+    """A charge on an order for a disposable (a paper bag): its own line on the receipt, after tax."""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="fee_lines")
+    disposable = models.ForeignKey("Disposable", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    label = models.CharField(max_length=60)
+    quantity = models.PositiveIntegerField(default=1)
+    amount = models.DecimalField(max_digits=8, decimal_places=2, help_text="For all of them")
+
+    def __str__(self):
+        return f"{self.label} ×{self.quantity} on #{self.order_id}"
+
+
+class DisposableUse(models.Model):
+    """Disposables that went out with an order (counted off stock when it was created)."""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="disposable_uses")
+    disposable = models.ForeignKey("Disposable", on_delete=models.CASCADE, related_name="uses")
+    quantity = models.PositiveIntegerField()
+    cost = models.DecimalField(max_digits=8, decimal_places=4, default=Decimal("0"), help_text="Cost of one at the time")
+
+    def __str__(self):
+        return f"{self.quantity} {self.disposable} on #{self.order_id}"
 
 
 class OrderDiscount(models.Model):

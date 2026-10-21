@@ -168,6 +168,8 @@ def order_page(order):
         totals.append({"label": d.label, "value": -d.amount})
     if order.tax:
         totals.append({"label": _("Tax"), "value": order.tax})
+    for fee in order.fee_lines.all():
+        totals.append({"label": f"{fee.label} × {fee.quantity}" if fee.quantity > 1 else fee.label, "value": fee.amount})
     totals.append({"label": _("Total"), "value": order.total, "big": True})
     if refunded:
         totals.append({"label": _("Refunded"), "value": -refunded, "red": True})
@@ -299,6 +301,8 @@ def receipt_data(order, store_name):
         totals.append({"label": "Discount", "value": f"−${order.discount:.2f}"})
     if order.tax:
         totals.append({"label": "Tax", "value": f"${order.tax:.2f}"})
+    for fee in order.fee_lines.all():
+        totals.append({"label": f"{fee.label} × {fee.quantity}" if fee.quantity > 1 else fee.label, "value": f"${fee.amount:.2f}"})
     totals.append({"label": "Total", "value": f"${order.total:.2f}"})
     refunded = refunds.refunded_total(order)
     if refunded:

@@ -25,7 +25,7 @@ from inventory.models import Recipe, RecipeStep
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
@@ -34,6 +34,7 @@ from . import components as components_data
 from . import condiments as condiments_data
 from . import dashboard as dashboard_data
 from . import dishes as dishes_data
+from . import disposables as disposables_data
 from . import ingredients as ingredients_data
 from . import menus as menus_data
 from . import orders as orders_data
@@ -729,3 +730,55 @@ def condiment_edit(request, condiment_id):
                              else _("%(condiment)s saved") % {"condiment": target.component.title})
             return redirect("admin_condiment", condiment_id=target.id)
     return page(request, "admin_portal/condiment.html", "condiments", {"e": condiments_data.editor(condiment, draft)})
+
+
+# ---------- disposables ----------
+
+@superuser_required
+def disposables(request):
+    data = disposables_data.disposable_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/disposables.html", "disposables", {"l": data})
+
+
+@superuser_required
+@require_POST
+def disposable_new(request):
+    ingredient = Ingredient.objects.create(title=_("New item"), unit_of_measurement="ea", category="other", pack_size=100)
+    disposable = Disposable.objects.create(ingredient=ingredient, order_types=["pickup", "delivery"])
+    return redirect("admin_disposable", disposable_id=disposable.id)
+
+
+@superuser_required
+def disposable_edit(request, disposable_id):
+    """The disposable editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    disposable = get_object_or_404(Disposable.objects.select_related("ingredient__supplier", "ingredient__storage"), pk=disposable_id)
+    if request.method != "POST":
+        draft = disposables_data.draft_from_disposable(disposable)
+        return page(request, "admin_portal/disposable.html", "disposables", {"e": disposables_data.editor(disposable, draft)})
+    op = request.POST.get("op", "")
+    draft = disposables_data.apply_op(disposables_data.draft_from_post(request.POST), op)
+    if op in ("archive", "restore"):
+        ingredient = disposable.ingredient
+        ingredient.archived = op == "archive"
+        ingredient.save(update_fields=["archived"])
+        if op == "archive":
+            messages.success(request, _("%(item)s archived") % {"item": disposable.title})
+            return redirect("admin_disposables")
+        messages.success(request, _("%(item)s is back") % {"item": disposable.title})
+        return redirect("admin_disposable", disposable_id=disposable.id)
+    if op == "leave":
+        if not disposables_data.is_dirty(draft, disposable):
+            return redirect("admin_disposables")
+        return page(request, "admin_portal/disposable.html", "disposables", {"e": disposables_data.editor(disposable, draft, leave_ask=True)})
+    if op in ("save", "duplicate"):
+        target = Disposable() if op == "duplicate" else disposable
+        if op == "duplicate":  # its own ingredient, with nothing on hand
+            draft.update(title=(_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140], inventory="0", inventory_was="0")
+        issue = disposables_data.problems(draft, target)
+        if issue:
+            messages.error(request, issue)
+        else:
+            disposables_data.save_draft(draft, target)
+            messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate" else _("%(item)s saved") % {"item": target.title})
+            return redirect("admin_disposable", disposable_id=target.id)
+    return page(request, "admin_portal/disposable.html", "disposables", {"e": disposables_data.editor(disposable, draft)})

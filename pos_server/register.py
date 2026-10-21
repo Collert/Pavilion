@@ -209,7 +209,7 @@ def quote(request):
     except (ValueError, TypeError, AttributeError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     try:
-        cart = price_cart(lines or [], order_discount=order_discount, channel="store",
+        cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(_body.get("toGo")),
                           can_manual=can_manual_discount(request.user), strict=False)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
@@ -281,7 +281,7 @@ def card_checkout(request):
     except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The amount is invalid.")}, status=400)
     try:
-        cart = price_cart(lines or [], order_discount=order_discount, channel="store",
+        cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(body.get("toGo")),
                           can_manual=can_manual_discount(request.user))
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)

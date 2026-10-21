@@ -297,7 +297,7 @@ def editor(recipe, draft, leave_ask=False):
     else:
         total_hint = _("Longest timer %(a)s · timers add up to %(b)s.") % {"a": human(longest), "b": human(total_timers)}
 
-    ingredients = {str(i.id): i for i in Ingredient.objects.order_by("title")}
+    ingredients = {str(i.id): i for i in Ingredient.objects.select_related("disposable").order_by("title")}
     components = {str(c.id): c for c in Component.objects.order_by("title")}
     used = {(g["kind"], g["item"]) for g in draft["ings"]}
     ings = []
@@ -323,7 +323,7 @@ def editor(recipe, draft, leave_ask=False):
         "use_timers": _("Use timers (%(t)s)") % {"t": human(total_timers)},
         "ings": ings, "ing_sub": (_("What goes in for one batch of %(n)s %(unit)s") if kind == "transform" else _("For one batch · makes %(n)s %(unit)s"))
         % {"n": f"{yield_n:g}", "unit": unit},
-        "ingredient_choices": [i for k, i in ingredients.items() if ("i", k) not in used and not i.archived],
+        "ingredient_choices": [i for k, i in ingredients.items() if ("i", k) not in used and not i.archived and not hasattr(i, "disposable")],
         "component_choices": [c for k, c in components.items() if ("c", k) not in used and not c.archived],
         "steps": steps, "processes": SCENES,
         "steps_sub": ngettext("%(n)d step", "%(n)d steps", len(steps)) % {"n": len(steps)} + " · "

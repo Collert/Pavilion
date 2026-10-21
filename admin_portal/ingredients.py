@@ -202,7 +202,8 @@ def save_draft(draft, ingredient):
 
 def ingredient_list(query="", show="all"):
     archived = show == "archived"
-    ingredients = list(Ingredient.objects.filter(archived=archived).select_related("supplier").order_by("title"))
+    # Disposables (packaging) have their own page
+    ingredients = list(Ingredient.objects.filter(archived=archived, disposable__isnull=True).select_related("supplier").order_by("title"))
     q = (query or "").strip().lower()
     if q:
         ingredients = [i for i in ingredients if q in i.title.lower() or (i.supplier and q in i.supplier.name.lower())]
@@ -236,13 +237,13 @@ def ingredient_list(query="", show="all"):
                ("vegan", _("Vegan"), lambda r: DIETS[1][3](r["flags"])), ("gf", _("Gluten-free"), lambda r: not r["flags"]["gluten"])]
     tests = {key: test for key, _label, test in filters}
     if archived:
-        chips = [{"key": "all", "label": _("All"), "count": Ingredient.objects.filter(archived=False).count()}]
+        chips = [{"key": "all", "label": _("All"), "count": Ingredient.objects.filter(archived=False, disposable__isnull=True).count()}]
         shown = rows
     else:
         show = show if show in tests else "all"
         chips = [{"key": key, "label": label, "count": sum(1 for r in rows if test(r))} for key, label, test in filters]
         shown = [r for r in rows if tests[show](r)]
-    archived_count = Ingredient.objects.filter(archived=True).count()
+    archived_count = Ingredient.objects.filter(archived=True, disposable__isnull=True).count()
     if archived_count:
         chips.append({"key": "archived", "label": _("Archived"), "count": archived_count})
     names = dict(Ingredient.CATEGORIES)

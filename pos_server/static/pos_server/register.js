@@ -271,6 +271,7 @@ function cartBody(extra = {}) {
     return {
         lines: state.lines.map(serverLine),
         orderDiscount: state.orderDiscount ? state.orderDiscount.spec : null,
+        toGo: state.toGo,  // to go or for here decides the packaging fees
         ...extra,
     };
 }
@@ -669,6 +670,9 @@ function renderTotals() {
     }
     $("#tax").textContent = fmt(quote?.tax || 0);
     $("#tax-row").hidden = parseFloat(boot.taxRate) === 0;
+    // Disposables charged to the customer (a paper bag), after tax
+    $("#fee-rows").replaceChildren(...(quote?.fees || []).map((fee) => el("div", { className: "total-row" }, [
+        el("span", { text: fee.quantity > 1 ? `${fee.label} × ${fee.quantity}` : fee.label }), el("span", { className: "ink", text: fmt(fee.amount) })])));
     $("#pay-total").textContent = fmt(quote?.total ?? subtotal);
     $("#quote-error").hidden = !ui.quoteError;
     $("#quote-error").replaceChildren(...(ui.quoteError ? [el("span", { icon: "alert" }), ui.quoteError] : []));
@@ -1598,7 +1602,7 @@ $("#service").addEventListener("click", (e) => {
     const button = e.target.closest("button");
     if (!button) return;
     state.toGo = button.dataset.togo === "1";
-    changed({ quote: false });
+    changed();  // packaging fees can differ for here and to go
 });
 $("#clear-cart").addEventListener("click", clearCart);
 $("#disc-toggle").addEventListener("click", () => { ui.discListOpen = !ui.discListOpen; renderTotals(); });

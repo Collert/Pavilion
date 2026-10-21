@@ -12,13 +12,13 @@ from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
 from pos_server import dish_info
-from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Condiment, Extra, Dish, DishComponent,
+from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Condiment, Disposable, Extra, Dish, DishComponent,
                                Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, StorageLocation, Supplier)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, components, condiments, dashboard, dishes, ingredients, recipes, reports, services
+from . import combos, components, condiments, dashboard, dishes, disposables, ingredients, recipes, reports, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -1257,6 +1257,78 @@ class CondimentTests(AdminFixture, TestCase):
         self.assertRedirects(self.post(self.aioli, "archive"), reverse("admin_condiments"))
         self.assertTrue(Component.objects.get(pk=self.aioli.component_id).archived)
         self.assertFalse(Extra.objects.filter(component_id=self.aioli.component_id).exists())
+
+
+def disposable_fields(draft, **changes):
+    """The disposable editor's POST fields for a draft (admin_portal.disposables.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "size", "category", "material", "material_was", "bin", "counted", "count", "fee_label", "fee_price",
+                                  "supplier", "case_size", "case_price", "inventory", "inventory_was", "par", "storage")}
+    data.update(order_types=draft["order_types"], dishes=draft["dishes"], fee_was=draft.get("fee_was", "1" if draft["fee"] else "0"))
+    if draft["fee"]:
+        data["fee"] = "1"
+    return data
+
+
+class DisposableAdminTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+        shell = Ingredient.objects.create(title="Clamshell", unit_of_measurement="ea", pack_size=500, pack_price=Decimal("62.50"), inventory=300, par=500)
+        cls.shell = Disposable.objects.create(ingredient=shell, size="6 in", material="bagasse", order_types=["pickup", "delivery"])
+        cls.shell.dishes.add(cls.burger)
+        bag = Ingredient.objects.create(title="Paper bag", unit_of_measurement="ea", pack_size=250, pack_price=Decimal("55.00"), inventory=400, par=100)
+        cls.bag = Disposable.objects.create(ingredient=bag, category="bags", material="kraft", bin="recycle", order_types=["pickup"],
+                                            counted=Disposable.PER_ORDER, fee=True, fee_label="Paper bag", fee_price=Decimal("0.25"))
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, disposable):
+        return disposables.draft_from_disposable(Disposable.objects.get(pk=disposable.pk))
+
+    def post(self, disposable, op, draft=None, **changes):
+        return self.client.post(reverse("admin_disposable", args=[disposable.id]), {**disposable_fields(draft or self.draft(disposable), **changes), "op": op})
+
+    def test_list_counts_what_orders_used(self):
+        order = create_order(lines=[self.dish(self.burger, 2)], channel="web", to_go_order=True, initial_status=OrderStation.STATUS_PENDING,
+                             verify_payment=lambda remaining: None)
+        self.assertEqual(order.fees, Decimal("0.25"))
+        l = self.client.get(reverse("admin_disposables")).context["l"]
+        shell = next(r for g in l["groups"] for r in g["rows"] if r["d"] == self.shell)
+        self.assertEqual((shell["cost"], shell["rule"], shell["types"], shell["used"]["used"], shell["state"]), ("$0.125", "1 per burger", ["Pickup", "Delivery"], 2, "under"))
+        bag = next(r for g in l["groups"] for r in g["rows"] if r["d"] == self.bag)
+        self.assertEqual((bag["fee"], bag["used"]["charged"], bag["bin_label"]), ("$0.25 fee", Decimal("0.25"), "Recycling"))
+        self.assertEqual(l["kpis"][0]["value"], "$0.47")  # (2 × 0.125 + 0.22) for one takeout order
+        self.assertEqual({f["key"]: f["count"] for f in l["filters"]}["fee"], 1)
+        self.assertEqual(Ingredient.objects.get(pk=self.shell.ingredient_id).inventory, 298)
+        self.assertNotIn("Clamshell", [r["i"].title for g in self.client.get(reverse("admin_ingredients")).context["l"]["groups"] for r in g["rows"]])
+
+    def test_editor_material_fee_and_counting(self):
+        e = self.post(self.shell, "preview", material="pet").context["e"]
+        self.assertEqual(e["d"]["bin"], "recycle")  # plastic suggests recycling
+        e = self.post(self.shell, "preview", fee=True, fee_was="0").context["e"]
+        self.assertEqual((e["d"]["fee_label"], e["d"]["fee_price"]), ("Clamshell", "0.25"))
+        e = self.post(self.bag, "count_more").context["e"]
+        self.assertEqual((e["d"]["count"], e["cost_lines"][0]["label"]), ("2", "Adds to every pickup order"))
+        self.assertEqual(self.post(self.bag, "preview", fee_label="").context["e"]["status"], "Name the receipt line")
+        self.post(self.shell, "save", self.draft(self.shell), counted="order", order_types=["delivery"], case_price="70")
+        shell = Disposable.objects.get(pk=self.shell.pk)
+        self.assertEqual((shell.counted, shell.order_types, list(shell.dishes.all()), shell.ingredient.cost, shell.ingredient.previous_cost),
+                         ("order", ["delivery"], [], Decimal("0.14"), Decimal("0.125")))
+
+    def test_new_duplicate_and_archive(self):
+        response = self.client.post(reverse("admin_disposable_new"))
+        new = Disposable.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_disposable", args=[new.id]))
+        self.post(self.bag, "duplicate")
+        copy = Disposable.objects.latest("id")
+        self.assertEqual((copy.ingredient.title, copy.fee, copy.ingredient.inventory), ("Paper bag (copy)", True, 0))
+        self.assertNotEqual(copy.ingredient_id, self.bag.ingredient_id)
+        self.assertRedirects(self.post(self.bag, "archive"), reverse("admin_disposables"))
+        self.assertEqual(price_cart([self.dish(self.burger)], channel="web", to_go=True).fees[0].label, "Paper bag")  # the copy still charges
+        Disposable.objects.filter(pk=copy.pk).update(fee=False)
+        self.assertEqual(price_cart([self.dish(self.burger)], channel="web", to_go=True).fees, [])  # archived ones don't
 
 
 class UnitTests(TestCase):

@@ -32,6 +32,10 @@ servings of it across the whole cart are free and each one after costs `Condimen
 lines in cart order; a line with a quantity above 1 gets the same count charged on each unit, rounding in the
 customer's favour, so unit prices stay whole cents. The charged count per unit is kept in the line's selection
 ("charged": {component id: n}). Other extras (napkins) cost their own `Extra.price` each.
+
+Disposables: for the order's type (dine-in, pickup, delivery: pass `to_go`), each Disposable counted per dish or
+per order goes out with it (`PricedCart.disposables`, counted off stock by create_order). Those with a fee add a
+fee line (`PricedCart.fees`) after tax: total = subtotal - discount + tax + fees.
 """
 import datetime
 from collections import Counter
@@ -43,7 +47,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
-from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra, OptionGroup
+from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Disposable, Dish, DishComponent, Extra, OptionGroup, order_type
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0.00")
@@ -570,11 +574,47 @@ def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, it
 # ---------- the whole cart ----------
 
 @dataclass
+class Fee:
+    """A disposable charged to the customer (a paper bag), its own line after tax."""
+    disposable: Disposable
+    label: str
+    quantity: int
+    amount: Decimal
+
+    def as_json(self):
+        return {"label": self.label, "quantity": self.quantity, "amount": to_cents(self.amount)}
+
+
+def disposables_for(lines, kind):
+    """[(Disposable, how many)] going out with these priced lines for an order of `kind` (Disposable.ORDER_TYPES)."""
+    out = []
+    candidates = (Disposable.objects.filter(ingredient__archived=False, counted__in=[Disposable.PER_DISH, Disposable.PER_ORDER])
+                  .select_related("ingredient").prefetch_related("dishes"))
+    for disposable in candidates:
+        if kind not in (disposable.order_types or []):
+            continue
+        if disposable.counted == Disposable.PER_ORDER:
+            count = disposable.count
+        else:
+            dish_ids = {d.id for d in disposable.dishes.all()}
+            count = sum(line.quantity for line in lines for picked in line.picks if picked.dish and picked.dish.id in dish_ids)
+        if count > 0:
+            out.append((disposable, count))
+    return out
+
+
+@dataclass
 class PricedCart:
     lines: list
     subtotal: Decimal
     order_discount: AppliedDiscount = None
     order_discount_error: str = ""
+    disposables: list = field(default_factory=list)  # [(Disposable, count)] that go out with it
+    fees: list = field(default_factory=list)          # [Fee]
+
+    @property
+    def fee_total(self) -> Decimal:
+        return sum((fee.amount for fee in self.fees), ZERO)
 
     @property
     def line_discounts(self) -> Decimal:
@@ -590,7 +630,7 @@ class PricedCart:
 
     @property
     def total(self) -> Decimal:
-        return self.subtotal - self.discount + self.tax
+        return self.subtotal - self.discount + self.tax + self.fee_total
 
     @property
     def item_count(self) -> int:
@@ -615,13 +655,15 @@ class PricedCart:
             "orderDiscountError": self.order_discount_error,
             "subtotal": to_cents(self.subtotal), "discount": to_cents(self.discount),
             "tax": to_cents(self.tax), "taxRate": str(tax_rate()), "total": to_cents(self.total),
+            "fees": [fee.as_json() for fee in self.fees],
             "count": self.item_count,
         }
 
 
-def price_cart(lines, *, order_discount=None, channel="store", can_manual=False, strict=True, now=None) -> PricedCart:
+def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, strict=True, now=None) -> PricedCart:
     """
-    Validate and price a cart. Raises OrderError for anything wrong with the lines.
+    Validate and price a cart. Raises OrderError for anything wrong with the lines. `to_go` (packed to take away)
+    and the channel decide the order type, which decides the disposables and their fees.
 
     strict=False (the register's live quote) drops discounts that can't be used and says why in
     `discount_error` / `order_discount_error`, and lets combo slots that must be asked for fall back to their
@@ -653,6 +695,9 @@ def price_cart(lines, *, order_discount=None, channel="store", can_manual=False,
             if strict:
                 raise
             cart.order_discount_error = str(e)
+    cart.disposables = disposables_for(priced, order_type(channel, to_go))
+    cart.fees = [Fee(disposable, disposable.fee_label or disposable.title, count, money(disposable.fee_price * count))
+                 for disposable, count in cart.disposables if disposable.fee and disposable.fee_price > 0]
     return cart
 
 

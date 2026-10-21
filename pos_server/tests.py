@@ -20,7 +20,7 @@ from online_store.models import RejectedOrder
 from payments.models import PaymentAuthorization, Transaction
 from users.models import Staff
 from .menu_schedule import Schedule
-from .models import (CashDrawerSession, RegisterSignIn, Combo, Condiment, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
+from .models import (CashDrawerSession, RegisterSignIn, Combo, Condiment, Disposable, Ingredient, order_type, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
                      Extra, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
 from .orders import OrderError, create_order
 from .pricing import DishKit, dish_queryset, price_cart
@@ -416,6 +416,43 @@ class CreateOrderTests(MenuFixture, TestCase):
         finally:
             order_ready.disconnect(handler)
         self.assertEqual(received, [order.pk])
+
+
+class DisposableTests(MenuFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+        def disposable(title, counted, types, inventory=100, **fields):
+            ingredient = Ingredient.objects.create(title=title, unit_of_measurement="ea", pack_size=100, pack_price=Decimal("10.00"), inventory=inventory)
+            return Disposable.objects.create(ingredient=ingredient, counted=counted, order_types=types, **fields)
+
+        cls.clamshell = disposable("Clamshell", Disposable.PER_DISH, ["pickup", "delivery"])
+        cls.clamshell.dishes.add(cls.burger)
+        cls.bag = disposable("Paper bag", Disposable.PER_ORDER, ["pickup"], fee=True, fee_label="Paper bag", fee_price=Decimal("0.25"))
+        cls.napkins = disposable("Napkins", Disposable.PER_ORDER, ["dine_in", "pickup"], count=2)
+        cls.straw = disposable("Straw", Disposable.ON_REQUEST, ["pickup"])
+
+    def test_order_type(self):
+        self.assertEqual([order_type("store"), order_type("store", True), order_type("web", False), order_type("delivery")],
+                         ["dine_in", "pickup", "dine_in", "delivery"])
+
+    def test_to_go_orders_use_packaging_and_pay_the_bag_fee(self):
+        lines = [self.dish(self.burger, 2), self.dish(self.coffee)]
+        here = price_cart(lines)
+        self.assertEqual(([(d.ingredient.title, n) for d, n in here.disposables], here.fees), ([("Napkins", 2)], []))
+        cart = price_cart(lines, to_go=True)
+        self.assertEqual(sorted((d.ingredient.title, n) for d, n in cart.disposables), [("Clamshell", 2), ("Napkins", 2), ("Paper bag", 1)])
+        self.assertEqual(cart.total, cart.subtotal + Decimal("0.25"))
+        self.assertEqual(cart.as_json()["fees"], [{"label": "Paper bag", "quantity": 1, "amount": 25}])
+        order = create_order(lines=lines, channel="store", to_go_order=True, initial_status=OrderStation.STATUS_APPROVED,
+                             payments=[{"method": "card", "amount": str(cart.total)}])
+        self.assertEqual((order.fees, order.total), (Decimal("0.25"), cart.total))
+        self.assertEqual(list(order.fee_lines.values_list("label", "amount")), [("Paper bag", Decimal("0.25"))])
+        self.assertEqual(Ingredient.objects.get(pk=self.clamshell.ingredient_id).inventory, 98)
+        self.assertEqual({u.disposable_id: u.quantity for u in order.disposable_uses.all()},
+                         {self.clamshell.id: 2, self.bag.id: 1, self.napkins.id: 2})
+        self.assertEqual(Ingredient.objects.get(pk=self.straw.ingredient_id).inventory, 100)  # on request: nobody asks yet
 
 
 class MenuScheduleTests(TestCase):

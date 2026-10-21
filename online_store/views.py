@@ -102,8 +102,9 @@ def dish(request, id):
 
 def cart_quote(request):
     """
-    Price the online cart for display: {"lines": [...], "coupon": "CODE"} (see pos_server.pricing). A coupon
-    that can't be used is reported in `orderDiscountError` and left out of the totals.
+    Price the online cart for display: {"lines": [...], "coupon": "CODE", "method": "pickup"|"delivery", "toGo": bool}
+    (see pos_server.pricing; the method and to-go decide the disposables' fees). A coupon that can't be used is
+    reported in `orderDiscountError` and left out of the totals.
     """
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -111,10 +112,12 @@ def cart_quote(request):
         body = json.loads(request.body)
         lines = body.get("lines") or []
         coupon = str(body.get("coupon") or "").strip()
+        delivery = body.get("method") == "delivery"
     except (ValueError, TypeError, AttributeError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     try:
-        cart = price_cart(lines, order_discount={"code": coupon} if coupon else None, channel="web", strict=False)
+        cart = price_cart(lines, order_discount={"code": coupon} if coupon else None, channel="delivery" if delivery else "web",
+                          to_go=delivery or bool(body.get("toGo")), strict=False)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     return JsonResponse(cart.as_json())

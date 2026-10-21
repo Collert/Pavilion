@@ -590,6 +590,7 @@
                 rows.push([gettext("Subtotal"), fmt(quote.subtotal)]);
                 if (quote.discount) rows.push([quote.orderDiscount ? `${quote.orderDiscount.label} · ${quote.orderDiscount.short}` : gettext("Discount"), "−" + fmt(quote.discount)]);
                 if (quote.tax) rows.push([gettext("Tax"), fmt(quote.tax)]);
+                for (const fee of quote.fees || []) rows.push([fee.quantity > 1 ? `${fee.label} × ${fee.quantity}` : fee.label, fmt(fee.amount)]);
                 if (cart.giftCents) rows.push([gettext("Gift cards"), "−" + fmt(cart.giftCents)]);
                 rows.push([gettext("To pay"), fmt(Math.max(0, quote.total - cart.giftCents))]);
             }
@@ -615,7 +616,17 @@
             updateCart();
         }
 
-        // Ask the server for the real total (discount, tax), then refresh everything that shows the cart
+        // Pickup or delivery, and for here or to go: they decide the packaging fees in the quote
+        function orderType() {
+            const method = document.querySelector('input[name="delivery-pickup-toggle"]:checked')?.value || "pickup";
+            const toGo = document.querySelector('input[name="here-to-go-toggle"]:checked')?.value === "go";
+            return { method, toGo };
+        }
+        document.addEventListener("change", (event) => {
+            if (event.target.matches('input[name="delivery-pickup-toggle"], input[name="here-to-go-toggle"]')) updateCart();
+        });
+
+        // Ask the server for the real total (discount, tax, fees), then refresh everything that shows the cart
         async function requestQuote() {
             const seq = ++quoteSeq;
             if (!cart.lines.length) {
@@ -626,7 +637,7 @@
                 const response = await fetch(quoteUrl, {
                     method: "POST",
                     headers: { "X-CSRFToken": csrftoken, "Content-Type": "application/json" },
-                    body: JSON.stringify({ lines: cart.serverLines(), coupon: cart.coupon }),
+                    body: JSON.stringify({ lines: cart.serverLines(), coupon: cart.coupon, ...orderType() }),
                 });
                 const data = await response.json();
                 if (seq !== quoteSeq) return;

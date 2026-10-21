@@ -37,7 +37,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Condiment, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
+                               ComponentIngredient, CateringPrice, Condiment, Discount, Dish, Disposable, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -50,7 +50,7 @@ from users.models import Staff
 # A fixed token so a dev browser can be registered once: ?device-token=<this> on any POS page
 DEMO_DEVICE_TOKEN = "00000000-0000-4000-8000-000000000001"
 
-CONDIMENTS = ["Ketchup", "Mustard", "Mayo", "Hot sauce", "Extra salt packet", "Extra napkins"]
+CONDIMENTS = ["Ketchup", "Mustard", "Mayo", "Hot sauce", "Extra salt packet"]
 
 
 def placeholder_image(text, color, size=(800, 500)):
@@ -89,6 +89,7 @@ class Command(BaseCommand):
             self.seed_component_details()
             self.seed_ingredient_details()
             self.seed_condiments()
+            self.seed_disposables()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -247,8 +248,7 @@ class Command(BaseCommand):
             ("Cream cheese", "ea", "food", "buy", 150, "0", [("Milk", 20)]),
         ]
         side = [("Ketchup", "Ketchup packet"), ("Mustard", "Mustard packet"), ("Mayo", "Mayo packet"),
-                ("Hot sauce", "Hot sauce packet"), ("Extra salt packet", "Salt packet"), ("Extra napkins", "Napkins"),
-                ("Straw", "Straw"), ("Lid", "Lid"), ("Stirrer", "Stirrer"), ("Fork", "Fork")]
+                ("Hot sauce", "Hot sauce packet"), ("Extra salt packet", "Salt packet")]
         component_specs += [(component, "ea", "food", "buy", 2000, "0", []) for _label, component in side]
         self.side_component = dict(side)
 
@@ -343,7 +343,7 @@ class Command(BaseCommand):
             if addons:
                 group("Add-ons", [(name, price, {"component": c[name]}) for name, price in addons], dish=owner,
                       pick=OptionGroup.ANY, required=False, addons=True)
-            for position, label in enumerate(condiments):
+            for position, label in enumerate(x for x in condiments if x in self.side_component):  # napkins etc. are disposables
                 Extra.objects.create(**{key: owner}, component=c[self.side_component[label]], title=label, position=position)
 
         A = "adjustable"
@@ -778,6 +778,49 @@ class Command(BaseCommand):
             for position, dish in enumerate(Dish.objects.filter(title__in=dishes)):
                 Extra.objects.create(dish=dish, component=component, quantity=1, max_count=10, position=40 + position)
 
+    def seed_disposables(self):
+        """Packaging: each is an ingredient (case price, stock) with how orders use it; a paper bag fee on pickup."""
+        places = self.storage_locations()
+        front, bar_shelf = StorageLocation.named("Front counter"), places["bar"]
+        eco, paper = Supplier.objects.get_or_create(name="EcoPack Supply")[0], Supplier.objects.get_or_create(name="Corner Paper Co.")[0]
+        food = Supplier.objects.get(name="Pacific Foodservice")
+        dishes = {d.title: d for d in Dish.objects.all()}
+        kitchen = [t for t in dishes if dishes[t].station.code == "kitchen"]
+        bar = [t for t in dishes if dishes[t].station.code == "bar"]
+        hot = [t for t in bar if t in ("Flat white", "Matcha", "Americano", "Chai latte", "Latte")]
+        cold = [t for t in bar if t not in hot]
+        burgers = [t for t in kitchen if "burger" in t.lower() or "sandwich" in t.lower() or "melt" in t.lower()]
+        sides = [t for t in kitchen if t in ("Fries", "Charred corn", "Kids chicken bites")]
+        plates = [t for t in kitchen if t not in burgers and t not in sides]
+        # title, size, category, material, bin, supplier, case, case price, on hand, par, stored, counted, types, dishes or count, fee
+        T, P = ["pickup", "delivery"], ["pickup", "delivery", "catering"]
+        specs = [
+            ("Burger clamshell", "6 in", "containers", "bagasse", "compost", eco, 500, "62.50", 620, 500, None, "dish", T, burgers, None),
+            ("Fry boat", "Medium", "containers", "paper", "compost", eco, 1000, "48.00", 380, 600, None, "dish", T, sides, None),
+            ("Meal box with lid", "32 oz", "containers", "kraft", "compost", eco, 200, "46.00", 260, 200, None, "dish", P, plates, None),
+            ("Hot cup", "12 oz", "cups", "paper", "compost", eco, 1000, "112.00", 1450, 1000, bar_shelf, "dish", T, hot, None),
+            ("Cold cup", "16 oz", "cups", "pet", "recycle", food, 1000, "96.00", 1100, 800, bar_shelf, "dish", T, cold, None),
+            ("Sip lid", "16 oz", "cups", "pet", "recycle", food, 1000, "44.00", 1200, 800, bar_shelf, "dish", T, cold, None),
+            ("Paper straw", "", "cups", "paper", "compost", eco, 2500, "40.00", 2100, 1000, bar_shelf, "request", ["dine_in", "pickup", "delivery"], [], None),
+            ("Cutlery kit", "Fork, knife, napkin", "cutlery", "wood", "compost", eco, 500, "65.00", 140, 300, front, "request", P, [], None),
+            ("Napkins", "", "cutlery", "paper", "compost", paper, 6000, "54.00", 7800, 6000, front, "order", ["dine_in", "pickup", "delivery"], 2, None),
+            ("Paper bag", "Large", "bags", "kraft", "recycle", paper, 250, "55.00", 300, 500, front, "order", ["pickup"], 1, ("Paper bag", "0.25")),
+            ("Tamper-proof seal", "", "bags", "paper", "landfill", paper, 1000, "28.00", 860, 500, front, "order", ["delivery"], 1, None),
+            ("Plate", "10 in", "plates", "bagasse", "compost", eco, 500, "45.00", 450, 300, None, "guest", ["catering"], 1, None),
+        ]
+        for title, size, category, material, bin_, supplier, case, price, stock, par, place, counted, types, use, fee in specs:
+            ingredient = Ingredient.objects.create(title=title, unit_of_measurement="ea", category="other", supplier=supplier, pack_size=case,
+                                                   pack_price=Decimal(price), inventory=stock, par=par, storage=place or places["dry"])
+            disposable = Disposable.objects.create(ingredient=ingredient, size=size, category=category, material=material, bin=bin_,
+                                                   order_types=types, counted=counted, count=use if isinstance(use, int) else 1,
+                                                   fee=bool(fee), fee_label=fee[0] if fee else "", fee_price=Decimal(fee[1]) if fee else Decimal("0"))
+            if isinstance(use, list):
+                disposable.dishes.set([dishes[t] for t in use])
+        Ingredient.objects.filter(title="Hot cup").update(previous_cost=Decimal("0.104"))  # went up at the last delivery
+        retired = Ingredient.objects.create(title="Plastic straw", unit_of_measurement="ea", category="other", pack_size=5000,
+                                            pack_price=Decimal("25.00"), archived=True)
+        Disposable.objects.create(ingredient=retired, category="cups", material="pp", bin="recycle", counted="request", order_types=["pickup"])
+
     def seed_discounts(self):
         specs = [
             dict(name="Happy hour", note="Weekdays, 2 to 5 pm", kind="pct", value="10", weekdays="12345",
@@ -966,7 +1009,7 @@ class Command(BaseCommand):
         def order(lines, channel, status, minutes_ago, method="card", drawer=None, order_discount=None, **fields):
             payments = ()
             if channel == "store":
-                total = price_cart(lines, order_discount=order_discount, can_manual=True).total
+                total = price_cart(lines, order_discount=order_discount, to_go=bool(fields.get("to_go_order")), can_manual=True).total
                 payments = [{"method": method, "amount": str(total), "tendered": str(total)}]
             if channel == "store":
                 fields.setdefault("device", self.device)
