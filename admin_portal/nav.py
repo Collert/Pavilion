@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 MENU = [
     ("dashboard", _("Dashboard"), "M4 13h6V4H4z M14 20h6v-9h-6z M14 4h6v4h-6z M4 20h6v-3H4z", [
         ("home", _("Home"), "admin_home"),
-        ("reports", _("Reports"), None),
+        ("reports", _("Reports"), "admin_reports"),
     ]),
     ("orders", _("Orders"), "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6 M9 16h3", [
         ("retail", _("Retail orders"), None),

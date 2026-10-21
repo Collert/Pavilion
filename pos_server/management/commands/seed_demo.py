@@ -133,17 +133,17 @@ class Command(BaseCommand):
 
     def seed_stations(self):
         specs = [
-            # code, name, icon, menu heading
-            ("kitchen", "Grill", "outdoor_grill", "Grill"),
-            ("bar", "Bar", "local_cafe", "Bar"),
-            ("bakery", "Bakery", "bakery_dining", "Bakery"),
+            # code, name, icon, menu heading, colour
+            ("kitchen", "Grill", "outdoor_grill", "Grill", "#12875A"),
+            ("bar", "Bar", "local_cafe", "Bar", "#4E79B5"),
+            ("bakery", "Bakery", "bakery_dining", "Bakery", "#E87BA4"),
         ]
         self.stations = {}
-        for position, (code, name, icon, heading) in enumerate(specs):
+        for position, (code, name, icon, heading, color) in enumerate(specs):
             station, _ = Station.objects.update_or_create(code=code, defaults={
-                "name": name, "icon": icon, "menu_heading": heading, "position": position})
+                "name": name, "icon": icon, "menu_heading": heading, "position": position, "color": color})
             self.stations[code] = station
-        Station.objects.filter(code="gng").update(position=len(specs))
+        Station.objects.filter(code="gng").update(position=len(specs), color="#C9821A")
 
     def seed_inventory(self):
         ingredient_specs = [

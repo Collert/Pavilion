@@ -9,7 +9,6 @@ from django.urls import reverse
 from django.core import serializers
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from collections import Counter
 from .models import *
 import json
 from functools import wraps
@@ -18,7 +17,6 @@ from .orders import OrderError, collect_order, create_order, orders_for_screens,
 from django.utils import timezone
 
 import datetime
-from collections import defaultdict
 import math
 from payments import square
 from payments.models import SquareTerminal
@@ -244,80 +242,6 @@ def group_by_station(dishes):
     for dish in dishes:
         sections.setdefault(dish.station, []).append(dish)
     return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
-
-def parse_stats_date(date_str):
-    """Accept ISO (2025-03-01) and the older 'March 1, 2025' / 'Mar. 1, 2025' formats."""
-    for fmt in ('%Y-%m-%d', '%B %d, %Y', '%b. %d, %Y', '%b %d, %Y'):
-        try:
-            return datetime.datetime.strptime(date_str, fmt).date()
-        except ValueError:
-            continue
-    return None
-
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def day_stats(request):
-    """
-    Sales statistics for one day (?date=, defaults to today): dishes sold, station load, component and
-    ingredient usage, and order counts / revenue / average prep time per 15-minute window.
-    """
-    date_str = request.GET.get('date')
-    day = parse_stats_date(date_str) if date_str else timezone.localdate()
-    if day is None:
-        return HttpResponseBadRequest("Invalid date. Use YYYY-MM-DD.")
-
-    orders = (Order.objects.filter(timestamp__date=day).order_by('timestamp')
-              .prefetch_related('items__station', 'items__dish__dishcomponent_set__component__componentingredient_set__ingredient'))
-
-    item_stats = Counter()
-    stations = Counter()
-    components = {}
-    ingredients = {}
-    occasions = defaultdict(lambda: {'count': 0, 'total_earnings': Decimal('0.00')})
-    prep_totals = defaultdict(lambda: {'total': datetime.timedelta(0), 'count': 0})
-
-    def get_15_min_window(dt):
-        dt = timezone.localtime(dt)
-        start_time = dt.replace(minute=15 * (dt.minute // 15), second=0, microsecond=0)
-        end_time = start_time + datetime.timedelta(minutes=15)
-        return f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
-
-    for order in orders:
-        window = get_15_min_window(order.timestamp)
-        occasions[window]['count'] += 1
-        occasions[window]['total_earnings'] += order.total
-        if order.prep_time:
-            prep_totals[window]['total'] += order.prep_time
-            prep_totals[window]['count'] += 1
-
-        for item in order.items.all():
-            if not item.parent_id:
-                item_stats[item.title] += item.quantity  # what was sold: dishes and combos
-            if item.station is None:
-                continue
-            stations[item.station.name] += item.quantity  # what was made: dishes, including those in combos
-            if item.dish is None:
-                continue
-            # Standard recipe; customizations (extra portions, swaps) aren't counted here
-            for dc in item.dish.dishcomponent_set.all():
-                entry = components.setdefault(dc.component.title, [0, dc.component.unit_of_measurement])
-                entry[0] += dc.quantity * item.quantity
-                for ci in dc.component.componentingredient_set.all():
-                    entry = ingredients.setdefault(ci.ingredient.title, [0, ci.ingredient.unit_of_measurement])
-                    entry[0] += ci.quantity * dc.quantity * item.quantity
-
-    stats = {
-        "item_stats": dict(item_stats.most_common()),
-        "stations": dict(stations),
-        "order_occasions": dict(occasions),
-        "prep_times": {w: d['total'] / d['count'] for w, d in prep_totals.items() if d['count']},
-        "components": components,
-        "ingredients": ingredients,
-    }
-    return render(request, "pos_server/day_stats.html", {
-        "day": day,
-        "stats": stats,
-    })
 
 @staff_required
 def pos_out_display(request):

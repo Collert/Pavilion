@@ -788,6 +788,7 @@ class Station(models.Model):
     icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
     menu_heading = models.CharField(max_length=80, blank=True, help_text="Menu section title, e.g. 'Hot food'. Defaults to the name.")
     position = models.PositiveSmallIntegerField(default=0, help_text="Order of menu sections and screen filters")
+    color = models.CharField(max_length=7, default="#1F4A3A", help_text="Used on kitchen screens, tickets and reports")
 
     class Meta:
         ordering = ["position", "id"]

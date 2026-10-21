@@ -76,8 +76,8 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | Prefix | App | Key routes |
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
-| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -359,6 +359,11 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   orders by channel, open tickets per station, average wait, ready for pickup, couriers out), top sellers, sales by
   channel, and alerts (sold-out dishes, components under par, drawers over/short, online orders waiting). Refetches
   on "orders" and "inventory" nudges.
+- **Reports** (`admin_reports`, `reports.py`): a month of business days (days with orders) as a table or a
+  calendar coloured by sales, and a day report (`admin_report_day`, `reports/<YYYY-MM-DD>`, `reports/latest`):
+  KPIs, dishes sold (combos split across their picks' stations by price), components and ingredients from the
+  standard recipes, station mix donut, orders and average prep per 15 minutes against a 10-minute target, and a
+  CSV export (`reports/<day>.csv`). Replaces the old `day_stats` page. `Station.color` (new) colours stations.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

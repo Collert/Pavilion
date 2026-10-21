@@ -1,0 +1,100 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Reports (design: AdminReports, table and calendar states). One month of business days (admin_portal/reports.py:
+month_report); ?month=YYYY-MM and ?view=calendar are links. Each day opens its report.
+{% endcomment %}
+{% block title %}{% trans "Reports" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/reports.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head" id="reports-head" data-region>
+    <div>
+        <div class="page-kicker">{% trans "Dashboard" %}</div>
+        <h1 class="disp page-title">{% trans "Reports" %}</h1>
+    </div>
+    <div class="head-tools">
+        <div class="pager">
+            {% if r.prev %}<a class="pager-btn" href="?month={{ r.prev|date:'Y-m' }}&view={{ view }}" data-live aria-label="{% trans 'Previous month' %}">{% icon "back" 18 2.4 %}</a>
+            {% else %}<span class="pager-btn off" aria-hidden="true">{% icon "back" 18 2.4 %}</span>{% endif %}
+            <span class="pager-label num">{{ r.month_start|date:"F Y" }}</span>
+            {% if r.next %}<a class="pager-btn" href="?month={{ r.next|date:'Y-m' }}&view={{ view }}" data-live aria-label="{% trans 'Next month' %}">{% icon "chevron" 18 2.4 %}</a>
+            {% else %}<span class="pager-btn off" aria-hidden="true">{% icon "chevron" 18 2.4 %}</span>{% endif %}
+        </div>
+        <nav class="seg" aria-label="{% trans 'View' %}">
+            <a class="seg-btn" href="?month={{ r.month_start|date:'Y-m' }}&view=table" data-live{% if view == "table" %} aria-current="page"{% endif %}>{% icon "M4 6h16 M4 12h16 M4 18h16" 16 2.2 %}{% trans "Table" %}</a>
+            <a class="seg-btn" href="?month={{ r.month_start|date:'Y-m' }}&view=calendar" data-live{% if view == "calendar" %} aria-current="page"{% endif %}>{% icon "M4 6h16v14H4z M4 10h16 M9 3v4 M15 3v4" 16 2.2 %}{% trans "Calendar" %}</a>
+        </nav>
+    </div>
+</header>
+
+<section class="stats" aria-label="{% trans 'Month summary' %}" id="reports-stats" data-region>
+    {% for k in r.stats %}
+    <div class="stat">
+        <div class="stat-label">{{ k.label }}</div>
+        <div class="disp num stat-value">{% if k.money %}{{ k.value|money0 }}{% else %}{{ k.value }}{% endif %}</div>
+        <div class="stat-sub">{{ k.sub }}</div>
+    </div>
+    {% endfor %}
+</section>
+
+{% if view == "table" %}
+<section class="card table-card fade-up" aria-label="{% trans 'Business days' %}" id="reports-body" data-region>
+    <div class="thead days-grid">
+        <span>{% trans "Date" %}</span><span>{% trans "Net sales" %}</span><span class="right">{% trans "Orders" %}</span><span class="right">{% trans "Avg order" %}</span>
+        <span class="right">{% trans "Avg prep" %}</span><span>{% trans "Busiest 15 min" %}</span><span>{% trans "Top dish" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for row in r.rows %}
+        <a class="trow days-grid" href="{% url 'admin_report_day' row.day|date:'Y-m-d' %}"
+           aria-label="{% blocktrans with day=row.day|date:'l, F j' sales=row.sales|money0 %}Open report for {{ day }}, net sales {{ sales }}{% endblocktrans %}">
+            <span><span class="strong">{{ row.day|date:"M j" }}</span><span class="muted"> · {{ row.day|date:"D" }}</span></span>
+            <span class="sales-cell"><span class="num strong">{{ row.sales|money0 }}</span><span class="sales-track"><span class="hbar" style="width:{{ row.width }}%"></span></span></span>
+            <span class="num right">{{ row.orders }}</span>
+            <span class="num right">{{ row.avg|money }}</span>
+            <span class="num right">{{ row.prep }}</span>
+            <span class="num muted">{{ row.busy }}</span>
+            <span class="muted ellipsis">{{ row.top }}</span>
+            {% icon "chevron" 16 %}
+        </a>
+        {% empty %}
+        <div class="empty">{% trans "No business days in this month yet." %}</div>
+        {% endfor %}
+    </div>
+</section>
+{% else %}
+<section class="card calendar fade-up" aria-label="{% trans 'Calendar' %}" id="reports-body" data-region>
+    <div class="cal-head">
+        <span>{% trans "Mon" %}</span><span>{% trans "Tue" %}</span><span>{% trans "Wed" %}</span><span>{% trans "Thu" %}</span><span>{% trans "Fri" %}</span><span>{% trans "Sat" %}</span><span>{% trans "Sun" %}</span>
+    </div>
+    <div class="cal-grid" style="grid-template-rows:repeat({{ r.weeks }},minmax(0,1fr))">
+        {% for c in r.cells %}
+        {% if c.kind == "open" %}
+        <a class="cal-cell tint-{{ c.tint }}" href="{% url 'admin_report_day' c.day|date:'Y-m-d' %}"
+           aria-label="{% blocktrans with day=c.day|date:'l, F j' sales=c.sales|money0 %}Open report for {{ day }}, {{ sales }}{% endblocktrans %}">
+            <span class="cal-top"><span>{{ c.day.day }}</span>{% if c.best %}<span class="best">{% trans "Best" %}</span>{% endif %}</span>
+            <span class="grow"></span>
+            <span class="disp num cal-sales">{{ c.sales|money0 }}</span>
+            <span class="num cal-orders">{% blocktrans count n=c.orders %}{{ n }} order{% plural %}{{ n }} orders{% endblocktrans %}</span>
+        </a>
+        {% elif c.kind == "blank" %}
+        <div class="cal-cell blank"></div>
+        {% else %}
+        <div class="cal-cell {{ c.kind }}">
+            <span class="cal-top"><span>{{ c.day.day }}</span></span>
+            <span class="grow"></span>
+            <span class="cal-note">{% if c.kind == "today" %}{% trans "In progress" %}{% elif c.kind == "closed" %}{% trans "No orders" %}{% endif %}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="cal-legend">
+        <span>{% trans "Lower sales" %}</span>
+        <span class="legend-steps"><span class="tint-0"></span><span class="tint-1"></span><span class="tint-2"></span><span class="tint-3"></span></span>
+        <span>{% trans "Higher sales" %}</span>
+        <span class="legend-rule"></span>
+        <span class="legend-closed"></span><span>{% trans "No orders" %}</span>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
