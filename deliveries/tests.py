@@ -81,6 +81,31 @@ class CourierTests(MenuFixture, TestCase):
         self.assertEqual(CourierShift.objects.get().mode, "bicycling")
         self.assertTemplateUsed(self.client.get(reverse("delivery_orders")), "deliveries/list.html")
 
+    def test_clock_is_outside_the_live_regions(self):
+        """staff-page.js ticks the clock elements it found on load; a region swap would replace them with empty ones."""
+        from html.parser import HTMLParser
+        VOID = {"input", "img", "meta", "link", "br", "hr", "source"}
+
+        class Finder(HTMLParser):
+            stack, clock_in_region = [], None
+
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if attrs.get("id") == "rail-time":
+                    self.clock_in_region = any(self.stack)
+                if tag not in VOID:
+                    self.stack.append("data-region" in attrs)
+
+            def handle_endtag(self, tag):
+                if tag not in VOID and self.stack:
+                    self.stack.pop()
+
+        self.start()
+        for url in (reverse("delivery_orders"), reverse("delivery_orders") + "?end=1"):
+            finder = Finder()
+            finder.feed(self.client.get(url).content.decode())
+            self.assertIs(finder.clock_in_region, False, url)
+
     def test_customers_cannot_use_the_courier_app(self):
         customer = User.objects.create_user("customer", password="x")
         self.client.force_login(customer)

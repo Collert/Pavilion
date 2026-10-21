@@ -6,6 +6,7 @@
 
 /* ---------- nav ---------- */
 
+.courier-rail .rail-modes { display: contents; }  /* the live region around the buttons; the rail lays them out */
 .courier-rail .rail-item { position: relative; }
 .courier-rail .rail-item.off { opacity: .35; cursor: not-allowed; }
 .courier-rail .rail-item.off:hover { color: var(--rail-ink); }

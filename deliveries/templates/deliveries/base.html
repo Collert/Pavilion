@@ -14,8 +14,10 @@ changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" n
 {% endblock %}
 
 {% block rail %}
-<nav class="rail courier-rail" aria-label="{% trans 'Courier' %}" id="rail" data-region>
+<nav class="rail courier-rail" aria-label="{% trans 'Courier' %}">
     <div class="rail-logo" role="img" aria-label="{% trans 'Pavilion Courier' %}">{% icon "logo" 24 2 %}</div>
+    {% comment %}Only the buttons are a live region: the clock below is kept ticking by staff-page.js, which holds on to its elements.{% endcomment %}
+    <div class="rail-modes" id="courier-nav" data-region>
     {% if shift %}
     <div class="rail-rule" aria-hidden="true"></div>
     <a class="rail-item" href="{% url 'delivery_orders' %}" data-live {% if nav == "orders" %}aria-current="page"{% endif %}>{% icon "list" 22 2 %}{% trans "Orders" %}</a>
@@ -28,6 +30,7 @@ changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" n
     {% endif %}
     <a class="rail-item" href="{% url 'delivery_orders' %}?end=1" data-live>{% icon "power" 22 2 %}{% trans "End shift" %}</a>
     {% endif %}
+    </div>
     <div class="rail-spacer"></div>
     {% include "pos_server/rail_foot.html" %}
 </nav>
