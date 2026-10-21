@@ -20,7 +20,7 @@ it when you change how something works.
   (safe on real data, re-runnable).
 - **Every time a model is created or changed, update `pos_server/management/commands/seed_demo.py`** so it still runs
   on a fresh database (`migrate` then `seed_demo`) and fills in the new model/fields with realistic data.
-- Tests: `venv\Scripts\python manage.py test` (pavilion, pos_server, online_store, gift_cards). Square and SendGrid are
+- Tests: `venv\Scripts\python manage.py test` (pavilion, pos_server, online_store, gift_cards). Square and listmonk are
   mocked. Add tests with every fix. `requirements-dev.txt` adds `fakeredis`.
 - Quick smoke test without a server: `django.test.Client(HTTP_HOST='localhost')` + `force_login(user)`.
 - Settings switch on `ENVIRONMENT=production` (Postgres, DEBUG off, Redis + `SECRET_KEY` required, S3 media) vs anything
@@ -43,14 +43,14 @@ without asking.
 | `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Combo, Component, OptionGroup/Option, Extra, Ingredient, Station, Order, OrderItem, OrderDiscount, OrderPayment, Discount, CashDrawerSession, EligibleDevice. Register + lock screen + cash drawer (`register.py`), KDS, customer display, status board, Square webhook. `pricing.py` = cart pricing/discounts/tax; `orders.py` = order creation/serialization; `devices.py` = access decorators. |
 | `online_store` | `/` | Customer PWA: menu, cart, checkout (`place_order`), order status/history. PromoContent, RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
-| `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; SendGrid email; barcode page; `card-api`. |
+| `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; email; barcode page; `card-api`. |
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
 | `deliveries` | `/deliveries/` | Courier PWA (Cookery-style templates): shifts, accept/pass, steps to the door with a proof photo (`Delivery.phase()`), Google travel times (`routes.py`), web push. Delivery orders reach the KDS only once a courier accepts (`hidden_order_ids()`). |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |
-| `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, SendGrid helper. |
+| `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 
@@ -179,7 +179,7 @@ Django 6.0's serializer started ending output with a newline, and it's an inject
 ## Open issues (full list: overview §9)
 
 - The `.env` keys (Square, SendGrid, Google, VAPID) were exposed by the old media catch-all and must be rotated.
-- Square popup/Terminal, SendGrid and web push have only been tested with mocks; Docker + Redis not yet run end-to-end.
+- Square popup/Terminal, listmonk email and web push have only been tested with mocks; Docker + Redis not yet run end-to-end.
 
 ## Git
 

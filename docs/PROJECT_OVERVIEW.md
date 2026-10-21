@@ -12,8 +12,8 @@
 **Pavilion** is a Django restaurant-management system for a small community café. It was originally built for the
 café at **Holy Eucharist Ukrainian Catholic Cathedral** in New Westminster, BC. The project was called `heucc_pos`,
 was renamed to `pavilion` on 2025-02-06 (commit `cd409c5`), and has Ukrainian and Cantonese translations.
-`RESTAURANT_ADDRESS` (env, defaults to "501 4th Ave, New Westminster, BC") is where couriers pick up, and SendGrid
-emails go out as "Holy Eucharist Cathedral".
+`RESTAURANT_ADDRESS` (env, defaults to "501 4th Ave, New Westminster, BC") is where couriers pick up. Emails go
+through listmonk (2026-10-20, replacing SendGrid); their wording lives in listmonk templates.
 
 | Area | What it is | Status |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ emails go out as "Holy Eucharist Cathedral".
 | **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Works (Square popup not re-tested against sandbox) |
 | **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
 | **Deliveries** | Courier app: start a shift, accept or pass on orders (before the kitchen sees them), steps to the door with a proof photo, ETAs via Google Distance Matrix, web push | ✅ Works (push and Google untested end-to-end) |
-| **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ✅ Works |
+| **Gift cards** | Buy online (Square), email via listmonk, barcode card page, scan/charge at POS | ✅ Works |
 | **Inventory** | Ingredients → Components → Dishes, Cookery (recipes, guided cooking, transforms), shopping log, Availability screen (Off / Auto / Always) | ✅ Works, Cookery and availability live (SSE) |
 | **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
 | **Users** | Login/register/profile, `Staff`/`Customer` profiles | ✅ Basic |
@@ -62,7 +62,7 @@ emails go out as "Holy Eucharist Cathedral".
 - **Static:** whitenoise, collected to `staticfiles/`. Shared CSS kit `static/css/AD-Elements/`; shared JS in `static/js/`.
 - **Media:** `./media` served by Django in dev; a RustFS (S3-compatible) bucket via `django-storages` in production.
 - **Integrations:** Square (Terminal API, Web Payments SDK, webhooks) on `squareup==38.x` (later versions replaced
-  `square.client.Client`), SendGrid dynamic templates, Google Distance Matrix, OpenWeather, Web Push (VAPID), gTTS +
+  `square.client.Client`), listmonk transactional email (`misc_tools/email.py`), Google Distance Matrix, OpenWeather, Web Push (VAPID), gTTS +
   ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
 - **i18n:** `i18n_patterns`, so page URLs carry `/en/`, `/uk/` or `/zh-hk/`. `LANGUAGE_CODE` must be one of `LANGUAGES`
   (`en`), or `reverse()` outside a request builds 404ing `/en-us/` URLs. JS strings use `gettext()` via `/jsi18n/`.
@@ -331,7 +331,7 @@ store's checkout estimate (`eta`) is unchanged. The order detail's header is a d
 
 - `get-card`: pick a preset or personal design (images listed from storage under `files/gift-cards/{presets,personal}`),
   pay through the same popup. On POST the card is created **only from a paid, unused transaction, for the amount paid**,
-  then emailed via SendGrid (an email failure is logged; the confirmation page still shows the card link).
+  then emailed via listmonk (an email failure is logged; the confirmation page still shows the card link).
 - `card/<number>` renders a code128 barcode. `card-api/<number>`: GET is public (balance, image; email for staff only),
   POST charges and needs staff + CSRF.
 
@@ -461,7 +461,7 @@ The Copilot WebSockets branch is superseded by this.
 `APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`,
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
 `ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/LOCATION_ID/DEVICE_ID/WEBHOOK_SIGNATURE_KEY`,
-`SENDGRID_API_KEY`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
+`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
 
@@ -469,7 +469,7 @@ The Copilot WebSockets branch is superseded by this.
 
 - Use **`venv/`**. `venv\Scripts\python manage.py runserver` (ASGI via daphne), then `http://127.0.0.1:8000/en/apps/`.
 - Fresh database: `manage.py migrate` then `manage.py seed_demo` (admin/admin, cashier/cashier, courier/courier, customer/customer).
-- Tests: `manage.py test` (Square and SendGrid are mocked). `pip install -r requirements-dev.txt` adds `fakeredis` for the Redis broker test.
+- Tests: `manage.py test` (Square and listmonk are mocked). `pip install -r requirements-dev.txt` adds `fakeredis` for the Redis broker test.
 - `start.bat` / `start.sh` start ngrok and pass its domain to Django via `EXTRA_HOSTS`. This exposes a DEBUG server; don't leave it running.
 - Translations: `make_translations.(bat|sh)` → `makemessages -l uk -l zh_HK`, then `compilemessages` (`.mo` files are gitignored).
 
@@ -497,7 +497,7 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 1. **Rotate the Square, SendGrid, Google, VAPID and RustFS keys.** The old dev server served the whole project folder
    (including `.env`) and was exposed through ngrok. The old hard-coded `SECRET_KEY` is in git history; never reuse it.
 2. Re-test against real services: Square Web Payments popup (authorize → capture on approval, void on reject), Square
-   Terminal pairing and checkout, SendGrid gift card email, web push to couriers. All are covered by mocked tests only.
+   Terminal pairing and checkout, listmonk gift card email, web push to couriers. All are covered by mocked tests only.
 3. Run the stack once with Docker + Redis (`docker compose up`) to check multi-worker live updates; locally only the
    in-process broker and a fakeredis test were exercised.
 
@@ -506,7 +506,7 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 - POS card payments: the server trusts the POS that the Terminal checkout completed (the POS is staff-only and device-gated).
 - Customer order pages use sequential order IDs, so anyone can view any order's dish list and progress (no names, phones or addresses are shown).
 - `card-api` GET is public: the 16-digit card number is the only secret for checking a balance.
-- Receipt name/address and the SendGrid sender are hard-coded for the cathedral café (`RESTAURANT_ADDRESS` is an env
+- Receipt name/address are hard-coded for the cathedral café (`RESTAURANT_ADDRESS` is an env
   setting now, but defaults to the café's address).
 - The store's order status page doesn't show the courier's proof photo yet (waiting for the store redesign), and
   checkout still takes delivery orders when no courier is on shift (they show on the KDS as "No courier").
@@ -544,7 +544,7 @@ URLs; per-process state (cache, couriers, SSE); Docker running `runserver` witho
 
 ## 11. What's next
 
-1. Rotate keys; test the Square/SendGrid/push flows and the Docker stack (§9).
+1. Rotate keys; test the Square/listmonk/push flows and the Docker stack (§9).
 2. Merge `fix-all-problems-for-real` into `main` and deploy.
 3. Register redesign follow-ups: the customization sheet in the online store; a manager UI for dishes, combos,
    options and discounts (today: `/advanced-admin/`); refunds (the drawer has no refund row yet); translations for the

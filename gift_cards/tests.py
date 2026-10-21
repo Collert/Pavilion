@@ -11,7 +11,7 @@ from payments.models import Transaction
 from .models import GiftCard
 
 
-@mock.patch("gift_cards.views.send_template_email")
+@mock.patch("gift_cards.views.send_email")
 class BuyCardTests(TestCase):
     def buy(self, transaction, amount="500"):
         return self.client.post(reverse("get-card"), {
@@ -36,7 +36,7 @@ class BuyCardTests(TestCase):
         self.assertEqual(GiftCard.objects.count(), 1)
 
     def test_email_failure_still_shows_the_card(self, send):
-        send.side_effect = Exception("SendGrid down")
+        send.side_effect = Exception("listmonk down")
         response = self.buy(Transaction.objects.create(amount=Decimal("10.00"), successful=True))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(GiftCard.objects.exists())

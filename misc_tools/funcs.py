@@ -1,10 +1,7 @@
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 from django.conf import settings
-from python_http_client import exceptions 
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,32 +46,3 @@ def get_image_colors(image_bytes:bytes, num_colors:int):
     }
 
     return color_dict
-
-def send_template_email(email_data):
-    """
-    Sends a templated email using SendGrid's dynamic templates.
-    :param email_data: An instance of SendGridEmailData containing all email details.
-    """
-    # Extract just the emails for recipients
-    to_email_objects = [recipient["email"] for recipient in email_data.recipients]
-
-    # Create the Mail object, passing only the email strings in `to_emails`
-    message = Mail(
-        from_email=email_data.from_email,  # Only the email address as a string
-        to_emails=to_email_objects  # List of email strings
-    )
-    message.template_id = email_data.template_id
-
-    # Add dynamic data for each recipient (SendGrid will apply based on matching index)
-    for index, recipient in enumerate(email_data.recipients):
-        # Set personalization data for each recipient
-        message.personalizations[index].dynamic_template_data = recipient["dynamic_data"]
-
-    # Initialize SendGrid client and send email
-    try:
-        response = SendGridAPIClient(settings.SENDGRID_API_KEY).send(message)
-    except exceptions.BadRequestsError as e:
-        logger.error("SendGrid rejected template %s: %s", email_data.template_id, e.body)
-        raise
-    logger.info("Sent template %s (status %s)", email_data.template_id, response.status_code)
-    return response

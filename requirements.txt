@@ -21,7 +21,6 @@ Pillow~=11.0
 # Recipes, gift card barcodes, email, web push, TTS announcements (joined with the ffmpeg binary)
 Markdown~=3.7
 python-barcode~=0.15
-sendgrid~=6.11
 pywebpush~=2.0
 gTTS~=2.5
 sentry-sdk~=2.0

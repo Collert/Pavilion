@@ -11,8 +11,7 @@ from payments.models import PaymentError, Transaction
 import logging
 
 logger = logging.getLogger(__name__)
-from misc_tools.funcs import send_template_email
-from misc_tools.classes import SendGridEmailData
+from misc_tools.email import send as send_email
 from django.urls import reverse
 from django.db import transaction as db_transaction
 from django.http import HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
@@ -147,24 +146,11 @@ def send_card_email(request, card, email, name, sender, gifted):
     # Generate the card link
     card_link = request.build_absolute_uri(reverse('card_display', args=[card.number]))
 
-    email_dynamic_data = {
-        "name":name,
-        "card_url":card_link
-    }
-
-    email_data = SendGridEmailData(
-        template_id="d-be1559e433da4d6eba67b8b9c377b3d4" if gifted else "d-8e41ef2b2f3145838d51e9bf0a40b420",
-        from_email="restaurant@uahelp.ca"
-    )
+    data = {"name": name, "card_url": card_link}
     if gifted:
-        email_dynamic_data["sender"] = sender
+        data["sender"] = sender
     try:
-        email_data.add_recipient(
-            email=email,
-            name=name,
-            dynamic_data=email_dynamic_data
-        )
-        send_template_email(email_data)
+        send_email("gift_card_gifted" if gifted else "gift_card", email, data)
     except Exception:
         logger.exception("Failed to send gift card email for card %s", card.number)
 
