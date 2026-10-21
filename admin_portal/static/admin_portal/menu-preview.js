@@ -30,3 +30,10 @@ document.addEventListener("click", (event) => {
 
 new MutationObserver(sync).observe(document.body, { childList: true, subtree: true });
 sync();
+
+// Colour pickers in the look card show their hex value as you drag
+document.addEventListener("input", (event) => {
+    if (!event.target.matches('.color-pick input[type="color"]')) return;
+    const hex = event.target.parentElement.querySelector(".color-hex");
+    if (hex) hex.textContent = event.target.value.toUpperCase();
+});

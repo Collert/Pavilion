@@ -270,7 +270,7 @@ preview is the real menu board (screens/menu_board_frame.html) drawn small, turn
             <div class="look-fields">
                 {% for f in v.look %}
                 <label class="look-field{% if f.param.type == 'color' %} color{% endif %}"><span class="lbl">{{ f.param.label|default:f.name }}</span>
-                    {% if f.param.type == "color" %}<input type="color" name="look-{{ f.name }}" value="{{ f.value }}">
+                    {% if f.param.type == "color" %}<span class="color-pick" style="--swatch: {{ f.value }}"><input type="color" name="look-{{ f.name }}" value="{{ f.value }}" aria-label="{{ f.param.label|default:f.name }}"><span class="color-hex num">{{ f.value|upper }}</span></span>
                     {% elif f.param.type == "choice" %}<select class="field" name="look-{{ f.name }}">{% for o in f.param.options %}<option{% if o == f.value %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
                     {% elif f.param.type == "bool" %}<input type="checkbox" name="look-{{ f.name }}" value="1" {% if f.value %}checked{% endif %}>
                     {% elif f.param.type == "int" or f.param.type == "number" %}<input class="field" type="number" name="look-{{ f.name }}" value="{{ f.value }}"{% if f.param.min is not None %} min="{{ f.param.min }}"{% endif %}{% if f.param.max is not None %} max="{{ f.param.max }}"{% endif %}>
