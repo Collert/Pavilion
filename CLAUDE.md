@@ -68,6 +68,14 @@ and 1280×800. Shared CSS kit is
 and `project-styles.css`. JS strings use `gettext()`. Build DOM from data with `textContent`, never `innerHTML` with
 customer-supplied text.
 
+**Designs:** newer mockups live in the Claude Design canvas "Pavilion POS Register"
+(<https://claude.ai/artifact/2cp1HSdvDDNgDfVxkTsdDv>), not in `docs/mockups/`. Read it with the Artifact tool:
+`list` with `scope: "files"`, then `read` the `project/<Name>.dc.html` artboards you need (`project/canvas.json`
+is the index). The courier app (`deliveries`) is `project/Courier-y2s3.dc.html`; the `Courier<State>-*.dc.html` files
+only import it at one step (`start="list"`, `"proof"`, …). The canvas also has the register (`Main`), `Lock`, `Drawer`,
+`Cookery*`, `Availability`, `Stations`, `OrderBoard-*`, `Apps`, `RailFoot`, the `Admin*` screens and menu boards. Treat
+the artboards as a visual spec and rebuild them as Django templates; their markup and fake data aren't ours to copy.
+
 ## Domain essentials
 
 - **Menu → Dish → DishComponent → Component → ComponentIngredient → Ingredient.** `DishComponent.adjustable` parts can
