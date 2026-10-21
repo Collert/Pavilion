@@ -72,7 +72,7 @@
 .po-add { display: flex; align-items: center; gap: 10px; padding: 10px 14px 12px; border-top: 1px solid #E6ECE8; }
 .po-add select { height: 38px; padding: 0 10px; border: none; border-radius: 12px; background: var(--mint); color: var(--brand); font: inherit; font-size: 13px; font-weight: 800; max-width: 360px; }
 .mods-head { display: flex; align-items: flex-end; gap: 12px; }
-textarea.notes { height: auto; padding: 10px 12px; resize: none; line-height: 1.45; }
+.editor-col textarea.notes { height: auto; min-height: 72px; padding: 12px 14px; resize: vertical; line-height: 1.45; }
 .po-totals { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); }
 .po-total-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 700; color: #C9D6CF; }
 .dark-field { display: flex; align-items: center; gap: 2px; width: 100px; height: 32px; padding: 0 10px; border-radius: 10px; background: rgba(255, 255, 255, .1); }
