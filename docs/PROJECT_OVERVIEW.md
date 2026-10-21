@@ -269,7 +269,8 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
 ### 6.4 Customer display (`/restaurant/pos-output`) and old status board (`/restaurant/orders-progress`)
 
 The old status board is superseded by the `order-board` screen (§6.11) and no longer on the app switcher; it still
-works at its URL until it's removed.
+works at its URL until it's removed. The customer display isn't on the app switcher either (Deliveries took its
+tile); open it at its URL.
 
 - The customer display shows the active menu grouped by station heading, plus the live cart from the POS via
   `BroadcastChannel`, so **it must be a second window in the same browser profile on the same machine**.
