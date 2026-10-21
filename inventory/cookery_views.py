@@ -185,14 +185,15 @@ def recipe(request, component_id):
     reserved = dict(IngredientReservation.objects.filter(session__finished_at=None, session__cancelled=False)
                     .values_list("ingredient").annotate(total=Sum("quantity")))
     rows, shorts = [], []
-    for ri in rec.ingredients.select_related("ingredient"):
-        ing = ri.ingredient
+    for ri in rec.ingredients.select_related("ingredient", "component"):
+        ing = ri.item  # an ingredient, or a component the recipe uses
         need = ri.quantity * batch
-        short = not ing.unlimited and (ing.inventory or 0) < need
+        short = not getattr(ing, "unlimited", False) and (ing.inventory or 0) < need
         if short:
             shorts.append(_("%(name)s (short %(qty)s)") % {"name": ing.title, "qty": amount(need - (ing.inventory or 0), ing.unit_of_measurement)})
+        held = reserved.get(ing.id) if ri.ingredient_id else None
         rows.append({"ing": ing, "need": amount(need, ing.unit_of_measurement), "have": amount(ing.inventory, ing.unit_of_measurement),
-                     "reserved": amount(reserved[ing.id], ing.unit_of_measurement) if reserved.get(ing.id) else "", "short": short})
+                     "reserved": amount(held, ing.unit_of_measurement) if held else "", "short": short})
     steps = list(rec.steps.all())
     return _page(request, "recipe.html", {
         "c": c, "recipe": rec, "batch": batch, "rows": rows, "steps": steps,
@@ -252,14 +253,14 @@ def _batch_post(request, session):
 
 def _guided_context(request, session):
     now = _now_ms()
-    steps = list(session.recipe.steps.prefetch_related("uses__ingredient"))
+    steps = list(session.recipe.steps.prefetch_related("uses__ingredient", "uses__component"))
     i = min(session.step, len(steps) - 1)
     step = steps[i]
     timers = {int(k): _timer(v, now) for k, v in session.timers.items() if int(k) < len(steps)}
     segments = [{"n": k, "title": s.title, "state": "past" if k < i else "now" if k == i else
                  "running" if timers.get(k) and timers[k]["ends"] and not timers[k]["done"] else ""} for k, s in enumerate(steps)]
     others = [{"step": k, "title": steps[k].title, **t} for k, t in sorted(timers.items()) if k != i]
-    uses = [{"amount": amount(ri.quantity * session.batch, ri.ingredient.unit_of_measurement), "name": ri.ingredient.title} for ri in step.uses.all()]
+    uses = [{"amount": amount(ri.quantity * session.batch, ri.unit), "name": ri.item.title} for ri in step.uses.all()]
     timer = timers.get(i)
     card = None
     if step.duration:
@@ -334,7 +335,7 @@ def done(request, session_id):
 @staff_required
 def transform(request, transform_id):
     """GET: how many to move (?qty in the friendly unit). POST: start it."""
-    tf = get_object_or_404(Transformation.objects.select_related("from_component", "to_component"), pk=transform_id)
+    tf = get_object_or_404(Transformation.objects.select_related("from_component", "to_component", "recipe"), pk=transform_id)
     source = tf.from_component
     unit, factor = display_unit(source.unit_of_measurement)
     available = (source.inventory or 0) / factor
@@ -352,7 +353,7 @@ def transform(request, transform_id):
     try:
         typed = float(request.GET["qty"])
     except (KeyError, ValueError):
-        typed = available
+        typed = tf.recipe.yield_quantity / factor if tf.recipe else available  # a recipe's batch, else everything
     qty = max(0, min(typed, available))
     step = lambda n: f"?{urlencode({'qty': trim(n)})}"
     quick = [(n, str(n)) for n in (10, 20) if n < available] + [(available, _("All %(n)s") % {"n": trim(available)})]
@@ -360,8 +361,8 @@ def transform(request, transform_id):
         "tf": tf, "unit": unit, "qty": trim(qty), "qty_value": qty, "available": trim(available), "over": typed > available,
         "less": step(max(0, qty - 1)), "more": step(min(available, qty + 1)), "can_less": qty > 0, "can_more": qty < available,
         "quick": [{"label": label, "url": step(n), "on": abs(n - qty) < 1e-9} for n, label in quick],
-        "verb": SCENE_VERBS.get(tf.scene, tf.name), "ready_at": timezone.now() + tf.duration,
-        "dur": int(tf.duration.total_seconds()),
+        "verb": SCENE_VERBS.get(tf.scene, tf.name), "ready_at": timezone.now() + tf.takes,
+        "dur": int(tf.takes.total_seconds()), "steps": list(tf.recipe.steps.all()) if tf.recipe else [],
     }, mode="transform")
 
 
@@ -384,7 +385,7 @@ def transforming(request, session_id):
         return redirect("cookery_transforms")
     now = _now_ms()
     ends = int(session.ends_at.timestamp() * 1000)
-    dur = tf.duration.total_seconds() * 1000
+    dur = (session.ends_at - session.started_at).total_seconds() * 1000 if session.ends_at and session.started_at else tf.takes.total_seconds() * 1000
     return _page(request, "transforming.html", {
         "s": session, "tf": tf, "ends": ends, "left": max(0, ends - now), "done": ends <= now, "running": ends > now, "total": int(dur),
         "pct": min(100, round(100 * (dur - max(0, ends - now)) / dur)) if dur else 100, "verb": SCENE_VERBS.get(tf.scene, tf.name),

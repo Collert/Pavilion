@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext as _, gettext_lazy as _lazy
 
+from inventory.models import Recipe, RecipeStep
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
@@ -32,6 +33,7 @@ from . import dashboard as dashboard_data
 from . import dishes as dishes_data
 from . import menus as menus_data
 from . import orders as orders_data
+from . import recipes as recipes_data
 from . import reports as reports_data
 from .models import StoreSettings
 from .nav import rail
@@ -442,3 +444,48 @@ def combo_edit(request, combo_id):
                              else _("%(combo)s saved") % {"combo": target.title})
             return redirect("admin_combo", combo_id=target.id)
     return page(request, "admin_portal/combo.html", "combos", {"e": combos_data.editor(combo, draft)})
+
+
+# ---------- recipes ----------
+
+@superuser_required
+def recipes(request):
+    data = recipes_data.recipe_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/recipes.html", "recipes", {"l": data})
+
+
+@superuser_required
+@require_POST
+def recipe_new(request):
+    recipe = Recipe.objects.create(title=_("New recipe"), yield_quantity=10)
+    RecipeStep.objects.create(recipe=recipe, title="")
+    return redirect("admin_recipe", recipe_id=recipe.id)
+
+
+@superuser_required
+def recipe_edit(request, recipe_id):
+    """The recipe editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    recipe = get_object_or_404(Recipe, pk=recipe_id)
+    if request.method != "POST":
+        return page(request, "admin_portal/recipe.html", "recipes", {"e": recipes_data.editor(recipe, recipes_data.draft_from_recipe(recipe))})
+    op = request.POST.get("op", "")
+    draft = recipes_data.apply_op(recipes_data.draft_from_post(request.POST), op, request.POST)
+    if op == "leave":
+        if not recipes_data.is_dirty(draft, recipe):
+            return redirect("admin_recipes")
+        return page(request, "admin_portal/recipe.html", "recipes", {"e": recipes_data.editor(recipe, draft, leave_ask=True)})
+    if op == "delete":
+        recipe.delete()
+        publish("inventory")
+        messages.success(request, _("%(recipe)s deleted") % {"recipe": draft["title"] or recipe})
+        return redirect("admin_recipes")
+    if op == "save":
+        issues = recipes_data.problems(draft)
+        if issues:
+            messages.error(request, issues[0])
+        else:
+            recipes_data.save_draft(draft, recipe)
+            publish("inventory")  # Cookery refetches on this
+            messages.success(request, _("%(recipe)s saved") % {"recipe": recipe.title})
+            return redirect("admin_recipe", recipe_id=recipe.id)
+    return page(request, "admin_portal/recipe.html", "recipes", {"e": recipes_data.editor(recipe, draft)})

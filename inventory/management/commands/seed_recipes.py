@@ -104,7 +104,7 @@ class Command(BaseCommand):
                 if obj.unit_of_measurement != unit:
                     self.stdout.write(self.style.WARNING(f"Skipped the recipe for {title}: it's counted in {obj.unit_of_measurement}, not {unit}"))
                     continue
-                recipe = Recipe.objects.create(yield_quantity=makes)
+                recipe = Recipe.objects.create(title=title, yield_quantity=makes, total_minutes=sum(step[2] for step in steps) + 15)
                 rows = {name: RecipeIngredient.objects.create(recipe=recipe, ingredient=ingredients[name], quantity=qty, position=n)
                         for n, (name, qty) in enumerate(parts)}
                 for n, (step_title, text, minutes, scene, uses) in enumerate(steps):

@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -428,6 +428,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   −/+, required switch, move, remove, default dish and upcharge (or "in combo" price when percent off), the price
   card with the saving bar and warnings, a register preview and the menus with an active switch. Editors share
   `editor.js` (`form[data-editor]`, `[data-preview]`) and the editor styles in `admin.css`.
+- **Recipes** (`admin_recipes`, `recipes.py`, 2026-10-21): sections by what a recipe is attached to (component,
+  transformation, dish, not attached), with processes, steps and total time. The editor (one form with Save) has the
+  name, what it's attached to (attaching takes over the target's old recipe), batch size, total time (at least the
+  longest timer; "Use timers" fills it in), ingredients and components with amounts, and steps (title, text,
+  process, optional timer; reorder, add, remove), with a dark "In Cookery" preview of the selected step (the real
+  `cook_scene`). `Recipe` gained `title` and `total_minutes`; `RecipeIngredient` can be a component (Cookery takes it
+  out of component stock when a batch starts); `Transformation.recipe` gives Cookery's Transform screen its steps,
+  time (`Transformation.takes`) and default batch size. Dish recipes are stored but not shown on the KDS yet.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

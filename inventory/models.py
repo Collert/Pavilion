@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -45,17 +47,31 @@ SCENES = (
 
 class Recipe(models.Model):
     """
-    How to make a batch of a component (or a dish): the ingredients for one batch, the steps, and about how much
-    one batch makes (`yield_quantity`, in the component's unit). Cookery takes the ingredients out of inventory when
-    a batch starts and adds what was actually counted when it's finished. Components link to it with
-    Component.recipe (dishes with Dish.recipe). Edited in /advanced-admin/.
+    How to make a batch of something: the ingredients (or components) for one batch, the steps, and about how much
+    one batch makes (`yield_quantity`, in the target's unit). It's attached to what it makes: a component
+    (Component.recipe: Cookery's Craft takes the ingredients out when a batch starts and adds what was counted when
+    it's finished), a transformation (Transformation.recipe: its steps, time and batch size in Cookery's Transform) or
+    a dish (Dish.recipe: how the plate is put together). `total_minutes` is start to finish, at least the longest
+    timer. Edited on the admin's Recipes page.
     """
-    yield_quantity = models.FloatField(default=1, help_text="About how much one batch makes, in the component's unit")
+    title = models.CharField(max_length=140, blank=True)
+    yield_quantity = models.FloatField(default=1, help_text="About how much one batch makes, in the target's unit")
+    total_minutes = models.PositiveIntegerField(default=0, help_text="Start to finish")
     notes = models.TextField(blank=True, help_text="Anything else worth knowing (not shown step by step)")
 
     def __str__(self) -> str:
+        if self.title:
+            return self.title
         owner = self.component.first() or self.dish.first()
         return f"Recipe for {owner.title}" if owner else f"Recipe #{self.pk}"
+
+    def target(self):
+        """("component" | "transform" | "dish", the object) this recipe is attached to, or None."""
+        for kind, related in (("component", self.component), ("transform", self.transformations), ("dish", self.dish)):
+            obj = related.first()
+            if obj:
+                return kind, obj
+        return None
 
     @property
     def total_seconds(self) -> int:
@@ -63,17 +79,30 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    """An ingredient and how much of it one batch of the recipe takes (in the ingredient's unit)."""
+    """An ingredient, or a component (pulled pork for a reheat), and how much one batch takes, in its unit."""
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredients")
-    ingredient = models.ForeignKey("pos_server.Ingredient", on_delete=models.PROTECT, related_name="recipe_uses")
-    quantity = models.FloatField(help_text="For one batch, in the ingredient's unit")
+    ingredient = models.ForeignKey("pos_server.Ingredient", on_delete=models.PROTECT, related_name="recipe_uses", null=True, blank=True)
+    component = models.ForeignKey("pos_server.Component", on_delete=models.PROTECT, related_name="recipe_uses", null=True, blank=True)
+    quantity = models.FloatField(help_text="For one batch, in the item's unit")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["position", "id"]
+        constraints = [models.CheckConstraint(
+            condition=(models.Q(ingredient__isnull=True) & models.Q(component__isnull=False)) |
+                      (models.Q(ingredient__isnull=False) & models.Q(component__isnull=True)),
+            name="recipe_ingredient_is_one_thing")]
 
     def __str__(self):
-        return f"{self.quantity} {self.ingredient.unit_of_measurement} {self.ingredient.title}"
+        return f"{self.quantity} {self.unit} {self.item.title}"
+
+    @property
+    def item(self):
+        return self.ingredient or self.component
+
+    @property
+    def unit(self):
+        return self.item.unit_of_measurement
 
 
 class RecipeStep(models.Model):
@@ -111,6 +140,8 @@ class Transformation(models.Model):
     scene = models.CharField(max_length=10, choices=SCENES, default="freeze")
     duration = models.DurationField(help_text="About how long it takes, e.g. 02:00:00")
     instructions = models.TextField(blank=True, help_text="How to do it")
+    recipe = models.ForeignKey(Recipe, on_delete=models.SET_NULL, null=True, blank=True, related_name="transformations",
+                               help_text="Its steps, time and batch size (admin Recipes)")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -118,6 +149,13 @@ class Transformation(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def takes(self):
+        """How long it takes: its recipe's total time when it has one, else `duration`."""
+        if self.recipe_id and self.recipe.total_minutes:
+            return timedelta(minutes=self.recipe.total_minutes)
+        return self.duration
 
 
 class CookingSession(models.Model):

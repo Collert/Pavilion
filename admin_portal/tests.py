@@ -12,13 +12,13 @@ from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
 from pos_server import dish_info
-from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComponentIngredient, Dish, DishComponent,
+from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Dish, DishComponent,
                                Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, dashboard, dishes, reports
+from . import combos, dashboard, dishes, recipes, reports
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -748,6 +748,121 @@ class ComboTests(AdminFixture, TestCase):
         self.assertFalse(combo.available)
         self.assertFalse(combo.menu.exists())
         self.assertEqual(self.client.get(reverse("admin_combo", args=[combo.id])).status_code, 200)
+
+
+def recipe_fields(draft, **changes):
+    """The recipe editor's POST fields for a draft (admin_portal.recipes.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    total = int(draft["total"] or 0)
+    data = {"title": draft["title"], "target": draft["target"], "yield": draft["yield"], "total_h": total // 60, "total_m": total % 60,
+            "sel": draft["sel"], "ing-count": len(draft["ings"]), "step-count": len(draft["steps"])}
+    for i, g in enumerate(draft["ings"]):
+        data.update({f"ing-{i}-id": g["id"], f"ing-{i}-kind": g["kind"], f"ing-{i}-item": g["item"], f"ing-{i}-qty": g["qty"]})
+    for i, st in enumerate(draft["steps"]):
+        data.update({f"step-{i}-id": st["id"], f"step-{i}-title": st["title"], f"step-{i}-text": st["text"],
+                     f"step-{i}-scene": st["scene"], f"step-{i}-mins": st["mins"]})
+        if st["timer"]:
+            data[f"step-{i}-timer"] = "1"
+    return data
+
+
+class RecipeTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from inventory.models import Recipe, RecipeIngredient, RecipeStep, Transformation
+        cls.build_admin()
+        cls.flour = Ingredient.objects.create(title="Flour", unit_of_measurement="g", inventory=5000)
+        cls.dough = Recipe.objects.create(title="Bun dough", yield_quantity=24, total_minutes=90)
+        RecipeIngredient.objects.create(recipe=cls.dough, ingredient=cls.flour, quantity=1000)
+        RecipeStep.objects.create(recipe=cls.dough, title="Mix", scene="prep")
+        RecipeStep.objects.create(recipe=cls.dough, title="Rise", scene="rise", duration=datetime.timedelta(minutes=60), position=1)
+        Component.objects.filter(pk=cls.bun.pk).update(recipe=cls.dough)
+        cls.frozen = Component.objects.create(title="Bun, frozen", unit_of_measurement="ea", type="food", crafting_option="transform")
+        cls.freeze = Transformation.objects.create(name="Freeze buns", from_component=cls.bun, to_component=cls.frozen,
+                                                   duration=datetime.timedelta(hours=1))
+        cls.loose = Recipe.objects.create(title="Spare sauce", yield_quantity=5)
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, recipe):
+        from inventory.models import Recipe
+        return recipes.draft_from_recipe(Recipe.objects.get(pk=recipe.pk))
+
+    def post(self, recipe, op, draft=None, **extra):
+        return self.client.post(reverse("admin_recipe", args=[recipe.id]), {**recipe_fields(draft or self.draft(recipe)), "op": op, **extra})
+
+    def test_list_sections_and_filters(self):
+        data = self.client.get(reverse("admin_recipes")).context["l"]
+        self.assertEqual([s["key"] for s in data["sections"]], ["component", "none"])
+        row = data["sections"][0]["rows"][0]
+        self.assertEqual((row["title"], row["makes"], row["time"]), ("Bun dough", "Makes 24 pieces of Bun", "1 h 30 min"))
+        self.assertEqual([p["label"] for p in row["processes"]], ["Prep work", "Rise / proof"])
+        only = self.client.get(reverse("admin_recipes") + "?show=none").context["l"]["sections"]
+        self.assertEqual([r["recipe"] for s in only for r in s["rows"]], [self.loose])
+        self.assertEqual(len(self.client.get(reverse("admin_recipes") + "?q=bun").context["l"]["sections"]), 1)  # by what it makes
+
+    def test_steps_timers_and_total_time(self):
+        e = self.post(self.dough, "add_step").context["e"]
+        self.assertEqual(e["status"], "1 step needs a title")
+        draft = e["d"]
+        draft["steps"][2]["title"] = "Bake"
+        e = self.post(self.dough, "timer:2", draft).context["e"]
+        self.assertEqual((e["d"]["steps"][2]["timer"], e["d"]["steps"][2]["mins"], e["d"]["sel"]), (True, "10", 2))
+        draft = e["d"]
+        draft["steps"][2]["mins"] = "100"
+        e = self.post(self.dough, "preview", draft).context["e"]
+        self.assertEqual(e["status"], "Total time is shorter than a timer")
+        self.assertFalse(e["can_save"])
+        e = self.post(self.dough, "use_timers", e["d"]).context["e"]
+        self.assertEqual(e["d"]["total"], "160")
+        e = self.post(self.dough, "step_up:2", e["d"]).context["e"]
+        self.assertEqual([s["title"] for s in e["d"]["steps"]], ["Mix", "Bake", "Rise"])
+        self.assertEqual(self.dough.steps.count(), 2)  # nothing saved yet
+        self.post(self.dough, "save", e["d"])
+        steps = list(self.dough.steps.all())
+        self.assertEqual([(s.title, s.duration) for s in steps],
+                         [("Mix", None), ("Bake", datetime.timedelta(minutes=100)), ("Rise", datetime.timedelta(minutes=60))])
+        self.dough.refresh_from_db()
+        self.assertEqual(self.dough.total_minutes, 160)
+
+    def test_ingredients_and_attaching(self):
+        from inventory.models import Recipe
+        e = self.post(self.loose, "preview", add_item=f"c:{self.onion.id}").context["e"]
+        e = self.client.post(reverse("admin_recipe", args=[self.loose.id]),
+                             {**recipe_fields(e["d"]), "op": "preview", "add_item": f"i:{self.flour.id}"}).context["e"]
+        self.assertEqual([(g["kind"], g["item"]) for g in e["d"]["ings"]], [("c", str(self.onion.id)), ("i", str(self.flour.id))])
+        draft = e["d"]
+        draft["target"] = f"t:{self.freeze.id}"
+        draft["total"] = "45"
+        draft["steps"] = [{"id": "", "title": "Tray up", "text": "", "scene": "freeze", "timer": True, "mins": "40"}]
+        e = self.post(self.loose, "preview", draft).context["e"]
+        self.assertEqual(e["kind_text"], "Transformation recipe")
+        self.assertIn("Each batch moves 5 pieces: bun to bun, frozen.", e["kind_hint"])
+        self.post(self.loose, "save", e["d"])
+        self.freeze.refresh_from_db()
+        self.assertEqual(self.freeze.recipe_id, self.loose.id)
+        self.assertEqual(self.freeze.takes, datetime.timedelta(minutes=45))
+        self.assertEqual(Recipe.objects.get(pk=self.loose.pk).ingredients.filter(component=self.onion).count(), 1)
+        # Attaching to a component with a recipe takes it over; the old recipe is left unattached
+        draft = self.draft(self.loose)
+        draft["target"] = f"c:{self.bun.id}"
+        self.post(self.loose, "save", draft)
+        self.assertEqual(Component.objects.get(pk=self.bun.pk).recipe_id, self.loose.id)
+        self.assertIsNone(Recipe.objects.get(pk=self.dough.pk).target())
+
+    def test_new_leave_and_delete(self):
+        from inventory.models import Recipe
+        response = self.client.post(reverse("admin_recipe_new"))
+        new = Recipe.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_recipe", args=[new.id]))
+        page = self.client.get(reverse("admin_recipe", args=[new.id]))
+        self.assertEqual(page.context["e"]["status"], "Set the total time")
+        self.assertContains(page, "In Cookery")
+        self.assertRedirects(self.post(self.dough, "leave"), reverse("admin_recipes"))
+        self.assertTrue(self.post(self.dough, "leave", title="Changed").context["e"]["leave_ask"])
+        self.assertRedirects(self.post(new, "delete"), reverse("admin_recipes"))
+        self.assertFalse(Recipe.objects.filter(pk=new.pk).exists())
 
 
 class UnitTests(TestCase):

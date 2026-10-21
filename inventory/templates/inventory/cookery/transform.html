@@ -31,7 +31,8 @@
         <div class="disp tf-big">{{ dur|duration }}</div>
         <div class="brand strong">{% blocktrans with time=ready_at|time:"g:i A" %}Ready around {{ time }}{% endblocktrans %}</div>
         <div class="grow"></div>
-        {% if tf.instructions %}<div class="how-box">{{ tf.instructions }}</div>{% endif %}
+        {% if steps %}<ol class="how-box how-steps">{% for s in steps %}<li><b>{{ s.title }}</b>{% if s.duration %} · {{ s.duration_seconds|duration }}{% endif %}{% if s.text %}<br>{{ s.text }}{% endif %}</li>{% endfor %}</ol>
+        {% elif tf.instructions %}<div class="how-box">{{ tf.instructions }}</div>{% endif %}
     </aside>
 </div>
 {% endblock %}

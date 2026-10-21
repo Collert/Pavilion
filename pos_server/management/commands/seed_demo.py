@@ -534,7 +534,7 @@ class Command(BaseCommand):
             ]),
         }
         for title, (makes, parts, steps) in recipes.items():
-            recipe = Recipe.objects.create(yield_quantity=makes)
+            recipe = Recipe.objects.create(title=title, yield_quantity=makes, total_minutes=sum(step[2] for step in steps) + 15)
             rows = {name: RecipeIngredient.objects.create(recipe=recipe, ingredient=ing[name], quantity=qty, position=n)
                     for n, (name, qty) in enumerate(parts)}
             for n, (step_title, text, mins, scene, uses) in enumerate(steps):
@@ -564,6 +564,29 @@ class Command(BaseCommand):
         transforms = {name: Transformation.objects.create(name=name, from_component=source, to_component=target, scene=scene,
                                                           duration=minutes(mins), instructions=how[scene], position=n)
                       for n, (name, source, target, scene, mins) in enumerate(specs)}
+
+        # Recipes for a transformation (component in, steps), a dish build, and one not attached yet (admin Recipes)
+        def recipe(title, makes, total, parts, steps):
+            obj = Recipe.objects.create(title=title, yield_quantity=makes, total_minutes=total)
+            for n, (item, qty) in enumerate(parts):
+                key = "component" if isinstance(item, Component) else "ingredient"
+                RecipeIngredient.objects.create(recipe=obj, quantity=qty, position=n, **{key: item})
+            for n, (step_title, text, mins, scene) in enumerate(steps):
+                RecipeStep.objects.create(recipe=obj, position=n, title=step_title, text=text, scene=scene, duration=minutes(mins) if mins else None)
+            return obj
+        thaw = recipe("Thaw beef patties", 40, 740, [(frozen["Beef patty, frozen"], 40)], [
+            ("Move to the walk-in", "Move frozen patties to a lined tray on the bottom shelf of the walk-in.", 0, "prep"),
+            ("Thaw overnight", "Leave covered in the walk-in. Never thaw at room temperature.", 720, "thaw"),
+            ("Check and date", "Check they're soft all the way through and label with today's date. Use within 2 days.", 0, "prep")])
+        Transformation.objects.filter(pk=transforms["Thaw patties"].pk).update(recipe=thaw)
+        build = recipe("Smash burger build", 1, 6, [(c["Brioche bun"], 1), (c["Beef patty"], 1), (c["Cheddar slice"], 1), (c["Smash sauce"], 20)], [
+            ("Toast the bun", "Butter and toast the bun cut side down.", 1, "fry"),
+            ("Smash the patty", "Smash the ball hard on the hot plate, season, flip after 90 seconds and add cheese.", 2, "fry"),
+            ("Build", "Sauce, patty, pickles and onion, top bun. Wrap halfway in paper.", 0, "prep")])
+        Dish.objects.filter(title="Smash burger").update(recipe=build)
+        recipe("Brioche buns", 24, 660, [(ing["Flour"], 1400), (ing["Butter"], 350), (ing["Eggs"], 6), (ing["Milk"], 400), (ing["Sugar"], 120)], [
+            ("Mix", "Mix the dough and work in the butter a little at a time.", 0, "prep"),
+            ("Cold rise", "Rise overnight in the fridge.", 600, "chill")])
 
         # In progress: Priya's pork is braising, Dana is counting lemonade, and patties are thawing
         now = timezone.now()

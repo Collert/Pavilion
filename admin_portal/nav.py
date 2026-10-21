@@ -19,7 +19,7 @@ MENU = [
         ("menus", _("Menus"), "admin_menus"),
         ("dishes", _("Dishes"), "admin_dishes"),
         ("combos", _("Combos"), "admin_combos"),
-        ("recipes", _("Recipes"), None),
+        ("recipes", _("Recipes"), "admin_recipes"),
         ("services", _("Services"), None),
     ]),
     ("inventory", _("Inventory"), "M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z M3 7.5l9 4.5 9-4.5 M12 12v9", [

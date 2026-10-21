@@ -276,6 +276,8 @@
 .tf-bar { height: 100%; border-radius: 4px; background: #5E9DB6; }
 .tf-side .brand { margin-top: 10px; font-size: 14px; }
 .how-box { padding: 14px 16px; border-radius: 18px; background: var(--soft); font-size: 14px; line-height: 20px; font-weight: 600; color: #2C3E36; text-align: left; width: 100%; }
+.how-steps { margin: 0; padding-left: 34px; }
+.how-steps li + li { margin-top: 8px; }
 
 /* ---------- toast ---------- */
 

@@ -90,9 +90,12 @@ def start_cook(user, body):
         kind=CookingSession.COOK, component=component, recipe=recipe, batch=batch, started_by=user, holder=user,
         phase=phase, step=max(0, steps - 1) if phase == "yield" else 0)
     if recipe:
-        # Reserve the ingredients: out of inventory now, so nothing else counts on them
+        # Reserve the ingredients: out of inventory now, so nothing else counts on them (components a recipe uses,
+        # like a sauce in a build, just leave their stock)
         for ri in recipe.ingredients.select_related("ingredient"):
-            if not ri.ingredient.unlimited:
+            if ri.component_id:
+                _adjust(Component, ri.component_id, -ri.quantity * batch)
+            elif not ri.ingredient.unlimited:
                 _adjust(Ingredient, ri.ingredient_id, -ri.quantity * batch)
                 IngredientReservation.objects.create(session=session, ingredient=ri.ingredient, quantity=ri.quantity * batch)
     return {"session": session.id}
@@ -210,7 +213,7 @@ def finish(user, body):
 
 def start_transform(user, body):
     """Start a transformation: the amount leaves the starting component right away."""
-    transform = Transformation.objects.filter(pk=body.get("transform")).first()
+    transform = Transformation.objects.select_related("recipe").filter(pk=body.get("transform")).first()
     if transform is None:
         raise CookeryError(_("Unknown transform."))
     qty = _number(body, "qty")
@@ -221,7 +224,7 @@ def start_transform(user, body):
     now = timezone.now()
     session = CookingSession.objects.create(
         kind=CookingSession.TRANSFORM, transformation=transform, component=transform.from_component, quantity=qty,
-        started_by=user, holder=user, started_at=now, ends_at=now + timedelta(seconds=transform.duration.total_seconds()))
+        started_by=user, holder=user, started_at=now, ends_at=now + transform.takes)
     return {"session": session.id}
 
 

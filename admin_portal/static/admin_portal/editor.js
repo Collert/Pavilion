@@ -34,6 +34,16 @@ document.addEventListener("input", (event) => {
     typing = setTimeout(() => form.requestSubmit(form.querySelector("[data-preview]")), 300);
 });
 
+// Lists with a selected row (recipe steps, [data-step]): going into another row selects it, so previews follow
+document.addEventListener("focusin", (event) => {
+    const row = event.target.closest("[data-step]");
+    const form = row?.closest("form[data-editor]");
+    const sel = form?.querySelector('input[name="sel"]');
+    if (!sel || sel.value === row.dataset.step) return;
+    sel.value = row.dataset.step;
+    form.requestSubmit(form.querySelector("[data-preview]"));
+});
+
 // Saving sends the photo, so let the answer replace its region again
 document.addEventListener("submit", (event) => {
     if (event.target.matches("form[data-editor]") && SAVES.includes(event.submitter?.value)) {

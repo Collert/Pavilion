@@ -251,6 +251,24 @@ class CookeryTests(TestCase):
             self.assertEqual(self.client.get(url).status_code, 302)
 
 
+    def test_recipe_components_leave_stock_and_transforms_use_their_recipe(self):
+        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", type="food", crafting_option="buy", inventory=500)
+        RecipeIngredient.objects.create(recipe=self.recipe, component=sauce, quantity=100)
+        self.start(self.pierogi, batch="2")
+        self.assertEqual(self.fresh(sauce).inventory, 300)
+        self.assertContains(self.client.get(reverse("cookery_recipe", args=[self.pierogi.id])), "Sauce")
+        # A transformation with a recipe: its steps, its time and its batch size
+        recipe = Recipe.objects.create(title="Freeze them", yield_quantity=4, total_minutes=45)
+        RecipeStep.objects.create(recipe=recipe, title="Tray up", text="One layer, not touching.")
+        Transformation.objects.filter(pk=self.freeze.pk).update(recipe=recipe)
+        page = self.client.get(reverse("cookery_transform", args=[self.freeze.id]))
+        self.assertContains(page, "Tray up")
+        self.assertEqual((page.context["qty_value"], page.context["dur"]), (4, 45 * 60))
+        self.client.post(reverse("cookery_transform", args=[self.freeze.id]), {"qty": "4"})
+        session = CookingSession.objects.latest("id")
+        self.assertEqual(session.ends_at - session.started_at, timedelta(minutes=45))
+
+
 class SeedRecipesTests(TestCase):
     def test_adds_the_mockup_recipes_once_and_keeps_existing_ones(self):
         from django.core.management import call_command
