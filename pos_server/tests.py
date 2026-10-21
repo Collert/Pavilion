@@ -20,7 +20,7 @@ from online_store.models import RejectedOrder
 from payments.models import PaymentAuthorization, Transaction
 from users.models import Staff
 from .menu_schedule import Schedule
-from .models import (CashDrawerSession, RegisterSignIn, Combo, Condiment, Disposable, Ingredient, order_type, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
+from .models import (CashDrawerSession, RegisterSignIn, Combo, Condiment, Disposable, Ingredient, PartChoice, order_type, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
                      Extra, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
 from .orders import OrderError, create_order
 from .pricing import DishKit, dish_queryset, price_cart
@@ -238,6 +238,25 @@ class PricingTests(MenuFixture, TestCase):
         self.assertEqual(price_cart([self.dish(self.burger, cust=ketchup(4))]).subtotal, Decimal("14.50"))
         kit = DishKit(dish_queryset().get(pk=self.burger.pk)).as_json()
         self.assertEqual((kit["condiments"][0]["free"], kit["condiments"][0]["price"]), (99, 25))
+
+    def test_a_substitute_replaces_the_part_everywhere(self):
+        wrap = Component.objects.create(title="Lettuce wrap", unit_of_measurement="ea", crafting_option="buy", inventory=50,
+                                        extra_price=Decimal("1.00"))
+        PartChoice.objects.create(part=self.dc_bun, component=wrap, price=Decimal("0.50"))
+        DishComponent.objects.filter(pk=self.dc_bun.pk).update(choice_title="Bun")
+        cust = {"swaps": {str(self.dc_bun.id): wrap.id}, "parts": {str(self.dc_bun.id): 2}}
+        picked = price_cart([self.dish(self.burger, cust=cust)]).lines[0].picks[0]
+        self.assertEqual(picked.extra, Decimal("1.50"))  # 0.50 for the swap + one extra wrap at its own extra price
+        self.assertEqual((picked.use[wrap.id], picked.use.get(self.bun.id)), (2, None))
+        self.assertEqual(picked.mods[:2], ["Lettuce wrap", "2× lettuce wrap"])
+        self.assertEqual(picked.selection["swaps"], {str(self.dc_bun.id): wrap.id})
+        part = DishKit(dish_queryset().get(pk=self.burger.pk)).as_json()["parts"][0]
+        self.assertEqual((part["title"], [c["title"] for c in part["choices"]]), ("Bun", ["Bun", "Lettuce wrap"]))
+        # Left out: nothing to swap or pay for; something that isn't a choice is refused
+        cust = {"swaps": {str(self.dc_bun.id): wrap.id}, "parts": {str(self.dc_bun.id): 0}}
+        self.assertEqual(price_cart([self.dish(self.burger, cust=cust)]).subtotal, Decimal("14.50"))
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.burger, cust={"swaps": {str(self.dc_bun.id): self.onion.id}})])
 
     def test_unknown_items_are_rejected(self):
         with self.assertRaises(OrderError):

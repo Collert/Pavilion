@@ -78,13 +78,21 @@ const pickAny = (group, cust) => {
     return value && typeof value === "object" ? value : {};
 };
 
+// The component a part uses: its substitute when one is picked ({id, title, price, extra}), else the standard one
+function partChoice(part, cust) {
+    const id = ((cust || {}).swaps || {})[part.id];
+    return part.choices.find((c) => c.id === id) || part.choices[0] || { id: part.default, title: part.title, price: 0, extra: part.extra };
+}
+
 function kitCost(kit, cust) {
     if (!kit) return 0;
     cust = cust || {};
     let total = 0;
     for (const part of kit.parts) {
         const n = (cust.parts || {})[part.id] ?? part.standard;
-        if (n > part.standard) total += (n - part.standard) * part.extra;
+        const choice = partChoice(part, cust);
+        if (n > 0) total += choice.price;
+        if (n > part.standard) total += (n - part.standard) * choice.extra;
     }
     for (const group of visibleGroups(kit, cust)) {
         if (group.pick === "any") {
@@ -109,7 +117,9 @@ function kitSummary(kit, cust) {
     if (!kit || !cust) return out;
     for (const part of kit.parts) {
         const n = (cust.parts || {})[part.id];
-        if (n !== undefined && n !== part.standard) out.push(n === 0 ? interpolate(t("No %s"), [part.title.toLowerCase()]) : `${n}× ${part.title.toLowerCase()}`);
+        const choice = partChoice(part, cust);
+        if (n !== 0 && choice.id !== part.default) out.push(choice.title);
+        if (n !== undefined && n !== part.standard) out.push(n === 0 ? interpolate(t("No %s"), [part.title.toLowerCase()]) : `${n}× ${choice.title.toLowerCase()}`);
     }
     for (const group of visibleGroups(kit, cust)) {
         if (group.pick === "any") {
@@ -145,6 +155,12 @@ function normalizeCust(kit, cust) {
         if (n !== undefined && n !== part.standard) parts[part.id] = n;
     }
     if (Object.keys(parts).length) out.parts = parts;
+    const swaps = {};
+    for (const part of kit?.parts || []) {
+        const id = (cust.swaps || {})[part.id];
+        if (id != null && id !== part.default && parts[part.id] !== 0) swaps[part.id] = id;
+    }
+    if (Object.keys(swaps).length) out.swaps = swaps;
     const options = {};
     for (const group of kit ? visibleGroups(kit, { parts }) : []) {
         if (group.pick === "any") {
@@ -850,13 +866,29 @@ function chipNode({ label, on, sub, warn, disabled, onClick }) {
 // The entries of a customization sheet, shared by dishes and a combo's own extras.
 function kitEntries(spec, draft, update, { allergies = true } = {}) {
     const entries = [];
-    if (spec.parts.length) {
+    // Parts with substitutes: one pick-one row each (a lettuce wrap instead of the bun)
+    for (const part of spec.parts) {
+        if (!part.choices.length || (draft.parts || {})[part.id] === 0) continue;
+        const current = partChoice(part, draft);
+        entries.push(kitSection(part.title, t("Pick one")));
+        for (const choice of part.choices) {
+            const on = current.id === choice.id;
+            entries.push(chipNode({
+                label: choice.title, on, disabled: !choice.available && !on,
+                sub: !choice.available ? t("Sold out") : choice.price ? fmtSigned(choice.price) : "",
+                onClick: () => update((d) => { d.swaps = d.swaps || {}; d.swaps[part.id] = choice.id; }),
+            }));
+        }
+    }
+    const adjustable = spec.parts.filter((part) => part.adjustable);
+    if (adjustable.length) {
         entries.push(kitSection(t("Components"), t("Set how many of each")));
-        for (const part of spec.parts) {
+        for (const part of adjustable) {
             const n = (draft.parts || {})[part.id] ?? part.standard;
+            const choice = partChoice(part, draft);
             entries.push(counterNode({
-                label: part.title, n, min: 0, max: part.max, struck: true, standard: part.standard,
-                sub: n > part.standard && part.extra ? "+" + fmt((n - part.standard) * part.extra) : "",
+                label: choice.title, n, min: 0, max: part.max, struck: true, standard: part.standard,
+                sub: n > part.standard && choice.extra ? "+" + fmt((n - part.standard) * choice.extra) : "",
                 onChange: (value) => update((d) => { d.parts = d.parts || {}; d.parts[part.id] = value; }),
             }));
         }

@@ -117,6 +117,23 @@ label:has(> input:focus-visible) > .switch { outline: 3px solid var(--brand); ou
 .used-row:hover { background: var(--softer); }
 .dot { width: 8px; height: 8px; border-radius: 4px; flex: none; }
 .used-cost { width: 56px; text-align: right; font-size: 13px; font-weight: 800; }
+/* modifiers card */
+.mods-head { display: flex; align-items: flex-end; gap: 12px; }
+.cmod-group { margin-top: 12px; padding: 12px; border-radius: 16px; background: var(--softer); }
+.cmod-top { display: flex; align-items: center; gap: 8px; }
+.cmod-title { flex: 1; min-width: 0; height: 38px; padding: 0 10px; border: none; border-radius: 12px; background: var(--surface); font: inherit; font-size: 15px; font-weight: 800; color: var(--ink); }
+.cmod-select { height: 38px; padding: 0 10px; border: none; border-radius: 12px; background: var(--surface); font: inherit; font-size: 13px; font-weight: 700; }
+.cmod-note { display: block; width: 100%; margin-top: 8px; height: 34px; padding: 0 10px; border: none; border-radius: 10px; background: var(--surface); font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); }
+.cmod-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cmod-chip { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 4px 0 6px; border-radius: 18px; background: var(--surface); box-shadow: inset 0 0 0 1px #E3E9E5; }
+.cmod-name { width: 110px; height: 28px; border: none; background: transparent; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); }
+.cmod-price { width: 52px; height: 26px; border: none; border-radius: 8px; background: var(--soft); font: inherit; font-size: 13px; font-weight: 700; padding: 0 6px; }
+.cmod-add { height: 36px; padding: 0 12px; border: none; border-radius: 18px; background: var(--mint); color: var(--brand); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.mini-toggle { position: relative; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.mini-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.mini-toggle svg { display: none; }
+.mini-toggle:has(input:checked) { background: var(--mint); color: var(--brand); }
+.mini-toggle:has(input:checked) svg { display: block; }
 .text-btn:disabled { color: #9AA8A1; cursor: not-allowed; }
 
 @media (max-width: 1280px) {

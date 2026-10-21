@@ -81,9 +81,11 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
 
 - **Menu → Dish → DishComponent → Component → ComponentIngredient → Ingredient.** `DishComponent.adjustable` parts can
   be left out or asked for up to `max_extra` (10) more steps (a piece for whole pieces, else the whole amount; each costs
-  `Component.extra_price`). `OptionGroup`/`Option` are modifier groups, *pick one* or *pick any* (any option many
-  times: add-ons), `required` or not, owned by a Component (offered by every dish using it; a pick-one option can swap
-  the component, e.g. oat milk) or by a Dish (size, add-ons). `Extra` = what a dish or combo offers on the side (counted). A `Condiment` (1:1 with a component counted in
+  `Component.extra_price`). A part can have substitutes (`PartChoice`, named by `DishComponent.choice_title`, e.g.
+  "Bun": sesame bun, lettuce wrap +$0): the one picked (cart `swaps`) replaces the component for stock, steps and
+  extra price, set on each dish's recipe. `OptionGroup`/`Option` are modifier groups, *pick one* or *pick any* (any
+  option many times: add-ons), `required` or not, owned by a Component (offered by every dish using it, like patty
+  temperature; edited in the Components editor, listed read-only on the dish) or by a Dish (size, add-ons). `Extra` = what a dish or combo offers on the side (counted). A `Condiment` (1:1 with a component counted in
   servings: house-made from its recipe, or bought as one ingredient whose pack is the case) is priced per order:
   `free_per_order` servings across the whole cart are free, then `price` each (`pricing._charge_condiments`); other
   extras cost `Extra.price` each.

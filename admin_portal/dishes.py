@@ -17,7 +17,7 @@ from django.utils.translation import gettext as _, ngettext
 
 from pos_server.dish_info import (COMPONENT_PREFETCH, DISH_PREFETCH, component_cost, dish_allergens, dish_diets, food_cost_pct, parts_allergens,
                                   parts_cost, parts_diets, plate_cost)
-from pos_server.models import CateringPrice, Component, Dish, DishComponent, Menu, Option, OptionGroup, OrderItem, Station
+from pos_server.models import CateringPrice, Component, Dish, DishComponent, Menu, Option, OptionGroup, OrderItem, PartChoice, Station
 
 HIGH_COST = 35  # food cost % the list flags
 FILTERS = [("all", "All"), ("out", "Sold out or off"), ("cost", "Food cost over 35%"), ("nomenu", "Not on a menu")]
@@ -92,7 +92,7 @@ def dish_list(query="", show="all"):
 
 def editor_queryset():
     return Dish.objects.select_related("station").prefetch_related(
-        *DISH_PREFETCH, "catering_prices", "menu", "option_groups__options")
+        *DISH_PREFETCH, "catering_prices", "menu", "option_groups__options", "dishcomponent_set__choices")
 
 
 def _dec(value):
@@ -130,7 +130,9 @@ def draft_from_dish(dish):
         "availability": dish.availability, "menus": sorted(m.id for m in dish.menu.all()),
         "catering": dish.catering, "catering_min": str(dish.catering_min),
         "tiers": [{"quantity": str(t.quantity), "price": str(t.price)} for t in dish.catering_prices.all()],
-        "parts": [{"id": str(dc.id), "component": str(dc.component_id), "quantity": _plain(dc.quantity), "adjustable": dc.adjustable}
+        "parts": [{"id": str(dc.id), "component": str(dc.component_id), "quantity": _plain(dc.quantity), "adjustable": dc.adjustable,
+                   "label": dc.choice_title,
+                   "choices": [{"id": str(ch.id), "component": str(ch.component_id), "price": str(ch.price)} for ch in dc.choices.all()]}
                   for dc in dish.dishcomponent_set.all()],
         "groups": _groups_with_addons([
             {"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required, "addons": g.addons,
@@ -171,7 +173,10 @@ def draft_from_post(post):
         "menus": menus, "catering": bool(post.get("catering")), "catering_min": post.get("catering_min", ""),
         "tiers": [{"quantity": post.get(f"tier-{i}-quantity", ""), "price": post.get(f"tier-{i}-price", "")} for i in rows("tier-")],
         "parts": [{"id": post.get(f"part-{i}-id", ""), "component": post.get(f"part-{i}-component", ""),
-                   "quantity": post.get(f"part-{i}-quantity", ""), "adjustable": bool(post.get(f"part-{i}-adjustable"))}
+                   "quantity": post.get(f"part-{i}-quantity", ""), "adjustable": bool(post.get(f"part-{i}-adjustable")),
+                   "label": post.get(f"part-{i}-label", "").strip()[:40],
+                   "choices": [{"id": post.get(f"part-{i}-choice-{j}-id", ""), "component": post.get(f"part-{i}-choice-{j}-component", ""),
+                                "price": post.get(f"part-{i}-choice-{j}-price", "0")} for j in rows(f"part-{i}-choice-")]}
                   for i in rows("part-")],
         "groups": _groups_with_addons(groups),
     }
@@ -202,6 +207,10 @@ def apply_op(draft, op, post):
         draft["tiers"].pop(args[0])
     elif name == "remove_part" and at(draft["parts"], args[0]):
         draft["parts"].pop(args[0])
+    elif name == "remove_choice" and len(args) == 2 and at(draft["parts"], args[0]):
+        choices = draft["parts"][args[0]]["choices"]
+        if at(choices, args[1]):
+            choices.pop(args[1])
     elif name == "add_group":
         draft["groups"].insert(len(draft["groups"]) - 1, {  # before the Add-ons group
             "id": "", "title": _("New group"), "pick": OptionGroup.ONE, "required": False, "addons": False,
@@ -219,10 +228,17 @@ def apply_op(draft, op, post):
         picked = Component.objects.filter(pk=_int(post.get(f"group-{i}-add"))).first()
         if picked and str(picked.id) not in {o["component"] for o in group["options"]}:
             group["options"].append({"id": "", "title": picked.title, "price": str(picked.extra_price), "component": str(picked.id), "quantity": "1"})
+    # A component picked in a part's "+ Substitute" becomes one of its choices
+    for i, part in enumerate(draft["parts"]):
+        picked = Component.objects.filter(pk=_int(post.get(f"part-{i}-add_choice"))).first()
+        if picked and str(picked.id) != part["component"] and str(picked.id) not in {ch["component"] for ch in part["choices"]}:
+            part["choices"].append({"id": "", "component": str(picked.id), "price": "0"})
+            if not part["label"]:
+                part["label"] = _("Choice")
     # A component picked in "Add a component" joins the recipe whatever was pressed
     component = _int(post.get("add_component"))
     if component and Component.objects.filter(pk=component).exists() and str(component) not in {p["component"] for p in draft["parts"]}:
-        draft["parts"].append({"id": "", "component": str(component), "quantity": "1", "adjustable": False})
+        draft["parts"].append({"id": "", "component": str(component), "quantity": "1", "adjustable": False, "label": "", "choices": []})
     return draft
 
 
@@ -233,7 +249,8 @@ def _canonical(draft):
         _int(draft["prep_minutes"]), draft["station"], draft["availability"], tuple(draft["menus"]),
         draft["catering"], _int(draft["catering_min"]),
         tuple(sorted((_int(t["quantity"]), _dec(t["price"])) for t in draft["tiers"])),
-        tuple((p["component"], _num(p["quantity"]), p["adjustable"]) for p in draft["parts"]),
+        tuple((p["component"], _num(p["quantity"]), p["adjustable"], p["label"] if p["choices"] else "",
+               tuple((ch["component"], _dec(ch["price"])) for ch in p["choices"])) for p in draft["parts"]),
         tuple((g["id"], g["title"].strip(), g["pick"], g["required"], g["addons"],
                tuple((o["id"], o["title"].strip(), _dec(o["price"]), o["component"], _num(o["quantity"])) for o in g["options"]))
               for g in draft["groups"]),
@@ -255,6 +272,8 @@ def problems(draft):
     if any(_int(t["quantity"]) is None or _int(t["quantity"]) < 1 or _dec(t["price"]) is None or _dec(t["price"]) < 0
            for t in draft["tiers"]):
         out.append(_("Check the catering prices"))
+    if any(_dec(ch["price"]) is None or _dec(ch["price"]) < 0 for p in draft["parts"] for ch in p["choices"]):
+        out.append(_("Check the substitutes' prices"))
     if any((_num(p["quantity"]) or 0) <= 0 for p in draft["parts"]):
         out.append(_("Every component needs an amount"))
     if any(not g["addons"] and (not g["title"].strip() or not g["options"]) for g in draft["groups"]):
@@ -291,8 +310,18 @@ def save_draft(draft, dish):
         if dc is None or str(dc.component_id) != p["component"]:
             dc = DishComponent(dish=dish, component_id=_int(p["component"]))
         dc.quantity, dc.adjustable, dc.position = _num(p["quantity"]), p["adjustable"], position
+        dc.choice_title = p["label"][:40] if p["choices"] else ""
         dc.save()
         keep.add(dc.id)
+        existing_choices = {str(ch.id): ch for ch in dc.choices.all()}
+        keep_choices = set()
+        for choice_position, ch in enumerate(p["choices"]):
+            choice = existing_choices.get(ch["id"]) or PartChoice(part=dc)
+            choice.component_id, choice.position = _int(ch["component"]), choice_position
+            choice.price = (_dec(ch["price"]) or Decimal("0")).quantize(Decimal("0.01"))
+            choice.save()
+            keep_choices.add(choice.id)
+        dc.choices.exclude(pk__in=keep_choices).delete()
     for dc in existing.values():
         if dc.id not in keep:
             dc.delete()
@@ -325,6 +354,13 @@ def save_draft(draft, dish):
 
 
 # ---------- what the editor shows ----------
+
+def _substitute_select(i, component, choices):
+    """The "+ Substitute" picker of a recipe row (a component picked there becomes one of the part's substitutes)."""
+    from django.utils.html import format_html, format_html_join
+    options = format_html_join("", '<option value="{}">{}</option>', ((c.id, c.title) for c in choices))
+    return format_html('<select class="sub-add" name="part-{}-add_choice" aria-label="{}"><option value="">{}</option>{}</select>',
+                       i, _("Add a substitute for %(name)s") % {"name": component.title}, _("+ Substitute"), options)
 
 def unit_cost_text(component):
     """A component's cost per unit as people say it: $1.35 each, $12.00/kg, $3.00/L."""
@@ -409,7 +445,7 @@ def last_week(dish, cost, price):
 def editor(dish, draft, leave_ask=False, photo_pending=False):
     price = _dec(draft["price"])
     price = price if price and price > 0 else None
-    components = {str(c.id): c for c in Component.objects.filter(archived=False).prefetch_related(*COMPONENT_PREFETCH).order_by("title")}
+    components = {str(c.id): c for c in Component.objects.filter(archived=False).prefetch_related(*COMPONENT_PREFETCH, "option_groups__options").order_by("title")}
     parts, recipe = [], []
     for i, p in enumerate(draft["parts"]):
         component = components.get(p["component"])
@@ -417,8 +453,12 @@ def editor(dish, draft, leave_ask=False, photo_pending=False):
             continue
         quantity = _num(p["quantity"]) or 0
         parts.append((component, quantity))
+        taken = {p["component"]} | {ch["component"] for ch in p["choices"]}
         recipe.append({"i": i, "p": p, "component": component, "unit": component.unit_of_measurement,
-                       "each": unit_cost_text(component), "cost": Decimal(str(quantity)) * component_cost(component)})
+                       "each": unit_cost_text(component), "cost": Decimal(str(quantity)) * component_cost(component),
+                       "choices": [{"j": j, "ch": ch, "component": components.get(ch["component"])} for j, ch in enumerate(p["choices"])
+                                   if components.get(ch["component"])],
+                       "add_select": _substitute_select(i, component, [c for cid, c in components.items() if cid not in taken])})
     cost = parts_cost(parts)
     fc = food_cost_pct(cost, price)
     if fc is None:
@@ -450,4 +490,7 @@ def editor(dish, draft, leave_ask=False, photo_pending=False):
         "menus": [{"menu": m, "on": m.id in draft["menus"]} for m in Menu.objects.all()],
         "week": last_week(dish, cost, price),
         "counts": {"groups": len(draft["groups"])},
+        # Groups that belong to the dish's components (patty temperature): every dish using them offers them
+        "inherited": [{"component": component, "group": group, "options": ", ".join(o.title for o in group.options.all())}
+                      for component, _quantity in parts for group in component.option_groups.all()],
     }

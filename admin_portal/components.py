@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _, ngettext
 
 from inventory.models import Recipe, Transformation
 from pos_server.dish_info import COMPONENT_PREFETCH, component_allergens, component_cost, made_from, recipe_rows
-from pos_server.models import ALLERGENS, Component, DishComponent, Option, OrderItem, StorageLocation
+from pos_server.models import ALLERGENS, Component, DishComponent, Option, OptionGroup, OrderItem, StorageLocation
 
 from .units import fmt_qty
 
@@ -147,6 +147,9 @@ def draft_from_component(component):
         "extra_on": bool(offers) or bool(component.extra_label and not parts), "extra_label": component.extra_label,
         "extra_price": _num(component.extra_price), "extra_max": str(max((dc.max_extra for dc in offers), default=2)),
         "offer": sorted(str(dc.id) for dc in offers),
+        "groups": [{"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required, "note": g.note,
+                    "options": [{"id": str(o.id), "title": o.title, "price": f"{o.price:.2f}"} for o in g.options.all()]}
+                   for g in (component.option_groups.all() if component.pk else [])],
     }
 
 
@@ -162,12 +165,33 @@ def draft_from_post(post):
         "extra_on": bool(post.get("extra_on")), "extra_label": post.get("extra_label", ""),
         "extra_price": post.get("extra_price", "0"), "extra_max": post.get("extra_max", "2"),
         "offer": sorted({v for v in post.getlist("offer") if _int(v)}),
+        "groups": [{"id": post.get(f"group-{i}-id", ""), "title": post.get(f"group-{i}-title", ""),
+                    "pick": OptionGroup.ANY if post.get(f"group-{i}-pick") == OptionGroup.ANY else OptionGroup.ONE,
+                    "required": bool(post.get(f"group-{i}-required")), "note": post.get(f"group-{i}-note", "").strip()[:80],
+                    "options": [{"id": post.get(f"group-{i}-opt-{j}-id", ""), "title": post.get(f"group-{i}-opt-{j}-title", ""),
+                                 "price": post.get(f"group-{i}-opt-{j}-price", "0")}
+                                for j in range(min(_int(post.get(f"group-{i}-opt-count")) or 0, 100))]}
+                   for i in range(min(_int(post.get("group-count")) or 0, 50))],
     }
     return draft
 
 
 def apply_op(draft, op, post, component):
-    """extra_less / extra_more change the most extras per dish; turning the extra on fills in a label, price and dishes."""
+    """extra_less / extra_more change the most extras per dish; turning the extra on fills in a label, price and dishes.
+    add_group, remove_group:i, add_option:i and remove_option:i:j edit its modifier groups."""
+    name, _sep, arg = (op or "").partition(":")
+    args = [_int(a) for a in arg.split(":")] if arg else []
+    groups = draft["groups"]
+    i = args[0] if args and args[0] is not None and 0 <= args[0] < len(groups) else None
+    if name == "add_group":
+        groups.append({"id": "", "title": _("New group"), "pick": OptionGroup.ONE, "required": False, "note": "",
+                       "options": [{"id": "", "title": _("Option"), "price": "0.00"}]})
+    elif name == "remove_group" and i is not None:
+        groups.pop(i)
+    elif name == "add_option" and i is not None:
+        groups[i]["options"].append({"id": "", "title": _("New option"), "price": "0.00"})
+    elif name == "remove_option" and i is not None and len(args) == 2 and args[1] is not None and 0 <= args[1] < len(groups[i]["options"]):
+        groups[i]["options"].pop(args[1])
     count = min(max(_int(draft["extra_max"]) or 1, 1), MAX_EXTRA)
     if op == "extra_less":
         count = max(1, count - 1)
@@ -216,6 +240,9 @@ def problems(draft, component):
         return _("Fill in the highlighted fields")
     if draft["extra_on"] and (not draft["extra_label"].strip() or _dec(draft["extra_price"]) is None or _dec(draft["extra_price"]) < 0):
         return _("Fill in the highlighted fields")
+    if any(not g["title"].strip() or not g["options"] or any(not o["title"].strip() or _dec(o["price"]) is None for o in g["options"])
+           for g in draft["groups"]):
+        return _("Every modifier group needs a name and named options")
     return None
 
 
@@ -225,7 +252,9 @@ def _canonical(draft, component):
             _dec(draft["keeps_days"]), _dec(draft["inventory"]), _dec(draft["par"]), draft["extra_on"],
             draft["extra_label"].strip() if draft["extra_on"] else "",
             _dec(draft["extra_price"]), _int(draft["extra_max"]) if draft["offer"] and draft["extra_on"] else None,
-            tuple(draft["offer"]) if draft["extra_on"] else ())
+            tuple(draft["offer"]) if draft["extra_on"] else (),
+            tuple((g["id"], g["title"].strip(), g["pick"], g["required"], g["note"].strip(),
+                   tuple((o["id"], o["title"].strip(), _dec(o["price"])) for o in g["options"])) for g in draft["groups"]))
 
 
 def is_dirty(draft, component):
@@ -253,6 +282,23 @@ def save_draft(draft, component, copy_of=None):
     if recipe_id:  # a recipe makes one thing
         Component.objects.filter(recipe_id=recipe_id).exclude(pk=component.pk).update(recipe=None)
         Transformation.objects.filter(recipe_id=recipe_id).update(recipe=None)
+    groups = {str(g.id): g for g in component.option_groups.all()}
+    keep_groups = set()
+    for position, g in enumerate(draft["groups"]):
+        group = groups.get(g["id"]) or OptionGroup(component=component)
+        group.title, group.pick, group.required, group.note, group.position = g["title"].strip()[:80], g["pick"], g["required"], g["note"], position
+        group.save()
+        keep_groups.add(group.id)
+        options = {str(o.id): o for o in group.options.all()}
+        keep_options = set()
+        for option_position, o in enumerate(g["options"]):
+            option = options.get(o["id"]) or Option(group=group)
+            option.title, option.position = o["title"].strip()[:80], option_position
+            option.price = (_dec(o["price"]) or Decimal("0")).quantize(CENT)
+            option.save()
+            keep_options.add(option.id)
+        group.options.exclude(pk__in=keep_options).delete()
+    component.option_groups.exclude(pk__in=keep_groups).delete()
     count = min(max(_int(draft["extra_max"]) or 1, 1), MAX_EXTRA)
     for dc in dish_parts(component):
         on = draft["extra_on"] and str(dc.id) in draft["offer"]
@@ -463,4 +509,5 @@ def editor(component, draft, leave_ask=False):
         "offers": [{"dc": dc, "on": str(dc.id) in draft["offer"]} for dc in parts], "offer_line": offer_line,
         "used": [{"dc": dc, "qty": fmt_qty(dc.quantity, unit), "cost": money(Decimal(str(dc.quantity)) * each)} for dc in parts],
         "archive_off": bool(used_parts or addons), "archive_text": archive_text,
+        "group_dishes": len(parts),
     }

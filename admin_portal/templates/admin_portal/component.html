@@ -79,6 +79,45 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
             {% endif %}
         </section>
 
+        <section class="card" aria-label="{% trans 'Modifiers' %}" id="component-mods" data-region>
+            <input type="hidden" name="group-count" value="{{ d.groups|length }}">
+            <div class="mods-head">
+                <div class="grow">
+                    <h2 class="disp card-title">{% trans "Modifiers" %}</h2>
+                    <div class="card-sub">{% blocktrans count n=e.group_dishes %}Asked on the {{ n }} dish that uses it, like patty temperature.{% plural %}Asked on all {{ n }} dishes that use it, like patty temperature.{% endblocktrans %}</div>
+                </div>
+                <button class="outline-btn" name="op" value="add_group">{% icon "plus" 13 2.8 %}{% trans "Modifier group" %}</button>
+            </div>
+            {% for g in d.groups %}{% with gi=forloop.counter0 %}
+            <div class="cmod-group">
+                <input type="hidden" name="group-{{ gi }}-id" value="{{ g.id }}"><input type="hidden" name="group-{{ gi }}-opt-count" value="{{ g.options|length }}">
+                <div class="cmod-top">
+                    <input class="cmod-title" name="group-{{ gi }}-title" value="{{ g.title }}" maxlength="80" aria-label="{% trans 'Group name' %}">
+                    <select class="cmod-select" name="group-{{ gi }}-pick" aria-label="{% trans 'How many can be picked' %}">
+                        <option value="one" {% if g.pick == "one" %}selected{% endif %}>{% trans "Pick one" %}</option>
+                        <option value="any" {% if g.pick == "any" %}selected{% endif %}>{% trans "Pick any" %}</option>
+                    </select>
+                    <label class="mini-toggle"><input type="checkbox" name="group-{{ gi }}-required" value="1" {% if g.required %}checked{% endif %}>{% icon "check" 11 3 %}{% trans "Required" %}</label>
+                    <button class="x-btn" name="op" value="remove_group:{{ gi }}" aria-label="{% blocktrans with name=g.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                </div>
+                <input class="cmod-note" name="group-{{ gi }}-note" value="{{ g.note }}" maxlength="80" placeholder="{% trans 'Note for the cashier, e.g. Cooked to order' %}" aria-label="{% trans 'Note' %}">
+                <div class="cmod-options">
+                    {% for o in g.options %}{% with oi=forloop.counter0 %}
+                    <span class="cmod-chip">
+                        <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-id" value="{{ o.id }}">
+                        <input class="cmod-name" name="group-{{ gi }}-opt-{{ oi }}-title" value="{{ o.title }}" maxlength="80" aria-label="{% trans 'Option name' %}">
+                        <span class="unit">+$</span><input class="cmod-price num" type="number" name="group-{{ gi }}-opt-{{ oi }}-price" step="0.25" value="{{ o.price }}" aria-label="{% trans 'Price' %}">
+                        <button class="x-btn tiny" name="op" value="remove_option:{{ gi }}:{{ oi }}" aria-label="{% blocktrans with name=o.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
+                    </span>
+                    {% endwith %}{% endfor %}
+                    <button class="cmod-add" name="op" value="add_option:{{ gi }}">{% trans "+ Option" %}</button>
+                </div>
+            </div>
+            {% endwith %}{% empty %}
+            <div class="hint small top12">{% trans "No modifiers. Substitutes (another bun, oat milk) are set on each dish’s recipe." %}</div>
+            {% endfor %}
+        </section>
+
         <section class="card" aria-label="{% trans 'Stock' %}" id="component-stock" data-region>
             <h2 class="disp card-title">{% trans "Stock" %}</h2>
             <div class="card-sub">{% trans "Counted per storage state. Cookery transforms move stock between states." %}</div>

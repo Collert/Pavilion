@@ -9,6 +9,7 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
 `cust` is a dish's customization (every key is optional; leaving it out means "as standard"):
 
     {"parts": {"<DishComponent id>": steps},        adjustable parts: 0 = leave out, up to standard + max_extra
+     "swaps": {"<DishComponent id>": <Component id>}, a part's substitute (PartChoice): replaces its component
      "options": {"<group key>": <Option id>,         pick-one groups (see DishKit.groups for the keys)
                  "<group key>": {"<Option id>": n}}, pick-any groups: how many of each
      "condiments": {"<Extra id>": count},            on the side (see "Condiments" below)
@@ -16,7 +17,8 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
      "note": "..."}
 
 A part's steps are pieces when the dish uses whole pieces (8 pierogies), else whole amounts (see
-DishComponent.step / .standard). A combo's slot lists its picks: a required one exactly `picks` of them (left
+DishComponent.step / .standard). A substituted part uses the substitute for everything: its stock, its steps and its
+extra price per step, plus the choice's upcharge once (when the part isn't left out). A combo's slot lists its picks: a required one exactly `picks` of them (left
 out = its default picks), an optional one up to `picks` (left out = none). A combo's own `cust` only uses
 "condiments".
 
@@ -102,7 +104,7 @@ def dish_queryset():
     """Dishes with everything DishKit reads, prefetched."""
     return Dish.objects.select_related("station").prefetch_related(
         Prefetch("dishcomponent_set", queryset=DishComponent.objects.select_related("component")
-                 .prefetch_related("component__option_groups__options__component")),
+                 .prefetch_related("component__option_groups__options__component", "choices__component")),
         "option_groups__options__component",
         Prefetch("extras", queryset=Extra.objects.select_related("component__condiment")),
     )
@@ -144,7 +146,7 @@ class DishKit:
 
     @property
     def customizable(self) -> bool:
-        return bool(any(dc.adjustable for dc in self.parts) or self.groups or self.condiments)
+        return bool(any(dc.adjustable or dc.choices.all() for dc in self.parts) or self.groups or self.condiments)
 
     def as_json(self):
         """For the register's customization sheet. Money is in cents."""
@@ -159,11 +161,23 @@ class DishKit:
                 "default": default.id if default else None,
             })
         return {
-            "parts": [{"id": dc.id, "title": dc.component.title, "extra": to_cents(dc.component.extra_price),
-                       "standard": dc.standard, "max": dc.standard + dc.max_extra} for dc in self.parts if dc.adjustable],
+            "parts": [_part_json(dc) for dc in self.parts if dc.adjustable or dc.choices.all()],
             "groups": groups,
             "condiments": _extras_json(self.condiments),
         }
+
+
+def _part_json(dc):
+    """A part for the register: how many it can have, and its substitutes (the standard component first)."""
+    choices = list(dc.choices.all())
+    return {"id": dc.id, "title": dc.label, "extra": to_cents(dc.component.extra_price), "standard": dc.standard,
+            "adjustable": dc.adjustable, "max": dc.standard + dc.max_extra if dc.adjustable else dc.standard,
+            "default": dc.component_id,
+            "choices": [{"id": dc.component_id, "title": dc.component.title, "price": 0, "extra": to_cents(dc.component.extra_price),
+                         "available": dc.component.in_stock}] +
+                       [{"id": ch.component_id, "title": ch.component.title, "price": to_cents(ch.price),
+                         "extra": to_cents(ch.component.extra_price), "available": ch.component.in_stock} for ch in choices]
+            if choices else []}
 
 
 def _extras_json(extras):
@@ -261,7 +275,31 @@ def price_dish(kit: DishKit, raw) -> Picked:
     for dc in kit.parts:
         value = raw_parts.get(str(dc.id))
         steps[dc.id] = dc.standard if value is None or not dc.adjustable else \
-            _count(value, 0, dc.standard + dc.max_extra, dc.component.title)
+            _count(value, 0, dc.standard + dc.max_extra, dc.label)
+
+    # Substitutes: the part's component is replaced by the one picked
+    raw_swaps = raw.get("swaps") or {}
+    if not isinstance(raw_swaps, dict):
+        raise OrderError(_("The cart is malformed."))
+    parts_by_id = {str(dc.id): dc for dc in kit.parts}
+    swapped = {}  # DishComponent id -> PartChoice
+    for part_id, component_id in raw_swaps.items():
+        dc = parts_by_id.get(str(part_id))
+        if dc is None:
+            raise OrderError(_("That option isn't available for %(dish)s.") % {"dish": dish.title})
+        if component_id in (None, "") or str(component_id) == str(dc.component_id):
+            continue
+        choice = next((ch for ch in dc.choices.all() if str(ch.component_id) == str(component_id)), None)
+        if choice is None:
+            raise OrderError(_("That option isn't available for %(dish)s.") % {"dish": dish.title})
+        if steps[dc.id] == 0:
+            continue  # left out: nothing to swap
+        if not choice.component.in_stock:
+            raise OrderError(_("%(option)s is sold out.") % {"option": choice.component.title})
+        swapped[dc.id] = choice
+        picked.extra += choice.price
+        picked.mods.append(choice.component.title)
+        picked.selection.setdefault("swaps", {})[str(dc.id)] = choice.component_id
 
     # Modifier groups
     raw_options = raw.get("options") or {}
@@ -309,7 +347,8 @@ def price_dish(kit: DishKit, raw) -> Picked:
     # Stock used, and the price and kitchen notes for parts
     for dc in kit.parts:
         count = steps[dc.id]
-        component_id, multiplier = dc.component_id, dish_multiplier
+        part_component = swapped[dc.id].component if dc.id in swapped else dc.component
+        component_id, multiplier = part_component.id, dish_multiplier
         for option in part_choices.get(dc.id, []):
             multiplier *= option.multiplier
             if option.component_id:
@@ -317,11 +356,11 @@ def price_dish(kit: DishKit, raw) -> Picked:
         if count:
             picked.use[component_id] += dc.step * count * multiplier
         if count != dc.standard:
-            name = dc.component.title.lower()
+            name = dc.label.lower() if count == 0 else part_component.title.lower()
             picked.mods.append(_("No %(part)s") % {"part": name} if count == 0 else f"{count}× {name}")
             picked.selection.setdefault("parts", {})[str(dc.id)] = count
             if count > dc.standard:
-                picked.extra += dc.component.extra_price * (count - dc.standard)
+                picked.extra += part_component.extra_price * (count - dc.standard)
     picked.mods.extend(option_mods)
 
     _condiments_choice(raw, kit.condiments, picked, dish.title)

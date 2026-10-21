@@ -191,7 +191,7 @@ def orders_for_screens(queryset):
 def _mod_tags(item):
     """
     An item's mods as [{"text", "kind"}] for the kitchen display, kind being "no" (left out), "add" (extra or
-    add-on), "opt" (option) or "side" (condiment). Mods are stored as readable text, so the kind comes from the
+    add-on), "opt" (option or a part's substitute) or "side" (condiment). Mods are stored as readable text, so the kind comes from the
     order pricing.price_dish()/price_line() writes them in, counted from `selection`. The allergy line is left out
     (see `allergies` in _kitchen_rows). Anything that doesn't add up is shown as an option.
     """
@@ -203,7 +203,8 @@ def _mod_tags(item):
         extras = selection
         if selection.get("allergies") and mods:
             mods.pop()  # price_dish() adds the allergy line last
-        kinds = ["no" if count == 0 else "add" for count in (selection.get("parts") or {}).values()]
+        kinds = ["opt"] * len(selection.get("swaps") or {})  # price_dish() writes substitutes first
+        kinds += ["no" if count == 0 else "add" for count in (selection.get("parts") or {}).values()]
         for value in (selection.get("options") or {}).values():
             kinds += ["add"] * len(value) if isinstance(value, dict) else ["opt"]  # pick-any: one line per option
     kinds += ["side"] * len(extras.get("condiments") or {})

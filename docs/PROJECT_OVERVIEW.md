@@ -104,7 +104,7 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
  ├─ Dish (M2M menu; price Decimal; station FK; ticket_name; prep_minutes; archived;
  │   │      in_stock / availability / blocked / visible_in_menu; catering + catering_min ─ CateringPrice breaks)
- │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; par; category; storage; keeps_days; extra_price; extra_label; archived; …)
+ │   ├─ DishComponent (quantity per portion; adjustable; max_extra; choice_title ─ PartChoice substitutes) ─ Component (inventory; par; category; storage; keeps_days; extra_price; extra_label; archived; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned; pick one|any; required) ─ Option (price; extra component + quantity; multiplier)
  │   └─ Extra (condiment: component; price; max_count)
@@ -483,6 +483,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   selections), filters and the rule ("3 free, then $0.10"). Pricing per order is `pricing._charge_condiments`;
   the register's sheet says "3 free per order, then +$0.10". Dine-in mode and ask-on-takeout are saved but the
   register doesn't prompt before bagging yet. Components that are only condiments leave the Components list.
+- **Substitutes and component modifiers** (2026-10-21): each recipe row in the dish editor has "+ Substitute";
+  once a part has substitutes it gets a name ("Bun") and chips with an upcharge each. The register shows the part as a
+  pick-one row and counts its steps with the substitute (two lettuce wraps, each extra at the wrap's extra price);
+  `pricing.price_dish` reads `swaps`, the KDS shows the substitute as an option. The dish's Modifiers card lists the
+  groups its components own ("Patty temperature · from Beef patty") with a link, and the Components editor has a
+  Modifiers card to edit them. seed_demo's old "Bun" and "Milk" component groups became substitutes on every dish.
 - **Disposables** (`admin_disposables`, `disposables.py`, 2026-10-21): `Disposable` (size, category, material, bin,
   order types, counted per dish / per order / per guest / on request, dishes, count, fee label and price) sits on an
   ingredient counted in ea that holds the buying (supplier, units per case, case price) and the stock. When an order

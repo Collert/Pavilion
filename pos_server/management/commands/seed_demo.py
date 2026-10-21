@@ -37,7 +37,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Condiment, Discount, Dish, Disposable, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
+                               ComponentIngredient, CateringPrice, Condiment, Discount, Dish, Disposable, DishComponent, EligibleDevice, Extra, Ingredient, PartChoice, StorageLocation, Supplier,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -84,6 +84,7 @@ class Command(BaseCommand):
             self.seed_stations()
             self.seed_inventory()
             self.seed_menus()
+            self.seed_substitutes()
             self.seed_cookery()
             call_command("seed_recipes", stdout=io.StringIO())  # the Cookery mockup's recipes too
             self.seed_component_details()
@@ -278,15 +279,9 @@ class Command(BaseCommand):
                 Option.objects.create(group=obj, title=name, price=Decimal(price), position=position, **more)
             return obj
 
-        # Options that belong to a component: every dish using it offers them
-        group("Bun", [("Brioche bun", "0"), ("Sesame bun", "0", {"component": c["Sesame bun"]}),
-                      ("Gluten-free bun", "1.50", {"component": c["Gluten-free bun"]}),
-                      ("Lettuce wrap", "0", {"component": c["Lettuce wrap"]})], component=c["Brioche bun"])
+        # Options that belong to a component: every dish using it offers them (substitutes are on each dish's part)
         group("Patty temperature", ["Medium rare", "Medium", "Medium well", "Well done"], component=c["Beef patty"],
               note="Cooked to order", default="Medium")
-        group("Milk", [("Whole milk", "0"), ("Oat milk", "0.60", {"component": c["Oat milk"]}),
-                       ("Almond milk", "0.60", {"component": c["Almond milk"]}), ("Skim milk", "0", {"component": c["Skim milk"]})],
-              component=c["Whole milk"])
         self.group = group
 
     def seed_dish_details(self):
@@ -624,6 +619,19 @@ class Command(BaseCommand):
         names = {"freezer": "Freezer", "fridge": "Walk-in fridge", "line": "Line fridge", "hot": "Hot holding", "dry": "Dry store",
                  "counter": "Display case", "bar": "Bar fridge"}
         return {key: StorageLocation.named(name) for key, name in names.items()}
+
+    def seed_substitutes(self):
+        """Parts customers can swap: another bun on every burger, another milk in every coffee."""
+        c = self.components
+        swaps = {  # component: (what the register calls it, [(substitute, upcharge)])
+            "Brioche bun": ("Bun", [("Sesame bun", "0"), ("Gluten-free bun", "1.50"), ("Lettuce wrap", "0")]),
+            "Whole milk": ("Milk", [("Oat milk", "0.60"), ("Almond milk", "0.60"), ("Skim milk", "0")]),
+        }
+        for title, (label, choices) in swaps.items():
+            for dc in DishComponent.objects.filter(component=c[title]):
+                DishComponent.objects.filter(pk=dc.pk).update(choice_title=label)
+                for position, (name, price) in enumerate(choices):
+                    PartChoice.objects.create(part=dc, component=c[name], price=Decimal(price), position=position)
 
     def seed_component_details(self):
         """Categories, where things are kept and for how long, and extra labels (the Components page)."""

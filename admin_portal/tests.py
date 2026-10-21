@@ -451,7 +451,10 @@ def form_fields(draft, **changes):
         data[f"tier-{i}-quantity"], data[f"tier-{i}-price"] = t["quantity"], t["price"]
     data["part-count"] = len(draft["parts"])
     for i, p in enumerate(draft["parts"]):
-        data.update({f"part-{i}-id": p["id"], f"part-{i}-component": p["component"], f"part-{i}-quantity": p["quantity"]})
+        data.update({f"part-{i}-id": p["id"], f"part-{i}-component": p["component"], f"part-{i}-quantity": p["quantity"],
+                     f"part-{i}-label": p.get("label", ""), f"part-{i}-choice-count": len(p.get("choices", []))})
+        for j, ch in enumerate(p.get("choices", [])):
+            data.update({f"part-{i}-choice-{j}-id": ch["id"], f"part-{i}-choice-{j}-component": ch["component"], f"part-{i}-choice-{j}-price": ch["price"]})
         if p["adjustable"]:
             data[f"part-{i}-adjustable"] = "1"
     data["group-count"] = len(draft["groups"])
@@ -981,6 +984,14 @@ def component_fields(draft, **changes):
     data["extra_was"] = draft.get("extra_was", "1" if draft["extra_on"] else "0")
     if draft["extra_on"]:
         data["extra_on"] = "1"
+    data["group-count"] = len(draft.get("groups", []))
+    for i, g in enumerate(draft.get("groups", [])):
+        data.update({f"group-{i}-id": g["id"], f"group-{i}-title": g["title"], f"group-{i}-pick": g["pick"], f"group-{i}-note": g["note"],
+                     f"group-{i}-opt-count": len(g["options"])})
+        if g["required"]:
+            data[f"group-{i}-required"] = "1"
+        for j, o in enumerate(g["options"]):
+            data.update({f"group-{i}-opt-{j}-id": o["id"], f"group-{i}-opt-{j}-title": o["title"], f"group-{i}-opt-{j}-price": o["price"]})
     return data
 
 
@@ -1329,6 +1340,44 @@ class DisposableAdminTests(AdminFixture, TestCase):
         self.assertEqual(price_cart([self.dish(self.burger)], channel="web", to_go=True).fees[0].label, "Paper bag")  # the copy still charges
         Disposable.objects.filter(pk=copy.pk).update(fee=False)
         self.assertEqual(price_cart([self.dish(self.burger)], channel="web", to_go=True).fees, [])  # archived ones don't
+
+
+class SubstituteEditorTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+        cls.wrap = Component.objects.create(title="Lettuce wrap", unit_of_measurement="ea", crafting_option="buy")
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def test_dish_parts_get_substitutes_and_show_component_groups(self):
+        url = reverse("admin_dish", args=[self.burger.id])
+        e = self.client.get(url).context["e"]
+        self.assertEqual({(h["component"].title, h["group"].title) for h in e["inherited"]}, {("Patty", "Temperature"), ("Bun", "Bun")})
+        fields = form_fields(e["d"])
+        bun = next(i for i, p in enumerate(e["d"]["parts"]) if p["component"] == str(self.bun.id))
+        e = self.client.post(url, {**fields, "op": "preview", f"part-{bun}-add_choice": str(self.wrap.id)}).context["e"]
+        part = e["d"]["parts"][bun]
+        self.assertEqual(([c["component"] for c in part["choices"]], part["label"]), ([str(self.wrap.id)], "Choice"))
+        part.update(label="Bun")
+        part["choices"][0]["price"] = "0.50"
+        self.client.post(url, {**form_fields(e["d"]), "op": "save"})
+        dc = DishComponent.objects.get(pk=self.dc_bun.pk)
+        self.assertEqual((dc.choice_title, [(c.component, c.price) for c in dc.choices.all()]), ("Bun", [(self.wrap, Decimal("0.50"))]))
+
+    def test_component_modifier_groups(self):
+        url = reverse("admin_component", args=[self.patty.id])
+        draft = components.draft_from_component(Component.objects.get(pk=self.patty.pk))
+        self.assertEqual([g["title"] for g in draft["groups"]], ["Temperature"])
+        e = self.client.post(url, {**component_fields(draft), "op": "add_group"}).context["e"]
+        e["d"]["groups"][1].update(title="Doneness note", required=True)
+        e["d"]["groups"][0]["options"][0]["price"] = "0.25"
+        self.client.post(url, {**component_fields(e["d"], extra_label="Extra patty"), "op": "save"})
+        groups = list(Component.objects.get(pk=self.patty.pk).option_groups.all())
+        self.assertEqual([(g.title, g.required, [o.title for o in g.options.all()]) for g in groups],
+                         [("Temperature", True, ["Medium", "Well done"]), ("Doneness note", True, ["Option"])])
+        self.assertEqual(groups[0].options.first().price, Decimal("0.25"))
 
 
 class UnitTests(TestCase):

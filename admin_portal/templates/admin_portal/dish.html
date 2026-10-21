@@ -124,12 +124,29 @@ warnings keep up ([data-calc] parts update even while you type in their region).
                     <span class="strong">{{ r.component.title }}</span>
                     <label class="mini-toggle" title="{% trans 'Customers can leave it out or ask for up to 10 more' %}">
                         <input type="checkbox" name="part-{{ r.i }}-adjustable" value="1" {% if r.p.adjustable %}checked{% endif %}>{% icon "check" 11 3 %}{% trans "Adjustable" %}</label>
+                    {% if not r.choices %}{{ r.add_select }}{% endif %}
                 </span>
                 <span class="unit-field small"><input type="number" name="part-{{ r.i }}-quantity" min="0" step="any" class="num" value="{{ r.p.quantity }}" aria-label="{% blocktrans with name=r.component.title %}Amount of {{ name }}{% endblocktrans %}"><span class="unit">{{ r.unit }}</span></span>
                 <span class="num right muted small">{{ r.each }}</span>
                 <span class="num right strong" data-calc>{{ r.cost|money }}</span>
                 <button class="x-btn" name="op" value="remove_part:{{ r.i }}" aria-label="{% blocktrans with name=r.component.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
             </div>
+            <input type="hidden" name="part-{{ r.i }}-choice-count" value="{{ r.p.choices|length }}">
+            {% if r.choices %}
+            <div class="sub-row">
+                <label class="sub-label"><span class="visually-hidden">{% trans "What the register calls it" %}</span>
+                    <input name="part-{{ r.i }}-label" value="{{ r.p.label }}" maxlength="40" placeholder="{% trans 'e.g. Bun' %}" aria-label="{% trans 'What the register calls it' %}"></label>
+                <span class="sub-chip std">{{ r.component.title }}<span class="hint small"> · {% trans "standard" %}</span></span>
+                {% for c in r.choices %}
+                <span class="sub-chip">
+                    <input type="hidden" name="part-{{ r.i }}-choice-{{ c.j }}-id" value="{{ c.ch.id }}"><input type="hidden" name="part-{{ r.i }}-choice-{{ c.j }}-component" value="{{ c.ch.component }}">
+                    {{ c.component.title }}<span class="unit">+$</span><input class="opt-price num" type="number" name="part-{{ r.i }}-choice-{{ c.j }}-price" min="0" step="0.25" value="{{ c.ch.price }}" aria-label="{% blocktrans with name=c.component.title %}Upcharge for {{ name }}{% endblocktrans %}">
+                    <button class="x-btn tiny" name="op" value="remove_choice:{{ r.i }}:{{ c.j }}" aria-label="{% blocktrans with name=c.component.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
+                </span>
+                {% endfor %}
+                {{ r.add_select }}
+            </div>
+            {% else %}<input type="hidden" name="part-{{ r.i }}-label" value="{{ r.p.label }}">{% endif %}
             {% endfor %}
             <div class="card-foot">
                 <select class="outline-select" name="add_component" aria-label="{% trans 'Add a component' %}">
@@ -209,6 +226,16 @@ warnings keep up ([data-calc] parts update even while you type in their region).
                     {% endif %}
                 </div>
                 {% endwith %}{% endfor %}
+                {% for h in e.inherited %}
+                <div class="mod-group inherited">
+                    <div class="mod-top">
+                        <span class="mod-title grow">{{ h.group.title }}<span class="hint small"> · {% blocktrans with name=h.component.title %}from {{ name }}, on every dish with it{% endblocktrans %}</span></span>
+                        <span class="mod-rule">{% if h.group.pick == "any" %}{% trans "Pick any" %}{% else %}{% trans "Pick one" %}{% endif %}{% if h.group.required %} · {% trans "Required" %}{% endif %}</span>
+                        <a class="outline-btn" href="{% url 'admin_component' h.component.id %}">{% trans "Edit on the component" %}</a>
+                    </div>
+                    <div class="hint small">{{ h.options }}</div>
+                </div>
+                {% endfor %}
             </div>
         </section>
     </div>

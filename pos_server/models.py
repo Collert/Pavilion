@@ -407,6 +407,24 @@ def order_type(channel, to_go=False) -> str:
     return "pickup" if to_go else "dine_in"
 
 
+class PartChoice(models.Model):
+    """
+    A substitute for a dish's part (a sesame bun or a lettuce wrap instead of the brioche bun). Picking it swaps the
+    part's component everywhere: what's taken from stock, the steps asked for (two buns = two lettuce wraps) and the
+    extra price per step (the substitute's own). `price` is added once when the part isn't left out.
+    """
+    part = models.ForeignKey("DishComponent", on_delete=models.CASCADE, related_name="choices")
+    component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="+")
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0.00"), help_text="Upcharge for picking it")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.component.title} for {self.part}"
+
+
 class Condiment(models.Model):
     """
     A condiment (ketchup packets, house garlic aioli): how it's served and charged, on top of the component that
@@ -961,6 +979,8 @@ class DishComponent(models.Model):
     quantity = models.FloatField()
     adjustable = models.BooleanField(default=False, help_text="Customers can remove it or ask for more")
     max_extra = models.PositiveSmallIntegerField(default=10, help_text="How many steps above the standard can be asked for")
+    choice_title = models.CharField(max_length=40, blank=True,
+                                    help_text="With substitutes (PartChoice), what the part is called at the register, e.g. Bun")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -975,6 +995,11 @@ class DishComponent(models.Model):
         if self.component.unit_of_measurement == "ea" and self.quantity >= 1 and float(self.quantity).is_integer():
             return 1.0
         return self.quantity
+
+    @property
+    def label(self) -> str:
+        """What the register calls the part: its choice title when it has substitutes, else the component."""
+        return self.choice_title or self.component.title
 
     @property
     def standard(self) -> int:
