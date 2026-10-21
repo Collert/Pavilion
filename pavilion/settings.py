@@ -359,7 +359,7 @@ else:
 # Set BUGSINK_SEND_PII=true on deployments that may attach user data (username, email, IP) to events.
 BUGSINK_DSN = os.getenv('BUGSINK_DSN', 'https://183054b18a2f448aa503ef88e279e13e@bugs.adpit.space/2')
 BUGSINK_SEND_PII = os.getenv('BUGSINK_SEND_PII', 'false').lower() == 'true'
-if BUGSINK_DSN and 'test' not in sys.argv:
+if BUGSINK_DSN and 'test' not in sys.argv and not DEBUG:
     sentry_sdk.init(
         dsn=BUGSINK_DSN,
         environment=os.getenv('ENVIRONMENT', 'development'),
