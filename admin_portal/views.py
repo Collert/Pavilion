@@ -25,9 +25,10 @@ from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import safe_next_url, superuser_required
 from pavilion.realtime import publish
 from pos_server.menu_schedule import Schedule
-from pos_server.models import Combo, Dish, Menu, MenuRule, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Dish, Menu, MenuRule, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 
+from . import combos as combos_data
 from . import dashboard as dashboard_data
 from . import dishes as dishes_data
 from . import menus as menus_data
@@ -418,3 +419,66 @@ def dish_edit(request, dish_id):
 def _dishes_changed():
     publish("menus")
     publish("inventory")  # the register refetches its catalog on this
+
+
+# ---------- combos ----------
+
+@superuser_required
+def combos(request):
+    data = combos_data.combo_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/combos.html", "combos", {"l": data})
+
+
+@superuser_required
+@require_POST
+def combo_new(request):
+    combo = Combo.objects.create(title=_("New combo"), ticket_name=_("NEW CMB")[:12], active=False)
+    for position, title in enumerate([_("Main"), _("Side"), _("Drink")]):
+        ComboSlot.objects.create(combo=combo, title=title, position=position)
+    return redirect("admin_combo", combo_id=combo.id)
+
+
+@superuser_required
+def combo_edit(request, combo_id):
+    """The combo editor, one form like the dish editor (see dish_edit for the `op`s)."""
+    combo = get_object_or_404(Combo.objects.prefetch_related("menu", "slots__options__dish"), pk=combo_id)
+    if request.method != "POST":
+        return page(request, "admin_portal/combo.html", "combos", {"e": combos_data.editor(combo, combos_data.draft_from_combo(combo))})
+    op = request.POST.get("op", "")
+    draft = combos_data.draft_from_post(request.POST)
+    if op == "archive":
+        combo.archived = True
+        combo.save(update_fields=["archived"])
+        combo.menu.clear()
+        _dishes_changed()
+        messages.success(request, _("%(combo)s archived") % {"combo": combo.title})
+        return redirect("admin_combos")
+    if op == "restore":
+        combo.archived = False
+        combo.save(update_fields=["archived"])
+        _dishes_changed()
+        messages.success(request, _("%(combo)s is back. Add it to a menu to sell it.") % {"combo": combo.title})
+        return redirect("admin_combo", combo_id=combo.id)
+    draft = combos_data.apply_op(draft, op, request.POST)
+    if op == "leave":
+        if not combos_data.is_dirty(draft, combo):
+            return redirect("admin_combos")
+        return page(request, "admin_portal/combo.html", "combos", {"e": combos_data.editor(combo, draft, leave_ask=True)})
+    if op in ("save", "duplicate"):
+        if combos_data.problems(draft):
+            messages.error(request, _("Fix the marked choices first."))
+        else:
+            if op == "duplicate":
+                draft["title"] = (_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140]
+                draft["active"] = False
+                for row in draft["slots"] + [o for s in draft["slots"] for o in s["options"]]:
+                    row["id"] = ""
+                target = Combo()
+            else:
+                target = combo
+            target = combos_data.save_draft(draft, target)
+            _dishes_changed()
+            messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate"
+                             else _("%(combo)s saved") % {"combo": target.title})
+            return redirect("admin_combo", combo_id=target.id)
+    return page(request, "admin_portal/combo.html", "combos", {"e": combos_data.editor(combo, draft)})

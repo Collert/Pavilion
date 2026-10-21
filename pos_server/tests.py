@@ -29,7 +29,7 @@ from .pricing import price_cart
 class MenuFixture:
     """
     A small menu: a burger (kitchen) with adjustable parts, a patty-temperature option, a bun swap, an add-on
-    and a condiment; coffee (bar) with a size option; and a lunch combo (burger + a drink it asks for).
+    and a condiment; coffee (bar) with a size option; and a lunch combo (burger + coffee or tea, set price).
     """
 
     @classmethod
@@ -77,8 +77,7 @@ class MenuFixture:
         cls.combo = Combo.objects.create(title="Lunch combo", price=Decimal("16.00"))
         main = ComboSlot.objects.create(combo=cls.combo, title="Main", position=0)
         ComboSlotOption.objects.create(slot=main, dish=cls.burger, is_default=True)
-        cls.drink = ComboSlot.objects.create(combo=cls.combo, title="Drink", position=1, ask_on_add=True,
-                                             allow_none=True, none_price=Decimal("-1.50"))
+        cls.drink = ComboSlot.objects.create(combo=cls.combo, title="Drink", position=1)
         ComboSlotOption.objects.create(slot=cls.drink, dish=cls.coffee, is_default=True)
         ComboSlotOption.objects.create(slot=cls.drink, dish=cls.tea, price=Decimal("0.50"))
 
@@ -93,7 +92,7 @@ class MenuFixture:
     @classmethod
     def lunch(cls, drink=None, qty=1, **extra):
         drink = drink or cls.coffee
-        return {"type": "combo", "id": cls.combo.id, "qty": qty, "slots": {str(cls.drink.id): {"dish": drink.id}}, **extra}
+        return {"type": "combo", "id": cls.combo.id, "qty": qty, "slots": {str(cls.drink.id): [{"dish": drink.id}]}, **extra}
 
 
 class PricingTests(MenuFixture, TestCase):
@@ -175,20 +174,44 @@ class PricingTests(MenuFixture, TestCase):
         self.assertEqual(cart.subtotal, Decimal("16.50"))
         self.assertEqual([p.dish for p in cart.lines[0].picks], [self.burger, self.tea])
 
-    def test_combo_slot_can_be_left_out(self):
+    def test_required_choices_start_on_their_defaults(self):
+        cart = price_cart([{"type": "combo", "id": self.combo.id, "qty": 1, "slots": {}}])
+        self.assertEqual(cart.subtotal, Decimal("16.00"))
+        self.assertEqual([p.dish for p in cart.lines[0].picks], [self.burger, self.coffee])
         line = self.lunch()
-        line["slots"][str(self.drink.id)] = {"dish": None}
-        cart = price_cart([line])
-        self.assertEqual(cart.subtotal, Decimal("14.50"))
-        self.assertEqual(len(cart.lines[0].picks), 1)
-
-    def test_combo_must_ask_its_question(self):
+        line["slots"][str(self.drink.id)] = []  # a required choice can't be left out
         with self.assertRaises(OrderError):
-            price_cart([{"type": "combo", "id": self.combo.id, "qty": 1, "slots": {}}])
+            price_cart([line])
+
+    def test_optional_choices_and_several_picks(self):
+        treat = ComboSlot.objects.create(combo=self.combo, title="Treat", position=2, required=False, picks=2)
+        ComboSlotOption.objects.create(slot=treat, dish=self.tea, price=Decimal("1.00"))
+        self.assertEqual(price_cart([self.lunch()]).subtotal, Decimal("16.00"))  # skipped unless picked
+        line = self.lunch(slots={str(treat.id): [{"dish": self.tea.id}, {"dish": self.tea.id}]})
+        cart = price_cart([line])
+        self.assertEqual(cart.subtotal, Decimal("18.00"))
+        self.assertEqual([p.upcharge for p in cart.lines[0].picks], [Decimal("0.00"), Decimal("0.00"), Decimal("1.00"), Decimal("1.00")])
+        line["slots"][str(treat.id)].append({"dish": self.tea.id})  # three is one too many
+        with self.assertRaises(OrderError):
+            price_cart([line])
+
+    def test_percent_off_combos(self):
+        Combo.objects.filter(pk=self.combo.pk).update(pricing=Combo.PERCENT, percent_off=Decimal("10"))
+        cart = price_cart([self.lunch(self.tea)])
+        self.assertEqual(cart.subtotal, Decimal("14.85"))  # (14.50 + 2.00) less 10%, upcharges don't apply
+        self.assertEqual(Combo.objects.get(pk=self.combo.pk).standard_price(), Decimal("15.30"))
+
+    def test_hidden_combos_are_refused(self):
+        Combo.objects.filter(pk=self.combo.pk).update(active=False)
+        with self.assertRaises(OrderError):
+            price_cart([self.lunch()])
 
     def test_combo_pick_must_be_an_option(self):
         line = self.lunch()
-        line["slots"][str(self.drink.id)] = {"dish": self.burger.id}
+        line["slots"][str(self.drink.id)] = [{"dish": self.burger.id}]
+        with self.assertRaises(OrderError):
+            price_cart([line])
+        line["slots"][str(self.drink.id)] = {"dish": self.coffee.id}  # picks are a list
         with self.assertRaises(OrderError):
             price_cart([line])
 
@@ -491,13 +514,13 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         cust = {"parts": {str(self.dc_onion.id): 0, str(self.dc_patty.id): 2},
                 "options": {self.temp_key: self.well.id, self.addons_key: {str(self.avocado_addon.id): 1}},
                 "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Peanuts"]}
-        create_order(lines=[self.dish(self.burger, cust=cust), self.lunch(slots={str(self.drink.id): {"dish": None}})],
+        create_order(lines=[self.dish(self.burger, cust=cust), self.lunch()],
                      channel="store", initial_status=1)
         dishes = self.client.get(self.url).context["orders"][0]["dishes"]
         self.assertEqual([(t["text"], t["kind"]) for t in dishes[0]["tags"]],
                          [("2× patty", "add"), ("No onion", "no"), ("+ Avocado", "add"), ("Well done", "opt"), ("2× Ketchup", "side")])
         self.assertEqual(dishes[0]["allergies"], ["Peanuts"])
-        self.assertEqual(dishes[1]["combo_tags"], [{"text": "No drink", "kind": "no"}])
+        self.assertEqual(dishes[1]["combo_tags"], [])
         self.assertNotEqual(dishes[0]["line"], dishes[1]["line"])
 
     def test_confirm_ready_pickup(self):

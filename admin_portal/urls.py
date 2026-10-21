@@ -22,4 +22,7 @@ urlpatterns = [
     path("dishes", views.dishes, name="admin_dishes"),
     path("dishes/new", views.dish_new, name="admin_dish_new"),
     path("dishes/<int:dish_id>", views.dish_edit, name="admin_dish"),
+    path("combos", views.combos, name="admin_combos"),
+    path("combos/new", views.combo_new, name="admin_combo_new"),
+    path("combos/<int:combo_id>", views.combo_edit, name="admin_combo"),
 ]

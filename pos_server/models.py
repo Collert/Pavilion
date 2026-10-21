@@ -180,18 +180,28 @@ class CateringPrice(models.Model):
 
 class Combo(models.Model):
     """
-    A set of dishes sold together at one price, e.g. "Lunch combo" = burger + side + drink.
+    A set of dishes sold together, e.g. "Lunch combo" = burger + side + drink.
 
-    Each ComboSlot ("Main", "Side", "Drink") offers dishes to pick from, each with a price change; one of them
-    is the standard pick. Every picked dish is made at its own station, so a combo has no station itself. It
-    is listed in the menu section of its first slot's standard dish.
+    Each ComboSlot is one choice ("Main", "Side", "Drink"): required ones are filled with their default dish unless
+    the customer picks another, optional ones (a treat) are skipped unless picked. `pricing` FIXED: `price` plus
+    each pick's upcharge (ComboSlotOption.price); PERCENT: the picks' own prices less `percent_off`. Customizations of
+    the picks are added on top. Every pick is made at its own station; kitchen tickets call the combo
+    `ticket_name`. Only `active` combos show on menus; archived ones are hidden from the admin list too.
     """
+    FIXED = "fixed"
+    PERCENT = "percent"
+    PRICINGS = ((FIXED, "Set price"), (PERCENT, "Percent off"))
+
     title = models.CharField(max_length=140)
-    price = models.DecimalField(max_digits=8, decimal_places=2)
+    ticket_name = models.CharField(max_length=12, blank=True, help_text="Name on kitchen tickets")
+    pricing = models.CharField(max_length=7, choices=PRICINGS, default=FIXED)
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Set price")
+    percent_off = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("15.00"), help_text="Percent off")
     image = models.ImageField(upload_to='files/dish_images', null=True, blank=True)
     description = models.TextField(blank=True)
     menu = models.ManyToManyField("Menu", related_name="combos", blank=True)
-    visible_in_menu = models.BooleanField(default=True)
+    active = models.BooleanField(default=True, help_text="Hidden combos don't show on any menu or at the register")
+    archived = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return self.title
@@ -204,21 +214,39 @@ class Combo(models.Model):
 
     @property
     def available(self) -> bool:
-        """Sellable while every slot has something to pick (or can be left out)."""
+        """Sellable while it's active and every required choice has a dish that isn't sold out."""
+        if not self.active or self.archived:
+            return False
         for slot in self.slots.all():
-            if not slot.allow_none and not any(option.dish.available for option in slot.options.all()):
+            if slot.required and not any(option.dish.available for option in slot.options.all()):
                 return False
         return True
 
+    def unit_price(self, picks) -> Decimal:
+        """The combo's price for [(ComboSlotOption)] picked, before the picks' customizations."""
+        if self.pricing == self.PERCENT:
+            total = sum((option.dish.price for option in picks), Decimal("0"))
+            return (total * (100 - self.percent_off) / 100).quantize(Decimal("0.01"))
+        return self.price + sum((option.price for option in picks), Decimal("0"))
+
+    def default_picks(self):
+        return [option for slot in self.slots.all() for option in slot.default_picks()]
+
+    def standard_price(self) -> Decimal:
+        """The price with every default pick."""
+        return self.unit_price(self.default_picks())
+
 
 class ComboSlot(models.Model):
-    """One part of a combo, e.g. "Drink". `ask_on_add` makes the register ask for it when the combo is added."""
+    """
+    One choice in a combo, e.g. "Side": `picks` dishes from its options (the same one may be picked twice).
+    A required choice starts on its default dish (then the next options, for more than one pick); an optional
+    one starts empty and takes up to `picks`.
+    """
     combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="slots")
     title = models.CharField(max_length=60, help_text="e.g. 'Main', 'Side', 'Drink'")
-    ask_on_add = models.BooleanField(default=False, help_text="Ask for this pick when the combo is added")
-    allow_none = models.BooleanField(default=False, help_text="The customer may leave this part out")
-    none_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
-                                     help_text="Price change when left out, e.g. -1.50")
+    picks = models.PositiveSmallIntegerField(default=1)
+    required = models.BooleanField(default=True)
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -231,13 +259,26 @@ class ComboSlot(models.Model):
         options = list(self.options.all())
         return next((o for o in options if o.is_default), options[0] if options else None)
 
+    def default_picks(self):
+        """
+        What a required choice starts with: the default, then the other options in order, skipping sold-out dishes
+        when there are enough others (the register does the same). Empty when optional.
+        """
+        if not self.required:
+            return []
+        options = list(self.options.all())
+        default = self.default_option()
+        ordered = ([default] if default else []) + [o for o in options if o != default]
+        open_ = [o for o in ordered if o.dish.available]
+        return (open_ if len(open_) >= self.picks else ordered)[:self.picks]
+
 
 class ComboSlotOption(models.Model):
     """A dish that can fill a combo slot, and what picking it adds to (or takes off) the combo price."""
     slot = models.ForeignKey(ComboSlot, on_delete=models.CASCADE, related_name="options")
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="combo_options")
-    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Price change, e.g. 0.50")
-    is_default = models.BooleanField(default=False, help_text="The standard pick")
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Upcharge (set-price combos)")
+    is_default = models.BooleanField(default=False, help_text="The default pick")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -487,6 +528,8 @@ class OrderItem(models.Model):
     station = models.ForeignKey("Station", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     title = models.CharField(max_length=140)
     slot = models.CharField(max_length=60, blank=True, help_text="Combo slot this dish fills, e.g. 'Drink'")
+    upcharge = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
+                                   help_text="A combo pick's upcharge (set-price combos), for reports")
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))

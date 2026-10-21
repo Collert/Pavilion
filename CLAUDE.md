@@ -83,8 +83,9 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   `Component.extra_price`). `OptionGroup`/`Option` are modifier groups, *pick one* or *pick any* (any option many
   times: add-ons), `required` or not, owned by a Component (offered by every dish using it; a pick-one option can swap
   the component, e.g. oat milk) or by a Dish (size, add-ons). `Extra` = condiments (counted) for a dish or combo.
-- **Combo → ComboSlot → ComboSlotOption(dish, price change).** A slot may `ask_on_add` ("Choose a drink") or
-  `allow_none`. Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.
+- **Combo → ComboSlot → ComboSlotOption(dish, upcharge, is_default).** A combo is a set price + upcharges or a percent
+  off the picks (`Combo.unit_price`); each slot takes `picks` dishes and is required (starts on its default) or optional.
+  Cart lines list every pick (`slots: {id: [{dish, cust}]}`). Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.
 - **Stations:** `Dish.station` → `Station` (code, name, icon, menu_heading, position). Per-order status is
   `OrderStation(order, station, status)`: 0 pending approval · 1 being made · 2 done · 3 rejected; no row = not involved.
   POS orders start at 1, online/delivery at 0 (approved on the KDS). Change statuses only via `Order.set_station_status()`.

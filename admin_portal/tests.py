@@ -12,12 +12,13 @@ from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
 from pos_server import dish_info
-from pos_server.models import (CashDrawerSession, CashMovement, ComponentIngredient, Dish, DishComponent,
+from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComponentIngredient, Dish, DishComponent,
                                Ingredient, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
 from pos_server.orders import collect_order, create_order
+from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import dashboard, dishes, reports
+from . import combos, dashboard, dishes, reports
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -581,6 +582,117 @@ class DishTests(AdminFixture, TestCase):
         week = self.client.get(reverse("admin_dish", args=[self.coffee.id])).context["e"]["week"]
         self.assertEqual(week["sold"], 3)
         self.assertEqual(week["sales"], Decimal("5.00"))
+
+
+def combo_fields(draft, **changes):
+    """The combo editor's POST fields for a draft (admin_portal.combos.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "ticket_name", "description", "pricing", "price", "percent_off")}
+    data["menus"] = [str(m) for m in draft["menus"]]
+    if draft["active"]:
+        data["active"] = "1"
+    data["slot-count"] = len(draft["slots"])
+    for i, s in enumerate(draft["slots"]):
+        data.update({f"slot-{i}-id": s["id"], f"slot-{i}-title": s["title"], f"slot-{i}-picks": s["picks"],
+                     f"slot-{i}-default": s["default"], f"slot-{i}-opt-count": len(s["options"])})
+        if s["required"]:
+            data[f"slot-{i}-required"] = "1"
+        for j, o in enumerate(s["options"]):
+            data.update({f"slot-{i}-opt-{j}-id": o["id"], f"slot-{i}-opt-{j}-dish": o["dish"], f"slot-{i}-opt-{j}-price": o["price"]})
+    return data
+
+
+class ComboTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self):
+        return combos.draft_from_combo(Combo.objects.get(pk=self.combo.pk))
+
+    def post(self, draft, op, **extra):
+        return self.client.post(reverse("admin_combo", args=[self.combo.id]), {**combo_fields(draft), "op": op, **extra})
+
+    def test_list_kpis_and_filters(self):
+        self.place([self.lunch(self.tea)], timezone.now())  # tea is a 0.50 upgrade
+        self.place([self.lunch()], timezone.now())
+        data = self.client.get(reverse("admin_combos")).context["l"]
+        row = data["rows"][0]
+        self.assertEqual((row["stats"]["sold"], row["stats"]["upcharges"], row["sold_sub"]), (2, Decimal("0.50"), "50% upgraded"))
+        self.assertEqual(row["p"]["ala"], Decimal("17.00"))  # burger + coffee bought separately
+        self.assertEqual(row["p"]["save"], Decimal("1.00"))
+        self.assertEqual(row["price_sub"], "up to $16.50")
+        self.assertEqual([k["value"] for k in data["kpis"]], ["2", "$1.00", "$0.50", "Lunch combo"])
+        Combo.objects.filter(pk=self.combo.pk).update(active=False)
+        self.assertEqual(self.client.get(reverse("admin_combos") + "?show=active").context["l"]["rows"], [])
+        self.assertEqual(len(self.client.get(reverse("admin_combos") + "?q=tea").context["l"]["rows"]), 1)  # by dish name
+
+    def test_editor_draft_and_save(self):
+        draft = self.draft()
+        e = self.post(draft, "add_slot").context["e"]
+        self.assertEqual(len(e["d"]["slots"]), 3)
+        self.assertEqual(e["status"], "2 things to fix")  # no name, no dish
+        draft = e["d"]
+        draft["slots"][2]["title"] = "Treat"
+        draft["slots"][2]["required"] = False
+        e = self.post(draft, "preview", **{"slot-2-add": str(self.tea.id)}).context["e"]
+        self.assertEqual(e["d"]["slots"][2]["options"][0]["dish"], str(self.tea.id))
+        self.assertTrue(e["can_save"])
+        draft = e["d"]
+        draft["slots"][2]["options"][0]["price"] = "1.25"
+        draft["slots"][1]["default"] = str(self.tea.id)
+        draft["ticket_name"] = "lunch"
+        self.assertEqual(Combo.objects.get(pk=self.combo.pk).slots.count(), 2)  # nothing saved yet
+        self.assertRedirects(self.post(draft, "save"), reverse("admin_combo", args=[self.combo.id]))
+        combo = Combo.objects.get(pk=self.combo.pk)
+        self.assertEqual(combo.ticket_name, "LUNCH")
+        treat = combo.slots.get(title="Treat")
+        self.assertEqual((treat.required, treat.options.get().price), (False, Decimal("1.25")))
+        self.assertEqual(combo.slots.get(title="Drink").default_option().dish, self.tea)
+        self.assertEqual(price_cart([{"type": "combo", "id": combo.id, "qty": 1, "slots": {}}]).subtotal, Decimal("16.50"))
+
+    def test_steppers_and_moves(self):
+        draft = self.draft()
+        e = self.post(draft, "picks_more:1").context["e"]
+        self.assertEqual(e["d"]["slots"][1]["picks"], "2")  # the drink has two dishes
+        e = self.client.post(reverse("admin_combo", args=[self.combo.id]), {**combo_fields(e["d"]), "op": "picks_more:1"}).context["e"]
+        self.assertEqual(e["d"]["slots"][1]["picks"], "2")  # not more than its dishes
+        e = self.client.post(reverse("admin_combo", args=[self.combo.id]), {**combo_fields(e["d"]), "op": "slot_up:1"}).context["e"]
+        self.assertEqual([s["title"] for s in e["d"]["slots"]], ["Drink", "Main"])
+        e = self.client.post(reverse("admin_combo", args=[self.combo.id]), {**combo_fields(e["d"]), "op": "remove_option:0:0"}).context["e"]
+        self.assertEqual([o["dish"] for o in e["d"]["slots"][0]["options"]], [str(self.tea.id)])
+        self.assertEqual(e["d"]["slots"][0]["default"], str(self.tea.id))  # the default moves on
+        self.assertEqual(e["d"]["slots"][0]["picks"], "1")
+
+    def test_percent_pricing_and_problems(self):
+        draft = self.draft()
+        e = self.post(draft, "preview", pricing="percent", percent_off="10").context["e"]
+        self.assertEqual(e["p"]["combo"], Decimal("15.30"))  # (14.50 + 2.50 coffee) less 10%
+        e = self.post(draft, "save", price="0").context["e"]
+        self.assertFalse(e["can_save"])
+        self.assertEqual(Combo.objects.get(pk=self.combo.pk).price, Decimal("16.00"))
+
+    def test_new_duplicate_leave_and_archive(self):
+        response = self.client.post(reverse("admin_combo_new"))
+        new = Combo.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_combo", args=[new.id]))
+        self.assertEqual([s.title for s in new.slots.all()], ["Main", "Side", "Drink"])
+        self.assertFalse(new.active)
+        self.assertRedirects(self.post(self.draft(), "leave"), reverse("admin_combos"))
+        self.assertTrue(self.post(self.draft(), "leave", title="Changed").context["e"]["leave_ask"])
+        response = self.post(self.draft(), "duplicate")
+        copy = Combo.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_combo", args=[copy.id]))
+        self.assertEqual((copy.title, copy.active, copy.slots.count()), ("Lunch combo (copy)", False, 2))
+        self.assertRedirects(self.post(self.draft(), "archive"), reverse("admin_combos"))
+        combo = Combo.objects.get(pk=self.combo.pk)
+        self.assertTrue(combo.archived)
+        self.assertFalse(combo.available)
+        self.assertFalse(combo.menu.exists())
+        self.assertEqual(self.client.get(reverse("admin_combo", args=[combo.id])).status_code, 200)
 
 
 class UnitTests(TestCase):

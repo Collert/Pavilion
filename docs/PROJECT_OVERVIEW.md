@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>[/action]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -108,8 +108,8 @@ Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / 
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned; pick one|any; required) ─ Option (price; extra component + quantity; multiplier)
  │   └─ Extra (condiment: component; price; max_count)
- └─ Combo (M2M menu; price) ─ ComboSlot (Main/Side/Drink; ask_on_add; allow_none + none_price)
-         │                       └─ ComboSlotOption (dish; price change; is_default)
+ └─ Combo (M2M menu; pricing fixed|percent; price; percent_off; ticket_name; active; archived)
+         │   └─ ComboSlot (Main/Side/Drink; picks; required) ─ ComboSlotOption (dish; upcharge; is_default)
          └─ Extra (combo condiments)
 Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Option (component = swap it for this one)
 ```
@@ -124,8 +124,15 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   register opens the sheet when such a dish is added). Charged add-ons are a dish's pick-any group (2026-10-21; the
   `Extra` add-on kind is gone, Extras are condiments).
 - **Variants** (small/regular/large) are a dish option group whose options change the price and `multiplier`.
-- **Combos** cost `combo.price + each pick's price change + each pick's customizations + combo extras`. A combo is
-  listed in the menu section of its first slot's standard dish. Every picked dish is made at its own station.
+- **Combos** (2026-10-21) cost `Combo.unit_price(picks)` (set price + each pick's upcharge, or the picks' own prices
+  less `percent_off`) + each pick's customizations + combo condiments. Each choice (`ComboSlot`) takes `picks` dishes
+  (the same one may be picked twice): a required one starts on its default then the next options (skipping sold-out
+  ones), an optional one on nothing. Cart lines list every pick: `"slots": {"<slot id>": [{"dish", "cust"}]}`.
+  The register walks through every choice with something to choose when a combo is added (the choice sheet), and
+  the combo sheet changes picks and customizes each one; the online store asks for the first required one-pick
+  choice. Kitchen tickets call it `ticket_name`; `OrderItem.upcharge` records each pick's upcharge (for the admin's
+  "upgraded" stats). Hidden (`active` off) and archived combos aren't sold. A combo is listed in the menu section of
+  its first slot's default dish. Every picked dish is made at its own station.
 - **Stock:** `Component.save()` recalculates `in_stock` and updates the dishes that use it; adding or removing a
   `DishComponent` re-checks its dish.
 - **Availability** (`availability` on Dish and Component, `AVAILABILITY` in `pos_server/models.py`): **Off** stops
@@ -410,6 +417,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped; a form with `data-queue`
   (and `data-search`) sends its last submit after one in flight instead of dropping it; `data-keep` regions are left
   alone by background answers.
+- **Combos** (`admin_combos`, `combos.py`): 30-day KPIs (sold, average saving against the default picks bought
+  separately, upcharge revenue, best seller), All/Active/Hidden(/Archived) filters, search by combo or dish, rows
+  with choices, price, saving, sold and % upgraded. The editor is one form like the dish editor: choices with picks
+  −/+, required switch, move, remove, default dish and upcharge (or "in combo" price when percent off), the price
+  card with the saving bar and warnings, a register preview and the menus with an active switch. Editors share
+  `editor.js` (`form[data-editor]`, `[data-preview]`) and the editor styles in `admin.css`.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

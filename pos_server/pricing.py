@@ -4,7 +4,7 @@ Pricing for carts from the register and the online store.
 The browser sends cart *lines*. Their prices are never trusted: everything is priced here from the database.
 
     {"type": "dish", "id": 5, "qty": 2, "cust": {...}, "note": "", "discount": <discount spec>}
-    {"type": "combo", "id": 3, "qty": 1, "slots": {"<slot id>": {"dish": 7, "cust": {...}}}, "cust": {...}}
+    {"type": "combo", "id": 3, "qty": 1, "slots": {"<slot id>": [{"dish": 7, "cust": {...}}, ...]}, "cust": {...}}
 
 `cust` is a dish's customization (every key is optional; leaving it out means "as standard"):
 
@@ -16,13 +16,14 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
      "note": "..."}
 
 A part's steps are pieces when the dish uses whole pieces (8 pierogies), else whole amounts (see
-DishComponent.step / .standard). A combo slot set to {"dish": null} is left out (when the slot allows it). A
-combo's own `cust` only uses "condiments".
+DishComponent.step / .standard). A combo's slot lists its picks: a required one exactly `picks` of them (left
+out = its default picks), an optional one up to `picks` (left out = none). A combo's own `cust` only uses
+"condiments".
 
 A discount spec is {"offer": <Discount id>}, {"code": "WELCOME10"} or {"manual": {"kind": "pct"|"amt",
 "value": "10"}}. Lines take item discounts; the order takes one more on what is left after them.
 
-Line prices: dish price (or combo price + each pick's price change) + customizations. An adjustable part
+Line prices: dish price (or Combo.unit_price of the picks: set price + upcharges, or percent off) + customizations. An adjustable part
 costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (settings.TAX_RATE) is charged on the
 total after discounts.
 """
@@ -34,7 +35,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from django.conf import settings
 from django.db.models import Prefetch
 from django.utils import timezone
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext as _, ngettext
 
 from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra, OptionGroup
 
@@ -165,6 +166,7 @@ class Picked:
     use: Counter = field(default_factory=Counter)  # component id -> amount for one
     note: str = ""
     slot: str = ""
+    upcharge: Decimal = ZERO                    # a combo pick's upcharge (set-price combos)
 
 
 def _condiments_choice(raw, condiments, picked: Picked, owner_title):
@@ -376,7 +378,7 @@ def _load(lines):
     return kits, combos
 
 
-def _price_line(line, kits, combos, strict) -> PricedLine:
+def _price_line(line, kits, combos) -> PricedLine:
     quantity = _count(line.get("qty", 1), 1, MAX_QTY, _("Quantity"))
     if line["type"] == "dish":
         kit = kits[int(line["id"])]
@@ -389,41 +391,41 @@ def _price_line(line, kits, combos, strict) -> PricedLine:
                           selection=picked.selection, note=note, raw_discount=line.get("discount"))
 
     combo = combos[int(line["id"])]
+    if not combo.active or combo.archived:
+        raise OrderError(_("%(combo)s isn't available.") % {"combo": combo.title})
     raw_slots = line.get("slots") or {}
     if not isinstance(raw_slots, dict):
         raise OrderError(_("The cart is malformed."))
-    unit = combo.price
-    picks, mods, selection = [], [], {}
+    picks, chosen, mods, selection = [], [], [], {}
     for slot in combo.slots.all():
         options = list(slot.options.all())
         raw = raw_slots.get(str(slot.id))
-        if raw is not None and not isinstance(raw, dict):
+        if raw is None:
+            raw = [{"dish": o.dish_id} for o in slot.default_picks()]
+        if not isinstance(raw, list) or not all(isinstance(r, dict) for r in raw):
             raise OrderError(_("The cart is malformed."))
-        if raw and "dish" in raw and raw["dish"] is None:
-            if not slot.allow_none:
-                raise OrderError(_("%(slot)s can't be left out of the %(combo)s.") % {"slot": slot.title, "combo": combo.title})
-            unit += slot.none_price
-            mods.append(_("No %(slot)s") % {"slot": slot.title.lower()})
-            selection[str(slot.id)] = None
-            continue
-        if raw and raw.get("dish") is not None:
-            option = next((o for o in options if str(o.dish_id) == str(raw["dish"])), None)
+        if len(raw) > slot.picks or (slot.required and len(raw) < slot.picks):
+            raise OrderError(ngettext("Pick %(n)d %(slot)s for the %(combo)s.", "Pick %(n)d for the %(slot)s of the %(combo)s.", slot.picks)
+                             % {"n": slot.picks, "slot": slot.title.lower(), "combo": combo.title})
+        if slot.required and not options:
+            raise OrderError(_("The %(combo)s isn't set up yet.") % {"combo": combo.title})
+        slot_selection = []
+        for entry in raw:
+            option = next((o for o in options if str(o.dish_id) == str(entry.get("dish"))), None)
             if option is None:
                 raise OrderError(_("That isn't an option for the %(slot)s of the %(combo)s.") % {"slot": slot.title.lower(), "combo": combo.title})
-        else:
-            if slot.ask_on_add and strict:
-                raise OrderError(_("Pick the %(slot)s for the %(combo)s.") % {"slot": slot.title.lower(), "combo": combo.title})
-            option = slot.default_option()
-            if option is None:
-                raise OrderError(_("The %(combo)s isn't set up yet.") % {"combo": combo.title})
-        if not option.dish.available:
-            raise OrderError(_("%(dish)s is sold out. Pick another %(slot)s for the %(combo)s.") % {
-                "dish": option.dish.title, "slot": slot.title.lower(), "combo": combo.title})
-        picked = price_dish(kits[option.dish_id], (raw or {}).get("cust"))
-        picked.slot = slot.title
-        unit += option.price + picked.extra
-        picks.append(picked)
-        selection[str(slot.id)] = {"dish": option.dish_id, **({"cust": picked.selection} if picked.selection else {})}
+            if not option.dish.available:
+                raise OrderError(_("%(dish)s is sold out. Pick another %(slot)s for the %(combo)s.") % {
+                    "dish": option.dish.title, "slot": slot.title.lower(), "combo": combo.title})
+            picked = price_dish(kits[option.dish_id], entry.get("cust"))
+            picked.slot = slot.title
+            picked.upcharge = option.price if combo.pricing == combo.FIXED else ZERO
+            picks.append(picked)
+            chosen.append(option)
+            slot_selection.append({"dish": option.dish_id, **({"cust": picked.selection} if picked.selection else {})})
+        if slot_selection:
+            selection[str(slot.id)] = slot_selection
+    unit = combo.unit_price(chosen) + sum((p.extra for p in picks), ZERO)
     combo_extras = Picked(dish=None)
     extras = list(combo.extras.all())
     _condiments_choice(line.get("cust") or {}, extras, combo_extras, combo.title)
@@ -581,7 +583,7 @@ def price_cart(lines, *, order_discount=None, channel="store", can_manual=False,
         raise OrderError(_("The cart is malformed."))
     now = now or timezone.now()
     kits, combos = _load(lines)
-    priced = [_price_line(line, kits, combos, strict) for line in lines]
+    priced = [_price_line(line, kits, combos) for line in lines]
     subtotal = sum((line.gross for line in priced), ZERO)
     cart = PricedCart(lines=priced, subtotal=subtotal)
     context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual}

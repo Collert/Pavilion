@@ -22,7 +22,7 @@
             <h2>{{ station.heading }}</h2>
             <div class="dishes">
                 {% for entry in items %}
-                <div {% if not entry.obj.visible_in_menu %} style="display: none;" {% endif %} class="dish-wrapper">
+                <div {% if not entry.is_combo and not entry.obj.visible_in_menu %} style="display: none;" {% endif %} class="dish-wrapper">
                     {% if entry.is_combo %}
                     <div class="dish no-style">
                     {% else %}

@@ -26,24 +26,26 @@ from django.utils.translation import gettext_lazy as _
 from .context_processors import current_business_event
 
 def store_item(obj):
-    """A dish or combo as the online store's JS needs it (money in cents). Combos list the pick they ask for."""
+    """
+    A dish or combo as the online store's JS needs it (money in cents). A combo asks for its first required
+    one-pick choice that has more than one dish ("Choose a drink"); every other choice keeps its default picks
+    (a sold-out default is swapped for the first dish that isn't).
+    """
     if isinstance(obj, Combo):
         ask = None
         base = {}
         for slot in obj.slots.all():
             options = list(slot.options.all())
-            if slot.ask_on_add:
+            if ask is None and slot.required and slot.picks == 1 and len(options) > 1:
                 ask = {"slot": slot.id, "title": slot.title, "options": [
-                    {"dish": o.dish_id, "title": o.dish.title, "price": to_cents(o.price), "available": o.dish.available}
+                    {"dish": o.dish_id, "title": o.dish.title, "available": o.dish.available,
+                     "price": to_cents(obj.unit_price([p for p in obj.default_picks() if p.slot_id != slot.id] + [o]) - obj.standard_price())}
                     for o in options]}
                 continue
-            # A slot whose standard dish is sold out starts on the first one that isn't
-            default = slot.default_option()
-            if default and not default.dish.available:
-                other = next((o for o in options if o.dish.available), None)
-                if other:
-                    base[str(slot.id)] = {"dish": other.dish_id}
-        return {"key": f"c{obj.id}", "type": "combo", "id": obj.id, "title": obj.title, "price": to_cents(obj.price),
+            picks = [o if o.dish.available else next((x for x in options if x.dish.available), o) for o in slot.default_picks()]
+            if picks:
+                base[str(slot.id)] = [{"dish": o.dish_id} for o in picks]
+        return {"key": f"c{obj.id}", "type": "combo", "id": obj.id, "title": obj.title, "price": to_cents(obj.standard_price()),
                 "image": obj.image.url if obj.image else None, "available": obj.available, "ask": ask, "slots": base}
     return {"key": f"d{obj.id}", "type": "dish", "id": obj.id, "title": obj.title, "price": to_cents(obj.price),
             "image": obj.image.url if obj.image else None, "available": obj.available}
@@ -55,7 +57,7 @@ def menu_sections(menu):
         return []
     dishes = Dish.objects.filter(menu=menu).select_related("station").order_by("station__position", "id")
     sections = dict(group_by_station(dishes))
-    for combo in combo_queryset().filter(menu=menu):
+    for combo in combo_queryset().filter(menu=menu, active=True, archived=False):
         station = combo.section_station()
         if station is not None:
             sections.setdefault(station, []).append(combo)

@@ -3,19 +3,19 @@
 {% comment %}
 Dish editor (design: AdminDishes, edit state; admin_portal/dishes.py: editor). The whole page is one form posted to
 this page. Save writes it; the row buttons (+ quantity break, × remove...) post `op` and get the draft back with the
-sums worked out, unsaved; dish-editor.js also posts op=preview when a field changes so food cost, savings and
+sums worked out, unsaved; editor.js also posts op=preview when a field changes so food cost, savings and
 warnings keep up ([data-calc] parts update even while you type in their region). Rows are numbered fields
 (part-0-quantity...), with a count field per list.
 {% endcomment %}
 {% block title %}{{ e.title }} · {% trans "Dishes" %}{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/dishes.css' %}" rel="stylesheet">
-<script type="module" src="{% static 'admin_portal/dish-editor.js' %}"></script>{% endblock %}
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_dish' e.dish.id %}" enctype="multipart/form-data" class="dish-form" id="dish-form" data-queue>
+<form method="post" action="{% url 'admin_dish' e.dish.id %}" enctype="multipart/form-data" class="editor-form" id="dish-form" data-editor data-queue>
 {% csrf_token %}
-<button type="submit" name="op" value="preview" hidden id="dish-preview" tabindex="-1"></button>
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="dish-head" data-region>
     <div class="grow">
         <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Dishes" %}</button>

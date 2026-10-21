@@ -87,7 +87,7 @@ def register_catalog(menu):
         return {"sections": [], "items": [], "dishes": {}, "combos": {}}
     stations = list(Station.objects.all())
     dishes = list(dish_queryset().filter(menu=menu, visible_in_menu=True).order_by("station__position", "id"))
-    combos = list(combo_queryset().filter(menu=menu, visible_in_menu=True).order_by("id"))
+    combos = list(combo_queryset().filter(menu=menu, active=True, archived=False).order_by("id"))
     in_combos = {option.dish_id for combo in combos for slot in combo.slots.all() for option in slot.options.all()}
     all_dishes = {dish.id: dish for dish in dishes}
     all_dishes.update(dish_queryset().in_bulk(in_combos - set(all_dishes)))
@@ -96,9 +96,10 @@ def register_catalog(menu):
               "price": to_cents(dish.price), "available": dish.available} for dish in dishes]
     for combo in combos:
         station = combo.section_station() or (stations[0] if stations else None)
-        ask = next((slot for slot in combo.slots.all() if slot.ask_on_add), None)
+        # Each choice with something to choose is a step when the combo is added
+        ask = next((slot for slot in combo.slots.all() if len(slot.options.all()) > (1 if slot.required else 0)), None)
         items.append({"key": f"c{combo.id}", "type": "combo", "id": combo.id, "section": station.code if station else "",
-                      "title": combo.title, "price": to_cents(combo.price), "available": combo.available,
+                      "title": combo.title, "price": to_cents(combo.standard_price()), "available": combo.available,
                       "ask": _("Choose a %(slot)s") % {"slot": ask.title.lower()} if ask else None})
     position = {station.code: index for index, station in enumerate(stations)}
     items.sort(key=lambda item: (position.get(item["section"], 99), item["type"] == "combo"))
@@ -117,10 +118,10 @@ def register_catalog(menu):
         "items": items,
         "dishes": {dish_id: dish_json(dish) for dish_id, dish in all_dishes.items()},
         "combos": {combo.id: {
-            "id": combo.id, "title": combo.title, "price": to_cents(combo.price),
+            "id": combo.id, "title": combo.title, "pricing": combo.pricing, "price": to_cents(combo.price),
+            "percentOff": float(combo.percent_off),
             "slots": [{
-                "id": slot.id, "title": slot.title, "ask": slot.ask_on_add,
-                "allowNone": slot.allow_none, "nonePrice": to_cents(slot.none_price),
+                "id": slot.id, "title": slot.title, "picks": slot.picks, "required": slot.required,
                 "options": [{"dish": o.dish_id, "price": to_cents(o.price), "default": o.is_default} for o in slot.options.all()],
             } for slot in combo.slots.all()],
             "condiments": condiments(combo),

@@ -169,22 +169,37 @@ function slotOption(slot, dishId) {
     return slot.options.find((o) => o.dish === dishId);
 }
 
-// The pick a slot starts with: its standard dish, or the first one that isn't sold out.
-function standardPick(slot) {
+// A combo line keeps every pick: line.slots = {slot id: [{dish, cust}]}; line.base = {slot id: [dish ids]} is what
+// was picked when it was added (so the cart only lists changes from that).
+
+// What a choice starts with: a required one its default dish, then the others in order (skipping sold-out
+// ones when it can); an optional one nothing.
+function defaultPicks(slot) {
+    if (!slot.required) return [];
     const standard = slot.options.find((o) => o.default) || slot.options[0];
-    if (standard && dishOf(standard.dish)?.available) return standard.dish;
-    return slot.options.find((o) => dishOf(o.dish)?.available)?.dish ?? standard?.dish ?? null;
+    const ordered = [standard, ...slot.options.filter((o) => o !== standard)].filter(Boolean);
+    const open = ordered.filter((o) => dishOf(o.dish)?.available);
+    return (open.length >= slot.picks ? open : ordered).slice(0, slot.picks).map((o) => o.dish);
 }
 
-// A line's "baseline" pick for a slot: what was chosen when it was added, or the standard pick.
-const basePick = (line, slot) => (line.base && slot.id in line.base ? line.base[slot.id] : standardPick(slot));
+const slotPicks = (line, slot) => {
+    const saved = (line.slots || {})[slot.id];
+    return Array.isArray(saved) ? saved : defaultPicks(slot).map((dish) => ({ dish }));  // (a cart saved before picks were lists)
+};
+const baseIds = (line, slot) => (Array.isArray((line.base || {})[slot.id]) ? line.base[slot.id] : defaultPicks(slot));
+const pickIds = (line, slot) => slotPicks(line, slot).map((p) => p.dish);
+// The choices that are a step when the combo is added: anything with something to choose
+const stepSlots = (combo) => combo.slots.filter((s) => s.options.length > (s.required ? 1 : 0));
 
-function slotPick(line, slot) {
-    const chosen = (line.slots || {})[slot.id];
-    return chosen && "dish" in chosen ? chosen.dish : basePick(line, slot);
+// The combo's own price for these picks (set price + upcharges, or percent off the dishes)
+function comboPrice(combo, picksBySlot) {
+    const chosen = combo.slots.flatMap((slot) => (picksBySlot[slot.id] || []).map((id) => ({ slot, id })));
+    if (combo.pricing === "percent") {
+        const total = chosen.reduce((sum, { id }) => sum + (dishOf(id)?.price || 0), 0);
+        return Math.round(total * (100 - combo.percentOff) / 100);
+    }
+    return combo.price + chosen.reduce((sum, { slot, id }) => sum + (slotOption(slot, id)?.price || 0), 0);
 }
-
-const slotPrice = (slot, dishId) => (dishId === null ? slot.nonePrice : slotOption(slot, dishId)?.price || 0);
 
 function unitPrice(line) {
     if (line.type === "dish") {
@@ -193,14 +208,15 @@ function unitPrice(line) {
     }
     const combo = comboOf(line.id);
     if (!combo) return 0;
-    let total = combo.price + kitCost(extrasKit(combo), line.cust);
+    const ids = Object.fromEntries(combo.slots.map((slot) => [slot.id, pickIds(line, slot)]));
+    let total = comboPrice(combo, ids) + kitCost(extrasKit(combo), line.cust);
     for (const slot of combo.slots) {
-        const pick = slotPick(line, slot);
-        total += slotPrice(slot, pick);
-        if (pick !== null) total += kitCost(dishOf(pick)?.kit, (line.slots || {})[slot.id]?.cust);
+        for (const pick of slotPicks(line, slot)) total += kitCost(dishOf(pick.dish)?.kit, pick.cust);
     }
     return total;
 }
+
+const sameIds = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // What changed on a line, as short readable bits.
 function lineSummary(line) {
@@ -209,24 +225,29 @@ function lineSummary(line) {
     if (!combo) return [];
     const out = [];
     for (const slot of combo.slots) {
-        const pick = slotPick(line, slot);
-        if (pick !== basePick(line, slot)) {
-            out.push(pick === null ? interpolate(t("No %s"), [slot.title.toLowerCase()]) : `${slot.title}: ${dishOf(pick)?.title}`);
+        const ids = pickIds(line, slot);
+        if (!sameIds(ids, baseIds(line, slot))) {
+            out.push(ids.length ? `${slot.title}: ${ids.map((id) => dishOf(id)?.title).join(", ")}` : interpolate(t("No %s"), [slot.title.toLowerCase()]));
         }
-        const bits = pick === null ? [] : kitSummary(dishOf(pick)?.kit, (line.slots || {})[slot.id]?.cust);
-        if (bits.length) out.push(`${dishOf(pick)?.title} (${bits.join(", ")})`);
+        for (const pick of slotPicks(line, slot)) {
+            const bits = kitSummary(dishOf(pick.dish)?.kit, pick.cust);
+            if (bits.length) out.push(`${dishOf(pick.dish)?.title} (${bits.join(", ")})`);
+        }
     }
     out.push(...kitSummary(extrasKit(combo), line.cust));
     return out;
 }
 
-// The pick shown under a combo's name, e.g. "Iced latte" for a combo that asked for a drink.
+// The picks shown under a combo's name, e.g. "Fries · Iced latte" for the choices asked for when it was added.
 function lineAskedPick(line) {
     if (line.type !== "combo" || !line.base) return "";
     const combo = comboOf(line.id);
-    const slot = combo?.slots.find((s) => s.ask && s.id in line.base);
-    const pick = slot ? slotPick(line, slot) : undefined;
-    return slot && pick === line.base[slot.id] && pick !== null ? dishOf(pick)?.title || "" : "";
+    const bits = [];
+    for (const slot of stepSlots(combo || { slots: [] })) {
+        const ids = pickIds(line, slot);
+        if (slot.id in line.base && ids.length && sameIds(ids, line.base[slot.id])) bits.push(...ids.map((id) => dishOf(id)?.title || ""));
+    }
+    return bits.join(" · ");
 }
 
 const shortOf = (kind, value) => (kind === "pct" ? `${value}% off` : `${fmt(value)} off`);
@@ -368,16 +389,15 @@ function tapItem(item) {
     if (!item.available) return;
     if (item.type === "dish") return addLine({ type: "dish", id: item.id });
     const combo = comboOf(item.id);
-    const askSlot = combo.slots.find((s) => s.ask);
-    if (askSlot) return openChoice(item, combo, askSlot);
-    // Slots whose standard dish is sold out start on another pick
-    const base = {};
-    for (const slot of combo.slots) {
-        const standard = slot.options.find((o) => o.default) || slot.options[0];
-        const pick = standardPick(slot);
-        if (standard && pick !== standard.dish) base[slot.id] = pick;
-    }
-    addLine({ type: "combo", id: item.id, slots: Object.fromEntries(Object.entries(base).map(([id, dish]) => [id, { dish }])), base });
+    if (stepSlots(combo).length) return openChoice(item, combo);
+    addCombo(combo, {});
+}
+
+// Add a combo with these picks ({slot id: [dish ids]}); the other choices get their defaults
+function addCombo(combo, chosen) {
+    const base = Object.fromEntries(combo.slots.map((slot) => [slot.id, chosen[slot.id] ?? defaultPicks(slot)]));
+    const slots = Object.fromEntries(Object.entries(base).map(([id, ids]) => [id, ids.map((dish) => ({ dish }))]));
+    addLine({ type: "combo", id: combo.id, slots, base });
 }
 
 // ---------- rendering: menu ----------
@@ -700,61 +720,83 @@ function renderAll() {
 
 wireSheets();
 
-// Choice sheet: a combo that asks for one pick when added ("Choose a drink")
-let choice = null;
+// Choice sheet: a combo walks through each of its choices when added ("Choose a side", then "Choose a drink")
+let choice = null; // {item, combo, steps, index, picks: {slot id: [dish ids]}}
 
-function openChoice(item, combo, slot) {
-    choice = { item, combo, slot, pick: null };
-    $("#choice-over").textContent = `${combo.title} · ${fmt(combo.price)}`;
-    $("#choice-title").textContent = interpolate(t("Choose a %s"), [slot.title.toLowerCase()]);
+function openChoice(item, combo) {
+    const steps = stepSlots(combo);
+    choice = { item, combo, steps, index: 0, picks: Object.fromEntries(steps.map((s) => [s.id, []])) };
     renderChoice();
     $("#choice-sheet").showModal();
 }
 
+function choiceTitle(slot) {
+    const name = slot.title.toLowerCase();
+    if (!slot.required) return slot.picks > 1 ? interpolate(t("Add up to %s %s?"), [slot.picks, name]) : interpolate(t("Add a %s?"), [name]);
+    return slot.picks > 1 ? interpolate(t("Choose %s %s"), [slot.picks, name]) : interpolate(t("Choose a %s"), [name]);
+}
+
 function renderChoice() {
-    const { combo, slot } = choice;
+    const { combo, steps, index } = choice;
+    const slot = steps[index];
+    const picked = choice.picks[slot.id];
+    $("#choice-over").textContent = steps.length > 1 ? interpolate(t("%s · step %s of %s"), [combo.title, index + 1, steps.length]) : combo.title;
+    $("#choice-title").textContent = choiceTitle(slot);
+    const set = (ids) => { choice.picks[slot.id] = ids; renderChoice(); };
+    const priceOf = (option) => (combo.pricing === "percent" ? "" : option.price ? fmtSigned(option.price) : "");
     const options = slot.options.map((option) => {
         const dish = dishOf(option.dish);
         const out = !dish?.available;
-        const on = choice.pick === option.dish;
+        const n = picked.filter((id) => id === option.dish).length;
+        if (slot.picks > 1) {
+            return counterNode({
+                label: dish?.title ?? "?", n, min: 0, max: out ? n : n + slot.picks - picked.length, sub: out ? t("Sold out") : priceOf(option),
+                onChange: (value) => set(value > n ? [...picked, option.dish] : (() => { const ids = [...picked]; ids.splice(ids.lastIndexOf(option.dish), 1); return ids; })()),
+            });
+        }
+        const on = n > 0;
         return el("button", {
-            className: "choice", attrs: { "aria-pressed": String(on), disabled: out },
-            on: { click: () => { choice.pick = option.dish; renderChoice(); } },
+            className: "choice", attrs: { "aria-pressed": String(on), disabled: out && !on },
+            on: { click: () => set(on && !slot.required ? [] : [option.dish]) },
         }, [
-            el("span", {}, [dish?.title ?? "?", option.price ? el("span", { className: "choice-sub", text: " " + fmtSigned(option.price) }) : null]),
+            el("span", {}, [dish?.title ?? "?", priceOf(option) ? el("span", { className: "choice-sub", text: " " + priceOf(option) }) : null]),
             out ? el("span", { className: "choice-sub", text: t("Sold out") }) : null,
             on ? el("span", { className: "check pop", icon: "checkBig" }) : null,
         ]);
     });
     $("#choice-options").replaceChildren(...options);
-    const ready = choice.pick !== null;
+    const ready = !slot.required || picked.length === slot.picks;
+    const last = index === steps.length - 1;
     $("#choice-add").disabled = !ready;
-    $("#choice-price").textContent = fmt(combo.price + (ready ? slotOption(slot, choice.pick).price : 0));
+    $("#choice-add").firstElementChild.textContent = last ? t("Add to order") : !slot.required && !picked.length ? t("Skip") : t("Next");
+    const ids = Object.fromEntries(combo.slots.map((s) => [s.id, s.id in choice.picks && (choice.picks[s.id].length || !s.required) ? choice.picks[s.id] : defaultPicks(s)]));
+    $("#choice-price").textContent = fmt(comboPrice(combo, ids));
 }
 
 $("#choice-add").addEventListener("click", () => {
-    if (!choice || choice.pick === null) return;
-    const { combo, slot, pick } = choice;
-    const base = { [slot.id]: pick };
-    for (const other of combo.slots) {
-        if (other === slot) continue;
-        const standard = other.options.find((o) => o.default) || other.options[0];
-        const otherPick = standardPick(other);
-        if (standard && otherPick !== standard.dish) base[other.id] = otherPick;
+    if (!choice) return;
+    const slot = choice.steps[choice.index];
+    if (slot.required && choice.picks[slot.id].length !== slot.picks) return;
+    if (choice.index < choice.steps.length - 1) {
+        choice.index += 1;
+        renderChoice();
+        return;
     }
-    addLine({ type: "combo", id: combo.id, slots: Object.fromEntries(Object.entries(base).map(([id, dish]) => [id, { dish }])), base });
+    addCombo(choice.combo, choice.picks);
     $("#choice-sheet").close();
+    choice = null;
 });
 
 // Customize sheet (one dish: standalone, or a slot inside the combo being edited)
-let kit = null; // {lineKey, slotId, draft}
+let kit = null; // {lineKey, slotId, index, dishId, draft}
 
-function openKit({ lineKey, slotId = null }) {
+function openKit({ lineKey, slotId = null, index = 0 }) {
     const line = state.lines.find((l) => l.key === lineKey);
     if (!line) return;
-    const dishId = slotId === null ? line.id : comboDraft.slots[slotId]?.dish ?? slotPickDraft(slotId);
-    const draft = slotId === null ? clone(line.cust) : clone(comboDraft.slots[slotId]?.cust);
-    kit = { lineKey, slotId, dishId, draft };
+    const pick = slotId === null ? null : comboDraft.slots[slotId][index];
+    const dishId = slotId === null ? line.id : pick.dish;
+    const draft = slotId === null ? clone(line.cust) : clone(pick.cust);
+    kit = { lineKey, slotId, index, dishId, draft };
     const sub = slotId !== null;
     const combo = sub ? comboOf(line.id) : null;
     const slot = sub ? combo.slots.find((s) => String(s.id) === String(slotId)) : null;
@@ -895,11 +937,9 @@ $("#kit-save").addEventListener("click", () => {
     const spec = dishOf(kit.dishId)?.kit;
     const cust = normalizeCust(spec, kit.draft);
     if (kit.slotId !== null) {
-        const slot = comboDraft.slots[kit.slotId] || { dish: kit.dishId };
-        slot.dish = kit.dishId;
-        if (Object.keys(cust).length) slot.cust = cust;
-        else delete slot.cust;
-        comboDraft.slots[kit.slotId] = slot;
+        const pick = comboDraft.slots[kit.slotId][kit.index];
+        if (Object.keys(cust).length) pick.cust = cust;
+        else delete pick.cust;
         $("#kit-sheet").close();
         renderCombo();
         return;
@@ -912,21 +952,26 @@ $("#kit-save").addEventListener("click", () => {
     toast(t("Item customized"));
 });
 
-// Combo sheet: swap the dish in each slot, customize each one, add the combo's extras
-let comboDraft = null; // {lineKey, slots, cust}
-
-function slotPickDraft(slotId) {
-    const line = state.lines.find((l) => l.key === comboDraft.lineKey);
-    const slot = comboOf(line.id).slots.find((s) => String(s.id) === String(slotId));
-    return slotPick({ ...line, slots: comboDraft.slots }, slot);
-}
+// Combo sheet: change the picks of each choice, customize each pick, add the combo's condiments
+let comboDraft = null; // {lineKey, slots: {slot id: [{dish, cust}]}, cust}
 
 function openCombo(lineKey) {
     const line = state.lines.find((l) => l.key === lineKey);
     if (!line) return;
-    comboDraft = { lineKey, slots: clone(line.slots), cust: clone(line.cust) };
+    const combo = comboOf(line.id);
+    comboDraft = { lineKey, slots: Object.fromEntries(combo.slots.map((s) => [s.id, clone(slotPicks(line, s))])), cust: clone(line.cust) };
     renderCombo();
     $("#combo-sheet").showModal();
+}
+
+// New picks for a choice, keeping the customizations of dishes that stay
+function setPicks(slotId, ids) {
+    const old = [...comboDraft.slots[slotId]];
+    comboDraft.slots[slotId] = ids.map((dish) => {
+        const i = old.findIndex((p) => p.dish === dish);
+        return i >= 0 ? old.splice(i, 1)[0] : { dish };
+    });
+    renderCombo();
 }
 
 function renderCombo() {
@@ -934,37 +979,50 @@ function renderCombo() {
     const combo = comboOf(line.id);
     const draftLine = { ...line, slots: comboDraft.slots, cust: comboDraft.cust };
     const entries = [];
+    let complete = true;
     for (const slot of combo.slots) {
-        const pick = slotPick(draftLine, slot);
-        const base = basePick(line, slot);
-        const subKit = pick === null ? null : dishOf(pick)?.kit;
-        const changes = subKit ? kitSummary(subKit, comboDraft.slots[slot.id]?.cust).length : 0;
+        const picks = comboDraft.slots[slot.id];
+        const ids = picks.map((p) => p.dish);
+        if (slot.required && ids.length !== slot.picks) complete = false;
+        const rule = slot.required ? (slot.picks > 1 ? interpolate(t("Pick %s"), [slot.picks]) : "") : t("Optional");
         entries.push(el("div", { className: "slot-head" }, [
             el("div", {}, [
-                el("div", { className: "overline", text: slot.title }),
-                el("div", { className: "slot-name", text: pick === null ? interpolate(t("No %s"), [slot.title.toLowerCase()]) : dishOf(pick)?.title }),
+                el("div", { className: "overline", text: [slot.title, rule].filter(Boolean).join(" · ") }),
+                el("div", { className: "slot-name", text: ids.length ? ids.map((id) => dishOf(id)?.title).join(", ") : interpolate(t("No %s"), [slot.title.toLowerCase()]) }),
             ]),
-            el("button", {
-                className: "slot-cust" + (changes ? " hot" : ""), attrs: { disabled: !subKit },
-                on: { click: () => openKit({ lineKey: line.key, slotId: slot.id }) },
-            }, [changes ? interpolate(t("Customize · %s"), [changes]) : t("Customize"), el("span", { icon: "chevronMd" })]),
+            ...picks.map((pick, index) => {
+                const subKit = dishOf(pick.dish)?.kit;
+                const changes = subKit ? kitSummary(subKit, pick.cust).length : 0;
+                const label = picks.length > 1 ? dishOf(pick.dish)?.title : t("Customize");
+                return el("button", {
+                    className: "slot-cust" + (changes ? " hot" : ""), attrs: { disabled: !subKit },
+                    on: { click: () => openKit({ lineKey: line.key, slotId: slot.id, index }) },
+                }, [changes ? `${label} · ${changes}` : label, el("span", { icon: "chevronMd" })]);
+            }),
         ]));
-        const choose = (dishId) => { comboDraft.slots[slot.id] = { dish: dishId }; renderCombo(); };
-        const basePrice = slotPrice(slot, base);
+        const baseUnit = comboPrice(combo, { [slot.id]: baseIds(line, slot) });
         for (const option of slot.options) {
             const dish = dishOf(option.dish);
             const out = !dish?.available;
-            const relative = option.price - basePrice;
+            const n = ids.filter((id) => id === option.dish).length;
+            // one pick: against the base pick; several: what each one adds
+            const relative = comboPrice(combo, { [slot.id]: [option.dish] }) - (slot.picks > 1 ? comboPrice(combo, {}) : baseUnit);
+            const sub = out ? t("Sold out") : relative ? fmtSigned(relative) : "";
+            if (slot.picks > 1) {
+                entries.push(counterNode({
+                    label: dish?.title ?? "?", n, min: 0, max: out ? n : n + slot.picks - ids.length, sub,
+                    onChange: (value) => {
+                        const next = [...ids];
+                        if (value > n) next.push(option.dish); else next.splice(next.lastIndexOf(option.dish), 1);
+                        setPicks(slot.id, next);
+                    },
+                }));
+                continue;
+            }
+            const on = n > 0;
             entries.push(chipNode({
-                label: dish?.title ?? "?", on: pick === option.dish, disabled: out && pick !== option.dish,
-                sub: out ? t("Sold out") : relative ? fmtSigned(relative) : "", onClick: () => choose(option.dish),
-            }));
-        }
-        if (slot.allowNone) {
-            const relative = slot.nonePrice - basePrice;
-            entries.push(chipNode({
-                label: interpolate(t("No %s"), [slot.title.toLowerCase()]), on: pick === null,
-                sub: relative ? fmtSigned(relative) : "", onClick: () => choose(null),
+                label: dish?.title ?? "?", on, disabled: out && !on, sub,
+                onClick: () => setPicks(slot.id, on && !slot.required ? [] : [option.dish]),
             }));
         }
     }
@@ -973,18 +1031,19 @@ function renderCombo() {
         entries.push(...kitEntries(extras, comboDraft.cust, (change) => { change(comboDraft.cust); renderCombo(); }, { allergies: false }));
     }
     $("#combo-entries").replaceChildren(...entries);
-    const standard = unitPrice({ ...line, slots: {}, cust: {} });
+    const standard = unitPrice({ ...line, slots: Object.fromEntries(Object.entries(line.base || {}).map(([id, ids]) => [id, ids.map((dish) => ({ dish }))])), cust: {} });
     const now = unitPrice(draftLine);
     $("#combo-over").textContent = `${combo.title} · ${fmt(standard)}`;
     $("#combo-total").textContent = fmt(now);
-    $("#combo-delta").textContent = now === standard ? t("Standard combo") : interpolate(t("%s from the standard combo"), [fmtSigned(now - standard)]);
-    const edited = lineSummary(draftLine).length > 0;
-    $("#combo-reset").disabled = !edited;
+    $("#combo-delta").textContent = now === standard ? t("As added") : interpolate(t("%s from when it was added"), [fmtSigned(now - standard)]);
+    $("#combo-reset").disabled = !lineSummary(draftLine).length;
+    $("#combo-save").disabled = !complete;
 }
 
 $("#combo-reset").addEventListener("click", () => {
     const line = state.lines.find((l) => l.key === comboDraft.lineKey);
-    comboDraft.slots = Object.fromEntries(Object.entries(line.base || {}).map(([id, dish]) => [id, { dish }]));
+    const combo = comboOf(line.id);
+    comboDraft.slots = Object.fromEntries(combo.slots.map((s) => [s.id, baseIds(line, s).map((dish) => ({ dish }))]));
     comboDraft.cust = {};
     renderCombo();
 });
@@ -992,15 +1051,10 @@ $("#combo-reset").addEventListener("click", () => {
 $("#combo-save").addEventListener("click", () => {
     const line = state.lines.find((l) => l.key === comboDraft.lineKey);
     const combo = comboOf(line.id);
-    const slots = {};
-    for (const slot of combo.slots) {
-        const pick = slotPick({ ...line, slots: comboDraft.slots }, slot);
-        const cust = pick === null ? {} : normalizeCust(dishOf(pick)?.kit, comboDraft.slots[slot.id]?.cust);
-        if (pick !== standardPick(slot) || Object.keys(cust).length || (line.base && slot.id in line.base)) {
-            slots[slot.id] = { dish: pick, ...(Object.keys(cust).length ? { cust } : {}) };
-        }
-    }
-    line.slots = slots;
+    line.slots = Object.fromEntries(combo.slots.map((slot) => [slot.id, comboDraft.slots[slot.id].map((pick) => {
+        const cust = normalizeCust(dishOf(pick.dish)?.kit, pick.cust);
+        return { dish: pick.dish, ...(Object.keys(cust).length ? { cust } : {}) };
+    })]));
     line.cust = normalizeCust(extrasKit(combo), comboDraft.cust);
     $("#combo-sheet").close();
     comboDraft = null;

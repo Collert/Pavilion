@@ -246,24 +246,19 @@ def compile_menu(menu):
     """[(Station, [prettified dishes and combos])] in station order, for the customer display."""
     dishes = menu.dishes.select_related("station").prefetch_related("dishcomponent_set__component").order_by("station__position", "id")
     categories = {station: [prettify_dish(dish) for dish in items] for station, items in group_by_station(dishes)}
-    for combo in menu.combos.prefetch_related("slots__options__dish__station").filter(visible_in_menu=True):
+    for combo in menu.combos.prefetch_related("slots__options__dish__station").filter(active=True, archived=False):
         station = combo.section_station()
         if station is not None:
             categories.setdefault(station, []).append(prettify_combo(combo))
     return sorted(categories.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
 def prettify_combo(combo):
-    """A combo for menu boards: its standard picks as the description."""
-    picks = []
-    for slot in combo.slots.all():
-        option = slot.default_option()
-        if option:
-            picks.append(option.dish.title.lower())
+    """A combo for menu boards: its default picks as the description."""
     return {
         "title": combo.title,
-        "components": ", ".join(picks),
-        "price": format_float(combo.price),
-        "available": combo.available and combo.visible_in_menu,
+        "components": ", ".join(option.dish.title.lower() for option in combo.default_picks()),
+        "price": format_float(combo.standard_price()),
+        "available": combo.available,
     }
 
 def prettify_dish(dish):

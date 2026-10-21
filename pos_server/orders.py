@@ -131,7 +131,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         for picked in line.picks:
             if line.kind == "combo":
                 OrderItem.objects.create(order=order, parent=parent, dish=picked.dish, station=picked.dish.station,
-                                         title=picked.dish.title, slot=picked.slot, quantity=line.quantity,
+                                         title=picked.dish.title, slot=picked.slot, quantity=line.quantity, upcharge=picked.upcharge,
                                          mods=picked.mods, note=picked.note, selection=picked.selection)
             station_ids.add(picked.dish.station_id)
             for component_id, amount in picked.use.items():
@@ -170,7 +170,7 @@ def refund_gift_cards(order):
 def orders_for_screens(queryset):
     """Prefetch everything collect_order() touches."""
     return queryset.select_related("authorization", "cashier").prefetch_related(
-        "station_statuses__station", "items__station", "items__dish", "discounts", "payments", "delivery__courier",
+        "station_statuses__station", "items__station", "items__dish", "items__combo", "discounts", "payments", "delivery__courier",
     )
 
 
@@ -184,7 +184,7 @@ def _mod_tags(item):
     mods, selection = list(item.mods or []), item.selection or {}
     if item.combo_id:
         extras = selection.get("extras") or {}
-        kinds = ["no"] * sum(1 for value in selection.values() if value is None)
+        kinds = []  # a combo's own lines are its condiments
     else:
         extras = selection
         if selection.get("allergies") and mods:
@@ -215,7 +215,7 @@ def _kitchen_rows(order):
             "tags": _mod_tags(item),
             "allergies": (item.selection or {}).get("allergies", []),
             "note": item.note,
-            "combo": parent.title if parent else None,
+            "combo": ((parent.combo.ticket_name if parent.combo and parent.combo.ticket_name else parent.title) if parent else None),
             "combo_tags": _mod_tags(parent) if parent else [],
             "line": parent.id if parent else item.id,
             "slot": item.slot,

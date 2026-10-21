@@ -420,30 +420,38 @@ class Command(BaseCommand):
         cookie = pastry("Cookie", "3.50", "Cookie")
         loaf = pastry("Sourdough loaf", "9.00", "Sourdough loaf")
 
-        # Combos
-        def combo(title, price, slots, description=""):
-            obj, created = Combo.objects.get_or_create(title=title, defaults={"price": Decimal(price), "description": description})
+        # Combos: slots are (title, [(dish, upcharge)], {picks, required}); the first dish is the default
+        def combo(title, price, slots, description="", **fields):
+            obj, created = Combo.objects.get_or_create(title=title, defaults={"price": Decimal(price), "description": description, **fields})
             if created:
                 obj.image.save(f"{title.lower().replace(' ', '_')}.png", placeholder_image(title, "#14261f"), save=True)
                 for position, (slot_title, options, settings_) in enumerate(slots):
                     slot = ComboSlot.objects.create(combo=obj, title=slot_title, position=position, **settings_)
                     for option_position, (option_dish, delta) in enumerate(options):
                         ComboSlotOption.objects.create(slot=slot, dish=option_dish, price=Decimal(delta),
-                                                       is_default=option_position == 0, position=option_position)
+                                                       is_default=option_position == 0 and slot.required, position=option_position)
             return obj
 
         lunch = combo("Lunch combo", "18.95", [
-            ("Main", [(smash, "0"), (chicken, "0"), (melt, "0"), (bowl, "0.50"), (pork, "2.00")], {}),
-            ("Side", [(corn, "0"), (fries, "0"), (salad, "0")], {"allow_none": True, "none_price": Decimal("-1.50")}),
-            ("Drink", [(latte, "0"), (flat_white, "0"), (lemonade, "0"), (spritz, "0.50"), (matcha, "1.00"), (cold_brew, "0")],
-             {"ask_on_add": True, "allow_none": True, "none_price": Decimal("-1.50")}),
-        ], "A main, a side and a drink.")
+            ("Main", [(smash, "0"), (chicken, "0"), (melt, "0"), (bowl, "1.00"), (pork, "2.50")], {}),
+            ("Side", [(fries, "0"), (corn, "0.50"), (salad, "0")], {}),
+            ("Drink", [(lemonade, "0"), (cold_brew, "0"), (spritz, "0.75"), (latte, "0.50"), (flat_white, "0"), (matcha, "1.00")], {}),
+        ], "Any burger or sandwich with a side and a drink.", ticket_name="LUNCH CMB")
         kids = combo("Kids meal", "9.95", [
             ("Main", [(kids_burger, "0"), (bites, "0")], {}),
-            ("Side", [(corn, "0"), (fries, "0"), (salad, "0")],
-             {"ask_on_add": True, "allow_none": True, "none_price": Decimal("-1.00")}),
-            ("Drink", [(lemonade, "0"), (spritz, "0.50"), (latte, "1.00")], {"allow_none": True, "none_price": Decimal("-1.50")}),
-        ], "A small main, a side and a drink.")
+            ("Side", [(fries, "0"), (corn, "0"), (salad, "0")], {}),
+            ("Drink", [(lemonade, "0"), (spritz, "0.50")], {}),
+            ("Treat", [(brownie, "2.00"), (bun, "2.00")], {"required": False}),
+        ], "A kids main, a side and a drink, with an optional treat.", ticket_name="KIDS CMB")
+        combo("Coffee and pastry", "8.50", [
+            ("Coffee", [(flat_white, "0"), (latte, "0.50"), (matcha, "0.75")], {}),
+            ("Pastry", [(bun, "0"), (cookie, "0"), (croissant, "0.50")], {}),
+        ], "Any coffee with something from the bakery case.", ticket_name="COF+PAST")
+        combo("Snack box", "11.00", [
+            ("Sides", [(fries, "0"), (corn, "0"), (salad, "0")], {"picks": 2}),
+            ("Sweet", [(cookie, "0"), (brownie, "0.50")], {}),
+        ], "Two sides and something sweet to share.", ticket_name="SNACK BOX", pricing=Combo.PERCENT,
+            percent_off=Decimal("15"), active=False)
         extras(kids, condiments=["Extra napkins"])
 
         self.dishes = {d.title: d for d in Dish.objects.all()}
@@ -653,14 +661,14 @@ class Command(BaseCommand):
 
         def lunch(drink="Iced latte", qty=1, **slots):
             combo = combos["Lunch combo"]
-            chosen = {str(s.id): {"dish": d[drink].id} for s in combo.slots.all() if s.title == "Drink"}
+            chosen = {str(s.id): [{"dish": d[drink].id}] for s in combo.slots.all() if s.title == "Drink"}
             chosen.update(slots)
             return {"type": "combo", "id": combo.id, "qty": qty, "slots": chosen}
 
         def kids(side="Charred corn"):
             combo = combos["Kids meal"]
             return {"type": "combo", "id": combo.id, "qty": 1,
-                    "slots": {str(s.id): {"dish": d[side].id} for s in combo.slots.all() if s.title == "Side"}}
+                    "slots": {str(s.id): [{"dish": d[side].id}] for s in combo.slots.all() if s.title == "Side"}}
 
         def option(dish_title, group_title, option_title):
             """{"<group key>": option id} for a dish's own option group."""

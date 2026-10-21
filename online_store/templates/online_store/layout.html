@@ -462,7 +462,7 @@
         let pendingCombo = null;
 
         function addItem(item, slots = {}) {
-            const pick = Object.values(slots)[0]?.dish;
+            const pick = Object.values(slots)[0]?.[0]?.dish;
             const option = item.ask?.options.find(o => o.dish === pick);
             cart.add({
                 type: item.type, id: item.id, slots: { ...(item.slots || {}), ...slots },
@@ -496,7 +496,7 @@
         document.querySelector("#combo-choice-form").addEventListener("submit", e => {
             const picked = e.currentTarget.querySelector("input:checked");
             if (!picked || !pendingCombo) { e.preventDefault(); return; }
-            addItem(pendingCombo, { [pendingCombo.ask.slot]: { dish: parseInt(picked.value) } });
+            addItem(pendingCombo, { [pendingCombo.ask.slot]: [{ dish: parseInt(picked.value) }] });
             pendingCombo = null;
         })
 

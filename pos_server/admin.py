@@ -87,7 +87,7 @@ class OptionGroupAdmin(admin.ModelAdmin):
 class ComboSlotInline(admin.TabularInline):
     """The parts of the combo. Save, then open a slot to list the dishes it offers."""
     model = ComboSlot
-    fields = ("title", "ask_on_add", "allow_none", "none_price", "position")
+    fields = ("title", "picks", "required", "position")
     extra = 0
     show_change_link = True
 
@@ -102,7 +102,7 @@ class ComboExtraInline(admin.TabularInline):
 
 @admin.register(Combo)
 class ComboAdmin(admin.ModelAdmin):
-    list_display = ("title", "price", "visible_in_menu")
+    list_display = ("title", "pricing", "price", "percent_off", "active", "archived")
     list_filter = ("menu",)
     search_fields = ("title",)
     filter_horizontal = ("menu",)
@@ -118,7 +118,7 @@ class ComboSlotOptionInline(admin.TabularInline):
 
 @admin.register(ComboSlot)
 class ComboSlotAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "ask_on_add", "allow_none")
+    list_display = ("__str__", "picks", "required")
     inlines = [ComboSlotOptionInline]
 
 
