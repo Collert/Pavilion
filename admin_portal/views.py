@@ -25,12 +25,13 @@ from inventory.models import Recipe, RecipeStep
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Component, Dish, Ingredient, Menu, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
 from . import combos as combos_data
 from . import components as components_data
+from . import condiments as condiments_data
 from . import dashboard as dashboard_data
 from . import dishes as dishes_data
 from . import ingredients as ingredients_data
@@ -671,3 +672,60 @@ def ingredient_edit(request, ingredient_id):
                 messages.success(request, _("%(ingredient)s saved") % {"ingredient": target.title})
             return redirect("admin_ingredient", ingredient_id=target.id)
     return page(request, "admin_portal/ingredient.html", "ingredients", {"e": ingredients_data.editor(ingredient, draft)})
+
+
+# ---------- condiments ----------
+
+@superuser_required
+def condiments(request):
+    data = condiments_data.condiment_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/condiments.html", "condiments", {"l": data})
+
+
+@superuser_required
+@require_POST
+def condiment_new(request):
+    component = Component.objects.create(title=_("New condiment"), unit_of_measurement="ea", category="sauce", crafting_option="craft")
+    condiment = Condiment.objects.create(component=component, served_as="cup", serving=_("2 oz cup"), price=Decimal("0.50"))
+    return redirect("admin_condiment", condiment_id=condiment.id)
+
+
+@superuser_required
+def condiment_edit(request, condiment_id):
+    """The condiment editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    condiment = get_object_or_404(Condiment.objects.select_related("component__storage", "component__recipe"), pk=condiment_id)
+    if request.method != "POST":
+        draft = condiments_data.draft_from_condiment(condiment)
+        return page(request, "admin_portal/condiment.html", "condiments", {"e": condiments_data.editor(condiment, draft)})
+    op = request.POST.get("op", "")
+    draft = condiments_data.apply_op(condiments_data.draft_from_post(request.POST), op)
+    if op in ("archive", "restore"):
+        component = condiment.component
+        component.archived = op == "archive"
+        component.save(update_fields=["archived"])
+        if op == "archive":
+            Extra.objects.filter(component=component).delete()  # off every dish
+            _dishes_changed()
+            messages.success(request, _("%(condiment)s archived") % {"condiment": component.title})
+            return redirect("admin_condiments")
+        messages.success(request, _("%(condiment)s is back. Pick the dishes to suggest it with.") % {"condiment": component.title})
+        return redirect("admin_condiment", condiment_id=condiment.id)
+    if op == "leave":
+        if not condiments_data.is_dirty(draft, condiment):
+            return redirect("admin_condiments")
+        return page(request, "admin_portal/condiment.html", "condiments", {"e": condiments_data.editor(condiment, draft, leave_ask=True)})
+    if op in ("save", "duplicate"):
+        target = Condiment() if op == "duplicate" else condiment
+        if op == "duplicate":
+            # A new component (and, if bought, its own ingredient) for the copy; a recipe makes one thing
+            draft.update(title=(_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140], inventory="0", inventory_was="0", recipe="")
+        issue = condiments_data.problems(draft, target)
+        if issue:
+            messages.error(request, issue)
+        else:
+            condiments_data.save_draft(draft, target)
+            _dishes_changed()
+            messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate"
+                             else _("%(condiment)s saved") % {"condiment": target.component.title})
+            return redirect("admin_condiment", condiment_id=target.id)
+    return page(request, "admin_portal/condiment.html", "condiments", {"e": condiments_data.editor(condiment, draft)})

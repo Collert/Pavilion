@@ -11,7 +11,7 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
     {"parts": {"<DishComponent id>": steps},        adjustable parts: 0 = leave out, up to standard + max_extra
      "options": {"<group key>": <Option id>,         pick-one groups (see DishKit.groups for the keys)
                  "<group key>": {"<Option id>": n}}, pick-any groups: how many of each
-     "condiments": {"<Extra id>": count},            on the side
+     "condiments": {"<Extra id>": count},            on the side (see "Condiments" below)
      "allergies": ["Dairy", ...],                    told to the kitchen
      "note": "..."}
 
@@ -26,6 +26,12 @@ A discount spec is {"offer": <Discount id>}, {"code": "WELCOME10"} or {"manual":
 Line prices: dish price (or Combo.unit_price of the picks: set price + upcharges, or percent off) + customizations. An adjustable part
 costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (settings.TAX_RATE) is charged on the
 total after discounts.
+
+Condiments: an Extra whose component is a Condiment is priced per order, not per line. The first `free_per_order`
+servings of it across the whole cart are free and each one after costs `Condiment.price`. The charge lands on the
+lines in cart order; a line with a quantity above 1 gets the same count charged on each unit, rounding in the
+customer's favour, so unit prices stay whole cents. The charged count per unit is kept in the line's selection
+("charged": {component id: n}). Other extras (napkins) cost their own `Extra.price` each.
 """
 import datetime
 from collections import Counter
@@ -94,7 +100,7 @@ def dish_queryset():
         Prefetch("dishcomponent_set", queryset=DishComponent.objects.select_related("component")
                  .prefetch_related("component__option_groups__options__component")),
         "option_groups__options__component",
-        Prefetch("extras", queryset=Extra.objects.select_related("component")),
+        Prefetch("extras", queryset=Extra.objects.select_related("component__condiment")),
     )
 
 
@@ -102,8 +108,13 @@ def combo_queryset():
     return Combo.objects.prefetch_related(
         Prefetch("slots", queryset=ComboSlot.objects.prefetch_related(
             Prefetch("options", queryset=ComboSlotOption.objects.select_related("dish__station")))),
-        Prefetch("extras", queryset=Extra.objects.select_related("component")),
+        Prefetch("extras", queryset=Extra.objects.select_related("component__condiment")),
     )
+
+
+def condiment_of(extra):
+    """The Condiment profile of an extra's component, or None (napkins, straws...)."""
+    return getattr(extra.component, "condiment", None)
 
 
 class DishKit:
@@ -152,8 +163,14 @@ class DishKit:
 
 
 def _extras_json(extras):
-    return [{"id": e.id, "title": e.label, "price": to_cents(e.price), "max": e.max_count, "available": e.available}
-            for e in extras]
+    """`free` is the condiment's free servings per order (None: priced per line at `price`; 99+: always free)."""
+    out = []
+    for e in extras:
+        condiment = condiment_of(e)
+        out.append({"id": e.id, "title": e.label, "max": e.max_count, "available": e.available,
+                    "price": to_cents(condiment.price if condiment else e.price),
+                    "free": condiment.free_per_order if condiment else None})
+    return out
 
 
 @dataclass
@@ -164,6 +181,7 @@ class Picked:
     mods: list = field(default_factory=list)    # readable lines for the kitchen
     selection: dict = field(default_factory=dict)
     use: Counter = field(default_factory=Counter)  # component id -> amount for one
+    condiments: dict = field(default_factory=dict)  # component id -> [Condiment, servings for one], priced per order
     note: str = ""
     slot: str = ""
     upcharge: Decimal = ZERO                    # a combo pick's upcharge (set-price combos)
@@ -182,7 +200,11 @@ def _condiments_choice(raw, condiments, picked: Picked, owner_title):
         count = _count(count, 0, extra.max_count, extra.label)
         if not extra.available:
             raise OrderError(_("%(extra)s is sold out.") % {"extra": extra.label})
-        picked.extra += extra.price * count
+        condiment = condiment_of(extra)
+        if condiment:
+            picked.condiments.setdefault(extra.component_id, [condiment, 0])[1] += count
+        else:
+            picked.extra += extra.price * count
         picked.use[extra.component_id] += extra.quantity * count
         picked.mods.append(extra.label if count == 1 else f"{count}× {extra.label}")
         picked.selection.setdefault("condiments", {})[str(extra.id)] = count
@@ -340,11 +362,21 @@ class PricedLine:
     unit_price: Decimal
     picks: list               # [Picked]: the dish itself, or one per filled combo slot
     mods: list = field(default_factory=list)   # combo-level lines (left-out slots, combo extras)
+    extra_picks: list = field(default_factory=list)  # a combo's own condiments (a Picked without a dish)
     selection: dict = field(default_factory=dict)
     note: str = ""
     discount: AppliedDiscount = None
     raw_discount: object = None
     discount_error: str = ""
+
+    @property
+    def condiments(self) -> dict:
+        """component id -> [Condiment, servings for one unit of the line] (its picks' and the combo's own)."""
+        out = {}
+        for picked in self.picks + self.extra_picks:
+            for component_id, (condiment, count) in picked.condiments.items():
+                out.setdefault(component_id, [condiment, 0])[1] += count
+        return out
 
     @property
     def gross(self) -> Decimal:
@@ -435,8 +467,24 @@ def _price_line(line, kits, combos) -> PricedLine:
         selection["extras"] = combo_extras.selection
     if picks and combo_extras.use:
         picks[0].use.update(combo_extras.use)  # combo extras are packed with the first dish
-    return PricedLine("combo", combo, quantity, unit, picks, mods=mods, selection=selection,
+    return PricedLine("combo", combo, quantity, unit, picks, mods=mods, selection=selection, extra_picks=[combo_extras],
                       note=_clean_note(line.get("note")), raw_discount=line.get("discount"))
+
+
+def _charge_condiments(priced):
+    """Price condiments per order (see the module docstring): free ones first, then the price each."""
+    free_left = {}
+    for line in priced:
+        for component_id, (condiment, per_unit) in line.condiments.items():
+            if condiment.unlimited or condiment.price <= 0 or not per_unit:
+                continue
+            left = free_left.setdefault(component_id, condiment.free_per_order)
+            free_each = min(per_unit, -(-left // line.quantity))  # round up: the customer gets the odd one free
+            free_left[component_id] = max(0, left - free_each * line.quantity)
+            charged = per_unit - free_each
+            if charged:
+                line.unit_price += condiment.price * charged
+                line.selection.setdefault("charged", {})[str(component_id)] = charged
 
 
 # ---------- discounts ----------
@@ -584,6 +632,7 @@ def price_cart(lines, *, order_discount=None, channel="store", can_manual=False,
     now = now or timezone.now()
     kits, combos = _load(lines)
     priced = [_price_line(line, kits, combos) for line in lines]
+    _charge_condiments(priced)
     subtotal = sum((line.gross for line in priced), ZERO)
     cart = PricedCart(lines=priced, subtotal=subtotal)
     context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual}

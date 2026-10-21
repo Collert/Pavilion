@@ -274,8 +274,10 @@ def usage(component):
 
 def component_list(query="", show="all"):
     archived = show == "archived"
-    components = list(Component.objects.filter(archived=archived).select_related("recipe").prefetch_related(
+    components = list(Component.objects.filter(archived=archived).select_related("recipe", "condiment").prefetch_related(
         *COMPONENT_PREFETCH, "dishcomponent_set__dish").order_by("title"))
+    # Condiments have their own page; they're listed here only when a dish uses them as a part too
+    components = [c for c in components if not hasattr(c, "condiment") or c.dishcomponent_set.all()]
     q = (query or "").strip().lower()
     if q:
         components = [c for c in components if q in c.title.lower() or (c.recipe and q in c.recipe.title.lower())]

@@ -37,7 +37,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
+                               ComponentIngredient, CateringPrice, Condiment, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -88,6 +88,7 @@ class Command(BaseCommand):
             call_command("seed_recipes", stdout=io.StringIO())  # the Cookery mockup's recipes too
             self.seed_component_details()
             self.seed_ingredient_details()
+            self.seed_condiments()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -737,8 +738,45 @@ class Command(BaseCommand):
             ingredient.save()
             if change:
                 Ingredient.objects.filter(pk=ingredient.pk).update(previous_cost=(ingredient.cost / Decimal(str(1 + change / 100))).quantize(Decimal("0.000001")))
+        Ingredient.objects.filter(title="Mayonnaise").update(allergens=["Egg"], animal=True)
         Ingredient.objects.create(title="Saffron", unit_of_measurement="g", category="dry", supplier=food, pack_size=10,
                                   pack_price=Decimal("28.00"), archived=True)
+
+    def seed_condiments(self):
+        """Condiments: the packets dishes already offer get a profile; three house-made ones come from prep recipes."""
+        places = self.storage_locations()
+        bought = {  # component: (served as, serving, free per order, price each, dine-in, ask on takeout)
+            "Ketchup packet": ("packet", "9 g packet", 3, "0.10", "station", True),
+            "Mustard packet": ("packet", "5 g packet", 2, "0.10", "station", True),
+            "Mayo packet": ("packet", "12 g packet", 2, "0.10", "station", True),
+            "Hot sauce packet": ("packet", "7 g packet", 2, "0.25", "ask", True),
+            "Salt packet": ("packet", "1 g packet", Condiment.NO_LIMIT, "0", "table", False),
+        }
+        for title, (served, serving, free, price, dine, ask) in bought.items():
+            component = Component.objects.filter(title=title).first()
+            if component:
+                Component.objects.filter(pk=component.pk).update(category="sauce", storage=places["dry"], keeps_days=365, par=500)
+                Condiment.objects.create(component=component, served_as=served, serving=serving, free_per_order=free,
+                                         price=Decimal(price), dine_in=dine, ask_on_takeout=ask)
+        i = {ingredient.title: ingredient for ingredient in Ingredient.objects.all()}
+        made = [  # title, recipe: (yield in servings, [(ingredient, amount)]), stock, par, free, price, dishes
+            ("Chipotle mayo", (50, [("Mayonnaise", 1500), ("Smoked paprika", 30), ("Kosher salt", 10)]), 44, 40, 1, "0.75",
+             ["Fries", "Crispy chicken sandwich", "Kids chicken bites"]),
+            ("Buttermilk ranch", (45, [("Mayonnaise", 500), ("Milk", 500), ("Black pepper", 10)]), 12, 30, 1, "0.75",
+             ["Fries", "Kids chicken bites"]),
+            ("Maple butter", (60, [("Butter", 1000), ("Sugar", 250)]), 58, 40, 0, "1.25", ["Cardamom bun"]),
+        ]
+        for title, (makes, parts), stock, par, free, price, dishes in made:
+            recipe = Recipe.objects.create(title=title, yield_quantity=makes, total_minutes=15)
+            for position, (name, amount) in enumerate(parts):
+                RecipeIngredient.objects.create(recipe=recipe, ingredient=i[name], quantity=amount, position=position)
+            RecipeStep.objects.create(recipe=recipe, title="Mix", text="Whisk everything together, then portion into 2 oz cups.", scene="prep")
+            component = Component.objects.create(title=title, unit_of_measurement="ea", category="sauce", crafting_option="craft",
+                                                  recipe=recipe, inventory=stock, par=par, storage=places["line"], keeps_days=5)
+            Condiment.objects.create(component=component, served_as="cup", serving="2 oz cup", free_per_order=free,
+                                     price=Decimal(price), dine_in="ask", ask_on_takeout=True)
+            for position, dish in enumerate(Dish.objects.filter(title__in=dishes)):
+                Extra.objects.create(dish=dish, component=component, quantity=1, max_count=10, position=40 + position)
 
     def seed_discounts(self):
         specs = [
@@ -952,6 +990,11 @@ class Command(BaseCommand):
             created.refresh_from_db()
             return created
 
+        def on_side(title, counts):
+            """A dish's condiments: {component title: count}."""
+            extras = Extra.objects.filter(dish=d[title], component__title__in=counts).select_related("component")
+            return {"condiments": {str(e.id): counts[e.component.title] for e in extras}}
+
         carts = [
             lambda: [dish("Smash burger"), dish("Fresh lemonade")],
             lambda: [lunch()],
@@ -960,6 +1003,8 @@ class Command(BaseCommand):
             lambda: [kids(), dish("Flat white")],
             lambda: [dish("Halloumi grain bowl"), dish("Ginger spritz")],
             lambda: [dish("Crispy chicken sandwich"), dish("Charred corn")],
+            lambda: [dish("Smash burger", cust=on_side("Smash burger", {"Ketchup packet": 4})),
+                     dish("Crispy chicken sandwich", cust=on_side("Crispy chicken sandwich", {"Chipotle mayo": 2}))],
         ]
 
         # Past days: finished and picked up, each with a closed cash drawer

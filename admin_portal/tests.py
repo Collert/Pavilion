@@ -12,13 +12,13 @@ from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
 from pos_server import dish_info
-from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Dish, DishComponent,
+from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Condiment, Extra, Dish, DishComponent,
                                Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, StorageLocation, Supplier)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, components, dashboard, dishes, ingredients, recipes, reports, services
+from . import combos, components, condiments, dashboard, dishes, ingredients, recipes, reports, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -1173,6 +1173,90 @@ class IngredientTests(AdminFixture, TestCase):
         self.assertTrue(Ingredient.objects.get(pk=self.saffron.pk).archived)
         response = self.client.post(reverse("admin_ingredient_new"))
         self.assertRedirects(response, reverse("admin_ingredient", args=[Ingredient.objects.latest("id").id]))
+
+
+def condiment_fields(draft, **changes):
+    """The condiment editor's POST fields for a draft (admin_portal.condiments.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "served_as", "serving", "source", "recipe", "supplier", "case_size", "case_price",
+                                  "inventory", "inventory_was", "par", "storage", "keeps_days", "free", "price", "dine_in")}
+    data.update(allergens=draft["allergens"], pairs=draft["pairs"], gluten_was="1" if "Gluten" in draft["allergens"] else "")
+    for flag in ("meat", "fish", "animal", "ask"):
+        if draft[flag]:
+            data[flag] = "1"
+    if "Gluten" in draft["allergens"]:
+        data["gluten"] = "1"
+    return data
+
+
+class CondimentTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from inventory.models import Recipe, RecipeIngredient
+        cls.build_admin()
+        cls.mayo = Ingredient.objects.create(title="Mayonnaise", unit_of_measurement="g", pack_size=1000, pack_price=Decimal("10.00"),
+                                             allergens=["Egg"], animal=True)
+        cls.recipe = Recipe.objects.create(title="Garlic aioli", yield_quantity=50)
+        RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.mayo, quantity=1500)
+        aioli = Component.objects.create(title="Garlic aioli", unit_of_measurement="ea", crafting_option="craft", recipe=cls.recipe, inventory=38, par=50)
+        cls.aioli = Condiment.objects.create(component=aioli, served_as="cup", serving="2 oz cup", free_per_order=1, price=Decimal("0.75"))
+        Extra.objects.create(dish=cls.burger, component=aioli)
+        packets = Ingredient.objects.create(title="Ketchup packets", unit_of_measurement="ea", pack_size=1000, pack_price=Decimal("32.00"))
+        ComponentIngredient.objects.create(component=cls.ketchup, ingredient=packets, quantity=1)
+        cls.ketchup_c = Condiment.objects.create(component=cls.ketchup, free_per_order=3, price=Decimal("0.10"), dine_in="station")
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, condiment):
+        return condiments.draft_from_condiment(Condiment.objects.get(pk=condiment.pk))
+
+    def post(self, condiment, op, draft=None, **changes):
+        return self.client.post(reverse("admin_condiment", args=[condiment.id]), {**condiment_fields(draft or self.draft(condiment), **changes), "op": op})
+
+    def test_list_groups_costs_and_rules(self):
+        self.place([{"type": "dish", "id": self.burger.id, "qty": 1, "cust": {"condiments": {str(self.ketchup_side.id): 4}}}], timezone.now())
+        l = self.client.get(reverse("admin_condiments")).context["l"]
+        self.assertEqual([g["name"] for g in l["groups"]], ["House-made", "Bought"])
+        aioli, ketchup = l["groups"][0]["rows"][0], l["groups"][1]["rows"][0]
+        self.assertEqual((aioli["cost"], aioli["rule"], aioli["allergens"], aioli["state"]), ("$0.30", "1 free, then $0.75", ["Egg"], "under"))
+        self.assertEqual((ketchup["cost"], ketchup["rule"], ketchup["given"], ketchup["charged"]), ("$0.032", "3 free, then $0.10", 4, 1))
+        self.assertEqual(l["kpis"][2]["value"], "$0.10")
+        self.assertNotIn(self.ketchup, [r["c"] for g in self.client.get(reverse("admin_components")).context["l"]["groups"] for r in g["rows"]])
+
+    def test_bought_condiments_edit_their_ingredient(self):
+        draft = self.draft(self.ketchup_c)
+        self.assertEqual((draft["source"], draft["case_size"], draft["case_price"]), ("bought", "1000", "32.00"))
+        self.post(self.ketchup_c, "save", draft, case_price="40", supplier="Pacific Foodservice", allergens=["Sulphites"])
+        packets = Ingredient.objects.get(title="Ketchup packet")
+        self.assertEqual((packets.cost, packets.previous_cost, packets.allergens, packets.supplier.name),
+                         (Decimal("0.04"), Decimal("0.032"), ["Sulphites"], "Pacific Foodservice"))
+        self.assertEqual(dish_info.component_cost(Component.objects.get(pk=self.ketchup.pk)), Decimal("0.04"))
+
+    def test_free_stepper_pairs_and_switching_source(self):
+        e = self.post(self.aioli, "free_less").context["e"]
+        self.assertEqual((e["d"]["free"], e["rule_line"]), ("0", "Every one is charged at $0.75."))
+        e = self.post(self.aioli, "free_more", e["d"], free="5").context["e"]
+        self.assertEqual(e["free_text"], "∞")
+        self.post(self.aioli, "save", e["d"], pairs=[str(self.coffee.id)], ask=False, dine_in="table")
+        aioli = Condiment.objects.get(pk=self.aioli.pk)
+        self.assertEqual((aioli.free_per_order, aioli.ask_on_takeout, aioli.dine_in), (Condiment.NO_LIMIT, False, "table"))
+        self.assertEqual(list(Extra.objects.filter(component=aioli.component).values_list("dish_id", flat=True)), [self.coffee.id])
+        e = self.post(self.aioli, "preview", source="bought", case_size="0").context["e"]
+        self.assertEqual((e["bought"], e["status"]), (True, "Set servings per case"))
+
+    def test_new_duplicate_and_archive(self):
+        response = self.client.post(reverse("admin_condiment_new"))
+        new = Condiment.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_condiment", args=[new.id]))
+        self.assertEqual(self.client.get(response.url).context["e"]["cost_big"], "—")  # no recipe yet
+        self.post(self.ketchup_c, "duplicate")
+        copy = Condiment.objects.latest("id")
+        self.assertEqual((copy.component.title, copy.free_per_order, copy.component.inventory), ("Ketchup packet (copy)", 3, 0))
+        self.assertEqual(copy.component.componentingredient_set.get().ingredient.title, "Ketchup packet (copy)")
+        self.assertRedirects(self.post(self.aioli, "archive"), reverse("admin_condiments"))
+        self.assertTrue(Component.objects.get(pk=self.aioli.component_id).archived)
+        self.assertFalse(Extra.objects.filter(component_id=self.aioli.component_id).exists())
 
 
 class UnitTests(TestCase):

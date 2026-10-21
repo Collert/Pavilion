@@ -360,6 +360,35 @@ class Option(models.Model):
         return self.component is None or self.component.in_stock
 
 
+class Condiment(models.Model):
+    """
+    A condiment (ketchup packets, house garlic aioli): how it's served and charged, on top of the component that
+    holds its stock, counted in servings (unit "ea"). House-made ones are made from the component's prep recipe;
+    bought ones use one ingredient, bought by the case (its pack). Dishes offer it through Extra rows ("suggest
+    with"). Pricing is per order: the first `free_per_order` servings across the whole order are free, the rest
+    cost `price` each (pos_server/pricing.py). Edited on the admin's Condiments page.
+    """
+    NO_LIMIT = 99  # free_per_order at or above this: always free
+    SERVED_AS = [("packet", "Packet"), ("cup", "Portion cup"), ("bottle", "Table bottle"), ("pump", "Pump dispenser"),
+                 ("side", "On the side, plated")]
+    DINE_IN = [("station", "Self-serve station"), ("table", "On every table"), ("ask", "On request"), ("off", "Not for dine-in")]
+
+    component = models.OneToOneField("Component", on_delete=models.CASCADE, related_name="condiment")
+    served_as = models.CharField(max_length=10, choices=SERVED_AS, default="packet")
+    serving = models.CharField(max_length=40, blank=True, help_text="What one serving is, e.g. 2 oz cup")
+    free_per_order = models.PositiveSmallIntegerField(default=1, help_text=f"Free servings per order ({NO_LIMIT} = no limit)")
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0.00"), help_text="Each serving past the free ones")
+    dine_in = models.CharField(max_length=8, choices=DINE_IN, default="ask")
+    ask_on_takeout = models.BooleanField(default=True, help_text="The register asks before bagging pickup and delivery orders")
+
+    def __str__(self):
+        return self.component.title
+
+    @property
+    def unlimited(self) -> bool:
+        return self.free_per_order >= self.NO_LIMIT
+
+
 class Extra(models.Model):
     """
     A condiment offered with a dish or combo: usually free, counted out "on the side" (ketchup packets, napkins).

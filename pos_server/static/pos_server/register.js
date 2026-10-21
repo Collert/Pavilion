@@ -95,7 +95,8 @@ function kitCost(kit, cust) {
             total += group.options.find((o) => o.id === id)?.price || 0;
         }
     }
-    for (const condiment of kit.condiments) total += condiment.price * ((cust.condiments || {})[condiment.id] || 0);
+    // Condiments with free servings per order are priced on the server across the whole order
+    for (const condiment of kit.condiments) if (condiment.free === null) total += condiment.price * ((cust.condiments || {})[condiment.id] || 0);
     return total;
 }
 
@@ -161,6 +162,13 @@ function normalizeCust(kit, cust) {
     if ((cust.allergies || []).length) out.allergies = [...cust.allergies];
     if ((cust.note || "").trim()) out.note = cust.note.trim().slice(0, 140);
     return out;
+}
+
+// "+$0.50", or "3 free per order, then +$0.10" for condiments priced per order ("" when always free)
+function condimentPrice(condiment) {
+    if (!condiment.price || condiment.free >= 99) return "";
+    if (condiment.free === null || condiment.free === 0) return "+" + fmt(condiment.price);
+    return interpolate(gettext("%(n)s free per order, then +%(price)s"), { n: condiment.free, price: fmt(condiment.price) }, true);
 }
 
 const extrasKit = (combo) => ({ parts: [], groups: [], condiments: combo.condiments });
@@ -881,13 +889,13 @@ function kitEntries(spec, draft, update, { allergies = true } = {}) {
         }
     }
     if (spec.condiments.length) {
-        const free = spec.condiments.every((c) => !c.price);
+        const free = spec.condiments.every((c) => !c.price || c.free >= 99);
         entries.push(kitSection(t("On the side"), free ? t("Free") : ""));
         for (const condiment of spec.condiments) {
             const n = (draft.condiments || {})[condiment.id] || 0;
             entries.push(counterNode({
                 label: condiment.title, n, min: 0, max: condiment.available ? condiment.max : n,
-                sub: condiment.price ? "+" + fmt(condiment.price) : "",
+                sub: condimentPrice(condiment),
                 onChange: (value) => update((d) => { d.condiments = d.condiments || {}; d.condiments[condiment.id] = value; }),
             }));
         }

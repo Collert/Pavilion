@@ -1,0 +1,68 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Condiments list (design: AdminCondiments, list state; admin_portal/condiments.py: condiment_list), house-made then
+bought. Filters are links, search (condiment or supplier) submits as you type. Refetched on "inventory".
+{% endcomment %}
+{% block title %}{% trans "Condiments" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/ingredients.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/condiments.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Inventory" %}</div>
+        <h1 class="disp page-title">{% trans "Condiments" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search condiments' %}" placeholder="{% trans 'Search condiments' %}">
+    </form>
+    <form method="post" action="{% url 'admin_condiment_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New condiment" %}</button>
+    </form>
+</header>
+
+<div class="comp-kpis" id="condiments-kpis" data-region>
+    {% for k in l.kpis %}
+    <div class="kpi"><div class="kpi-label">{{ k.label }}</div><div class="disp num kpi-value ellipsis{% if k.bad %} bad{% endif %}">{{ k.value }}</div><div class="kpi-sub ellipsis">{{ k.sub }}</div></div>
+    {% endfor %}
+</div>
+
+<nav class="filter-chips" aria-label="{% trans 'Filter' %}" id="condiments-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<section class="card table-card" aria-label="{% trans 'Condiments' %}" id="condiments-list" data-region>
+    <div class="thead cond-grid">
+        <span>{% trans "Condiment" %}</span><span>{% trans "Served as" %}</span><span class="right">{% trans "Cost" %}</span>
+        <span>{% trans "At the register" %}</span><span>{% trans "Allergens" %}</span><span>{% trans "On hand · par" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for g in l.groups %}
+        <div class="comp-group-head center"><span class="group-dot" style="background:{{ g.color }}"></span><h2 class="disp">{{ g.name }}</h2><span>{{ g.sub }}</span></div>
+        {% for r in g.rows %}
+        <a class="trow cond-grid comp-row" href="{% url 'admin_condiment' r.c.id %}" aria-label="{% blocktrans with name=r.component.title %}Edit {{ name }}{% endblocktrans %}">
+            <span class="two-line"><span class="strong ellipsis comp-name">{{ r.component.title }}</span><span class="muted small ellipsis">{{ r.sub }}</span></span>
+            <span class="two-line"><span class="small strong ink">{{ r.served }}</span><span class="muted small ellipsis">{{ r.c.serving }}</span></span>
+            <span class="num right strong">{{ r.cost }}</span>
+            <span class="two-line"><span class="small strong ink">{{ r.rule }}</span><span class="muted small ellipsis">{{ r.rule_sub }}</span></span>
+            <span class="alg-cell">{% for a in r.allergens %}<span class="alg-chip">{{ a }}</span>{% endfor %}{% for d in r.diets %}<span class="diet-badge" title="{{ d.label }}">{{ d.short }}</span>{% endfor %}</span>
+            <span class="stock-cell">
+                <span class="stock-line"><span class="num">{{ r.stock }}</span>{% if r.tag %}<span class="stock-tag {{ r.state }}">{{ r.tag }}</span>{% endif %}</span>
+                <span class="stock-bar"><span class="fill {{ r.state }}" style="width:{{ r.bar.fill }}%"></span>{% if r.bar.par != None %}<span class="par" style="left:{{ r.bar.par }}%"></span>{% endif %}</span>
+            </span>
+            {% icon "chevron" 16 2.4 %}
+        </a>
+        {% endfor %}
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "No condiments match" %}</div><div>{% trans "Try another filter or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

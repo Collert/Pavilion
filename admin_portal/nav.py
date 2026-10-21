@@ -25,7 +25,7 @@ MENU = [
     ("inventory", _("Inventory"), "M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z M3 7.5l9 4.5 9-4.5 M12 12v9", [
         ("components", _("Components"), "admin_components"),
         ("ingredients", _("Ingredients"), "admin_ingredients"),
-        ("condiments", _("Condiments"), None),
+        ("condiments", _("Condiments"), "admin_condiments"),
         ("disposables", _("Disposables"), None),
         ("restocks", _("Restocks"), None),
     ]),
