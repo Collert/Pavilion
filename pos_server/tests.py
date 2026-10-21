@@ -53,21 +53,23 @@ class MenuFixture:
         cls.dc_bun = DishComponent.objects.create(dish=cls.burger, component=cls.bun, quantity=1, adjustable=True)
         cls.dc_patty = DishComponent.objects.create(dish=cls.burger, component=cls.patty, quantity=1, adjustable=True)
         cls.dc_onion = DishComponent.objects.create(dish=cls.burger, component=cls.onion, quantity=1, adjustable=True)
-        temp = OptionGroup.objects.create(title="Temperature", component=cls.patty)
-        cls.medium = Option.objects.create(group=temp, title="Medium", is_default=True)
+        temp = OptionGroup.objects.create(title="Temperature", component=cls.patty, required=True)
+        cls.medium = Option.objects.create(group=temp, title="Medium")
         cls.well = Option.objects.create(group=temp, title="Well done")
         cls.temp_key = f"{temp.id}.{cls.dc_patty.id}"
-        bun_group = OptionGroup.objects.create(title="Bun", component=cls.bun)
-        Option.objects.create(group=bun_group, title="Brioche", is_default=True)
+        bun_group = OptionGroup.objects.create(title="Bun", component=cls.bun, required=True)
+        Option.objects.create(group=bun_group, title="Brioche")
         cls.gf = Option.objects.create(group=bun_group, title="Gluten-free", price=Decimal("1.50"), component=cls.gf_bun)
         cls.bun_key = f"{bun_group.id}.{cls.dc_bun.id}"
-        cls.avocado_addon = Extra.objects.create(dish=cls.burger, component=cls.avocado, kind=Extra.ADDON, price=Decimal("2.25"))
-        cls.ketchup_side = Extra.objects.create(dish=cls.burger, component=cls.ketchup, kind=Extra.CONDIMENT, title="Ketchup")
+        addons = OptionGroup.objects.create(title="Add-ons", dish=cls.burger, pick=OptionGroup.ANY)
+        cls.avocado_addon = Option.objects.create(group=addons, title="Avocado", price=Decimal("2.25"), component=cls.avocado)
+        cls.addons_key = str(addons.id)
+        cls.ketchup_side = Extra.objects.create(dish=cls.burger, component=cls.ketchup, title="Ketchup")
 
         cls.coffee = Dish.objects.create(title="Coffee", price=Decimal("2.50"), station=cls.bar)
         DishComponent.objects.create(dish=cls.coffee, component=cls.shot, quantity=1)
-        size = OptionGroup.objects.create(title="Size", dish=cls.coffee)
-        Option.objects.create(group=size, title="Regular", is_default=True)
+        size = OptionGroup.objects.create(title="Size", dish=cls.coffee, required=True)
+        Option.objects.create(group=size, title="Regular")
         cls.large = Option.objects.create(group=size, title="Large", price=Decimal("0.60"), multiplier=2)
         cls.size_key = str(size.id)
         cls.tea = Dish.objects.create(title="Tea", price=Decimal("2.00"), station=cls.bar)
@@ -110,12 +112,12 @@ class PricingTests(MenuFixture, TestCase):
         self.assertEqual(cart.lines[0].picks[0].mods, ["2× patty", "No onion"])
 
     def test_options_addons_condiments_and_allergies(self):
-        cust = {"options": {self.temp_key: self.well.id, self.bun_key: self.gf.id}, "addons": [self.avocado_addon.id],
+        cust = {"options": {self.temp_key: self.well.id, self.bun_key: self.gf.id, self.addons_key: {str(self.avocado_addon.id): 1}},
                 "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Dairy"], "note": "Cut in half"}
         cart = price_cart([self.dish(self.burger, cust=cust)])
         self.assertEqual(cart.subtotal, Decimal("18.25"))  # 14.50 + 1.50 bun + 2.25 avocado
         picked = cart.lines[0].picks[0]
-        self.assertEqual(picked.mods, ["Gluten-free", "Well done", "+ Avocado", "2× Ketchup", "Allergy: dairy"])
+        self.assertEqual(picked.mods, ["+ Avocado", "Gluten-free", "Well done", "2× Ketchup", "Allergy: dairy"])
         self.assertEqual(picked.note, "Cut in half")
         # The swapped bun is what gets used
         self.assertEqual(picked.use[self.gf_bun.id], 1)
@@ -131,10 +133,42 @@ class PricingTests(MenuFixture, TestCase):
         self.assertEqual(cart.lines[0].picks[0].use[self.shot.id], 2)
 
     def test_invalid_customizations_are_refused(self):
-        for cust in ({"parts": {str(self.dc_patty.id): 9}}, {"options": {self.temp_key: self.gf.id}},
-                     {"addons": [self.ketchup_side.id]}, {"allergies": ["Glitter"]}):
+        for cust in ({"parts": {str(self.dc_patty.id): 12}}, {"options": {self.temp_key: self.gf.id}},
+                     {"options": {self.addons_key: {str(self.ketchup_side.id): 1}}}, {"options": {self.addons_key: {str(self.avocado_addon.id): 100}}},
+                     {"options": {self.addons_key: [self.avocado_addon.id]}}, {"allergies": ["Glitter"]}):
             with self.assertRaises(OrderError, msg=cust):
                 price_cart([self.dish(self.burger, cust=cust)])
+
+    def test_add_ons_can_be_picked_many_times(self):
+        cust = {"options": {self.addons_key: {str(self.avocado_addon.id): 3}}}
+        picked = price_cart([self.dish(self.burger, cust=cust)]).lines[0].picks[0]
+        self.assertEqual(picked.extra, Decimal("6.75"))
+        self.assertEqual(picked.mods, ["+ 3× Avocado"])
+        self.assertEqual(picked.use[self.avocado.id], 3)
+
+    def test_parts_of_whole_pieces_go_up_to_ten_more(self):
+        pierogi = Component.objects.create(title="Pierogi", unit_of_measurement="ea", type="food", inventory=500,
+                                           extra_price=Decimal("0.75"))
+        plate = Dish.objects.create(title="Pierogi plate", price=Decimal("12.00"), station=self.kitchen)
+        part = DishComponent.objects.create(dish=plate, component=pierogi, quantity=8, adjustable=True)
+        picked = price_cart([self.dish(plate, cust={"parts": {str(part.id): 18}})]).lines[0].picks[0]
+        self.assertEqual(picked.extra, Decimal("7.50"))  # ten more at 0.75
+        self.assertEqual(picked.use[pierogi.id], 18)
+        self.assertEqual(price_cart([self.dish(plate, cust={"parts": {str(part.id): 5}})]).lines[0].picks[0].use[pierogi.id], 5)
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(plate, cust={"parts": {str(part.id): 19}})])
+
+    def test_required_and_optional_groups(self):
+        sauce = OptionGroup.objects.create(title="Sauce", dish=self.tea)
+        honey = Option.objects.create(group=sauce, title="Honey", price=Decimal("0.50"))
+        self.assertEqual(price_cart([self.dish(self.tea)]).subtotal, Decimal("2.00"))  # optional: nothing picked
+        self.assertEqual(price_cart([self.dish(self.tea, cust={"options": {str(sauce.id): honey.id}})]).subtotal, Decimal("2.50"))
+        fillings = OptionGroup.objects.create(title="Fillings", dish=self.tea, pick=OptionGroup.ANY, required=True)
+        lemon = Option.objects.create(group=fillings, title="Lemon")
+        with self.assertRaises(OrderError):
+            price_cart([self.dish(self.tea)])
+        cart = price_cart([self.dish(self.tea, cust={"options": {str(fillings.id): {str(lemon.id): 2}}})])
+        self.assertEqual(cart.lines[0].picks[0].mods, ["+ 2× Lemon"])
 
     def test_combo_price_with_swaps(self):
         cart = price_cart([self.lunch(self.tea)])
@@ -454,13 +488,14 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         self.assertEqual(filters(""), codes)
 
     def test_mod_tags_say_what_kind_of_change_each_mod_is(self):
-        cust = {"parts": {str(self.dc_onion.id): 0, str(self.dc_patty.id): 2}, "options": {self.temp_key: self.well.id},
-                "addons": [self.avocado_addon.id], "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Peanuts"]}
+        cust = {"parts": {str(self.dc_onion.id): 0, str(self.dc_patty.id): 2},
+                "options": {self.temp_key: self.well.id, self.addons_key: {str(self.avocado_addon.id): 1}},
+                "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Peanuts"]}
         create_order(lines=[self.dish(self.burger, cust=cust), self.lunch(slots={str(self.drink.id): {"dish": None}})],
                      channel="store", initial_status=1)
         dishes = self.client.get(self.url).context["orders"][0]["dishes"]
         self.assertEqual([(t["text"], t["kind"]) for t in dishes[0]["tags"]],
-                         [("2× patty", "add"), ("No onion", "no"), ("Well done", "opt"), ("+ Avocado", "add"), ("2× Ketchup", "side")])
+                         [("2× patty", "add"), ("No onion", "no"), ("+ Avocado", "add"), ("Well done", "opt"), ("2× Ketchup", "side")])
         self.assertEqual(dishes[0]["allergies"], ["Peanuts"])
         self.assertEqual(dishes[1]["combo_tags"], [{"text": "No drink", "kind": "no"}])
         self.assertNotEqual(dishes[0]["line"], dishes[1]["line"])
@@ -582,7 +617,10 @@ class RegisterTests(MenuFixture, TestCase):
         self.assertEqual(next(i for i in catalog["items"] if i["type"] == "combo")["ask"], "Choose a drink")
         kit = catalog["dishes"][str(self.burger.id)]["kit"]
         self.assertEqual([p["title"] for p in kit["parts"]], ["Bun", "Patty", "Onion"])
-        self.assertEqual({g["title"] for g in kit["groups"]}, {"Temperature", "Bun"})
+        self.assertEqual({g["title"] for g in kit["groups"]}, {"Temperature", "Bun", "Add-ons"})
+        parts = {p["title"]: (p["standard"], p["max"]) for p in kit["parts"]}
+        self.assertEqual(parts["Patty"], (1, 11))  # up to ten more
+        self.assertEqual(next(g for g in kit["groups"] if g["title"] == "Add-ons")["pick"], "any")
 
     def test_quote(self):
         data = self.post("register_quote", {"lines": [self.dish(self.burger, discount={"offer": self.offer.id}), self.lunch()],

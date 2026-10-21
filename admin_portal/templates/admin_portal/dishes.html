@@ -1,7 +1,7 @@
 {% extends "admin_portal/layout.html" %}
 {% load static i18n admin_tags %}
 {% comment %}
-Dishes list (design: AdminDishes, list state; admin_portal/dishes.py: dish_list). Group-by and filters are links,
+Dishes list (design: AdminDishes, list state; admin_portal/dishes.py: dish_list), by station. Filters are links,
 search submits as you type (data-search). Refetched on "menus" and "inventory" nudges (sold out, prices).
 {% endcomment %}
 {% block title %}{% trans "Dishes" %}{% endblock %}
@@ -16,7 +16,7 @@ search submits as you type (data-search). Refetched on "menus" and "inventory" n
     </div>
     <form class="search dish-search" method="get" data-search role="search">
         {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
-        <input type="hidden" name="by" value="{{ l.by }}"><input type="hidden" name="show" value="{{ l.show }}">
+        <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search dishes' %}">
     </form>
     <form method="post" action="{% url 'admin_dish_new' %}">{% csrf_token %}
@@ -25,15 +25,9 @@ search submits as you type (data-search). Refetched on "menus" and "inventory" n
 </header>
 
 <div class="list-tools" id="dishes-tools" data-region>
-    <div class="group-by">
-        <span class="hint">{% trans "Group by" %}</span>
-        <nav class="seg" aria-label="{% trans 'Group by' %}">
-            {% for key, label in l.group_by %}<a class="seg-btn" data-live href="?by={{ key }}&show={{ l.show }}&q={{ l.query|urlencode }}"{% if key == l.by %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-        </nav>
-    </div>
     <nav class="filter-chips" aria-label="{% trans 'Show' %}">
         {% for f in l.filters %}
-        <a class="filter-chip" data-live href="?by={{ l.by }}&show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+        <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
         {% endfor %}
     </nav>
 </div>

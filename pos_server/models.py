@@ -109,19 +109,6 @@ DIETS = [
 ]
 
 
-class DishCategory(models.Model):
-    """A heading dishes are grouped under in the admin (Mains, Sides, Drinks...), separate from the station."""
-    name = models.CharField(max_length=60)
-    position = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        ordering = ["position", "id"]
-        verbose_name_plural = "dish categories"
-
-    def __str__(self):
-        return self.name
-
-
 class Dish(models.Model):
     """
     Something sold on its own or in a combo, made at `station` from its components (DishComponent).
@@ -143,7 +130,6 @@ class Dish(models.Model):
     blocked = models.BooleanField(default=False, help_text="One of its components is turned off")
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
     visible_in_menu = models.BooleanField(default=True)
-    category = models.ForeignKey(DishCategory, related_name="dishes", on_delete=models.SET_NULL, null=True, blank=True)
     ticket_name = models.CharField(max_length=14, blank=True, help_text="Short name for kitchen tickets")
     prep_minutes = models.PositiveSmallIntegerField(default=5)
     archived = models.BooleanField(default=False)
@@ -263,15 +249,24 @@ class ComboSlotOption(models.Model):
 
 class OptionGroup(models.Model):
     """
-    A pick-one adjustment, e.g. "Patty temperature", "Milk" or "Size".
+    A modifier group, e.g. "Doneness" (pick one), "Add-ons" (pick any) or "Size".
 
-    It belongs either to a Component (then every dish using that component offers it, and an option can swap
-    the component for another, e.g. oat milk) or to a Dish (e.g. "Size", or a salad's "Dressing").
-    A dish's customization sheet gathers the groups of the dish and of all its components.
+    `pick` ONE: one option at most; a `required` group starts on its first option (the standard), an optional
+    one on nothing. ANY: each option can be added any number of times (up to MAX_PICKS); a `required` one needs
+    at least one. It belongs either to a Component (then every dish using that component offers it, and a pick-one
+    option can swap the component for another, e.g. oat milk) or to a Dish. A dish's customization sheet gathers
+    the groups of the dish and of all its components.
     """
+    ONE = "one"
+    ANY = "any"
+    PICKS = ((ONE, "Pick one"), (ANY, "Pick any"))
+    MAX_PICKS = 99
+
     title = models.CharField(max_length=80)
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="option_groups", null=True, blank=True)
     component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="option_groups", null=True, blank=True)
+    pick = models.CharField(max_length=3, choices=PICKS, default=ONE)
+    required = models.BooleanField(default=False)
     note = models.CharField(max_length=80, blank=True, help_text="Shown next to the title, e.g. 'Cooked to order'")
     position = models.PositiveSmallIntegerField(default=0)
 
@@ -286,18 +281,21 @@ class OptionGroup(models.Model):
         return f"{self.title} ({self.dish or self.component.title})"
 
     def default_option(self):
+        """The standard pick: the first option of a required pick-one group, else none."""
+        if self.pick != self.ONE or not self.required:
+            return None
         options = list(self.options.all())
-        return next((o for o in options if o.is_default), options[0] if options else None)
+        return options[0] if options else None
 
 
 class Option(models.Model):
     """
-    One choice in an OptionGroup.
+    One choice in an OptionGroup; `price` is charged each time it's picked.
 
-    `component`: for a component's group, the component used *instead* (oat milk instead of whole milk); for a
-    dish's group, a component used *in addition* (`quantity` of it, e.g. a dressing).
-    `multiplier` scales how much is used: the group's component, or every component of the dish for a dish's
-    group (e.g. Large = 1.5).
+    `component`: in a component's pick-one group, the component used *instead* (oat milk instead of whole milk);
+    otherwise a component used *in addition*, `quantity` of it each time (a dressing, a slice of bacon).
+    `multiplier` (pick-one only) scales how much is used: the group's component, or every component of the dish
+    for a dish's group (e.g. Large = 1.5).
     """
     group = models.ForeignKey(OptionGroup, on_delete=models.CASCADE, related_name="options")
     title = models.CharField(max_length=80)
@@ -305,7 +303,6 @@ class Option(models.Model):
     component = models.ForeignKey("Component", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     quantity = models.FloatField(default=1, help_text="Amount of `component` used (dish groups only)")
     multiplier = models.FloatField(default=1)
-    is_default = models.BooleanField(default=False)
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -321,20 +318,16 @@ class Option(models.Model):
 
 class Extra(models.Model):
     """
-    A component offered with a dish or combo: an add-on (charged, e.g. avocado or a syrup) or a condiment
-    (usually free, counted out "on the side", e.g. ketchup packets or napkins).
+    A condiment offered with a dish or combo: usually free, counted out "on the side" (ketchup packets, napkins).
+    Charged add-ons are options in a dish's pick-any modifier group.
     """
-    ADDON = "addon"
-    CONDIMENT = "condiment"
-    kinds = ((ADDON, "Add-on"), (CONDIMENT, "Condiment"))
     dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="extras", null=True, blank=True)
     combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="extras", null=True, blank=True)
     component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="extra_uses")
-    kind = models.CharField(max_length=10, choices=kinds)
     title = models.CharField(max_length=80, blank=True, help_text="Defaults to the component's title")
     price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Charged for each one")
     quantity = models.FloatField(default=1, help_text="Amount of the component used for each one")
-    max_count = models.PositiveSmallIntegerField(default=4, help_text="Condiments: how many can be asked for")
+    max_count = models.PositiveSmallIntegerField(default=4, help_text="How many can be asked for")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -805,8 +798,9 @@ class DishComponent(models.Model):
         dish (ForeignKey): A reference to the Dish model.
         component (ForeignKey): A reference to the Component model.
         quantity (FloatField): The quantity of the component used in one standard portion of the dish.
-        adjustable (BooleanField): Customers can leave it out or ask for more (up to max_portions);
-            each portion above one costs the component's extra_price.
+        adjustable (BooleanField): Customers can leave it out or ask for more, up to `max_extra` steps above the
+            standard. A step is one piece for whole pieces (8 pierogies: 0 to 18), else the whole amount (20 g of
+            lettuce: none, standard, double...). Each step above the standard costs the component's extra_price.
     Methods:
         __str__(): Returns a string representation of the DishComponent instance.
     """
@@ -814,7 +808,7 @@ class DishComponent(models.Model):
     component = models.ForeignKey('Component', on_delete=models.CASCADE)
     quantity = models.FloatField()
     adjustable = models.BooleanField(default=False, help_text="Customers can remove it or ask for more")
-    max_portions = models.PositiveSmallIntegerField(default=3)
+    max_extra = models.PositiveSmallIntegerField(default=10, help_text="How many steps above the standard can be asked for")
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -822,6 +816,18 @@ class DishComponent(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.component.title} in {self.dish.title}"
+
+    @property
+    def step(self) -> float:
+        """The amount one tap adds or removes: a piece when the dish uses whole pieces, else the whole amount."""
+        if self.component.unit_of_measurement == "ea" and self.quantity >= 1 and float(self.quantity).is_integer():
+            return 1.0
+        return self.quantity
+
+    @property
+    def standard(self) -> int:
+        """How many steps the dish comes with."""
+        return round(self.quantity / self.step) if self.step else 1
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

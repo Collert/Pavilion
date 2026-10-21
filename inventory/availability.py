@@ -8,7 +8,7 @@ import math
 from django.db.models import Q
 from django.utils.translation import gettext as _, ngettext
 
-from pos_server.models import Component, Dish, Extra, Menu, Option, Station
+from pos_server.models import Component, Dish, Menu, Option, OptionGroup, Station
 
 MODES = ("off", "auto", "always")
 LOW = 5  # "Running low" at this many portions left
@@ -45,13 +45,16 @@ def _dish_rows(menu):
 def _component_rows():
     components = Component.objects.prefetch_related("dishcomponent_set", "extra_uses").order_by("title")
     swapped_in = set(Option.objects.exclude(component=None).values_list("component_id", flat=True))
+    addon_prices = {}
+    for option in Option.objects.filter(group__pick=OptionGroup.ANY).exclude(component=None):
+        addon_prices[option.component_id] = min(addon_prices.get(option.component_id, option.price), option.price)
     unit = {"ea": _("on hand"), "g": "g", "ml": "mL"}
     tabs = {"parts": {}, "condiments": {}}
     for component in components:
         parts = list(component.dishcomponent_set.all())
         extras = list(component.extra_uses.all())
-        addons = [e for e in extras if e.kind == Extra.ADDON]
-        condiment = not parts and not addons and component.id not in swapped_in and any(e.kind == Extra.CONDIMENT for e in extras)
+        addon = component.id in addon_prices
+        condiment = not parts and not addon and component.id not in swapped_in and bool(extras)
         used_in = len({("dish", dc.dish_id) for dc in parts} | {("dish", e.dish_id) if e.dish_id else ("combo", e.combo_id) for e in extras})
         counted = component.crafting_option != "auto"
         # Stored in g / ml; a kilo or more reads better as kg / L
@@ -59,8 +62,8 @@ def _component_rows():
         if component.unit_of_measurement in ("g", "ml") and abs(shown_stock) >= 1000:
             shown_stock, shown_unit = shown_stock / 1000, "kg" if component.unit_of_measurement == "g" else "L"
         smallest = min((q for q in [dc.quantity for dc in parts] + [e.quantity for e in extras] if q), default=1)
-        if addons:
-            what = _("Add-on +$%(price)s") % {"price": f"{min(e.price for e in addons):.2f}"}
+        if addon:
+            what = _("Add-on +$%(price)s") % {"price": f"{addon_prices[component.id]:.2f}"}
         else:
             what = _("On the side") if condiment else _("Component")
         tab = tabs["condiments" if condiment else "parts"]

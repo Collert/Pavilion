@@ -8,21 +8,22 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
 
 `cust` is a dish's customization (every key is optional; leaving it out means "as standard"):
 
-    {"parts": {"<DishComponent id>": portions},     adjustable parts: 0 = leave out, 2 = double
-     "options": {"<group key>": <Option id>},       pick-one groups (see DishKit.groups for the keys)
-     "addons": [<Extra id>, ...],                   charged add-ons
-     "condiments": {"<Extra id>": count},           on the side
-     "allergies": ["Dairy", ...],                   told to the kitchen
+    {"parts": {"<DishComponent id>": steps},        adjustable parts: 0 = leave out, up to standard + max_extra
+     "options": {"<group key>": <Option id>,         pick-one groups (see DishKit.groups for the keys)
+                 "<group key>": {"<Option id>": n}}, pick-any groups: how many of each
+     "condiments": {"<Extra id>": count},            on the side
+     "allergies": ["Dairy", ...],                    told to the kitchen
      "note": "..."}
 
-A combo slot set to {"dish": null} is left out (when the slot allows it). A combo's own `cust` only uses
-"addons" and "condiments" (its extras).
+A part's steps are pieces when the dish uses whole pieces (8 pierogies), else whole amounts (see
+DishComponent.step / .standard). A combo slot set to {"dish": null} is left out (when the slot allows it). A
+combo's own `cust` only uses "condiments".
 
 A discount spec is {"offer": <Discount id>}, {"code": "WELCOME10"} or {"manual": {"kind": "pct"|"amt",
 "value": "10"}}. Lines take item discounts; the order takes one more on what is left after them.
 
 Line prices: dish price (or combo price + each pick's price change) + customizations. An adjustable part
-costs its component's `extra_price` for every portion above one. Tax (settings.TAX_RATE) is charged on the
+costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (settings.TAX_RATE) is charged on the
 total after discounts.
 """
 import datetime
@@ -35,7 +36,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra
+from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra, OptionGroup
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0.00")
@@ -106,8 +107,8 @@ def combo_queryset():
 
 class DishKit:
     """
-    The customization sheet of one dish: adjustable parts, pick-one groups (the dish's own, then those of
-    each of its components), add-ons and condiments.
+    The customization sheet of one dish: adjustable parts, modifier groups (the dish's own, then those of each of
+    its components) and condiments.
 
     Group keys: "<group id>" for the dish's groups, "<group id>.<DishComponent id>" for a component's group
     (a component's group belongs to the part it adjusts, and disappears when that part is left out).
@@ -123,26 +124,28 @@ class DishKit:
             for group in dc.component.option_groups.all():
                 self.groups.append((f"{group.id}.{dc.id}", group, dc))
         self.groups = [(key, group, dc) for key, group, dc in self.groups if list(group.options.all())]
-        extras = list(dish.extras.all())
-        self.addons = [e for e in extras if e.kind == Extra.ADDON]
-        self.condiments = [e for e in extras if e.kind == Extra.CONDIMENT]
+        self.condiments = list(dish.extras.all())
 
     @property
     def customizable(self) -> bool:
-        return bool(any(dc.adjustable for dc in self.parts) or self.groups or self.addons or self.condiments)
+        return bool(any(dc.adjustable for dc in self.parts) or self.groups or self.condiments)
 
     def as_json(self):
         """For the register's customization sheet. Money is in cents."""
-        return {
-            "parts": [{"id": dc.id, "title": dc.component.title, "extra": to_cents(dc.component.extra_price),
-                       "max": dc.max_portions} for dc in self.parts if dc.adjustable],
-            "groups": [{
+        groups = []
+        for key, group, dc in self.groups:
+            default = group.default_option()
+            groups.append({
                 "key": key, "title": group.title, "note": group.note, "part": dc.id if dc else None,
+                "pick": group.pick, "required": group.required, "max": OptionGroup.MAX_PICKS,
                 "options": [{"id": o.id, "title": o.title, "price": to_cents(o.price), "available": o.available}
                             for o in group.options.all()],
-                "default": group.default_option().id,
-            } for key, group, dc in self.groups],
-            "addons": _extras_json(self.addons),
+                "default": default.id if default else None,
+            })
+        return {
+            "parts": [{"id": dc.id, "title": dc.component.title, "extra": to_cents(dc.component.extra_price),
+                       "standard": dc.standard, "max": dc.standard + dc.max_extra} for dc in self.parts if dc.adjustable],
+            "groups": groups,
             "condiments": _extras_json(self.condiments),
         }
 
@@ -164,23 +167,8 @@ class Picked:
     slot: str = ""
 
 
-def _extras_choice(raw, addons, condiments, picked: Picked, owner_title):
-    """Apply "addons" and "condiments" from a customization to `picked`."""
-    addon_by_id = {str(e.id): e for e in addons}
-    chosen_addons = raw.get("addons") or []
-    if not isinstance(chosen_addons, list):
-        raise OrderError(_("The cart is malformed."))
-    for extra_id in dict.fromkeys(str(x) for x in chosen_addons):
-        extra = addon_by_id.get(extra_id)
-        if extra is None:
-            raise OrderError(_("That add-on isn't available for %(item)s.") % {"item": owner_title})
-        if not extra.available:
-            raise OrderError(_("%(extra)s is sold out.") % {"extra": extra.label})
-        picked.extra += extra.price
-        picked.use[extra.component_id] += extra.quantity
-        picked.mods.append("+ " + extra.label)
-        picked.selection.setdefault("addons", []).append(extra.id)
-
+def _condiments_choice(raw, condiments, picked: Picked, owner_title):
+    """Apply "condiments" from a customization to `picked`."""
     condiment_by_id = {str(e.id): e for e in condiments}
     counts = raw.get("condiments") or {}
     if not isinstance(counts, dict):
@@ -201,6 +189,34 @@ def _extras_choice(raw, addons, condiments, picked: Picked, owner_title):
         raise OrderError(_("That condiment isn't available for %(item)s.") % {"item": owner_title})
 
 
+def _pick_one(group, key, raw_options, dish):
+    """The option chosen in a pick-one group (or its standard), or None."""
+    if raw_options.get(key) in (None, ""):
+        return group.default_option()
+    chosen = next((o for o in group.options.all() if str(o.id) == str(raw_options[key])), None)
+    if chosen is None:
+        raise OrderError(_("That option isn't available for %(dish)s.") % {"dish": dish.title})
+    return chosen
+
+
+def _pick_any(group, key, raw_options, dish):
+    """[(option, count)] chosen in a pick-any group."""
+    raw = raw_options.get(key) or {}
+    if not isinstance(raw, dict):
+        raise OrderError(_("The cart is malformed."))
+    by_id = {str(o.id): o for o in group.options.all()}
+    if set(map(str, raw)) - set(by_id):
+        raise OrderError(_("That option isn't available for %(dish)s.") % {"dish": dish.title})
+    picks = []
+    for option_id, option in by_id.items():
+        count = raw.get(option_id)
+        if count:
+            count = _count(count, 0, OptionGroup.MAX_PICKS, option.title)
+            if count:
+                picks.append((option, count))
+    return picks
+
+
 def price_dish(kit: DishKit, raw) -> Picked:
     """Validate and price one dish's customization (`cust`). Returns a Picked for ONE dish."""
     raw = raw or {}
@@ -209,16 +225,17 @@ def price_dish(kit: DishKit, raw) -> Picked:
     dish = kit.dish
     picked = Picked(dish=dish)
 
-    # Parts: how many portions of each
+    # Parts: how many steps of each
     raw_parts = raw.get("parts") or {}
     if not isinstance(raw_parts, dict):
         raise OrderError(_("The cart is malformed."))
-    portions = {}
+    steps = {}
     for dc in kit.parts:
         value = raw_parts.get(str(dc.id))
-        portions[dc.id] = 1 if value is None or not dc.adjustable else _count(value, 0, dc.max_portions, dc.component.title)
+        steps[dc.id] = dc.standard if value is None or not dc.adjustable else \
+            _count(value, 0, dc.standard + dc.max_extra, dc.component.title)
 
-    # Pick-one groups
+    # Modifier groups
     raw_options = raw.get("options") or {}
     if not isinstance(raw_options, dict):
         raise OrderError(_("The cart is malformed."))
@@ -226,19 +243,32 @@ def price_dish(kit: DishKit, raw) -> Picked:
     part_choices = {}  # DishComponent id -> [Option]
     option_mods = []
     for key, group, dc in kit.groups:
-        if dc is not None and portions[dc.id] == 0:
+        if dc is not None and steps[dc.id] == 0:
             continue  # the part is left out, so its options don't apply
-        options = list(group.options.all())
-        default = group.default_option()
-        chosen = default
-        if key in raw_options:
-            chosen = next((o for o in options if str(o.id) == str(raw_options[key])), None)
-            if chosen is None:
-                raise OrderError(_("That option isn't available for %(dish)s.") % {"dish": dish.title})
+        if group.pick == OptionGroup.ANY:
+            picks = _pick_any(group, key, raw_options, dish)
+            if group.required and not picks:
+                raise OrderError(_("Pick at least one %(group)s for %(dish)s.") % {"group": group.title.lower(), "dish": dish.title})
+            for option, count in picks:
+                if not option.available:
+                    raise OrderError(_("%(option)s is sold out.") % {"option": option.title})
+                picked.extra += option.price * count
+                if option.component_id:
+                    picked.use[option.component_id] += option.quantity * count
+                option_mods.append("+ " + option.title if count == 1 else f"+ {count}× {option.title}")
+            if picks:
+                picked.selection.setdefault("options", {})[key] = {str(o.id): n for o, n in picks}
+            continue
+        chosen = _pick_one(group, key, raw_options, dish)
+        if chosen is None:
+            if group.required:
+                raise OrderError(_("Pick the %(group)s for %(dish)s.") % {"group": group.title.lower(), "dish": dish.title})
+            continue
         if not chosen.available:
             raise OrderError(_("%(option)s is sold out.") % {"option": chosen.title})
         picked.extra += chosen.price
-        if chosen.id != default.id:
+        default = group.default_option()
+        if default is None or chosen.id != default.id:
             option_mods.append(chosen.title)
             picked.selection.setdefault("options", {})[key] = chosen.id
         if dc is None:
@@ -250,23 +280,23 @@ def price_dish(kit: DishKit, raw) -> Picked:
 
     # Stock used, and the price and kitchen notes for parts
     for dc in kit.parts:
-        count = portions[dc.id]
+        count = steps[dc.id]
         component_id, multiplier = dc.component_id, dish_multiplier
         for option in part_choices.get(dc.id, []):
             multiplier *= option.multiplier
             if option.component_id:
                 component_id = option.component_id
         if count:
-            picked.use[component_id] += dc.quantity * count * multiplier
-        if count != 1:
+            picked.use[component_id] += dc.step * count * multiplier
+        if count != dc.standard:
             name = dc.component.title.lower()
             picked.mods.append(_("No %(part)s") % {"part": name} if count == 0 else f"{count}× {name}")
             picked.selection.setdefault("parts", {})[str(dc.id)] = count
-            if count > 1:
-                picked.extra += dc.component.extra_price * (count - 1)
+            if count > dc.standard:
+                picked.extra += dc.component.extra_price * (count - dc.standard)
     picked.mods.extend(option_mods)
 
-    _extras_choice(raw, kit.addons, kit.condiments, picked, dish.title)
+    _condiments_choice(raw, kit.condiments, picked, dish.title)
 
     allergies = raw.get("allergies") or []
     if not isinstance(allergies, list) or any(a not in ALLERGENS for a in allergies):
@@ -396,8 +426,7 @@ def _price_line(line, kits, combos, strict) -> PricedLine:
         selection[str(slot.id)] = {"dish": option.dish_id, **({"cust": picked.selection} if picked.selection else {})}
     combo_extras = Picked(dish=None)
     extras = list(combo.extras.all())
-    _extras_choice(line.get("cust") or {}, [e for e in extras if e.kind == Extra.ADDON],
-                   [e for e in extras if e.kind == Extra.CONDIMENT], combo_extras, combo.title)
+    _condiments_choice(line.get("cust") or {}, extras, combo_extras, combo.title)
     unit += combo_extras.extra
     mods.extend(combo_extras.mods)
     if combo_extras.selection:

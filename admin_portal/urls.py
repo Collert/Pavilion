@@ -22,5 +22,4 @@ urlpatterns = [
     path("dishes", views.dishes, name="admin_dishes"),
     path("dishes/new", views.dish_new, name="admin_dish_new"),
     path("dishes/<int:dish_id>", views.dish_edit, name="admin_dish"),
-    path("dishes/<int:dish_id>/action", views.dish_action, name="admin_dish_action"),
 ]

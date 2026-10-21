@@ -24,7 +24,7 @@ class ComponentOptionGroupInline(admin.TabularInline):
     """Pick-one adjustments every dish using this component offers (e.g. patty temperature, milk)."""
     model = OptionGroup
     fk_name = "component"
-    fields = ("title", "note", "position")
+    fields = ("title", "pick", "required", "note", "position")
     extra = 0
     show_change_link = True
 
@@ -39,16 +39,16 @@ class ComponentAdmin(admin.ModelAdmin):
 
 class DishComponentInline(admin.TabularInline):
     model = DishComponent
-    fields = ("component", "quantity", "adjustable", "max_portions", "position")
+    fields = ("component", "quantity", "adjustable", "max_extra", "position")
     autocomplete_fields = ("component",)
     extra = 1
 
 
 class DishOptionGroupInline(admin.TabularInline):
-    """Pick-one adjustments of the dish itself (e.g. size, dressing). Edit the choices on the group's page."""
+    """Modifier groups of the dish itself (size, dressing, add-ons). Edit the choices on the group's page."""
     model = OptionGroup
     fk_name = "dish"
-    fields = ("title", "note", "position")
+    fields = ("title", "pick", "required", "note", "position")
     extra = 0
     show_change_link = True
 
@@ -56,7 +56,7 @@ class DishOptionGroupInline(admin.TabularInline):
 class DishExtraInline(admin.TabularInline):
     model = Extra
     fk_name = "dish"
-    fields = ("kind", "component", "title", "price", "quantity", "max_count", "position")
+    fields = ("component", "title", "price", "quantity", "max_count", "position")
     autocomplete_fields = ("component",)
     extra = 0
 
@@ -71,7 +71,7 @@ class DishAdmin(admin.ModelAdmin):
 
 class OptionInline(admin.TabularInline):
     model = Option
-    fields = ("title", "price", "component", "quantity", "multiplier", "is_default", "position")
+    fields = ("title", "price", "component", "quantity", "multiplier", "position")
     autocomplete_fields = ("component",)
     extra = 1
 
@@ -95,7 +95,7 @@ class ComboSlotInline(admin.TabularInline):
 class ComboExtraInline(admin.TabularInline):
     model = Extra
     fk_name = "combo"
-    fields = ("kind", "component", "title", "price", "quantity", "max_count", "position")
+    fields = ("component", "title", "price", "quantity", "max_count", "position")
     autocomplete_fields = ("component",)
     extra = 0
 

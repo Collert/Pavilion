@@ -108,9 +108,9 @@ def register_catalog(menu):
         return {"id": dish.id, "title": dish.title, "price": to_cents(dish.price), "available": dish.available,
                 "station": dish.station.code, "kit": DishKit(dish).as_json()}
 
-    def extras(combo, kind):
+    def condiments(combo):
         return [{"id": e.id, "title": e.label, "price": to_cents(e.price), "max": e.max_count, "available": e.available}
-                for e in combo.extras.all() if e.kind == kind]
+                for e in combo.extras.all()]
 
     return {
         "sections": [{"code": s.code, "name": s.heading} for s in stations if s.code in used],
@@ -123,7 +123,7 @@ def register_catalog(menu):
                 "allowNone": slot.allow_none, "nonePrice": to_cents(slot.none_price),
                 "options": [{"dish": o.dish_id, "price": to_cents(o.price), "default": o.is_default} for o in slot.options.all()],
             } for slot in combo.slots.all()],
-            "addons": extras(combo, "addon"), "condiments": extras(combo, "condiment"),
+            "condiments": condiments(combo),
         } for combo in combos},
     }
 

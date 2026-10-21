@@ -11,7 +11,8 @@
 //   (data-chime also rings).
 // - forms with data-keypad get an on-screen keypad ([data-key] buttons) for their amount field; data-reset clears
 //   the form after it's sent; a form with data-search submits itself as you type (a POST one saves as you type: while
-//   you type in a region, only its [data-calc] parts are swapped).
+//   you type in a region, only its [data-calc] parts are swapped). A form with data-queue sends its last submit after
+//   one in flight instead of dropping it; a region with data-keep is left alone by background answers.
 // Regions marked data-transient (toasts) are only taken from responses to your own actions.
 // Without JavaScript, everything still works as plain forms and links.
 
@@ -70,6 +71,7 @@ function swapRegions(doc, { transient }) {
     for (const next of fresh) {
         if (next.hasAttribute("data-transient") && !transient) continue;
         const live = document.getElementById(next.id);
+        if (live.hasAttribute("data-keep")) continue;  // holds something only this browser has (a chosen file)
         if (typingIn(live)) {
             syncCalc(live, next);
             continue;
@@ -208,7 +210,7 @@ export function livePage({ topics = [] } = {}) {
             return;
         }
         act(action, { method: "POST", body: data }, () => form.hasAttribute("data-reset") && form.reset(),
-            { queue: form.hasAttribute("data-search") });
+            { queue: form.hasAttribute("data-search") || form.hasAttribute("data-queue") });
     });
 
     document.addEventListener("click", (event) => {

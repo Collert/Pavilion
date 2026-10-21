@@ -71,38 +71,60 @@ function visibleGroups(kit, cust) {
     return kit.groups.filter((g) => g.part === null || (parts[g.part] ?? 1) > 0);
 }
 
+// A pick-one group's choice (its standard when untouched; null = nothing), a pick-any group's {option id: count}
+const pickOne = (group, cust) => ((cust.options || {})[group.key] !== undefined ? (cust.options || {})[group.key] : group.default);
+const pickAny = (group, cust) => {
+    const value = (cust.options || {})[group.key];
+    return value && typeof value === "object" ? value : {};
+};
+
 function kitCost(kit, cust) {
     if (!kit) return 0;
     cust = cust || {};
     let total = 0;
     for (const part of kit.parts) {
-        const n = (cust.parts || {})[part.id] ?? 1;
-        if (n > 1) total += (n - 1) * part.extra;
+        const n = (cust.parts || {})[part.id] ?? part.standard;
+        if (n > part.standard) total += (n - part.standard) * part.extra;
     }
     for (const group of visibleGroups(kit, cust)) {
-        const id = (cust.options || {})[group.key] ?? group.default;
-        total += group.options.find((o) => o.id === id)?.price || 0;
+        if (group.pick === "any") {
+            const counts = pickAny(group, cust);
+            for (const option of group.options) total += option.price * (counts[option.id] || 0);
+        } else {
+            const id = pickOne(group, cust);
+            total += group.options.find((o) => o.id === id)?.price || 0;
+        }
     }
-    for (const addon of kit.addons) if ((cust.addons || []).includes(addon.id)) total += addon.price;
     for (const condiment of kit.condiments) total += condiment.price * ((cust.condiments || {})[condiment.id] || 0);
     return total;
 }
+
+// Required pick-any groups with nothing picked (the sheet can't be saved until they have something)
+const missingPicks = (kit, cust) => (kit ? visibleGroups(kit, cust || {}).filter((g) => g.required && (g.pick === "any"
+    ? !Object.values(pickAny(g, cust || {})).some((n) => n > 0) : pickOne(g, cust || {}) == null)) : []);
 
 function kitSummary(kit, cust) {
     const out = [];
     if (!kit || !cust) return out;
     for (const part of kit.parts) {
         const n = (cust.parts || {})[part.id];
-        if (n !== undefined && n !== 1) out.push(n === 0 ? interpolate(t("No %s"), [part.title.toLowerCase()]) : `${n}× ${part.title.toLowerCase()}`);
+        if (n !== undefined && n !== part.standard) out.push(n === 0 ? interpolate(t("No %s"), [part.title.toLowerCase()]) : `${n}× ${part.title.toLowerCase()}`);
     }
     for (const group of visibleGroups(kit, cust)) {
+        if (group.pick === "any") {
+            const counts = pickAny(group, cust);
+            for (const option of group.options) {
+                const n = counts[option.id] || 0;
+                if (n) out.push(n > 1 ? `+ ${n}× ${option.title.toLowerCase()}` : "+ " + option.title.toLowerCase());
+            }
+            continue;
+        }
         const id = (cust.options || {})[group.key];
-        if (id !== undefined && id !== group.default) {
+        if (id != null && id !== group.default) {
             const option = group.options.find((o) => o.id === id);
             if (option) out.push(option.title);
         }
     }
-    for (const addon of kit.addons) if ((cust.addons || []).includes(addon.id)) out.push("+ " + addon.title.toLowerCase());
     for (const condiment of kit.condiments) {
         const n = (cust.condiments || {})[condiment.id] || 0;
         if (n) out.push(n > 1 ? `${n}× ${condiment.title.toLowerCase()}` : condiment.title.toLowerCase());
@@ -119,17 +141,20 @@ function normalizeCust(kit, cust) {
     const parts = {};
     for (const part of kit?.parts || []) {
         const n = (cust.parts || {})[part.id];
-        if (n !== undefined && n !== 1) parts[part.id] = n;
+        if (n !== undefined && n !== part.standard) parts[part.id] = n;
     }
     if (Object.keys(parts).length) out.parts = parts;
     const options = {};
     for (const group of kit ? visibleGroups(kit, { parts }) : []) {
+        if (group.pick === "any") {
+            const counts = Object.fromEntries(Object.entries(pickAny(group, cust)).filter(([, n]) => n > 0).sort());
+            if (Object.keys(counts).length) options[group.key] = counts;
+            continue;
+        }
         const id = (cust.options || {})[group.key];
-        if (id !== undefined && id !== group.default) options[group.key] = id;
+        if (id != null && id !== group.default) options[group.key] = id;
     }
     if (Object.keys(options).length) out.options = options;
-    const addons = (cust.addons || []).filter((id) => (kit?.addons || []).some((a) => a.id === id));
-    if (addons.length) out.addons = addons.sort((a, b) => a - b);
     const condiments = {};
     for (const [id, n] of Object.entries(cust.condiments || {})) if (n > 0) condiments[id] = n;
     if (Object.keys(condiments).length) out.condiments = condiments;
@@ -138,7 +163,7 @@ function normalizeCust(kit, cust) {
     return out;
 }
 
-const extrasKit = (combo) => ({ parts: [], groups: [], addons: combo.addons, condiments: combo.condiments });
+const extrasKit = (combo) => ({ parts: [], groups: [], condiments: combo.condiments });
 
 function slotOption(slot, dishId) {
     return slot.options.find((o) => o.dish === dishId);
@@ -300,14 +325,18 @@ function addLine(line) {
     const same = (a, b) => a.type === b.type && a.id === b.id && !a.discount &&
         JSON.stringify([a.cust || {}, a.slots || {}, a.base || {}]) === JSON.stringify([b.cust || {}, b.slots || {}, b.base || {}]);
     const existing = state.lines.find((l) => same(l, line));
+    let ask = null;
     if (existing) {
         existing.qty = Math.min(99, existing.qty + 1);
     } else {
         const key = "L" + state.nextKey++;
         state.lines.push({ cust: {}, ...line, key, qty: 1, discount: null });
         ui.newKeys.add(key);
+        // A dish with a required pick-any group (e.g. "Choose your fillings") opens its sheet straight away
+        if (line.type === "dish" && missingPicks(dishOf(line.id)?.kit, line.cust).length) ask = key;
     }
     changed();
+    if (ask) openKit({ lineKey: ask });
 }
 
 function setQty(key, qty) {
@@ -746,8 +775,8 @@ function kitSection(title, note) {
     ]);
 }
 
-function counterNode({ label, n, min, max, struck, sub, onChange }) {
-    return el("div", { className: "counter" + ((struck ? n > 1 : n > 0) ? " hot" : "") }, [
+function counterNode({ label, n, min, max, struck, standard = 1, sub, onChange }) {
+    return el("div", { className: "counter" + ((struck ? n > standard : n > 0) ? " hot" : "") }, [
         el("span", { className: n === 0 && struck ? "struck" : "", text: label }),
         sub ? el("span", { className: "chip-sub", text: sub }) : null,
         el("span", { className: "stepper" }, [
@@ -770,36 +799,42 @@ function kitEntries(spec, draft, update, { allergies = true } = {}) {
     if (spec.parts.length) {
         entries.push(kitSection(t("Components"), t("Set how many of each")));
         for (const part of spec.parts) {
-            const n = (draft.parts || {})[part.id] ?? 1;
+            const n = (draft.parts || {})[part.id] ?? part.standard;
             entries.push(counterNode({
-                label: part.title, n, min: 0, max: part.max, struck: true,
-                sub: n > 1 && part.extra ? "+" + fmt((n - 1) * part.extra) : "",
+                label: part.title, n, min: 0, max: part.max, struck: true, standard: part.standard,
+                sub: n > part.standard && part.extra ? "+" + fmt((n - part.standard) * part.extra) : "",
                 onChange: (value) => update((d) => { d.parts = d.parts || {}; d.parts[part.id] = value; }),
             }));
         }
     }
     for (const group of visibleGroups(spec, draft)) {
-        entries.push(kitSection(group.title, group.note));
-        const current = (draft.options || {})[group.key] ?? group.default;
-        for (const option of group.options) {
-            entries.push(chipNode({
-                label: option.title, on: current === option.id, disabled: !option.available && current !== option.id,
-                sub: !option.available ? t("Sold out") : option.price ? fmtSigned(option.price) : "",
-                onClick: () => update((d) => { d.options = d.options || {}; d.options[group.key] = option.id; }),
-            }));
+        const rule = group.pick === "any" ? t("Pick any") : t("Pick one");
+        entries.push(kitSection(group.title, [group.note, group.required ? t("Required") : rule].filter(Boolean).join(" · ")));
+        if (group.pick === "any") {
+            const counts = pickAny(group, draft);
+            for (const option of group.options) {
+                const n = counts[option.id] || 0;
+                entries.push(counterNode({
+                    label: option.title, n, min: 0, max: option.available ? group.max : n,
+                    sub: !option.available ? t("Sold out") : option.price ? "+" + fmt(option.price * Math.max(n, 1)) : "",
+                    onChange: (value) => update((d) => {
+                        d.options = d.options || {};
+                        const next = { ...pickAny(group, d) };
+                        if (value > 0) next[option.id] = value; else delete next[option.id];
+                        d.options[group.key] = next;
+                    }),
+                }));
+            }
+            continue;
         }
-    }
-    if (spec.addons.length) {
-        entries.push(kitSection(t("Add-ons"), t("Charged per item")));
-        for (const addon of spec.addons) {
-            const on = (draft.addons || []).includes(addon.id);
+        const current = pickOne(group, draft);
+        for (const option of group.options) {
+            const on = current === option.id;
             entries.push(chipNode({
-                label: addon.title, on, disabled: !addon.available && !on,
-                sub: !addon.available ? t("Sold out") : addon.price ? "+" + fmt(addon.price) : "",
-                onClick: () => update((d) => {
-                    d.addons = (d.addons || []).filter((id) => id !== addon.id);
-                    if (!on) d.addons.push(addon.id);
-                }),
+                label: option.title, on, disabled: !option.available && !on,
+                sub: !option.available ? t("Sold out") : option.price ? fmtSigned(option.price) : "",
+                // an optional group can be cleared by tapping its choice again
+                onClick: () => update((d) => { d.options = d.options || {}; d.options[group.key] = on && !group.required ? null : option.id; }),
             }));
         }
     }
@@ -840,6 +875,9 @@ function renderKit() {
     $("#kit-adds").textContent = cost > 0 ? interpolate(t("+%s each"), [fmt(cost)]) : cost < 0 ? interpolate(t("%s each"), [fmt(cost)]) : t("No extra charge");
     $("#kit-note-count").textContent = `${(kit.draft.note || "").length} / 140`;
     $("#kit-reset").disabled = !kitSummary(spec, kit.draft).length;
+    const missing = missingPicks(spec, kit.draft);
+    $("#kit-save").disabled = missing.length > 0;
+    $("#kit-save").title = missing.length ? interpolate(t("Pick %s first"), [missing.map((g) => g.title.toLowerCase()).join(", ")]) : "";
 }
 
 $("#kit-note").addEventListener("input", (e) => { kit.draft.note = e.target.value.slice(0, 140); renderKit(); });
@@ -931,7 +969,7 @@ function renderCombo() {
         }
     }
     const extras = extrasKit(combo);
-    if (extras.addons.length || extras.condiments.length) {
+    if (extras.condiments.length) {
         entries.push(...kitEntries(extras, comboDraft.cust, (change) => { change(comboDraft.cust); renderCombo(); }, { allergies: false }));
     }
     $("#combo-entries").replaceChildren(...entries);

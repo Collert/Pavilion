@@ -79,9 +79,10 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
 ## Domain essentials
 
 - **Menu → Dish → DishComponent → Component → ComponentIngredient → Ingredient.** `DishComponent.adjustable` parts can
-  be left out or doubled (extra portions cost `Component.extra_price`). `OptionGroup`/`Option` are pick-one adjustments
-  owned by a Component (offered by every dish using it; an option can swap the component, e.g. oat milk) or by a Dish
-  (size, dressing). `Extra` = add-ons (charged) and condiments (free, counted) for a dish or combo.
+  be left out or asked for up to `max_extra` (10) more steps (a piece for whole pieces, else the whole amount; each costs
+  `Component.extra_price`). `OptionGroup`/`Option` are modifier groups, *pick one* or *pick any* (any option many
+  times: add-ons), `required` or not, owned by a Component (offered by every dish using it; a pick-one option can swap
+  the component, e.g. oat milk) or by a Dish (size, add-ons). `Extra` = condiments (counted) for a dish or combo.
 - **Combo → ComboSlot → ComboSlotOption(dish, price change).** A slot may `ask_on_add` ("Choose a drink") or
   `allow_none`. Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.
 - **Stations:** `Dish.station` → `Station` (code, name, icon, menu_heading, position). Per-order status is

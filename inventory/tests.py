@@ -32,7 +32,7 @@ class AvailabilityTests(TestCase):
         DishComponent.objects.create(dish=cls.burger, component=cls.patty, quantity=1)
         DishComponent.objects.create(dish=cls.burger, component=cls.bun, quantity=1)
         cls.salad = Dish.objects.create(title="Salad", price=Decimal("8.00"), station=kitchen)
-        Extra.objects.create(dish=cls.salad, component=cls.ketchup, kind=Extra.CONDIMENT)
+        Extra.objects.create(dish=cls.salad, component=cls.ketchup)
         Menu.objects.create(title="Menu", manual_on=True).dishes.set([cls.burger, cls.salad])
 
     def setUp(self):

@@ -190,8 +190,8 @@ def _mod_tags(item):
         if selection.get("allergies") and mods:
             mods.pop()  # price_dish() adds the allergy line last
         kinds = ["no" if count == 0 else "add" for count in (selection.get("parts") or {}).values()]
-        kinds += ["opt"] * len(selection.get("options") or {})
-    kinds += ["add"] * len(extras.get("addons") or [])
+        for value in (selection.get("options") or {}).values():
+            kinds += ["add"] * len(value) if isinstance(value, dict) else ["opt"]  # pick-any: one line per option
     kinds += ["side"] * len(extras.get("condiments") or {})
     if len(kinds) != len(mods):
         kinds = ["opt"] * len(mods)

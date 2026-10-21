@@ -102,21 +102,27 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 
 ```
 Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
- ├─ Dish (M2M menu; price Decimal; station FK; category FK DishCategory; ticket_name; prep_minutes; archived;
+ ├─ Dish (M2M menu; price Decimal; station FK; ticket_name; prep_minutes; archived;
  │   │      in_stock / availability / blocked / visible_in_menu; catering + catering_min ─ CateringPrice breaks)
- │   ├─ DishComponent (quantity per portion; adjustable; max_portions) ─ Component (inventory; extra_price; …)
+ │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; extra_price; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
- │   ├─ OptionGroup (dish-owned, e.g. Size, Dressing) ─ Option (price change; extra component + quantity; multiplier)
- │   └─ Extra (kind addon | condiment; component; price; max_count)
+ │   ├─ OptionGroup (dish-owned; pick one|any; required) ─ Option (price; extra component + quantity; multiplier)
+ │   └─ Extra (condiment: component; price; max_count)
  └─ Combo (M2M menu; price) ─ ComboSlot (Main/Side/Drink; ask_on_add; allow_none + none_price)
          │                       └─ ComboSlotOption (dish; price change; is_default)
-         └─ Extra (combo condiments/add-ons)
+         └─ Extra (combo condiments)
 Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Option (component = swap it for this one)
 ```
 
-- **A dish's customization sheet** = its adjustable parts (0 = "No onion", 2 = double; extra portions cost the
-  component's `extra_price`), its own option groups, the option groups of each of its components (hidden while that
-  part is left out), add-ons, condiments, allergy flags (the `Ingredient.allergens` list) and a note.
+- **A dish's customization sheet** = its adjustable parts, its own modifier groups, the groups of each of its
+  components (hidden while that part is left out), condiments, allergy flags (the `ALLERGENS` list) and a note.
+  **Parts** count in steps (`DishComponent.step` / `.standard`): one piece when the dish uses whole pieces (8 pierogies
+  go from 0 to 18), else the whole amount (20 g lettuce: none, standard, double...), up to `max_extra` (default 10)
+  above the standard; each step above costs the component's `extra_price`. **Modifier groups** (`OptionGroup.pick`):
+  *pick one* (a `required` one starts on its first option, the standard; an optional one on nothing and can be
+  cleared) or *pick any* (each option any number of times up to 99, e.g. add-ons; `required` = at least one, and the
+  register opens the sheet when such a dish is added). Charged add-ons are a dish's pick-any group (2026-10-21; the
+  `Extra` add-on kind is gone, Extras are condiments).
 - **Variants** (small/regular/large) are a dish option group whose options change the price and `multiplier`.
 - **Combos** cost `combo.price + each pick's price change + each pick's customizations + combo extras`. A combo is
   listed in the menu section of its first slot's standard dish. Every picked dish is made at its own station.
@@ -391,15 +397,19 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   turn on/off by hand; a week chart with other menus, date notes and overlaps). The design's display tab is left to
   the screens app. Publishes "menus" and "inventory". The register's menu picker lists live menus and remembers the
   pick in the session (`register.register_menu`).
-- **Dishes** (`admin_dishes`, `dishes.py`): the list grouped by station or `DishCategory`, with filters (sold
-  out or off, food cost over 35%, not on a menu, archived), diet badges, allergens, food cost and availability. The
-  editor saves as you go (`admin_dish_action`): basics and photo, catering price breaks with warnings, the recipe
-  (components, amounts in the smallest unit, adjustable, cost), modifiers (the dish's option groups = "pick one" with
-  a standard choice; add-ons = "pick any"; component-owned groups shown read-only), availability, menus, allergens
-  and diets from the ingredients, and the last 7 days (sold includes combos; sales and profit only count it sold on
-  its own). Duplicate copies everything but the menus and starts Off; Archive takes it off every menu.
-  `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped, and a save-as-you-type POST
-  that arrives while another is in flight is sent after it rather than dropped.
+- **Dishes** (`admin_dishes`, `dishes.py`): the list by station, with filters (sold out or off, food cost over
+  35%, not on a menu, archived), diet badges, allergens, food cost and availability. The design's "menu category"
+  was dropped on purpose. The editor is **one form with a Save button** (`admin_dish` GET/POST, `op` = the button):
+  the page's state is a draft (`draft_from_dish` / `draft_from_post`, rows as numbered fields); row buttons (+ break,
+  × remove, + option...) and changed fields (`dish-editor.js` posts `op=preview`) re-render the draft with the sums
+  worked out, unsaved; Save writes it all (`save_draft`), Back asks when there are unsaved changes, Duplicate saves
+  the edited copy as a new dish, Archive takes it off every menu. Sections: basics and photo (previewed in the
+  browser, sent with Save), catering price breaks with warnings, the recipe (amounts in the smallest unit,
+  adjustable, cost), modifier groups (pick one/any, required), availability, menus, allergens and diets from the
+  ingredients, and the last 7 days (sold includes combos; sales and profit count it sold on its own).
+  `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped; a form with `data-queue`
+  (and `data-search`) sends its last submit after one in flight instead of dropping it; `data-keep` regions are left
+  alone by background answers.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

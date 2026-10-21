@@ -35,7 +35,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Discount, Dish, DishCategory, DishComponent, EligibleDevice, Extra, Ingredient,
+                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -257,14 +257,17 @@ class Command(BaseCommand):
 
         c = self.components
 
-        def group(title, options, component=None, dish=None, note="", default=None):
-            """options: "Name", ("Name", "price") or ("Name", "price", {other Option fields}). The first is standard."""
-            obj = OptionGroup.objects.create(title=title, component=component, dish=dish, note=note)
+        def group(title, options, component=None, dish=None, note="", default=None, pick=OptionGroup.ONE, required=True):
+            """
+            options: "Name", ("Name", "price") or ("Name", "price", {other Option fields}). A required pick-one
+            group starts on its first option, so `default` is moved to the front.
+            """
+            obj = OptionGroup.objects.create(title=title, component=component, dish=dish, note=note, pick=pick, required=required)
             specs = [(o, "0", {}) if isinstance(o, str) else (o[0], o[1], o[2] if len(o) > 2 else {}) for o in options]
-            default = default or specs[0][0]
+            if default:
+                specs.sort(key=lambda spec: spec[0] != default)
             for position, (name, price, more) in enumerate(specs):
-                Option.objects.create(group=obj, title=name, price=Decimal(price), position=position,
-                                      is_default=name == default, **more)
+                Option.objects.create(group=obj, title=name, price=Decimal(price), position=position, **more)
             return obj
 
         # Options that belong to a component: every dish using it offers them
@@ -279,26 +282,23 @@ class Command(BaseCommand):
         self.group = group
 
     def seed_dish_details(self):
-        """Admin details: menu categories, kitchen ticket names, prep times and catering prices."""
-        categories = {name: DishCategory.objects.get_or_create(name=name, defaults={"position": i})[0]
-                      for i, name in enumerate(["Mains", "Sides", "Drinks", "Bakery and sweets", "Kids"])}
-        # title: (category, ticket name, prep minutes)
+        """Admin details: kitchen ticket names, prep times and catering prices."""
+        # title: (ticket name, prep minutes)
         details = {
-            "Smash burger": ("Mains", "SMASH", 7), "Crispy chicken sandwich": ("Mains", "CHX SAND", 8),
-            "Mushroom melt": ("Mains", "MELT", 7), "Pulled pork plate": ("Mains", "PORK PLATE", 6),
-            "Halloumi grain bowl": ("Mains", "GRAIN BOWL", 6), "Fries": ("Sides", "FRIES", 4),
-            "Charred corn": ("Sides", "CORN", 5), "Green salad": ("Sides", "SALAD", 3),
-            "Kids cheeseburger": ("Kids", "KIDS BURGER", 6), "Kids chicken bites": ("Kids", "KIDS BITES", 6),
-            "Iced latte": ("Drinks", "ICED LATTE", 2), "Flat white": ("Drinks", "FLAT WHITE", 2),
-            "Fresh lemonade": ("Drinks", "LEMONADE", 1), "Ginger spritz": ("Drinks", "SPRITZ", 2),
-            "Matcha": ("Drinks", "MATCHA", 2), "Cold brew": ("Drinks", "COLD BREW", 1),
-            "Cardamom bun": ("Bakery and sweets", "CARD BUN", 1), "Almond croissant": ("Bakery and sweets", "ALM CROISS", 1),
-            "Brownie": ("Bakery and sweets", "BROWNIE", 1), "Lemon tart": ("Bakery and sweets", "LEMON TART", 1),
-            "Cookie": ("Bakery and sweets", "COOKIE", 1), "Sourdough loaf": ("Bakery and sweets", "SOURDOUGH", 1),
+            "Smash burger": ("SMASH", 7), "Crispy chicken sandwich": ("CHX SAND", 8),
+            "Mushroom melt": ("MELT", 7), "Pulled pork plate": ("PORK PLATE", 6),
+            "Halloumi grain bowl": ("GRAIN BOWL", 6), "Fries": ("FRIES", 4),
+            "Charred corn": ("CORN", 5), "Green salad": ("SALAD", 3),
+            "Kids cheeseburger": ("KIDS BURGER", 6), "Kids chicken bites": ("KIDS BITES", 6),
+            "Iced latte": ("ICED LATTE", 2), "Flat white": ("FLAT WHITE", 2),
+            "Fresh lemonade": ("LEMONADE", 1), "Ginger spritz": ("SPRITZ", 2),
+            "Matcha": ("MATCHA", 2), "Cold brew": ("COLD BREW", 1),
+            "Cardamom bun": ("CARD BUN", 1), "Almond croissant": ("ALM CROISS", 1),
+            "Brownie": ("BROWNIE", 1), "Lemon tart": ("LEMON TART", 1),
+            "Cookie": ("COOKIE", 1), "Sourdough loaf": ("SOURDOUGH", 1),
         }
-        for title, (category, ticket, prep) in details.items():
-            Dish.objects.filter(title=title, category__isnull=True).update(
-                category=categories[category], ticket_name=ticket, prep_minutes=prep)
+        for title, (ticket, prep) in details.items():
+            Dish.objects.filter(title=title, ticket_name="").update(ticket_name=ticket, prep_minutes=prep)
         # Catering: title -> (minimum, [(from quantity, price each)])
         catering = {"Smash burger": (12, [(12, "13.50"), (25, "12.75"), (50, "11.95")]),
                     "Halloumi grain bowl": (10, [(10, "13.95"), (30, "12.95")]),
@@ -330,13 +330,13 @@ class Command(BaseCommand):
             return obj
 
         def extras(owner, addons=(), condiments=()):
+            """Add-ons become the dish's "Add-ons" pick-any group (each can be added many times); condiments are Extras."""
             key = "dish" if isinstance(owner, Dish) else "combo"
-            for position, (name, price) in enumerate(addons):
-                component = c[name]
-                Extra.objects.create(**{key: owner}, component=component, kind=Extra.ADDON, price=Decimal(price), position=position)
+            if addons:
+                group("Add-ons", [(name, price, {"component": c[name]}) for name, price in addons], dish=owner,
+                      pick=OptionGroup.ANY, required=False)
             for position, label in enumerate(condiments):
-                Extra.objects.create(**{key: owner}, component=c[self.side_component[label]], kind=Extra.CONDIMENT,
-                                     title=label, position=position)
+                Extra.objects.create(**{key: owner}, component=c[self.side_component[label]], title=label, position=position)
 
         A = "adjustable"
         burger_addons = [("Bacon", "2.50"), ("Fried egg", "2.00"), ("Avocado", "2.25")]
@@ -737,8 +737,9 @@ class Command(BaseCommand):
         self.seed_order_extras()
 
         # Today, on the screens
-        order([dish("Smash burger", cust={"parts": {str(burger_parts["Onion"]): 0}, "options": well_done,
-                                          "addons": [Extra.objects.get(dish=d["Smash burger"], component__title="Avocado").id]}),
+        addons = OptionGroup.objects.get(dish=d["Smash burger"], title="Add-ons")
+        order([dish("Smash burger", cust={"parts": {str(burger_parts["Onion"]): 0},
+                                          "options": {**well_done, str(addons.id): {str(addons.options.get(title="Avocado").id): 2}}}),
                dish("Fries", cust={"options": option("Fries", "Size", "Large")}) if d["Fries"].available else dish("Charred corn")],
               "store", OrderStation.STATUS_APPROVED, 6, name="Olena", cashier=self.cashier)
         order([lunch("Flat white")], "store", OrderStation.STATUS_APPROVED, 4, name="Sam", special_instructions="Birthday",
