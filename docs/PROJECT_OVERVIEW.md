@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -198,6 +198,14 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   `notes`) with `RecipeIngredient` (per batch) and `RecipeStep` (title, text, optional timer, scene, ingredients it uses),
   `Transformation`, `CookingSession` + `YieldEntry` (§6.10), `Packaging`,
   `CondimentUse`, `IngredientUsageBuffer` (TODO), and `Waste*` models (no UI).
+- `services.Service(title, description, category = staff|equipment|venue|delivery|experience|extra, pricing =
+  flat|hour|person|day|unit, price, minimum, tax = store|none, details JSON (per category: roster size and gratuity,
+  units owned, capacity / food and drink minimum / included hours, radius and $ per extra km, group size and length),
+  includes (venues), deposit + deposit_amount + deposit_per unit|booking (equipment), lead_days, cancellation,
+  needs_approval, at_counter, online, catering, active, archived)`; `Service.quote(amount, count)` prices a booking
+  (minimum, gratuity, tax, refundable deposit). `services.Booking(service, name, customer, date, amount, count, status =
+  pending|confirmed|declined|cancelled, channel, total, deposit, notes, created_at)`. Only the admin page and
+  `seed_demo` use them so far; catering, the register and the store don't book services yet.
 - `users.Staff` (minutes_worked, allowance) and `users.Customer` (auto-created for every new User by a post_save signal).
 
 ---
@@ -436,6 +444,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `cook_scene`). `Recipe` gained `title` and `total_minutes`; `RecipeIngredient` can be a component (Cookery takes it
   out of component stock when a batch starts); `Transformation.recipe` gives Cookery's Transform screen its steps,
   time (`Transformation.takes`) and default batch size. Dish recipes are stored but not shown on the KDS yet.
+- **Services** (`admin_services`, `services.py`, 2026-10-21): sections by category with chips and search; each row shows
+  the price and minimum, tags (units owned and deposit, roster, capacity, needs approval, long notice), bookings in
+  the last 30 days and Active/Hidden. The editor (one form with Save) has name, description and category (picking one
+  starts its details and pricing over), pricing (flat, per hour/guest/day/item, minimum, tax), the category's details
+  (venues: what's included; equipment: a security deposit per unit or per booking), booking rules (notice,
+  cancellation, needs approval), where it can be booked, a dark quote preview (try hours/guests/days and people/units;
+  never saved) and the next three bookings. Duplicate and archive/restore like combos. The design's tax choices
+  (GST, GST + PST) became "store tax rate" or "no tax", since the store has one rate (`TAX_RATE`).
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

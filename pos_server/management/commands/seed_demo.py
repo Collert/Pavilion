@@ -5,10 +5,12 @@ Fill an empty database with demo data for local development and testing.
     python manage.py seed_demo --force    # seed anyway (adds to what's there)
 
 Creates users (admin/admin, cashier/cashier, courier/courier, customer/customer; register PINs: Alex 0000,
-Dana 1234, Priya 2468, recently used on the register so its lock screen lists them), stations, ingredients, components with options, dishes with adjustable parts, add-ons
-and condiments, combos, menus (one switched on by hand, some on schedules, a draft), offers and coupons, today's business-day event, promo
-banners, gift card presets and cards, a registered device, past cash drawers, orders in every state across
-the last few days, and nine weeks of finished orders (closed Tuesdays) for the admin dashboard and reports.
+Dana 1234, Priya 2468, recently used on the register so its lock screen lists them), stations, ingredients,
+components with options, dishes with adjustable parts, add-ons and condiments, combos, menus (one switched on by
+hand, some on schedules, a draft), offers and coupons, today's business-day event, promo banners, services (staff,
+rentals, venue...) with bookings, gift card presets and cards, a registered device, past cash drawers, orders in
+every state across the last few days, and nine weeks of finished orders (closed Tuesdays) for the admin dashboard
+and reports.
 
 KEEP THIS UP TO DATE: whenever a model is added or changed, update this command so it still runs on a
 fresh database and covers the new fields (see CLAUDE.md).
@@ -42,6 +44,7 @@ from pos_server import refunds
 from pos_server.orders import create_order
 from pos_server.pricing import price_cart
 from screens.models import Screen
+from services.models import Booking, Service
 from users.models import Staff
 
 # A fixed token so a dev browser can be registered once: ?device-token=<this> on any POS page
@@ -86,6 +89,7 @@ class Command(BaseCommand):
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
+            self.seed_services()
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
@@ -656,6 +660,77 @@ class Command(BaseCommand):
                 "tagline": tagline, "call_to_action": "Order now", "color": color, "accent": "#ffffff", "link": "/en/menu"})
             if created:
                 promo.image.save(f"{title.lower().replace(' ', '_')}.png", placeholder_image(title, color), save=True)
+
+    def seed_services(self):
+        """Services (staff, rentals, the venue, delivery, classes, extras) and a few weeks of bookings for them."""
+        S = Service
+
+        def service(title, category, pricing, price, description, minimum=0, booked=0, **fields):
+            obj = S.objects.create(title=title, category=category, pricing=pricing, price=Decimal(str(price)),
+                                   description=description, minimum=minimum, details={**S.DETAILS[category], **fields.pop("details", {})}, **fields)
+            obj.booked = booked
+            return obj
+
+        services = [
+            service("Event server", S.STAFF, S.HOUR, 38, "A uniformed server for passed canapés, plated service or buffet upkeep.",
+                    minimum=4, details={"staff": 6, "gratuity": 15}, booked=9),
+            service("Bartender", S.STAFF, S.HOUR, 45, "Certified bartender. Bar tools included.", minimum=4,
+                    details={"staff": 3, "gratuity": 15}, booked=5),
+            service("Chef on site", S.STAFF, S.HOUR, 85, "One of our chefs cooks live at your event: grill station or carving board.",
+                    minimum=3, details={"staff": 2}, needs_approval=True, booked=2),
+            service("Chafing dish set", S.EQUIPMENT, S.DAY, 18, "Full-size stainless chafer with fuel for 4 hours. Keeps hot food hot on a buffet.",
+                    minimum=1, details={"owned": 12}, deposit=True, deposit_amount=Decimal("40"), booked=14),
+            service("Coffee urn, 100 cups", S.EQUIPMENT, S.DAY, 45, "Commercial percolator urn with cups, lids and stir sticks for 100.",
+                    minimum=1, details={"owned": 3}, deposit=True, deposit_amount=Decimal("75"), booked=4),
+            service("Mobile flat-top grill", S.EQUIPMENT, S.DAY, 220, "Propane flat-top for outdoor events. Tank and safety kit included.",
+                    minimum=1, details={"owned": 1}, deposit=True, deposit_amount=Decimal("500"), deposit_per=S.PER_BOOKING,
+                    needs_approval=True, lead_days=7, cancellation=S.STRICT, booked=1),
+            service("Folding tables and chairs", S.EQUIPMENT, S.DAY, 24, "Six-foot table with six chairs. Linens available as an extra.",
+                    minimum=2, details={"owned": 20}, booked=6),
+            service("Full restaurant buyout", S.VENUE, S.FLAT, 1800, "The whole dining room and patio for your private event, evenings only.",
+                    details={"seated": 60, "standing": 90, "min_spend": 3500, "hours": 4},
+                    includes=["Tables and chairs", "House sound system", "Dedicated manager", "Cleanup"],
+                    needs_approval=True, lead_days=21, cancellation=S.STRICT, at_counter=False, booked=2),
+            service("Private back room", S.VENUE, S.HOUR, 75, "Seats 18 at one long table. Ideal for birthdays and team lunches.",
+                    minimum=2, details={"seated": 18, "standing": 25, "min_spend": 600}, includes=["Tables and chairs", "TV for slides"],
+                    lead_days=3, booked=7),
+            service("Catering delivery", S.DELIVERY, S.FLAT, 35, "Delivered hot within 10 km, set out on your table, ready to serve.",
+                    details={"radius": 10, "per_km": 2}, booked=22),
+            service("Setup and teardown", S.DELIVERY, S.HOUR, 55, "Our crew sets up the buffet, then packs everything away after.",
+                    minimum=2, details={"radius": 25}, booked=8),
+            service("Pasta making class", S.EXPERIENCE, S.PERSON, 75, "Two hours in our kitchen learning dough, fillings and shaping. Take home a dozen.",
+                    minimum=6, details={"capacity": 12, "minutes": 120}, lead_days=5, booked=3),
+            service("Chef’s tasting menu", S.EXPERIENCE, S.PERSON, 95, "Seven courses at the chef’s counter with optional drink pairing.",
+                    minimum=2, details={"capacity": 8, "minutes": 150}, needs_approval=True, lead_days=3, active=False, booked=4),
+            service("Custom celebration cake", S.EXTRA, S.UNIT, 65, "Two-layer cake with a message. Choose chocolate, lemon or carrot.",
+                    minimum=1, lead_days=4, booked=5),
+            service("Printed event menus", S.EXTRA, S.UNIT, 2.5, "Personalised menus printed on card for each place setting.",
+                    minimum=10, lead_days=3, at_counter=False, booked=2),
+        ]
+        S.objects.create(title="Photo booth", category=S.EXTRA, pricing=S.FLAT, price=Decimal("150"), active=False, archived=True,
+                         description="Retired: the booth went back to the rental company.")
+
+        who = ["Riverside Tech meetup", "Sarah and Dev’s wedding", "Grandview Elementary PAC", "Hollis Design team lunch",
+               "Ortiz family reunion", "Maple Street Book Club", "Kim retirement party", "Northside Running Club"]
+        today = timezone.localdate()
+        now = timezone.now()
+        for obj in services:
+            # The last 30 days' bookings (the list's "booked" count), some still to come, and a couple from before
+            for k in range(obj.booked + 2):
+                recent = k < obj.booked
+                created = now - datetime.timedelta(days=random.randint(1, 29) if recent else random.randint(35, 80))
+                date = today + datetime.timedelta(days=3 + k * 5 + len(obj.title) % 4) if k < 3 and recent else (created + datetime.timedelta(days=random.randint(2, 20))).date()
+                amount = 1 if obj.pricing == S.FLAT else max(obj.minimum, 1) + (2 * k if obj.pricing == S.HOUR else k % 3)
+                count = (k % 3) + (2 if obj.category == S.EQUIPMENT else 1) if obj.counts_units else 1
+                quote = obj.quote(amount, count)
+                status = Booking.PENDING if obj.needs_approval and k == 0 and date >= today else Booking.CONFIRMED
+                Booking.objects.create(service=obj, name=who[(k + len(obj.title)) % len(who)], date=date, amount=amount, count=count,
+                                       status=status, channel=random.choice([Booking.CATERING, Booking.CATERING, Booking.ONLINE, Booking.COUNTER]),
+                                       total=quote["total"], deposit=quote["deposit"], created_at=created,
+                                       notes="Evening event" if obj.pricing == S.FLAT else "")
+        # One that was declined, so the counts skip it
+        Booking.objects.create(service=services[0], name="Late request", date=today + datetime.timedelta(days=1), amount=4,
+                               status=Booking.DECLINED, total=Decimal("152.00"), created_at=now - datetime.timedelta(days=2))
 
     def seed_screens(self):
         # The order board comes with migrations (screens/0002); add a portrait one for a vertical TV

@@ -1,0 +1,187 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Service editor (design: AdminServices, edit state; admin_portal/services.py: editor). One form like the combo editor:
+Save writes it, editor.js posts op=preview when a field changes so the details card, the quote and the status keep up.
+The quote preview's inputs (qa, qb) only feed the preview and are never saved.
+{% endcomment %}
+{% block title %}{{ e.title }} · {% trans "Services" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/services.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=e.d %}
+<form method="post" action="{% url 'admin_service' e.service.id %}" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="service-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Services" %}</button>
+        <div class="title-line">
+            <h1 class="disp page-title ellipsis">{{ e.title }}</h1>
+            <span class="service-status big{% if d.active %} active{% endif %}">{% if d.active %}{% trans "Active" %}{% else %}{% trans "Hidden" %}{% endif %}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div id="service-leave" data-region>
+    {% if e.leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this service." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_services' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="editor-grid">
+    <div class="editor-col">
+        <section class="card" aria-label="{% trans 'Basics' %}" id="service-basics" data-region>
+            <input type="hidden" name="category_was" value="{{ d.category }}">
+            <label><span class="lbl">{% trans "Service name" %}</span><input class="field" name="title" value="{{ d.title }}" maxlength="140"></label>
+            <label class="block-label"><span class="lbl">{% trans "Description · what the customer sees when booking" %}</span><textarea class="field" name="description" rows="2">{{ d.description }}</textarea></label>
+            <div class="lbl cat-label">{% trans "Category" %}</div>
+            <div class="cat-cards" role="radiogroup" aria-label="{% trans 'Category' %}">
+                {% for c in e.categories %}
+                <label class="cat-card"><input type="radio" name="category" value="{{ c.key }}" {% if c.key == d.category %}checked{% endif %}>
+                    <span class="cat-box" style="background:{{ c.bg }};color:{{ c.ink }}">{% icon c.icon 18 %}</span>
+                    <span class="cat-text"><span class="strong block">{{ c.label }}</span><span class="cat-hint ellipsis block">{{ c.hint }}</span></span>
+                </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Pricing' %}" id="service-pricing" data-region>
+            <h2 class="disp card-title">{% trans "Pricing" %}</h2>
+            <div class="mode-seg" role="radiogroup" aria-label="{% trans 'Charge' %}">
+                {% for key, label in e.pricings %}<label><input type="radio" name="pricing" value="{{ key }}" {% if key == d.pricing %}checked{% endif %}>{{ label }}</label>{% endfor %}
+            </div>
+            <div class="three-grid">
+                <label><span class="lbl">{{ e.price_label }}</span><span class="unit-field"><span class="unit-pre">$</span><input type="number" name="price" min="0" step="0.5" class="num" value="{{ d.price }}" aria-label="{{ e.price_label }}"></span></label>
+                {% if d.pricing != "flat" %}
+                <label><span class="lbl">{% trans "Minimum" %}</span><span class="unit-field"><input type="number" name="minimum" min="0" class="num" value="{{ d.minimum }}" aria-label="{% trans 'Minimum' %}"><span class="unit">{{ e.min_unit }}</span></span></label>
+                {% else %}<input type="hidden" name="minimum" value="{{ d.minimum }}">{% endif %}
+                <label><span class="lbl">{% trans "Tax" %}</span>
+                    <select class="field" name="tax">{% for t in e.taxes %}<option value="{{ t.key }}" {% if t.key == d.tax %}selected{% endif %}>{{ t.label }}</option>{% endfor %}</select>
+                </label>
+            </div>
+            <div class="price-line" data-calc>{{ e.price_line }}</div>
+        </section>
+
+        <section class="card" aria-label="{{ e.detail_title }}" id="service-details" data-region>
+            <h2 class="disp card-title">{{ e.detail_title }}</h2>
+            <div class="card-sub">{{ e.detail_sub }}</div>
+            {% if e.fields %}
+            <div class="two-grid">
+                {% for f in e.fields %}
+                <label><span class="lbl">{{ f.label }}</span><span class="unit-field">{% if f.pre %}<span class="unit-pre">{{ f.pre }}</span>{% endif %}<input type="number" name="detail-{{ f.key }}" min="0" step="{{ f.step }}" class="num" value="{{ f.value }}" aria-label="{{ f.label }}">{% if f.unit %}<span class="unit">{{ f.unit }}</span>{% endif %}</span></label>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if d.category == "venue" %}
+            <div class="lbl cat-label">{% trans "Included" %}</div>
+            <div class="include-chips">
+                {% for i in e.includes %}<label class="include-chip"><input type="checkbox" name="includes" value="{{ i.label }}" {% if i.on %}checked{% endif %}>{{ i.label }}</label>{% endfor %}
+            </div>
+            {% else %}{% for i in d.includes %}<input type="hidden" name="includes" value="{{ i }}">{% endfor %}{% endif %}
+
+            {% if d.category == "equipment" %}
+            <div class="deposit-box">
+                <label class="deposit-top">
+                    <span class="deposit-icon">{% icon "M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z M9 12l2 2 4-4" 18 2.2 %}</span>
+                    <span class="grow"><span class="strong block deposit-title">{% trans "Security deposit" %}</span><span class="muted small block">{% trans "Optional. Held when the equipment goes out, refunded when it comes back undamaged." %}</span></span>
+                    <input type="checkbox" name="deposit" value="1" role="switch" class="visually-hidden" {% if d.deposit %}checked{% endif %} aria-label="{% trans 'Collect a security deposit' %}">
+                    <span class="switch big"><span></span></span>
+                </label>
+                <input type="hidden" name="deposit_was" value="{% if d.deposit %}1{% else %}0{% endif %}">
+                {% if d.deposit %}
+                <div class="deposit-grid">
+                    <label><span class="lbl">{% trans "Deposit amount" %}</span><span class="unit-field white"><span class="unit-pre">$</span><input type="number" name="deposit_amount" min="0" step="5" class="num" value="{{ d.deposit_amount }}" aria-label="{% trans 'Deposit amount' %}"></span></label>
+                    <div><span class="lbl">{% trans "Charged" %}</span>
+                        <div class="mode-seg dark" role="radiogroup" aria-label="{% trans 'Deposit charged' %}">
+                            <label><input type="radio" name="deposit_per" value="unit" {% if d.deposit_per == "unit" %}checked{% endif %}>{% trans "Per unit" %}</label>
+                            <label><input type="radio" name="deposit_per" value="booking" {% if d.deposit_per == "booking" %}checked{% endif %}>{% trans "Once per booking" %}</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="deposit-line" data-calc>{{ e.deposit_line }}</div>
+                {% else %}
+                <input type="hidden" name="deposit_amount" value="{{ d.deposit_amount }}"><input type="hidden" name="deposit_per" value="{{ d.deposit_per }}">
+                {% endif %}
+            </div>
+            {% else %}
+            <input type="hidden" name="deposit_amount" value="{{ d.deposit_amount }}"><input type="hidden" name="deposit_per" value="{{ d.deposit_per }}">
+            {% endif %}
+        </section>
+
+        <section class="card" aria-label="{% trans 'Booking rules' %}">
+            <h2 class="disp card-title">{% trans "Booking rules" %}</h2>
+            <div class="two-grid">
+                <label><span class="lbl">{% trans "Book at least" %}</span><span class="unit-field"><input type="number" name="lead_days" min="0" class="num" value="{{ d.lead_days }}" aria-label="{% trans 'Notice needed in days' %}"><span class="unit">{% trans "days ahead" %}</span></span></label>
+                <label><span class="lbl">{% trans "Cancellation" %}</span>
+                    <select class="field" name="cancellation">{% for key, label in e.cancellations %}<option value="{{ key }}" {% if key == d.cancellation %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                </label>
+            </div>
+            <label class="switch-row">
+                <span class="grow"><span class="strong block">{% trans "Needs approval before it’s confirmed" %}</span><span class="muted small block">{% trans "A manager accepts or declines each request" %}</span></span>
+                <input type="checkbox" name="needs_approval" value="1" role="switch" class="visually-hidden" {% if d.needs_approval %}checked{% endif %}>
+                <span class="switch big"><span></span></span>
+            </label>
+        </section>
+    </div>
+
+    <div class="editor-col side" id="service-side" data-region>
+        <section class="card" aria-label="{% trans 'Where it can be booked' %}">
+            <div class="ov muted">{% trans "Where it can be booked" %}</div>
+            <div class="channel-list">
+                {% for c in e.channels %}
+                <label class="switch-row channel"><span class="grow">{{ c.label }}</span>
+                    <input type="checkbox" name="{{ c.key }}" value="1" role="switch" class="visually-hidden" {% if c.on %}checked{% endif %}>
+                    <span class="switch big"><span></span></span></label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card quote-card" aria-label="{% trans 'Quote preview' %}">
+            <div class="ov">{% trans "Quote preview" %}</div>
+            {% if e.quote.inputs %}
+            <div class="quote-inputs">
+                {% for q in e.quote.inputs %}<label class="quote-input"><span class="grow">{{ q.label }}</span><input type="number" name="{{ q.name }}" min="1" class="num" value="{{ q.value }}" aria-label="{{ q.label }}" data-type-preview></label>{% endfor %}
+            </div>
+            {% endif %}
+            {% if d.pricing == "flat" %}<input type="hidden" name="qa" value="{{ d.qa }}">{% endif %}
+            {% if d.category != "staff" and d.category != "equipment" %}<input type="hidden" name="qb" value="{{ d.qb }}">{% endif %}
+            <div class="quote-lines" data-calc>
+                {% for l in e.quote.lines %}<div class="quote-line {{ l.kind }}"><span>{{ l.label }}</span><span class="num">{{ l.value }}</span></div>{% endfor %}
+            </div>
+            <div data-calc>{% for n in e.quote.notes %}<div class="quote-note">{{ n }}</div>{% endfor %}</div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Upcoming bookings' %}">
+            <div class="ov muted">{% trans "Upcoming bookings" %}</div>
+            <div class="booking-list">
+                {% for b in e.bookings %}
+                <div class="booking">
+                    <span class="date-tile"><span class="date-mon">{{ b.mon }}</span><span class="disp num date-day">{{ b.day }}</span></span>
+                    <span class="grow two-line"><span class="strong ellipsis">{{ b.who }}</span><span class="muted small">{{ b.what }}</span></span>
+                    <span class="booking-state{% if b.pending %} pending{% endif %}">{{ b.state }}</span>
+                </div>
+                {% empty %}
+                <div class="muted small strong">{% trans "Nothing booked yet." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if e.service.archived %}
+        <button class="text-btn" name="op" value="restore">{% trans "Restore this service" %}</button>
+        {% else %}
+        <button class="text-btn danger" name="op" value="archive">{% trans "Archive this service" %}</button>
+        {% endif %}
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

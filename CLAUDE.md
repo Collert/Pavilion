@@ -47,6 +47,7 @@ without asking.
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
 | `deliveries` | `/deliveries/` | Courier PWA (Cookery-style templates): shifts, accept/pass, steps to the door with a proof photo (`Delivery.phase()`), Google travel times (`routes.py`), web push. Delivery orders reach the KDS only once a courier accepts (`hidden_order_ids()`). |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
+| `services` | — | Service (staff, rentals, venue, delivery, classes, extras: pricing, details, deposit, booking rules; `quote()`) and Booking. Edited in the admin's Services page. |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |

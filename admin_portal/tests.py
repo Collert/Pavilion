@@ -18,7 +18,7 @@ from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, dashboard, dishes, recipes, reports
+from . import combos, dashboard, dishes, recipes, reports, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -863,6 +863,113 @@ class RecipeTests(AdminFixture, TestCase):
         self.assertTrue(self.post(self.dough, "leave", title="Changed").context["e"]["leave_ask"])
         self.assertRedirects(self.post(new, "delete"), reverse("admin_recipes"))
         self.assertFalse(Recipe.objects.filter(pk=new.pk).exists())
+
+
+def service_fields(draft, **changes):
+    """The service editor's POST fields for a draft (admin_portal.services.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "description", "category", "pricing", "price", "minimum", "tax", "deposit_amount",
+                                  "deposit_per", "lead_days", "cancellation", "qa", "qb")}
+    data["category_was"] = draft.get("category_was", draft["category"])
+    data["deposit_was"] = draft.get("deposit_was", "1" if draft["deposit"] else "0")
+    data["includes"] = draft["includes"]
+    data.update({f"detail-{k}": v for k, v in draft["details"].items()})
+    for flag in ("deposit", "needs_approval", "at_counter", "online", "catering", "active"):
+        if draft[flag]:
+            data[flag] = "1"
+    return data
+
+
+class ServiceTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from services.models import Booking, Service
+        cls.build_admin()
+        cls.urn = Service.objects.create(title="Coffee urn", category=Service.EQUIPMENT, pricing=Service.DAY, price=Decimal("45"),
+                                         minimum=1, details={"owned": 3}, deposit=True, deposit_amount=Decimal("75"),
+                                         description="Percolator for 100 cups")
+        cls.room = Service.objects.create(title="Private room", category=Service.VENUE, pricing=Service.FLAT, price=Decimal("300"),
+                                          details={"seated": 18, "standing": 25, "min_spend": 600, "hours": 0}, active=False,
+                                          includes=["Tables and chairs"], needs_approval=True, lead_days=7)
+        cls.old = Service.objects.create(title="Photo booth", category=Service.EXTRA, pricing=Service.FLAT, price=Decimal("150"), archived=True)
+        today = timezone.localdate()
+        Booking.objects.create(service=cls.urn, name="Book club", date=today + datetime.timedelta(days=3), amount=2, count=2)
+        Booking.objects.create(service=cls.urn, name="PAC", date=today + datetime.timedelta(days=9), status=Booking.PENDING)
+        Booking.objects.create(service=cls.urn, name="Declined", date=today, status=Booking.DECLINED)
+        Booking.objects.create(service=cls.urn, name="Long ago", date=today - datetime.timedelta(days=60),
+                               created_at=timezone.now() - datetime.timedelta(days=60))
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def post(self, service, op, draft=None, **changes):
+        draft = draft or services.draft_from_service(service)
+        return self.client.post(reverse("admin_service", args=[service.id]), {**service_fields(draft, **changes), "op": op})
+
+    def test_list_sections_chips_and_search(self):
+        l = self.client.get(reverse("admin_services")).context["l"]
+        self.assertEqual([s["key"] for s in l["sections"]], ["equipment", "venue"])
+        self.assertEqual({c["key"]: c["count"] for c in l["chips"]}["equipment"], 1)
+        self.assertEqual(l["archived"], 1)
+        urn = l["sections"][0]["rows"][0]
+        self.assertEqual((urn["price"], urn["price_sub"], urn["booked"]), ("$45 / day", "min 1 day", 2))  # not the declined or old one
+        self.assertEqual([t["label"] for t in urn["tags"]], ["3 owned", "$75 deposit each"])
+        room = l["sections"][1]["rows"][0]
+        self.assertEqual(room["price_sub"], "$600 food and drink minimum")
+        self.assertEqual([t["label"] for t in room["tags"]], ["18 seated · 25 standing", "Needs approval", "7 days notice"])
+        only = self.client.get(reverse("admin_services") + "?cat=venue").context["l"]["sections"]
+        self.assertEqual([s["key"] for s in only], ["venue"])
+        self.assertEqual(len(self.client.get(reverse("admin_services") + "?q=percolator").context["l"]["sections"]), 1)
+        archived = self.client.get(reverse("admin_services") + "?show=archived").context["l"]["sections"]
+        self.assertEqual([r["service"] for s in archived for r in s["rows"]], [self.old])
+
+    def test_editor_quote_and_bookings(self):
+        e = self.client.get(reverse("admin_service", args=[self.urn.id])).context["e"]
+        self.assertEqual((e["status"], e["price_line"]), ("All changes saved", "Customers see: $45 / day · min 1 day"))
+        self.assertEqual([(l["label"], l["value"]) for l in e["quote"]["lines"]],
+                         [("$45 × 1 day × 2", "$90.00"), ("Total", "$90.00"), ("Deposit held, refundable", "$150.00")])
+        self.assertEqual([(b["who"], b["state"]) for b in e["bookings"]], [("Book club", "Confirmed"), ("PAC", "Needs approval")])
+        e = self.post(self.urn, "preview", qa="2", qb="5").context["e"]
+        self.assertEqual(e["quote"]["lines"][0]["label"], "$45 × 2 days × 5")
+        self.assertEqual(e["quote"]["notes"], ["Only 3 units owned."])
+        self.assertEqual(e["status"], "All changes saved")  # the quote's inputs aren't part of the service
+
+    def test_switching_category_starts_its_details_and_pricing(self):
+        draft = services.draft_from_service(self.urn)
+        e = self.post(self.urn, "preview", draft, category="staff", category_was="equipment").context["e"]
+        self.assertEqual((e["d"]["pricing"], e["d"]["details"]), ("hour", {"staff": "1", "gratuity": "0"}))
+        self.assertEqual([f["key"] for f in e["fields"]], ["staff", "gratuity"])
+        self.assertEqual(e["status"], "Unsaved changes")
+
+    def test_save_validation_and_deposit_default(self):
+        from services.models import Service
+        self.assertEqual(self.post(self.urn, "preview", price="0").context["e"]["status"], "Needs a name and a price")
+        draft = services.draft_from_service(self.room)
+        draft.update(category="equipment", category_was="equipment", details={"owned": "4"}, pricing="day", price="60", deposit=True, deposit_amount="0")
+        draft["deposit_was"] = "0"
+        e = self.post(self.room, "preview", draft).context["e"]
+        self.assertEqual(e["d"]["deposit_amount"], "120")  # two days of rent, rounded to $5
+        e["d"].update(title="Grill", minimum="1", active=True, online=False)
+        self.assertRedirects(self.post(self.room, "save", e["d"]), reverse("admin_service", args=[self.room.id]))
+        room = Service.objects.get(pk=self.room.pk)
+        self.assertEqual((room.title, room.category, room.details, room.includes, room.deposit_amount, room.active, room.online),
+                         ("Grill", "equipment", {"owned": 4}, [], Decimal("120.00"), True, False))
+
+    def test_new_duplicate_leave_and_archive(self):
+        from services.models import Service
+        response = self.client.post(reverse("admin_service_new"))
+        new = Service.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_service", args=[new.id]))
+        self.assertEqual(self.client.get(response.url).context["e"]["status"], "Needs a name and a price")
+        self.assertRedirects(self.post(self.urn, "leave"), reverse("admin_services"))
+        self.assertTrue(self.post(self.urn, "leave", title="Changed").context["e"]["leave_ask"])
+        response = self.post(self.urn, "duplicate")
+        copy = Service.objects.latest("id")
+        self.assertEqual((copy.title, copy.active, copy.deposit_amount), ("Coffee urn (copy)", False, Decimal("75.00")))
+        self.assertRedirects(response, reverse("admin_service", args=[copy.id]))
+        self.assertRedirects(self.post(self.urn, "archive"), reverse("admin_services"))
+        self.assertTrue(Service.objects.get(pk=self.urn.pk).archived)
+        self.assertContains(self.client.get(reverse("admin_service", args=[self.urn.id])), "Restore this service")
 
 
 class UnitTests(TestCase):

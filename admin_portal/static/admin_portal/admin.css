@@ -353,6 +353,12 @@ button.back-link { border: none; background: none; font-family: inherit; cursor:
 .note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--soft); font-size: 12px; line-height: 1.4; font-weight: 700; color: var(--ink-2); }
 .note.warn { background: var(--amber-soft); color: var(--amber-ink); }
 .note svg { flex: none; margin-top: 1px; }
+/* segmented radio buttons: <div class="mode-seg"><label><input type="radio">…</label>… */
+.mode-seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--soft); margin-top: 10px; }
+.mode-seg label { position: relative; flex: 1; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: var(--muted); cursor: pointer; }
+.mode-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.mode-seg label:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
+.mode-seg label:has(input:checked) { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 38, 31, .14); }
 .text-btn { width: 100%; height: 44px; border-radius: 22px; border: none; background: transparent; color: var(--brand); font-size: 14px; font-weight: 800; }
 .text-btn.danger { color: var(--red); }
 .text-btn:hover { background: rgba(255, 255, 255, .6); }

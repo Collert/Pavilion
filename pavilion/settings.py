@@ -164,6 +164,7 @@ INSTALLED_APPS = [
     'events',  # Event handling
     'admin_portal',  # /admin/: the store's back office (admin_portal/)
     'screens',  # Screens built from widgets (status boards, signage)
+    'services',  # Services (staff, rentals, venue...) and their bookings
 ]
 
 # Middleware - Handles request processing, security, and session management

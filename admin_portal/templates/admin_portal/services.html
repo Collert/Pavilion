@@ -1,0 +1,62 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Services list (design: AdminServices, list state; admin_portal/services.py: service_list), in sections by category.
+Category chips are links, search (name or description) submits as you type.
+{% endcomment %}
+{% block title %}{% trans "Services" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/services.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Menu" %}</div>
+        <h1 class="disp page-title">{% trans "Services" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="cat" value="{{ l.category }}">
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search services' %}" placeholder="{% trans 'Search services' %}">
+    </form>
+    <form method="post" action="{% url 'admin_service_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New service" %}</button>
+    </form>
+</header>
+
+<nav class="filter-chips" aria-label="{% trans 'Category' %}" id="services-filters" data-region>
+    {% for f in l.chips %}
+    <a class="filter-chip" data-live href="?cat={{ f.key }}&show={{ l.show }}&q={{ l.query|urlencode }}"{% if f.key == l.category %} aria-current="page"{% endif %}>{% if f.dot %}<span class="cat-dot" style="background:{{ f.dot }}"></span>{% endif %}{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+    {% if l.show == "archived" %}
+    <a class="filter-chip" data-live href="?cat={{ l.category }}&q={{ l.query|urlencode }}" aria-current="page">{% trans "Archived" %}{% icon "close" 13 2.8 %}</a>
+    {% elif l.archived %}
+    <a class="filter-chip" data-live href="?cat={{ l.category }}&show=archived&q={{ l.query|urlencode }}">{% trans "Archived" %}<span class="filter-count">{{ l.archived }}</span></a>
+    {% endif %}
+</nav>
+
+<div class="service-sections" id="services-list" data-region>
+    {% for sec in l.sections %}
+    <section class="card service-section" aria-label="{{ sec.name }}">
+        <div class="service-section-head">
+            <span class="cat-box" style="background:{{ sec.bg }};color:{{ sec.ink }}">{% icon sec.icon 18 %}</span>
+            <span class="grow"><h2 class="disp section-name">{{ sec.name }}</h2><span class="muted small block">{{ sec.hint }}</span></span>
+            <span class="hint strong">{{ sec.sub }}</span>
+        </div>
+        {% for r in sec.rows %}
+        <a class="service-row service-grid" href="{% url 'admin_service' r.service.id %}"
+           aria-label="{% blocktrans with name=r.service.title price=r.price %}Edit {{ name }}, {{ price }}{% endblocktrans %}">
+            <span class="two-line"><span class="strong ellipsis service-name">{{ r.service.title }}</span><span class="muted small ellipsis">{{ r.service.description }}</span></span>
+            <span class="two-line"><span class="num strong service-name">{{ r.price }}</span><span class="muted small ellipsis">{{ r.price_sub }}</span></span>
+            <span class="service-tags">{% for t in r.tags %}<span class="service-tag {{ t.kind }}">{{ t.label }}</span>{% endfor %}</span>
+            <span class="two-line"><span class="num strong small ink">{% blocktrans with n=r.booked %}{{ n }} booked{% endblocktrans %}</span><span class="muted small">{% trans "last 30 days" %}</span></span>
+            <span class="right"><span class="service-status{% if r.service.active %} active{% endif %}">{% if r.service.active %}{% trans "Active" %}{% else %}{% trans "Hidden" %}{% endif %}</span></span>
+            {% icon "chevron" 16 2.4 %}
+        </a>
+        {% endfor %}
+    </section>
+    {% empty %}
+    <div class="card empty"><div class="disp empty-title">{% trans "No services match" %}</div><div>{% trans "Try another category or clear the search." %}</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

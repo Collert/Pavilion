@@ -27,6 +27,7 @@ from pos_server.devices import superuser_required
 from pavilion.realtime import publish
 from pos_server.models import Combo, ComboSlot, Dish, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
+from services.models import Service
 
 from . import combos as combos_data
 from . import dashboard as dashboard_data
@@ -35,6 +36,7 @@ from . import menus as menus_data
 from . import orders as orders_data
 from . import recipes as recipes_data
 from . import reports as reports_data
+from . import services as services_data
 from .models import StoreSettings
 from .nav import rail
 
@@ -489,3 +491,57 @@ def recipe_edit(request, recipe_id):
             messages.success(request, _("%(recipe)s saved") % {"recipe": recipe.title})
             return redirect("admin_recipe", recipe_id=recipe.id)
     return page(request, "admin_portal/recipe.html", "recipes", {"e": recipes_data.editor(recipe, draft)})
+
+
+# ---------- services ----------
+
+@superuser_required
+def services(request):
+    data = services_data.service_list(request.GET.get("q", ""), request.GET.get("cat", "all"), request.GET.get("show", ""))
+    return page(request, "admin_portal/services.html", "services", {"l": data})
+
+
+@superuser_required
+@require_POST
+def service_new(request):
+    service = Service.objects.create(title=_("New service"), category=Service.STAFF, pricing=Service.HOUR,
+                                     details=dict(Service.DETAILS[Service.STAFF]), online=False, active=False)
+    return redirect("admin_service", service_id=service.id)
+
+
+@superuser_required
+def service_edit(request, service_id):
+    """The service editor, one form like the combo editor (Save; other buttons post an `op` and show the draft)."""
+    service = get_object_or_404(Service, pk=service_id)
+    if request.method != "POST":
+        return page(request, "admin_portal/service.html", "services", {"e": services_data.editor(service, services_data.draft_from_service(service))})
+    op = request.POST.get("op", "")
+    draft = services_data.draft_from_post(request.POST)
+    if op in ("archive", "restore"):
+        service.archived = op == "archive"
+        service.save(update_fields=["archived"])
+        if op == "archive":
+            messages.success(request, _("%(service)s archived") % {"service": service.title})
+            return redirect("admin_services")
+        messages.success(request, _("%(service)s is back") % {"service": service.title})
+        return redirect("admin_service", service_id=service.id)
+    if op == "leave":
+        if not services_data.is_dirty(draft, service):
+            return redirect("admin_services")
+        return page(request, "admin_portal/service.html", "services", {"e": services_data.editor(service, draft, leave_ask=True)})
+    if op in ("save", "duplicate"):
+        issue = services_data.problems(draft)
+        if issue:
+            messages.error(request, issue)
+        else:
+            if op == "duplicate":
+                draft["title"] = (_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140]
+                draft["active"] = False
+                target = Service()
+            else:
+                target = service
+            services_data.save_draft(draft, target)
+            messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate"
+                             else _("%(service)s saved") % {"service": target.title})
+            return redirect("admin_service", service_id=target.id)
+    return page(request, "admin_portal/service.html", "services", {"e": services_data.editor(service, draft)})

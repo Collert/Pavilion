@@ -28,4 +28,7 @@ urlpatterns = [
     path("combos", views.combos, name="admin_combos"),
     path("combos/new", views.combo_new, name="admin_combo_new"),
     path("combos/<int:combo_id>", views.combo_edit, name="admin_combo"),
+    path("services", views.services, name="admin_services"),
+    path("services/new", views.service_new, name="admin_service_new"),
+    path("services/<int:service_id>", views.service_edit, name="admin_service"),
 ]
