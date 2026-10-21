@@ -8,6 +8,11 @@ const SAVES = ["save", "duplicate", "archive", "restore"];
 document.addEventListener("change", (event) => {
     const form = event.target.closest("form[data-editor]");
     if (!form) return;
+    // Files kept as soon as they're picked (a restock's receipt): send it now, then clear the field
+    if (event.target.matches("[data-upload]")) {
+        form.requestSubmit(form.querySelector("[data-preview]"));
+        return;
+    }
     if (event.target.type === "file") {
         const file = event.target.files?.[0];
         const region = event.target.closest("[data-region]");

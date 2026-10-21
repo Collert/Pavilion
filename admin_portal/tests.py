@@ -18,7 +18,7 @@ from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, components, condiments, dashboard, dishes, disposables, ingredients, recipes, reports, services
+from . import combos, components, condiments, dashboard, dishes, disposables, ingredients, recipes, reports, restocks, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -1378,6 +1378,92 @@ class SubstituteEditorTests(AdminFixture, TestCase):
         self.assertEqual([(g.title, g.required, [o.title for o in g.options.all()]) for g in groups],
                          [("Temperature", True, ["Medium", "Well done"]), ("Doneness note", True, ["Option"])])
         self.assertEqual(groups[0].options.first().price, Decimal("0.25"))
+
+
+def restock_fields(draft, **changes):
+    """The restock editor's POST fields for a draft (admin_portal.restocks.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("supplier", "status", "created_on", "placed_on", "expected_on", "delivered_on", "fee", "tax", "notes")}
+    data["line-count"] = len(draft["lines"])
+    for i, l in enumerate(draft["lines"]):
+        data.update({f"line-{i}-{k}": l[k] for k in ("id", "ingredient", "cases", "price", "was", "pack")})
+    return data
+
+
+class RestockTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from inventory.models import Restock, RestockLine
+        cls.build_admin()
+        cls.meats = Supplier.objects.create(name="Valley Meats")
+        cls.beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", supplier=cls.meats, pack_size=5000,
+                                             pack_price=Decimal("75.00"), inventory=3000, par=8000)
+        cls.pork = Ingredient.objects.create(title="Pork shoulder", unit_of_measurement="g", supplier=cls.meats, pack_size=10000,
+                                             pack_price=Decimal("100.00"), inventory=1000, par=12000)
+        cls.restock = Restock.objects.create(supplier=cls.meats, created_by=cls.owner)
+        RestockLine.objects.create(restock=cls.restock, ingredient=cls.pork, cases=1, case_price=Decimal("100.00"),
+                                   was_price=Decimal("100.00"), pack_size=10000)
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, restock=None):
+        from inventory.models import Restock
+        return restocks.draft_from_restock(Restock.objects.get(pk=(restock or self.restock).pk))
+
+    def post(self, op, draft=None, restock=None, **changes):
+        restock = restock or self.restock
+        return self.client.post(reverse("admin_restock", args=[restock.id]), {**restock_fields(draft or self.draft(restock), **changes), "op": op})
+
+    def test_list_suggests_what_is_under_par_and_drafts_it(self):
+        l = self.client.get(reverse("admin_restocks")).context["l"]
+        self.assertEqual([(g["supplier"], [i.title for i in g["items"]]) for g in l["suggest"]], [(self.meats, ["Ground beef"])])  # pork is on the draft
+        self.assertEqual((l["filters"][1]["count"], l["kpis"][3]["value"]), (1, "1"))
+        response = self.client.post(reverse("admin_restocks"), {"supplier": self.meats.id})
+        from inventory.models import Restock
+        new = Restock.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_restock", args=[new.id]))
+        self.assertEqual([(line.ingredient, line.cases) for line in new.lines.all()], [(self.beef, 1)])  # 5 kg short: one 5 kg case
+
+    def test_delivering_adds_stock_and_takes_the_new_price(self):
+        e = self.post("fill").context["e"]
+        self.assertEqual([l["ingredient"].title for l in e["lines"]], ["Pork shoulder", "Ground beef"])
+        draft = e["d"]
+        draft["lines"][1]["price"] = "80.00"
+        e = self.post("status:delivered", draft).context["e"]
+        self.assertEqual((e["d"]["status"], e["note_kind"]), ("delivered", "go"))
+        self.assertEqual([c["name"] for c in e["changes"]], ["Ground beef"])
+        self.post("save", e["d"])
+        beef, pork = Ingredient.objects.get(pk=self.beef.pk), Ingredient.objects.get(pk=self.pork.pk)
+        self.assertEqual((beef.inventory, beef.pack_price, beef.cost, beef.previous_cost), (8000, Decimal("80.00"), Decimal("0.016"), Decimal("0.015")))
+        self.assertEqual(pork.inventory, 11000)
+        # Locked now: saving again adds nothing, and it can't go back to placed or be deleted
+        self.post("status:placed")
+        self.post("save", self.draft(), notes="Checked")
+        self.assertEqual(Ingredient.objects.get(pk=self.beef.pk).inventory, 8000)
+        from inventory.models import Restock
+        self.assertEqual(Restock.objects.get(pk=self.restock.pk).status, "delivered")
+        self.post("delete")
+        self.assertTrue(Restock.objects.filter(pk=self.restock.pk).exists())
+
+    def test_add_line_receipt_duplicate_and_delete(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from inventory.models import Restock
+        e = self.client.post(reverse("admin_restock", args=[self.restock.id]),
+                             {**restock_fields(self.draft()), "op": "preview", "add_line": str(self.beef.id)}).context["e"]
+        self.assertEqual(e["lines"][1]["l"]["cases"], "1")
+        fields = {**restock_fields(self.draft()), "op": "preview", "receipt": SimpleUploadedFile("invoice.pdf", b"%PDF-1.4", content_type="application/pdf")}
+        e = self.client.post(reverse("admin_restock", args=[self.restock.id]), fields).context["e"]
+        self.assertEqual((e["receipt"]["name"][:7], e["receipt"]["kind"]), ("invoice", "PDF"))
+        self.post("remove_receipt")
+        self.assertFalse(Restock.objects.get(pk=self.restock.pk).receipt)
+        response = self.post("duplicate")
+        copy = Restock.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_restock", args=[copy.id]))
+        self.assertEqual((copy.status, [l.ingredient for l in copy.lines.all()]), ("draft", [self.pork]))
+        self.assertEqual(self.post("preview", restock=copy, status="placed", lines=[]).context["e"]["status"], "Add at least one item first")
+        self.assertRedirects(self.post("delete", restock=copy), reverse("admin_restocks"))
+        self.assertFalse(Restock.objects.filter(pk=copy.pk).exists())
 
 
 class UnitTests(TestCase):

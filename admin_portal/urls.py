@@ -43,4 +43,7 @@ urlpatterns = [
     path("disposables", views.disposables, name="admin_disposables"),
     path("disposables/new", views.disposable_new, name="admin_disposable_new"),
     path("disposables/<int:disposable_id>", views.disposable_edit, name="admin_disposable"),
+    path("restocks", views.restocks, name="admin_restocks"),
+    path("restocks/new", views.restock_new, name="admin_restock_new"),
+    path("restocks/<int:restock_id>", views.restock_edit, name="admin_restock"),
 ]

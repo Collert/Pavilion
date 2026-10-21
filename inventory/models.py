@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -290,3 +291,65 @@ class WastePackaging(models.Model):
     date = models.DateTimeField(auto_now_add = True)
     packaging = models.ForeignKey("Packaging", on_delete = models.CASCADE)
     quantity = models.PositiveIntegerField()
+
+class Restock(models.Model):
+    """
+    A purchase order from a supplier (the admin's Restocks page): a draft, then placed (sent), then delivered. When
+    it's first saved as delivered, each line's cases are added to its ingredient's stock and its case price becomes
+    the ingredient's pack price (so component and dish costs follow); `received_at` records that it happened, and a
+    delivered order can't go back. `number` is the order number people use ("PO-148").
+    """
+    DRAFT, PLACED, DELIVERED = "draft", "placed", "delivered"
+    STATUSES = [(DRAFT, "Draft"), (PLACED, "Placed"), (DELIVERED, "Delivered")]
+
+    supplier = models.ForeignKey("pos_server.Supplier", on_delete=models.PROTECT, related_name="restocks")
+    status = models.CharField(max_length=10, choices=STATUSES, default=DRAFT)
+    created_on = models.DateField(default=timezone.localdate)
+    placed_on = models.DateField(null=True, blank=True)
+    expected_on = models.DateField(null=True, blank=True, help_text="Want it by / expected")
+    delivered_on = models.DateField(null=True, blank=True)
+    received_at = models.DateTimeField(null=True, blank=True, help_text="When its stock and prices were taken in")
+    fee = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Delivery fee")
+    tax = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Tax on the receipt")
+    notes = models.TextField(blank=True)
+    receipt = models.FileField(upload_to="files/restock_receipts", null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"PO-{self.id} {self.supplier}"
+
+    @property
+    def number(self) -> str:
+        return f"PO-{self.id}"
+
+    @property
+    def subtotal(self) -> Decimal:
+        return sum((line.total for line in self.lines.all()), Decimal("0"))
+
+    @property
+    def total(self) -> Decimal:
+        return self.subtotal + self.fee + self.tax
+
+
+class RestockLine(models.Model):
+    """Cases of one ingredient on a restock. `was_price` is what a case cost when it was added (last time paid)."""
+    restock = models.ForeignKey(Restock, on_delete=models.CASCADE, related_name="lines")
+    ingredient = models.ForeignKey("pos_server.Ingredient", on_delete=models.PROTECT, related_name="restock_lines")
+    cases = models.PositiveIntegerField(default=1)
+    case_price = models.DecimalField(max_digits=10, decimal_places=2)
+    was_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pack_size = models.FloatField(help_text="Units in a case when it was ordered, in the ingredient's unit")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return f"{self.cases} × {self.ingredient} on {self.restock}"
+
+    @property
+    def total(self) -> Decimal:
+        return self.case_price * self.cases

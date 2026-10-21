@@ -33,7 +33,7 @@ from admin_portal.models import StoreSettings
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
-from inventory.models import (CookingSession, IngredientReservation, Packaging, Recipe, RecipeIngredient, RecipeStep,
+from inventory.models import (Restock, RestockLine, CookingSession, IngredientReservation, Packaging, Recipe, RecipeIngredient, RecipeStep,
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
@@ -91,6 +91,7 @@ class Command(BaseCommand):
             self.seed_ingredient_details()
             self.seed_condiments()
             self.seed_disposables()
+            self.seed_restocks()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -828,6 +829,41 @@ class Command(BaseCommand):
         retired = Ingredient.objects.create(title="Plastic straw", unit_of_measurement="ea", category="other", pack_size=5000,
                                             pack_price=Decimal("25.00"), archived=True)
         Disposable.objects.create(ingredient=retired, category="cups", material="pp", bin="recycle", counted="request", order_types=["pickup"])
+
+    def seed_restocks(self):
+        """Purchase orders: deliveries over the last weeks (some prices changed, most with a receipt), two on the way and a draft."""
+        today = timezone.localdate()
+        day = lambda n: today + datetime.timedelta(days=n)  # noqa: E731
+        priya, admin = User.objects.get(username="priya"), User.objects.get(username="admin")
+        i = {ingredient.title: ingredient for ingredient in Ingredient.objects.all()}
+        supplier = {x.name: x for x in Supplier.objects.all()}
+        # supplier, status, created, placed, expected, delivered, [(ingredient, cases, case price, last paid)], fee, tax, receipt, by
+        specs = [
+            ("Pacific Foodservice", "delivered", -20, -20, -17, -17, [("Flour", 2, None, "38.00"), ("Sugar", 1, None, None), ("Mayonnaise", 1, None, None)], "0", "4.80", "pdf", admin),
+            ("Corner Bakehouse", "delivered", -14, -14, -13, -13, [("Gluten-free buns", 6, None, "9.60")], "0", "0", None, priya),
+            ("Ridgeline Coffee Roasters", "delivered", -13, -13, -10, -10, [("Coffee beans", 3, None, "63.95")], "0", "0", "pdf", admin),
+            ("Corner Paper Co.", "delivered", -11, -11, -7, -7, [("Paper bag", 4, None, "50.00"), ("Napkins", 1, None, None)], "0", "5.45", "pdf", admin),
+            ("Sun Valley Farms", "delivered", -8, -8, -5, -5, [("Potatoes", 2, None, "62.00"), ("Lemons", 1, None, None), ("Vegetables", 2, None, "41.00")], "10.00", "0", "img", priya),
+            ("Dairyland", "delivered", -6, -6, -3, -3, [("Eggs", 1, None, "50.80"), ("Butter", 6, None, None), ("Milk", 4, None, None), ("Cheddar", 1, None, "48.00")], "0", "0", "pdf", admin),
+            ("EcoPack Supply", "placed", -2, -2, 3, None, [("Fry boat", 1, None, None), ("Cutlery kit", 1, "65.00", None), ("Hot cup", 1, "118.00", "112.00")], "0", "0", None, priya),
+            ("Valley Meats", "placed", -1, -1, 2, None, [("Ground beef", 3, "78.00", "75.00"), ("Chicken", 1, None, None)], "15.00", "0", None, admin),
+            ("Pacific Foodservice", "draft", 0, None, 3, None, [("BBQ sauce", 2, None, None), ("Pickle chips", 1, None, None), ("Flour", 1, None, None)], "0", "0", None, priya),
+        ]
+        for name, status, created, placed, expected, delivered, lines, fee, tax, receipt, by in specs:
+            restock = Restock.objects.create(supplier=supplier[name], status=status, created_on=day(created),
+                                             placed_on=day(placed) if placed is not None else None, expected_on=day(expected) if expected is not None else None,
+                                             delivered_on=day(delivered) if delivered is not None else None, fee=Decimal(fee), tax=Decimal(tax), created_by=by,
+                                             received_at=timezone.now() + datetime.timedelta(days=delivered) if delivered is not None else None,
+                                             notes="Back door, before 9 AM please." if name == "Valley Meats" else "")
+            for position, (title, cases, price, was) in enumerate(lines):
+                ingredient = i[title]
+                case_price = Decimal(price) if price else ingredient.pack_price
+                RestockLine.objects.create(restock=restock, ingredient=ingredient, cases=cases, case_price=case_price,
+                                           was_price=Decimal(was) if was else case_price, pack_size=ingredient.pack_size, position=position)
+            if receipt:
+                content = placeholder_image(f"{restock.number} {name}", "#e8ede9", size=(600, 800)) if receipt == "img" else \
+                    ContentFile(b"%PDF-1.4\n% demo invoice\n")
+                restock.receipt.save(f"{name.split()[0]}-{restock.id}." + ("png" if receipt == "img" else "pdf"), content, save=True)
 
     def seed_discounts(self):
         specs = [

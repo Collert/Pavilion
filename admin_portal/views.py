@@ -21,11 +21,11 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext as _, gettext_lazy as _lazy, ngettext
 
-from inventory.models import Recipe, RecipeStep
+from inventory.models import Recipe, RecipeStep, Restock
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station, Supplier
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
@@ -40,6 +40,7 @@ from . import menus as menus_data
 from . import orders as orders_data
 from . import recipes as recipes_data
 from . import reports as reports_data
+from . import restocks as restocks_data
 from . import services as services_data
 from .models import StoreSettings
 from .nav import rail
@@ -782,3 +783,76 @@ def disposable_edit(request, disposable_id):
             messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate" else _("%(item)s saved") % {"item": target.title})
             return redirect("admin_disposable", disposable_id=target.id)
     return page(request, "admin_portal/disposable.html", "disposables", {"e": disposables_data.editor(disposable, draft)})
+
+
+# ---------- restocks ----------
+
+@superuser_required
+def restocks(request):
+    if request.method == "POST":  # "Draft order" for a supplier with items under par
+        supplier = get_object_or_404(Supplier, pk=request.POST.get("supplier"))
+        restock = restocks_data.draft_order(supplier, request.user)
+        messages.success(request, _("Drafted %(number)s from %(supplier)s") % {"number": restock.number, "supplier": supplier.name})
+        return redirect("admin_restock", restock_id=restock.id)
+    data = restocks_data.restock_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/restocks.html", "restocks", {"l": data})
+
+
+@superuser_required
+@require_POST
+def restock_new(request):
+    supplier = Supplier.objects.order_by("name").first()
+    if supplier is None:
+        messages.error(request, _("Add a supplier on an ingredient first."))
+        return redirect("admin_restocks")
+    restock = Restock.objects.create(supplier=supplier, created_by=request.user,
+                                     expected_on=timezone.localdate() + datetime.timedelta(days=3))
+    return redirect("admin_restock", restock_id=restock.id)
+
+
+@superuser_required
+def restock_edit(request, restock_id):
+    """The restock editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    restock = get_object_or_404(Restock.objects.select_related("supplier"), pk=restock_id)
+    if request.method != "POST":
+        return page(request, "admin_portal/restock.html", "restocks", {"e": restocks_data.editor(restock, restocks_data.draft_from_restock(restock))})
+    op = request.POST.get("op", "")
+    # A receipt is kept as soon as it's picked (it isn't part of the draft)
+    if request.FILES.get("receipt"):
+        upload = request.FILES["receipt"]
+        if upload.size > 20 * 1024 * 1024:
+            messages.error(request, _("That file is too big (20 MB at most)."))
+        else:
+            restock.receipt.save(upload.name, upload, save=True)
+    if op == "remove_receipt" and restock.receipt:
+        restock.receipt.delete(save=True)
+    draft = restocks_data.apply_op(restocks_data.draft_from_post(request.POST), op, request.POST, restock)
+    if op == "delete":
+        if restock.status == Restock.DELIVERED:
+            messages.error(request, _("Delivered orders stay on record."))
+        else:
+            number = restock.number
+            restock.delete()
+            messages.success(request, _("%(number)s deleted") % {"number": number})
+            return redirect("admin_restocks")
+    elif op == "duplicate":
+        copy = restocks_data.copy_as_draft(restock, request.user)
+        messages.success(request, _("Copied into a new draft, %(number)s") % {"number": copy.number})
+        return redirect("admin_restock", restock_id=copy.id)
+    elif op == "leave":
+        if not restocks_data.is_dirty(draft, restock):
+            return redirect("admin_restocks")
+        return page(request, "admin_portal/restock.html", "restocks", {"e": restocks_data.editor(restock, draft, leave_ask=True)})
+    elif op == "save":
+        issue = restocks_data.problems(draft, restock)
+        if issue:
+            messages.error(request, issue)
+        else:
+            taken = restocks_data.save_draft(draft, restock, request.user)
+            if taken:
+                _dishes_changed()  # stock and costs moved
+                messages.success(request, ngettext("Stock added for %(n)d item", "Stock added for %(n)d items", taken) % {"n": taken})
+            else:
+                messages.success(request, _("%(number)s saved") % {"number": restock.number})
+            return redirect("admin_restock", restock_id=restock.id)
+    return page(request, "admin_portal/restock.html", "restocks", {"e": restocks_data.editor(restock, draft)})

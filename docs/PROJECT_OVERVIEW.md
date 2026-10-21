@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -489,6 +489,17 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `pricing.price_dish` reads `swaps`, the KDS shows the substitute as an option. The dish's Modifiers card lists the
   groups its components own ("Patty temperature · from Beef patty") with a link, and the Components editor has a
   Modifiers card to edit them. seed_demo's old "Bun" and "Milk" component groups became substitutes on every dish.
+- **Restocks** (`admin_restocks`, `restocks.py`, 2026-10-21): purchase orders (`inventory.Restock` + `RestockLine`:
+  cases of an ingredient at a case price, with the price last paid and the case size at the time). Draft, placed,
+  delivered: the first save as delivered adds each line's cases to stock and makes its case price the ingredient's pack
+  price (`previous_cost` keeps the old one, so "since last delivery" is real); `received_at` locks it (only prices,
+  dates, notes, fee, tax and the receipt can change, and a fixed price follows to the ingredient when it's the latest
+  delivery). The list has KPIs (on the way, spent and price changes in 30 days, drafts and missing receipts), a band of
+  suppliers with items under par that aren't on an open order ("Draft order" makes one), filters and rows; the editor
+  has the status steps, supplier and dates, items (cases stepper, price per case with the change from last time, "Add N
+  under par", add from this or other suppliers), notes, the total with delivery fee and tax, the receipt (kept as soon
+  as it's picked: `editor.js` posts `[data-upload]` files at once) and the price changes with what they affect. The
+  old shopping log (`/inventory/log-shopping`, `StockUpdate`) is still there.
 - **Disposables** (`admin_disposables`, `disposables.py`, 2026-10-21): `Disposable` (size, category, material, bin,
   order types, counted per dish / per order / per guest / on request, dishes, count, fee label and price) sits on an
   ingredient counted in ea that holds the buying (supplier, units per case, case price) and the stock. When an order
