@@ -1,0 +1,29 @@
+{
+  "kind": "menu_template",
+  "title": "Showcase",
+  "description": "Dark and warm: a big photo of the featured dish, your three best sellers as cards, and the groups in two columns.",
+  "template": "screens/menu_templates/showcase.html",
+  "css": ["screens/menu_templates/showcase.css"],
+  "orientation": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "groups": 3,
+  "per_group": 6,
+  "featured": "optional",
+  "fonts": "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@500;600;700;800&display=swap",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name at the top", "help": "Leave empty for the store name"},
+    "badge": {"type": "string", "default": "Kitchen open till 4", "label": "Badge", "help": "The pill at the top right; leave empty to hide it"},
+    "featured_label": {"type": "string", "default": "Chef's pick", "label": "Featured label"},
+    "loved_title": {"type": "string", "default": "Most loved", "label": "Best sellers heading"},
+    "loved_count": {"type": "int", "default": 3, "min": 0, "max": 3, "label": "Best sellers shown", "help": "Your most sold dishes on this menu over the last 30 days, as cards"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "background": {"type": "color", "default": "#16110E", "label": "Background"},
+    "text": {"type": "color", "default": "#F6EFE6", "label": "Text"},
+    "accent": {"type": "color", "default": "#E9A64B", "label": "Accent", "help": "Prices, the featured label and highlights"},
+    "card": {"type": "color", "default": "#231A14", "label": "Cards"},
+    "badge_dot": {"type": "color", "default": "#7FCB8A", "label": "Badge dot"},
+    "heading_font": {"type": "choice", "options": ["DM Serif Display", "Fraunces", "Playfair Display", "Sora"], "default": "DM Serif Display", "label": "Heading font"},
+    "body_font": {"type": "choice", "options": ["Manrope", "Inter", "Libre Franklin", "Archivo"], "default": "Manrope", "label": "Text font"}
+  }
+}

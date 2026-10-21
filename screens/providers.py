@@ -115,3 +115,15 @@ def weather(request, params):
         current = {**current, "temp": round(current["temp_f"] if params["units"] == "f" else current["temp_c"])}
     # The page refetches when this runs out (see data-ends in static/js/live-page.js), picking up fresh weather
     return {"current": current, "refresh_at": int(entry["until"] * 1000) + 2000}
+
+
+def menu_board(request, params):
+    """A menu laid out by its Display tab (screens/menu_boards.py), or nothing when the board has no menu yet."""
+    from admin_portal.models import StoreSettings
+    from pos_server.models import Menu
+
+    from .menu_boards import board
+    menu = Menu.objects.filter(pk=params["menu"]).first() if params["menu"] else None
+    if menu is None:
+        return {"board": None}
+    return {"board": board(menu, store_name=StoreSettings.load().name)}

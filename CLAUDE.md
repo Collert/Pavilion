@@ -142,6 +142,14 @@ the server and cached 15 min, so the key never reaches the browser) and return o
 cache expiring) renders `<span hidden data-ends="<epoch ms>">`. A bad saved param falls back to its default and a
 missing or failing widget renders a placeholder, so one widget never takes a screen down.
 
+**Menu templates** are a special kind of widget (`"kind": "menu_template"`, `screens/widgets/menu_<name>.json`): a
+menu-board layout from the canvas's `Menu*` artboards (Showcase is built; Chalk, Editorial, Poster, Grid, Letterboard,
+Triptych, Departures, Carousel and Neon are still to do). Screens place the `menu_board` widget (param: a menu id);
+the template, pages, group slots, timing and the template's params (its look) are set per menu in the admin's Display
+tab and kept on `Menu.display` (`screens/menu_boards.py`). A template's JSON adds `orientation`, `width`/`height`,
+`groups`, `per_group`, `featured` and `fonts`; its partial gets `b` (`menu_boards.board()`), renders every
+`.mb-page` and each slot's `.mb-screen`s, and `screens/widgets/menu_board.js` turns them over.
+
 ## Access control
 
 Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`

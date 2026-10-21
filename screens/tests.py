@@ -243,3 +243,66 @@ class WeatherTests(TestCase):
                 self.assertLogs("screens.providers", "WARNING"):
             html = self.client.get("/en/screens/weather").content.decode()
         self.assertIn("—", html)
+
+
+class MenuBoardTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from decimal import Decimal
+
+        from pos_server.models import Dish, Menu
+        cls.kitchen = Station.objects.get(code="kitchen")
+        cls.bar = Station.objects.get(code="bar")
+        cls.burger = Dish.objects.create(title="Burger", price=Decimal("14.50"), station=cls.kitchen, description="Two patties")
+        cls.tea = Dish.objects.create(title="Tea", price=Decimal("2.00"), station=cls.bar, availability="off")
+        cls.coffees = [Dish.objects.create(title=f"Coffee {n}", price=Decimal("3.00"), station=cls.bar) for n in range(7)]
+        cls.menu = Menu.objects.create(title="Lunch", manual_on=True)
+        cls.menu.dishes.set([cls.burger, cls.tea, *cls.coffees])
+
+    def test_menu_templates_load_and_their_files_exist(self):
+        from django.contrib.staticfiles import finders
+
+        from .layout import check_value
+        templates = registry.menu_templates()
+        self.assertIn("menu_showcase", templates)
+        self.assertNotIn("menu_showcase", registry.widgets())  # not placed on screens directly
+        for template in templates.values():
+            get_template(template.template)
+            for path in template.css:
+                self.assertTrue(finders.find(path), f"{template.name}: missing static file {path}")
+            self.assertIn(template.layout["orientation"], ("portrait", "landscape"))
+            for param in template.params.values():
+                self.assertIsNone(check_value(param, param.default), f"{template.name}.{param.name}")
+
+    def test_clean_fills_in_and_drops_what_doesnt_fit(self):
+        from .menu_boards import clean
+        display = clean({"pages": [{"slots": ["s:999", "combos", "s:%d" % self.kitchen.id, "extra"], "featured": "d:1"}],
+                         "page_sec": 1, "group_fx": "spin", "look": {"accent": "red"}}, self.menu)
+        self.assertEqual(display["template"], "menu_showcase")
+        self.assertEqual(display["pages"][0]["slots"], ["", "", f"s:{self.kitchen.id}"])  # unknown groups go, 3 slots
+        self.assertEqual((display["page_sec"], display["group_fx"], display["look"]["accent"]), (3, "slide", "#E9A64B"))
+        self.assertEqual(clean({}, self.menu)["pages"], [{"featured": "", "slots": [f"s:{self.kitchen.id}", f"s:{self.bar.id}", ""]}])
+
+    def test_board_splits_slots_into_screens_and_hides_sold_out(self):
+        from .menu_boards import board
+        display = {"pages": [{"featured": f"d:{self.burger.id}", "slots": [f"s:{self.bar.id}", "", ""]}], "sold": "show"}
+        slot = board(self.menu, display)["pages"][0]["slots"][0]
+        self.assertEqual((slot["count"], len(slot["screens"]), len(slot["screens"][0])), (8, 2, 6))
+        self.assertTrue(any(item["out"] for item in slot["screens"][0]))
+        slot = board(self.menu, {**display, "sold": "hide"})["pages"][0]["slots"][0]
+        self.assertEqual(slot["count"], 7)
+
+    def test_a_screen_shows_its_menu(self):
+        self.menu.display = {"template": "menu_showcase", "look": {"badge": "Open till 8", "loved_count": 0},
+                             "pages": [{"featured": f"d:{self.burger.id}", "slots": [f"s:{self.bar.id}", f"s:{self.kitchen.id}", ""]}]}
+        self.menu.save()
+        screen = Screen.objects.create(name="Board", slug="board", public=True, width=1080, height=1920, padding=0,
+                                       layout={"widget": "menu_board", "params": {"menu": self.menu.id}})
+        html = self.client.get(reverse("screen", args=["board"])).content.decode()
+        self.assertIn("Open till 8", html)
+        self.assertIn("Two patties", html)  # the featured dish
+        self.assertIn("Coffee 6", html)
+        self.assertIn('data-page-sec="20"', html)
+        screen.layout = {"widget": "menu_board", "params": {"menu": 0}}
+        screen.save()
+        self.assertIn("Pick a menu for this board", self.client.get(reverse("screen", args=["board"])).content.decode())

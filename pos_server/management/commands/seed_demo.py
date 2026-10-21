@@ -478,7 +478,7 @@ class Command(BaseCommand):
         visible = [smash, chicken, melt, pork, bowl, fries, corn, latte, flat_white, lemonade, spritz, matcha, cold_brew,
                    bun, croissant, brownie, tart, cookie, loaf]
         # Lunch is switched on by hand, so the register and store always have a menu; the others follow schedules
-        menu("Lunch", 0, visible, [lunch, kids], "#1f4a3a", manual_on=True)
+        lunch_menu = menu("Lunch", 0, visible, [lunch, kids], "#1f4a3a", manual_on=True)
         breakfast = menu("Breakfast", 1, [latte, flat_white, matcha, bun, croissant, cookie], [], "#b5791f", auto=True,
                          rules=[weekly("on", "01234", 7), weekly("on", "56", 8), weekly("off", "0123456", 11)])
         menu("Happy hour", 2, [spritz, lemonade, fries, corn], [], "#8e2914", auto=True,
@@ -487,6 +487,20 @@ class Command(BaseCommand):
         holiday = menu("Holiday specials", 3, [latte, bun, brownie, cookie], [], "#2d5a84", auto=True, draft=True,
                        rules=[("on", MenuRule.DATES, {"start_date": datetime.date(year, 12, 1), "end_date": datetime.date(year, 12, 31)})])
         MenuRule.objects.get_or_create(menu=breakfast, kind="off", type=MenuRule.MENU, other_menu=holiday)
+
+        # Menu boards (the Display tab): Lunch turns over two pages, Breakfast has one
+        kitchen, bar, bakery = (f"s:{st[code].id}" for code in ("kitchen", "bar", "bakery"))
+        timing = {"sold": "show", "page_fx": "fade", "page_sec": 30, "group_fx": "slide", "group_sec": 10}
+        if not lunch_menu.display:
+            lunch_menu.display = {"template": "menu_showcase", "look": {"badge": "Kitchen open till 8"}, **timing, "pages": [
+                {"featured": f"d:{bowl.id}", "slots": [kitchen, bar, bakery]},
+                {"featured": f"c:{lunch.id}", "slots": ["combos", bar, bakery]}]}
+            lunch_menu.save(update_fields=["display"])
+        if not breakfast.display:
+            breakfast.display = {"template": "menu_showcase", "look": {"badge": "Fresh from the oven", "accent": "#F2B45A"}, **timing,
+                                 "pages": [{"featured": f"d:{bun.id}", "slots": [bar, bakery, ""]}]}
+            breakfast.save(update_fields=["display"])
+        self.lunch_menu = lunch_menu
 
     def seed_cookery(self):
         """Recipes, par levels, frozen versions with their transforms, and a few batches in progress (like the mockup)."""
@@ -636,6 +650,12 @@ class Command(BaseCommand):
                         "text": "Double shot, steamed oat milk and a little maple syrup."}},
                 ]},
             ]},
+        })
+
+        # A menu board for a vertical TV: the Lunch menu on the Showcase template
+        Screen.objects.get_or_create(slug="menu-board", defaults={
+            "name": "Menu board", "public": True, "width": 1080, "height": 1920, "padding": 0, "background": "#16110E",
+            "layout": {"widget": "menu_board", "params": {"menu": self.lunch_menu.id}},
         })
 
     def seed_gift_cards(self):

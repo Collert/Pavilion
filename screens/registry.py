@@ -17,6 +17,18 @@ A definition looks like this (see the "Screens and widgets" section of CLAUDE.md
 
 The widget's name is its file name. Definitions are read from disk on every call in DEBUG (edit and reload) and
 once per process otherwise; they are part of the code, not cross-request state.
+
+A **menu template** is a special kind of widget ("kind": "menu_template", file name menu_<name>.json): a menu-board
+layout. Screens don't place it directly; the "menu_board" widget shows a menu with the template picked in the menu's
+Display tab (admin), and its `params` are the template's look (colours, fonts, texts), set per menu there too. It also
+says how it lays a menu out:
+
+    "orientation": "portrait",   // or "landscape"
+    "width": 1080, "height": 1920, // the design canvas, in design pixels
+    "groups": 3,                  // group slots per page (a group is a station's dishes, or the combos)
+    "per_group": 6,               // items a slot shows at once; more rotate through screens
+    "featured": "optional",       // or "none": a featured item per page
+    "fonts": "https://fonts.googleapis.com/css2?..."  // optional stylesheet for its fonts
 """
 import json
 import re
@@ -60,6 +72,8 @@ class Widget:
     css: tuple = ()
     js: tuple = ()
     slots: str = ""  # name of the int param giving the number of child slots; "" = takes no children
+    kind: str = "widget"  # or "menu_template"
+    layout: dict = field(default_factory=dict)  # menu templates: orientation, width, height, groups, per_group, featured, fonts
 
     def provider(self):
         return import_string(self.context) if self.context else None
@@ -94,9 +108,20 @@ def _load(path):
     slots = spec.get("slots", "")
     if slots and (slots not in params or params[slots].type != "int"):
         raise ImproperlyConfigured(f"{where}: slots must name an int param")
+    kind = spec.get("kind", "widget")
+    layout = {}
+    if kind == "menu_template":
+        layout = {"orientation": spec.get("orientation", "portrait"), "width": int(spec.get("width", 1080)),
+                  "height": int(spec.get("height", 1920)), "groups": int(spec.get("groups", 3)),
+                  "per_group": int(spec.get("per_group", 6)), "featured": spec.get("featured", "none"), "fonts": spec.get("fonts", "")}
+        if layout["orientation"] not in ("portrait", "landscape") or layout["featured"] not in ("optional", "none") \
+                or not 1 <= layout["groups"] <= 8 or layout["per_group"] < 1:
+            raise ImproperlyConfigured(f"{where}: check orientation, featured, groups and per_group")
+    elif kind != "widget":
+        raise ImproperlyConfigured(f"{where}: kind is \"widget\" or \"menu_template\"")
     return Widget(name=name, title=spec["title"], template=spec["template"], description=spec.get("description", ""),
                   params=params, context=spec.get("context", ""), live=tuple(spec.get("live", ())),
-                  css=tuple(spec.get("css", ())), js=tuple(spec.get("js", ())), slots=slots)
+                  css=tuple(spec.get("css", ())), js=tuple(spec.get("js", ())), slots=slots, kind=kind, layout=layout)
 
 
 def _read_all():
@@ -106,11 +131,20 @@ def _read_all():
 _read_cached = cache(_read_all)
 
 
-def widgets() -> dict:
-    """{name: Widget} for every widget definition."""
+def _everything() -> dict:
     return _read_all() if settings.DEBUG else _read_cached()
+
+
+def widgets() -> dict:
+    """{name: Widget} for every widget a screen can place (menu templates aren't placed directly)."""
+    return {name: w for name, w in _everything().items() if w.kind == "widget"}
 
 
 def get(name):
     """The widget called `name`, or None."""
     return widgets().get(name)
+
+
+def menu_templates() -> dict:
+    """{name: Widget} for every menu template."""
+    return {name: w for name, w in _everything().items() if w.kind == "menu_template"}

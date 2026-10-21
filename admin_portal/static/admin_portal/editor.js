@@ -1,6 +1,6 @@
 // Admin editors (dish, combo...) are one form[data-editor] that live-page.js posts in the background. This adds
 // what HTML can't do: post the draft back with the form's [data-preview] button (op=preview) when a field changes,
-// so sums and warnings keep up without saving, and show a chosen photo (#photo-preview) before it's saved. The
+// so sums and warnings keep up without saving (search fields marked data-type-preview as you type), and show a chosen photo (#photo-preview) before it's saved. The
 // photo's region is marked data-keep, so background answers leave the chosen file alone until the form is saved.
 
 const SAVES = ["save", "duplicate", "archive", "restore"];
@@ -23,6 +23,15 @@ document.addEventListener("change", (event) => {
         if (pending) pending.value = "1";
     }
     form.requestSubmit(form.querySelector("[data-preview]"));
+});
+
+// Search-like fields ([data-type-preview]) show results as you type
+let typing;
+document.addEventListener("input", (event) => {
+    const form = event.target.closest("form[data-editor]");
+    if (!form || !event.target.matches("[data-type-preview]")) return;
+    clearTimeout(typing);
+    typing = setTimeout(() => form.requestSubmit(form.querySelector("[data-preview]")), 300);
 });
 
 // Saving sends the photo, so let the answer replace its region again

@@ -22,10 +22,9 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _, gettext_lazy as _lazy
 
 from misc_tools.email import EmailError, send as send_email
-from pos_server.devices import safe_next_url, superuser_required
+from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.menu_schedule import Schedule
-from pos_server.models import Combo, ComboSlot, Dish, Menu, MenuRule, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Dish, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 
 from . import combos as combos_data
@@ -228,51 +227,62 @@ def menu_new(request):
 
 @superuser_required
 def menu_edit(request, menu_id):
+    """
+    The menu editor: one form (items, schedule and display tabs) with Save. Its state travels in a hidden `state`
+    field (admin_portal/menus.py); POST merges the fields on screen and applies `op` (tab:…, toggle:…, add_rule:…,
+    page:…, preview...) without saving. Save writes it (and publishes a draft); Back asks first when it's unsaved.
+    """
     menu = get_object_or_404(Menu, pk=menu_id)
-    tab = "schedule" if request.GET.get("tab") == "schedule" else "items"
-    schedule = Schedule()
-    context = {"menu": menu, "tab": tab, "status": menus_data.status(menu, schedule),
-               "items_count": menu.dishes.count() + menu.combos.count()}
-    if tab == "items":
-        context["c"] = menus_data.catalog(menu, request.GET.get("group", "all"), request.GET.get("q", ""))
-    else:
-        context["s"] = menus_data.schedule_tab(menu)
-    return page(request, "admin_portal/menu.html", "menus", context)
+    store = StoreSettings.load().name
+
+    def show(draft, leave_ask=False):
+        context = menus_data.editor(menu, draft, leave_ask)
+        tab = draft["ui"]["tab"]
+        if tab == "items":
+            context["c"] = menus_data.catalog(draft, draft["ui"]["group"], draft["ui"]["q"])
+        elif tab == "schedule":
+            context["s"] = menus_data.schedule_tab(draft, menu)
+        else:
+            context["v"] = menus_data.display_tab(draft, menu, store)
+        return page(request, "admin_portal/menu.html", "menus", context)
+
+    if request.method != "POST":
+        draft = menus_data.draft_from_menu(menu)
+        if request.GET.get("tab") in menus_data.TABS:
+            draft["ui"]["tab"] = request.GET["tab"]
+        return show(draft)
+    op = request.POST.get("op", "")
+    draft = menus_data.merge_post(menus_data.load_state(request.POST, menu), request.POST, menu)
+    if op == "delete":
+        menu.delete()
+        publish("menus")
+        messages.success(request, _("%(menu)s deleted.") % {"menu": menu.title})
+        return redirect("admin_menus")
+    if op == "leave":
+        if not menus_data.is_dirty(draft, menu):
+            return redirect("admin_menus")
+        return show(draft, leave_ask=True)
+    if op == "save":
+        issues = menus_data.problems(draft, menu)
+        if issues:
+            messages.error(request, issues[0])
+            return show(draft)
+        published = menu.draft
+        menus_data.save_draft(draft, menu)
+        publish("menus")
+        publish("inventory")  # the register refetches its catalog on this
+        messages.success(request, (_("%(menu)s saved and published") if published else _("%(menu)s saved")) % {"menu": menu.title})
+        return redirect(reverse("admin_menu", args=[menu.id]) + f"?tab={draft['ui']['tab']}")
+    return show(menus_data.apply_op(draft, op, request.POST, menu))
 
 
 @superuser_required
 @require_POST
 def menu_action(request, menu_id):
-    """Every change on the menu editor (it saves as you go). POST `action` plus its fields; back to the editor."""
+    """The list's priority arrows (POST `action` up or down)."""
     menu = get_object_or_404(Menu, pk=menu_id)
     action = request.POST.get("action")
-    back = safe_next_url(request, request.POST.get("back")) or reverse("admin_menu", args=[menu.id])
-    post = request.POST
-    if action == "rename":
-        menu.title = post.get("title", "").strip()[:140] or menu.title
-        menu.save(update_fields=["title"])
-    elif action == "toggle":
-        model, related = (Combo, menu.combos) if post.get("kind") == "combo" else (Dish, menu.dishes)
-        obj = get_object_or_404(model, pk=post.get("id"))
-        (related.remove if related.filter(pk=obj.pk).exists() else related.add)(obj)
-    elif action in ("add_shown", "remove_shown"):
-        dishes = Dish.objects.filter(pk__in=post.getlist("dish"))
-        combos = Combo.objects.filter(pk__in=post.getlist("combo"))
-        if action == "add_shown":
-            menu.dishes.add(*dishes)
-            menu.combos.add(*combos)
-        else:
-            menu.dishes.remove(*dishes)
-            menu.combos.remove(*combos)
-    elif action == "publish":
-        menu.draft = False
-        menu.save(update_fields=["draft"])
-        messages.success(request, _("%(menu)s is published.") % {"menu": menu.title})
-    elif action == "delete":
-        menu.delete()
-        messages.success(request, _("%(menu)s deleted.") % {"menu": menu.title})
-        return redirect("admin_menus")
-    elif action in ("up", "down"):
+    if action in ("up", "down"):
         ordered = list(Menu.objects.all())
         i = ordered.index(menu)
         j = i - 1 if action == "up" else i + 1
@@ -281,58 +291,8 @@ def menu_action(request, menu_id):
             for position, m in enumerate(ordered):
                 if m.position != position:
                     Menu.objects.filter(pk=m.pk).update(position=position)
-        return redirect("admin_menus")
-    elif action == "auto":
-        menu.auto = not menu.auto
-        menu.save(update_fields=["auto"])
-        if menu.auto and not menu.rules.exists():  # a starting point, like the design
-            MenuRule.objects.create(menu=menu, kind=MenuRule.ON, type=MenuRule.WEEKLY, days="01234", time=datetime.time(11))
-            MenuRule.objects.create(menu=menu, kind=MenuRule.OFF, type=MenuRule.WEEKLY, days="01234", time=datetime.time(15))
-    elif action == "manual":
-        menu.manual_on = not menu.manual_on
-        menu.save(update_fields=["manual_on"])
-    elif action == "add_rule":
-        kind = MenuRule.OFF if post.get("kind") == MenuRule.OFF else MenuRule.ON
-        rule_type = post.get("type")
-        today = timezone.localdate()
-        if rule_type == MenuRule.DATES:
-            MenuRule.objects.create(menu=menu, kind=kind, type=rule_type, start_date=today + datetime.timedelta(days=7),
-                                    end_date=today + datetime.timedelta(days=9))
-        elif rule_type == MenuRule.MENU and kind == MenuRule.OFF:
-            other = Menu.objects.exclude(pk=menu.pk).first()
-            MenuRule.objects.create(menu=menu, kind=kind, type=rule_type, other_menu=other)
-        else:
-            MenuRule.objects.create(menu=menu, kind=kind, type=MenuRule.WEEKLY, days="01234",
-                                    time=datetime.time(11 if kind == MenuRule.ON else 15))
-    elif action.startswith("rule_"):
-        rule = get_object_or_404(MenuRule, pk=post.get("rule"), menu=menu)
-        if action == "rule_remove":
-            rule.delete()
-        elif action == "rule_day":
-            days = set(rule.day_list) ^ {int(post.get("day", -1))}
-            rule.days = "".join(str(d) for d in sorted(days) if 0 <= d < 7)
-            rule.save(update_fields=["days"])
-        elif action == "rule_time":
-            try:
-                rule.time = datetime.time.fromisoformat(post.get("time", ""))
-                rule.save(update_fields=["time"])
-            except ValueError:
-                pass
-        elif action == "rule_dates":
-            try:
-                start = datetime.date.fromisoformat(post.get("start", ""))
-                end = datetime.date.fromisoformat(post.get("end", ""))
-            except ValueError:
-                messages.error(request, _("Pick both dates."))
-            else:
-                rule.start_date, rule.end_date = min(start, end), max(start, end)
-                rule.save(update_fields=["start_date", "end_date"])
-        elif action == "rule_menu":
-            rule.other_menu = Menu.objects.exclude(pk=menu.pk).filter(pk=post.get("other")).first() or rule.other_menu
-            rule.save(update_fields=["other_menu"])
-    publish("menus")
-    publish("inventory")  # the register refetches its catalog on this
-    return redirect(back)
+        publish("menus")
+    return redirect("admin_menus")
 
 
 # ---------- dishes ----------

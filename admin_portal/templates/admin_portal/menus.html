@@ -30,7 +30,7 @@ menus can be live at once and the higher one comes first on the register and onl
 
 <section class="card table-card" aria-label="{% trans 'All menus' %}" id="menus-list" data-region>
     <div class="thead menu-grid with-arrows">
-        <span>{% trans "Menu · priority" %}</span><span>{% trans "Status" %}</span><span>{% trans "Turns on and off" %}</span><span class="right">{% trans "Items" %}</span><span></span>
+        <span>{% trans "Menu · priority" %}</span><span>{% trans "Status" %}</span><span>{% trans "Turns on and off" %}</span><span>{% trans "Display" %}</span><span class="right">{% trans "Items" %}</span><span></span>
     </div>
     <div class="tbody">
         {% for r in m.rows %}
@@ -43,6 +43,7 @@ menus can be live at once and the higher one comes first on the register and onl
                 <span class="two-line"><span class="strong ellipsis menu-name">{{ r.menu.title }}</span><span class="muted small ellipsis">{{ r.groups|default:_("Nothing on it yet") }}</span></span>
                 <span class="two-line"><span class="menu-status {{ r.status.key }}"><span class="status-dot"></span>{{ r.status.label }}</span><span class="muted small ellipsis status-sub">{{ r.sub }}</span></span>
                 <span class="rule-chips">{% for c in r.rules %}<span class="rule-chip {{ c.kind }}">{% if c.dates %}{% icon "M4 6h16v14H4z M4 10h16 M9 3v4 M15 3v4" 13 2.2 %}{% elif c.kind == "off" %}{% icon "M6 6l12 12M18 6 6 18" 13 2.4 %}{% else %}{% icon "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0" 13 2.2 %}{% endif %}{{ c.text }}</span>{% endfor %}</span>
+                <span class="menu-display">{% if r.display %}<span class="tpl-thumb {{ r.display.orientation }}" style="--bg:{{ r.display.look.background }};--fg:{{ r.display.look.text }};--accent:{{ r.display.look.accent }}"><span class="tpl-bar"></span><span class="tpl-lines"></span></span><span class="ellipsis">{{ r.display.name }}</span>{% endif %}</span>
                 <span class="num right strong">{{ r.count }}</span>
                 {% icon "chevron" 16 %}
             </a>

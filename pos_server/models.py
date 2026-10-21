@@ -16,7 +16,8 @@ class Menu(models.Model):
     A menu: the dishes and combos sold while it's live. Several menus can be live at once (pos_server.menu_schedule):
     a menu switched by hand is live while `manual_on`; an automatic one follows its MenuRules. Drafts are never live.
     `position` is the priority: the register, online store and screens list live menus in this order, and the first
-    one is the default (Menu.active()). The colour and image fields are from the old menu theming.
+    one is the default (Menu.active()). `display` is its menu-board layout (the admin's Display tab). The colour and
+    image fields are from the old menu theming.
     """
     title = models.CharField(max_length=140)
     position = models.PositiveSmallIntegerField(default=0, help_text="Priority: lower comes first")
@@ -29,6 +30,7 @@ class Menu(models.Model):
     accent_1 = models.CharField(max_length=7, default="#ffffff")
     accent_2 = models.CharField(max_length=7, default="#ffffff")
     accent_3 = models.CharField(max_length=7, default="#ffffff")
+    display = models.JSONField(default=dict, blank=True, help_text="How menu boards show it (see screens/menu_boards.py)")
 
     class Meta:
         ordering = ["position", "id"]

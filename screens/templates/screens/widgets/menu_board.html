@@ -1,0 +1,3 @@
+{% load static i18n %}{% if data.board %}{% include "screens/menu_board_frame.html" with b=data.board %}{% else %}
+<section class="screen-card menu-board-missing"><p>{% trans "Pick a menu for this board: its number is in the address of its page in Admin → Menus." %}</p></section>
+{% endif %}

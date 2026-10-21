@@ -1,0 +1,12 @@
+{
+  "title": "Menu board",
+  "description": "A menu, laid out with the template, pages, groups and look set in its Display tab (Admin → Menus). Give it the whole screen, sized for the template (portrait 1080 × 1920 or landscape 1920 × 1080), with no padding.",
+  "template": "screens/widgets/menu_board.html",
+  "context": "screens.providers.menu_board",
+  "live": ["menus", "inventory"],
+  "css": ["screens/widgets/menu_board.css"],
+  "js": ["screens/widgets/menu_board.js"],
+  "params": {
+    "menu": {"type": "int", "default": 0, "min": 0, "label": "Menu", "help": "The menu's number (it's in the address of its page in Admin → Menus)"}
+  }
+}

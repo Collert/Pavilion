@@ -13,7 +13,7 @@ from payments import square
 from pos_server import refunds
 from pos_server import dish_info
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComponentIngredient, Dish, DishComponent,
-                               Ingredient, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
+                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
@@ -341,66 +341,102 @@ class MenuEditorTests(AdminFixture, TestCase):
     def setUp(self):
         self.client.force_login(self.owner)
 
-    def act(self, menu, **data):
-        return self.client.post(reverse("admin_menu_action", args=[menu.id]), data)
+    def open(self, menu, tab="items"):
+        """The editor's context, as GET shows it."""
+        return self.client.get(reverse("admin_menu", args=[menu.id]) + f"?tab={tab}").context
 
-    def test_new_menus_start_as_drafts_and_publish(self):
+    def post(self, menu, context, op, **fields):
+        """Post the editor back: its state, plus `fields` and the button pressed. Returns the response."""
+        return self.client.post(reverse("admin_menu", args=[menu.id]), {"state": context["state"], "op": op, **fields})
+
+    def test_new_menus_start_as_drafts_and_publish_on_save(self):
         response = self.client.post(reverse("admin_menu_new"))
         menu = Menu.objects.latest("id")
         self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
         self.assertTrue(menu.draft)
-        self.act(menu, action="manual")
-        self.assertFalse(menu.is_live())  # drafts are never live
-        self.act(menu, action="publish")
+        context = self.open(menu, "schedule")
+        context = self.post(menu, context, "manual").context
+        self.assertFalse(Menu.objects.get(pk=menu.pk).manual_on)  # not saved yet
+        self.assertEqual(context["save_status"], "Unsaved changes")
+        self.post(menu, context, "save", title="Brunch")
         menu.refresh_from_db()
+        self.assertEqual((menu.title, menu.draft, menu.manual_on), ("Brunch", False, True))
         self.assertTrue(menu.is_live())
 
-    def test_items_toggle_and_add_all_shown(self):
+    def test_items_toggle_filter_and_add_all_shown(self):
         menu = Menu.objects.create(title="Empty")
-        self.act(menu, action="toggle", kind="dish", id=self.burger.id)
-        self.act(menu, action="toggle", kind="combo", id=self.combo.id)
-        self.assertEqual(list(menu.dishes.all()), [self.burger])
+        context = self.post(menu, self.open(menu), "toggle:d:%d" % self.burger.id).context
+        context = self.post(menu, context, "toggle:c:%d" % self.combo.id).context
+        self.assertEqual((context["d"]["dishes"], context["d"]["combos"]), ([self.burger.id], [self.combo.id]))
+        context = self.post(menu, context, "group:%d" % self.bar.id).context
+        context = self.post(menu, context, "preview", q="tea").context
+        self.assertEqual([r["obj"] for r in context["c"]["rows"]], [self.tea])
+        context = self.post(menu, context, "add_shown").context
+        self.post(menu, context, "save")
+        self.assertEqual(set(menu.dishes.all()), {self.burger, self.tea})
         self.assertEqual(list(menu.combos.all()), [self.combo])
-        self.act(menu, action="toggle", kind="dish", id=self.burger.id)
-        self.assertFalse(menu.dishes.exists())
-        self.act(menu, action="add_shown", dish=[self.coffee.id, self.tea.id])
-        self.assertEqual(menu.dishes.count(), 2)
-        page = self.client.get(reverse("admin_menu", args=[menu.id]) + f"?group={self.bar.id}&q=tea").content.decode()
-        self.assertIn("Tea", page)
-        self.assertNotIn(">Burger<", page)
 
-    def test_schedule_rules(self):
+    def test_schedule_rules_are_saved_together(self):
         menu = Menu.objects.create(title="Brunch")
-        self.act(menu, action="auto")
+        context = self.post(menu, self.open(menu, "schedule"), "auto").context
+        self.assertEqual([(r["kind"], r["days"], r["time"]) for r in context["d"]["rules"]], [("on", "01234", "11:00"), ("off", "01234", "15:00")])
+        context = self.post(menu, context, "day:0:5").context
+        context = self.post(menu, context, "add_rule:off:dates", **{"rule-0-time": "09:30"}).context
+        dates = len(context["d"]["rules"]) - 1
+        context = self.post(menu, context, "preview", **{f"rule-{dates}-start": "2026-12-26", f"rule-{dates}-end": "2026-12-24"}).context
+        self.assertEqual(MenuRule.objects.filter(menu=menu).count(), 0)  # nothing saved yet
+        self.post(menu, context, "save")
         menu.refresh_from_db()
         self.assertTrue(menu.auto)
         on = menu.rules.get(kind="on")
-        self.assertEqual((on.days, on.time), ("01234", datetime.time(11)))  # a starting point
-        self.act(menu, action="rule_day", rule=on.id, day=5)
-        self.act(menu, action="rule_time", rule=on.id, time="09:30")
-        on.refresh_from_db()
         self.assertEqual((on.days, on.time), ("012345", datetime.time(9, 30)))
-        self.act(menu, action="add_rule", kind="off", type="dates")
-        dates = menu.rules.get(type="dates")
-        self.act(menu, action="rule_dates", rule=dates.id, start="2026-12-26", end="2026-12-24")
-        dates.refresh_from_db()
-        self.assertEqual((dates.start_date, dates.end_date), (datetime.date(2026, 12, 24), datetime.date(2026, 12, 26)))
-        self.act(menu, action="rule_remove", rule=dates.id)
-        self.assertFalse(menu.rules.filter(type="dates").exists())
-        self.assertEqual(self.client.get(reverse("admin_menu", args=[menu.id]) + "?tab=schedule").status_code, 200)
+        span = menu.rules.get(type="dates")
+        self.assertEqual((span.start_date, span.end_date), (datetime.date(2026, 12, 24), datetime.date(2026, 12, 26)))
 
-    def test_priority_arrows_and_the_list(self):
+    def test_display_pages_slots_look_and_timing(self):
+        menu = self.menu
+        context = self.open(menu, "display")
+        v = context["v"]
+        self.assertEqual(v["template"].name, "menu_showcase")
+        self.assertEqual(v["d"]["pages"][0]["slots"], [f"s:{self.kitchen.id}", f"s:{self.bar.id}", "combos"])  # filled in order
+        context = self.post(menu, context, "add_page").context
+        self.assertEqual(context["d"]["ui"]["page"], 1)
+        context = self.post(menu, context, "preview", **{"slot-0": "combos", "featured": f"d:{self.burger.id}", "look-present": "1",
+                                                          "look-accent": "#123456", "look-badge": "Open late", "look-loved_count": "9"}).context
+        page = context["d"]["display"]["pages"][1]
+        self.assertEqual((page["slots"][0], page["featured"]), ("combos", f"d:{self.burger.id}"))
+        look = context["d"]["display"]["look"]
+        self.assertEqual((look["accent"], look["badge"], look["loved_count"]), ("#123456", "Open late", 3))  # 9 is out of range
+        self.assertContains(self.post(menu, context, "preview"), "Open late")  # the preview is the real board
+        # A group can't take longer to turn over than its page (the bar's 10 drinks need two screens)
+        for n in range(8):
+            drink = Dish.objects.create(title=f"Drink {n}", price=Decimal("3.00"), station=self.bar)
+            context = self.post(menu, context, f"toggle:d:{drink.id}").context
+        context = self.post(menu, context, "tab:display").context
+        context = self.post(menu, context, "preview", page_sec="10", group_sec="20").context
+        self.assertTrue(context["bad_timing"])
+        self.assertFalse(context["can_save"])
+        context = self.post(menu, context, "sec:group:-15").context
+        self.assertFalse(context["bad_timing"])
+        self.post(menu, context, "save")
+        menu.refresh_from_db()
+        self.assertEqual((len(menu.display["pages"]), menu.display["group_sec"], menu.display["look"]["accent"]), (2, 5, "#123456"))
+
+    def test_leave_delete_and_priority_arrows(self):
         first = Menu.objects.get()  # the fixture's menu
         second = Menu.objects.create(title="Second", position=1, manual_on=True)
-        self.act(second, action="up")
+        self.assertRedirects(self.post(second, self.open(second), "leave"), reverse("admin_menus"))
+        self.assertTrue(self.post(second, self.open(second), "leave", title="Changed").context["leave_ask"])
+        self.client.post(reverse("admin_menu_action", args=[second.id]), {"action": "up"})
         self.assertEqual(list(Menu.objects.all()), [second, first])
         self.assertEqual(Menu.active(), second)
-        self.assertContains(self.client.get(reverse("admin_menus")), "Second")
+        self.assertContains(self.client.get(reverse("admin_menus")), "Showcase")  # the Display column
+        self.assertRedirects(self.post(second, self.open(second), "delete"), reverse("admin_menus"))
+        self.assertFalse(Menu.objects.filter(pk=second.pk).exists())
 
-    def test_back_only_goes_to_this_site(self):
-        menu = Menu.objects.create(title="M")
-        response = self.act(menu, action="manual", back="https://evil.example.com/")
-        self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
+    def test_broken_state_falls_back_to_the_saved_menu(self):
+        response = self.client.post(reverse("admin_menu", args=[self.menu.id]), {"state": "{nope", "op": "preview"})
+        self.assertEqual(response.context["d"]["title"], "Test menu")
 
 
 def form_fields(draft, **changes):

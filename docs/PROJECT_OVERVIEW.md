@@ -399,11 +399,15 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `square.fill_card_details` stores the Square payment id, brand, last 4 and entry method (tap/chip/...). Online
   payments copy them from the web payment (`PaymentAuthorization.card_brand/last4`). Orders also record the register
   (`device`), the signed-in `customer`, `email`, `staff_note` and `voided_at/by` (nothing voids orders yet).
-- **Menus** (`admin_menus`, `menus.py`): the list with priority arrows, live/scheduled/draft/off status and rule
-  chips; the editor saves as you go (one POST endpoint, `admin_menu_action`, with an `action` field): items (tick
-  dishes and combos, filter by station, add/remove all shown) and schedule (automatic switch with on/off rules, or
-  turn on/off by hand; a week chart with other menus, date notes and overlaps). The design's display tab is left to
-  the screens app. Publishes "menus" and "inventory". The register's menu picker lists live menus and remembers the
+- **Menus** (`admin_menus`, `menus.py`): the list with priority arrows, live/scheduled/draft/off status, rule
+  chips and the board template; the editor is one form with Save (2026-10-21): the whole draft travels in a hidden
+  `state` field (JSON), the tab on screen merges its fields and buttons post an `op` (`tab:`, `toggle:d:5`,
+  `day:0:3`, `page:1`, `sec:group:-5`...). Tabs: items (tick dishes and combos, filter by station, search, add/remove
+  all shown), schedule (automatic switch with on/off rules, or on/off by hand; a week chart from the unsaved rules,
+  date notes and overlaps) and display (the menu board: template, pages with a featured item and group slots, sold-out
+  items shown or hidden, page and group transitions and timing with the design's checks, the template's look, and a
+  live preview that is the real board drawn small at 5×). Save publishes a draft. `admin_menu_action` only keeps the
+  list's priority arrows. Publishes "menus" and "inventory". The register's menu picker lists live menus and remembers the
   pick in the session (`register.register_menu`).
 - **Dishes** (`admin_dishes`, `dishes.py`): the list by station, with filters (sold out or off, food cost over
   35%, not on a menu, archived), diet badges, allergens, food cost and availability. The design's "menu category"
@@ -466,6 +470,14 @@ instead of a redirect.
 
 Design `docs/mockups/screens/OrderBoard-html`. Restaurants build their own displays from **pre-made widgets**; the
 format for adding widgets is in CLAUDE.md ("Screens and widgets").
+
+- **Menu boards** (2026-10-21): menu templates are widgets of kind `menu_template` (`registry.menu_templates()`,
+  not placeable directly). The `menu_board` widget shows one menu (its `menu` param) with the template and layout
+  from `Menu.display` (`screens/menu_boards.py`: `clean()`, `board()`, `groups()`: a group is a station's dishes on
+  the menu or its combos). Every page and every slot screen is rendered; `menu_board.js` shows one at a time from
+  the clock (so boards stay in step across refetches and screens). Showcase (`menu_showcase`, portrait, 3 groups of
+  6 + featured, best sellers as cards) is built; the other nine `Menu*` artboards are next. `seed_demo` adds a
+  `menu-board` screen showing Lunch.
 
 - `Screen(name, slug, layout, public, width, height, background, padding)`. `layout` is a JSON tree of widget nodes;
   `rows`/`columns` hold child slots sized by `weights` (numbers are fr, or `"132px"`), so a screen is a nested grid.
