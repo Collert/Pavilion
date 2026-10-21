@@ -774,30 +774,37 @@ class CashMovement(models.Model):
 
 class Component(models.Model):
     """
-    Component model representing an item in the inventory.
-    For more info, refer to: https://github.com/Collert/Pavilion/wiki/Inventory-Management-System
-    Attributes:
-        units (tuple): Choices for unit of measurement.
-        food_types (tuple): Choices for type of food.
-        crafting_options (tuple): Choices for crafting options.
-        title (CharField): The title of the component.
-        ingredients (ManyToManyField): Ingredients associated with the component.
-        inventory (FloatField): The current inventory level of the component.
-        unit_of_measurement (CharField): The unit of measurement for the component.
-        type (CharField): The type of food (food or beverage).
-        in_stock (BooleanField): Usable right now (computed on save from `availability` and the inventory).
-        availability (CharField): Off / Auto / Always (see AVAILABILITY).
-        crafting_option (CharField): The crafting option for the component.
-        recipe (ForeignKey): The recipe associated with the component.
-        extra_price (DecimalField): Charge for each portion above the standard amount in a dish (an extra patty).
-    Methods:
-        save(*args, **kwargs): Custom save method to update stock status and related dishes.
-        __str__() -> str: String representation of the component.
+    Something made or bought that dishes are built from (a beef patty, burger sauce, a brioche bun), counted in
+    `unit_of_measurement` (g, ml or ea). Each storage state is its own component (frozen and thawed patties), and
+    Cookery's Transformations move stock between them. Edited on the admin's Components page.
+
+    - `inventory` is on hand, `par` how much to keep; `kept_in` and `keeps_days` say where it's stored and how long
+      it keeps.
+    - Cost and allergens come from its prep `recipe` (one batch over its yield), else from its per-unit
+      ComponentIngredients, else `cost` is set by hand (pos_server/dish_info.py).
+    - `crafting_option`: craft (made in Cookery), buy, auto (made on demand), transform (only made by a transform).
+    - Extras: `extra_price` is charged for each step above the standard in a dish (an extra patty); `extra_label`
+      is the button's name. Which dishes offer it, and how many, is set on each DishComponent (adjustable, max_extra).
+    - `in_stock` is computed on save from `availability` (Off / Auto / Always) and the inventory.
     """
     units = UNITS
-    food_types = (
-        ("food", "Food"),
-        ("beverage", "Beverage")
+    CATEGORIES = (
+        ("protein", "Proteins"),
+        ("bread", "Breads and doughs"),
+        ("dairy", "Cheese and dairy"),
+        ("sauce", "Sauces and pickles"),
+        ("veg", "Vegetables and sides"),
+        ("drink", "Drink bases"),
+        ("bakery", "Bakery"),
+        ("other", "Other"),
+    )
+    PLACES = (
+        ("freezer", "Freezer"),
+        ("fridge", "Walk-in fridge"),
+        ("line", "Line fridge"),
+        ("hot", "Hot holding"),
+        ("dry", "Dry store"),
+        ("counter", "Display case"),
     )
     crafting_options = (
         ("craft","Craftable"),
@@ -809,7 +816,9 @@ class Component(models.Model):
     ingredients = models.ManyToManyField("Ingredient", through='ComponentIngredient')
     inventory = models.FloatField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
-    type = models.CharField(max_length=10, choices=food_types)
+    category = models.CharField(max_length=10, choices=CATEGORIES, default="other")
+    kept_in = models.CharField(max_length=10, choices=PLACES, default="fridge")
+    keeps_days = models.FloatField(default=3, help_text="How long it keeps where it's kept, in days")
     in_stock = models.BooleanField(default=False)
     availability = models.CharField(max_length=6, choices=AVAILABILITY, default="auto")
     crafting_option = models.CharField(max_length=10, choices=crafting_options, default="craft")
@@ -817,6 +826,10 @@ class Component(models.Model):
     par = models.FloatField(null=True, blank=True, help_text="How much to keep on hand (Cookery shows how close you are)")
     extra_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
                                       help_text="Charge for each portion above the standard amount, e.g. an extra patty")
+    extra_label = models.CharField(max_length=40, blank=True, help_text="The extra's button at the register, e.g. Extra patty")
+    cost = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0"),
+                               help_text="Cost of one unit, set by hand (used when there's no recipe or ingredients)")
+    archived = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         """

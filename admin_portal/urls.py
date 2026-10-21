@@ -31,4 +31,7 @@ urlpatterns = [
     path("services", views.services, name="admin_services"),
     path("services/new", views.service_new, name="admin_service_new"),
     path("services/<int:service_id>", views.service_edit, name="admin_service"),
+    path("components", views.components, name="admin_components"),
+    path("components/new", views.component_new, name="admin_component_new"),
+    path("components/<int:component_id>", views.component_edit, name="admin_component"),
 ]

@@ -38,7 +38,7 @@ class MenuFixture:
         cls.bar = Station.objects.get(code="bar")
 
         def component(title, inventory, option="buy", extra_price="0"):
-            return Component.objects.create(title=title, unit_of_measurement="ea", type="food", crafting_option=option,
+            return Component.objects.create(title=title, unit_of_measurement="ea", crafting_option=option,
                                             inventory=inventory, extra_price=Decimal(extra_price))
 
         cls.bun = component("Bun", 100)
@@ -146,7 +146,7 @@ class PricingTests(MenuFixture, TestCase):
         self.assertEqual(picked.use[self.avocado.id], 3)
 
     def test_parts_of_whole_pieces_go_up_to_ten_more(self):
-        pierogi = Component.objects.create(title="Pierogi", unit_of_measurement="ea", type="food", inventory=500,
+        pierogi = Component.objects.create(title="Pierogi", unit_of_measurement="ea", inventory=500,
                                            extra_price=Decimal("0.75"))
         plate = Dish.objects.create(title="Pierogi plate", price=Decimal("12.00"), station=self.kitchen)
         part = DishComponent.objects.create(dish=plate, component=pierogi, quantity=8, adjustable=True)
@@ -330,7 +330,7 @@ class CreateOrderTests(MenuFixture, TestCase):
         self.assertTrue(Dish.objects.get(pk=self.burger.pk).in_stock)  # the standard bun is still there
 
     def test_adding_a_missing_component_takes_a_dish_out_of_stock(self):
-        empty = Component.objects.create(title="Empty", unit_of_measurement="ea", type="food", inventory=0)
+        empty = Component.objects.create(title="Empty", unit_of_measurement="ea", inventory=0)
         DishComponent.objects.create(dish=self.tea, component=empty, quantity=1)
         self.assertFalse(Dish.objects.get(pk=self.tea.pk).in_stock)
 

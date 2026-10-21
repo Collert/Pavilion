@@ -89,7 +89,8 @@ class Command(BaseCommand):
 
             def component(title, unit, stock, par, option="craft"):
                 obj, created = Component.objects.get_or_create(title=title, defaults={
-                    "unit_of_measurement": unit, "type": "food", "inventory": stock, "par": par, "crafting_option": option})
+                    "unit_of_measurement": unit, "inventory": stock, "par": par, "crafting_option": option,
+                    **({"kept_in": "freezer", "keeps_days": 90} if option == "transform" else {})})
                 if created:
                     added.append(f"component {title}")
                 elif obj.par is None:

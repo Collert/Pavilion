@@ -45,7 +45,7 @@ def target_key(kind, obj):
 
 def targets():
     """[(group label, [(key, label, kind, obj)])] everything a recipe can be attached to."""
-    comps = [(target_key("component", c), c.title, "component", c) for c in Component.objects.order_by("title")]
+    comps = [(target_key("component", c), c.title, "component", c) for c in Component.objects.filter(archived=False).order_by("title")]
     tfs = [(target_key("transform", t), t.name, "transform", t) for t in Transformation.objects.select_related("from_component", "to_component")]
     dishes = [(target_key("dish", d), d.title, "dish", d) for d in Dish.objects.filter(archived=False).order_by("title")]
     return [(_("Components"), comps), (_("Transformations"), tfs), (_("Dishes"), dishes)]

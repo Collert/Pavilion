@@ -25,11 +25,12 @@ from inventory.models import Recipe, RecipeStep
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Dish, Menu, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Component, Dish, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
 from . import combos as combos_data
+from . import components as components_data
 from . import dashboard as dashboard_data
 from . import dishes as dishes_data
 from . import menus as menus_data
@@ -545,3 +546,64 @@ def service_edit(request, service_id):
                              else _("%(service)s saved") % {"service": target.title})
             return redirect("admin_service", service_id=target.id)
     return page(request, "admin_portal/service.html", "services", {"e": services_data.editor(service, draft)})
+
+
+# ---------- components ----------
+
+@superuser_required
+def components(request):
+    data = components_data.component_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/components.html", "components", {"l": data})
+
+
+@superuser_required
+@require_POST
+def component_new(request):
+    component = Component.objects.create(title=_("New component"), unit_of_measurement="ea", category="other", crafting_option="craft")
+    return redirect("admin_component", component_id=component.id)
+
+
+@superuser_required
+def component_edit(request, component_id):
+    """The component editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    component = get_object_or_404(Component, pk=component_id)
+    if request.method != "POST":
+        draft = components_data.draft_from_component(component)
+        return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft)})
+    op = request.POST.get("op", "")
+    draft = components_data.apply_op(components_data.draft_from_post(request.POST), op, request.POST, component)
+    if op == "archive":
+        parts, addons = components_data.usage(component)
+        if parts or addons:
+            messages.error(request, _("Take it out of its dishes first."))
+        else:
+            component.archived = True
+            component.save(update_fields=["archived"])
+            _dishes_changed()
+            messages.success(request, _("%(component)s archived") % {"component": component.title})
+            return redirect("admin_components")
+    elif op == "restore":
+        component.archived = False
+        component.save(update_fields=["archived"])
+        _dishes_changed()
+        messages.success(request, _("%(component)s is back") % {"component": component.title})
+        return redirect("admin_component", component_id=component.id)
+    elif op == "leave":
+        if not components_data.is_dirty(draft, component):
+            return redirect("admin_components")
+        return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft, leave_ask=True)})
+    elif op in ("save", "duplicate"):
+        target = Component() if op == "duplicate" else component
+        if op == "duplicate":
+            draft.update(title=(_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140], recipe="", inventory="0",
+                         inventory_was="0", offer=[])
+        issue = components_data.problems(draft, target)
+        if issue:
+            messages.error(request, issue)
+        else:
+            components_data.save_draft(draft, target, copy_of=component if op == "duplicate" else None)
+            _dishes_changed()
+            messages.success(request, _("Duplicated. Editing the copy now") if op == "duplicate"
+                             else _("%(component)s saved") % {"component": target.title})
+            return redirect("admin_component", component_id=target.id)
+    return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft)})

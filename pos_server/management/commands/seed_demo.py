@@ -86,6 +86,7 @@ class Command(BaseCommand):
             self.seed_menus()
             self.seed_cookery()
             call_command("seed_recipes", stdout=io.StringIO())  # the Cookery mockup's recipes too
+            self.seed_component_details()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -182,7 +183,7 @@ class Command(BaseCommand):
                 "meat": "m" in flags, "fish": "f" in flags, "animal": "a" in flags,
                 "unlimited": unlimited, "cost": Decimal(cost) if cost else None})
 
-        # title, unit, type, crafting option, inventory, extra price, [(ingredient, qty)]
+        # title, unit, food/beverage (drinks get the drink category), crafting option, inventory, extra price, [(ingredient, qty)]
         component_specs = [
             ("Brioche bun", "ea", "food", "buy", 120, "0", [("Flour", 60), ("Eggs", 0.2)]),
             ("Sesame bun", "ea", "food", "buy", 80, "0", [("Flour", 60), ("Sesame seeds", 2)]),
@@ -252,7 +253,7 @@ class Command(BaseCommand):
         self.components = {}
         for title, unit, food_type, option, inventory, extra_price, parts in component_specs:
             component, created = Component.objects.get_or_create(title=title, defaults={
-                "unit_of_measurement": unit, "type": food_type, "crafting_option": option, "inventory": inventory,
+                "unit_of_measurement": unit, "category": "drink" if food_type == "beverage" else "other", "crafting_option": option, "inventory": inventory,
                 "extra_price": Decimal(extra_price)})
             if created:
                 for ingredient, qty in parts:
@@ -553,7 +554,7 @@ class Command(BaseCommand):
 
         frozen = {}
         for title, unit, inventory, par in (("Beef patty, frozen", "ea", 80, 120), ("Pulled pork, frozen", "g", 6000, 8000)):
-            frozen[title] = Component.objects.create(title=title, unit_of_measurement=unit, type="food", inventory=inventory,
+            frozen[title] = Component.objects.create(title=title, unit_of_measurement=unit, inventory=inventory,
                                                      par=par, crafting_option="transform")
         how = {
             "freeze": "Lay them out on parchment-lined trays in the blast freezer, then bag them once they are hard.",
@@ -615,6 +616,46 @@ class Command(BaseCommand):
         CookingSession.objects.create(kind="transform", transformation=thaw, component=thaw.from_component, quantity=40,
                                       started_by=self.cashier, holder=self.cashier, started_at=now - minutes(540),
                                       ends_at=now + minutes(180))
+
+    def seed_component_details(self):
+        """Categories, where things are kept and for how long, extra labels and hand-set costs (the Components page)."""
+        category = {
+            "protein": ["Beef patty", "Beef patty, frozen", "Chicken fillet", "Pulled pork", "Pulled pork, frozen", "Chicken bites",
+                        "Bacon", "Fried egg", "Halloumi", "Pierogi, potato & cheese", "Pierogi, frozen"],
+            "bread": ["Brioche bun", "Sesame bun", "Gluten-free bun", "Cornbread", "Sourdough loaf", "Croutons", "Brioche buns, house-made"],
+            "dairy": ["Cheddar slice", "Swiss cheese", "Cotija", "Butter pat", "Cream cheese", "Whipped cream"],
+            "sauce": ["Smash sauce", "Spicy mayo", "Garlic aioli", "BBQ sauce", "Dressing", "Pickles", "Pickled onion",
+                      "Chili lime butter", "Jam", "Seasoning", "Beef stock"],
+            "veg": ["Lettuce wrap", "Lettuce", "Tomato", "Onion", "Slaw", "Mushrooms", "Grains", "Greens", "Cucumber",
+                    "Fries portion", "Corn cob", "Avocado", "Caramelized onion"],
+            "bakery": ["Cardamom bun", "Almond croissant", "Brownie", "Lemon tart", "Cookie"],
+        }
+        storage = {  # title: (kept in, keeps for days)
+            "Beef patty": ("line", 2), "Beef patty, frozen": ("freezer", 90), "Pulled pork": ("hot", 0.25),
+            "Pulled pork, frozen": ("freezer", 60), "Chicken fillet": ("fridge", 2), "Chicken bites": ("fridge", 2),
+            "Bacon": ("line", 2), "Fried egg": ("line", 0.1), "Halloumi": ("line", 3), "Fries portion": ("fridge", 2),
+            "Slaw": ("line", 2), "Smash sauce": ("line", 5), "Spicy mayo": ("line", 5), "Garlic aioli": ("line", 5),
+            "Pickled onion": ("fridge", 14), "Cornbread": ("counter", 2), "Grains": ("fridge", 4),
+            "Espresso shot": ("dry", 1), "Pierogi, potato & cheese": ("fridge", 1), "Pierogi, frozen": ("freezer", 90), "Lemonade": ("line", 3), "Cold brew": ("fridge", 7),
+        }
+        for key, titles in category.items():
+            Component.objects.filter(title__in=titles).update(category=key)
+        for title, (place, days) in storage.items():
+            Component.objects.filter(title=title).update(kept_in=place, keeps_days=days)
+        Component.objects.filter(category__in=["bread", "bakery"]).exclude(title__in=storage).update(kept_in="dry", keeps_days=2)
+        Component.objects.filter(category="drink", kept_in="fridge").update(keeps_days=7)
+        labels = {"Beef patty": "Extra patty", "Cheddar slice": "Extra cheese", "Espresso shot": "Extra shot",
+                  "Pulled pork": "Extra pulled pork", "Halloumi": "Extra halloumi", "Mushrooms": "Add mushrooms",
+                  "Swiss cheese": "Extra Swiss", "Chicken fillet": "Extra chicken", "Cornbread": "Add cornbread", "Cotija": "Extra cotija"}
+        for title, label in labels.items():
+            Component.objects.filter(title=title).update(extra_label=label)
+        # Bought in with no ingredients listed: their cost is set by hand
+        for title, cost in (("Gluten-free bun", "0.85"), ("BBQ sauce", "0.006"), ("Pickles", "0.05"), ("Grains", "0.004"),
+                            ("Dressing", "0.008"), ("Seasoning", "0.02"), ("Sparkling water", "0.002"), ("Matcha powder", "0.40"),
+                            ("Jam", "0.25"), ("Extra ginger", "0.01")):
+            Component.objects.filter(title=title).update(cost=Decimal(cost))
+        Component.objects.create(title="Seasonal soup base", unit_of_measurement="ml", category="veg", crafting_option="craft",
+                                 inventory=0, cost=Decimal("0.004"), archived=True)
 
     def seed_discounts(self):
         specs = [

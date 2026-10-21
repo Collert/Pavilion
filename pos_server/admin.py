@@ -32,7 +32,7 @@ class ComponentOptionGroupInline(admin.TabularInline):
 @admin.register(Component)
 class ComponentAdmin(admin.ModelAdmin):
     list_display = ("title", "unit_of_measurement", "inventory", "par", "in_stock", "availability", "crafting_option", "extra_price")
-    list_filter = ("type", "crafting_option", "in_stock")
+    list_filter = ("category", "crafting_option", "in_stock", "archived")
     search_fields = ("title",)
     inlines = [ComponentIngredientInline, ComponentOptionGroupInline]
 

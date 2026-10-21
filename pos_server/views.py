@@ -274,7 +274,7 @@ def prettify_dish(dish):
     }
     dcs = dish.dishcomponent_set.all()
     for index, dc in enumerate(dcs):
-        if dc.component.type == "food":
+        if dc.component.category != "drink":
             if dc.component.unit_of_measurement == "ml":
                 quantity_str = _("a bowl of ")
             elif dc.component.unit_of_measurement == "g":
@@ -293,7 +293,7 @@ def prettify_dish(dish):
                 quantity_str = _("%(count)s cups of ") % {"count": int(dc.quantity)}
         final_dish["components"] += f"{quantity_str}"
         final_dish["components"] += f"{dc.component.title.lower()}"
-        if dc.quantity > 1 and not dc.component.type == 'beverage' and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
+        if dc.quantity > 1 and dc.component.category != "drink" and not (dc.component.unit_of_measurement == "g" or dc.component.unit_of_measurement == "kg"):
             final_dish["components"] += "s"
         if index != len(dcs) - 1:
             final_dish["components"] += ", "

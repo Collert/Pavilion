@@ -122,7 +122,7 @@ def home(request, mode="make"):
     context = {"q": q, "ongoing": sessions, "home": True}
     if mode == "make":
         tiles = []
-        components = Component.objects.filter(crafting_option="craft").select_related("recipe").prefetch_related("recipe__steps", "transforms_from")
+        components = Component.objects.filter(crafting_option="craft", archived=False).select_related("recipe").prefetch_related("recipe__steps", "transforms_from")
         for c in components.order_by("title"):
             if q and q.lower() not in c.title.lower():
                 continue

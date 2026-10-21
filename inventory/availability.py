@@ -43,7 +43,7 @@ def _dish_rows(menu):
 
 
 def _component_rows():
-    components = Component.objects.prefetch_related("dishcomponent_set", "extra_uses").order_by("title")
+    components = Component.objects.filter(archived=False).prefetch_related("dishcomponent_set", "extra_uses").order_by("title")
     swapped_in = set(Option.objects.exclude(component=None).values_list("component_id", flat=True))
     addon_prices = {}
     for option in Option.objects.filter(group__pick=OptionGroup.ANY).exclude(component=None):
@@ -67,7 +67,7 @@ def _component_rows():
         else:
             what = _("On the side") if condiment else _("Component")
         tab = tabs["condiments" if condiment else "parts"]
-        group = _("Drinks") if component.type == "beverage" else _("Food")
+        group = _("Drinks") if component.category == "drink" else _("Food")
         tab.setdefault(group, []).append({
             "key": f"component:{component.id}", "kind": "component", "id": component.id, "name": component.title,
             "mode": component.availability,

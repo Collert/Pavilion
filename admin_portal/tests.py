@@ -18,7 +18,7 @@ from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, dashboard, dishes, recipes, reports, services
+from . import combos, components, dashboard, dishes, recipes, reports, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -777,7 +777,7 @@ class RecipeTests(AdminFixture, TestCase):
         RecipeStep.objects.create(recipe=cls.dough, title="Mix", scene="prep")
         RecipeStep.objects.create(recipe=cls.dough, title="Rise", scene="rise", duration=datetime.timedelta(minutes=60), position=1)
         Component.objects.filter(pk=cls.bun.pk).update(recipe=cls.dough)
-        cls.frozen = Component.objects.create(title="Bun, frozen", unit_of_measurement="ea", type="food", crafting_option="transform")
+        cls.frozen = Component.objects.create(title="Bun, frozen", unit_of_measurement="ea", crafting_option="transform")
         cls.freeze = Transformation.objects.create(name="Freeze buns", from_component=cls.bun, to_component=cls.frozen,
                                                    duration=datetime.timedelta(hours=1))
         cls.loose = Recipe.objects.create(title="Spare sauce", yield_quantity=5)
@@ -970,6 +970,122 @@ class ServiceTests(AdminFixture, TestCase):
         self.assertRedirects(self.post(self.urn, "archive"), reverse("admin_services"))
         self.assertTrue(Service.objects.get(pk=self.urn.pk).archived)
         self.assertContains(self.client.get(reverse("admin_service", args=[self.urn.id])), "Restore this service")
+
+
+def component_fields(draft, **changes):
+    """The component editor's POST fields for a draft (admin_portal.components.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "unit", "category", "recipe", "cost", "kept_in", "keeps_days", "inventory",
+                                  "inventory_was", "par", "extra_label", "extra_price", "extra_max")}
+    data["offer"] = draft["offer"]
+    data["extra_was"] = draft.get("extra_was", "1" if draft["extra_on"] else "0")
+    if draft["extra_on"]:
+        data["extra_on"] = "1"
+    return data
+
+
+class ComponentTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from inventory.models import Recipe, RecipeIngredient, Transformation
+        cls.build_admin()
+        cls.beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", cost=Decimal("0.015"))
+        cls.salt = Ingredient.objects.create(title="Salt", unit_of_measurement="g", cost=Decimal("0.002"), allergens=["Mustard"])
+        ComponentIngredient.objects.create(component=cls.patty, ingredient=cls.beef, quantity=120)
+        Component.objects.filter(pk=cls.patty.pk).update(category="protein", par=250, extra_label="Extra patty")
+        cls.frozen = Component.objects.create(title="Patty, frozen", unit_of_measurement="ea", crafting_option="transform",
+                                              category="protein", kept_in="freezer", keeps_days=90, inventory=80)
+        Transformation.objects.create(name="Thaw", from_component=cls.frozen, to_component=cls.patty, duration=datetime.timedelta(hours=8))
+        Transformation.objects.create(name="Freeze", from_component=cls.patty, to_component=cls.frozen, duration=datetime.timedelta(hours=1))
+        cls.recipe = Recipe.objects.create(title="Smash patties", yield_quantity=40)
+        RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.beef, quantity=4400)
+        RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.salt, quantity=30)
+        cls.spare = Component.objects.create(title="Spare sauce", unit_of_measurement="ml", cost=Decimal("0.004"))
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, component):
+        return components.draft_from_component(Component.objects.get(pk=component.pk))
+
+    def post(self, component, op, draft=None, **changes):
+        return self.client.post(reverse("admin_component", args=[component.id]), {**component_fields(draft or self.draft(component), **changes), "op": op})
+
+    def test_costs_come_from_the_recipe_then_ingredients_then_the_source_then_by_hand(self):
+        self.assertEqual(dish_info.component_cost(self.patty), Decimal("1.800"))
+        self.assertEqual(dish_info.component_cost(self.frozen), Decimal("1.800"))  # made from patties by a transform
+        self.assertEqual(dish_info.component_cost(self.spare), Decimal("0.004"))
+        Component.objects.filter(pk=self.patty.pk).update(recipe=self.recipe)
+        patty = Component.objects.get(pk=self.patty.pk)
+        self.assertEqual(dish_info.component_cost(patty), Decimal("66.06") / 40)
+        self.assertEqual(dish_info.component_allergens(patty), ["Mustard"])
+
+    def test_list_groups_filters_kpis_and_extras_sold(self):
+        self.place([{"type": "dish", "id": self.burger.id, "qty": 2, "cust": {"parts": {str(self.dc_patty.id): 3}}}], timezone.now())
+        self.assertEqual(components.extras_sold()[self.patty.id]["count"], 4)  # two extra patties on each of two burgers
+        l = self.client.get(reverse("admin_components")).context["l"]
+        self.assertEqual(l["groups"][0]["name"], "Proteins")
+        row = next(r for g in l["groups"] for r in g["rows"] if r["c"] == self.patty)
+        self.assertEqual((row["cost"], row["extra"], row["state"], row["used"]), ("$1.80", True, "low", "1 dish"))
+        self.assertEqual({f["key"]: f["count"] for f in l["filters"]}["extra"], 3)  # bun, onion and patty are adjustable
+        self.assertEqual(l["kpis"][3]["value"], "$16.00")
+        only = self.client.get(reverse("admin_components") + "?show=low").context["l"]["groups"]
+        self.assertEqual([r["c"] for g in only for r in g["rows"]], [Component.objects.get(pk=self.patty.pk)])
+        self.assertEqual(len(self.client.get(reverse("admin_components") + "?q=frozen").context["l"]["groups"]), 1)
+
+    def test_editor_cards(self):
+        e = self.client.get(reverse("admin_component", args=[self.patty.id])).context["e"]
+        self.assertEqual((e["status"], e["source"], e["cost_big"], e["chip"]), ("All changes saved", "per_unit", "$1.80", "Way under par"))
+        self.assertEqual([o["c"] for o in e["others"]], [self.frozen])
+        self.assertEqual([m["value"] for m in e["margin"]][:3], ["$4.00", "$1.80", "$2.20 · 55%"])
+        self.assertTrue(e["archive_off"])
+        e = self.post(self.patty, "preview", recipe=str(self.recipe.id)).context["e"]
+        self.assertEqual((e["source"], e["batch_line"], e["status"]), ("recipe", "Batch costs $66.06 and makes 40 ea", "Unsaved changes"))
+        e = self.client.get(reverse("admin_component", args=[self.frozen.id])).context["e"]
+        self.assertEqual((e["source"], e["cost_big"]), ("transform", "$1.80"))
+
+    def test_extras_drive_the_dish_parts(self):
+        draft = self.draft(self.patty)
+        self.assertEqual((draft["extra_on"], draft["offer"], draft["extra_max"]), (True, [str(self.dc_patty.id)], "10"))
+        e = self.post(self.patty, "extra_less", draft).context["e"]
+        self.assertEqual(e["max_n"], 9)
+        self.post(self.patty, "save", e["d"])
+        self.dc_patty.refresh_from_db()
+        self.assertEqual((self.dc_patty.adjustable, self.dc_patty.max_extra), (True, 9))
+        self.post(self.patty, "save", self.draft(self.patty), offer=[])
+        self.dc_patty.refresh_from_db()
+        self.assertEqual((self.dc_patty.adjustable, self.dc_patty.max_extra), (True, 0))  # can still be left out
+        # Turning it on for an onion fills in a label, a price and its dishes
+        e = self.post(self.onion, "preview", self.draft(self.onion), extra_on=True, extra_was="0").context["e"]
+        self.assertEqual((e["d"]["extra_label"], e["d"]["extra_price"], e["d"]["offer"]), ("Extra onion", "0.5", [str(self.dc_onion.id)]))
+
+    def test_save_keeps_stock_counted_elsewhere_and_checks_names(self):
+        draft = self.draft(self.patty)
+        Component.objects.filter(pk=self.patty.pk).update(inventory=55)  # counted in Cookery meanwhile
+        self.post(self.patty, "save", draft, par="150", kept_in="line")
+        patty = Component.objects.get(pk=self.patty.pk)
+        self.assertEqual((patty.inventory, patty.par, patty.kept_in), (55, 150, "line"))
+        self.post(self.patty, "save", self.draft(self.patty), inventory="60")
+        self.assertEqual(Component.objects.get(pk=self.patty.pk).inventory, 60)
+        e = self.post(self.spare, "preview", title="patty").context["e"]
+        self.assertEqual((e["status"], e["can_save"]), ("Another component has this name", False))
+        self.post(self.spare, "save", self.draft(self.spare), cost="8", unit="ml")  # $8 a litre
+        self.assertEqual(Component.objects.get(pk=self.spare.pk).cost, Decimal("0.0080"))
+
+    def test_new_duplicate_and_archive(self):
+        response = self.client.post(reverse("admin_component_new"))
+        new = Component.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_component", args=[new.id]))
+        self.assertRedirects(self.post(self.patty, "leave"), reverse("admin_components"))
+        self.assertTrue(self.post(self.patty, "leave", title="Changed").context["e"]["leave_ask"])
+        self.post(self.patty, "archive")
+        self.assertFalse(Component.objects.get(pk=self.patty.pk).archived)  # it's in the burger
+        self.post(self.patty, "duplicate")
+        copy = Component.objects.latest("id")
+        self.assertEqual((copy.title, copy.inventory, copy.recipe_id), ("Patty (copy)", 0, None))
+        self.assertRedirects(self.post(self.spare, "archive"), reverse("admin_components"))
+        self.assertTrue(Component.objects.get(pk=self.spare.pk).archived)
+        self.assertNotIn(self.spare, [r["c"] for g in self.client.get(reverse("admin_components")).context["l"]["groups"] for r in g["rows"]])
 
 
 class UnitTests(TestCase):

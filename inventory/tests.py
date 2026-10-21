@@ -23,7 +23,7 @@ class AvailabilityTests(TestCase):
         kitchen = Station.objects.get(code="kitchen")
 
         def component(title, inventory):
-            return Component.objects.create(title=title, unit_of_measurement="ea", type="food", crafting_option="buy", inventory=inventory)
+            return Component.objects.create(title=title, unit_of_measurement="ea", crafting_option="buy", inventory=inventory)
 
         cls.patty = component("Patty", 10)
         cls.bun = component("Bun", 0)
@@ -132,11 +132,11 @@ class CookeryTests(TestCase):
         RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.water, quantity=500)
         RecipeStep.objects.create(recipe=cls.recipe, position=0, title="Mix", text="Mix it.").uses.set([flour])
         RecipeStep.objects.create(recipe=cls.recipe, position=1, title="Rest", duration=timedelta(minutes=30), scene="rest")
-        cls.pierogi = Component.objects.create(title="Pierogi", unit_of_measurement="ea", type="food", crafting_option="craft",
+        cls.pierogi = Component.objects.create(title="Pierogi", unit_of_measurement="ea", crafting_option="craft",
                                                inventory=10, recipe=cls.recipe, par=100)
-        cls.patty = Component.objects.create(title="Patty", unit_of_measurement="ea", type="food", crafting_option="craft", inventory=0)
+        cls.patty = Component.objects.create(title="Patty", unit_of_measurement="ea", crafting_option="craft", inventory=0)
         ComponentIngredient.objects.create(component=cls.patty, ingredient=cls.beef, quantity=120)
-        cls.frozen = Component.objects.create(title="Pierogi, frozen", unit_of_measurement="ea", type="food",
+        cls.frozen = Component.objects.create(title="Pierogi, frozen", unit_of_measurement="ea",
                                               crafting_option="transform", inventory=0)
         cls.freeze = Transformation.objects.create(name="Freeze pierogi", from_component=cls.pierogi, to_component=cls.frozen,
                                                    duration=timedelta(hours=2))
@@ -211,7 +211,7 @@ class CookeryTests(TestCase):
         self.assertEqual((self.fresh(self.patty).inventory, self.fresh(self.beef).inventory), (3, 640))
 
     def test_amounts_are_typed_in_friendly_units(self):
-        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", type="food", crafting_option="craft")
+        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", crafting_option="craft")
         session = self.start(sauce)
         self.post(session, action="count", amount="1.5")  # litres
         self.assertEqual(session.log.get().amount, 1500)
@@ -252,7 +252,7 @@ class CookeryTests(TestCase):
 
 
     def test_recipe_components_leave_stock_and_transforms_use_their_recipe(self):
-        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", type="food", crafting_option="buy", inventory=500)
+        sauce = Component.objects.create(title="Sauce", unit_of_measurement="ml", crafting_option="buy", inventory=500)
         RecipeIngredient.objects.create(recipe=self.recipe, component=sauce, quantity=100)
         self.start(self.pierogi, batch="2")
         self.assertEqual(self.fresh(sauce).inventory, 300)
@@ -274,7 +274,7 @@ class SeedRecipesTests(TestCase):
         from django.core.management import call_command
         from io import StringIO
         kept = Recipe.objects.create(yield_quantity=5)
-        Component.objects.create(title="Smash sauce", unit_of_measurement="ml", type="food", crafting_option="craft", recipe=kept)
+        Component.objects.create(title="Smash sauce", unit_of_measurement="ml", crafting_option="craft", recipe=kept)
         call_command("seed_recipes", stdout=StringIO())
         self.assertEqual(Component.objects.get(title="Smash sauce").recipe, kept)  # had one: left alone
         pierogi = Component.objects.get(title="Pierogi, potato & cheese")
@@ -289,7 +289,7 @@ class SeedRecipesTests(TestCase):
 class CookeryInPageTests(TestCase):
     def test_background_posts_get_the_page_back_without_a_redirect(self):
         cook = User.objects.create_user("cook", password="x", is_staff=True)
-        patty = Component.objects.create(title="Patty", unit_of_measurement="ea", type="food", crafting_option="craft")
+        patty = Component.objects.create(title="Patty", unit_of_measurement="ea", crafting_option="craft")
         session = CookingSession.objects.create(kind="cook", component=patty, holder=cook, phase="yield")
         self.client.force_login(cook)
         url = reverse("cookery_batch", args=[session.id])

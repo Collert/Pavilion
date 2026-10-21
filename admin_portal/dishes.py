@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, ngettext
 
-from pos_server.dish_info import (DISH_PREFETCH, component_cost, dish_allergens, dish_diets, food_cost_pct, parts_allergens,
+from pos_server.dish_info import (COMPONENT_PREFETCH, DISH_PREFETCH, component_cost, dish_allergens, dish_diets, food_cost_pct, parts_allergens,
                                   parts_cost, parts_diets, plate_cost)
 from pos_server.models import CateringPrice, Component, Dish, DishComponent, Menu, Option, OptionGroup, OrderItem, Station
 
@@ -56,7 +56,7 @@ def _matches(row, key):
 def dish_list(query="", show="all"):
     archived = show == "archived"
     dishes = (Dish.objects.filter(archived=archived).select_related("station")
-              .prefetch_related(DISH_PREFETCH, "menu").order_by("title"))
+              .prefetch_related(*DISH_PREFETCH, "menu").order_by("title"))
     q = (query or "").strip()
     if q:
         dishes = dishes.filter(Q(title__icontains=q) | Q(description__icontains=q))
@@ -92,7 +92,7 @@ def dish_list(query="", show="all"):
 
 def editor_queryset():
     return Dish.objects.select_related("station").prefetch_related(
-        DISH_PREFETCH, "catering_prices", "menu", "option_groups__options")
+        *DISH_PREFETCH, "catering_prices", "menu", "option_groups__options")
 
 
 def _dec(value):
@@ -409,7 +409,7 @@ def last_week(dish, cost, price):
 def editor(dish, draft, leave_ask=False, photo_pending=False):
     price = _dec(draft["price"])
     price = price if price and price > 0 else None
-    components = {str(c.id): c for c in Component.objects.prefetch_related("componentingredient_set__ingredient").order_by("title")}
+    components = {str(c.id): c for c in Component.objects.filter(archived=False).prefetch_related(*COMPONENT_PREFETCH).order_by("title")}
     parts, recipe = [], []
     for i, p in enumerate(draft["parts"]):
         component = components.get(p["component"])

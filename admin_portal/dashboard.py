@@ -307,7 +307,7 @@ def alerts(now):
     for dish in sold_out:
         out.append({"level": "critical", "title": _("%(dish)s sold out") % {"dish": dish.title},
                     "sub": _("A part ran out, so it's off the menu"), "url": reverse("component_availability")})
-    for comp in Component.objects.filter(par__gt=0, inventory__lt=F("par")).order_by("title")[:3]:
+    for comp in Component.objects.filter(par__gt=0, inventory__lt=F("par"), archived=False).order_by("title")[:3]:
         out.append({"level": "warning", "title": _("%(item)s below par") % {"item": comp.title},
                     "sub": _("%(left)s left, par is %(par)s") % {"left": fmt_qty(comp.inventory, comp.unit_of_measurement),
                                                               "par": fmt_qty(comp.par, comp.unit_of_measurement)},
