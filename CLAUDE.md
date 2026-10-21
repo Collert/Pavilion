@@ -48,6 +48,7 @@ without asking.
 | `deliveries` | `/deliveries/` | Courier PWA (Cookery-style templates): shifts, accept/pass, steps to the door with a proof photo (`Delivery.phase()`), Google travel times (`routes.py`), web push. Delivery orders reach the KDS only once a courier accepts (`hidden_order_ids()`). |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
 | `services` | — | Service (staff, rentals, venue, delivery, classes, extras: pricing, details, deposit, booking rules; `quote()`) and Booking. Edited in the admin's Services page. |
+| `catering` | `/catering/` | Catering orders (CateringOrder/Line/Message, CateringSettings): `flow.py` does every step (accept charges the card on file, propose changes, reject/cancel refunds, deposit holds), `pricing.py` the money; answered in the admin's Catering page; `<token>` is the customer's page. Daily cron: `manage.py catering_deposits`. Never on the register or KDS. |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |
@@ -89,6 +90,10 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   servings: house-made from its recipe, or bought as one ingredient whose pack is the case) is priced per order:
   `free_per_order` servings across the whole cart are free, then `price` each (`pricing._charge_condiments`); other
   extras cost `Extra.price` each.
+- **Catering** orders are separate from `Order`: lines are dishes (catering price for the quantity), services
+  (`Service.quote`), condiments and disposables (priced by hand), each keeping its price. Nothing is charged until
+  the order is accepted (or the customer agrees to proposed changes); equipment deposits are card holds placed close
+  to the event. Change them only through `catering/flow.py`.
 - **Combo → ComboSlot → ComboSlotOption(dish, upcharge, is_default).** A combo is a set price + upcharges or a percent
   off the picks (`Combo.unit_price`); each slot takes `picks` dishes and is required (starts on its default) or optional.
   Cart lines list every pick (`slots: {id: [{dish, cust}]}`). Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.

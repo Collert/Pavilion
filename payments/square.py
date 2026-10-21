@@ -199,5 +199,62 @@ def refund_payment(payment_id, amount, key, reason=""):
     return result.body["refund"]["id"]
 
 
+# ---------- cards on file (catering: saved when the order comes in, charged when it's accepted) ----------
+
+def create_customer(name, email, phone="", company="", key=None):
+    """A Square customer to keep cards on. Returns its id."""
+    first, _, last = (name or "").partition(" ")
+    body = {"idempotency_key": (key or str(uuid.uuid4()))[:45], "given_name": first, "family_name": last,
+            "email_address": email}
+    if phone:
+        body["phone_number"] = phone
+    if company:
+        body["company_name"] = company
+    result = square_client.customers.create_customer(body)
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return result.body["customer"]["id"]
+
+
+def save_card(token, customer_id, name="", key=None):
+    """Keep the card a Web Payments token stands for on `customer_id`. Returns {id, brand, last4}."""
+    result = square_client.cards.create_card({
+        "idempotency_key": (key or str(uuid.uuid4()))[:45], "source_id": token,
+        "card": {"customer_id": customer_id, "cardholder_name": name[:96]},
+    })
+    if not result.is_success():
+        raise SquareError(result.errors)
+    card = result.body["card"]
+    return {"id": card["id"], "brand": card.get("card_brand", ""), "last4": card.get("last_4", "")}
+
+
+def charge_card(customer_id, card_id, amount, key, note="", autocomplete=True):
+    """
+    Charge `amount` (dollars) to a card on file, or only hold it (autocomplete=False: complete_payment() takes it,
+    cancel_payment() lets it go; holds last about 7 days). `key` makes retries safe. Returns the payment id.
+    """
+    result = square_client.payments.create_payment({
+        "source_id": card_id, "customer_id": customer_id,
+        "amount_money": {"amount": to_cents(amount), "currency": "CAD"},
+        "location_id": settings.SQUARE_LOCATION_ID, "idempotency_key": key[:45],
+        "autocomplete": autocomplete, "note": note[:500],
+    })
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return result.body["payment"]["id"]
+
+
+def complete_payment(payment_id):
+    result = square_client.payments.complete_payment(payment_id, body={})
+    if not result.is_success():
+        raise SquareError(result.errors)
+
+
+def cancel_payment(payment_id):
+    result = square_client.payments.cancel_payment(payment_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+
+
 class SquareError(Exception):
     """Square rejected a request; `args[0]` holds Square's error list."""

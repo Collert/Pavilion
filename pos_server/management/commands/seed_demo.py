@@ -96,6 +96,7 @@ class Command(BaseCommand):
             self.seed_events()
             self.seed_store()
             self.seed_services()
+            self.seed_catering()
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
@@ -864,6 +865,132 @@ class Command(BaseCommand):
                 content = placeholder_image(f"{restock.number} {name}", "#e8ede9", size=(600, 800)) if receipt == "img" else \
                     ContentFile(b"%PDF-1.4\n% demo invoice\n")
                 restock.receipt.save(f"{name.split()[0]}-{restock.id}." + ("png" if receipt == "img" else "pdf"), content, save=True)
+
+    def seed_catering(self):
+        """Catering: settings, more dishes on for catering, and orders in every state (new, one asking for less
+        notice, waiting on the customer, confirmed with deposits, completed, rejected), made through catering.flow."""
+        from catering import flow as cflow, pricing as cpricing
+        from catering.models import CateringLine, CateringMessage, CateringOrder, CateringSettings
+
+        cfg = CateringSettings.load()
+        cfg.policy = ("Free cancellation up to 7 days before your event. Within 7 days, 50% of the food total is non-refundable. "
+                      "Services can be cancelled for free up to 48 hours before.")
+        cfg.auto_reply = "Thanks! We’ll confirm your catering order within one business day."
+        cfg.save()
+        # More dishes for catering: a little off retail, more off for big orders
+        for title in ("Crispy chicken sandwich", "Pulled pork plate", "Charred corn", "Kids cheeseburger", "Fresh lemonade",
+                      "Flat white", "Iced latte", "Almond croissant", "Brownie"):
+            dish = Dish.objects.filter(title=title, catering=False).first()
+            if dish:
+                dish.catering, dish.catering_min = True, 10
+                dish.save(update_fields=["catering", "catering_min"])
+                for quantity, off in ((10, Decimal("0.95")), (40, Decimal("0.88"))):
+                    price = (dish.price * off * 20).quantize(Decimal("1")) / 20
+                    CateringPrice.objects.create(dish=dish, quantity=quantity, price=price.quantize(Decimal("0.01")))
+        # Venues and classes are booked on their own, not added to catering; the grill and chef need a chat first
+        Service.objects.filter(title__in=["Full restaurant buyout", "Private back room", "Pasta making class", "Chef’s tasting menu",
+                                          "Mobile flat-top grill", "Chef on site"]).update(catering=False)
+
+        dish = {d.title: d for d in Dish.objects.filter(catering=True)}
+        service = {x.title: x for x in Service.objects.all()}
+        condiment = {c.component.title: c for c in Condiment.objects.select_related("component")}
+        disposable = {d.ingredient.title: d for d in Disposable.objects.select_related("ingredient")}
+        priya = User.objects.get(username="priya")
+        now, today = timezone.now(), timezone.localdate()
+
+        def at(days, hour, minute=0):
+            day = today + datetime.timedelta(days=days)
+            return min(timezone.make_aware(datetime.datetime(day.year, day.month, day.day, hour, minute)), now - datetime.timedelta(minutes=20))
+
+        def stamp(order, when):
+            """Date the steps a flow call just added (they were stamped now)."""
+            CateringMessage.objects.filter(order=order, at__gte=now).update(at=when)
+
+        def order(name, title, days, time, fulfilment, placed, card, lines, org="", address="", note="", phone="604-555-0100"):
+            brand, last4 = card.split()
+            o = CateringOrder.objects.create(
+                name=name, organization=org, email=name.lower().replace(" ", ".") + "@example.com", phone=phone, title=title,
+                event_date=today + datetime.timedelta(days=days), event_time=datetime.time(*time), fulfilment=fulfilment,
+                address=address, note=note, placed_at=placed, square_customer_id=f"demo:cust-{last4}",
+                square_card_id=f"demo:card-{last4}", card_brand=brand, card_last4=last4)
+            for position, (kind, ref, quantity, *more) in enumerate(lines):
+                item = {"dish": dish, "service": service, "condiment": condiment, "disposable": disposable}[kind][ref]
+                amount = more[0] if more else (1 if kind == "service" and item.pricing in (Service.HOUR, Service.DAY) else 0)
+                price = Decimal(more[1]) if len(more) > 1 else cpricing.catalog_price(kind, item, quantity)
+                CateringLine.objects.create(order=o, kind=kind, position=position, quantity=quantity, amount=amount, price=price,
+                                            **{CateringLine.FIELDS[kind]: item})
+            cflow.place(o, quiet=True)
+            CateringMessage.objects.filter(order=o).update(at=placed)
+            return o
+
+        D, S = "dish", "service"
+        order("Ben Carter", "Office lunch", 10, (12, 0), CateringOrder.DELIVERY, at(-1, 15, 42), "VISA 4242",
+              [(D, "Smash burger", 20), (D, "Halloumi grain bowl", 20), (D, "Fries", 40), (D, "Fresh lemonade", 40), (D, "Brownie", 40),
+               (S, "Catering delivery", 1), (S, "Setup and teardown", 1, 2), (S, "Chafing dish set", 4)],
+              org="Hartley & Co.", address="1100 Melville St, 14th floor", phone="604-555-0142",
+              note="Three people are gluten-free, please label their bowls. Use the loading bay elevator.")
+        order("Anjali Rao", "Rao–Mehta wedding brunch", 25, (10, 30), CateringOrder.FULL, at(0, 9, 12), "MASTERCARD 8810",
+              [(D, "Cardamom bun", 120), (D, "Almond croissant", 120), (D, "Halloumi grain bowl", 60), (D, "Pulled pork plate", 60),
+               (D, "Flat white", 120), (D, "Fresh lemonade", 120), (S, "Event server", 4, 5), (S, "Bartender", 1, 5),
+               (S, "Coffee urn, 100 cups", 3), (S, "Chafing dish set", 8), (S, "Folding tables and chairs", 12),
+               (S, "Custom celebration cake", 1), (S, "Printed event menus", 120)],
+              address="Cedar Hall, 2150 W 4th Ave", phone="778-555-0198",
+              note="Two tiers for the cake if possible, ivory and gold. The hall opens at 8:30.")
+        order("Noor Haddad", "Leo’s 7th birthday", 4, (14, 0), CateringOrder.PICKUP, at(0, 8, 40), "VISA 0019",
+              [(D, "Kids cheeseburger", 12), (D, "Fries", 25), (D, "Fresh lemonade", 25), (D, "Brownie", 25), (S, "Custom celebration cake", 1)],
+              phone="604-555-0171", note="Sorry for the short notice, our other plan fell through. Could the cake be dinosaur themed?")
+
+        # Waiting: corn is off for winter, so fries instead, and clamshells for 60 delivered meals
+        lumen = order("Sofia Moreau", "Holiday party", 53, (18, 0), CateringOrder.DELIVERY, at(-5, 11, 20), "AMEX 1007",
+                      [(D, "Crispy chicken sandwich", 30), (D, "Smash burger", 30), (D, "Charred corn", 60), (D, "Fresh lemonade", 60),
+                       (D, "Brownie", 60), (S, "Catering delivery", 1), (S, "Chafing dish set", 6)],
+                      org="Lumen Studio", address="355 Railway St, unit 200", phone="604-555-0110",
+                      note="Can we do the charred corn? Everyone loved it at our summer party.")
+        draft = cpricing.lines_of(lumen)
+        corn = next(l for l in draft if l["ref"] == dish["Charred corn"].id)
+        corn["removed"] = True
+        fries = dish["Fries"]
+        draft.insert(2, {"id": "", "kind": D, "ref": fries.id, "quantity": 60, "amount": 0, "price": str(fries.catering_price(60)), "removed": False})
+        clam = disposable["Burger clamshell"]
+        draft.append({"id": "", "kind": "disposable", "ref": clam.id, "quantity": 60, "amount": 0, "price": "0.75", "removed": False})
+        cflow.propose(lumen, priya, draft, "Hi Sofia! Charred corn is off the menu for winter, so I swapped in fries. For 60 delivered "
+                      "meals we pack everything in compostable clamshells, which adds $45. Let me know if this works!", quiet=True)
+        stamp(lumen, at(-3, 10, 5))
+        CateringOrder.objects.filter(pk=lumen.pk).update(proposed_at=at(-3, 10, 5))
+        CateringMessage.objects.create(order=lumen, who=CateringMessage.CUSTOMER, at=at(-2, 16, 31),
+                                       text="Thanks! Checking with my boss, I’ll confirm this week.")
+
+        # Confirmed, deposit hold still to come
+        kenji = order("Kenji Watanabe", "Watanabe family reunion", 5, (12, 0), CateringOrder.PICKUP, at(-12, 19, 2), "VISA 5521",
+                      [(D, "Pulled pork plate", 35), (D, "Charred corn", 35), (D, "Halloumi grain bowl", 10), (D, "Fresh lemonade", 35),
+                       (D, "Cardamom bun", 35), (S, "Chafing dish set", 3), (S, "Coffee urn, 100 cups", 1)], phone="604-555-0133")
+        cflow.accept(kenji, priya, "See you on the 25th, Kenji! Everything will be packed and labelled by 11:45.", quiet=True)
+        stamp(kenji, at(-11, 10, 15))
+        CateringOrder.objects.filter(pk=kenji.pk).update(accepted_at=at(-11, 10, 15))
+        # Confirmed and over: the deposit is held, waiting for the equipment to come back
+        grace = order("Grace Lin", "Graduation backyard party", -1, (17, 0), CateringOrder.DELIVERY, at(-16, 13, 5), "VISA 6604",
+                      [(D, "Smash burger", 25), (D, "Fries", 25), (D, "Fresh lemonade", 25), (S, "Catering delivery", 1), (S, "Chafing dish set", 2)],
+                      address="4120 Fraser St, back gate", phone="604-555-0166")
+        cflow.accept(grace, priya, "", quiet=True)
+        stamp(grace, at(-15, 9, 30))
+        CateringOrder.objects.filter(pk=grace.pk).update(accepted_at=at(-15, 9, 30))
+        # Completed: both urns came back
+        jordan = order("Jordan Lee", "Post-race brunch", -10, (9, 0), CateringOrder.DELIVERY, at(-26, 8, 15), "VISA 3310",
+                       [(D, "Almond croissant", 30), (D, "Cardamom bun", 30), (D, "Flat white", 30), (S, "Coffee urn, 100 cups", 2),
+                        (S, "Catering delivery", 1)], org="Northside Run Club", address="Trout Lake Park, north lot", phone="604-555-0187")
+        cflow.accept(jordan, priya, "", quiet=True)
+        stamp(jordan, at(-26, 12, 40))
+        jordan.refresh_from_db()
+        cflow.finish(jordan, priya)
+        stamp(jordan, at(-8, 9, 0))
+        CateringOrder.objects.filter(pk=jordan.pk).update(accepted_at=at(-26, 12, 40), closed_at=at(-8, 9, 0))
+        # Rejected
+        maya = order("Maya Singh", "Aid station snacks", 12, (6, 0), CateringOrder.PICKUP, at(-8, 13, 30), "VISA 7781",
+                     [(D, "Cardamom bun", 400), (D, "Fresh lemonade", 400)], org="Seawall Half Marathon", phone="604-555-0155")
+        cflow.reject(maya, priya, "Too large for us", "Thanks for thinking of us, Maya! 400 portions by 6 AM is more than our kitchen "
+                     "can do on a race weekend. We’d love to help with something smaller next year.", quiet=True)
+        stamp(maya, at(-7, 9, 20))
+        CateringOrder.objects.filter(pk=maya.pk).update(closed_at=at(-7, 9, 20))
 
     def seed_discounts(self):
         specs = [

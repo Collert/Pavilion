@@ -56,6 +56,40 @@ KINDS = {
               '<td style="text-align:right">{{ .value }}</td></tr>{{ end }}</table>'
               '<p style="color:#5B6A62">{{ .Tx.Data.store }}</p>'),
     ),
+    "catering_received": (
+        "We got your catering order · {{ .Tx.Data.number }}",
+        _wrap('<h2>Thanks, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
+              '<p>{{ .Tx.Data.title }} · {{ .Tx.Data.when }} · {{ .Tx.Data.total }}</p>'
+              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
+    ),
+    "catering_changes": (
+        "Changes to your catering order · {{ .Tx.Data.number }}",
+        _wrap('<h2>{{ .Tx.Data.store }} suggested some changes</h2><p>{{ .Tx.Data.message }}</p>'
+              '<ul>{{ range .Tx.Data.changes }}<li>{{ . }}</li>{{ end }}</ul>'
+              '<p>New total {{ .Tx.Data.now }} (was {{ .Tx.Data.was }}). Nothing is charged until you accept.</p>'
+              '<p><a href="{{ .Tx.Data.order_url }}">Review the changes</a></p>'),
+    ),
+    "catering_accepted": (
+        "Your catering order is confirmed · {{ .Tx.Data.number }}",
+        _wrap('<h2>You’re all set, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
+              '<p>{{ .Tx.Data.title }} · {{ .Tx.Data.when }}. We charged {{ .Tx.Data.total }} to your card.</p>'
+              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
+    ),
+    "catering_closed": (
+        "About your catering order · {{ .Tx.Data.number }}",
+        _wrap('<h2>We can’t do this one, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
+              '{{ if .Tx.Data.refunded }}<p>{{ .Tx.Data.refunded }} is on its way back to your card.</p>{{ end }}'
+              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
+    ),
+    "catering_message": (
+        "A message about your catering order · {{ .Tx.Data.number }}",
+        _wrap('<p>{{ .Tx.Data.message }}</p><p><a href="{{ .Tx.Data.order_url }}">Reply on your order page</a></p>'),
+    ),
+    "catering_reminder": (
+        "Your catering order is waiting on you · {{ .Tx.Data.number }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>We suggested a few changes to {{ .Tx.Data.title }}. '
+              'Have a look and let us know.</p><p><a href="{{ .Tx.Data.order_url }}">Review the changes</a></p>'),
+    ),
 }
 
 

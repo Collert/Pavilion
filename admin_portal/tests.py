@@ -18,7 +18,10 @@ from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, components, condiments, dashboard, dishes, disposables, ingredients, recipes, reports, restocks, services
+from catering.models import CateringOrder, CateringSettings
+from catering.tests import CateringFixture
+
+from . import catering, combos, components, condiments, dashboard, dishes, disposables, ingredients, recipes, reports, restocks, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -1472,3 +1475,103 @@ class UnitTests(TestCase):
         self.assertEqual(fmt_qty(400, "ml"), "400 ml")
         self.assertEqual(fmt_qty(12000, "ml"), "12 L")
         self.assertEqual(fmt_qty(12, "ea"), "12 ea")
+
+
+def catering_fields(draft, **changes):
+    """The catering editor's POST fields for a draft (admin_portal.catering.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("add_kind", "add_ref", "add_qty", "add_price", "add_last", "msg")}
+    data["line-count"] = len(draft["lines"])
+    for i, line in enumerate(draft["lines"]):
+        data.update({f"line-{i}-{k}": line[k] for k in ("id", "kind", "ref", "quantity", "amount", "price")})
+        data[f"line-{i}-removed"] = "1" if line.get("removed") else ""
+    return data
+
+
+def catering_settings_fields(d, **changes):
+    d = {**d, **changes}
+    data = {k: "1" if d[k] else "" for k in catering.SWITCHES}
+    data.update({k: d[k] for k in ("lead", "lead_unit", "max_ahead", "big_hours", "min_subtotal", "earliest", "latest", "hold_days", "policy", "auto_reply")})
+    data.update({f"day-{i}": "1" if on else "" for i, on in enumerate(d["days"])})
+    data["service"] = [str(x) for x in d["services"]]
+    return data
+
+
+@override_settings(TAX_RATE="0")
+@mock.patch("catering.flow.send_email")
+class CateringAdminTests(CateringFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+        cups = Ingredient.objects.create(title="Cold cup", unit_of_measurement="ea", pack_size=100, pack_price=Decimal("9.60"))
+        cls.cup = Disposable.objects.create(ingredient=cups, size="16 oz")
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def test_inbox_sheets_and_badge(self, send):
+        order = self.make_order()
+        self.make_order(days=20, status=CateringOrder.CONFIRMED)
+        response = self.client.get(reverse("admin_catering"))
+        c = response.context["c"]
+        self.assertEqual(([t["count"] for t in c["tabs"]], c["selected"]), ([1, 0, 1, 0], order))
+        orders = next(g for g in response.context["rail"] if g["id"] == "orders")
+        self.assertEqual(orders["badge"], 1)
+        d = self.client.get(reverse("admin_catering_order", args=[order.id]) + "?sheet=accept").context["d"]
+        self.assertEqual((d["sheet"]["kind"], d["t"]["deposit"], d["bar"]["kind"]), ("accept", Decimal("120"), "new"))
+
+    def test_editing_and_sending_changes(self, send):
+        order = self.make_order()
+        url = reverse("admin_catering_order", args=[order.id])
+        draft = self.client.get(url + "?edit=1").context["d"]["draft"]
+        d = self.client.post(url, {**catering_fields(draft), "op": "more:0"}).context["d"]
+        self.assertEqual((d["draft"]["lines"][0]["quantity"], d["draft"]["lines"][0]["price"]), (25, "12.50"))
+        d = self.client.post(url, {**catering_fields(d["draft"]), "op": "add_kind:disposable"}).context["d"]
+        self.assertEqual([o["id"] for o in d["add"]["options"]], [self.cup.id])  # clamshells are already on it
+        d = self.client.post(url, {**catering_fields(d["draft"], add_ref=str(self.cup.id), add_qty="40"), "op": "preview"}).context["d"]
+        self.assertEqual(d["draft"]["add_price"], "0.20")  # 9.6¢ each, about twice that
+        d = self.client.post(url, {**catering_fields(d["draft"]), "op": "add"}).context["d"]
+        d = self.client.post(url, {**catering_fields(d["draft"]), "op": "remove:3"}).context["d"]
+        self.assertEqual((len(d["draft"]["lines"]), d["edit"]["count"], d["edit"]["can_send"]), (6, 3, False))
+        response = self.client.post(url, {**catering_fields(d["draft"]), "op": "send"})
+        self.assertEqual(response.context["d"]["draft"]["lines"][0]["quantity"], 25)  # still editing: no reason given
+        self.client.post(url, {**catering_fields(d["draft"], msg="More people coming"), "op": "send"})
+        order.refresh_from_db()
+        self.assertEqual((order.status, order.lines.count()), (CateringOrder.WAITING, 5))
+        self.assertEqual(send.call_args.args[0], "catering_changes")
+        d = self.client.get(url).context["d"]
+        self.assertEqual(d["head"], "Your proposed changes")
+        self.assertIn("Removed", [x["tag"] for g in d["groups"] for x in g["rows"]])
+
+    def test_accept_finish_and_reject(self, send):
+        order = self.make_order(days=0)
+        url = reverse("admin_catering_order", args=[order.id])
+        response = self.client.post(url, {"op": "accept", "message": "See you at noon"})
+        self.assertRedirects(response, url + "?tab=upcoming", fetch_redirect_response=False)
+        bar = self.client.get(url).context["d"]["bar"]
+        self.assertEqual([b.get("op") for b in bar["buttons"]], ["keep", "finish"])  # event day, deposit held
+        self.client.post(url, {"op": "finish"})
+        order.refresh_from_db()
+        self.assertEqual((order.status, order.hold_state), (CateringOrder.DONE, CateringOrder.RELEASED))
+        other = self.make_order()
+        url = reverse("admin_catering_order", args=[other.id])
+        self.assertEqual(self.client.post(url, {"op": "reject", "reason": "Too large for us"}).context["d"]["sheet"]["kind"], "reject")
+        self.client.post(url, {"op": "reject", "reason": "Too large for us", "message": "Sorry, Ben"})
+        self.assertEqual(CateringOrder.objects.get(pk=other.pk).status, CateringOrder.REJECTED)
+        self.client.post(url, {"op": "reply", "text": "One more thing"})
+        self.assertFalse(other.messages.filter(text="One more thing").exists())  # closed
+
+    def test_settings(self, send):
+        url = reverse("admin_catering_settings")
+        s = self.client.get(url).context["s"]
+        self.assertFalse(s["dirty"])
+        s = self.client.post(url, {**catering_settings_fields(s["d"]), "op": "toggle:rush"}).context["s"]
+        self.assertTrue(s["dirty"])
+        self.client.post(url, {**catering_settings_fields(s["d"], days=[False] * 7), "op": "save"})
+        self.assertTrue(CateringSettings.load().rush)  # not saved: no days
+        services = [x for x in s["d"]["services"] if x != self.chafer.id]
+        self.client.post(url, {**catering_settings_fields(s["d"], lead="3", services=services), "op": "save"})
+        cfg = CateringSettings.load()
+        self.assertEqual((cfg.rush, cfg.lead), (False, 3))
+        self.chafer.refresh_from_db()
+        self.assertFalse(self.chafer.catering)

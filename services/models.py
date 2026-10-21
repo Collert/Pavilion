@@ -1,8 +1,8 @@
 """
 Services: things the store sells that aren't food (staff for an event, equipment rental, the venue, delivery and setup,
 classes, extras like a cake), and the bookings made for them. Edited in the admin's Services page
-(admin_portal/services.py). Service.quote() works out what a booking costs; bookings themselves come from catering
-orders and the counter later (only the admin and seed_demo make them for now).
+(admin_portal/services.py). Service.quote() works out what a booking costs; confirmed catering orders keep a booking
+per service line (catering/flow.py), and the counter will book them later.
 """
 from decimal import Decimal
 
@@ -89,16 +89,17 @@ class Service(models.Model):
         """Staffing and equipment are booked for a number of people or units as well."""
         return self.category in (self.STAFF, self.EQUIPMENT)
 
-    def quote(self, amount=1, count=1):
+    def quote(self, amount=1, count=1, price=None):
         """
         What a booking costs: `amount` hours/guests/days/items (ignored for a flat fee; the minimum is charged when it's
-        more) for `count` people or units (staffing and equipment only). Returns {quantity, subtotal, gratuity, tax,
+        more) for `count` people or units (staffing and equipment only), at `price` (default: the service's own; a
+        catering order keeps the price it was made at). Returns {quantity, subtotal, gratuity, tax,
         total, deposit, min_spend, notes}; the deposit is refundable and not taxed, the venue's food and drink minimum
         is spent on the catering order, not added here.
         """
         amount, count = max(int(amount or 1), 1), max(int(count or 1), 1) if self.counts_units else 1
         quantity = 1 if self.pricing == self.FLAT else max(amount, self.minimum)
-        subtotal = (self.price * quantity * count).quantize(CENT)
+        subtotal = ((self.price if price is None else Decimal(price)) * quantity * count).quantize(CENT)
         gratuity = (subtotal * self.detail("gratuity") / 100).quantize(CENT) if self.category == self.STAFF else Decimal("0")
         rate = Decimal(str(getattr(settings, "TAX_RATE", "0"))) if self.tax == self.STORE_TAX else Decimal("0")
         tax = ((subtotal + gratuity) * rate).quantize(CENT)

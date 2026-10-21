@@ -31,7 +31,7 @@ from django.http import Http404, HttpResponseForbidden, StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
 
-TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus")
+TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus", "catering")
 HEARTBEAT_SECONDS = 15
 CHANNEL_PREFIX = "pavilion:"
 
@@ -163,8 +163,8 @@ def stream_response(topic):
 @sync_to_async
 def _can_listen(request, topic):
     from pos_server.devices import is_registered_device
-    if topic in ("orders", "screens"):
-        return True  # public screens listen too; a nudge carries no data, the page they refetch decides what to show
+    if topic in ("orders", "screens", "catering"):
+        return True  # public screens and customers' catering pages listen too; a nudge carries no data, the page they refetch decides what to show
     user = request.user
     if not user.is_authenticated:
         return False

@@ -77,7 +77,8 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -87,7 +88,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/screens/` | `screens` | `""` list of screens + widget catalogue (staff), `<slug>` a screen (public or staff, per screen) |
 | `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
-| `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders` and `screens` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
+| `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders`, `screens` and `catering` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
 
 **Access rules.** Customers can register accounts, so staff pages use `staff_required` / `superuser_required` /
 `api_staff_required` (`pos_server/devices.py`), never bare `login_required`. POS/KDS views also use `device_required`.
@@ -154,8 +155,8 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   A dish's allergens, the `DIETS` it fits (vegetarian, vegan, pescatarian, gluten-free) and its food cost are worked
   out from its recipe in `pos_server/dish_info.py`; nothing is stored on the dish.
 - **Kitchen tickets** use `Dish.ticket_name` when it's set (`orders._kitchen_rows`). `prep_minutes` is stored for
-  later (estimates). `Dish.catering_price(qty)` is the biggest `CateringPrice` break reached, else retail; the
-  Catering page will use it. Archived dishes are never `available` and come off every menu.
+  later (estimates). `Dish.catering_price(qty)` is the biggest `CateringPrice` break reached, else retail; catering
+  orders use it (§6.12). Archived dishes are never `available` and come off every menu.
 
 ### 5.2 Stations and orders
 
@@ -204,8 +205,16 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   includes (venues), deposit + deposit_amount + deposit_per unit|booking (equipment), lead_days, cancellation,
   needs_approval, at_counter, online, catering, active, archived)`; `Service.quote(amount, count)` prices a booking
   (minimum, gratuity, tax, refundable deposit). `services.Booking(service, name, customer, date, amount, count, status =
-  pending|confirmed|declined|cancelled, channel, total, deposit, notes, created_at)`. Only the admin page and
-  `seed_demo` use them so far; catering, the register and the store don't book services yet.
+  pending|confirmed|declined|cancelled, channel, total, deposit, notes, created_at)`. Confirmed catering orders keep one
+  Booking per service line (`CateringLine.booking`); the register and the store don't book services yet.
+- `catering`: `CateringSettings` (one row: on/off, minimum notice in hours or days, book-ahead limit, more notice for
+  big orders = one day per `big_hours` of kitchen time from dishes' `prep_minutes`, less-notice requests, minimum
+  subtotal, event days and hours, pickup/delivery/full service, when deposits are held, policy, auto-reply),
+  `CateringOrder` (token for the customer's page, contact, event date/time, fulfilment and address, note, status
+  new → waiting (changes proposed) → confirmed → done, or rejected / cancelled; `previous` = the lines before the
+  proposed changes; the Square card on file, `charged`/`refunded`, the deposit hold), `CateringLine` (dish, service,
+  condiment or disposable; quantity, hours/days, price each kept on the line) and `CateringMessage` (the conversation
+  and every step, with the changes and totals). See §6.12.
 - `users.Staff` (minutes_worked, allowance) and `users.Customer` (auto-created for every new User by a post_save signal).
 
 ---
@@ -512,6 +521,15 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   editor follows the mockup. Disposables' ingredients leave the Ingredients list and the recipe picker.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
+- **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
+  Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
+  kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the
+  deposit, the conversation with a reply box, and an action bar per status. `?edit=1` turns the order into a draft
+  (steppers, hand-set prices for condiments and disposables, add a dish/service/condiment/disposable, a required
+  reason) sent with "Send to …"; `?sheet=accept|reject` are the sheets. After the event, "Equipment back" / "Keep
+  deposit" (or "Mark completed") close it. The Settings tab (`admin_catering_settings`) is one form with Save; its
+  service switches are `Service.catering`. Catering orders never reach the register, the KDS or the boards (§6.12).
+
 Django admin at `/advanced-admin/` handles everything not built yet.
 
 ---
@@ -581,6 +599,23 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
 - Migration `screens/0002` creates the `order-board` screen (public). The old board's TTS announcements, YouTube
   player and the mockup's promo slideshow aren't widgets yet.
 
+### 6.12 Catering (`catering/`)
+
+Orders come in through `catering.flow.place()` (the online ordering form is still to come; `seed_demo` makes them)
+with a Square card on file (`payments/square.py`: `create_customer`, `save_card`). `flow` does every step and adds a
+`CateringMessage` for it, emailing the customer (`catering_*` listmonk kinds): `accept` charges the card in full
+(`catering/payments.py`), `propose` rewrites the lines (keeping the first `previous`) and waits for the customer,
+who `agree`s (charged) or `decline`s on `/catering/<token>`; `reject` rejects a new order or cancels a later one
+(refund, hold let go); `finish` closes it after the event, letting the deposit hold go or keeping it. Money is in
+`catering/pricing.py` on line dicts: dishes at their catering price for the quantity, services through
+`Service.quote` (with the price kept on the line), condiments and disposables at the price set on the line; tax is
+`TAX_RATE` except no-tax services; deposits are held, never added to the total. **Deposits**: card holds last about
+7 days, so `manage.py catering_deposits` (run daily by cron) holds them `hold_days` before the event and completes
+past orders with nothing to settle; accepting an order whose hold day has come holds it at once. Cards whose ids
+start with `demo:` (seed_demo's) are never sent to Square.
+
+---
+
 ## 7. Real-time: history and current design
 
 **What existed before June 2024:** `pos_server/signals.py` appended orders to module-level Python lists, and views
@@ -618,6 +653,10 @@ The Copilot WebSockets branch is superseded by this.
 `LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
+
+### Scheduled jobs
+
+- `manage.py catering_deposits`, once a day: holds catering deposits that are due and completes past catering orders.
 
 ### Local dev (Windows)
 

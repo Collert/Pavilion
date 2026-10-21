@@ -1,0 +1,138 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Catering settings (design: AdminCatering, settings state; admin_portal/catering.py: settings_page). One form with
+Save in the header; switches, units and days post an `op` and come back as the draft (editor.js previews on change).
+Which services can go on catering orders is Service.catering; dishes are switched on under Catering pricing on each dish.
+{% endcomment %}
+{% block title %}{% trans "Catering settings" %}{% endblock %}
+{% block main_class %}cater-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/catering.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=s.d %}
+<form method="post" action="{% url 'admin_catering_settings' %}" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+{% include "admin_portal/catering_head.html" %}
+
+<div class="cf-scroll" id="cater-settings" data-region>
+    {% for k, v in s.switches %}<input type="hidden" name="{{ k }}" value="{% if v %}1{% endif %}">{% endfor %}
+    <input type="hidden" name="lead_unit" value="{{ d.lead_unit }}">
+    {% for x in s.days %}<input type="hidden" name="day-{{ x.i }}" value="{% if x.on %}1{% endif %}">{% endfor %}
+    {% for g in s.service_groups %}{% for x in g.items %}{% if x.on %}<input type="hidden" name="service" value="{{ x.s.id }}">{% endif %}{% endfor %}{% endfor %}
+
+    <div class="card cf-top">
+        <span class="cf-icon{% if not d.on %} off{% endif %}">{% icon "M3 18h18 M5 18a7 7 0 0 1 14 0 M12 8V6 M10 6h4" 22 2.2 %}</span>
+        <div class="grow two-line">
+            <span class="disp cf-top-title">{% trans "Take catering orders" %}</span>
+            <span class="small muted top2">{% if d.on %}{% trans "Customers can order catering online. New orders wait here for you." %}{% else %}{% trans "Off. Catering is hidden from the online store. Orders already placed still show here." %}{% endif %}</span>
+        </div>
+        <button class="switch-only" name="op" value="toggle:on" role="switch" aria-checked="{% if d.on %}true{% else %}false{% endif %}" aria-label="{% trans 'Take catering orders' %}"><span class="switch big{% if d.on %} on{% endif %}"><span></span></span></button>
+    </div>
+    {% if s.problem and s.dirty %}<div class="cf-problem">{{ s.problem }}</div>{% endif %}
+
+    <div class="cf-grid{% if not d.on %} off{% endif %}">
+        <div class="cf-col">
+            <section class="card">
+                <h2 class="disp card-title">{% trans "Notice" %}</h2>
+                <div class="card-sub">{% trans "How far ahead customers have to order." %}</div>
+                <div class="cf-two">
+                    <label><span class="lbl">{% trans "Minimum notice" %}</span>
+                        <span class="cf-lead"><input type="number" min="1" class="field num" name="lead" value="{{ d.lead }}" aria-label="{% trans 'Minimum notice' %}">
+                            <span class="mini-seg" role="group" aria-label="{% trans 'Unit' %}">{% for key, label in s.units %}<button name="op" value="unit:{{ key }}" aria-pressed="{% if d.lead_unit == key %}true{% else %}false{% endif %}">{{ label }}</button>{% endfor %}</span></span></label>
+                    <label><span class="lbl">{% trans "Book up to" %}</span>
+                        <span class="unit-field"><input type="number" min="1" class="num" name="max_ahead" value="{{ d.max_ahead }}" aria-label="{% trans 'Book up to, days ahead' %}"><span class="unit">{% trans "days ahead" %}</span></span></label>
+                </div>
+                <div class="num cf-preview">{{ s.preview }}</div>
+                <div class="cf-switch-row">
+                    <div class="grow two-line"><span class="strong">{% trans "More notice for big orders" %}</span><span class="small muted top2">{% trans "Uses each dish’s prep time to add days when an order would tie up the kitchen." %}</span></div>
+                    <button class="switch-only" name="op" value="toggle:big_on" role="switch" aria-checked="{% if d.big_on %}true{% else %}false{% endif %}" aria-label="{% trans 'More notice for big orders' %}"><span class="switch{% if d.big_on %} on{% endif %}"><span></span></span></button>
+                </div>
+                {% if d.big_on %}
+                <div class="cf-inline">{% trans "Add 1 day for every" %} <input type="number" min="1" class="field num cf-small" name="big_hours" value="{{ d.big_hours }}" aria-label="{% trans 'Hours of kitchen time per extra day' %}"> {% trans "hours of kitchen time" %}</div>
+                {% if s.example %}<div class="num small faint top6">{{ s.example }}</div>{% endif %}
+                {% else %}<input type="hidden" name="big_hours" value="{{ d.big_hours }}">{% endif %}
+                <div class="cf-switch-row">
+                    <div class="grow two-line"><span class="strong">{% trans "Let customers ask for less notice" %}</span><span class="small muted top2">{% trans "They see it as a request, not a booking. These come in flagged so you can decide." %}</span></div>
+                    <button class="switch-only" name="op" value="toggle:rush" role="switch" aria-checked="{% if d.rush %}true{% else %}false{% endif %}" aria-label="{% trans 'Let customers ask for less notice' %}"><span class="switch{% if d.rush %} on{% endif %}"><span></span></span></button>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2 class="disp card-title">{% trans "Event days and times" %}</h2>
+                <div class="card-sub">{% trans "When food can be picked up, delivered or served." %}</div>
+                <div class="cf-days" role="group" aria-label="{% trans 'Days' %}">
+                    {% for x in s.days %}<button name="op" value="day:{{ x.i }}" aria-pressed="{% if x.on %}true{% else %}false{% endif %}">{{ x.label }}</button>{% endfor %}
+                </div>
+                <div class="cf-two">
+                    <label><span class="lbl">{% trans "Earliest" %}</span><input type="time" class="field" name="earliest" value="{{ d.earliest }}"></label>
+                    <label><span class="lbl">{% trans "Latest" %}</span><input type="time" class="field" name="latest" value="{{ d.latest }}"></label>
+                </div>
+                <div class="small faint top8">{% trans "Full-service events can run past close." %}</div>
+            </section>
+
+            <section class="card">
+                <h2 class="disp card-title">{% trans "Minimum order" %}</h2>
+                <label class="cf-min"><span class="lbl">{% trans "Subtotal before tax" %}</span><span class="unit-field"><span class="unit">$</span><input type="number" min="0" class="num" name="min_subtotal" value="{{ d.min_subtotal }}" aria-label="{% trans 'Minimum subtotal' %}"></span></label>
+                <div class="small faint top8">{% trans "Dishes also have their own minimum quantity, set under Catering pricing on each dish." %}</div>
+            </section>
+        </div>
+
+        <div class="cf-col">
+            <section class="card">
+                <h2 class="disp card-title">{% trans "How customers get it" %}</h2>
+                <div class="cf-ful">
+                    {% for key, label, desc, on in s.fulfilment %}
+                    <div class="cf-ful-row">
+                        <div class="grow two-line"><span class="strong">{{ label }}</span><span class="small muted">{{ desc }}</span></div>
+                        <button class="switch-only" name="op" value="toggle:{{ key }}" role="switch" aria-checked="{% if on %}true{% else %}false{% endif %}" aria-label="{{ label }}"><span class="switch{% if on %} on{% endif %}"><span></span></span></button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="cf-card-head"><h2 class="disp card-title grow">{% trans "Dishes" %}</h2><a class="cf-link" href="{% url 'admin_dishes' %}">{% trans "Manage on Dishes" %}</a></div>
+                <div class="card-sub">{{ s.dish_sub }}</div>
+                <div class="cf-chips">{% for x in s.dishes %}<a class="cf-chip num" href="{% url 'admin_dish' x.d.id %}">{{ x.d.title }}<span>{{ x.price|money }}</span></a>{% empty %}<span class="small muted">{% trans "No dishes are on for catering yet." %}</span>{% endfor %}</div>
+            </section>
+
+            <section class="card">
+                <div class="cf-card-head"><h2 class="disp card-title grow">{% trans "Services with catering" %}</h2><a class="cf-link" href="{% url 'admin_services' %}">{% trans "Prices on Services" %}</a></div>
+                <div class="card-sub">{{ s.service_sub }}</div>
+                {% for g in s.service_groups %}
+                <div class="ov faint cf-group">{{ g.title }}</div>
+                {% for x in g.items %}
+                <div class="cf-svc">
+                    <div class="grow two-line"><span class="strong">{{ x.s.title }}</span><span class="num small muted">{{ x.price }}</span></div>
+                    <button class="switch-only" name="op" value="service:{{ x.s.id }}" role="switch" aria-checked="{% if x.on %}true{% else %}false{% endif %}" aria-label="{% blocktrans with name=x.s.title %}Offer {{ name }} with catering{% endblocktrans %}"><span class="switch{% if x.on %} on{% endif %}"><span></span></span></button>
+                </div>
+                {% endfor %}
+                {% empty %}
+                <div class="small muted top8">{% trans "No services yet. Add them on the Services page." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="card">
+                <h2 class="disp card-title">{% trans "Payment and deposits" %}</h2>
+                <ol class="cf-steps">
+                    <li><span class="cf-n">1</span><span>{% trans "Customers add a card when they order. Nothing is charged yet." %}</span></li>
+                    <li><span class="cf-n">2</span><span>{% trans "The order is charged in full when you accept it, or when they accept your changes." %}</span></li>
+                    <li class="center"><span class="cf-n">3</span><span class="grow">{% trans "Equipment deposits are held" %}</span>
+                        <select class="field cf-hold" name="hold_days" aria-label="{% trans 'When to place deposit holds' %}">{% for v, label in s.holds %}<option value="{{ v }}" {% if v|stringformat:"s" == d.hold_days %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></li>
+                </ol>
+                <div class="cf-blue">{% trans "Card holds only last about 7 days, so deposits are held close to the event, then released once the equipment is back." %}</div>
+                <label class="top14"><span class="lbl">{% trans "Cancellation policy" %} <span class="opt">· {% trans "shown at checkout" %}</span></span>
+                    <textarea class="area" name="policy" rows="3" maxlength="500">{{ d.policy }}</textarea></label>
+                <label class="top10"><span class="lbl">{% trans "Reply sent when an order comes in" %}</span>
+                    <textarea class="area" name="auto_reply" rows="2" maxlength="400">{{ d.auto_reply }}</textarea></label>
+            </section>
+
+            <div class="cf-info">{% icon "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 11v5 M12 8h.01" 18 2.2 %}<span>{% trans "Catering orders only show up here in admin. They never appear on order marking screens, the kitchen display or the POS." %}</span></div>
+        </div>
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

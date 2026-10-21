@@ -21,6 +21,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext as _, gettext_lazy as _lazy, ngettext
 
+from catering import flow as catering_flow
+from catering.models import CateringMessage, CateringOrder
+from catering.payments import PaymentFailed
 from inventory.models import Recipe, RecipeStep, Restock
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
@@ -29,6 +32,7 @@ from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disp
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
+from . import catering as catering_data
 from . import combos as combos_data
 from . import components as components_data
 from . import condiments as condiments_data
@@ -856,3 +860,94 @@ def restock_edit(request, restock_id):
                 messages.success(request, _("%(number)s saved") % {"number": restock.number})
             return redirect("admin_restock", restock_id=restock.id)
     return page(request, "admin_portal/restock.html", "restocks", {"e": restocks_data.editor(restock, draft)})
+
+
+# ---------- catering ----------
+
+def _catering_page(request, tab, order, draft=None, sheet=""):
+    data = catering_data.inbox(tab, order)
+    order = data["selected"]
+    return page(request, "admin_portal/catering.html", "catering", {
+        "c": data, "d": catering_data.detail(order, request.user, draft, sheet) if order else None, "view": "orders"})
+
+
+def _catering_tab(request, default="new"):
+    tab = request.GET.get("tab", "")
+    return tab if tab in dict((key, 1) for key, *_rest in catering_data.TABS) else default
+
+
+@superuser_required
+def catering(request):
+    return _catering_page(request, _catering_tab(request), None)
+
+
+@superuser_required
+def catering_order(request, order_id):
+    """One catering order. POST ops: reply, accept, reject, remind, finish, keep, send (the proposed changes), and
+    the editing draft's buttons (anything else), which come back as the page with the draft."""
+    order = get_object_or_404(CateringOrder, pk=order_id)
+    tab = _catering_tab(request, catering_data.tab_of(order.status))
+    if request.method != "POST":
+        editing = request.GET.get("edit") == "1" and order.status in (CateringOrder.NEW, CateringOrder.WAITING)
+        draft = catering_data.draft_from_order(order) if editing else None
+        return _catering_page(request, tab, order, draft, request.GET.get("sheet", ""))
+    op, post, first = request.POST.get("op", ""), request.POST, order.first_name
+    editor_ops = ("preview", "less", "more", "hless", "hmore", "remove", "undo", "add_kind", "add")
+    if op.partition(":")[0] in editor_ops:
+        draft = catering_data.apply_op(catering_data.draft_from_post(post), op, order)
+        return _catering_page(request, tab, order, draft)
+    try:
+        if op == "reply":
+            catering_flow.write(order, CateringMessage.STAFF, post.get("text", ""), request.user, request)
+            messages.success(request, _("Sent to %(name)s.") % {"name": first})
+        elif op == "accept":
+            catering_flow.accept(order, request.user, post.get("message", ""), request)
+            messages.success(request, _("Accepted. %(total)s charged and %(name)s gets a confirmation.") % {"total": catering_data.money(order.charged), "name": first})
+            tab = "upcoming"
+        elif op == "reject":
+            was_new = order.status == CateringOrder.NEW
+            catering_flow.reject(order, request.user, post.get("reason", ""), post.get("message", ""), request)
+            messages.success(request, (_("Order rejected. %(name)s gets an email with your reason.") if was_new else _("Order cancelled. %(name)s gets an email with your reason.")) % {"name": first})
+            tab = "past"
+        elif op == "remind":
+            catering_flow.remind(order, request)
+            messages.success(request, _("Reminder sent to %(name)s.") % {"name": first})
+        elif op in ("finish", "keep"):
+            catering_flow.finish(order, request.user, keep_deposit=op == "keep")
+            messages.success(request, _("Deposit kept and the order is completed.") if op == "keep" else _("Order completed."))
+            tab = "past"
+        elif op == "send":
+            draft = catering_data.draft_from_post(post)
+            catering_flow.propose(order, request.user, draft["lines"], draft["msg"], request)
+            messages.success(request, _("Changes sent to %(name)s. Nothing is charged until they accept.") % {"name": first})
+            tab = "waiting"
+    except (catering_flow.CateringError, PaymentFailed) as exc:
+        messages.error(request, str(exc))
+        if op == "send":
+            return _catering_page(request, tab, order, catering_data.draft_from_post(post))
+        if op in ("accept", "reject"):
+            return _catering_page(request, tab, order, None, op)
+    return redirect(reverse("admin_catering_order", args=[order.id]) + f"?tab={tab}")
+
+
+@superuser_required
+def catering_settings(request):
+    """Catering settings: one form with Save; switches and day buttons post an `op` and come back as the draft."""
+    from catering.models import CateringSettings
+    if request.method == "POST":
+        draft, op = catering_data.settings_from_post(request.POST), request.POST.get("op", "")
+        if op == "save":
+            problem = catering_data.settings_problems(draft)
+            if problem:
+                messages.error(request, problem)
+            else:
+                catering_data.save_settings(draft)
+                messages.success(request, _("Catering settings saved.") if draft["on"] else _("Saved. Catering is off for customers."))
+                return redirect("admin_catering_settings")
+        else:
+            draft = catering_data.settings_op(draft, op)
+    else:
+        draft = catering_data.settings_draft(CateringSettings.load())
+    return page(request, "admin_portal/catering_settings.html", "catering", {
+        "s": catering_data.settings_page(draft), "view": "settings",
+        "c": {"new_count": CateringOrder.objects.filter(status=CateringOrder.NEW).count(), "off": not draft["on"]}})

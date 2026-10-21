@@ -37,6 +37,7 @@ urlpatterns += i18n_patterns(
     path('inventory/', include("inventory.urls")),
     path('gift-cards/', include("gift_cards.urls")),
     path('payments/', include("payments.urls")),
+    path('catering/', include("catering.urls")),
     path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
     path("screens/", include("screens.urls")),
