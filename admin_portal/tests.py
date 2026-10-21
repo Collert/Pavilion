@@ -13,7 +13,7 @@ from payments import square
 from pos_server import refunds
 from pos_server import dish_info
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Dish, DishComponent,
-                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, Supplier)
+                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, StorageLocation, Supplier)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
@@ -975,7 +975,7 @@ class ServiceTests(AdminFixture, TestCase):
 def component_fields(draft, **changes):
     """The component editor's POST fields for a draft (admin_portal.components.draft_from_post reads them back)."""
     draft = {**draft, **changes}
-    data = {k: draft[k] for k in ("title", "unit", "category", "recipe", "kept_in", "keeps_days", "inventory",
+    data = {k: draft[k] for k in ("title", "unit", "category", "recipe", "storage", "keeps_days", "inventory",
                                   "inventory_was", "par", "extra_label", "extra_price", "extra_max")}
     data["offer"] = draft["offer"]
     data["extra_was"] = draft.get("extra_was", "1" if draft["extra_on"] else "0")
@@ -994,7 +994,7 @@ class ComponentTests(AdminFixture, TestCase):
         ComponentIngredient.objects.create(component=cls.patty, ingredient=cls.beef, quantity=120)
         Component.objects.filter(pk=cls.patty.pk).update(category="protein", par=250, extra_label="Extra patty")
         cls.frozen = Component.objects.create(title="Patty, frozen", unit_of_measurement="ea", crafting_option="transform",
-                                              category="protein", kept_in="freezer", keeps_days=90, inventory=80)
+                                              category="protein", storage=StorageLocation.named("Freezer"), keeps_days=90, inventory=80)
         Transformation.objects.create(name="Thaw", from_component=cls.frozen, to_component=cls.patty, duration=datetime.timedelta(hours=8))
         Transformation.objects.create(name="Freeze", from_component=cls.patty, to_component=cls.frozen, duration=datetime.timedelta(hours=1))
         cls.recipe = Recipe.objects.create(title="Smash patties", yield_quantity=40)
@@ -1062,9 +1062,11 @@ class ComponentTests(AdminFixture, TestCase):
     def test_save_keeps_stock_counted_elsewhere_and_checks_names(self):
         draft = self.draft(self.patty)
         Component.objects.filter(pk=self.patty.pk).update(inventory=55)  # counted in Cookery meanwhile
-        self.post(self.patty, "save", draft, par="150", kept_in="line")
+        self.post(self.patty, "save", draft, par="150", storage="line fridge")
+        self.post(self.frozen, "save", self.draft(self.frozen), storage="freezer")  # an existing location, any case
         patty = Component.objects.get(pk=self.patty.pk)
-        self.assertEqual((patty.inventory, patty.par, patty.kept_in), (55, 150, "line"))
+        self.assertEqual((patty.inventory, patty.par, patty.storage.name), (55, 150, "line fridge"))
+        self.assertEqual(StorageLocation.objects.filter(name__iexact="freezer").count(), 1)
         self.post(self.patty, "save", self.draft(self.patty), inventory="60")
         self.assertEqual(Component.objects.get(pk=self.patty.pk).inventory, 60)
         e = self.post(self.spare, "preview", title="patty").context["e"]
@@ -1089,7 +1091,7 @@ class ComponentTests(AdminFixture, TestCase):
 def ingredient_fields(draft, **changes):
     """The ingredient editor's POST fields for a draft (admin_portal.ingredients.draft_from_post reads them back)."""
     draft = {**draft, **changes}
-    data = {k: draft[k] for k in ("title", "unit", "category", "supplier", "pack_size", "pack_price", "inventory", "inventory_was", "par", "kept_in")}
+    data = {k: draft[k] for k in ("title", "unit", "category", "supplier", "pack_size", "pack_price", "inventory", "inventory_was", "par", "storage")}
     data["allergens"] = draft["allergens"]
     data["gluten_was"] = draft.get("gluten_was", "1" if "Gluten" in draft["allergens"] else "")
     for flag in ("meat", "fish", "animal"):
@@ -1161,9 +1163,10 @@ class IngredientTests(AdminFixture, TestCase):
         self.assertEqual(self.post(self.saffron, "preview", title="flour").context["e"]["status"], "Another ingredient has this name")
         draft = self.draft(self.saffron)
         Ingredient.objects.filter(pk=self.saffron.pk).update(inventory=7)  # counted elsewhere meanwhile
-        self.post(self.saffron, "save", draft, supplier="Spice House", par="5")
+        self.post(self.saffron, "save", draft, supplier="Spice House", par="5", storage="Spice rack")
         saffron = Ingredient.objects.get(pk=self.saffron.pk)
-        self.assertEqual((saffron.supplier.name, saffron.par, saffron.inventory), ("Spice House", 5, 7))
+        self.assertEqual((saffron.supplier.name, saffron.par, saffron.inventory, saffron.storage.name), ("Spice House", 5, 7, "Spice rack"))
+        self.assertIn("Spice rack", [p.name for p in self.client.get(reverse("admin_ingredient", args=[self.beef.id])).context["e"]["places"]])
         self.post(self.beef, "archive")
         self.assertFalse(Ingredient.objects.get(pk=self.beef.pk).archived)  # used in the patty
         self.assertRedirects(self.post(self.saffron, "archive"), reverse("admin_ingredients"))

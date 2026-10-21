@@ -94,7 +94,8 @@ which changed); Fish/Shellfish and Dairy/Egg lock the fish and animal switches o
                 <label><span class="lbl">{% trans "On hand" %}</span><span class="unit-field"><input type="number" name="inventory" min="0" step="any" class="num" value="{{ d.inventory }}" aria-label="{% trans 'On hand' %}"><span class="unit">{{ d.unit }}</span></span></label>
                 <label><span class="lbl">{% trans "Par level" %}</span><span class="unit-field"><input type="number" name="par" min="0" step="any" class="num" value="{{ d.par }}" aria-label="{% trans 'Par level' %}"><span class="unit">{{ d.unit }}</span></span></label>
                 <label><span class="lbl">{% trans "Stored in" %}</span>
-                    <select class="field" name="kept_in">{% for key, label in e.places %}<option value="{{ key }}" {% if key == d.kept_in %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                    <input class="field" name="storage" value="{{ d.storage }}" list="storage-list" maxlength="60" placeholder="{% trans 'Pick or type a location' %}">
+                    <datalist id="storage-list">{% for p in e.places %}<option value="{{ p.name }}">{% endfor %}</datalist></label>
             </div>
             <input type="hidden" name="inventory_was" value="{{ d.inventory_was }}">
             <div class="top14">

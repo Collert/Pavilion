@@ -37,7 +37,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, Supplier,
+                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, StorageLocation, Supplier,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -618,6 +618,12 @@ class Command(BaseCommand):
                                       started_by=self.cashier, holder=self.cashier, started_at=now - minutes(540),
                                       ends_at=now + minutes(180))
 
+    def storage_locations(self):
+        """{key: StorageLocation} for the places the seeds put things."""
+        names = {"freezer": "Freezer", "fridge": "Walk-in fridge", "line": "Line fridge", "hot": "Hot holding", "dry": "Dry store",
+                 "counter": "Display case", "bar": "Bar fridge"}
+        return {key: StorageLocation.named(name) for key, name in names.items()}
+
     def seed_component_details(self):
         """Categories, where things are kept and for how long, and extra labels (the Components page)."""
         category = {
@@ -641,10 +647,12 @@ class Command(BaseCommand):
         }
         for key, titles in category.items():
             Component.objects.filter(title__in=titles).update(category=key)
+        places = self.storage_locations()
+        Component.objects.update(storage=places["fridge"])
         for title, (place, days) in storage.items():
-            Component.objects.filter(title=title).update(kept_in=place, keeps_days=days)
-        Component.objects.filter(category__in=["bread", "bakery"]).exclude(title__in=storage).update(kept_in="dry", keeps_days=2)
-        Component.objects.filter(category="drink", kept_in="fridge").update(keeps_days=7)
+            Component.objects.filter(title=title).update(storage=places[place], keeps_days=days)
+        Component.objects.filter(category__in=["bread", "bakery"]).exclude(title__in=storage).update(storage=places["dry"], keeps_days=2)
+        Component.objects.filter(category="drink", storage=places["fridge"]).update(keeps_days=7)
         labels = {"Beef patty": "Extra patty", "Cheddar slice": "Extra cheese", "Espresso shot": "Extra shot",
                   "Pulled pork": "Extra pulled pork", "Halloumi": "Extra halloumi", "Mushrooms": "Add mushrooms",
                   "Swiss cheese": "Extra Swiss", "Chicken fillet": "Extra chicken", "Cornbread": "Add cornbread", "Cotija": "Extra cotija"}
@@ -658,6 +666,7 @@ class Command(BaseCommand):
         suppliers = {name: Supplier.objects.get_or_create(name=name)[0] for name in (
             "Valley Meats", "Dairyland", "Sun Valley Farms", "Corner Bakehouse", "Ridgeline Coffee Roasters", "Pacific Foodservice")}
         meat, dairy, farm, bakery, coffee, food = suppliers.values()
+        places = self.storage_locations()
         # title: (category, supplier, pack size, pack price, kept in, par, % the price went up at the last delivery)
         specs = {
             "Ground beef": ("meat", meat, 5000, "75.00", "fridge", 8000, 3.8),
@@ -722,7 +731,8 @@ class Command(BaseCommand):
             ingredient = Ingredient.objects.filter(title=title).first()
             if ingredient is None:
                 continue
-            ingredient.category, ingredient.supplier, ingredient.pack_size, ingredient.kept_in, ingredient.par = category, supplier, pack, place, par
+            ingredient.category, ingredient.supplier, ingredient.pack_size, ingredient.par = category, supplier, pack, par
+            ingredient.storage = places[place]
             ingredient.pack_price = Decimal(price) if price else None
             ingredient.save()
             if change:

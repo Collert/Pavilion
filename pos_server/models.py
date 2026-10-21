@@ -778,7 +778,7 @@ class Component(models.Model):
     `unit_of_measurement` (g, ml or ea). Each storage state is its own component (frozen and thawed patties), and
     Cookery's Transformations move stock between them. Edited on the admin's Components page.
 
-    - `inventory` is on hand, `par` how much to keep; `kept_in` and `keeps_days` say where it's stored and how long
+    - `inventory` is on hand, `par` how much to keep; `storage` and `keeps_days` say where it's stored and how long
       it keeps.
     - Cost and allergens always come from ingredients (what the restaurant buys, priced per pack): its prep `recipe`
       (one batch over its yield), else its per-unit ComponentIngredients, else the component a transformation makes
@@ -799,14 +799,6 @@ class Component(models.Model):
         ("bakery", "Bakery"),
         ("other", "Other"),
     )
-    PLACES = (
-        ("freezer", "Freezer"),
-        ("fridge", "Walk-in fridge"),
-        ("line", "Line fridge"),
-        ("hot", "Hot holding"),
-        ("dry", "Dry store"),
-        ("counter", "Display case"),
-    )
     crafting_options = (
         ("craft","Craftable"),
         ("buy","Purchased"),
@@ -818,7 +810,8 @@ class Component(models.Model):
     inventory = models.FloatField(default = 0, null = True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
     category = models.CharField(max_length=10, choices=CATEGORIES, default="other")
-    kept_in = models.CharField(max_length=10, choices=PLACES, default="fridge")
+    storage = models.ForeignKey("StorageLocation", on_delete=models.SET_NULL, null=True, blank=True, related_name="components",
+                                help_text="Where it's kept")
     keeps_days = models.FloatField(default=3, help_text="How long it keeps where it's kept, in days")
     in_stock = models.BooleanField(default=False)
     availability = models.CharField(max_length=6, choices=AVAILABILITY, default="auto")
@@ -906,6 +899,26 @@ class DishComponent(models.Model):
             return True
         return (component.inventory or 0) >= self.quantity
 
+class StorageLocation(models.Model):
+    """Somewhere stock is kept (walk-in fridge, freezer, dry store). Owners add them from the Ingredients and
+    Components editors by typing a new name (StorageLocation.named)."""
+    name = models.CharField(max_length=60, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def named(cls, name):
+        """The location with this name (any case), made if it's new; None for a blank name."""
+        name = (name or "").strip()[:60]
+        if not name:
+            return None
+        return cls.objects.filter(name__iexact=name).first() or cls.objects.create(name=name)
+
+
 class Supplier(models.Model):
     """Who the store buys ingredients from (Ingredient.supplier)."""
     name = models.CharField(max_length=80, unique=True)
@@ -938,7 +951,6 @@ class Ingredient(models.Model):
         ("drinks", "Coffee and drinks"),
         ("other", "Other"),
     )
-    PLACES = (("freezer", "Freezer"), ("fridge", "Walk-in fridge"), ("dry", "Dry store"), ("bar", "Bar fridge"))
     title = models.CharField(max_length=140)
     inventory = models.FloatField(default=0, null=True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
@@ -949,7 +961,8 @@ class Ingredient(models.Model):
     previous_cost = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True,
                                         help_text="Cost of one unit before the last price change")
     par = models.FloatField(null=True, blank=True, help_text="How much to keep on hand")
-    kept_in = models.CharField(max_length=10, choices=PLACES, default="dry")
+    storage = models.ForeignKey("StorageLocation", on_delete=models.SET_NULL, null=True, blank=True, related_name="ingredients",
+                                help_text="Where it's kept")
     archived = models.BooleanField(default=False)
     allergens = models.JSONField(default=list, blank=True, help_text="Entries of ALLERGENS")
     meat = models.BooleanField(default=False, help_text="Meat or poultry")

@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils.translation import gettext as _, ngettext
 
 from inventory.models import RecipeIngredient
-from pos_server.models import ALLERGENS, DIETS, ComponentIngredient, Ingredient, Supplier
+from pos_server.models import ALLERGENS, DIETS, ComponentIngredient, Ingredient, StorageLocation, Supplier
 
 from .units import fmt_qty
 
@@ -125,7 +125,7 @@ def draft_from_ingredient(ingredient):
         "supplier": ingredient.supplier.name if ingredient.supplier_id else "",
         "pack_size": _num(ingredient.pack_size), "pack_price": _num(ingredient.pack_price) if ingredient.pack_price is not None else "",
         "inventory": _num(ingredient.inventory or 0), "inventory_was": _num(ingredient.inventory or 0),
-        "par": _num(ingredient.par or 0), "kept_in": ingredient.kept_in,
+        "par": _num(ingredient.par or 0), "storage": ingredient.storage.name if ingredient.storage_id else "",
     }
 
 
@@ -142,7 +142,7 @@ def draft_from_post(post):
         "allergens": allergens, "meat": bool(post.get("meat")), "fish": bool(post.get("fish")), "animal": bool(post.get("animal")),
         "supplier": post.get("supplier", "").strip()[:80], "pack_size": post.get("pack_size", ""), "pack_price": post.get("pack_price", ""),
         "inventory": post.get("inventory", "0"), "inventory_was": post.get("inventory_was", "0"), "par": post.get("par", "0"),
-        "kept_in": post.get("kept_in") if post.get("kept_in") in dict(Ingredient.PLACES) else "dry",
+        "storage": post.get("storage", "").strip()[:60],
     }
 
 
@@ -169,7 +169,7 @@ def problems(draft, ingredient):
 def _canonical(draft):
     return (draft["title"].strip(), draft["unit"], draft["category"], tuple(draft["allergens"]), draft["meat"], draft["fish"],
             draft["animal"], draft["supplier"].strip().lower(), _dec(draft["pack_size"]), _dec(draft["pack_price"]) if draft["pack_price"] else None,
-            _dec(draft["inventory"]), _dec(draft["par"]), draft["kept_in"])
+            _dec(draft["inventory"]), _dec(draft["par"]), draft["storage"].lower())
 
 
 def is_dirty(draft, ingredient):
@@ -180,7 +180,8 @@ def is_dirty(draft, ingredient):
 def save_draft(draft, ingredient):
     old_cost = ingredient.cost if ingredient.pk else None
     ingredient.title = draft["title"].strip()[:140]
-    ingredient.unit_of_measurement, ingredient.category, ingredient.kept_in = draft["unit"], draft["category"], draft["kept_in"]
+    ingredient.unit_of_measurement, ingredient.category = draft["unit"], draft["category"]
+    ingredient.storage = StorageLocation.named(draft["storage"])
     ingredient.allergens = list(draft["allergens"])
     ingredient.meat, ingredient.fish, ingredient.animal = draft["meat"], draft["fish"], draft["animal"]
     name = draft["supplier"].strip()
@@ -321,7 +322,7 @@ def editor(ingredient, draft, leave_ask=False):
         "ingredient": ingredient, "d": draft, "title": draft["title"].strip() or _("Untitled ingredient"), "state": state, "chip": chip,
         "status": issue or (_("Unsaved changes") if dirty else _("All changes saved")),
         "status_kind": "bad" if issue else "dirty" if dirty else "", "can_save": dirty and not issue, "leave_ask": leave_ask,
-        "units": UNIT_NAMES.items(), "categories": Ingredient.CATEGORIES, "places": Ingredient.PLACES,
+        "units": UNIT_NAMES.items(), "categories": Ingredient.CATEGORIES, "places": StorageLocation.objects.all(),
         "suppliers": Supplier.objects.all(), "all_allergens": [{"label": a, "on": a in allergens} for a in ALLERGENS],
         "switches": switches, "gluten_was": "Gluten" in allergens, "diets": diets,
         "pack_line": _("%(price)s ÷ %(qty)s") % {"price": money(price or 0), "qty": fmt_qty(size, unit)} if size and size > 0 else _("Set a pack size to work out the cost"),

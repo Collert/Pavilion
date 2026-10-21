@@ -104,7 +104,7 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
  ├─ Dish (M2M menu; price Decimal; station FK; ticket_name; prep_minutes; archived;
  │   │      in_stock / availability / blocked / visible_in_menu; catering + catering_min ─ CateringPrice breaks)
- │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; par; category; kept_in; keeps_days; extra_price; extra_label; archived; …)
+ │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; par; category; storage; keeps_days; extra_price; extra_label; archived; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned; pick one|any; required) ─ Option (price; extra component + quantity; multiplier)
  │   └─ Extra (condiment: component; price; max_count)
@@ -471,7 +471,7 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   GF), on hand against par and uses. The editor (one form with Save) has name, unit and category; allergens and the
   meat / fish / animal / gluten switches (the gluten switch is the Gluten allergen; Fish/Shellfish and Dairy/Egg lock
   fish and animal on) with the diets they fit; buying (supplier, picked or typed, which creates a `Supplier`; pack
-  size and pack price, which set `Ingredient.cost`); stock (on hand, par, stored in); the dark cost card with the
+  size and pack price, which set `Ingredient.cost`); stock (on hand, par, and where it is stored: a `StorageLocation`, picked or typed like suppliers and shared with the Components editor); the dark cost card with the
   change since the last price (`previous_cost`, set when the price changes); and the recipes and components using it.
   Saving publishes `menus`/`inventory`, since component and dish costs, allergens and diets follow it.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component, ComponentIngredient,
                      Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, Menu, Option, OptionGroup, Order,
-                     OrderDiscount, OrderItem, OrderPayment, Station)
+                     OrderDiscount, OrderItem, OrderPayment, Station, StorageLocation, Supplier)
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
@@ -10,6 +10,8 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = ("title",)
 admin.site.register(Menu)
 admin.site.register(Station)
+admin.site.register(StorageLocation)
+admin.site.register(Supplier)
 admin.site.register(EligibleDevice)
 
 

@@ -86,7 +86,8 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
                 <div class="ov state-grid state-head"><span>{% trans "State" %}</span><span>{% trans "Kept in" %}</span><span>{% trans "Keeps for" %}</span><span>{% trans "On hand" %}</span></div>
                 <div class="state-grid state-row">
                     <span class="strong ellipsis">{{ e.title }}</span>
-                    <select name="kept_in" aria-label="{% trans 'Kept in' %}">{% for key, label in e.places %}<option value="{{ key }}" {% if key == d.kept_in %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                    <input class="mini-unit" name="storage" value="{{ d.storage }}" list="storage-list" maxlength="60" placeholder="{% trans 'Pick or type' %}" aria-label="{% trans 'Kept in' %}">
+                    <datalist id="storage-list">{% for p in e.places %}<option value="{{ p.name }}">{% endfor %}</datalist>
                     <span class="mini-unit"><input type="number" name="keeps_days" min="0" step="0.25" class="num" value="{{ d.keeps_days }}" aria-label="{% trans 'Keeps for, days' %}"><span class="unit">{% trans "days" %}</span></span>
                     <span class="mini-unit"><input type="number" name="inventory" min="0" step="any" class="num" value="{{ d.inventory }}" aria-label="{% trans 'On hand' %}"><span class="unit">{{ d.unit }}</span></span>
                     <input type="hidden" name="inventory_was" value="{{ d.inventory_was }}">

@@ -11,7 +11,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from inventory.models import Recipe, RecipeIngredient, RecipeStep, Transformation
-from pos_server.models import Component, ComponentIngredient, Ingredient
+from pos_server.models import Component, ComponentIngredient, Ingredient, StorageLocation
 
 # title: (unit, stock to start with)
 INGREDIENTS = {
@@ -90,7 +90,7 @@ class Command(BaseCommand):
             def component(title, unit, stock, par, option="craft"):
                 obj, created = Component.objects.get_or_create(title=title, defaults={
                     "unit_of_measurement": unit, "inventory": stock, "par": par, "crafting_option": option,
-                    **({"kept_in": "freezer", "keeps_days": 90} if option == "transform" else {})})
+                    **({"storage": StorageLocation.named("Freezer"), "keeps_days": 90} if option == "transform" else {})})
                 if created:
                     added.append(f"component {title}")
                 elif obj.par is None:

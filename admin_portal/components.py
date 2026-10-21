@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _, ngettext
 
 from inventory.models import Recipe, Transformation
 from pos_server.dish_info import COMPONENT_PREFETCH, component_allergens, component_cost, made_from, recipe_rows
-from pos_server.models import ALLERGENS, Component, DishComponent, Option, OrderItem
+from pos_server.models import ALLERGENS, Component, DishComponent, Option, OrderItem, StorageLocation
 
 from .units import fmt_qty
 
@@ -142,7 +142,7 @@ def draft_from_component(component):
     return {
         "title": component.title, "unit": component.unit_of_measurement, "category": component.category,
         "recipe": str(component.recipe_id or ""),
-        "kept_in": component.kept_in, "keeps_days": _num(component.keeps_days), "inventory": _num(component.inventory or 0),
+        "storage": component.storage.name if component.storage_id else "", "keeps_days": _num(component.keeps_days), "inventory": _num(component.inventory or 0),
         "inventory_was": _num(component.inventory or 0), "par": _num(component.par or 0),
         "extra_on": bool(offers) or bool(component.extra_label and not parts), "extra_label": component.extra_label,
         "extra_price": _num(component.extra_price), "extra_max": str(max((dc.max_extra for dc in offers), default=2)),
@@ -156,7 +156,7 @@ def draft_from_post(post):
         "title": post.get("title", ""), "unit": unit,
         "category": post.get("category") if post.get("category") in dict(Component.CATEGORIES) else "other",
         "recipe": post.get("recipe", ""),
-        "kept_in": post.get("kept_in") if post.get("kept_in") in dict(Component.PLACES) else "fridge",
+        "storage": post.get("storage", "").strip()[:60],
         "keeps_days": post.get("keeps_days", "0"), "inventory": post.get("inventory", "0"),
         "inventory_was": post.get("inventory_was", "0"), "par": post.get("par", "0"),
         "extra_on": bool(post.get("extra_on")), "extra_label": post.get("extra_label", ""),
@@ -221,7 +221,7 @@ def problems(draft, component):
 
 def _canonical(draft, component):
     unit = draft["unit"]
-    return (draft["title"].strip(), unit, draft["category"], _int(draft["recipe"]), draft["kept_in"],
+    return (draft["title"].strip(), unit, draft["category"], _int(draft["recipe"]), draft["storage"].lower(),
             _dec(draft["keeps_days"]), _dec(draft["inventory"]), _dec(draft["par"]), draft["extra_on"],
             draft["extra_label"].strip() if draft["extra_on"] else "",
             _dec(draft["extra_price"]), _int(draft["extra_max"]) if draft["offer"] and draft["extra_on"] else None,
@@ -236,7 +236,8 @@ def is_dirty(draft, component):
 def save_draft(draft, component, copy_of=None):
     """Write the draft to `component` (a new one when it has no pk) and its dishes' parts."""
     component.title = draft["title"].strip()[:140]
-    component.unit_of_measurement, component.category, component.kept_in = draft["unit"], draft["category"], draft["kept_in"]
+    component.unit_of_measurement, component.category = draft["unit"], draft["category"]
+    component.storage = StorageLocation.named(draft["storage"])
     recipe_id = _int(draft["recipe"])
     component.recipe_id = recipe_id if recipe_id and Recipe.objects.filter(pk=recipe_id).exists() else None
     component.keeps_days = float(_dec(draft["keeps_days"]) or 0)
@@ -385,8 +386,8 @@ def editor(component, draft, leave_ask=False):
     on_hand, par = _dec(draft["inventory"]) or Decimal("0"), _dec(draft["par"]) or Decimal("0")
     state = stock_state(float(on_hand), float(par))
     others = []
-    for c in family(component)[1:] if component.pk else []:
-        others.append({"c": c, "kept_in": c.get_kept_in_display(), "keeps": _num(c.keeps_days), "qty": fmt_qty(c.inventory or 0, c.unit_of_measurement)})
+    for c in (family(component)[1:] if component.pk else []):
+        others.append({"c": c, "kept_in": c.storage.name if c.storage_id else "—", "keeps": _num(c.keeps_days), "qty": fmt_qty(c.inventory or 0, c.unit_of_measurement)})
     if state == "none":
         stock_msg = _("No par set")
     elif state == "ok":
@@ -444,7 +445,7 @@ def editor(component, draft, leave_ask=False):
         "state": state, "chip": chip,
         "status": issue or (_("Unsaved changes") if dirty else _("All changes saved")),
         "status_kind": "bad" if issue else "dirty" if dirty else "", "can_save": dirty and not issue, "leave_ask": leave_ask,
-        "units": UNIT_NAMES.items(), "categories": Component.CATEGORIES, "places": Component.PLACES,
+        "units": UNIT_NAMES.items(), "categories": Component.CATEGORIES, "places": StorageLocation.objects.all(),
         "recipes": recipes, "recipe": recipe, "source": source, "ingredients": ingredients, "batch_line": batch_line,
         "cost_each": _("%(price)s each") % {"price": money3(each)} if unit == "ea" else cost_text(each, unit),
         "others": others, "on_hand_line": _("%(qty)s on hand · worth %(money)s") % {"qty": fmt_qty(on_hand, unit), "money": money(on_hand * each)},
