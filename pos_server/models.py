@@ -780,8 +780,9 @@ class Component(models.Model):
 
     - `inventory` is on hand, `par` how much to keep; `kept_in` and `keeps_days` say where it's stored and how long
       it keeps.
-    - Cost and allergens come from its prep `recipe` (one batch over its yield), else from its per-unit
-      ComponentIngredients, else `cost` is set by hand (pos_server/dish_info.py).
+    - Cost and allergens always come from ingredients (what the restaurant buys, priced per pack): its prep `recipe`
+      (one batch over its yield), else its per-unit ComponentIngredients, else the component a transformation makes
+      it from (pos_server/dish_info.py).
     - `crafting_option`: craft (made in Cookery), buy, auto (made on demand), transform (only made by a transform).
     - Extras: `extra_price` is charged for each step above the standard in a dish (an extra patty); `extra_label`
       is the button's name. Which dishes offer it, and how many, is set on each DishComponent (adjustable, max_extra).
@@ -827,8 +828,6 @@ class Component(models.Model):
     extra_price = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"),
                                       help_text="Charge for each portion above the standard amount, e.g. an extra patty")
     extra_label = models.CharField(max_length=40, blank=True, help_text="The extra's button at the register, e.g. Extra patty")
-    cost = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0"),
-                               help_text="Cost of one unit, set by hand (used when there's no recipe or ingredients)")
     archived = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
@@ -907,23 +906,63 @@ class DishComponent(models.Model):
             return True
         return (component.inventory or 0) >= self.quantity
 
+class Supplier(models.Model):
+    """Who the store buys ingredients from (Ingredient.supplier)."""
+    name = models.CharField(max_length=80, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Ingredient(models.Model):
     """
-    Something bought in and used in components (flour, milk, ground beef), counted in `unit_of_measurement`
-    (g, ml or ea). `cost` is the price of one unit. `allergens` lists entries of ALLERGENS; `meat`, `fish` and
-    `animal` (dairy, eggs, honey, gelatin...) decide which diets it fits (see `diets()`). Dishes inherit both
-    from the ingredients of their components.
+    Something the restaurant buys (flour, milk, ground beef), counted in `unit_of_measurement` (g, ml or ea). It's
+    bought in packs: `cost`, the price of one unit, is `pack_price / pack_size` (set on save), and every component and
+    dish cost is worked out from it (pos_server/dish_info.py). `previous_cost` is what one unit cost before the last
+    price change. `allergens` lists entries of ALLERGENS; `meat`, `fish` and `animal` (dairy, eggs, honey, gelatin...)
+    decide which diets it fits (see `flags`). Dishes inherit both from the ingredients of their components. Edited on
+    the admin's Ingredients page.
     """
     units = UNITS
+    CATEGORIES = (
+        ("meat", "Meat and poultry"),
+        ("fish", "Fish and seafood"),
+        ("dairy", "Dairy and eggs"),
+        ("produce", "Produce"),
+        ("bakery", "Bread and baking"),
+        ("dry", "Dry goods and spices"),
+        ("pantry", "Oils, sauces and condiments"),
+        ("drinks", "Coffee and drinks"),
+        ("other", "Other"),
+    )
+    PLACES = (("freezer", "Freezer"), ("fridge", "Walk-in fridge"), ("dry", "Dry store"), ("bar", "Bar fridge"))
     title = models.CharField(max_length=140)
     inventory = models.FloatField(default=0, null=True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
+    category = models.CharField(max_length=10, choices=CATEGORIES, default="other")
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name="ingredients")
+    pack_size = models.FloatField(default=1, help_text="How much one pack holds, in the ingredient's unit")
+    pack_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="What one pack costs")
+    previous_cost = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True,
+                                        help_text="Cost of one unit before the last price change")
+    par = models.FloatField(null=True, blank=True, help_text="How much to keep on hand")
+    kept_in = models.CharField(max_length=10, choices=PLACES, default="dry")
+    archived = models.BooleanField(default=False)
     allergens = models.JSONField(default=list, blank=True, help_text="Entries of ALLERGENS")
     meat = models.BooleanField(default=False, help_text="Meat or poultry")
     fish = models.BooleanField(default=False, help_text="Fish or seafood")
     animal = models.BooleanField(default=False, help_text="Animal byproduct: dairy, eggs, honey, gelatin")
-    unlimited = models.BooleanField(default=False)
-    cost = models.DecimalField(max_digits=14, decimal_places=6, blank=True, null=True, help_text="Cost of one unit (a gram, a millilitre or a piece)")
+    unlimited = models.BooleanField(default=False, help_text="Not counted (tap water)")
+    cost = models.DecimalField(max_digits=14, decimal_places=6, blank=True, null=True,
+                               help_text="Cost of one unit (a gram, a millilitre or a piece): pack price / pack size")
+
+    def save(self, *args, **kwargs):
+        if self.pack_price is not None and self.pack_size and self.pack_size > 0:
+            self.cost = (self.pack_price / Decimal(str(self.pack_size))).quantize(Decimal("0.000001"))
+        super().save(*args, **kwargs)
 
     @property
     def flags(self) -> dict:

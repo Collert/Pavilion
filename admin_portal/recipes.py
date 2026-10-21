@@ -323,8 +323,8 @@ def editor(recipe, draft, leave_ask=False):
         "use_timers": _("Use timers (%(t)s)") % {"t": human(total_timers)},
         "ings": ings, "ing_sub": (_("What goes in for one batch of %(n)s %(unit)s") if kind == "transform" else _("For one batch · makes %(n)s %(unit)s"))
         % {"n": f"{yield_n:g}", "unit": unit},
-        "ingredient_choices": [i for k, i in ingredients.items() if ("i", k) not in used],
-        "component_choices": [c for k, c in components.items() if ("c", k) not in used],
+        "ingredient_choices": [i for k, i in ingredients.items() if ("i", k) not in used and not i.archived],
+        "component_choices": [c for k, c in components.items() if ("c", k) not in used and not c.archived],
         "steps": steps, "processes": SCENES,
         "steps_sub": ngettext("%(n)d step", "%(n)d steps", len(steps)) % {"n": len(steps)} + " · "
         + ngettext("%(n)d with a timer", "%(n)d with a timer", sum(1 for t in timers if t)) % {"n": sum(1 for t in timers if t)} + " · "

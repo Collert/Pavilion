@@ -99,8 +99,10 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
   dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need `pos_server.apply_manual_discount`.
   Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
-- **Component cost and ingredients** (`pos_server/dish_info.py`): its prep recipe (batch over yield), else per-unit
-  ComponentIngredients, else the component a transformation makes it from, else `Component.cost` set by hand.
+- **Costs come from ingredients**, the things the restaurant buys: `Ingredient.cost` = `pack_price / pack_size`
+  (set on save). A component's cost and ingredients (`pos_server/dish_info.py`) come from its prep recipe's
+  ingredients (batch over yield), else its per-unit ComponentIngredients, else the component a transformation makes
+  it from. Never store a cost on a component or dish.
 - **Allergens and diets** come from ingredients (`Ingredient.allergens` from `ALLERGENS`, plus `meat`/`fish`/`animal`
   flags); dishes work theirs out in `pos_server/dish_info.py` (also plate cost and food cost %). Don't store them on dishes.
 - **Quantities are in the smallest unit**: ingredients and components are counted in `g`, `ml` or `ea` only (no kg/l), and every

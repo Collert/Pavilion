@@ -3,8 +3,8 @@ What a dish is made of, worked out from its recipe: food cost, allergens and the
 
 A dish uses DishComponent.quantity of each component (in the smallest unit). A component's cost and ingredients come
 from, in order: its prep recipe (one batch's ingredients and components over the batch's yield), its per-unit
-ComponentIngredients, the component a Cookery transformation makes it from (frozen patties cost what fresh ones do),
-or (cost only) the cost set by hand on the Components page. The `parts_*` functions take
+ComponentIngredients, or the component a Cookery transformation makes it from (frozen patties cost what fresh ones
+do). Costs always come from ingredient prices (Ingredient.cost, from its pack price), never set on a component. The `parts_*` functions take
 [(component, quantity)], so the admin's dish editor can show them for a recipe that isn't saved yet. Prefetch
 DISH_PREFETCH before calling these on many dishes.
 """
@@ -50,11 +50,10 @@ def component_cost(component, _depth=0) -> Decimal:
     per_unit = component.componentingredient_set.all()
     if per_unit:
         return sum((Decimal(str(ci.quantity)) * (ci.ingredient.cost or 0) for ci in per_unit), Decimal("0"))
-    if not component.cost:
-        transform = made_from(component)
-        if transform:
-            return component_cost(transform.from_component, _depth + 1) / Decimal(str(transform.ratio or 1))
-    return component.cost or Decimal("0")
+    transform = made_from(component)
+    if transform:
+        return component_cost(transform.from_component, _depth + 1) / Decimal(str(transform.ratio or 1))
+    return Decimal("0")
 
 
 def component_ingredients(component, _depth=0) -> list:

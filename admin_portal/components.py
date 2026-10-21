@@ -139,10 +139,9 @@ def dish_parts(component):
 def draft_from_component(component):
     parts = dish_parts(component)
     offers = [dc for dc in parts if offered(dc)]
-    each = component.cost or Decimal("0")
     return {
         "title": component.title, "unit": component.unit_of_measurement, "category": component.category,
-        "recipe": str(component.recipe_id or ""), "cost": _num(shown_cost(each, component.unit_of_measurement)[0]),
+        "recipe": str(component.recipe_id or ""),
         "kept_in": component.kept_in, "keeps_days": _num(component.keeps_days), "inventory": _num(component.inventory or 0),
         "inventory_was": _num(component.inventory or 0), "par": _num(component.par or 0),
         "extra_on": bool(offers) or bool(component.extra_label and not parts), "extra_label": component.extra_label,
@@ -156,7 +155,7 @@ def draft_from_post(post):
     draft = {
         "title": post.get("title", ""), "unit": unit,
         "category": post.get("category") if post.get("category") in dict(Component.CATEGORIES) else "other",
-        "recipe": post.get("recipe", ""), "cost": post.get("cost", "0"),
+        "recipe": post.get("recipe", ""),
         "kept_in": post.get("kept_in") if post.get("kept_in") in dict(Component.PLACES) else "fridge",
         "keeps_days": post.get("keeps_days", "0"), "inventory": post.get("inventory", "0"),
         "inventory_was": post.get("inventory_was", "0"), "par": post.get("par", "0"),
@@ -191,17 +190,11 @@ def _recipe(draft):
 
 
 def _as_component(draft, component):
-    """An unsaved copy of `component` with the draft's recipe, unit and hand-set cost (for working out costs)."""
+    """An unsaved copy of `component` with the draft's recipe and unit (for working out costs)."""
     copy = Component(pk=component.pk, title=draft["title"], unit_of_measurement=draft["unit"])
     recipe = _recipe(draft)
     copy.recipe = recipe
-    copy.cost = _hand_cost(draft)
     return copy
-
-
-def _hand_cost(draft):
-    value = _dec(draft["cost"]) or Decimal("0")
-    return value / 1000 if draft["unit"] in ("g", "ml") else value
 
 
 def _draft_cost(draft, component):
@@ -218,7 +211,7 @@ def problems(draft, component):
     title = draft["title"].strip()
     if title and Component.objects.filter(title__iexact=title, archived=False).exclude(pk=component.pk).exists():
         return _("Another component has this name")
-    numbers = [draft["keeps_days"], draft["inventory"], draft["par"], draft["cost"]]
+    numbers = [draft["keeps_days"], draft["inventory"], draft["par"]]
     if not title or any(_dec(v) is None or _dec(v) < 0 for v in numbers):
         return _("Fill in the highlighted fields")
     if draft["extra_on"] and (not draft["extra_label"].strip() or _dec(draft["extra_price"]) is None or _dec(draft["extra_price"]) < 0):
@@ -228,7 +221,7 @@ def problems(draft, component):
 
 def _canonical(draft, component):
     unit = draft["unit"]
-    return (draft["title"].strip(), unit, draft["category"], _int(draft["recipe"]), _hand_cost(draft), draft["kept_in"],
+    return (draft["title"].strip(), unit, draft["category"], _int(draft["recipe"]), draft["kept_in"],
             _dec(draft["keeps_days"]), _dec(draft["inventory"]), _dec(draft["par"]), draft["extra_on"],
             draft["extra_label"].strip() if draft["extra_on"] else "",
             _dec(draft["extra_price"]), _int(draft["extra_max"]) if draft["offer"] and draft["extra_on"] else None,
@@ -246,7 +239,6 @@ def save_draft(draft, component, copy_of=None):
     component.unit_of_measurement, component.category, component.kept_in = draft["unit"], draft["category"], draft["kept_in"]
     recipe_id = _int(draft["recipe"])
     component.recipe_id = recipe_id if recipe_id and Recipe.objects.filter(pk=recipe_id).exists() else None
-    component.cost = _hand_cost(draft).quantize(Decimal("0.0001"))
     component.keeps_days = float(_dec(draft["keeps_days"]) or 0)
     # Only write the stock when it was changed here, so counts made elsewhere since the page opened survive
     if _dec(draft["inventory"]) != _dec(draft["inventory_was"]) or not component.pk:
@@ -381,8 +373,8 @@ def editor(component, draft, leave_ask=False):
                                 "price": cost_text(ci.ingredient.cost or 0, ci.ingredient.unit_of_measurement) if ci.ingredient.cost else _("free"),
                                 "cost": money3(Decimal(str(ci.quantity)) * (ci.ingredient.cost or 0))})
         batch_line = ""
-        transform = None if per_unit or current.cost else made_from(current)
-        source = "per_unit" if per_unit else "transform" if transform else "hand"
+        transform = None if per_unit else made_from(current)
+        source = "per_unit" if per_unit else "transform" if transform else "none"
     taken = {r.id for r in Recipe.objects.filter(component__isnull=False).exclude(component=component.pk)} | \
             set(Recipe.objects.filter(transformations__isnull=False).values_list("id", flat=True)) | \
             set(Recipe.objects.filter(dish__isnull=False).values_list("id", flat=True))
@@ -455,12 +447,11 @@ def editor(component, draft, leave_ask=False):
         "units": UNIT_NAMES.items(), "categories": Component.CATEGORIES, "places": Component.PLACES,
         "recipes": recipes, "recipe": recipe, "source": source, "ingredients": ingredients, "batch_line": batch_line,
         "cost_each": _("%(price)s each") % {"price": money3(each)} if unit == "ea" else cost_text(each, unit),
-        "hand_label": _("Cost per kg, set by hand") if unit == "g" else _("Cost per L, set by hand") if unit == "ml" else _("Cost per unit, set by hand"),
         "others": others, "on_hand_line": _("%(qty)s on hand · worth %(money)s") % {"qty": fmt_qty(on_hand, unit), "money": money(on_hand * each)},
         "stock_msg": stock_msg, "bar": bar(float(on_hand), float(par)), "par_hint": par_hint,
         "cost_big": money3(shown) if unit == "ea" else money(shown), "per_unit": per,
         "cost_sub": {"recipe": _("Worked out from the %(recipe)s recipe.") % {"recipe": (recipe.title or "").lower() if recipe else ""},
-                     "per_unit": _("Worked out from its ingredients."), "hand": _("Set by hand until a recipe is attached."),
+                     "per_unit": _("Worked out from its ingredients."), "none": _("Unknown until a recipe is attached."),
                      "transform": _("Same as %(name)s, which Cookery makes it from.") % {"name": transform.from_component.title if transform else ""}}[source],
         "allergens": allergens,
         "allergen_source": _("Inherited from the recipe’s ingredients.") if source == "recipe" else _("Inherited from its ingredients.") if source == "per_unit"

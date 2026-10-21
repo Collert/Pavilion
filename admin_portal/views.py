@@ -19,13 +19,13 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.utils.text import slugify
-from django.utils.translation import gettext as _, gettext_lazy as _lazy
+from django.utils.translation import gettext as _, gettext_lazy as _lazy, ngettext
 
 from inventory.models import Recipe, RecipeStep
 from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import superuser_required
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Component, Dish, Menu, Order, ReceiptLog, Refund, Station
+from pos_server.models import Combo, ComboSlot, Component, Dish, Ingredient, Menu, Order, ReceiptLog, Refund, Station
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
@@ -33,6 +33,7 @@ from . import combos as combos_data
 from . import components as components_data
 from . import dashboard as dashboard_data
 from . import dishes as dishes_data
+from . import ingredients as ingredients_data
 from . import menus as menus_data
 from . import orders as orders_data
 from . import recipes as recipes_data
@@ -607,3 +608,66 @@ def component_edit(request, component_id):
                              else _("%(component)s saved") % {"component": target.title})
             return redirect("admin_component", component_id=target.id)
     return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft)})
+
+
+# ---------- ingredients ----------
+
+@superuser_required
+def ingredients(request):
+    data = ingredients_data.ingredient_list(request.GET.get("q", ""), request.GET.get("show", "all"))
+    return page(request, "admin_portal/ingredients.html", "ingredients", {"l": data})
+
+
+@superuser_required
+@require_POST
+def ingredient_new(request):
+    ingredient = Ingredient.objects.create(title=_("New ingredient"), unit_of_measurement="g", category="produce", pack_size=1000)
+    return redirect("admin_ingredient", ingredient_id=ingredient.id)
+
+
+@superuser_required
+def ingredient_edit(request, ingredient_id):
+    """The ingredient editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
+    ingredient = get_object_or_404(Ingredient.objects.select_related("supplier"), pk=ingredient_id)
+    if request.method != "POST":
+        draft = ingredients_data.draft_from_ingredient(ingredient)
+        return page(request, "admin_portal/ingredient.html", "ingredients", {"e": ingredients_data.editor(ingredient, draft)})
+    op = request.POST.get("op", "")
+    draft = ingredients_data.draft_from_post(request.POST)
+    if op == "archive":
+        if ingredients_data.uses(ingredient):
+            messages.error(request, _("Take it out of its recipes and components first."))
+        else:
+            ingredient.archived = True
+            ingredient.save(update_fields=["archived"])
+            messages.success(request, _("%(ingredient)s archived") % {"ingredient": ingredient.title})
+            return redirect("admin_ingredients")
+    elif op == "restore":
+        ingredient.archived = False
+        ingredient.save(update_fields=["archived"])
+        messages.success(request, _("%(ingredient)s is back") % {"ingredient": ingredient.title})
+        return redirect("admin_ingredient", ingredient_id=ingredient.id)
+    elif op == "leave":
+        if not ingredients_data.is_dirty(draft, ingredient):
+            return redirect("admin_ingredients")
+        return page(request, "admin_portal/ingredient.html", "ingredients", {"e": ingredients_data.editor(ingredient, draft, leave_ask=True)})
+    elif op in ("save", "duplicate"):
+        target = Ingredient() if op == "duplicate" else ingredient
+        if op == "duplicate":
+            draft.update(title=(_("%(name)s (copy)") % {"name": draft["title"].strip()})[:140], inventory="0", inventory_was="0")
+        issue = ingredients_data.problems(draft, target)
+        if issue:
+            messages.error(request, issue)
+        else:
+            ingredients_data.save_draft(draft, target)
+            _dishes_changed()  # component and dish costs, allergens and diets follow the ingredient
+            changed = ingredients_data.component_costs_changed(target)
+            if op == "duplicate":
+                messages.success(request, _("Duplicated. Editing the copy now"))
+            elif changed:
+                messages.success(request, ngettext("%(ingredient)s saved. %(n)d component updated", "%(ingredient)s saved. %(n)d components updated", changed)
+                                 % {"ingredient": target.title, "n": changed})
+            else:
+                messages.success(request, _("%(ingredient)s saved") % {"ingredient": target.title})
+            return redirect("admin_ingredient", ingredient_id=target.id)
+    return page(request, "admin_portal/ingredient.html", "ingredients", {"e": ingredients_data.editor(ingredient, draft)})

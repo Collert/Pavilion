@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -104,7 +104,7 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
  ├─ Dish (M2M menu; price Decimal; station FK; ticket_name; prep_minutes; archived;
  │   │      in_stock / availability / blocked / visible_in_menu; catering + catering_min ─ CateringPrice breaks)
- │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; par; category; kept_in; keeps_days; cost; extra_price; extra_label; archived; …)
+ │   ├─ DishComponent (quantity per portion; adjustable; max_extra) ─ Component (inventory; par; category; kept_in; keeps_days; extra_price; extra_label; archived; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned; pick one|any; required) ─ Option (price; extra component + quantity; multiplier)
  │   └─ Extra (condiment: component; price; max_count)
@@ -456,14 +456,24 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   sold in 30 days with margin), filters (sold as extras, under par, no recipe yet, archived) and rows grouped by
   category with unit cost, the extra's price and margin, on hand against par (bar with a par mark) and dishes using it.
   The editor (one form with Save) has name, unit (g/ml/ea) and category; the prep recipe (pick one; its batch with
-  costs, or the per-unit ingredients, or a cost set by hand per kg/L/piece); stock (where it's kept, how long it
+  costs, or the per-unit ingredients; a warning when there are neither); stock (where it's kept, how long it
   keeps, on hand; the components its transformations connect to are listed, linked, since each storage state is its
   own component; par with a bar); a dark cost card with allergens; "Sell as an extra" (label, price, most extras per
   dish, margin, which dishes offer it: it sets `adjustable` / `max_extra` on those dishes' parts, `max_extra` 0 when
   not offered); and the dishes using it. Stock is only written when changed in the editor (`inventory_was`), so
   counts made elsewhere survive a save. Archiving is blocked while dishes use it (parts or add-ons); archived
-  components leave Cookery, Availability and the pickers. `dish_info.component_cost` now takes the recipe first,
-  then per-unit ingredients, then the component a transformation makes it from, then the hand-set cost.
+  components leave Cookery, Availability and the pickers. Costs always come from ingredient prices:
+  `dish_info.component_cost` takes the recipe's ingredients (batch over yield) first, then per-unit ingredients,
+  then the component a transformation makes it from. A component's cost is never set by hand.
+- **Ingredients** (`admin_ingredients`, `ingredients.py`, 2026-10-21): what the restaurant buys. KPIs (count and
+  suppliers, stock value, under par, price went up), filters (under par, price went up, has allergens, vegan,
+  gluten-free, archived), rows by category with cost per kg/L/piece and its change, allergens, diet badges (V, VG, P,
+  GF), on hand against par and uses. The editor (one form with Save) has name, unit and category; allergens and the
+  meat / fish / animal / gluten switches (the gluten switch is the Gluten allergen; Fish/Shellfish and Dairy/Egg lock
+  fish and animal on) with the diets they fit; buying (supplier, picked or typed, which creates a `Supplier`; pack
+  size and pack price, which set `Ingredient.cost`); stock (on hand, par, stored in); the dark cost card with the
+  change since the last price (`previous_cost`, set when the price changes); and the recipes and components using it.
+  Saving publishes `menus`/`inventory`, since component and dish costs, allergens and diets follow it.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

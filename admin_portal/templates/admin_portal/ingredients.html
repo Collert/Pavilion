@@ -1,0 +1,68 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Ingredients list (design: AdminIngredients, list state; admin_portal/ingredients.py: ingredient_list), grouped by
+category. Filters are links, search (ingredient or supplier) submits as you type. Refetched on "inventory".
+{% endcomment %}
+{% block title %}{% trans "Ingredients" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/ingredients.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Inventory" %}</div>
+        <h1 class="disp page-title">{% trans "Ingredients" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search ingredients' %}" placeholder="{% trans 'Search ingredients or suppliers' %}">
+    </form>
+    <form method="post" action="{% url 'admin_ingredient_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New ingredient" %}</button>
+    </form>
+</header>
+
+<div class="comp-kpis" id="ingredients-kpis" data-region>
+    {% for k in l.kpis %}
+    <div class="kpi"><div class="kpi-label">{{ k.label }}</div><div class="disp num kpi-value ellipsis{% if k.bad %} bad{% endif %}">{{ k.value }}</div><div class="kpi-sub ellipsis">{{ k.sub }}</div></div>
+    {% endfor %}
+</div>
+
+<nav class="filter-chips" aria-label="{% trans 'Filter' %}" id="ingredients-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<section class="card table-card" aria-label="{% trans 'Ingredients' %}" id="ingredients-list" data-region>
+    <div class="thead ing-list-grid">
+        <span>{% trans "Ingredient" %}</span><span class="right">{% trans "Cost" %}</span><span>{% trans "Allergens" %}</span>
+        <span>{% trans "Fits" %}</span><span>{% trans "On hand · par" %}</span><span>{% trans "Used in" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for g in l.groups %}
+        <div class="comp-group-head"><h2 class="disp">{{ g.name }}</h2><span>{{ g.count }}</span></div>
+        {% for r in g.rows %}
+        <a class="trow ing-list-grid comp-row" href="{% url 'admin_ingredient' r.i.id %}" aria-label="{% blocktrans with name=r.i.title %}Edit {{ name }}{% endblocktrans %}">
+            <span class="two-line"><span class="strong ellipsis comp-name">{{ r.i.title }}</span><span class="muted small ellipsis">{{ r.sub }}</span></span>
+            <span class="right"><span class="num strong block">{{ r.cost }}</span>{% if r.change_text %}<span class="change {% if r.change > 0 %}up{% else %}down{% endif %}">{{ r.change_text }}</span>{% endif %}</span>
+            <span class="alg-cell">{% for a in r.allergens %}<span class="alg-chip">{{ a }}</span>{% empty %}<span class="none-text">{% trans "None" %}</span>{% endfor %}</span>
+            <span class="diet-cell">{% for d in r.diets %}<span class="diet-badge{% if not d.on %} off{% endif %}" title="{{ d.label }}" aria-label="{% if not d.on %}{% trans 'Not' %} {% endif %}{{ d.label }}">{{ d.short }}</span>{% endfor %}</span>
+            <span class="stock-cell">
+                <span class="stock-line"><span class="num">{{ r.stock }}</span>{% if r.tag %}<span class="stock-tag {{ r.state }}">{{ r.tag }}</span>{% endif %}</span>
+                {% if not r.i.unlimited %}<span class="stock-bar"><span class="fill {{ r.state }}" style="width:{{ r.bar.fill }}%"></span>{% if r.bar.par != None %}<span class="par" style="left:{{ r.bar.par }}%"></span>{% endif %}</span>{% endif %}
+            </span>
+            <span class="small strong ink-2">{{ r.used }}</span>
+            {% icon "chevron" 16 2.4 %}
+        </a>
+        {% endfor %}
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "No ingredients match" %}</div><div>{% trans "Try another filter or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+    <div class="diet-legend">{% for d in l.legend %}<span><span class="diet-badge">{{ d.short }}</span>{{ d.label }}</span>{% endfor %}</div>
+</section>
+{% endblock %}

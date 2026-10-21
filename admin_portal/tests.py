@@ -13,12 +13,12 @@ from payments import square
 from pos_server import refunds
 from pos_server import dish_info
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Dish, DishComponent,
-                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
+                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, Supplier)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 
-from . import combos, components, dashboard, dishes, recipes, reports, services
+from . import combos, components, dashboard, dishes, ingredients, recipes, reports, services
 from .models import StoreSettings
 from .units import fmt_qty
 
@@ -975,7 +975,7 @@ class ServiceTests(AdminFixture, TestCase):
 def component_fields(draft, **changes):
     """The component editor's POST fields for a draft (admin_portal.components.draft_from_post reads them back)."""
     draft = {**draft, **changes}
-    data = {k: draft[k] for k in ("title", "unit", "category", "recipe", "cost", "kept_in", "keeps_days", "inventory",
+    data = {k: draft[k] for k in ("title", "unit", "category", "recipe", "kept_in", "keeps_days", "inventory",
                                   "inventory_was", "par", "extra_label", "extra_price", "extra_max")}
     data["offer"] = draft["offer"]
     data["extra_was"] = draft.get("extra_was", "1" if draft["extra_on"] else "0")
@@ -1000,7 +1000,7 @@ class ComponentTests(AdminFixture, TestCase):
         cls.recipe = Recipe.objects.create(title="Smash patties", yield_quantity=40)
         RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.beef, quantity=4400)
         RecipeIngredient.objects.create(recipe=cls.recipe, ingredient=cls.salt, quantity=30)
-        cls.spare = Component.objects.create(title="Spare sauce", unit_of_measurement="ml", cost=Decimal("0.004"))
+        cls.spare = Component.objects.create(title="Spare sauce", unit_of_measurement="ml")
 
     def setUp(self):
         self.client.force_login(self.owner)
@@ -1011,10 +1011,10 @@ class ComponentTests(AdminFixture, TestCase):
     def post(self, component, op, draft=None, **changes):
         return self.client.post(reverse("admin_component", args=[component.id]), {**component_fields(draft or self.draft(component), **changes), "op": op})
 
-    def test_costs_come_from_the_recipe_then_ingredients_then_the_source_then_by_hand(self):
+    def test_costs_always_come_from_ingredient_prices(self):
         self.assertEqual(dish_info.component_cost(self.patty), Decimal("1.800"))
         self.assertEqual(dish_info.component_cost(self.frozen), Decimal("1.800"))  # made from patties by a transform
-        self.assertEqual(dish_info.component_cost(self.spare), Decimal("0.004"))
+        self.assertEqual(dish_info.component_cost(self.spare), Decimal("0"))  # no recipe or ingredients: unknown
         Component.objects.filter(pk=self.patty.pk).update(recipe=self.recipe)
         patty = Component.objects.get(pk=self.patty.pk)
         self.assertEqual(dish_info.component_cost(patty), Decimal("66.06") / 40)
@@ -1069,8 +1069,6 @@ class ComponentTests(AdminFixture, TestCase):
         self.assertEqual(Component.objects.get(pk=self.patty.pk).inventory, 60)
         e = self.post(self.spare, "preview", title="patty").context["e"]
         self.assertEqual((e["status"], e["can_save"]), ("Another component has this name", False))
-        self.post(self.spare, "save", self.draft(self.spare), cost="8", unit="ml")  # $8 a litre
-        self.assertEqual(Component.objects.get(pk=self.spare.pk).cost, Decimal("0.0080"))
 
     def test_new_duplicate_and_archive(self):
         response = self.client.post(reverse("admin_component_new"))
@@ -1086,6 +1084,92 @@ class ComponentTests(AdminFixture, TestCase):
         self.assertRedirects(self.post(self.spare, "archive"), reverse("admin_components"))
         self.assertTrue(Component.objects.get(pk=self.spare.pk).archived)
         self.assertNotIn(self.spare, [r["c"] for g in self.client.get(reverse("admin_components")).context["l"]["groups"] for r in g["rows"]])
+
+
+def ingredient_fields(draft, **changes):
+    """The ingredient editor's POST fields for a draft (admin_portal.ingredients.draft_from_post reads them back)."""
+    draft = {**draft, **changes}
+    data = {k: draft[k] for k in ("title", "unit", "category", "supplier", "pack_size", "pack_price", "inventory", "inventory_was", "par", "kept_in")}
+    data["allergens"] = draft["allergens"]
+    data["gluten_was"] = draft.get("gluten_was", "1" if "Gluten" in draft["allergens"] else "")
+    for flag in ("meat", "fish", "animal"):
+        if draft[flag]:
+            data[flag] = "1"
+    if draft.get("gluten", "Gluten" in draft["allergens"]):
+        data["gluten"] = "1"
+    return data
+
+
+class IngredientTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from inventory.models import Recipe, RecipeIngredient
+        cls.build_admin()
+        cls.supplier = Supplier.objects.create(name="Valley Meats")
+        cls.beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", category="meat", supplier=cls.supplier,
+                                             pack_size=5000, pack_price=Decimal("75.00"), previous_cost=Decimal("0.0144"),
+                                             inventory=3000, par=8000, meat=True)
+        cls.flour = Ingredient.objects.create(title="Flour", unit_of_measurement="g", category="bakery", pack_size=20000,
+                                              pack_price=Decimal("40.00"), inventory=18000, par=10000, allergens=["Gluten"])
+        cls.saffron = Ingredient.objects.create(title="Saffron", unit_of_measurement="g", pack_size=10, pack_price=Decimal("28"))
+        ComponentIngredient.objects.create(component=cls.patty, ingredient=cls.beef, quantity=120)
+        recipe = Recipe.objects.create(title="Bun dough", yield_quantity=24)
+        RecipeIngredient.objects.create(recipe=recipe, ingredient=cls.flour, quantity=1000)
+        Component.objects.filter(pk=cls.bun.pk).update(recipe=recipe)
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def draft(self, ingredient):
+        return ingredients.draft_from_ingredient(Ingredient.objects.get(pk=ingredient.pk))
+
+    def post(self, ingredient, op, draft=None, **changes):
+        return self.client.post(reverse("admin_ingredient", args=[ingredient.id]), {**ingredient_fields(draft or self.draft(ingredient), **changes), "op": op})
+
+    def test_cost_is_the_pack_price_over_the_pack_size_and_flows_into_components(self):
+        self.assertEqual(self.beef.cost, Decimal("0.015"))
+        self.assertEqual(dish_info.component_cost(self.patty), Decimal("1.8"))
+        self.post(self.beef, "save", pack_price="100")
+        beef = Ingredient.objects.get(pk=self.beef.pk)
+        self.assertEqual((beef.cost, beef.previous_cost), (Decimal("0.02"), Decimal("0.015")))
+        self.assertEqual(dish_info.component_cost(Component.objects.get(pk=self.patty.pk)), Decimal("2.4"))
+        bun = Component.objects.get(pk=self.bun.pk)  # through its recipe: 1 kg of flour makes 24
+        self.assertEqual(dish_info.component_cost(bun).quantize(Decimal("0.0001")), Decimal("0.0833"))
+
+    def test_list_groups_filters_and_kpis(self):
+        l = self.client.get(reverse("admin_ingredients")).context["l"]
+        self.assertEqual([g["name"] for g in l["groups"]][:2], ["Meat and poultry", "Bread and baking"])
+        beef = l["groups"][0]["rows"][0]
+        self.assertEqual((beef["cost"], beef["change_text"], beef["state"], beef["sub"]), ("$15.00 / kg", "▲ 4.2%", "low", "Valley Meats · $75.00 for 5 kg"))
+        self.assertEqual([d["on"] for d in beef["diets"]], [False, False, False, True])
+        counts = {f["key"]: f["count"] for f in l["filters"]}
+        self.assertEqual((counts["up"], counts["alg"], counts["gf"], counts["low"]), (1, 1, 2, 1))
+        self.assertEqual(l["kpis"][3]["sub"], "Biggest: Ground beef +4.2%")
+        self.assertEqual(len(self.client.get(reverse("admin_ingredients") + "?q=valley").context["l"]["groups"]), 1)
+
+    def test_allergens_and_switches_stay_in_step(self):
+        draft = self.draft(self.flour)
+        e = self.post(self.flour, "preview", draft, gluten=False).context["e"]  # switching gluten off drops the allergen
+        self.assertEqual(e["d"]["allergens"], [])
+        e = self.post(self.flour, "preview", draft, allergens=["Gluten", "Dairy"]).context["e"]
+        switches = {s["key"]: s for s in e["switches"]}
+        self.assertTrue(switches["animal"]["on"] and switches["animal"]["locked"])
+        self.assertEqual([d["on"] for d in e["diets"]], [True, False, True, False])  # vegetarian, not vegan, pescatarian, has gluten
+
+    def test_new_supplier_validation_stock_and_archive(self):
+        self.assertEqual(self.post(self.saffron, "preview", pack_size="0").context["e"]["status"], "Set a pack size")
+        self.assertEqual(self.post(self.saffron, "preview", title="flour").context["e"]["status"], "Another ingredient has this name")
+        draft = self.draft(self.saffron)
+        Ingredient.objects.filter(pk=self.saffron.pk).update(inventory=7)  # counted elsewhere meanwhile
+        self.post(self.saffron, "save", draft, supplier="Spice House", par="5")
+        saffron = Ingredient.objects.get(pk=self.saffron.pk)
+        self.assertEqual((saffron.supplier.name, saffron.par, saffron.inventory), ("Spice House", 5, 7))
+        self.post(self.beef, "archive")
+        self.assertFalse(Ingredient.objects.get(pk=self.beef.pk).archived)  # used in the patty
+        self.assertRedirects(self.post(self.saffron, "archive"), reverse("admin_ingredients"))
+        self.assertTrue(Ingredient.objects.get(pk=self.saffron.pk).archived)
+        response = self.client.post(reverse("admin_ingredient_new"))
+        self.assertRedirects(response, reverse("admin_ingredient", args=[Ingredient.objects.latest("id").id]))
 
 
 class UnitTests(TestCase):

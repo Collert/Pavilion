@@ -1,0 +1,67 @@
+/* Ingredients: list and editor (admin_portal/templates/admin_portal/ingredients.html, ingredient.html). Loaded after
+   components.css, which has the KPIs, stock bars, cost card and used-in rows these pages share. */
+
+.tiny { font-size: 11px; font-weight: 700; }
+.top10 { margin-top: 10px; }
+.top18 { margin-top: 18px; }
+
+/* ---------- list ---------- */
+.ing-list-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) 110px minmax(0, 1.3fr) 128px 170px 90px 16px; gap: 14px; align-items: center; }
+.change { display: block; font-size: 11px; font-weight: 800; }
+.change.up { color: var(--red); }
+.change.down { color: var(--green); }
+.alg-cell { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.alg-cell .alg-chip { height: 22px; padding: 0 8px; border-radius: 11px; }
+.none-text { font-size: 12px; font-weight: 700; color: #9AA8A1; }
+.diet-cell { display: flex; gap: 4px; }
+.diet-badge { min-width: 26px; height: 22px; padding: 0 5px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; letter-spacing: .02em; background: var(--mint); color: var(--brand); }
+.diet-badge.off { background: var(--softer); color: #C2CCC6; text-decoration: line-through; }
+.diet-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 22px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
+.diet-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- editor ---------- */
+.basics-3.wide-last { grid-template-columns: minmax(0, 1fr) 150px 240px; }
+.alg-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.alg-toggle { position: relative; height: 36px; padding: 0 14px; border-radius: 18px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; background: var(--soft); color: var(--ink-2); cursor: pointer; }
+.alg-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.alg-toggle:has(input:checked) { background: var(--amber); color: var(--ink); }
+.alg-toggle:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
+.flag-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.flag-row { position: relative; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 16px; background: var(--softer); cursor: pointer; }
+.flag-row:has(input:checked) { background: #EEF6F1; }
+.flag-row.locked { cursor: default; }
+.flag-row .strong { font-size: 14px; }
+.flag-hint { font-size: 12px; font-weight: 600; color: var(--muted); }
+.flag-row.locked .flag-hint { color: var(--brand); }
+.flag-row:has(input:checked) .switch { background: var(--green); }
+.flag-row:has(input:checked) .switch > span { transform: translateX(16px); }
+.flag-row.locked .switch { background: #7FB89E !important; }
+.flag-row:has(input:focus-visible) .switch { outline: 3px solid var(--brand); outline-offset: 2px; }
+.buy-grid { display: grid; grid-template-columns: minmax(0, 1fr) 180px 160px; gap: 12px; margin-top: 14px; }
+.unit-field.bad { box-shadow: inset 0 0 0 2px var(--red); background: var(--red-soft); }
+.pack-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--softer); font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.pack-line .num { font-size: 16px; font-weight: 800; color: var(--ink); }
+.three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.price-change { font-size: 13px; font-weight: 700; color: var(--rail-ink); margin-top: 4px; }
+.price-change.up, .price-change.down { display: inline-flex; margin-top: 6px; min-height: 26px; padding: 3px 10px; border-radius: 13px; align-items: center; font-size: 12px; font-weight: 800; }
+.price-change.up { background: rgba(179, 54, 31, .25); color: #F3A99A; }
+.price-change.down { background: rgba(18, 135, 90, .25); color: #8FD9B6; }
+.diet-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.diet-box { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #EEF6F1; min-width: 0; }
+.diet-box.off { background: var(--softer); opacity: .75; }
+.diet-box .strong { font-size: 14px; }
+.diet-icon { width: 24px; height: 24px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--green); color: #FFFFFF; }
+.diet-box.off .diet-icon { background: #E6ECE8; color: var(--faint); }
+
+@media (max-width: 1280px) {
+    .ing-list-grid { grid-template-columns: minmax(0, 1.5fr) 100px 128px 160px 16px; }
+    .ing-list-grid > :nth-child(3), .ing-list-grid > :nth-child(6) { display: none; }
+    .basics-3.wide-last { grid-template-columns: 1fr 1fr; }
+    .buy-grid { grid-template-columns: 1fr 1fr; }
+    .buy-grid > :first-child { grid-column: 1 / 3; }
+}
+@media (max-width: 700px) {
+    .ing-list-grid { grid-template-columns: minmax(0, 1fr) 100px 16px; }
+    .ing-list-grid > :nth-child(4), .ing-list-grid > :nth-child(5) { display: none; }
+    .flag-grid, .three-grid, .diet-boxes { grid-template-columns: 1fr; }
+}

@@ -60,8 +60,7 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
             </div>
             {% if e.source == "transform" %}
             <div class="note">{% blocktrans with name=e.transform.from_component.title %}Cookery makes it from {{ name }} by a transform, so it costs what that does. Attach a recipe if it’s made another way.{% endblocktrans %}</div>
-            <input type="hidden" name="cost" value="{{ d.cost }}">
-            {% elif e.source != "hand" %}
+            {% elif e.source != "none" %}
             <div class="ing-table">
                 <div class="ov ing-grid ing-head"><span>{% if e.source == "recipe" %}{% trans "Ingredient, one batch" %}{% else %}{% trans "Ingredient, one unit" %}{% endif %}</span><span class="right">{% trans "Amount" %}</span><span class="right">{% trans "Price" %}</span><span class="right">{% trans "Cost" %}</span></div>
                 {% for i in e.ingredients %}
@@ -75,12 +74,8 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
                 <div class="ing-foot"><span class="grow">{% if e.source == "recipe" %}{{ e.batch_line }}{% else %}{% trans "Made one at a time from these. Attach a recipe to make it in batches." %}{% endif %}</span><span class="num cost-each">{{ e.cost_each }}</span></div>
             </div>
             <div class="hint small top8">{% if e.source == "recipe" %}{% trans "The cost updates by itself when ingredient prices change. Change amounts in the recipe." %}{% else %}{% trans "The cost updates by itself when ingredient prices change." %}{% endif %}</div>
-            <input type="hidden" name="cost" value="{{ d.cost }}">
             {% else %}
-            <div class="hand-cost">
-                <label><span class="lbl">{{ e.hand_label }}</span><span class="unit-field"><span class="unit-pre">$</span><input type="number" name="cost" min="0" step="0.01" class="num" value="{{ d.cost }}" aria-label="{{ e.hand_label }}"></span></label>
-                <div class="note warn">{% trans "No recipe yet, so cost and allergens can’t be worked out. Attach one when it’s written." %}</div>
-            </div>
+            <div class="note warn top12">{% trans "No recipe yet, so cost and allergens can’t be worked out. Attach one when it’s written." %}</div>
             {% endif %}
         </section>
 

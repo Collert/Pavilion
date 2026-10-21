@@ -34,4 +34,7 @@ urlpatterns = [
     path("components", views.components, name="admin_components"),
     path("components/new", views.component_new, name="admin_component_new"),
     path("components/<int:component_id>", views.component_edit, name="admin_component"),
+    path("ingredients", views.ingredients, name="admin_ingredients"),
+    path("ingredients/new", views.ingredient_new, name="admin_ingredient_new"),
+    path("ingredients/<int:ingredient_id>", views.ingredient_edit, name="admin_ingredient"),
 ]

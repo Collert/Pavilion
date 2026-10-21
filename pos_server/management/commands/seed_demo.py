@@ -37,7 +37,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
+                               ComponentIngredient, CateringPrice, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient, Supplier,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -87,6 +87,7 @@ class Command(BaseCommand):
             self.seed_cookery()
             call_command("seed_recipes", stdout=io.StringIO())  # the Cookery mockup's recipes too
             self.seed_component_details()
+            self.seed_ingredient_details()
             self.seed_discounts()
             self.seed_events()
             self.seed_store()
@@ -618,7 +619,7 @@ class Command(BaseCommand):
                                       ends_at=now + minutes(180))
 
     def seed_component_details(self):
-        """Categories, where things are kept and for how long, extra labels and hand-set costs (the Components page)."""
+        """Categories, where things are kept and for how long, and extra labels (the Components page)."""
         category = {
             "protein": ["Beef patty", "Beef patty, frozen", "Chicken fillet", "Pulled pork", "Pulled pork, frozen", "Chicken bites",
                         "Bacon", "Fried egg", "Halloumi", "Pierogi, potato & cheese", "Pierogi, frozen"],
@@ -649,13 +650,85 @@ class Command(BaseCommand):
                   "Swiss cheese": "Extra Swiss", "Chicken fillet": "Extra chicken", "Cornbread": "Add cornbread", "Cotija": "Extra cotija"}
         for title, label in labels.items():
             Component.objects.filter(title=title).update(extra_label=label)
-        # Bought in with no ingredients listed: their cost is set by hand
-        for title, cost in (("Gluten-free bun", "0.85"), ("BBQ sauce", "0.006"), ("Pickles", "0.05"), ("Grains", "0.004"),
-                            ("Dressing", "0.008"), ("Seasoning", "0.02"), ("Sparkling water", "0.002"), ("Matcha powder", "0.40"),
-                            ("Jam", "0.25"), ("Extra ginger", "0.01")):
-            Component.objects.filter(title=title).update(cost=Decimal(cost))
         Component.objects.create(title="Seasonal soup base", unit_of_measurement="ml", category="veg", crafting_option="craft",
-                                 inventory=0, cost=Decimal("0.004"), archived=True)
+                                 inventory=0, archived=True)
+
+    def seed_ingredient_details(self):
+        """How each ingredient is bought (supplier, pack size and price, which sets its cost), stored and counted."""
+        suppliers = {name: Supplier.objects.get_or_create(name=name)[0] for name in (
+            "Valley Meats", "Dairyland", "Sun Valley Farms", "Corner Bakehouse", "Ridgeline Coffee Roasters", "Pacific Foodservice")}
+        meat, dairy, farm, bakery, coffee, food = suppliers.values()
+        # title: (category, supplier, pack size, pack price, kept in, par, % the price went up at the last delivery)
+        specs = {
+            "Ground beef": ("meat", meat, 5000, "75.00", "fridge", 8000, 3.8),
+            "Chicken": ("meat", meat, 10000, "120.00", "fridge", 10000, None),
+            "Pork shoulder": ("meat", meat, 10000, "100.00", "fridge", 12000, None),
+            "Beef bones": ("meat", meat, 5000, "15.00", "freezer", None, None),
+            "Milk": ("dairy", dairy, 4000, "8.00", "fridge", 16000, None),
+            "Cheddar": ("dairy", dairy, 2500, "50.00", "fridge", 5000, 4.2),
+            "Eggs": ("dairy", dairy, 180, "54.00", "fridge", 120, None),
+            "Butter": ("dairy", dairy, 454, "4.54", "fridge", 2000, None),
+            "Farmer's cheese": ("dairy", dairy, 2000, "19.00", "fridge", 2000, None),
+            "Potatoes": ("produce", farm, 22700, "68.10", "dry", 45000, None),
+            "Vegetables": ("produce", farm, 10000, "40.00", "fridge", 20000, -2.5),
+            "Lemons": ("produce", farm, 115, "46.00", "fridge", 80, None),
+            "Yellow onions": ("produce", farm, 10000, "25.00", "dry", 5000, None),
+            "Carrots": ("produce", farm, 10000, "19.00", "fridge", 4000, None),
+            "Celery": ("produce", farm, 5000, "12.50", "fridge", None, None),
+            "Flour": ("bakery", food, 20000, "40.00", "dry", 10000, None),
+            "Instant yeast": ("bakery", food, 454, "9.08", "fridge", 200, None),
+            "Oats": ("dry", food, 5000, "20.00", "dry", 5000, None),
+            "Almonds": ("dry", food, 1000, "20.00", "dry", 2000, None),
+            "Sugar": ("dry", food, 20000, "40.00", "dry", 8000, None),
+            "Sesame seeds": ("dry", food, 1000, "10.00", "dry", 500, None),
+            "Mustard seed": ("dry", food, 500, "10.00", "dry", 300, None),
+            "Kosher salt": ("dry", food, 3000, "6.00", "dry", 2000, None),
+            "Black pepper": ("dry", food, 500, "12.50", "dry", 200, None),
+            "Bay leaves": ("dry", food, 100, "5.00", "dry", None, None),
+            "Smoked paprika": ("dry", food, 500, "14.00", "dry", None, None),
+            "Mayonnaise": ("pantry", food, 3780, "39.70", "fridge", 3780, None),
+            "Dill pickles": ("pantry", food, 2000, "20.00", "fridge", 1000, None),
+            "Yellow mustard": ("pantry", food, 1000, "9.00", "fridge", 500, None),
+            "Coffee beans": ("drinks", coffee, 2270, "68.10", "dry", 9000, 6.5),
+            "Water": ("other", None, 1, None, "dry", None, None),
+        }
+        # Bought-in components with no ingredients get the ingredient they're bought as:
+        # component: (ingredient, unit, category, supplier, pack size, pack price, allergens, animal byproduct, amount per unit)
+        bought = {
+            "Gluten-free bun": ("Gluten-free buns", "ea", "bakery", bakery, 12, "10.20", ["Egg"], True, 1),
+            "BBQ sauce": ("BBQ sauce", "ml", "pantry", food, 4000, "24.00", ["Mustard"], False, 1),
+            "Pickles": ("Pickle chips", "ea", "pantry", food, 500, "25.00", ["Sulphites"], False, 1),
+            "Grains": ("Farro", "g", "dry", food, 5000, "30.00", ["Gluten"], False, 1),
+            "Dressing": ("Vinaigrette", "ml", "pantry", food, 4000, "32.00", ["Mustard"], False, 1),
+            "Seasoning": ("Seasoning blend", "g", "dry", food, 1000, "20.00", [], False, 1),
+            "Sparkling water": ("Sparkling water", "ml", "drinks", food, 12000, "24.00", [], False, 1),
+            "Matcha powder": ("Matcha powder", "g", "drinks", coffee, 100, "40.00", [], False, 1),
+            "Jam": ("Jam portions", "ea", "pantry", food, 200, "50.00", [], False, 1),
+            "Extra ginger": ("Ginger", "g", "produce", farm, 1000, "10.00", [], False, 0.2),
+        }
+        sauces = {"Ketchup": [], "Mustard": ["Mustard"], "Mayo": ["Egg"], "Hot sauce": []}
+        for label, component_title in self.side_component.items():
+            bought.setdefault(component_title, (component_title, "ea", "pantry" if label in sauces else "other", food, 1000,
+                                                "30.00" if label in sauces else "20.00", sauces.get(label, []), label == "Mayo", 1))
+        for component_title, (title, unit, category, supplier, pack, price, allergens, animal, amount) in bought.items():
+            component = Component.objects.filter(title=component_title).first()
+            if component is None or component.componentingredient_set.exists() or component.recipe_id:
+                continue
+            ingredient, _created = Ingredient.objects.get_or_create(title=title, defaults={
+                "unit_of_measurement": unit, "inventory": pack * 2, "allergens": allergens, "animal": animal})
+            specs.setdefault(title, (category, supplier, pack, price, "dry" if category in ("dry", "other") else "fridge", pack, None))
+            ComponentIngredient.objects.create(component=component, ingredient=ingredient, quantity=amount)
+        for title, (category, supplier, pack, price, place, par, change) in specs.items():
+            ingredient = Ingredient.objects.filter(title=title).first()
+            if ingredient is None:
+                continue
+            ingredient.category, ingredient.supplier, ingredient.pack_size, ingredient.kept_in, ingredient.par = category, supplier, pack, place, par
+            ingredient.pack_price = Decimal(price) if price else None
+            ingredient.save()
+            if change:
+                Ingredient.objects.filter(pk=ingredient.pk).update(previous_cost=(ingredient.cost / Decimal(str(1 + change / 100))).quantize(Decimal("0.000001")))
+        Ingredient.objects.create(title="Saffron", unit_of_measurement="g", category="dry", supplier=food, pack_size=10,
+                                  pack_price=Decimal("28.00"), archived=True)
 
     def seed_discounts(self):
         specs = [
