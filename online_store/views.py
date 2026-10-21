@@ -63,14 +63,14 @@ def menu_sections(menu):
 
 def menu(request):
     """
-    The online menu: the active menu (or ?actual=<menu id>) by section, and the other menus' dishes for
-    browsing. `store_items` feeds the cart JS (json_script).
+    The online menu: the top live menu (or ?actual=<live menu id>) by section, and the other live menus' dishes
+    for browsing. `store_items` feeds the cart JS (json_script).
     """
     query = request.GET.get('actual', None)
-    active = Menu.objects.filter(pk=query).first() if query and str(query).isdigit() else None
-    active = active or Menu.active()
+    live = Menu.live_menus()  # menus that aren't live never show online
+    active = next((m for m in live if str(m.id) == str(query)), None) or (live[0] if live else None)
     sections = menu_sections(active)
-    others = {menu_obj.title: menu_sections(menu_obj) for menu_obj in Menu.objects.filter(is_active=False)}
+    others = {menu_obj.title: menu_sections(menu_obj) for menu_obj in live if menu_obj != active}
     return render(request, "online_store/menu.html", {
         "route":"menu",
         "menu":{"menu":active, "dishes":[(station, [{"obj": obj, "key": store_item(obj)["key"], "is_combo": isinstance(obj, Combo)}

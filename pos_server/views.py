@@ -154,26 +154,13 @@ def order_marking(request):
 
     return HttpResponseBadRequest("Unknown action")
 
-@superuser_required
+@staff_required
 def menu_select(request):
-    """
-    Handles the selection of a menu via a POST request.
-
-    This view function processes a POST request to change the active menu.
-    It deactivates the currently active menu and activates the menu specified
-    in the POST request.
-
-    Args:
-        request (HttpRequest): The HTTP request object containing metadata about the request.
-
-    Returns:
-        HttpResponseRedirect: A redirect response to the "pos" view.
-    """
+    """POST: ring up from another live menu on this register (kept in the session). Back to the register."""
     if request.method == "POST":
-        menu = Menu.objects.filter(title=request.POST.get("menu-title")).first()
+        menu = next((m for m in Menu.live_menus() if str(m.id) == request.POST.get("menu")), None)
         if menu:
-            menu.is_active = True  # Menu.save() deactivates the others
-            menu.save()
+            request.session["register_menu"] = menu.id
     return redirect(reverse("pos"))
 
 @login_required

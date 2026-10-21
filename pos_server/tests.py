@@ -19,8 +19,9 @@ from gift_cards.models import GiftCard, GiftCardAuthorization
 from online_store.models import RejectedOrder
 from payments.models import PaymentAuthorization, Transaction
 from users.models import Staff
+from .menu_schedule import Schedule
 from .models import (CashDrawerSession, RegisterSignIn, Combo, ComboSlot, ComboSlotOption, Component, Discount, Dish, DishComponent,
-                     Extra, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
+                     Extra, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
 from .orders import OrderError, create_order
 from .pricing import price_cart
 
@@ -79,7 +80,7 @@ class MenuFixture:
         ComboSlotOption.objects.create(slot=cls.drink, dish=cls.coffee, is_default=True)
         ComboSlotOption.objects.create(slot=cls.drink, dish=cls.tea, price=Decimal("0.50"))
 
-        cls.menu = Menu.objects.create(title="Test menu", is_active=True)
+        cls.menu = Menu.objects.create(title="Test menu", manual_on=True)
         cls.menu.dishes.set([cls.burger, cls.coffee, cls.tea])
         cls.menu.combos.set([cls.combo])
 
@@ -343,13 +344,72 @@ class CreateOrderTests(MenuFixture, TestCase):
         self.assertEqual(received, [order.pk])
 
 
-class MenuTests(TestCase):
-    def test_only_one_menu_is_active(self):
-        first = Menu.objects.create(title="A", is_active=True)
-        second = Menu.objects.create(title="B", is_active=True)
-        first.refresh_from_db()
-        self.assertFalse(first.is_active)
-        self.assertEqual(Menu.active(), second)
+class MenuScheduleTests(TestCase):
+    """Several menus can be live; automatic ones follow their rules (pos_server.menu_schedule)."""
+
+    def at(self, weekday, hour, minute=0):
+        monday = datetime.date(2026, 10, 19)  # a Monday
+        return timezone.make_aware(datetime.datetime.combine(monday + datetime.timedelta(days=weekday), datetime.time(hour, minute)))
+
+    def weekly(self, menu, kind, days, hour):
+        return MenuRule.objects.create(menu=menu, kind=kind, type=MenuRule.WEEKLY, days=days, time=datetime.time(hour))
+
+    def test_manual_menus_and_drafts(self):
+        on = Menu.objects.create(title="On", manual_on=True, position=1)
+        Menu.objects.create(title="Off")
+        Menu.objects.create(title="Draft", manual_on=True, draft=True)
+        top = Menu.objects.create(title="Top", manual_on=True, position=0)
+        self.assertEqual(Menu.live_menus(), [top, on])
+        self.assertEqual(Menu.active(), top)
+
+    def test_weekly_rules_and_overnight(self):
+        lunch = Menu.objects.create(title="Lunch", auto=True)
+        self.weekly(lunch, "on", "0123456", 11)
+        self.weekly(lunch, "off", "0123456", 21)
+        late = Menu.objects.create(title="Late", auto=True)
+        self.weekly(late, "on", "4", 22)  # Friday 10 PM ...
+        self.weekly(late, "off", "5", 2)  # ... to Saturday 2 AM
+        self.assertTrue(lunch.is_live(self.at(2, 12)))
+        self.assertFalse(lunch.is_live(self.at(2, 22)))
+        self.assertTrue(late.is_live(self.at(5, 1)))
+        self.assertFalse(late.is_live(self.at(5, 3)))
+        self.assertIn("Turns off today at 9:00 PM", Schedule().next_change(lunch, self.at(2, 12)))
+
+    def test_date_ranges_and_another_menu_starting(self):
+        breakfast = Menu.objects.create(title="Breakfast", auto=True)
+        self.weekly(breakfast, "on", "0123456", 7)
+        holiday = Menu.objects.create(title="Holiday", auto=True)
+        MenuRule.objects.create(menu=holiday, kind="on", type=MenuRule.DATES, start_date=datetime.date(2026, 10, 21),
+                                end_date=datetime.date(2026, 10, 22))
+        MenuRule.objects.create(menu=breakfast, kind="off", type=MenuRule.MENU, other_menu=holiday)
+        brunch = Menu.objects.create(title="Brunch", auto=True)
+        self.weekly(brunch, "on", "56", 9)
+        self.weekly(brunch, "off", "56", 14)
+        MenuRule.objects.create(menu=brunch, kind="off", type=MenuRule.DATES, start_date=datetime.date(2026, 10, 24),
+                                end_date=datetime.date(2026, 10, 24))
+        self.assertTrue(holiday.is_live(self.at(2, 15)))  # Wednesday, in its dates
+        self.assertFalse(holiday.is_live(self.at(4, 15)))
+        self.assertFalse(brunch.is_live(self.at(5, 10)))  # kept off on Saturday the 24th
+        self.assertTrue(brunch.is_live(self.at(6, 10)))
+        # Turned off when another menu's weekly "on" fires (lunch at 11 here)
+        lunch = Menu.objects.create(title="Lunch", auto=True)
+        self.weekly(lunch, "on", "0123456", 11)
+        MenuRule.objects.create(menu=breakfast, kind="off", type=MenuRule.MENU, other_menu=lunch)
+        self.assertTrue(breakfast.is_live(self.at(1, 10)))
+        self.assertFalse(breakfast.is_live(self.at(1, 12)))
+
+    def test_the_register_rings_up_from_a_picked_live_menu(self):
+        first = Menu.objects.create(title="First", manual_on=True, position=0)
+        second = Menu.objects.create(title="Second", manual_on=True, position=1)
+        Menu.objects.create(title="Off", position=2)
+        request = mock.Mock(session={})
+        from .register import register_menu
+        self.assertEqual(register_menu(request), first)
+        request.session["register_menu"] = second.id
+        self.assertEqual(register_menu(request), second)
+        second.manual_on = False
+        second.save()
+        self.assertEqual(register_menu(request), first)
 
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
@@ -713,7 +773,7 @@ class SeedDemoTests(TestCase):
         from django.core.management import call_command
         from io import StringIO
         with self.settings(MEDIA_ROOT=__import__("tempfile").mkdtemp()):
-            call_command("seed_demo", allow_production=True, stdout=StringIO())
+            call_command("seed_demo", allow_production=True, history_days=6, stdout=StringIO())
         self.assertTrue(Order.objects.filter(channel="delivery").exists())
         self.assertEqual(Menu.active().title, "Lunch")
         self.assertTrue(Order.objects.filter(items__children__isnull=False).exists())  # a combo was sold

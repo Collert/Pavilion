@@ -338,15 +338,15 @@
 <dialog class="sheet w-sm" id="menu-sheet" aria-labelledby="menu-title">
     <div class="sheet-head">
         <div>
-            <div class="overline">{% trans "Active menu" %}</div>
-            <h2 class="h2" id="menu-title">{% trans "Switch the menu" %}</h2>
+            <div class="overline">{% trans "Menus on now" %}</div>
+            <h2 class="h2" id="menu-title">{% trans "Ring up from" %}</h2>
         </div>
         <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
     </div>
     <form method="post" action="{% url 'menu_select' %}" class="choice-grid">
         {% csrf_token %}
         {% for option in menus %}
-        <button class="choice" name="menu-title" value="{{ option.title }}" aria-pressed="{% if option.is_active %}true{% else %}false{% endif %}">
+        <button class="choice" name="menu" value="{{ option.id }}" aria-pressed="{% if option.id == menu.id %}true{% else %}false{% endif %}">
             <span>{{ option.title }}</span>
         </button>
         {% endfor %}

@@ -13,41 +13,72 @@ from django.conf import settings
     
 class Menu(models.Model):
     """
-    Model representing a Menu.
-    Attributes:
-        title (CharField): The title of the menu, with a maximum length of 140 characters.
-        is_active (BooleanField): A boolean indicating whether the menu is active. Defaults to False.
-        header_image (ImageField): An optional image field for the header image, uploaded to 'files/menu_decorations'.
-        footer_image (ImageField): An optional image field for the footer image, uploaded to 'files/menu_decorations'.
-        background_color (CharField): The background color of the menu, with a default value of "#ffffff".
-        accent_1 (CharField): The first accent color of the menu, with a default value of "#ffffff".
-        accent_2 (CharField): The second accent color of the menu, with a default value of "#ffffff".
-        accent_3 (CharField): The third accent color of the menu, with a default value of "#ffffff".
-    Methods:
-        __str__(): Returns a string representation of the Menu instance.
+    A menu: the dishes and combos sold while it's live. Several menus can be live at once (pos_server.menu_schedule):
+    a menu switched by hand is live while `manual_on`; an automatic one follows its MenuRules. Drafts are never live.
+    `position` is the priority: the register, online store and screens list live menus in this order, and the first
+    one is the default (Menu.active()). The colour and image fields are from the old menu theming.
     """
     title = models.CharField(max_length=140)
-    is_active = models.BooleanField(default=False)
-    header_image = models.ImageField(upload_to='files/menu_decorations', null=True)
-    footer_image = models.ImageField(upload_to='files/menu_decorations', null=True)
+    position = models.PositiveSmallIntegerField(default=0, help_text="Priority: lower comes first")
+    draft = models.BooleanField(default=False, help_text="Not published yet, so never live")
+    auto = models.BooleanField(default=False, help_text="Turned on and off by its rules, not by hand")
+    manual_on = models.BooleanField(default=False, help_text="Switched by hand: on now")
+    header_image = models.ImageField(upload_to='files/menu_decorations', null=True, blank=True)
+    footer_image = models.ImageField(upload_to='files/menu_decorations', null=True, blank=True)
     background_color = models.CharField(max_length=7, default="#ffffff")
     accent_1 = models.CharField(max_length=7, default="#ffffff")
     accent_2 = models.CharField(max_length=7, default="#ffffff")
     accent_3 = models.CharField(max_length=7, default="#ffffff")
 
+    class Meta:
+        ordering = ["position", "id"]
+
     def __str__(self) -> str:
         return f"Menu: {self.title}"
 
-    def save(self, *args, **kwargs):
-        # Exactly one menu is meant to be active: activating this one deactivates the rest
-        super().save(*args, **kwargs)
-        if self.is_active:
-            Menu.objects.exclude(pk=self.pk).filter(is_active=True).update(is_active=False)
+    @classmethod
+    def live_menus(cls, now=None):
+        """Every menu live right now, by priority."""
+        from .menu_schedule import live_menus
+        return live_menus(now)
 
     @classmethod
-    def active(cls):
-        """The active menu, or None if no menu is active."""
-        return cls.objects.filter(is_active=True).first()
+    def active(cls, now=None):
+        """The top live menu (the default for the register and online store), or None if nothing is live."""
+        live = cls.live_menus(now)
+        return live[0] if live else None
+
+    def is_live(self, now=None):
+        from .menu_schedule import Schedule
+        return Schedule().is_live(self, now)
+
+
+class MenuRule(models.Model):
+    """
+    Turns a menu on or off (design: AdminMenus, schedule tab): every week on `days` at `time`, every day between two
+    dates, or (off only) when another menu turns on.
+    """
+    ON, OFF = "on", "off"
+    WEEKLY, DATES, MENU = "weekly", "dates", "menu"
+    menu = models.ForeignKey(Menu, on_delete=models.CASCADE, related_name="rules")
+    kind = models.CharField(max_length=3, choices=((ON, "Turn on"), (OFF, "Turn off")))
+    type = models.CharField(max_length=6, choices=((WEEKLY, "Weekly time"), (DATES, "Date range"), (MENU, "Another menu starts")))
+    days = models.CharField(max_length=7, blank=True, help_text="Weekdays, Monday = 0, e.g. '01234'")
+    time = models.TimeField(null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    other_menu = models.ForeignKey(Menu, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.kind} {self.type} for {self.menu_id}"
+
+    @property
+    def day_list(self):
+        return sorted({int(d) for d in self.days if d.isdigit() and int(d) < 7})
+
 
 # Everything is counted in its smallest unit (grams, millilitres or pieces); screens show kilos and litres when
 # the numbers get big. Quantities of a component or ingredient anywhere (recipes, dish parts, stock) use its unit.

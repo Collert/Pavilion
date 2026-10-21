@@ -1,0 +1,190 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Menu editor (design: AdminMenus, items and schedule tabs). It saves as you go: every tick, rule and switch is a small
+POST to admin_menu_action, sent in the background by live-page.js; text, time and date fields submit as you type
+(data-search). Drafts aren't live until published. The design's display tab is left to the screens app.
+{% endcomment %}
+{% block title %}{{ menu.title }} · {% trans "Menus" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/menus.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"menus"{% endblock %}
+
+{% block content %}
+{% url 'admin_menu_action' menu.id as action_url %}
+<header class="page-head editor-head" id="menu-head" data-region>
+    <div class="grow">
+        <a class="back-link" href="{% url 'admin_menus' %}">{% icon "back" 18 2.4 %}{% trans "Menus" %}</a>
+        <div class="title-line">
+            <form method="post" action="{{ action_url }}" data-search class="title-form">{% csrf_token %}
+                <input type="hidden" name="action" value="rename">
+                <input class="disp title-input" name="title" value="{{ menu.title }}" maxlength="140" aria-label="{% trans 'Menu name' %}">
+            </form>
+            <span class="menu-status {{ status.key }}"><span class="status-dot"></span>{{ status.label }}</span>
+        </div>
+    </div>
+    <span class="saved-text">{% if menu.draft %}{% trans "Draft · not on the register or online yet" %}{% else %}{% trans "Changes save as you go" %}{% endif %}</span>
+    <form method="post" action="{{ action_url }}" class="head-actions">{% csrf_token %}
+        <button class="btn-light danger-text" name="action" value="delete" onclick="return confirm(gettext('Delete this menu?'))">{% trans "Delete" %}</button>
+        {% if menu.draft %}<button class="btn-amber" name="action" value="publish">{% icon "check" 18 2.4 %}{% trans "Publish" %}</button>{% endif %}
+    </form>
+</header>
+
+<nav class="tabs editor-tabs" aria-label="{% trans 'Menu editor' %}">
+    <a class="tab" href="?tab=items" data-live{% if tab == "items" %} aria-current="page"{% endif %}>{% icon "M4 6h16 M4 12h16 M4 18h10" 18 %}{% trans "Items" %}<span class="tab-count">{{ items_count }}</span></a>
+    <a class="tab" href="?tab=schedule" data-live{% if tab == "schedule" %} aria-current="page"{% endif %}>{% icon "clock" 18 %}{% trans "Schedule" %}<span class="tab-count">{% if menu.auto %}{% trans "Auto" %}{% else %}{% trans "Manual" %}{% endif %}</span></a>
+</nav>
+
+{% if tab == "items" %}
+<div class="items-tab" id="menu-items" data-region>
+    <section class="card catalog" aria-label="{% trans 'All dishes and combos' %}">
+        <div class="catalog-head">
+            <div class="card-head center">
+                <h2 class="disp card-title">{% trans "Dishes and combos" %}</h2>
+                <form method="post" action="{{ action_url }}">{% csrf_token %}
+                    <input type="hidden" name="back" value="{{ request.get_full_path }}">
+                    {% for r in c.rows %}<input type="hidden" name="{{ r.kind }}" value="{{ r.obj.id }}">{% endfor %}
+                    <button class="btn-soft small-btn" name="action" value="{% if c.all_shown_on %}remove_shown{% else %}add_shown{% endif %}" {% if not c.rows %}disabled{% endif %}>
+                        {% if c.all_shown_on %}{% trans "Remove all shown" %}{% else %}{% trans "Add all shown" %}{% endif %}</button>
+                </form>
+            </div>
+            <form method="get" data-search class="search soft">
+                {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+                <input type="hidden" name="tab" value="items"><input type="hidden" name="group" value="{{ c.group }}">
+                <input type="search" name="q" value="{{ c.query }}" aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search dishes and combos' %}">
+            </form>
+            <nav class="group-chips" aria-label="{% trans 'Filter by group' %}">
+                {% for g in c.groups %}<a class="group-chip" data-live href="?tab=items&group={{ g.key }}&q={{ c.query|urlencode }}"{% if g.key == c.group %} aria-current="page"{% endif %}>{% if g.color %}<span class="dot" style="background:{{ g.color }}"></span>{% endif %}{{ g.label }}</a>{% endfor %}
+            </nav>
+        </div>
+        <div class="catalog-list">
+            {% for r in c.rows %}
+            <form method="post" action="{{ action_url }}">{% csrf_token %}
+                <input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="{{ r.kind }}"><input type="hidden" name="id" value="{{ r.obj.id }}">
+                <input type="hidden" name="back" value="{{ request.get_full_path }}">
+                <button class="cat-row" role="checkbox" aria-checked="{% if r.on %}true{% else %}false{% endif %}">
+                    <span class="box">{% if r.on %}{% icon "check" 14 3 %}{% endif %}</span>
+                    <span class="ellipsis grow strong">{{ r.obj.title }}</span>
+                    {% if r.out %}<span class="sold-out">{% trans "Sold out" %}</span>{% endif %}
+                    <span class="cat-group"><span class="dot" style="background:{{ r.color }}"></span>{{ r.group }}</span>
+                    <span class="num cat-price">{{ r.price|money }}</span>
+                </button>
+            </form>
+            {% empty %}
+            <div class="empty small">{% trans "Nothing matches." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="card picked" aria-label="{% trans 'In this menu' %}">
+        <div class="card-head base"><h2 class="disp card-title">{% trans "In this menu" %}</h2>
+            <span class="card-meta">{% blocktrans count n=c.count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>
+        <div class="picked-list">
+            {% for g in c.picked %}
+            <div class="picked-group">
+                <div class="picked-head"><span class="dot" style="background:{{ g.color }}"></span>{{ g.label }}<span class="muted">{{ g.items|length }}</span></div>
+                <div class="picked-chips">
+                    {% for i in g.items %}
+                    <form method="post" action="{{ action_url }}" class="picked-chip{% if i.out %} out{% endif %}">{% csrf_token %}
+                        <input type="hidden" name="action" value="toggle"><input type="hidden" name="kind" value="{{ i.kind }}"><input type="hidden" name="id" value="{{ i.obj.id }}">
+                        <input type="hidden" name="back" value="{{ request.get_full_path }}">
+                        {{ i.obj.title }}{% if i.out %} · {% trans "sold out" %}{% endif %}
+                        <button aria-label="{% blocktrans with name=i.obj.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 14 2.6 %}</button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty small">{% trans "Nothing in this menu yet. Tick dishes and combos on the left." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% else %}
+<div class="schedule-tab" id="menu-schedule" data-region>
+    <section class="card auto-card" aria-label="{% trans 'Automatic' %}">
+        <span class="two-line grow">
+            <span class="disp auto-title">{% trans "Turn this menu on and off automatically" %}</span>
+            <span class="muted small">{% if s.auto %}{% trans "Turns on when any rule on the left matches, and off when any rule on the right matches." %}{% else %}{% trans "Off. The menu stays as it is until someone changes it." %}{% endif %}</span>
+        </span>
+        <form method="post" action="{{ action_url }}">{% csrf_token %}
+            <input type="hidden" name="back" value="{{ request.path }}?tab=schedule">
+            <button class="switch-only" role="switch" name="action" value="auto" aria-checked="{% if s.auto %}true{% else %}false{% endif %}" aria-label="{% trans 'Automatic schedule' %}"><span class="switch big{% if s.auto %} on{% endif %}"><span></span></span></button>
+        </form>
+    </section>
+    {% if not s.auto %}
+    <section class="card manual-card">
+        <span class="grow">{% trans "This menu only changes when someone switches it here." %} {% if s.manual_on %}{% trans "It's on now." %}{% else %}{% trans "It's off now." %}{% endif %}</span>
+        <form method="post" action="{{ action_url }}">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule">
+            <button class="{% if s.manual_on %}btn-soft{% else %}btn-dark{% endif %}" name="action" value="manual">{% if s.manual_on %}{% trans "Turn off now" %}{% else %}{% trans "Turn on now" %}{% endif %}</button>
+        </form>
+    </section>
+    {% else %}
+    <div class="rule-sets">
+        {% for set in s.sets %}
+        <section class="card rule-set" aria-label="{{ set.title }}">
+            <div class="set-head">
+                <span class="set-icon {{ set.kind }}">{% if set.kind == "on" %}{% icon "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0" 18 %}{% else %}{% icon "M6 6l12 12M18 6 6 18" 18 %}{% endif %}</span>
+                <span class="two-line"><span class="disp set-title">{{ set.title }}</span><span class="muted small">{{ set.sub }}</span></span>
+            </div>
+            <div class="rules">
+                {% for r in set.rules %}
+                <div class="rule">
+                    <div class="rule-top">
+                        <span class="rule-label">{{ r.label }}</span>
+                        <form method="post" action="{{ action_url }}">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="rule" value="{{ r.rule.id }}">
+                            <button class="icon-btn" name="action" value="rule_remove" aria-label="{% trans 'Remove this rule' %}">{% icon "close" 16 2.4 %}</button></form>
+                    </div>
+                    {% if r.rule.type == "weekly" %}
+                    <div class="rule-body">
+                        <form method="post" action="{{ action_url }}" class="days">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="action" value="rule_day"><input type="hidden" name="rule" value="{{ r.rule.id }}">
+                            {% for d in r.days %}<button class="day" name="day" value="{{ d.n }}" aria-pressed="{% if d.on %}true{% else %}false{% endif %}" aria-label="{{ d.name }}">{{ d.letter }}</button>{% endfor %}
+                        </form>
+                        <span class="muted small">{% trans "at" %}</span>
+                        <form method="post" action="{{ action_url }}" data-search>{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="action" value="rule_time"><input type="hidden" name="rule" value="{{ r.rule.id }}">
+                            <input class="time-input" type="time" name="time" value="{{ r.rule.time|time:'H:i' }}" aria-label="{% trans 'Time' %}"></form>
+                    </div>
+                    {% elif r.rule.type == "dates" %}
+                    <form method="post" action="{{ action_url }}" data-search class="rule-body">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="action" value="rule_dates"><input type="hidden" name="rule" value="{{ r.rule.id }}">
+                        <span class="muted small">{% trans "From" %}</span><input class="time-input" type="date" name="start" value="{{ r.rule.start_date|date:'Y-m-d' }}" aria-label="{% trans 'From' %}">
+                        <span class="muted small">{% trans "to" %}</span><input class="time-input" type="date" name="end" value="{{ r.rule.end_date|date:'Y-m-d' }}" aria-label="{% trans 'To' %}">
+                    </form>
+                    {% else %}
+                    <form method="post" action="{{ action_url }}" data-search class="rule-body">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="action" value="rule_menu"><input type="hidden" name="rule" value="{{ r.rule.id }}">
+                        <span class="muted small">{% trans "When" %}</span>
+                        <select class="time-input" name="other" aria-label="{% trans 'Other menu' %}">{% for o in r.others %}<option value="{{ o.id }}"{% if o.id == r.rule.other_menu_id %} selected{% endif %}>{{ o.title }}</option>{% endfor %}</select>
+                        <span class="muted small">{% trans "turns on" %}</span>
+                    </form>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="empty small">{{ set.empty }}</div>
+                {% endfor %}
+            </div>
+            <form method="post" action="{{ action_url }}" class="adds">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}?tab=schedule"><input type="hidden" name="action" value="add_rule"><input type="hidden" name="kind" value="{{ set.kind }}">
+                {% for type, label in set.adds %}<button class="add-btn" name="type" value="{{ type }}">{% icon "plus" 16 2.4 %}{{ label }}</button>{% endfor %}
+            </form>
+        </section>
+        {% endfor %}
+    </div>
+    <section class="card week-card" aria-label="{% trans 'This week' %}">
+        <div class="card-head base"><h2 class="disp card-title">{% trans "How the week looks" %}</h2><span class="card-meta">{{ s.week_note }}</span></div>
+        <div class="week-legend"><span><span class="key mine"></span>{{ menu.title }}</span><span><span class="key others"></span>{% trans "Other scheduled menus" %}</span><span><span class="key now"></span>{% trans "Now" %}</span></div>
+        <div class="week">
+            <div class="week-ticks"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
+            {% for d in s.week %}
+            <div class="week-row">
+                <span class="week-day{% if d.today %} today{% endif %}">{{ d.name }}</span>
+                <div class="week-track">
+                    {% for o in d.others %}<span class="seg-other" title="{{ o.title }}" style="left:{{ o.left }}%;width:{{ o.width }}%"></span>{% endfor %}
+                    {% for g in d.mine %}<span class="seg-mine" title="{{ g.title }}" style="left:{{ g.left }}%;width:{{ g.width }}%"></span>{% endfor %}
+                    {% if d.today %}<span class="now-line" style="left:{{ s.now_left }}%"></span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% for n in s.notes %}<div class="note">{% icon "M4 6h16v14H4z M4 10h16 M9 3v4 M15 3v4" 16 %}{{ n }}</div>{% endfor %}
+        {% for o in s.overlaps %}<div class="note warn" role="note">{% icon "info" 16 %}{{ o }}</div>{% endfor %}
+    </section>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

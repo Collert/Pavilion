@@ -142,7 +142,8 @@ def register(request):
         return place_order(request)
     if request.method != "GET":
         return HttpResponseNotAllowed(["GET", "POST"])
-    menu = Menu.active()
+    live = Menu.live_menus()
+    menu = register_menu(request, live)
     device = current_device(request)
     RegisterSignIn.record(device, request.user)  # puts them on this register's lock screen
     drawer = open_drawer(device)
@@ -150,8 +151,8 @@ def register(request):
     return render(request, "pos_server/register.html", {
         "nav": "register",
         "menu": menu,
-        "menus": Menu.objects.all(),
-        "can_switch_menu": request.user.is_superuser,
+        "menus": live,
+        "can_switch_menu": len(live) > 1,
         "drawer_line": drawer_line(device, request.user, drawer),
         "boot": {
             "catalog": register_catalog(menu),
@@ -178,7 +179,17 @@ def register(request):
 @device_required
 def catalog(request):
     """The catalog again, refetched by the register when stock changes."""
-    return JsonResponse(register_catalog(Menu.active()))
+    return JsonResponse(register_catalog(register_menu(request)))
+
+
+def register_menu(request, live=None):
+    """
+    The menu this register rings up from: the one picked on it (kept in the session) while it's live, else the
+    top live menu. None when no menu is live.
+    """
+    live = Menu.live_menus() if live is None else live
+    picked = request.session.get("register_menu")
+    return next((m for m in live if m.id == picked), live[0] if live else None)
 
 
 def _read_cart(request):

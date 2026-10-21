@@ -17,7 +17,7 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from deliveries.models import CourierShift, Delivery
-from pos_server.models import CashDrawerSession, Component, Dish, Order, OrderItem, OrderStation, Station
+from pos_server.models import CashDrawerSession, Component, Dish, Menu, Order, OrderItem, OrderStation, Station
 
 from .templatetags.admin_tags import money0
 from .units import fmt_qty
@@ -302,7 +302,7 @@ def channel_mix(samples):
 
 def alerts(now):
     out = []
-    sold_out = (Dish.objects.filter(menu__is_active=True).exclude(availability="off")
+    sold_out = (Dish.objects.filter(menu__in=Menu.live_menus(now)).exclude(availability="off")
                 .filter(in_stock=False).exclude(availability="always").distinct()[:3])
     for dish in sold_out:
         out.append({"level": "critical", "title": _("%(dish)s sold out") % {"dish": dish.title},

@@ -11,7 +11,7 @@ from django.utils import timezone
 from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
-from pos_server.models import CashDrawerSession, CashMovement, Order, OrderPayment, OrderStation, ReceiptLog, Refund
+from pos_server.models import CashDrawerSession, CashMovement, Menu, Order, OrderPayment, OrderStation, ReceiptLog, Refund
 from pos_server.orders import create_order
 from pos_server.tests import MenuFixture
 
@@ -328,6 +328,76 @@ class OrderPageTests(AdminFixture, TestCase):
         CashDrawerSession.objects.create(opening_amount=Decimal("50"))
         self.client.post(url, {"mode": "whole", "reason": "Wrong order", "to": "cash"})
         self.assertEqual(Refund.objects.get().amount, self.order.total)
+
+
+class MenuEditorTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def act(self, menu, **data):
+        return self.client.post(reverse("admin_menu_action", args=[menu.id]), data)
+
+    def test_new_menus_start_as_drafts_and_publish(self):
+        response = self.client.post(reverse("admin_menu_new"))
+        menu = Menu.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
+        self.assertTrue(menu.draft)
+        self.act(menu, action="manual")
+        self.assertFalse(menu.is_live())  # drafts are never live
+        self.act(menu, action="publish")
+        menu.refresh_from_db()
+        self.assertTrue(menu.is_live())
+
+    def test_items_toggle_and_add_all_shown(self):
+        menu = Menu.objects.create(title="Empty")
+        self.act(menu, action="toggle", kind="dish", id=self.burger.id)
+        self.act(menu, action="toggle", kind="combo", id=self.combo.id)
+        self.assertEqual(list(menu.dishes.all()), [self.burger])
+        self.assertEqual(list(menu.combos.all()), [self.combo])
+        self.act(menu, action="toggle", kind="dish", id=self.burger.id)
+        self.assertFalse(menu.dishes.exists())
+        self.act(menu, action="add_shown", dish=[self.coffee.id, self.tea.id])
+        self.assertEqual(menu.dishes.count(), 2)
+        page = self.client.get(reverse("admin_menu", args=[menu.id]) + f"?group={self.bar.id}&q=tea").content.decode()
+        self.assertIn("Tea", page)
+        self.assertNotIn(">Burger<", page)
+
+    def test_schedule_rules(self):
+        menu = Menu.objects.create(title="Brunch")
+        self.act(menu, action="auto")
+        menu.refresh_from_db()
+        self.assertTrue(menu.auto)
+        on = menu.rules.get(kind="on")
+        self.assertEqual((on.days, on.time), ("01234", datetime.time(11)))  # a starting point
+        self.act(menu, action="rule_day", rule=on.id, day=5)
+        self.act(menu, action="rule_time", rule=on.id, time="09:30")
+        on.refresh_from_db()
+        self.assertEqual((on.days, on.time), ("012345", datetime.time(9, 30)))
+        self.act(menu, action="add_rule", kind="off", type="dates")
+        dates = menu.rules.get(type="dates")
+        self.act(menu, action="rule_dates", rule=dates.id, start="2026-12-26", end="2026-12-24")
+        dates.refresh_from_db()
+        self.assertEqual((dates.start_date, dates.end_date), (datetime.date(2026, 12, 24), datetime.date(2026, 12, 26)))
+        self.act(menu, action="rule_remove", rule=dates.id)
+        self.assertFalse(menu.rules.filter(type="dates").exists())
+        self.assertEqual(self.client.get(reverse("admin_menu", args=[menu.id]) + "?tab=schedule").status_code, 200)
+
+    def test_priority_arrows_and_the_list(self):
+        first = Menu.objects.get()  # the fixture's menu
+        second = Menu.objects.create(title="Second", position=1, manual_on=True)
+        self.act(second, action="up")
+        self.assertEqual(list(Menu.objects.all()), [second, first])
+        self.assertEqual(Menu.active(), second)
+        self.assertContains(self.client.get(reverse("admin_menus")), "Second")
+
+    def test_back_only_goes_to_this_site(self):
+        menu = Menu.objects.create(title="M")
+        response = self.act(menu, action="manual", back="https://evil.example.com/")
+        self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
 
 
 class UnitTests(TestCase):

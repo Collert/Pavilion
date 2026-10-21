@@ -104,7 +104,9 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   payments are authorize-only, captured when every station approves, voided/refunded on rejection.
 - `Order.picked_up` defaults True and is set False when any station is involved. "Done" means picked up.
 - Rejecting an order **deletes** it and stores an `online_store.RejectedOrder` with the reason.
-- One active menu: saving an active `Menu` deactivates the others. Use `Menu.active()` (may be None), never `.get(is_active=True)`.
+- Menus: several can be live at once (`pos_server/menu_schedule.py`): switched by hand (`manual_on`) or automatic (`MenuRule`s:
+  weekly times, date ranges, "when another menu starts"); drafts never are. `Menu.live_menus()` by priority (`position`),
+  `Menu.active()` = the top one (may be None). Menus that aren't live never show online; each register picks among live ones.
 
 ## Screens and widgets
 

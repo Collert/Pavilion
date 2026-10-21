@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -101,7 +101,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/mockups/`.
 
 ```
-Menu (is_active: saving an active menu deactivates the others; Menu.active() returns it or None)
+Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
  ├─ Dish (M2M menu; price Decimal; station FK; in_stock / availability / blocked / visible_in_menu)
  │   ├─ DishComponent (quantity per portion; adjustable; max_portions) ─ Component (inventory; extra_price; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
@@ -376,6 +376,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `square.fill_card_details` stores the Square payment id, brand, last 4 and entry method (tap/chip/...). Online
   payments copy them from the web payment (`PaymentAuthorization.card_brand/last4`). Orders also record the register
   (`device`), the signed-in `customer`, `email`, `staff_note` and `voided_at/by` (nothing voids orders yet).
+- **Menus** (`admin_menus`, `menus.py`): the list with priority arrows, live/scheduled/draft/off status and rule
+  chips; the editor saves as you go (one POST endpoint, `admin_menu_action`, with an `action` field): items (tick
+  dishes and combos, filter by station, add/remove all shown) and schedule (automatic switch with on/off rules, or
+  turn on/off by hand; a week chart with other menus, date notes and overlaps). The design's display tab is left to
+  the screens app. Publishes "menus" and "inventory". The register's menu picker lists live menus and remembers the
+  pick in the session (`register.register_menu`).
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

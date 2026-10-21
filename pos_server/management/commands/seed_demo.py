@@ -6,7 +6,7 @@ Fill an empty database with demo data for local development and testing.
 
 Creates users (admin/admin, cashier/cashier, courier/courier, customer/customer; register PINs: Alex 0000,
 Dana 1234, Priya 2468, recently used on the register so its lock screen lists them), stations, ingredients, components with options, dishes with adjustable parts, add-ons
-and condiments, combos, an active and an inactive menu, offers and coupons, today's business-day event, promo
+and condiments, combos, menus (one switched on by hand, some on schedules, a draft), offers and coupons, today's business-day event, promo
 banners, gift card presets and cards, a registered device, past cash drawers, orders in every state across
 the last few days, and nine weeks of finished orders (closed Tuesdays) for the admin dashboard and reports.
 
@@ -36,7 +36,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
                                ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
-                               Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
+                               Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
 from pos_server.orders import create_order
@@ -67,8 +67,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--force", action="store_true", help="Seed even if the database already has data")
         parser.add_argument("--allow-production", action="store_true", help="Allow running with DEBUG off")
+        parser.add_argument("--history-days", type=int, default=65, help="Days of finished past orders (the slow part)")
 
-    def handle(self, *args, force=False, allow_production=False, **options):
+    def handle(self, *args, force=False, allow_production=False, history_days=65, **options):
+        self.history_days = history_days
         if not settings.DEBUG and not allow_production:
             raise CommandError("Refusing to seed demo data with DEBUG off. Pass --allow-production if you really mean it.")
         if not force and (Order.objects.exists() or Dish.objects.exists()):
@@ -411,20 +413,34 @@ class Command(BaseCommand):
         self.dishes = {d.title: d for d in Dish.objects.all()}
         self.combos = {"Lunch combo": lunch, "Kids meal": kids}
 
-        def menu(title, active, dishes, combos, color):
+        def menu(title, position, dishes, combos, color, rules=(), **fields):
             obj, created = Menu.objects.get_or_create(title=title, defaults={
-                "is_active": active, "background_color": color, "accent_1": "#e8ede9", "accent_2": "#f4a93b", "accent_3": "#14261f"})
+                "position": position, "background_color": color, "accent_1": "#e8ede9", "accent_2": "#f4a93b",
+                "accent_3": "#14261f", **fields})
             if created:
                 obj.header_image.save("header.png", placeholder_image(title, color, (1200, 300)), save=False)
                 obj.footer_image.save("footer.png", placeholder_image("Thank you!", color, (1200, 200)), save=True)
                 obj.dishes.set(dishes)
                 obj.combos.set(combos)
+                for kind, kind_type, extra in rules:
+                    MenuRule.objects.create(menu=obj, kind=kind, type=kind_type, **extra)
             return obj
+
+        def weekly(kind, days, hour):
+            return (kind, MenuRule.WEEKLY, {"days": days, "time": datetime.time(hour)})
 
         visible = [smash, chicken, melt, pork, bowl, fries, corn, latte, flat_white, lemonade, spritz, matcha, cold_brew,
                    bun, croissant, brownie, tart, cookie, loaf]
-        menu("Lunch", True, visible, [lunch, kids], "#1f4a3a")
-        menu("Breakfast", False, [latte, flat_white, matcha, bun, croissant, cookie], [], "#b5791f")
+        # Lunch is switched on by hand, so the register and store always have a menu; the others follow schedules
+        menu("Lunch", 0, visible, [lunch, kids], "#1f4a3a", manual_on=True)
+        breakfast = menu("Breakfast", 1, [latte, flat_white, matcha, bun, croissant, cookie], [], "#b5791f", auto=True,
+                         rules=[weekly("on", "01234", 7), weekly("on", "56", 8), weekly("off", "0123456", 11)])
+        menu("Happy hour", 2, [spritz, lemonade, fries, corn], [], "#8e2914", auto=True,
+             rules=[weekly("on", "234", 16), weekly("off", "234", 18)])
+        year = timezone.localdate().year
+        holiday = menu("Holiday specials", 3, [latte, bun, brownie, cookie], [], "#2d5a84", auto=True, draft=True,
+                       rules=[("on", MenuRule.DATES, {"start_date": datetime.date(year, 12, 1), "end_date": datetime.date(year, 12, 31)})])
+        MenuRule.objects.get_or_create(menu=breakfast, kind="off", type=MenuRule.MENU, other_menu=holiday)
 
     def seed_cookery(self):
         """Recipes, par levels, frozen versions with their transforms, and a few batches in progress (like the mockup)."""
@@ -743,7 +759,7 @@ class Command(BaseCommand):
         now = timezone.localtime()
         weights = [(8, 2), (9, 3), (10, 2), (11, 5), (12, 8), (13, 6), (14, 3), (15, 2), (16, 2), (17, 5), (18, 7), (19, 5), (20, 2)]
         hours = [h for h, w in weights for _ in range(w)]
-        for days_ago in range(3, 66):
+        for days_ago in range(3, self.history_days + 1):
             day = (now - datetime.timedelta(days=days_ago)).date()
             if days_ago in skip_days or day.weekday() == 1:
                 continue

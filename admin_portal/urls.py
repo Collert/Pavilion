@@ -15,4 +15,8 @@ urlpatterns = [
     path("orders/<int:order_id>/refund", views.order_refund, name="admin_order_refund"),
     path("orders/<int:order_id>/print", views.order_print, name="admin_order_print"),
     path("orders/<int:order_id>/receipt", views.order_receipt, name="admin_order_receipt"),
+    path("menus", views.menus, name="admin_menus"),
+    path("menus/new", views.menu_new, name="admin_menu_new"),
+    path("menus/<int:menu_id>", views.menu_edit, name="admin_menu"),
+    path("menus/<int:menu_id>/action", views.menu_action, name="admin_menu_action"),
 ]
