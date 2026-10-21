@@ -7,8 +7,8 @@ Fill an empty database with demo data for local development and testing.
 Creates users (admin/admin, cashier/cashier, courier/courier, customer/customer; register PINs: Alex 0000,
 Dana 1234, Priya 2468, recently used on the register so its lock screen lists them), stations, ingredients, components with options, dishes with adjustable parts, add-ons
 and condiments, combos, an active and an inactive menu, offers and coupons, today's business-day event, promo
-banners, gift card presets and cards, a registered device, past cash drawers, and orders in every state across
-the last few days.
+banners, gift card presets and cards, a registered device, past cash drawers, orders in every state across
+the last few days, and nine weeks of finished orders (closed Tuesdays) for the admin dashboard and reports.
 
 KEEP THIS UP TO DATE: whenever a model is added or changed, update this command so it still runs on a
 fresh database and covers the new fields (see CLAUDE.md).
@@ -27,6 +27,7 @@ from django.db.models import F
 from django.core.management import call_command
 from django.utils import timezone
 
+from admin_portal.models import StoreSettings
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
@@ -545,6 +546,9 @@ class Command(BaseCommand):
             "online_open": True, "delivery_open": False})
 
     def seed_store(self):
+        store = StoreSettings.load()
+        store.name = "Corner Kitchen"
+        store.save()
         for title, tagline, color in [("Lunch combos", "A main, a side and a drink from $18.95", "#1f4a3a"),
                                       ("Gift cards", "Give someone lunch", "#14261f")]:
             promo, created = PromoContent.objects.get_or_create(title=title, defaults={
@@ -660,6 +664,8 @@ class Command(BaseCommand):
             drawer.closed_by = self.cashier
             drawer.save()
 
+        self.seed_history(order, carts, skip_days=(1, 2, 7))
+
         # Today, on the screens
         order([dish("Smash burger", cust={"parts": {str(burger_parts["Onion"]): 0}, "options": well_done,
                                           "addons": [Extra.objects.get(dish=d["Smash burger"], component__title="Avocado").id]}),
@@ -702,3 +708,49 @@ class Command(BaseCommand):
         order([dish("Cookie", 3)], "store", OrderStation.STATUS_APPROVED, 1, name="Peter")
         RejectedOrder.objects.create(order_id=Order.objects.latest("id").id + 1000, reason="Demo: out of containers.",
                                      timestamp=now - datetime.timedelta(hours=1))
+
+    def seed_history(self, order, carts, skip_days=()):
+        """
+        Finished, picked-up orders for the last nine weeks (closed Tuesdays), busier at lunch, dinner and on
+        weekends, so the admin dashboard and reports have something to show. Stock is put back each day and at the
+        end, so the history never sells out and today's demo orders still have what they need.
+        """
+        stock = dict(Component.objects.values_list("id", "inventory"))
+
+        def restock():
+            for component in Component.objects.all():
+                if component.inventory != stock.get(component.id):
+                    component.inventory = stock.get(component.id)
+                    component.save()
+
+        now = timezone.localtime()
+        weights = [(8, 2), (9, 3), (10, 2), (11, 5), (12, 8), (13, 6), (14, 3), (15, 2), (16, 2), (17, 5), (18, 7), (19, 5), (20, 2)]
+        hours = [h for h, w in weights for _ in range(w)]
+        for days_ago in range(3, 66):
+            day = (now - datetime.timedelta(days=days_ago)).date()
+            if days_ago in skip_days or day.weekday() == 1:
+                continue
+            restock()  # as if someone restocked overnight
+            count = random.randint(6, 11) + (4 if day.weekday() >= 5 else 0)
+            opened = timezone.make_aware(datetime.datetime.combine(day, datetime.time(7, 30)))
+            drawer = CashDrawerSession.objects.create(device=self.device, opened_by=self.cashier, opened_at=opened,
+                                                      opening_amount=Decimal("200.00"))
+            for _ in range(count):
+                when = datetime.datetime.combine(day, datetime.time(random.choice(hours), random.randint(0, 59)))
+                minutes_ago = int((now - timezone.make_aware(when)).total_seconds() // 60)
+                channel = random.choices(["store", "web", "delivery"], weights=[60, 25, 15])[0]
+                extra = {"cashier": self.cashier, "drawer": drawer} if channel == "store" else {"verify_payment": lambda remaining: None}
+                if channel != "store":
+                    extra.update(phone=5555550100 + random.randint(0, 99), to_go_order=True)
+                past = order(carts[random.randrange(len(carts))](), channel, OrderStation.STATUS_APPROVED, minutes_ago,
+                             method=random.choice(["cash", "card", "card", "card"]), **extra)
+                past.set_station_status([s.code for s in past.stations.all()], OrderStation.STATUS_DONE)
+                prep = datetime.timedelta(minutes=random.randint(3, 14), seconds=random.randint(0, 59))
+                Order.objects.filter(pk=past.pk).update(picked_up=True, prep_time=prep)
+                past.station_statuses.update(ready_at=past.timestamp + prep)
+            cash = sum((p.amount for p in drawer.payments.filter(method="cash")), Decimal("0"))
+            drawer.counted_amount = drawer.expected_amount = drawer.opening_amount + cash
+            drawer.closed_at = opened + datetime.timedelta(hours=14)
+            drawer.closed_by = self.cashier
+            drawer.save()
+        restock()

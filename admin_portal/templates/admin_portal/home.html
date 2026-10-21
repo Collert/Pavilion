@@ -1,0 +1,178 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Dashboard home (design: AdminDashboard). Numbers from admin_portal/dashboard.py. Range and "Open days only" are
+links (?range=, ?open=1); the chart is SVG drawn on the server with CSS-only hover tips. Refetched on "orders" and
+"inventory" nudges, so "Right now" and the alerts stay current.
+{% endcomment %}
+{% block title %}{% trans "Dashboard" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/home.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"orders", "inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <div class="page-kicker">{{ greeting }}, {{ first_name }} · {{ d.now|date:"l, F j" }}</div>
+        <h1 class="disp page-title">{% trans "Dashboard" %}</h1>
+    </div>
+    <div class="head-tools" id="dash-tools" data-region>
+        <span class="live-pill"><span class="live-dot"></span>{% blocktrans with time=d.now|time:"g:i A" %}Live · updated {{ time }}{% endblocktrans %}</span>
+        {% if d.range == "today" %}
+        <span class="switch-btn off" role="switch" aria-checked="false" aria-disabled="true" title="{% trans 'Only applies to 7 and 30 day views' %}">
+            <span class="switch"><span></span></span>{% trans "Open days only" %}
+        </span>
+        {% else %}
+        <a class="switch-btn" role="switch" aria-checked="{% if d.open_only %}true{% else %}false{% endif %}" data-live
+           href="?range={{ d.range }}{% if not d.open_only %}&open=1{% endif %}" title="{% trans 'Skip days with no orders' %}">
+            <span class="switch{% if d.open_only %} on{% endif %}"><span></span></span>{% trans "Open days only" %}
+        </a>
+        {% endif %}
+        <nav class="seg" aria-label="{% trans 'Date range' %}">
+            {% for key, label in d.ranges %}
+            <a class="seg-btn" href="?range={{ key }}{% if d.open_only %}&open=1{% endif %}" data-live{% if d.range == key %} aria-current="page"{% endif %}>{{ label }}</a>
+            {% endfor %}
+        </nav>
+    </div>
+</header>
+
+<section class="kpis" aria-label="{% trans 'Key numbers' %}" id="dash-kpis" data-region>
+    {% for k in d.kpis %}
+    <div class="card kpi">
+        <div class="kpi-head"><span class="kpi-icon">{% icon k.icon 18 %}</span><span>{{ k.label }}</span></div>
+        <div class="disp num kpi-value">{{ k.value }}</div>
+        <div class="kpi-foot">
+            <span class="delta {{ k.tone }}">{% if k.arrow %}{% icon k.arrow 13 2.6 %}{% endif %}{{ k.delta }}</span>
+            <span class="kpi-vs">{{ k.vs }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</section>
+
+<div class="dash-mid">
+    <section class="card chart-card" aria-label="{% trans 'Sales chart' %}" id="dash-chart" data-region>
+        {% with c=d.chart %}
+        <div class="card-head">
+            <div>
+                <h2 class="disp card-title">{{ c.title }}</h2>
+                <div class="card-sub">{{ c.sub }}</div>
+            </div>
+            <div class="legend">
+                <span><span class="key-bar"></span>{{ c.cur_label }}</span>
+                <span><svg aria-hidden="true" width="18" height="12"><line x1="1" y1="6" x2="17" y2="6" stroke="#9AA8A1" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="6" r="3.5" fill="#9AA8A1" stroke="#FFFFFF" stroke-width="2"/></svg>{{ c.prev_label }}</span>
+            </div>
+        </div>
+        <div class="chart">
+            <svg role="img" aria-label="{{ c.title }}: {{ c.sub }}" viewBox="0 0 {{ c.w }} {{ c.h }}" preserveAspectRatio="none">
+                {% for g in c.grid %}<line x1="{{ c.left }}" x2="{{ c.right }}" y1="{{ g.y }}" y2="{{ g.y }}" stroke="#E6ECE8" stroke-width="1" vector-effect="non-scaling-stroke"/>{% endfor %}
+                {% for b in c.bars %}{% if b.closed %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="4" rx="2" fill="#D4DDD7"/>{% else %}<path d="{{ b.d }}" fill="#1F4A3A"{% if b.partial %} opacity=".45"{% endif %}/>{% endif %}{% endfor %}
+                <path d="{{ c.line }}" fill="none" stroke="#9AA8A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+            </svg>
+            {% for g in c.grid %}<span class="y-label num" aria-hidden="true" style="top:calc({{ g.y }} / {{ c.h }} * 100% - 8px)">{{ g.label }}</span>{% endfor %}
+            {% for p in c.dots %}<span class="dot" aria-hidden="true" style="left:calc({{ p.x }} / {{ c.w }} * 100%);top:calc({{ p.y }} / {{ c.h }} * 100%)"></span>{% endfor %}
+            {% for x in c.labels %}<span class="x-label{% if x.strong %} strong{% endif %}" aria-hidden="true" style="left:calc({{ x.x }} / {{ c.w }} * 100%)">{{ x.label }}</span>{% endfor %}
+            <div class="hits" style="left:{{ c.hit_left }}%;right:{{ c.hit_right }}%;bottom:{{ c.hit_bottom }}%;grid-template-columns:repeat({{ c.hits|length }},minmax(0,1fr))">
+                {% for h in c.hits %}
+                <div class="hit{% if forloop.counter > c.hits|length|add:'-4' %} hit-end{% endif %}" tabindex="0" aria-label="{{ h.title }}: {{ c.cur_label }} {{ h.cur }}, {{ h.prev_label }} {{ h.prev }}">
+                    <div class="tip" role="tooltip">
+                        <div class="tip-title">{{ h.title }}</div>
+                        <div class="tip-row"><span class="tip-key bar"></span><span class="tip-name">{{ c.cur_label }}</span><span class="num">{{ h.cur }}</span></div>
+                        <div class="tip-row"><span class="tip-key line"></span><span class="tip-name">{{ h.prev_label }}</span><span class="num">{{ h.prev }}</span></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endwith %}
+    </section>
+
+    <section class="card now-card" aria-label="{% trans 'Right now' %}" id="dash-now" data-region>
+        <div class="card-head center">
+            <h2 class="disp card-title">{% trans "Right now" %}</h2>
+            <span class="live-dot"></span>
+        </div>
+        <div class="now-big"><span class="disp num">{{ d.live.open }}</span><span>{% trans "open orders" %}</span></div>
+        <div class="now-channels">
+            {% for c in d.live.channels %}<span><span class="chan-dot" style="background:{{ c.color }}"></span><span class="num">{{ c.n }}</span> {{ c.label }}</span>{% endfor %}
+        </div>
+        <div class="ov now-ov">{% trans "Kitchen load · open tickets" %}</div>
+        <div class="load">
+            {% for s in d.live.stations %}
+            <div class="load-row">
+                <span class="load-name">{{ s.name }}</span>
+                <span class="load-track"><span class="hbar{% if s.busy %} busy{% endif %}" style="width:{{ s.width }}%"></span></span>
+                <span class="num load-n">{{ s.n }}</span>
+                <span class="load-tag">{% if s.busy %}{% trans "Busy" %}{% endif %}</span>
+            </div>
+            {% empty %}
+            <div class="card-sub">{% trans "No stations yet." %}</div>
+            {% endfor %}
+        </div>
+        <div class="grow"></div>
+        <div class="mini">
+            {% for m in d.live.mini %}
+            <div class="mini-box"><div class="disp num mini-value">{{ m.value }}</div><div class="mini-label">{{ m.label }}</div></div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<div class="dash-bottom" id="dash-bottom" data-region>
+    <section class="card" aria-label="{% trans 'Top sellers' %}">
+        <div class="card-head base">
+            <h2 class="disp card-title">{% trans "Top sellers" %}</h2>
+            <span class="card-meta">{% blocktrans with range=d.range_short %}{{ range }} · sold{% endblocktrans %}</span>
+        </div>
+        <div class="sellers">
+            {% for t in d.sellers %}
+            <div>
+                <div class="seller-line"><span class="ellipsis">{{ t.name }}</span><span class="num strong">{{ t.n }}</span></div>
+                <div class="seller-track"><div class="hbar" style="width:{{ t.width }}%"></div></div>
+            </div>
+            {% empty %}
+            <div class="card-sub">{% trans "Nothing sold yet." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card" aria-label="{% trans 'Sales by channel' %}">
+        <div class="card-head base">
+            <h2 class="disp card-title">{% trans "Sales by channel" %}</h2>
+            <span class="card-meta">{{ d.range_short }}</span>
+        </div>
+        <div class="mix-bar" role="img" aria-label="{% trans 'Sales by channel' %}: {{ d.mix_aria }}">
+            {% for m in d.mix %}{% if m.pct %}<span style="flex:{{ m.pct }} 1 0;background:{{ m.color }}"></span>{% endif %}{% empty %}{% endfor %}
+        </div>
+        <div class="mix-rows">
+            {% for m in d.mix %}
+            <div class="mix-row">
+                <span class="mix-key" style="background:{{ m.color }}"></span>
+                <span class="mix-name">{{ m.label }}</span>
+                <span class="num mix-money">{{ m.money|money0 }}</span>
+                <span class="num mix-pct">{{ m.pct }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card alerts-card" aria-label="{% trans 'Needs attention' %}">
+        <div class="card-head base">
+            <h2 class="disp card-title">{% trans "Needs attention" %}</h2>
+            <span class="card-meta">{% blocktrans count n=d.alerts|length %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span>
+        </div>
+        <div class="alerts">
+            {% for a in d.alerts %}
+            <a class="alert row-link" href="{{ a.url }}">
+                <span class="alert-icon {{ a.level }}">{% icon a.level 18 %}</span>
+                <span class="alert-text">
+                    <span class="alert-title">{{ a.title }}</span>
+                    <span class="alert-sub">{{ a.level_label }} · {{ a.sub }}</span>
+                </span>
+                {% icon "chevron" 16 %}
+            </a>
+            {% empty %}
+            <div class="all-clear">{% icon "check" 20 2.4 %}<span>{% trans "All clear. Nothing needs you right now." %}</span></div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

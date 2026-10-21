@@ -48,7 +48,7 @@ without asking.
 | `deliveries` | `/deliveries/` | Courier PWA (Cookery-style templates): shifts, accept/pass, steps to the door with a proof photo (`Delivery.phase()`), Google travel times (`routes.py`), web push. Delivery orders reach the KDS only once a courier accepts (`hidden_order_ids()`). |
 | `events` | — | `Event` decides "business day"; online ordering is gated on it (context processor + server check). |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
-| `new_admin` | `/admin/` | Custom superuser dashboard. Django admin is at `/advanced-admin/` (stations, devices, dishes...). |
+| `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, SendGrid helper. |
 | `app_switcher` | `/apps/` | Tile launcher. |

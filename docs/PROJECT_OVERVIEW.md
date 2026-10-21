@@ -76,8 +76,8 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | Prefix | App | Key routes |
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
-| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `dashboard` (→ admin history), `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `new_admin` | `dashboard/home`, `dashboard/history[/api]`, `menus/list`, `menus/<id>`, `orders/retail[/<id>[/receipt]]`, `store/branding`, `store/promo-content[/<id>\|/new]`, `store/events[/<id>\|/new]` |
+| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `day_stats`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
+| `/admin/` | `admin_portal` | `""` dashboard home. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -345,9 +345,23 @@ automatically and gets the cookie back. `seed_demo` creates a demo device; open 
 
 ### 6.9 Admin
 
-`new_admin` (`/admin/`, superuser): orders list + detail + printable receipt (restaurant name/address are placeholders),
-menu list/edit/activate, promo content CRUD, event CRUD, and a calendar of business days that opens `day_stats` per day.
-`dashboard_home` and `store_branding` are empty stubs. Django admin at `/advanced-admin/` handles everything else.
+`admin_portal` (`/admin/`, superuser only for now) replaced `new_admin` on 2026-10-20. It's rebuilt from the Claude
+Design canvas's `Admin*` artboards, one page at a time, in the rail's order (`AdminRail`; groups and pages in
+`admin_portal/nav.py`: a page shows on the rail once its url name is filled in). Pages are Django templates on
+`admin_portal/layout.html` (the rail, `<main id="page">`, Django-message toasts) kept current by `live-page.js`;
+shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per page next to it.
+
+- `StoreSettings` (one row, `StoreSettings.load()`): the store's name, shown at the top of the rail with "Pavilion"
+  under it. The Branding page will edit it.
+- **Dashboard home** (`admin_home`, `dashboard.py`): today by hour against the same weekday last week up to the same
+  time, or 7/30 days against the period before (calendar: the same weekdays a whole number of weeks earlier; "Open
+  days only": days with orders). KPIs, an SVG chart drawn on the server with CSS-only hover tips, "Right now" (open
+  orders by channel, open tickets per station, average wait, ready for pickup, couriers out), top sellers, sales by
+  channel, and alerts (sold-out dishes, components under par, drawers over/short, online orders waiting). Refetches
+  on "orders" and "inventory" nudges.
+- `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
+
+Django admin at `/advanced-admin/` handles everything not built yet.
 
 ---
 
@@ -492,7 +506,8 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 - The store's order status page doesn't show the courier's proof photo yet (waiting for the store redesign), and
   checkout still takes delivery orders when no courier is on shift (they show on the KDS as "No courier").
 - Old migrations were discarded, so `db-old-2026-10-13.sqlite3` can't be migrated forward. Its data would need a manual import.
-- `new_admin` `dashboard_home` and `store_branding` are stubs; the `Waste*` inventory models have no UI.
+- The admin portal is mid-rebuild (§6.9); the `Waste*` inventory models have no UI.
+- `online_store` `PlaceOrderTests` fail after 10 PM: their event ends after midnight. Store hours (admin rebuild) replaces that gating.
 - `Staff.allowance` is still a float.
 
 **Fixed in the 2026-10-13 overhaul** (details in the commit messages on `fix-all-problems-for-real`): media catch-all
@@ -529,5 +544,4 @@ URLs; per-process state (cache, couriers, SSE); Docker running `runserver` witho
 3. Register redesign follow-ups: the customization sheet in the online store; a manager UI for dishes, combos,
    options and discounts (today: `/advanced-admin/`); refunds (the drawer has no refund row yet); translations for the
    new strings (`make_translations`); Orders/Inventory screens in the register's look.
-4. Product work: finish `new_admin` (dashboard home, branding, station management), make restaurant name/address
-   configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.
+4. Product work: finish the admin portal rebuild (§6.9), make restaurant address configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.

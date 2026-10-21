@@ -693,8 +693,7 @@ class AccessTests(MenuFixture, TestCase):
         self.client.force_login(self.customer)
         for name, kwargs in [("pos", {}), ("cash_drawer", {}), ("order_marking", {}), ("pos_output", {}), ("create_menu", {}),
                              ("component_availability", {}), ("crafting", {}), ("utils_get_image_colors", {}),
-                             ("admin-menus-list", {}), ("admin-menu-instance", {"id": self.menu.id}),
-                             ("admin-dashboard-history", {})]:
+                             ("admin_home", {})]:
             response = self.client.get(reverse(name, kwargs=kwargs))
             self.assertIn(response.status_code, (302, 403), name)
 

@@ -245,12 +245,6 @@ def group_by_station(dishes):
         sections.setdefault(dish.station, []).append(dish)
     return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def dashboard(request):
-    """Old stats dashboard. Superseded by the new admin's history calendar."""
-    return redirect(reverse("admin-dashboard-history"))
-
 def parse_stats_date(date_str):
     """Accept ISO (2025-03-01) and the older 'March 1, 2025' / 'Mar. 1, 2025' formats."""
     for fmt in ('%Y-%m-%d', '%B %d, %Y', '%b. %d, %Y', '%b %d, %Y'):
@@ -266,7 +260,6 @@ def day_stats(request):
     """
     Sales statistics for one day (?date=, defaults to today): dishes sold, station load, component and
     ingredient usage, and order counts / revenue / average prep time per 15-minute window.
-    Embedded in an iframe by new_admin's history calendar.
     """
     date_str = request.GET.get('date')
     day = parse_stats_date(date_str) if date_str else timezone.localdate()

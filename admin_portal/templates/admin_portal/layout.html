@@ -1,0 +1,40 @@
+{% load static i18n admin_tags %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+{% comment %}
+Every admin page (admin_portal/views.py: page()). The rail is the design's AdminRail; the page body goes in
+<main id="page">, kept current by static/js/live-page.js (forms submit in the background and the [data-region]s
+that changed are swapped in; SSE nudges on `live_topics` refetch the same way). Toasts are Django messages.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% trans "Admin" %}{% endblock %} · {{ store.name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'admin_portal/admin.css' %}" rel="stylesheet">
+    {% block head %}{% endblock %}
+    <script src="{% url 'javascript-catalog' %}"></script>
+</head>
+<body class="admin">
+    {% csrf_token %}
+    <div class="admin-app">
+        {% include "admin_portal/rail.html" %}
+        <main class="admin-main {% block main_class %}{% endblock %}" id="page" data-now="{{ now_ms }}">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <div class="toasts" id="toasts" data-region data-transient>{% for message in messages %}
+        <div class="toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">
+            {% if message.level_tag == 'error' %}{% icon "critical" 18 %}{% else %}{% icon "check" 18 2.4 %}{% endif %}<span>{{ message }}</span>
+        </div>{% endfor %}
+    </div>
+    <script type="module" src="{% static 'admin_portal/admin.js' %}"></script>
+    <script type="module">
+        import { livePage } from "{% static 'js/live-page.js' %}";
+        livePage({ topics: [{% block live_topics %}{% endblock %}] });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

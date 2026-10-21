@@ -24,7 +24,7 @@ APPS = [
      "M8 9h12l-1 11H9z M11 9V7.5a3 3 0 0 1 6 0V9 M2 12h4 M3 16h4", "#E6ECE8", "#1F4A3A", False),
     ("screens", _("Screens"), _("Status boards and signage built from widgets"),
      "M4 5h16 M4 10h16 M4 15h10 M4 20h7", "#FBE9E5", "#8E2914", False),
-    ("admin-index", _("Admin"), _("Menus, staff, stations and reports"),
+    ("admin_home", _("Admin"), _("Menus, staff, stations and reports"),
      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1",
      "#F1F4F2", "#14261F", True),
 ]

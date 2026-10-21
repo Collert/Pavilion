@@ -158,7 +158,7 @@ INSTALLED_APPS = [
     'gift_cards',  # Gift card transactions
     'payments',  # Payment processing
     'events',  # Event handling
-    'new_admin',  # Custom admin interface
+    'admin_portal',  # /admin/: the store's back office (admin_portal/)
     'screens',  # Screens built from widgets (status boards, signage)
 ]
 

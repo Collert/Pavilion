@@ -29,7 +29,7 @@ urlpatterns = [
 
 urlpatterns += i18n_patterns(
     path('', include("online_store.urls")),
-    path('admin/', include("new_admin.urls")),
+    path("admin/", include("admin_portal.urls")),
     path('advanced-admin/', admin.site.urls),
     path('restaurant/', include("pos_server.urls")),
     path('deliveries/', include("deliveries.urls")),
