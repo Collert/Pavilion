@@ -36,7 +36,9 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
                                ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
-                               Menu, Option, OptionGroup, Order, OrderStation, RegisterSignIn, Station)
+                               Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
+                               RefundItem, RegisterSignIn, Station)
+from pos_server import refunds
 from pos_server.orders import create_order
 from pos_server.pricing import price_cart
 from screens.models import Screen
@@ -616,11 +618,19 @@ class Command(BaseCommand):
         patty_group = OptionGroup.objects.get(component__title="Beef patty")
         well_done = {f"{patty_group.id}.{burger_parts['Beef patty']}": patty_group.options.get(title="Well done").id}
 
+        shopper = User.objects.get(username="customer")
+        cards = [("VISA", "4242"), ("MASTERCARD", "8810"), ("AMERICAN_EXPRESS", "1005"), ("VISA", "7731"), ("INTERAC", "0459")]
+
         def order(lines, channel, status, minutes_ago, method="card", drawer=None, order_discount=None, **fields):
             payments = ()
             if channel == "store":
                 total = price_cart(lines, order_discount=order_discount, can_manual=True).total
                 payments = [{"method": method, "amount": str(total), "tendered": str(total)}]
+            if channel == "store":
+                fields.setdefault("device", self.device)
+            elif random.random() < 0.4:  # some online orders come from the signed-in demo customer
+                fields.setdefault("customer", shopper)
+                fields.setdefault("email", shopper.email)
             created = create_order(
                 lines=lines, channel=channel, initial_status=status, payments=payments, drawer=drawer,
                 order_discount=order_discount, can_manual_discount=True,
@@ -628,6 +638,12 @@ class Command(BaseCommand):
             when = now - datetime.timedelta(minutes=minutes_ago)
             Order.objects.filter(pk=created.pk).update(timestamp=when, start_time=when)
             created.payments.update(timestamp=when)
+            for payment in created.payments.filter(method=OrderPayment.CARD):  # what Square would have reported
+                brand, last4 = random.choice(cards)
+                payment.square_payment_id = f"demo-{created.pk}-{payment.pk}"
+                payment.card_brand, payment.card_last4 = brand, last4
+                payment.entry_method = payment.entry_method or random.choice(["tap", "tap", "chip"])
+                payment.save()
             created.station_statuses.filter(confirmed_at__isnull=False).update(confirmed_at=when)
             created.refresh_from_db()
             return created
@@ -665,6 +681,7 @@ class Command(BaseCommand):
             drawer.save()
 
         self.seed_history(order, carts, skip_days=(1, 2, 7))
+        self.seed_order_extras()
 
         # Today, on the screens
         order([dish("Smash burger", cust={"parts": {str(burger_parts["Onion"]): 0}, "options": well_done,
@@ -754,3 +771,28 @@ class Command(BaseCommand):
             drawer.closed_by = self.cashier
             drawer.save()
         restock()
+
+    def seed_order_extras(self):
+        """Receipts, a staff note and a couple of refunds on past orders, for the admin's Retail orders page."""
+        admin = User.objects.get(username="admin")
+        past = list(Order.objects.filter(channel="store").order_by("-timestamp")[:40])
+        for order in past[::3]:
+            ReceiptLog.objects.create(order=order, channel=ReceiptLog.PRINT, by=self.cashier, at=order.timestamp + datetime.timedelta(seconds=30))
+        email = past[4]
+        ReceiptLog.objects.create(order=email, channel=ReceiptLog.EMAIL, to="sam.p@example.com", by=admin,
+                                  at=email.timestamp + datetime.timedelta(minutes=2))
+        past[0].staff_note = "Regular. Likes burgers medium-well."
+        past[0].save(update_fields=["staff_note"])
+        # Refunds are recorded as the page would, without calling Square
+        for order, whole, reason in ((past[6], True, "Wrong order"), (past[9], False, "Quality issue")):
+            item = order.items.filter(parent__isnull=True).first()
+            amount, lines = refunds.quote(order, {item.id: 1}, whole)
+            when = order.timestamp + datetime.timedelta(minutes=15)
+            refund = Refund.objects.create(order=order, amount=amount, reason=reason, to=Refund.ORIGINAL, whole=whole,
+                                           by=admin, created_at=when)
+            RefundItem.objects.bulk_create(RefundItem(refund=refund, item=i, quantity=q) for i, q in lines)
+            payment = order.payments.exclude(method=OrderPayment.CASH).first()
+            refund.parts = ([{"method": payment.method, "amount": str(amount), "payment": payment.id, "label": payment.card_label}]
+                            if payment else [{"method": "cash", "amount": str(amount)}])
+            refund.to = Refund.ORIGINAL if payment else Refund.CASH
+            refund.save()

@@ -65,6 +65,8 @@ class PaymentAuthorization(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=3, choices=statuses, default=AUTHORIZED, blank=True)
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name="authorization")
+    card_brand = models.CharField(max_length=24, blank=True)
+    card_last4 = models.CharField(max_length=4, blank=True)
 
 
 class SquareTerminal(models.Model):

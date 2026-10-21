@@ -1,0 +1,68 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Retail orders list (design: AdminOrders, list state; admin_portal/orders.py: order_list). Date and status are links,
+search submits as you type (data-search). Refetched on "orders" nudges.
+{% endcomment %}
+{% block title %}{% trans "Retail orders" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/orders.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"orders"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <div class="page-kicker">{% trans "Orders" %}</div>
+        <h1 class="disp page-title">{% trans "Retail orders" %}</h1>
+    </div>
+    <form class="search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="date" value="{{ o.date }}"><input type="hidden" name="status" value="{{ o.status }}">
+        <input type="search" name="q" value="{{ o.query }}" aria-label="{% trans 'Search orders' %}" placeholder="{% trans 'Order #, customer, card or cashier' %}">
+    </form>
+</header>
+
+<div class="filters" id="orders-filters" data-region>
+    <nav class="seg" aria-label="{% trans 'Date' %}">
+        {% for key, label in o.dates %}<a class="seg-btn" data-live href="?date={{ key }}&status={{ o.status }}&q={{ o.query|urlencode }}"{% if key == o.date %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+    <nav class="tabs" aria-label="{% trans 'Status' %}">
+        {% for key, label, count in o.statuses %}
+        <a class="tab" data-live href="?date={{ o.date }}&status={{ key }}&q={{ o.query|urlencode }}"{% if key == o.status %} aria-current="page"{% endif %}>
+            {{ label }}<span class="tab-count">{{ count }}</span>
+        </a>
+        {% endfor %}
+    </nav>
+</div>
+
+<section class="card table-card" aria-label="{% trans 'Orders' %}" id="orders-list" data-region>
+    <div class="thead order-grid">
+        <span>{% trans "Order" %}</span><span>{% trans "Date" %}</span><span>{% trans "Customer" %}</span><span>{% trans "Register" %}</span>
+        <span>{% trans "Payment" %}</span><span class="right">{% trans "Total" %}</span><span>{% trans "Status" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for r in o.rows %}
+        <a class="trow order-grid order-row" href="{% url 'admin_order' r.order.id %}"
+           aria-label="{% blocktrans with n=r.order.id name=r.name total=r.order.total|money status=r.status_label %}Open order {{ n }}, {{ name }}, {{ total }}, {{ status }}{% endblocktrans %}">
+            <span class="disp order-num">#{{ r.order.id }}</span>
+            <span class="two-line"><span class="strong">{{ r.day }}</span><span class="num muted small">{{ r.time }}</span></span>
+            <span class="two-line"><span class="strong ellipsis">{{ r.name }}</span><span class="muted small ellipsis">{{ r.summary }}</span></span>
+            <span class="two-line"><span class="strong ellipsis">{{ r.register }}</span><span class="muted small">{{ r.cashier }}</span></span>
+            <span class="pay"><span class="pay-icon{% if r.cash %} cash{% endif %}">{% icon r.pay_icon 16 %}</span><span class="ellipsis">{{ r.pay }}</span></span>
+            <span class="disp num right order-total{% if r.status == 'refunded' or r.status == 'voided' %} struck{% endif %}">{{ r.order.total|money }}</span>
+            <span><span class="status-chip {{ r.status }}">{{ r.status_label }}</span></span>
+            {% icon "chevron" 16 %}
+        </a>
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "No orders match" %}</div><div>{% trans "Try another date or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+    <nav class="pages" aria-label="{% trans 'Pages' %}">
+        <span class="page-text">{% if o.total %}{% blocktrans with first=o.first last=o.last total=o.total net=o.net|money %}Showing {{ first }}–{{ last }} of {{ total }} · {{ net }} net{% endblocktrans %}{% else %}{% trans "No orders" %}{% endif %}</span>
+        {% if o.page > 1 %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ o.page|add:-1 }}" aria-label="{% trans 'Previous page' %}">{% icon "back" 18 2.4 %}</a>
+        {% else %}<span class="page-btn off">{% icon "back" 18 2.4 %}</span>{% endif %}
+        {% for n in o.nums %}{% if n == "…" %}<span class="page-gap">…</span>{% else %}<a class="page-num" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ n }}"{% if n == o.page %} aria-current="page"{% endif %}>{{ n }}</a>{% endif %}{% endfor %}
+        {% if o.page < o.pages %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ o.page|add:1 }}" aria-label="{% trans 'Next page' %}">{% icon "chevron" 18 2.4 %}</a>
+        {% else %}<span class="page-btn off">{% icon "chevron" 18 2.4 %}</span>{% endif %}
+    </nav>
+</section>
+{% endblock %}

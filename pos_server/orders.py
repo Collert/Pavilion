@@ -54,7 +54,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         initial_status: OrderStation status for every station involved. POS orders start APPROVED,
             online orders start PENDING and wait for approval on the KDS.
         order_discount: discount spec for the whole order (see pricing).
-        payments: register payments, [{"method": "cash"|"card", "amount": ..., "tendered": ...}]. When given
+        payments: register payments, [{"method": "cash"|"card", "amount": ..., "tendered": ..., "checkoutId": <Square
+            Terminal checkout, card only>}]. When given
             (the register), they plus the gift cards must add up to exactly the total.
         gift_card_payments: iterable of (card number, amount) to charge to gift cards.
         verify_payment: optional callable(remaining: Decimal) that raises OrderError if the part of the
@@ -62,7 +63,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
         expected_total: the total the cashier saw. If the server's total differs, the order is refused.
         drawer: the register's open CashDrawerSession. Cash needs one; every register payment is linked to it.
-        **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier).
+        **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier,
+            device, customer, email).
 
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """
@@ -102,7 +104,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
             tendered = to_money(payment.get("tendered") or amount)
             if tendered < amount:
                 raise OrderError(_("Not enough cash was handed over."))
-        tenders.append((method, amount, tendered))
+        checkout = str(payment.get("checkoutId") or "")[:64] if method == OrderPayment.CARD else ""
+        tenders.append((method, amount, tendered, checkout))
     if payments and gift_total + sum((t[1] for t in tenders), ZERO) != total:
         raise OrderError(_("The payments don't add up to the total of $%(total)s.") % {"total": total})
     if verify_payment:
@@ -148,10 +151,11 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         card.charge_card(amount)
         GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=amount)
         OrderPayment.objects.create(order=order, method=OrderPayment.GIFT, amount=amount, gift_card=card, drawer=drawer)
-    for method, amount, tendered in tenders:
-        OrderPayment.objects.create(order=order, method=method, amount=amount, tendered=tendered, drawer=drawer)
+    for method, amount, tendered, checkout in tenders:
+        OrderPayment.objects.create(order=order, method=method, amount=amount, tendered=tendered, drawer=drawer,
+                                    square_checkout_id=checkout)
     if verify_payment and total - gift_total > 0:
-        OrderPayment.objects.create(order=order, method=OrderPayment.CARD, amount=total - gift_total)
+        OrderPayment.objects.create(order=order, method=OrderPayment.CARD, amount=total - gift_total, entry_method="online")
     order.picked_up = not station_ids
     order.save()
     return order

@@ -1,13 +1,17 @@
 """Tests for the admin portal (/admin/). Run with: venv\\Scripts\\python manage.py test admin_portal"""
 import datetime
 from decimal import Decimal
+from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from pos_server.models import CashDrawerSession, Order, OrderStation
+from gift_cards.models import GiftCard
+from payments import square
+from pos_server import refunds
+from pos_server.models import CashDrawerSession, CashMovement, Order, OrderPayment, OrderStation, ReceiptLog, Refund
 from pos_server.orders import create_order
 from pos_server.tests import MenuFixture
 
@@ -187,6 +191,143 @@ class ReportTests(AdminFixture, TestCase):
         self.assertEqual(response["Content-Type"], "text/csv")
         self.assertIn(f"-{day.isoformat()}.csv", response["Content-Disposition"])
         self.assertEqual(self.client.get(reverse("admin_report_csv", args=["nope"])).status_code, 404)
+
+
+@override_settings(TAX_RATE="0.05")
+class RefundTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.drawer = CashDrawerSession.objects.create(opening_amount=Decimal("100"))
+
+    def rung_up(self, lines, payments):
+        order = create_order(lines=lines, channel="store", initial_status=OrderStation.STATUS_APPROVED, payments=payments,
+                             drawer=self.drawer, cashier=self.owner)
+        order.payments.filter(method=OrderPayment.CARD).update(square_payment_id="sq-pay-1", card_brand="VISA", card_last4="4242")
+        return order
+
+    def test_an_item_refund_includes_its_share_of_tax(self):
+        order = self.rung_up([self.dish(self.burger, 2), self.dish(self.coffee)], [{"method": "card", "amount": "33.08"}])
+        self.assertEqual(order.total, Decimal("33.08"))
+        burger = order.items.get(title="Burger")
+        amount, _lines = refunds.quote(order, {burger.id: 1})
+        self.assertEqual(amount, Decimal("15.23"))  # 14.50 + 5% tax
+
+    @mock.patch("pos_server.refunds.square.refund_payment", return_value="sq-refund-1")
+    def test_card_refunds_go_through_square_then_the_rest(self, refund_payment):
+        order = self.rung_up([self.dish(self.burger, 2)], [{"method": "card", "amount": "30.45"}])
+        burger = order.items.get()
+        first = refunds.refund_order(order, picks={burger.id: 1}, reason="Quality issue", to=Refund.ORIGINAL, user=self.owner)
+        refund_payment.assert_called_once_with("sq-pay-1", Decimal("15.23"), f"refund-{first.id}-{order.payments.get().id}", "Quality issue")
+        self.assertEqual(first.parts[0]["label"], "Visa •••• 4242")
+        self.assertEqual(refunds.status(order), "partial")
+        whole = refunds.refund_order(order, whole=True, reason="Wrong order", to=Refund.ORIGINAL, user=self.owner)
+        self.assertEqual(whole.amount, Decimal("15.22"))  # what's left, rounding included
+        self.assertEqual(refunds.status(order), "refunded")
+        with self.assertRaises(refunds.RefundError):
+            refunds.quote(order, whole=True)
+
+    def test_cash_refunds_come_out_of_an_open_drawer(self):
+        order = self.rung_up([self.dish(self.tea)], [{"method": "cash", "amount": "2.10", "tendered": "5"}])
+        with self.assertRaises(refunds.RefundError):  # cash can't go back to "the original payment"
+            refunds.refund_order(order, whole=True, reason="Wrong order", to=Refund.ORIGINAL, user=self.owner)
+        refunds.refund_order(order, whole=True, reason="Wrong order", to=Refund.CASH, user=self.owner)
+        movement = CashMovement.objects.get(drawer=self.drawer)
+        self.assertEqual(movement.amount, Decimal("-2.10"))
+        self.drawer.closed_at = timezone.now()
+        self.drawer.save()
+        order2 = self.rung_up([self.dish(self.tea)], [{"method": "card", "amount": "2.10"}])
+        with self.assertRaisesMessage(refunds.RefundError, "Open a cash drawer"):
+            refunds.refund_order(order2, whole=True, reason="Wrong order", to=Refund.CASH, user=self.owner)
+
+    def test_gift_card_payments_are_put_back_on_the_card(self):
+        card = GiftCard.objects.create(available_balance=Decimal("20.00"))
+        order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                             payments=[], gift_card_payments=[(card.number, "2.10")], drawer=self.drawer)
+        refunds.refund_order(order, whole=True, reason="Changed their mind", to=Refund.ORIGINAL, user=self.owner)
+        card.refresh_from_db()
+        self.assertEqual(card.available_balance, Decimal("20.00"))
+
+    @mock.patch("pos_server.refunds.square.refund_payment", side_effect=square.SquareError("declined"))
+    def test_a_square_refusal_records_nothing(self, refund_payment):
+        order = self.rung_up([self.dish(self.tea)], [{"method": "card", "amount": "2.10"}])
+        with self.assertRaisesMessage(refunds.RefundError, "Square refused"):
+            refunds.refund_order(order, whole=True, reason="Wrong order", to=Refund.ORIGINAL, user=self.owner)
+        self.assertFalse(Refund.objects.exists())
+
+    def test_card_details_come_from_the_terminal_checkout(self):
+        order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                             payments=[{"method": "card", "amount": "2.10", "checkoutId": "chk-9"}], drawer=self.drawer)
+        payment = order.payments.get()
+        self.assertEqual(payment.square_checkout_id, "chk-9")
+
+        def ok(body):
+            return mock.Mock(is_success=lambda: True, body=body)
+
+        with mock.patch.object(square, "square_client") as client:
+            client.terminal.get_terminal_checkout.return_value = ok({"checkout": {"payment_ids": ["pay-7"]}})
+            client.payments.get_payment.return_value = ok({"payment": {"card_details": {
+                "entry_method": "CONTACTLESS", "card": {"card_brand": "MASTERCARD", "last_4": "8810"}}}})
+            square.fill_card_details(payment)
+        payment.refresh_from_db()
+        self.assertEqual((payment.square_payment_id, payment.card_label, payment.entry_method), ("pay-7", "Mastercard •••• 8810", "tap"))
+
+
+class OrderPageTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.order = self.place([self.dish(self.burger), self.dish(self.coffee)], timezone.now() - datetime.timedelta(minutes=5))
+
+    def test_list_filters_and_search(self):
+        older = self.place([self.dish(self.tea)], timezone.now() - datetime.timedelta(days=3))
+        today = self.client.get(reverse("admin_orders")).content.decode()
+        self.assertIn(f"#{self.order.id}<", today)
+        self.assertNotIn(f"#{older.id}<", today)
+        week = self.client.get(reverse("admin_orders") + f"?date=week&q={older.id}").content.decode()
+        self.assertIn(f"#{older.id}<", week)
+        self.assertNotIn(f"#{self.order.id}<", week)
+
+    def test_order_page_and_its_sheets(self):
+        url = reverse("admin_order", args=[self.order.id])
+        item = self.order.items.first()
+        for query in ("", "?sheet=send", "?sheet=refund", f"?sheet=refund&mode=items&q_{item.id}=1&reason=Long+wait"):
+            self.assertEqual(self.client.get(url + query).status_code, 200, query)
+        self.assertContains(self.client.get(url + "?sheet=send"), "Soon")  # the not-yet channels are placeholders
+
+    def test_staff_note_and_print(self):
+        self.client.post(reverse("admin_order_note", args=[self.order.id]), {"note": "Regular. Medium-well."})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.staff_note, "Regular. Medium-well.")
+        response = self.client.post(reverse("admin_order_print", args=[self.order.id]))
+        self.assertRedirects(response, reverse("admin_order_receipt", args=[self.order.id]))
+        self.assertEqual(ReceiptLog.objects.get().channel, ReceiptLog.PRINT)
+
+    def test_sending_a_receipt(self):
+        url = reverse("admin_order_send", args=[self.order.id])
+        self.client.post(url, {"to": "not an email"})
+        self.client.post(url, {"to": "jo@example.com"})  # listmonk isn't configured in tests: nothing is sent
+        self.assertFalse(ReceiptLog.objects.exists())
+        with mock.patch("admin_portal.views.send_email", return_value=True) as send:
+            self.client.post(url, {"to": "jo@example.com"})
+        kind, to, data = send.call_args.args
+        self.assertEqual((kind, to, data["number"]), ("receipt", "jo@example.com", self.order.id))
+        self.assertEqual(ReceiptLog.objects.get().to, "jo@example.com")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.email, "jo@example.com")
+
+    def test_refund_form(self):
+        url = reverse("admin_order_refund", args=[self.order.id])
+        response = self.client.post(url, {"mode": "whole", "reason": "", "to": "cash"})
+        self.assertIn("sheet=refund", response["Location"])
+        CashDrawerSession.objects.create(opening_amount=Decimal("50"))
+        self.client.post(url, {"mode": "whole", "reason": "Wrong order", "to": "cash"})
+        self.assertEqual(Refund.objects.get().amount, self.order.total)
 
 
 class UnitTests(TestCase):

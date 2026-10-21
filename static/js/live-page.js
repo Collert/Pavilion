@@ -173,10 +173,15 @@ export function livePage({ topics = [] } = {}) {
     document.addEventListener("submit", (event) => {
         const form = event.target;
         if (!form.closest("#page, [data-region]")) return;
+        const submitter = event.submitter;
+        const target = submitter?.getAttribute("formtarget") || form.getAttribute("target");
+        if (target && target !== "_self") return;  // e.g. a printable page in a new tab: let the browser do it
         event.preventDefault();
-        const data = new FormData(form, event.submitter);
-        const action = form.getAttribute("action") || location.pathname + location.search;
-        if (form.method.toLowerCase() === "get") {
+        const data = new FormData(form, submitter);
+        // A button's formaction / formmethod win, so one form can preview with GET and confirm with POST
+        const action = submitter?.getAttribute("formaction") || form.getAttribute("action") || location.pathname + location.search;
+        const method = (submitter?.getAttribute("formmethod") || form.getAttribute("method") || "get").toLowerCase();
+        if (method === "get") {
             const url = new URL(action, location.href);
             url.search = new URLSearchParams(data);
             load(url, {}, { history: "replace" });

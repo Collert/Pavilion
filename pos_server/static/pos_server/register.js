@@ -1346,6 +1346,7 @@ async function submitOrder() {
             method: p.method, amount: dollars(p.amount),
             ...(p.tendered !== undefined ? { tendered: dollars(p.tendered) } : {}),
             ...(p.number ? { number: p.number } : {}),
+            ...(p.checkoutId ? { checkoutId: p.checkoutId } : {}),
         })),
         total: dollars(ui.quote.total),
         name: state.name, toGo: state.toGo, note: state.note, noteForKitchen: state.noteKitchen,
@@ -1398,7 +1399,7 @@ async function chargeCard(amount) {
             stopCardWatch?.();
             await fetch(urls.cardStatus, { method: "DELETE", headers: { "X-CSRFToken": csrftoken } }).catch(() => {});
             ui.card = "idle";
-            if (status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card") });
+            if (status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card"), checkoutId: result.data.checkoutId });
             else { renderPay(); toast(t("The card payment was canceled."), { error: true }); }
         }
     };

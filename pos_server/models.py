@@ -318,6 +318,14 @@ class Order(models.Model):
     cashier = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     authorization = models.ForeignKey(PaymentAuthorization, on_delete=models.SET_NULL, null=True, blank=True)
     gift_cards = models.ManyToManyField(GiftCard, through="gift_cards.GiftCardAuthorization", blank=True)
+    device = models.ForeignKey("EligibleDevice", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                               help_text="The register it was rung up on")
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="orders", help_text="The signed-in customer who placed it")
+    email = models.EmailField(blank=True, help_text="Where receipts go, when the customer gave one")
+    staff_note = models.TextField(blank=True, help_text="Only staff see this")
+    voided_at = models.DateTimeField(null=True, blank=True)
+    voided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     def save(self, *args, **kwargs):
         if self.pk and not self.prep_time and self.station_statuses.exists() and self.all_stations_done():
@@ -463,13 +471,75 @@ class OrderPayment(models.Model):
     drawer = models.ForeignKey("CashDrawerSession", on_delete=models.SET_NULL, null=True, blank=True, related_name="payments")
     gift_card = models.ForeignKey(GiftCard, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     timestamp = models.DateTimeField(default=timezone.now)
+    # Card payments: what Square reported (filled in after the payment, see payments.square.fill_card_details)
+    square_checkout_id = models.CharField(max_length=64, blank=True, help_text="The Terminal checkout that took it")
+    square_payment_id = models.CharField(max_length=64, blank=True)
+    card_brand = models.CharField(max_length=24, blank=True, help_text="e.g. VISA, MASTERCARD")
+    card_last4 = models.CharField(max_length=4, blank=True)
+    entry_method = models.CharField(max_length=12, blank=True, help_text="tap, chip, swipe, keyed or online")
 
     def __str__(self):
         return f"{self.get_method_display()} {self.amount} for order {self.order_id}"
 
     @property
+    def card_label(self) -> str:
+        """'Visa •••• 4242', or 'Card' when Square didn't say."""
+        if not self.card_last4:
+            return "Card"
+        return f"{CARD_BRANDS.get(self.card_brand, self.card_brand.title() or 'Card')} •••• {self.card_last4}"
+
+    @property
     def change(self) -> Decimal:
         return (self.tendered - self.amount) if self.tendered is not None else Decimal("0.00")
+
+
+CARD_BRANDS = {"VISA": "Visa", "MASTERCARD": "Mastercard", "AMERICAN_EXPRESS": "Amex", "DISCOVER": "Discover",
+               "INTERAC": "Interac", "JCB": "JCB", "CHINA_UNIONPAY": "UnionPay", "SQUARE_GIFT_CARD": "Square gift card"}
+
+
+class Refund(models.Model):
+    """
+    Money given back on an order (pos_server.refunds.refund_order). `parts` says where it went:
+    [{"method": "card"|"gift"|"cash", "amount": "4.50", "ref": "<Square refund id or gift card number>"}].
+    """
+    REASONS = ["Wrong order", "Quality issue", "Long wait", "Changed their mind", "Charged twice", "Item unavailable"]
+    ORIGINAL, CASH = "original", "cash"
+    targets = ((ORIGINAL, "Original payment"), (CASH, "Cash from a drawer"))
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="refunds")
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    reason = models.CharField(max_length=80)
+    to = models.CharField(max_length=10, choices=targets)
+    whole = models.BooleanField(default=False, help_text="Everything left on the order")
+    parts = models.JSONField(default=list, blank=True)
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Refund {self.amount} on order {self.order_id}"
+
+
+class RefundItem(models.Model):
+    refund = models.ForeignKey(Refund, on_delete=models.CASCADE, related_name="items")
+    item = models.ForeignKey(OrderItem, on_delete=models.CASCADE, related_name="refunded")
+    quantity = models.PositiveIntegerField()
+
+
+class ReceiptLog(models.Model):
+    """A receipt given for an order: printed, or sent by email (other channels are placeholders for now)."""
+    PRINT, EMAIL, SMS, WHATSAPP, TELEGRAM, MESSENGER = "print", "email", "sms", "whatsapp", "telegram", "messenger"
+    channels = ((PRINT, "Printed"), (EMAIL, "Email"), (SMS, "Text"), (WHATSAPP, "WhatsApp"), (TELEGRAM, "Telegram"),
+                (MESSENGER, "Messenger"))
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="receipts")
+    channel = models.CharField(max_length=10, choices=channels)
+    to = models.CharField(max_length=140, blank=True)
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["at"]
 
 
 class Discount(models.Model):

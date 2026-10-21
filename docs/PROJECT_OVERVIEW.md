@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -364,6 +364,18 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   KPIs, dishes sold (combos split across their picks' stations by price), components and ingredients from the
   standard recipes, station mix donut, orders and average prep per 15 minutes against a 10-minute target, and a
   CSV export (`reports/<day>.csv`). Replaces the old `day_stats` page. `Station.color` (new) colours stations.
+- **Retail orders** (`admin_orders`, `orders.py`): every Order (register, online, delivery) with date/status
+  filters, search and pages; the order page shows items, totals, a timeline, customer, payments (card brand and
+  last 4), details, receipts and a staff note. Sheets (`?sheet=send|refund`) are GET links/submits, so the server
+  works out the refund total; the final button POSTs. Receipts: print (a printable page in a new tab) or email
+  through listmonk; Text/WhatsApp/Telegram/Messenger are disabled placeholders (`ReceiptLog`).
+  **Refunds** (`pos_server/refunds.py`, `Refund`/`RefundItem`): an item's share after discounts and with tax, or
+  everything left; back to the card through Square (`payments.square.refund_payment`), onto gift cards, or as cash
+  from an open drawer (a `CashMovement`). A Square refusal rolls everything back.
+  **Card details**: the register sends the Terminal checkout id with a card payment; after the order,
+  `square.fill_card_details` stores the Square payment id, brand, last 4 and entry method (tap/chip/...). Online
+  payments copy them from the web payment (`PaymentAuthorization.card_brand/last4`). Orders also record the register
+  (`device`), the signed-in `customer`, `email`, `staff_note` and `voided_at/by` (nothing voids orders yet).
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.
@@ -547,6 +559,6 @@ URLs; per-process state (cache, couriers, SSE); Docker running `runserver` witho
 1. Rotate keys; test the Square/listmonk/push flows and the Docker stack (§9).
 2. Merge `fix-all-problems-for-real` into `main` and deploy.
 3. Register redesign follow-ups: the customization sheet in the online store; a manager UI for dishes, combos,
-   options and discounts (today: `/advanced-admin/`); refunds (the drawer has no refund row yet); translations for the
+   options and discounts (today: `/advanced-admin/`);  translations for the
    new strings (`make_translations`); Orders/Inventory screens in the register's look.
 4. Product work: finish the admin portal rebuild (§6.9), make restaurant address configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.

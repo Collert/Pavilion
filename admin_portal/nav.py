@@ -12,7 +12,7 @@ MENU = [
         ("reports", _("Reports"), "admin_reports"),
     ]),
     ("orders", _("Orders"), "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6 M9 16h3", [
-        ("retail", _("Retail orders"), None),
+        ("retail", _("Retail orders"), "admin_orders"),
         ("catering", _("Catering"), None),
     ]),
     ("menu", _("Menu"), "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11 M9 8h6", [

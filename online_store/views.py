@@ -236,10 +236,16 @@ def place_order(request):
                 phone=phone,
                 start_time=start_time,
                 name=post.get("name", "").strip() or None,
+                customer=request.user if request.user.is_authenticated else None,
+                email=request.user.email if request.user.is_authenticated else "",
             )
             if payment.get("authorization"):
-                order.authorization = payment["authorization"]
+                authorization = payment["authorization"]
+                order.authorization = authorization
                 order.save(update_fields=["authorization"])
+                order.payments.filter(method=OrderPayment.CARD).update(
+                    square_payment_id=authorization.payment_id, card_brand=authorization.card_brand,
+                    card_last4=authorization.card_last4)
             if method == "delivery":
                 address = f'{post.get("delivery-address-1", "")}, {post.get("delivery-address-city", "")}, BC {post.get("delivery-address-postal", "")}'
                 dropoff = {

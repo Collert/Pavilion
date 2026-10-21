@@ -233,6 +233,7 @@ def place_order(request):
             expected_total=body.get("total"),
             drawer=open_drawer(device),
             cashier=request.user,
+            device=device,
             special_instructions=note or None,
             note_for_kitchen=bool(body.get("noteForKitchen", True)),
             to_go_order=bool(body.get("toGo")),
@@ -240,6 +241,11 @@ def place_order(request):
         )
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
+    for payment in order.payments.filter(method=OrderPayment.CARD).exclude(square_checkout_id=""):
+        try:  # for the receipt and refunds; the order stands either way
+            square.fill_card_details(payment)
+        except Exception:
+            logger.warning("Couldn't get the card details of checkout %s", payment.square_checkout_id, exc_info=True)
     change = sum((p.change for p in order.payments.filter(method=OrderPayment.CASH)), Decimal("0"))
     return JsonResponse({"orderId": order.id, "total": to_cents(order.total), "change": to_cents(change),
                          "nextNumber": order.id + 1})

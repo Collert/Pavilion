@@ -120,7 +120,9 @@ def create_web_payment(token, amount:Decimal, transaction, autocomplete = True):
     })
     if response.is_success():
         # Recorded either way so a rejected order can be voided (authorized) or refunded (captured)
+        card = response.body["payment"].get("card_details", {}).get("card", {})
         PaymentAuthorization.objects.create(
+            card_brand=card.get("card_brand", ""), card_last4=card.get("last_4", ""),
             payment_id=response.body["payment"]["id"],
             amount=to_cents(amount),
             currency=response.body["payment"]["amount_money"]["currency"],
@@ -156,6 +158,46 @@ def void_authorization(authorization):
         raise SquareError(result.errors)
     authorization.status = PaymentAuthorization.VOIDED
     authorization.save(update_fields=["status"])
+
+ENTRY_METHODS = {"CONTACTLESS": "tap", "EMV": "chip", "SWIPED": "swipe", "KEYED": "keyed", "ON_FILE": "online"}
+
+
+def fill_card_details(payment):
+    """
+    Look up which Square payment a register card payment was (from its Terminal checkout) and store the card's
+    brand, last 4 digits and how it was presented. Raises SquareError if Square can't say.
+    """
+    if not payment.square_payment_id:
+        result = square_client.terminal.get_terminal_checkout(payment.square_checkout_id)
+        if not result.is_success():
+            raise SquareError(result.errors)
+        ids = result.body["checkout"].get("payment_ids") or []
+        if not ids:
+            raise SquareError("The checkout has no payment yet")
+        payment.square_payment_id = ids[0]
+    result = square_client.payments.get_payment(payment.square_payment_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+    details = result.body["payment"].get("card_details", {})
+    card = details.get("card", {})
+    payment.card_brand = card.get("card_brand", "")
+    payment.card_last4 = card.get("last_4", "")
+    payment.entry_method = ENTRY_METHODS.get(details.get("entry_method", ""), "")
+    payment.save(update_fields=["square_payment_id", "card_brand", "card_last4", "entry_method"])
+
+
+def refund_payment(payment_id, amount, key, reason=""):
+    """Refund `amount` (dollars) of a captured Square payment. `key` makes retries safe. Returns the refund id."""
+    result = square_client.refunds.refund_payment({
+        "idempotency_key": key[:45],
+        "payment_id": payment_id,
+        "amount_money": {"amount": to_cents(amount), "currency": "CAD"},
+        "reason": reason[:192],
+    })
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return result.body["refund"]["id"]
+
 
 class SquareError(Exception):
     """Square rejected a request; `args[0]` holds Square's error list."""
