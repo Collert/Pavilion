@@ -1,0 +1,120 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}{% load cook_scene from cookery_tags %}
+{% comment %}
+Your delivery, one step at a time (phase: confirm, prep, ready, enroute, proof). Region ids carry the step, so a new
+step replaces the whole page. The proof form is deliberately not a region: a refetch never touches the photo you took.
+{% endcomment %}
+
+{% block content %}
+<div class="c-screen swap">
+    <header class="c-head">
+        <div class="c-split center">
+            <div>
+                <div class="ov">{% trans "Your delivery" %}</div>
+                <div class="c-title-sm">#{{ delivery.order_number }} · {{ delivery.first_name }}</div>
+            </div>
+            <a class="c-round white" href="{{ tel }}" aria-label="{% trans 'Call the customer' %}">{% icon "phone" 20 2 %}</a>
+        </div>
+        <ol class="c-steps" aria-label="{% trans 'Progress' %}">
+            {% for step in steps %}<li class="{{ step.state }}" {% if step.state == "now" %}aria-current="step"{% endif %}><span></span>{{ step.label }}</li>{% endfor %}
+        </ol>
+    </header>
+
+    <div class="c-scroll c-stack">
+        <section class="c-hero {{ phase }}" id="hero-{{ phase }}" data-region aria-live="polite">
+            {% if phase != "proof" %}
+            <div class="c-art">
+                {% if phase == "confirm" %}{% icon "spinner" 56 2.4 "spin" %}
+                {% elif phase == "prep" %}{% cook_scene "fry" True 140 %}
+                {% elif phase == "ready" %}<svg class="pop" aria-hidden="true" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#14261F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z" fill="#F4A93B"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path><path d="m9.5 14 2 2 3.5-4" stroke-width="2"></path></svg>
+                {% else %}<span class="ride">{% icon shift.mode 84 1.6 %}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if phase == "confirm" %}
+            <div class="ov">{% trans "You’re booked" %}</div>
+            <h2 class="c-hero-title">{% trans "Waiting for the restaurant to accept" %}</h2>
+            <p class="c-hero-sub">{% blocktrans trimmed with name=restaurant|capfirst %}{{ name }} is reviewing the order. The kitchen starts cooking as soon as they accept it.{% endblocktrans %}</p>
+            {% elif phase == "prep" %}
+            <div class="ov">{% trans "Restaurant accepted" %}</div>
+            <h2 class="c-hero-title">{% trans "Kitchen is preparing it" %}</h2>
+            <p class="c-hero-sub">{% trans "Ready in about" %} <span data-ends="{{ ready_ms }}" data-done-text="{% trans 'a moment' %}">{{ ready_left }}</span>. {% trans "Head to the pickup shelf when it’s close." %}</p>
+            <div class="c-progress"><div data-bar-ends="{{ ready_ms }}" data-bar-total="{{ prep_ms }}" style="width: {{ prep_done }}%"></div></div>
+            {% elif phase == "ready" %}
+            <div class="ov">{% trans "Ready for pickup" %}</div>
+            <h2 class="c-hero-title">{% trans "Your order is on the shelf" %}</h2>
+            <p class="c-hero-sub">{% blocktrans trimmed with n=delivery.order_number %}Grab bag #{{ n }} from the pickup shelf, check the items, then confirm below.{% endblocktrans %}</p>
+            {% elif phase == "enroute" %}
+            <div class="ov">{% trans "On the way" %}</div>
+            <h2 class="c-hero-title">{% blocktrans trimmed with name=delivery.first_name %}Heading to {{ name }}{% endblocktrans %}</h2>
+            <p class="c-hero-sub">{% if eta_text %}{% blocktrans trimmed %}About {{ eta_text }}.{% endblocktrans %} {% endif %}{% trans "Tap Navigate for turn-by-turn directions." %}</p>
+            {% else %}
+            <div class="ov">{% trans "Almost done" %}</div>
+            <h2 class="c-hero-title">{% trans "Confirm the drop-off" %}</h2>
+            <p class="c-hero-sub">{% trans "Snap a photo of the order where you left it so the customer knows it arrived." %}</p>
+            {% endif %}
+        </section>
+
+        {% if phase == "proof" %}
+        <form class="c-box c-proof" id="proof-form" method="post" enctype="multipart/form-data" aria-label="{% trans 'Proof of delivery' %}" data-proof>
+            {% csrf_token %}
+            <input type="hidden" name="action" value="complete">
+            <fieldset>
+                <legend class="ov ink">{% trans "How did you hand it over?" %}</legend>
+                <div class="c-seg">
+                    <label><input type="radio" name="handoff" value="door" checked>{% trans "Left at the door" %}</label>
+                    <label><input type="radio" name="handoff" value="hand">{% trans "Handed to customer" %}</label>
+                </div>
+            </fieldset>
+            <label class="c-photo">
+                <input type="file" name="photo" accept="image/*" capture="environment" aria-label="{% trans 'Take a photo of the delivery' %}">
+                <img alt="{% trans 'Delivery photo' %}" hidden data-preview>
+                <span class="c-photo-empty" data-empty>
+                    {% icon "camera" 34 1.8 %}
+                    <span class="c-strong">{% trans "Take a photo" %}</span>
+                    <span class="c-sub" data-hint data-door="{% trans 'Required when you leave it at the door' %}" data-hand="{% trans 'Optional when you hand it over' %}">{% trans "Required when you leave it at the door" %}</span>
+                </span>
+                <span class="c-retake" hidden data-retake>{% trans "Retake" %}</span>
+            </label>
+        </form>
+        {% endif %}
+
+        <section class="c-box c-place" id="dropoff" data-region aria-label="{% trans 'Drop-off' %}">
+            <span class="c-ibox sm">{% icon "pin" 20 2 %}</span>
+            <span class="grow">
+                <span class="c-strong">{{ delivery.street }}</span>
+                <span class="c-sub">{{ delivery.area }}{% if eta_text %} · {{ eta_text }}{% endif %}</span>
+                {% if delivery.instructions %}<span class="c-quote plain">“{{ delivery.instructions }}”</span>{% endif %}
+            </span>
+            <span class="c-chip">{{ count }}</span>
+        </section>
+
+        {% if phase == "confirm" or phase == "prep" or phase == "ready" %}
+        <section class="c-box" aria-label="{% trans 'Items' %}">
+            <div class="ov">{% trans "In the bag" %}</div>
+            {% for quantity, title in lines %}
+            <div class="c-line"><span class="c-qty">{{ quantity }}×</span><span class="grow">{{ title }}</span></div>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </div>
+
+    <div class="c-actions column" id="actions-{{ phase }}" data-region>
+        {% if phase == "enroute" or phase == "proof" %}
+        <a class="c-btn c-btn-outline" href="{{ navigate }}" target="_blank" rel="noopener">{% icon "navigate" 20 2.2 %}{% trans "Navigate in Maps" %}</a>
+        {% endif %}
+        {% if phase == "confirm" %}
+        <button class="c-btn c-btn-primary" disabled>{% trans "Waiting for the restaurant…" %}</button>
+        {% elif phase == "prep" %}
+        <button class="c-btn c-btn-primary" disabled>{% trans "Waiting for the kitchen…" %}</button>
+        {% elif phase == "ready" %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="pickup">
+            <button class="c-btn c-btn-primary wide">{% trans "I’ve picked it up" %}</button></form>
+        {% elif phase == "enroute" %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="arrive">
+            <button class="c-btn c-btn-dark wide">{% trans "I’ve arrived · confirm delivery" %}</button></form>
+        {% else %}
+        <button class="c-btn c-btn-primary" form="proof-form" data-complete data-ready="{% trans 'Complete delivery' %}" data-need="{% trans 'Add a photo to finish' %}">{% trans "Complete delivery" %}</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

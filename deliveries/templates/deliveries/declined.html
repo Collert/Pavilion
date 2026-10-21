@@ -1,0 +1,23 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}
+
+{% block content %}
+<div class="c-screen c-pad swap" id="declined" data-region>
+    <div class="c-badge-x shake">{% icon "bag-x" 52 1.8 %}</div>
+    <div class="ov danger">{% blocktrans trimmed with n=delivery.order_number %}Order #{{ n }} cancelled{% endblocktrans %}</div>
+    <h1 class="c-title-num sm" role="status">{% trans "The restaurant declined this order" %}</h1>
+    <p class="c-lead">{% blocktrans trimmed with name=delivery.first_name %}Nothing to pick up. {{ name }} has been told, so you're free to take the next one.{% endblocktrans %}</p>
+
+    <section class="c-box c-reason" aria-label="{% trans 'Reason' %}">
+        <div class="ov">{% blocktrans trimmed with name=restaurant %}Reason from {{ name }}{% endblocktrans %}</div>
+        <div class="c-reason-text">{{ delivery.declined_reason }}</div>
+    </section>
+    <div class="c-note">{% icon "info" 18 2 %}{% trans "This doesn't count against you." %}</div>
+    <div class="grow"></div>
+    <form method="post" action="{% url 'delivery_current' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="dismiss">
+        <button class="c-btn c-btn-primary wide">{% trans "Back to orders" %}</button>
+    </form>
+</div>
+{% endblock %}

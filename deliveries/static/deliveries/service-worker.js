@@ -1,12 +1,11 @@
-const CACHE_NAME = 'pavilion-deliveries-v2';
+const CACHE_NAME = 'pavilion-deliveries-v3';
 const OFFLINE_URL = '/static/deliveries/offline.html';
 
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll([
-        '/',
-        '/static/deliveries/project-styles.css',
+        '/static/deliveries/courier.css',
         '/static/deliveries/icon-192x192.png',
         '/static/deliveries/icon-512x512.png',
         OFFLINE_URL

@@ -1,12 +1,12 @@
 {
-  "name": "Nom Nom Now",
-  "short_name": "NomNow",
+  "name": "Pavilion Courier",
+  "short_name": "Courier",
   "start_url": "/deliveries/",
-  "id":"7adce38f-5cc1-4957-bcd7-6eb4115712cb",
+  "id": "7adce38f-5cc1-4957-bcd7-6eb4115712cb",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#E8EDE9",
   "orientation": "portrait",
-  "theme_color": "#000000",
+  "theme_color": "#14261F",
   "icons": [
     {
       "src": "/static/deliveries/icon-192x192.png",
@@ -20,4 +20,3 @@
     }
   ]
 }
-  

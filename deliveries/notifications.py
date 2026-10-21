@@ -56,20 +56,15 @@ def send_push_notification(subscription_info, message_body):
     except WebPushException as ex:
         logger.warning("Web push failed: %r (response: %s)", ex, getattr(ex.response, "text", None))
 
-def trigger_push_notifications(title, body, action_name, action_endpoint):
+def trigger_push_notifications(title, body, action_name, action_endpoint, user_ids=None):
     """
-    Sends push notifications to active couriers.
-    Args:
-        title (str): The title of the notification.
-        body (str): The body content of the notification.
-        action_name (str): The name of the action button in the notification.
-        action_endpoint (str): The endpoint URL that the action button will link to.
-    Returns:
-        None
+    Push a notification to couriers on shift (or only to `user_ids`), with a button that opens `action_endpoint`.
     """
     HOST = settings.NOTIFICATIONS_HOST
     from .models import CourierShift
     active = CourierShift.objects.values_list("user_id", flat=True)
+    if user_ids is not None:
+        active = active.filter(user_id__in=list(user_ids))
     subscriptions = PushSubscription.objects.filter(user_id__in=list(active))
     message_body = {
         "title": title,

@@ -12,8 +12,8 @@
 **Pavilion** is a Django restaurant-management system for a small community café. It was originally built for the
 café at **Holy Eucharist Ukrainian Catholic Cathedral** in New Westminster, BC. The project was called `heucc_pos`,
 was renamed to `pavilion` on 2025-02-06 (commit `cd409c5`), and has Ukrainian and Cantonese translations.
-`RESTAURANT_ADDRESS = "501 4th Ave, New Westminster, BC"` is hard-coded in `deliveries/views.py`, and SendGrid emails
-go out as "Holy Eucharist Cathedral".
+`RESTAURANT_ADDRESS` (env, defaults to "501 4th Ave, New Westminster, BC") is where couriers pick up, and SendGrid
+emails go out as "Holy Eucharist Cathedral".
 
 | Area | What it is | Status |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ go out as "Holy Eucharist Cathedral".
 | **Order status board** | TV screen with in-progress/ready columns, TTS announcements, weather, YouTube player | ✅ Works, live (SSE) |
 | **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Works (Square popup not re-tested against sandbox) |
 | **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
-| **Deliveries** | Courier app: clock in, claim delivery, ETA via Google Distance Matrix, web push | ✅ Works (push untested end-to-end) |
+| **Deliveries** | Courier app: start a shift, accept or pass on orders (before the kitchen sees them), steps to the door with a proof photo, ETAs via Google Distance Matrix, web push | ✅ Works (push and Google untested end-to-end) |
 | **Gift cards** | Buy online (Square), email via SendGrid, barcode card page, scan/charge at POS | ✅ Works |
 | **Inventory** | Ingredients → Components → Dishes, Cookery (recipes, guided cooking, transforms), shopping log, Availability screen (Off / Auto / Always) | ✅ Works, Cookery and availability live (SSE) |
 | **New admin** | Custom superuser dashboard: orders, receipts, menus, promo content, events, calendar | ⚠️ Partial (`dashboard_home`, `store_branding` are stubs) |
@@ -80,7 +80,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/admin/` | `new_admin` | `dashboard/home`, `dashboard/history[/api]`, `menus/list`, `menus/<id>`, `orders/retail[/<id>[/receipt]]`, `store/branding`, `store/promo-content[/<id>\|/new]`, `store/events[/<id>\|/new]` |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
-| `/deliveries/` | `deliveries` | `""` ready orders, `profile` (clock in/out), `eta`, `order/<id>`, `vapid-public-key/`, `save-subscription/` |
+| `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
@@ -167,8 +167,10 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   order, refunded on rejection), `CardPreset`, `SpecialCard(CardPreset)`.
 - `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
 - `events.Event(start, end, restaurant_open, in_person_open, online_open, delivery_open, location…)`, `EventTemplate` (unused).
-- `deliveries.Delivery(order, destination, courier, eta, completed, phone)`, `CourierShift(user, mode)` (who is clocked
-  in), `PushSubscription` (web push, `deliveries/notifications.py`).
+- `deliveries.Delivery(order, order_number, customer_name, destination, address_2, instructions, phone, courier,
+  passed_by, accepted_at, picked_up_at, arrived_at, delivered_at, handoff, photo, declined_reason, distance_m,
+  travel_seconds)`; `phase()` says which step it's at. `CourierShift(user, mode = walking|bicycling|driving,
+  started_at)` (who is on shift), `PushSubscription` (web push, `deliveries/notifications.py`).
 - `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (`yield_quantity`,
   `notes`) with `RecipeIngredient` (per batch) and `RecipeStep` (title, text, optional timer, scene, ingredients it uses),
   `Transformation`, `CookingSession` + `YieldEntry` (§6.10), `Packaging`,
@@ -244,7 +246,8 @@ from server data (`json_script`), with `textContent` only. The screen refreshes 
   the order note, where it came from, and every involved station's status.
 - Flow, per station (`OrderStation`): **confirm** (0 → 1) → once every station has confirmed, the order is
   *in progress* → **ready** (1 → 2) → once every station is ready, the order is *ready for pickup* → any station marks
-  it **picked up** (`picked_up = True`, the order leaves every screen). Delivery orders wait for the courier instead.
+  it **picked up** (`picked_up = True`, the order leaves every screen). Delivery orders wait for the courier instead,
+  and only reach the KDS once a courier has accepted them (§6.6); the card names the courier, or says "No courier".
   A station that has confirmed or finished early sees "waiting on <stations>".
 - **POST** `{orderId, action, filters}` with `action` = `confirm` (captures the Square payment once nobody is pending),
   `ready` (409 until every station confirmed), `pickup` (409 until every station is ready; never for delivery), or
@@ -293,10 +296,35 @@ works at its URL until it's removed.
 
 ### 6.6 Deliveries (`/deliveries/`)
 
-Staff-only courier PWA. A courier clocks in on `profile` (creates a `CourierShift`). Ready delivery orders (every
-station done) show in the list; the courier claims one with `PUT order/<id>` plus an ETA (marks it picked up),
-`DELETE` completes it. `get_eta` uses Google Distance Matrix per clocked-in transport mode. When a delivery order becomes
-ready, `order_ready` → `deliveries.signals` sends a web push to clocked-in couriers.
+Staff-only courier PWA for phones (design: the Courier screens of the "Pavilion POS Register" Claude Design canvas).
+Server-rendered on `staff_layout.html` like Cookery (template per screen, POST forms that redirect, `live-page.js`
+refetching on SSE `orders`); the nav rail is the bottom bar in portrait. `courier.js` only does the photo preview,
+the start button's label and push sign-up.
+
+1. **Start shift** (`/deliveries/`): pick walking, cycling or driving (`CourierShift.mode`, used for travel times and
+   Maps directions). Starting asks for notifications. **End shift** (`?end=1` sheet) is refused while you have a
+   delivery.
+2. **Orders looking for a courier**: every delivery order nobody has accepted, oldest first, with the travel time for
+   your mode, distance, item count, "Large order" (5+), a scheduled time and its age. A new one pushes "New delivery"
+   to everyone on shift (`deliveries.signals`).
+3. **Order detail** (`order/<id>`): travel time for each mode, address and note, items. **Accept** takes it (one at a
+   time; a row lock stops two couriers taking the same order). **Pass** hides it from you.
+4. **The kitchen sees it only now.** `deliveries.models.hidden_order_ids()` keeps unaccepted delivery orders out of
+   `active_orders_queryset()` while some courier on shift could still take them. If nobody is on shift, or everyone on
+   shift has passed, the order shows on the KDS as "No courier" so staff can reject it.
+5. **Your delivery** (`current`), one step at a time (`Delivery.phase()`): waiting for the restaurant (KDS confirm) →
+   preparing (countdown from the median `prep_time` of recent orders) → ready (push to the courier) → **I've picked it
+   up** (`picked_up_at`, `Order.picked_up = True`, off the KDS) → on the way (Navigate in Maps) → **I've arrived** →
+   drop-off: left at the door (photo required) or handed over. The photo is turned upright, shrunk to 1600 px and
+   stripped of metadata, stored under a random name; staff see it in `/advanced-admin/` → Deliveries. →
+   **Delivered** (`delivered_at`; `progress_status()` 6) with pickup-to-door time and a link back to the restaurant.
+6. **Declined:** rejecting the order on the KDS deletes it as usual, but the courier's `Delivery` stays (order empty,
+   `declined_reason` from the `RejectedOrder`) until they tap "Back to orders"; they get a push too.
+
+Travel times (`deliveries/routes.py`): Google Distance Matrix from `RESTAURANT_ADDRESS`, one request per mode for all
+new deliveries, stored on the `Delivery` (`distance_m`, `travel_seconds`) so each is looked up once; a failed lookup
+waits 10 minutes. Without `GOOGLE_API_KEY` the app shows "–". `RESTAURANT_NAME` names the restaurant in the app. The
+store's checkout estimate (`eta`) is unchanged. The order detail's header is a drawing of streets, not a real map.
 
 ### 6.7 Gift cards (`/gift-cards/`)
 
@@ -458,7 +486,10 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 - POS card payments: the server trusts the POS that the Terminal checkout completed (the POS is staff-only and device-gated).
 - Customer order pages use sequential order IDs, so anyone can view any order's dish list and progress (no names, phones or addresses are shown).
 - `card-api` GET is public: the 16-digit card number is the only secret for checking a balance.
-- `RESTAURANT_ADDRESS`, receipt name/address and the SendGrid sender are hard-coded for the cathedral café.
+- Receipt name/address and the SendGrid sender are hard-coded for the cathedral café (`RESTAURANT_ADDRESS` is an env
+  setting now, but defaults to the café's address).
+- The store's order status page doesn't show the courier's proof photo yet (waiting for the store redesign), and
+  checkout still takes delivery orders when no courier is on shift (they show on the KDS as "No courier").
 - Old migrations were discarded, so `db-old-2026-10-13.sqlite3` can't be migrated forward. Its data would need a manual import.
 - `new_admin` `dashboard_home` and `store_branding` are stubs; the `Waste*` inventory models have no UI.
 - `Staff.allowance` is still a float.

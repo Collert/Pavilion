@@ -674,10 +674,31 @@ class Command(BaseCommand):
         ready.station_statuses.update(ready_at=now - datetime.timedelta(minutes=3))
         order([kids("Green salad")], "web", OrderStation.STATUS_PENDING, 1, name="Iris", phone=5555550123,
               gift_card_payments=[(self.gift_cards[0].number, "5.00")], verify_payment=lambda remaining: None)
-        delivery = order([dish("Pulled pork plate"), dish("Charred corn")], "delivery", OrderStation.STATUS_PENDING, 3, name="Sofia",
-                         phone=5555550188, to_go_order=True, verify_payment=lambda remaining: None)
-        Delivery.objects.create(order=delivery, destination="200 Oak Ave, Springfield", phone=5555550188,
-                                instructions="Leave the package at the door.")
+        # Deliveries: two looking for a courier (off the KDS until one accepts), and one delivered yesterday. Travel
+        # times are filled in so the courier app shows ETAs without a Google key.
+        courier = User.objects.get(username="courier")
+        for name, phone, address, unit, note, minutes, metres, travel, cart in (
+            ("Sofia R.", 5555550188, "200 Oak Ave, Springfield", "", "Leave the package at the door. Side door, buzz 204",
+             3, 1200, {"walking": 900, "bicycling": 300, "driving": 240}, [dish("Pulled pork plate"), dish("Charred corn")]),
+            ("Leo K.", 5555550149, "588 Elm St, Springfield", "Unit 2", "Meet the customer at the door.",
+             1, 2600, {"walking": 1920, "bicycling": 660, "driving": 420}, [dish("Crispy chicken sandwich"), dish("Cookie", 2), dish("Fresh lemonade")]),
+        ):
+            placed = order(cart, "delivery", OrderStation.STATUS_PENDING, minutes, name=name, phone=phone, to_go_order=True,
+                           verify_payment=lambda remaining: None)
+            Delivery.objects.create(order=placed, destination=address, address_2=unit, phone=phone, instructions=note,
+                                    distance_m=metres, travel_seconds=travel)
+        yesterday = order([dish("Smash burger"), dish("Iced latte")], "delivery", OrderStation.STATUS_APPROVED, 24 * 60 + 40,
+                          name="Hannah W.", phone=5555550150, to_go_order=True, verify_payment=lambda remaining: None)
+        yesterday.set_station_status([s.code for s in yesterday.stations.all()], OrderStation.STATUS_DONE)
+        Order.objects.filter(pk=yesterday.pk).update(picked_up=True, prep_time=datetime.timedelta(minutes=11))
+        yesterday.refresh_from_db()
+        Delivery.objects.create(order=yesterday, destination="1622 Charles St, Springfield", phone=5555550150,
+                                instructions="Blue door, knock please", courier=courier, handoff=Delivery.HAND,
+                                accepted_at=yesterday.timestamp + datetime.timedelta(minutes=1),
+                                picked_up_at=yesterday.timestamp + datetime.timedelta(minutes=14),
+                                arrived_at=yesterday.timestamp + datetime.timedelta(minutes=22),
+                                delivered_at=yesterday.timestamp + datetime.timedelta(minutes=23),
+                                distance_m=600, travel_seconds={"walking": 480, "bicycling": 180, "driving": 180})
         order([dish("Cookie", 3)], "store", OrderStation.STATUS_APPROVED, 1, name="Peter")
         RejectedOrder.objects.create(order_id=Order.objects.latest("id").id + 1000, reason="Demo: out of containers.",
                                      timestamp=now - datetime.timedelta(hours=1))

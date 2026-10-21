@@ -387,7 +387,7 @@ class Order(models.Model):
         statuses = self.statuses()
         if self.channel == "delivery":
             delivery = self.delivery.first()
-            if delivery and delivery.completed:
+            if delivery and delivery.delivered_at:
                 return 6
         if self.picked_up:
             return 5
@@ -827,12 +827,16 @@ class OrderStation(models.Model):
         return f"{self.station} for {self.order}: {self.get_status_display()}"
 
 def active_orders_queryset():
-    """Orders that should be on screens: started, and either still being made or not picked up yet."""
+    """
+    Orders that should be on screens: started, and either still being made or not picked up yet. Delivery orders
+    wait for a courier to accept them first (deliveries.models.hidden_order_ids).
+    """
+    from deliveries.models import hidden_order_ids
     return Order.objects.filter(
         models.Q(start_time__lte=now()) &
         (models.Q(station_statuses__status__in=[OrderStation.STATUS_PENDING, OrderStation.STATUS_APPROVED]) |
          models.Q(picked_up=False))
-    ).distinct()
+    ).exclude(id__in=hidden_order_ids()).distinct()
 
 def update_active_orders_cache():
     """Cache the IDs of active orders under 'active_orders' (60 s)."""

@@ -115,6 +115,10 @@ AVAILABLE_ICONS = (
 # On in production, off in dev unless ENFORCE_DEVICE_CHECK=true.
 ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('ENVIRONMENT') == "production" else 'false').lower() == 'true'
 
+# Where couriers pick up (travel times are worked out from here) and what the courier app calls the restaurant.
+RESTAURANT_NAME = os.getenv('RESTAURANT_NAME', '')
+RESTAURANT_ADDRESS = os.getenv('RESTAURANT_ADDRESS', '501 4th Ave, New Westminster, BC V3L 1P3')
+
 # Sales tax charged on orders after discounts, as a fraction (0.05 = 5%). 0 = no tax.
 TAX_RATE = os.getenv('TAX_RATE', '0')
 

@@ -269,6 +269,10 @@ function facts(order) {
         chips.push(fact(P.bag, t("Online pickup"), scheduled ? fmtText("Pickup at %s", clockOf(start)) : fmtText("Placed %s", clockOf(placed))));
     } else {
         chips.push(fact(P.scooter, t("Delivery"), order.address || fmtText("Placed %s", clockOf(placed))));
+        // Delivery orders only reach the KDS once a courier accepts them, unless nobody's left to take it
+        chips.push(order.courier
+            ? fact(P.scooter, order.courier, t("Courier"))
+            : fact(P.phone, t("No courier"), t("Every courier on shift passed, or nobody's on shift. Reject it or call the customer.")));
     }
     if (order.to_go_order) chips.push(fact(P.box, t("To go"), order.channel === "store" ? t("Customer is waiting") : t("Pack for travel")));
     else chips.push(fact(P.plate, t("For here"), t("Dine in")));
@@ -291,8 +295,8 @@ function waitBox(order, key) {
         return el("div", { className: "wait-box pickup", attrs: { role: "status" } }, [
             el("span", { className: "round" }, [icon(P.scooter, 22)]),
             el("div", { className: "grow" }, [
-                el("div", { className: "disp", text: t("Waiting for the courier") }),
-                el("div", { className: "cap", text: t("Every station is done. The courier marks it picked up.") }),
+                el("div", { className: "disp", text: order.courier ? fmtText("Waiting for %s", order.courier) : t("Waiting for the courier") }),
+                el("div", { className: "cap", text: t("Every station is done. The courier marks it picked up in their app.") }),
             ]),
         ]);
     }

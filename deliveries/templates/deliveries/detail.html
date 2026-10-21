@@ -1,0 +1,73 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}
+
+{% block content %}
+<div class="c-screen swap">
+    <div class="c-map">
+        {% comment %}A drawing of streets, not a real map: no route or pins on it.{% endcomment %}
+        <svg aria-hidden="true" viewBox="0 0 390 250" preserveAspectRatio="xMidYMid slice">
+            <rect width="390" height="250" fill="#DDE8E0"></rect>
+            <path d="M-10 60h420M-10 140h420M-10 210h420M70-10v270M180-10v270M290-10v270" stroke="#FFFFFF" stroke-width="14"></path>
+            <path d="M-10 100h420M230-10v270M120-10v270" stroke="#F3F6F4" stroke-width="7"></path>
+            <rect x="196" y="72" width="80" height="54" rx="6" fill="#C9DCC9"></rect>
+            <rect x="300" y="152" width="80" height="48" rx="6" fill="#C9DCC9"></rect>
+            <rect x="10" y="150" width="50" height="50" rx="6" fill="#CFE1EA"></rect>
+        </svg>
+        <a class="c-float c-round" href="{% url 'delivery_orders' %}" data-live aria-label="{% trans 'Back to orders' %}">{% icon "back" 22 2.4 %}</a>
+        {% if distance %}<span class="c-float c-pill">{{ distance }}</span>{% endif %}
+    </div>
+
+    <div class="c-sheet-body c-scroll" id="detail" data-region>
+        <div class="c-split">
+            <div>
+                <div class="ov">{% trans "Delivery order" %}</div>
+                <h1 class="c-title-num">#{{ delivery.order_number }}</h1>
+                <div class="c-name lg">{{ delivery.customer_name }}</div>
+            </div>
+            <span class="c-chip white">{{ ago }}</span>
+        </div>
+
+        <div class="c-etas" role="group" aria-label="{% trans 'Travel time' %}">
+            {% for e in etas %}
+            <span class="c-eta-pill{% if e.mine %} mine{% endif %}">
+                {% icon e.mode 18 2 %}<span class="disp">{% if e.minutes %}{{ e.minutes }}{% else %}–{% endif %}</span><span class="c-eta-unit">{% trans "min" %}</span>
+            </span>
+            {% endfor %}
+        </div>
+
+        <div class="c-box c-place">
+            <span class="c-ibox sm">{% icon "pin" 20 2 %}</span>
+            <span class="grow">
+                <span class="c-strong lg">{{ delivery.street }}</span>
+                <span class="c-sub">{{ delivery.area }}</span>
+                {% if delivery.instructions %}<span class="c-quote">“{{ delivery.instructions }}”</span>{% endif %}
+            </span>
+        </div>
+
+        <div class="c-box">
+            <div class="ov">{{ count }}</div>
+            {% for quantity, title in lines %}
+            <div class="c-line"><span class="c-qty">{{ quantity }}×</span><span class="grow">{{ title }}</span></div>
+            {% endfor %}
+        </div>
+        <p class="c-fine">{% trans "The kitchen only starts cooking after you accept and the restaurant confirms." %}</p>
+    </div>
+
+    <div class="c-actions" id="detail-actions" data-region>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="pass">
+            <button class="c-btn c-btn-outline-danger">{% trans "Pass" %}</button>
+        </form>
+        <form method="post" class="grow">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="accept">
+            {% if busy %}
+            <button class="c-btn c-btn-primary wide" disabled>{% blocktrans trimmed with n=current_number %}Finish #{{ n }} first{% endblocktrans %}</button>
+            {% else %}
+            <button class="c-btn c-btn-primary wide">{% icon "check" 20 2.6 %}{% trans "Accept delivery" %}</button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

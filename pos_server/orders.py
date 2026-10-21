@@ -166,7 +166,7 @@ def refund_gift_cards(order):
 def orders_for_screens(queryset):
     """Prefetch everything collect_order() touches."""
     return queryset.select_related("authorization", "cashier").prefetch_related(
-        "station_statuses__station", "items__station", "discounts", "payments", "delivery",
+        "station_statuses__station", "items__station", "discounts", "payments", "delivery__courier",
     )
 
 
@@ -265,6 +265,8 @@ def collect_order(order, done=False):
         'phone': order.phone,
         'cashier': (order.cashier.first_name or order.cashier.username) if order.cashier else None,
         'address': delivery.destination if delivery else None,
+        # Delivery orders: who's taking it (None = nobody yet: every courier on shift passed, or nobody's on shift)
+        'courier': (delivery.courier.first_name or delivery.courier.username) if delivery and delivery.courier else None,
         "special_instructions": order.special_instructions,
         "note_for_kitchen": order.note_for_kitchen,
         "timestamp": order.timestamp.isoformat(),
