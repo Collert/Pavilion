@@ -4,9 +4,11 @@ templates, forms that POST and redirect, static/js/live-page.js to keep them cur
 """
 import datetime
 import time
+from decimal import Decimal, InvalidOperation
 
 from urllib.parse import quote, urlencode
 
+from django import forms
 from django.contrib import messages
 from django.db.models import Max
 from django.core.exceptions import ValidationError
@@ -23,10 +25,12 @@ from misc_tools.email import EmailError, send as send_email
 from pos_server.devices import safe_next_url, superuser_required
 from pavilion.realtime import publish
 from pos_server.menu_schedule import Schedule
-from pos_server.models import Combo, Dish, Menu, MenuRule, Order, ReceiptLog, Refund
+from pos_server.models import (CateringPrice, Combo, Component, Dish, DishCategory, DishComponent, Extra, Menu, MenuRule, Option,
+                               OptionGroup, Order, ReceiptLog, Refund, Station)
 from pos_server.refunds import RefundError, refund_order
 
 from . import dashboard as dashboard_data
+from . import dishes as dishes_data
 from . import menus as menus_data
 from . import orders as orders_data
 from . import reports as reports_data
@@ -326,6 +330,245 @@ def menu_action(request, menu_id):
         elif action == "rule_menu":
             rule.other_menu = Menu.objects.exclude(pk=menu.pk).filter(pk=post.get("other")).first() or rule.other_menu
             rule.save(update_fields=["other_menu"])
+    publish("menus")
+    publish("inventory")  # the register refetches its catalog on this
+    return redirect(back)
+
+
+# ---------- dishes ----------
+
+def _decimal(value, low=Decimal("0"), high=Decimal("99999")):
+    """A money amount from a form, or None when it isn't one (or is out of range)."""
+    try:
+        number = Decimal(str(value).strip().replace("$", "").replace(",", ""))
+    except (InvalidOperation, ValueError):
+        return None
+    if not number.is_finite() or not low <= number <= high:
+        return None
+    return number.quantize(Decimal("0.01"))
+
+
+def _number(value, cast=int, low=0, high=100000):
+    try:
+        number = cast(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return number if low <= number <= high else None
+
+
+@superuser_required
+def dishes(request):
+    data = dishes_data.dish_list(request.GET.get("q", ""), request.GET.get("by", "station"), request.GET.get("show", "all"))
+    return page(request, "admin_portal/dishes.html", "dishes", {"l": data, "has_stations": Station.objects.exists()})
+
+
+@superuser_required
+@require_POST
+def dish_new(request):
+    station = Station.objects.first()
+    if station is None:
+        messages.error(request, _("Add a station first: every dish is made at one."))
+        return redirect("admin_dishes")
+    dish = Dish.objects.create(title=_("New dish"), price=Decimal("12.00"), station=station, availability="off",
+                               category=DishCategory.objects.first())
+    messages.success(request, _("New dish added. It stays off until you switch it on."))
+    return redirect("admin_dish", dish_id=dish.id)
+
+
+@superuser_required
+def dish_edit(request, dish_id):
+    dish = get_object_or_404(dishes_data.editor_queryset(), pk=dish_id)
+    return page(request, "admin_portal/dish.html", "dishes", {"e": dishes_data.editor(dish)})
+
+
+def _duplicate(dish):
+    """A copy of the dish with its recipe, modifiers and catering prices, on no menus and switched off."""
+    copy = Dish.objects.get(pk=dish.pk)
+    copy.pk = None
+    copy.title = (_("%(name)s (copy)") % {"name": dish.title})[:140]
+    copy.availability = "off"
+    copy.archived = False
+    copy.save()
+    for dc in dish.dishcomponent_set.all():
+        DishComponent.objects.create(dish=copy, component=dc.component, quantity=dc.quantity, adjustable=dc.adjustable,
+                                     max_portions=dc.max_portions, position=dc.position)
+    for group in dish.option_groups.all():
+        new_group = OptionGroup.objects.create(dish=copy, title=group.title, note=group.note, position=group.position)
+        for o in group.options.all():
+            Option.objects.create(group=new_group, title=o.title, price=o.price, component=o.component, quantity=o.quantity,
+                                  multiplier=o.multiplier, is_default=o.is_default, position=o.position)
+    for extra in dish.extras.all():
+        Extra.objects.create(dish=copy, component=extra.component, kind=extra.kind, title=extra.title, price=extra.price,
+                             quantity=extra.quantity, max_count=extra.max_count, position=extra.position)
+    for tier in dish.catering_prices.all():
+        CateringPrice.objects.create(dish=copy, quantity=tier.quantity, price=tier.price)
+    return copy
+
+
+def _dish_basics(dish, post):
+    """The basics form: whatever is valid is saved, the rest is left as it was."""
+    title = post.get("title", "").strip()[:140]
+    if title:
+        dish.title = title
+    price = _decimal(post.get("price"))
+    if price is not None:
+        dish.price = price
+    dish.description = post.get("description", dish.description).strip()[:2000]
+    dish.ticket_name = post.get("ticket_name", dish.ticket_name).strip().upper()[:14]
+    prep = _number(post.get("prep_minutes"), low=1, high=240)
+    if prep is not None:
+        dish.prep_minutes = prep
+    dish.station = Station.objects.filter(pk=_number(post.get("station"))).first() or dish.station
+    if "category" in post:
+        dish.category = DishCategory.objects.filter(pk=_number(post.get("category"))).first()
+    dish.save()
+
+
+def _next_position(queryset):
+    return (queryset.aggregate(last=Max("position"))["last"] or 0) + 1
+
+
+def _dish_parts(dish, action, post):
+    """Recipe rows: add a component, change its amount, let customers adjust it, remove it."""
+    if action == "part_add":
+        component = Component.objects.filter(pk=_number(post.get("component"))).first()
+        if component and not dish.dishcomponent_set.filter(component=component).exists():
+            DishComponent.objects.create(dish=dish, component=component, quantity=1, position=_next_position(dish.dishcomponent_set))
+        return
+    part = get_object_or_404(DishComponent, pk=_number(post.get("part")), dish=dish)
+    if action == "part_remove":
+        part.delete()
+    elif action == "part_adjustable":
+        part.adjustable = not part.adjustable
+        part.save()
+    else:
+        quantity = _number(post.get("quantity"), cast=float, low=0, high=100000)
+        if quantity:
+            part.quantity = quantity
+            part.save()
+
+
+def _dish_catering(dish, action, post):
+    if action == "catering":
+        dish.catering = not dish.catering
+        dish.save(update_fields=["catering"])
+        if dish.catering and not dish.catering_prices.exists():  # a starting point, like the design
+            CateringPrice.objects.create(dish=dish, quantity=max(10, dish.catering_min),
+                                         price=(dish.price * Decimal("0.92") * 4).quantize(Decimal("1")) / 4)
+    elif action == "catering_min":
+        minimum = _number(post.get("min"), low=1, high=10000)
+        if minimum is not None:
+            dish.catering_min = minimum
+            dish.save(update_fields=["catering_min"])
+    elif action == "tier_add":
+        last = dish.catering_prices.last()
+        if last:
+            CateringPrice.objects.create(dish=dish, quantity=last.quantity * 2, price=max(Decimal("0.25"), last.price - Decimal("0.50")))
+        else:
+            CateringPrice.objects.create(dish=dish, quantity=dish.catering_min, price=dish.price)
+    else:
+        tier = get_object_or_404(CateringPrice, pk=_number(post.get("tier")), dish=dish)
+        if action == "tier_remove":
+            tier.delete()
+        else:
+            quantity, price = _number(post.get("quantity"), low=1, high=100000), _decimal(post.get("price"))
+            tier.quantity = quantity if quantity is not None else tier.quantity
+            tier.price = price if price is not None else tier.price
+            tier.save()
+
+
+def _dish_modifiers(dish, action, post):
+    """Option groups (pick one) and add-ons (pick any)."""
+    if action == "group_add":
+        group = OptionGroup.objects.create(dish=dish, title=_("New group"), position=_next_position(dish.option_groups))
+        Option.objects.create(group=group, title=_("Option"), is_default=True)
+    elif action in ("group_rename", "group_remove", "option_add"):
+        group = get_object_or_404(OptionGroup, pk=_number(post.get("group")), dish=dish)
+        if action == "group_remove":
+            group.delete()
+        elif action == "option_add":
+            Option.objects.create(group=group, title=_("New option"), position=_next_position(group.options),
+                                  is_default=not group.options.exists())
+        else:
+            group.title = post.get("title", "").strip()[:80] or group.title
+            group.save(update_fields=["title"])
+    elif action in ("option_set", "option_default", "option_remove"):
+        option = get_object_or_404(Option, pk=_number(post.get("option")), group__dish=dish)
+        group = option.group
+        if action == "option_remove":
+            option.delete()
+            rest = group.options.all()
+            if rest and not any(o.is_default for o in rest):
+                Option.objects.filter(pk=rest[0].pk).update(is_default=True)
+        elif action == "option_default":
+            group.options.update(is_default=False)
+            Option.objects.filter(pk=option.pk).update(is_default=True)
+        else:
+            option.title = post.get("title", "").strip()[:80] or option.title
+            price = _decimal(post.get("price"), low=Decimal("-999"))
+            option.price = price if price is not None else option.price
+            option.save(update_fields=["title", "price"])
+    elif action == "addon_add":
+        component = Component.objects.filter(pk=_number(post.get("component"))).first()
+        if component:
+            Extra.objects.create(dish=dish, component=component, kind=Extra.ADDON, price=component.extra_price,
+                                 position=_next_position(dish.extras))
+    elif action in ("addon_set", "addon_remove"):
+        extra = get_object_or_404(Extra, pk=_number(post.get("addon")), dish=dish, kind=Extra.ADDON)
+        if action == "addon_remove":
+            extra.delete()
+        else:
+            extra.title = post.get("title", "").strip()[:80]
+            price = _decimal(post.get("price"))
+            extra.price = price if price is not None else extra.price
+            extra.save(update_fields=["title", "price"])
+
+
+@superuser_required
+@require_POST
+def dish_action(request, dish_id):
+    """Every change on the dish editor (it saves as you go). POST `action` plus its fields; back to the editor."""
+    dish = get_object_or_404(Dish, pk=dish_id)
+    action, post = request.POST.get("action", ""), request.POST
+    back = reverse("admin_dish", args=[dish.id])
+
+    if action == "basics":
+        _dish_basics(dish, post)
+    elif action == "photo":
+        upload = request.FILES.get("photo")
+        try:
+            forms.ImageField().clean(upload)
+        except ValidationError:
+            messages.error(request, _("That file isn't a picture we can use."))
+        else:
+            dish.image.save(upload.name, upload, save=True)
+            messages.success(request, _("Photo updated."))
+    elif action == "availability" and post.get("value") in ("off", "auto", "always"):
+        dish.availability = post["value"]
+        dish.save(update_fields=["availability"])
+    elif action == "menu":
+        menu = get_object_or_404(Menu, pk=_number(post.get("menu")))
+        (dish.menu.remove if dish.menu.filter(pk=menu.pk).exists() else dish.menu.add)(menu)
+    elif action.startswith("catering") or action.startswith("tier_"):
+        _dish_catering(dish, action, post)
+    elif action.startswith("part_"):
+        _dish_parts(dish, action, post)
+    elif action.startswith(("group_", "option_", "addon_")):
+        _dish_modifiers(dish, action, post)
+    elif action == "duplicate":
+        copy = _duplicate(dish)
+        messages.success(request, _("Duplicated. Editing the copy now."))
+        back = reverse("admin_dish", args=[copy.id])
+    elif action == "archive":
+        dish.archived = True
+        dish.save(update_fields=["archived"])
+        dish.menu.clear()
+        messages.success(request, _("%(dish)s archived. It's off every menu.") % {"dish": dish.title})
+        back = reverse("admin_dishes")
+    elif action == "restore":
+        dish.archived = False
+        dish.save(update_fields=["archived"])
+        messages.success(request, _("%(dish)s is back. Add it to a menu to sell it.") % {"dish": dish.title})
     publish("menus")
     publish("inventory")  # the register refetches its catalog on this
     return redirect(back)

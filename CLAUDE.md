@@ -96,6 +96,8 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
   dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need `pos_server.apply_manual_discount`.
   Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
+- **Allergens and diets** come from ingredients (`Ingredient.allergens` from `ALLERGENS`, plus `meat`/`fish`/`animal`
+  flags); dishes work theirs out in `pos_server/dish_info.py` (also plate cost and food cost %). Don't store them on dishes.
 - **Quantities are in the smallest unit**: ingredients and components are counted in `g`, `ml` or `ea` only (no kg/l), and every
   amount measured in them (recipes, dish parts, stock, par) uses that unit. Screens show kg / L when numbers get big.
 - **Money is Decimal** (`Dish.price`, `Order.total`, gift cards, transactions). Square wants integer cents: `square.to_cents()`.

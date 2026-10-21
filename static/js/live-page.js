@@ -10,7 +10,8 @@
 //   [data-bar-total] fills a bar. When one runs out the page is refetched so the server can show what's next
 //   (data-chime also rings).
 // - forms with data-keypad get an on-screen keypad ([data-key] buttons) for their amount field; data-reset clears
-//   the form after it's sent; a form with data-search submits itself as you type.
+//   the form after it's sent; a form with data-search submits itself as you type (a POST one saves as you type: while
+//   you type in a region, only its [data-calc] parts are swapped).
 // Regions marked data-transient (toasts) are only taken from responses to your own actions.
 // Without JavaScript, everything still works as plain forms and links.
 
@@ -49,6 +50,15 @@ function syncCountdowns(live, next) {
     });
 }
 
+// A region you're typing in keeps its fields, but the numbers worked out from them ([data-calc]) still update
+function syncCalc(live, next) {
+    const mine = live.querySelectorAll("[data-calc]"), theirs = next.querySelectorAll("[data-calc]");
+    if (mine.length !== theirs.length) return;
+    mine.forEach((node, n) => {
+        if (node.outerHTML !== theirs[n].outerHTML) node.replaceWith(document.importNode(theirs[n], true));
+    });
+}
+
 const typingIn = (node) => node.contains(document.activeElement) && document.activeElement.matches("input, textarea");
 
 // Swap in the regions that changed. Returns false when the page is laid out differently (then replace #page).
@@ -60,7 +70,10 @@ function swapRegions(doc, { transient }) {
     for (const next of fresh) {
         if (next.hasAttribute("data-transient") && !transient) continue;
         const live = document.getElementById(next.id);
-        if (typingIn(live)) continue;
+        if (typingIn(live)) {
+            syncCalc(live, next);
+            continue;
+        }
         if (fingerprint(live) === fingerprint(next)) syncCountdowns(live, next);
         else live.replaceWith(document.importNode(next, true));
     }
@@ -99,14 +112,21 @@ async function load(url, init = {}, { transient = true, history: mode = "push" }
     tick();
 }
 
-async function act(url, init, after) {
-    if (busy) return;  // one action at a time: a double tap doesn't send twice
+let queued = null;
+async function act(url, init, after, { queue = false } = {}) {
+    if (busy) {  // one action at a time: a double tap doesn't send twice
+        if (queue) queued = () => act(url, init, after, { queue });  // but typing that's still saving is sent after
+        return;
+    }
     busy = true;
     try {
         await load(url, init);
         after?.();
     } finally {
         busy = false;
+        const next = queued;
+        queued = null;
+        next?.();
     }
 }
 
@@ -187,7 +207,8 @@ export function livePage({ topics = [] } = {}) {
             load(url, {}, { history: "replace" });
             return;
         }
-        act(action, { method: "POST", body: data }, () => form.hasAttribute("data-reset") && form.reset());
+        act(action, { method: "POST", body: data }, () => form.hasAttribute("data-reset") && form.reset(),
+            { queue: form.hasAttribute("data-search") });
     });
 
     document.addEventListener("click", (event) => {

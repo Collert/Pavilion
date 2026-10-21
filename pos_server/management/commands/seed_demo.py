@@ -35,7 +35,7 @@ from inventory.models import (CookingSession, IngredientReservation, Packaging, 
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlotOption, Component,
-                               ComponentIngredient, Discount, Dish, DishComponent, EligibleDevice, Extra, Ingredient,
+                               ComponentIngredient, CateringPrice, Discount, Dish, DishCategory, DishComponent, EligibleDevice, Extra, Ingredient,
                                Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund,
                                RefundItem, RegisterSignIn, Station)
 from pos_server import refunds
@@ -151,29 +151,31 @@ class Command(BaseCommand):
 
     def seed_inventory(self):
         ingredient_specs = [
-            # title, unit, inventory, allergen, unlimited, cost
-            ("Ground beef", "g", 40000, None, False, "0.015"),
-            ("Flour", "g", 100000, "Wheat and triticale", False, "0.002"),
-            ("Milk", "ml", 60000, "Milk", False, "0.002"),
-            ("Oats", "g", 20000, None, False, "0.004"),
-            ("Almonds", "g", 10000, "Tree Nuts", False, "0.02"),
-            ("Cheddar", "g", 8000, "Milk", False, "0.02"),
-            ("Eggs", "ea", 600, "Eggs", False, "0.30"),
-            ("Potatoes", "g", 150000, None, False, "0.003"),
-            ("Chicken", "g", 30000, None, False, "0.012"),
-            ("Pork shoulder", "g", 20000, None, False, "0.01"),
-            ("Vegetables", "g", 60000, None, False, "0.004"),
-            ("Coffee beans", "g", 20000, None, False, "0.03"),
-            ("Lemons", "ea", 300, None, False, "0.40"),
-            ("Sugar", "g", 20000, None, False, "0.002"),
-            ("Butter", "g", 10000, "Milk", False, "0.01"),
-            ("Sesame seeds", "g", 2000, "Sesame seeds", False, "0.01"),
-            ("Water", "ml", 0, None, True, None),
+            # title, unit, inventory, allergens, flags (m = meat, f = fish, a = animal byproduct), unlimited, cost
+            ("Ground beef", "g", 40000, [], "m", False, "0.015"),
+            ("Flour", "g", 100000, ["Gluten"], "", False, "0.002"),
+            ("Milk", "ml", 60000, ["Dairy"], "a", False, "0.002"),
+            ("Oats", "g", 20000, [], "", False, "0.004"),
+            ("Almonds", "g", 10000, ["Tree nuts"], "", False, "0.02"),
+            ("Cheddar", "g", 8000, ["Dairy"], "a", False, "0.02"),
+            ("Eggs", "ea", 600, ["Egg"], "a", False, "0.30"),
+            ("Potatoes", "g", 150000, [], "", False, "0.003"),
+            ("Chicken", "g", 30000, [], "m", False, "0.012"),
+            ("Pork shoulder", "g", 20000, [], "m", False, "0.01"),
+            ("Vegetables", "g", 60000, [], "", False, "0.004"),
+            ("Coffee beans", "g", 20000, [], "", False, "0.03"),
+            ("Lemons", "ea", 300, [], "", False, "0.40"),
+            ("Sugar", "g", 20000, [], "", False, "0.002"),
+            ("Butter", "g", 10000, ["Dairy"], "a", False, "0.01"),
+            ("Sesame seeds", "g", 2000, ["Sesame"], "", False, "0.01"),
+            ("Mustard seed", "g", 1000, ["Mustard"], "", False, "0.02"),
+            ("Water", "ml", 0, [], "", True, None),
         ]
         self.ingredients = {}
-        for title, unit, inventory, allergen, unlimited, cost in ingredient_specs:
+        for title, unit, inventory, allergens, flags, unlimited, cost in ingredient_specs:
             self.ingredients[title], _ = Ingredient.objects.get_or_create(title=title, defaults={
-                "unit_of_measurement": unit, "inventory": inventory, "allergen": allergen,
+                "unit_of_measurement": unit, "inventory": inventory, "allergens": allergens,
+                "meat": "m" in flags, "fish": "f" in flags, "animal": "a" in flags,
                 "unlimited": unlimited, "cost": Decimal(cost) if cost else None})
 
         # title, unit, type, crafting option, inventory, extra price, [(ingredient, qty)]
@@ -188,7 +190,7 @@ class Command(BaseCommand):
             ("Tomato", "ea", "food", "buy", 400, "0", [("Vegetables", 30)]),
             ("Pickles", "ea", "food", "buy", 1000, "0", []),
             ("Onion", "g", "food", "buy", 4000, "0", [("Vegetables", 1)]),
-            ("Smash sauce", "ml", "food", "craft", 3000, "0", [("Eggs", 0.01)]),
+            ("Smash sauce", "ml", "food", "craft", 3000, "0", [("Eggs", 0.01), ("Mustard seed", 0.02)]),
             ("Chicken fillet", "ea", "food", "craft", 80, "3.50", [("Chicken", 150)]),
             ("Spicy mayo", "ml", "food", "craft", 2000, "0", [("Eggs", 0.01)]),
             ("Slaw", "g", "food", "craft", 5000, "0", [("Vegetables", 1)]),
@@ -275,6 +277,40 @@ class Command(BaseCommand):
                        ("Almond milk", "0.60", {"component": c["Almond milk"]}), ("Skim milk", "0", {"component": c["Skim milk"]})],
               component=c["Whole milk"])
         self.group = group
+
+    def seed_dish_details(self):
+        """Admin details: menu categories, kitchen ticket names, prep times and catering prices."""
+        categories = {name: DishCategory.objects.get_or_create(name=name, defaults={"position": i})[0]
+                      for i, name in enumerate(["Mains", "Sides", "Drinks", "Bakery and sweets", "Kids"])}
+        # title: (category, ticket name, prep minutes)
+        details = {
+            "Smash burger": ("Mains", "SMASH", 7), "Crispy chicken sandwich": ("Mains", "CHX SAND", 8),
+            "Mushroom melt": ("Mains", "MELT", 7), "Pulled pork plate": ("Mains", "PORK PLATE", 6),
+            "Halloumi grain bowl": ("Mains", "GRAIN BOWL", 6), "Fries": ("Sides", "FRIES", 4),
+            "Charred corn": ("Sides", "CORN", 5), "Green salad": ("Sides", "SALAD", 3),
+            "Kids cheeseburger": ("Kids", "KIDS BURGER", 6), "Kids chicken bites": ("Kids", "KIDS BITES", 6),
+            "Iced latte": ("Drinks", "ICED LATTE", 2), "Flat white": ("Drinks", "FLAT WHITE", 2),
+            "Fresh lemonade": ("Drinks", "LEMONADE", 1), "Ginger spritz": ("Drinks", "SPRITZ", 2),
+            "Matcha": ("Drinks", "MATCHA", 2), "Cold brew": ("Drinks", "COLD BREW", 1),
+            "Cardamom bun": ("Bakery and sweets", "CARD BUN", 1), "Almond croissant": ("Bakery and sweets", "ALM CROISS", 1),
+            "Brownie": ("Bakery and sweets", "BROWNIE", 1), "Lemon tart": ("Bakery and sweets", "LEMON TART", 1),
+            "Cookie": ("Bakery and sweets", "COOKIE", 1), "Sourdough loaf": ("Bakery and sweets", "SOURDOUGH", 1),
+        }
+        for title, (category, ticket, prep) in details.items():
+            Dish.objects.filter(title=title, category__isnull=True).update(
+                category=categories[category], ticket_name=ticket, prep_minutes=prep)
+        # Catering: title -> (minimum, [(from quantity, price each)])
+        catering = {"Smash burger": (12, [(12, "13.50"), (25, "12.75"), (50, "11.95")]),
+                    "Halloumi grain bowl": (10, [(10, "13.95"), (30, "12.95")]),
+                    "Fries": (10, [(10, "5.25"), (40, "4.75")]),
+                    "Cardamom bun": (12, [(12, "4.00"), (48, "3.50")])}
+        for title, (minimum, tiers) in catering.items():
+            dish = Dish.objects.filter(title=title, catering=False).first()
+            if dish:
+                dish.catering, dish.catering_min = True, minimum
+                dish.save(update_fields=["catering", "catering_min"])
+                for quantity, price in tiers:
+                    CateringPrice.objects.create(dish=dish, quantity=quantity, price=Decimal(price))
 
     def seed_menus(self):
         st = self.stations
@@ -411,6 +447,7 @@ class Command(BaseCommand):
         extras(kids, condiments=["Extra napkins"])
 
         self.dishes = {d.title: d for d in Dish.objects.all()}
+        self.seed_dish_details()
         self.combos = {"Lunch combo": lunch, "Kids meal": kids}
 
         def menu(title, position, dishes, combos, color, rules=(), **fields):

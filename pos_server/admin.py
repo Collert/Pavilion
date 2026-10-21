@@ -6,7 +6,7 @@ from .models import (CashDrawerSession, CashMovement, Combo, ComboSlot, ComboSlo
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
-    list_display = ("title", "unit_of_measurement", "inventory", "unlimited", "allergen")
+    list_display = ("title", "unit_of_measurement", "inventory", "unlimited", "allergens")
     search_fields = ("title",)
 admin.site.register(Menu)
 admin.site.register(Station)

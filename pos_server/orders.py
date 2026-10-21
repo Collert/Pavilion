@@ -170,7 +170,7 @@ def refund_gift_cards(order):
 def orders_for_screens(queryset):
     """Prefetch everything collect_order() touches."""
     return queryset.select_related("authorization", "cashier").prefetch_related(
-        "station_statuses__station", "items__station", "discounts", "payments", "delivery__courier",
+        "station_statuses__station", "items__station", "items__dish", "discounts", "payments", "delivery__courier",
     )
 
 
@@ -199,7 +199,7 @@ def _mod_tags(item):
 
 
 def _kitchen_rows(order):
-    """What stations make: standalone dishes and the dishes inside combos."""
+    """What stations make: standalone dishes and the dishes inside combos, by their kitchen ticket names."""
     items = list(order.items.all())
     parents = {item.id: item for item in items if item.combo_id or item.dish_id is None}
     rows = []
@@ -208,7 +208,7 @@ def _kitchen_rows(order):
             continue
         parent = parents.get(item.parent_id)
         rows.append({
-            "name": item.title,
+            "name": (item.dish.ticket_name if item.dish and item.dish.ticket_name else item.title),  # short name if set
             "quantity": item.quantity,
             "station": item.station.code,
             "mods": item.mods,

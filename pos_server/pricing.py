@@ -12,7 +12,7 @@ The browser sends cart *lines*. Their prices are never trusted: everything is pr
      "options": {"<group key>": <Option id>},       pick-one groups (see DishKit.groups for the keys)
      "addons": [<Extra id>, ...],                   charged add-ons
      "condiments": {"<Extra id>": count},           on the side
-     "allergies": ["Milk", ...],                    told to the kitchen
+     "allergies": ["Dairy", ...],                   told to the kitchen
      "note": "..."}
 
 A combo slot set to {"dish": null} is left out (when the slot allows it). A combo's own `cust` only uses
@@ -35,13 +35,12 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .models import Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra, Ingredient
+from .models import ALLERGENS, Combo, ComboSlot, ComboSlotOption, Discount, Dish, DishComponent, Extra
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0.00")
 MAX_QTY = 99
 NOTE_MAX = 140
-ALLERGENS = [label for _value, label in Ingredient.allergens]
 
 
 class OrderError(Exception):

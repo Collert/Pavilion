@@ -1,0 +1,304 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Dish editor (design: AdminDishes, edit state; admin_portal/dishes.py: editor). It saves as you go, like the menu
+editor: buttons are small POSTs to admin_dish_action, sent in the background by live-page.js, and text and number
+fields submit as you type (data-search). Numbers worked out from a field you're typing in are marked data-calc, so
+they update while the field keeps its focus. Row buttons that sit outside their row's form use form="...".
+{% endcomment %}
+{% block title %}{{ e.dish.title }} · {% trans "Dishes" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/dishes.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"menus", "inventory"{% endblock %}
+
+{% block content %}
+{% url 'admin_dish_action' e.dish.id as action_url %}
+<header class="page-head editor-head" id="dish-head" data-region>
+    <div class="grow">
+        <a class="back-link" href="{% url 'admin_dishes' %}">{% icon "back" 18 2.4 %}{% trans "Dishes" %}</a>
+        <div class="title-line">
+            <h1 class="disp page-title ellipsis">{{ e.dish.title }}</h1>
+            <span class="avail-chip {{ e.avail.key }}">{{ e.avail.label }}</span>
+        </div>
+    </div>
+    <span class="saved-text">{% trans "Changes save as you go" %}</span>
+    <form method="post" action="{{ action_url }}">{% csrf_token %}
+        <button class="btn-light" name="action" value="duplicate">{% trans "Duplicate" %}</button>
+    </form>
+</header>
+
+<div class="editor-grid">
+    <div class="editor-col">
+        <section class="card basics" aria-label="{% trans 'Basics' %}" id="dish-basics" data-region>
+            <div class="photo-col">
+                <div class="photo" style="--tint:{{ e.dish.station.color }}">
+                    {% if e.dish.image %}<img src="{{ e.dish.image.url }}" alt="{% trans 'Dish photo' %}">{% else %}<span class="disp">{{ e.dish.title|slice:":1" }}</span>{% endif %}
+                </div>
+                <form method="post" action="{{ action_url }}" enctype="multipart/form-data">{% csrf_token %}
+                    <input type="hidden" name="action" value="photo">
+                    <label class="photo-btn">
+                        <input type="file" name="photo" accept="image/*" class="visually-hidden" onchange="this.form.requestSubmit()" aria-label="{% trans 'Upload a photo' %}">
+                        {% icon "M4 8h3l2-3h6l2 3h3v11H4z M12 9.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z" 15 2.2 %}{% if e.dish.image %}{% trans "Change photo" %}{% else %}{% trans "Add a photo" %}{% endif %}
+                    </label>
+                    <noscript><button class="btn-soft small-btn">{% trans "Upload" %}</button></noscript>
+                </form>
+            </div>
+            <form method="post" action="{{ action_url }}" data-search class="basics-form">{% csrf_token %}
+                <input type="hidden" name="action" value="basics">
+                <label class="span-1"><span class="lbl">{% trans "Name" %}</span>
+                    <input class="field" name="title" value="{{ e.dish.title }}" maxlength="140" required></label>
+                <label><span class="lbl">{% trans "Retail price" %}</span>
+                    <span class="unit-field"><span class="unit">$</span><input type="number" name="price" step="0.01" min="0" class="num" value="{{ e.dish.price }}" aria-label="{% trans 'Retail price' %}" required></span></label>
+                <label class="span-2"><span class="lbl">{% trans "Description · shown on menus and online" %}</span>
+                    <textarea class="field" name="description" rows="2">{{ e.dish.description }}</textarea></label>
+                <label><span class="lbl">{% trans "Kitchen ticket name" %}</span>
+                    <input class="field ticket" name="ticket_name" value="{{ e.dish.ticket_name }}" maxlength="14" placeholder="{% trans 'Short name for tickets' %}"></label>
+                <label><span class="lbl">{% trans "Prep time" %}</span>
+                    <span class="unit-field"><input type="number" name="prep_minutes" min="1" max="240" class="num" value="{{ e.dish.prep_minutes }}" aria-label="{% trans 'Prep time in minutes' %}"><span class="unit">{% trans "min" %}</span></span></label>
+                <label><span class="lbl">{% trans "Station · where tickets go" %}</span>
+                    <select class="field" name="station">{% for s in e.stations %}<option value="{{ s.id }}"{% if s.id == e.dish.station_id %} selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>
+                <label><span class="lbl">{% trans "Menu category" %}</span>
+                    <select class="field" name="category"><option value="">{% trans "No category" %}</option>{% for c in e.categories %}<option value="{{ c.id }}"{% if c.id == e.dish.category_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+            </form>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Catering pricing' %}" id="dish-catering" data-region>
+            {% with c=e.catering %}
+            <div class="card-head center">
+                <div class="grow">
+                    <h2 class="disp card-title">{% trans "Catering pricing" %}</h2>
+                    <div class="card-sub">{% if c.on %}{% trans "Prices for large and pre-ordered orders. The best break for the quantity ordered applies." %}{% else %}{% trans "Off. This dish can't be added to catering orders." %}{% endif %}</div>
+                </div>
+                <form method="post" action="{{ action_url }}">{% csrf_token %}
+                    <button class="switch-only" name="action" value="catering" role="switch" aria-checked="{% if c.on %}true{% else %}false{% endif %}" aria-label="{% trans 'Offer for catering' %}"><span class="switch big{% if c.on %} on{% endif %}"><span></span></span></button>
+                </form>
+            </div>
+            {% if c.on %}
+            <div class="cater-min">
+                <form method="post" action="{{ action_url }}" data-search class="min-form">{% csrf_token %}
+                    <input type="hidden" name="action" value="catering_min">
+                    <label class="min-label" for="cater-min">{% trans "Minimum order" %}</label>
+                    <span class="unit-field small"><input id="cater-min" type="number" name="min" min="1" step="1" class="num" value="{{ c.min }}"><span class="unit">{% trans "portions" %}</span></span>
+                </form>
+                <span class="grow"></span>
+                <span class="hint">{% blocktrans with price=e.dish.price|money %}Retail <b class="num">{{ price }}</b> each{% endblocktrans %}</span>
+            </div>
+            <div class="mini-thead tier-grid"><span>{% trans "Quantity" %}</span><span>{% trans "Price each" %}</span><span>{% trans "Saving vs retail" %}</span><span class="right">{% trans "Food cost" %}</span><span></span></div>
+            {% for t in c.tiers %}
+            <div class="mini-line tier-grid">
+                <form method="post" action="{{ action_url }}" data-search class="contents">{% csrf_token %}
+                    <input type="hidden" name="action" value="tier_set"><input type="hidden" name="tier" value="{{ t.tier.id }}">
+                    <span class="unit-field small"><span class="unit">{% trans "From" %}</span><input type="number" name="quantity" min="1" step="1" class="num" value="{{ t.tier.quantity }}" aria-label="{% trans 'Break starts at quantity' %}"><span class="unit">+</span></span>
+                    <span class="unit-field small"><span class="unit">$</span><input type="number" name="price" min="0" step="0.01" class="num" value="{{ t.tier.price }}" aria-label="{% blocktrans with n=t.tier.quantity %}Price each at {{ n }} or more{% endblocktrans %}"></span>
+                </form>
+                <span class="saving{% if t.above %} bad{% endif %}" data-calc>{{ t.saving }}</span>
+                <span class="num right cost {{ t.level }}" data-calc>{% if t.fc is None %}—{% else %}{{ t.fc }}%{% endif %}</span>
+                <button class="x-btn" form="tier-del-{{ t.tier.id }}" aria-label="{% blocktrans with n=t.tier.quantity %}Remove the {{ n }}+ break{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                <form method="post" action="{{ action_url }}" id="tier-del-{{ t.tier.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="tier_remove"><input type="hidden" name="tier" value="{{ t.tier.id }}"></form>
+            </div>
+            {% endfor %}
+            <div class="card-foot">
+                <form method="post" action="{{ action_url }}">{% csrf_token %}
+                    <button class="outline-btn" name="action" value="tier_add">{% icon "plus" 13 2.8 %}{% trans "Quantity break" %}</button>
+                </form>
+                <span class="grow"></span>
+                <span class="example" data-calc>{{ c.example }}</span>
+            </div>
+            <div data-calc>{% for n in c.notes %}<div class="note warn" role="note">{% icon "M12 3 2 20h20z M12 10v4 M12 17h.01" 15 2.2 %}<span>{{ n }}</span></div>{% endfor %}</div>
+            {% endif %}
+            {% endwith %}
+        </section>
+
+        <section class="card" aria-label="{% trans 'Recipe' %}" id="dish-recipe" data-region>
+            <div>
+                <h2 class="disp card-title">{% trans "Recipe" %}</h2>
+                <div class="card-sub">{% trans "Components from Cookery. Used for stock, reports and food cost. Adjustable parts can be left out or doubled." %}</div>
+            </div>
+            <div class="mini-thead part-grid"><span>{% trans "Component" %}</span><span>{% trans "Amount" %}</span><span class="right">{% trans "Unit cost" %}</span><span class="right">{% trans "Cost" %}</span><span></span></div>
+            {% for p in e.parts %}
+            <div class="mini-line part-grid">
+                <span class="part-name">
+                    <span class="strong">{{ p.dc.component.title }}</span>
+                    <button class="mini-toggle" form="part-adj-{{ p.dc.id }}" aria-pressed="{% if p.dc.adjustable %}true{% else %}false{% endif %}">{% if p.dc.adjustable %}{% icon "check" 11 3 %}{% endif %}{% trans "Adjustable" %}</button>
+                </span>
+                <form method="post" action="{{ action_url }}" data-search class="contents">{% csrf_token %}
+                    <input type="hidden" name="action" value="part_set"><input type="hidden" name="part" value="{{ p.dc.id }}">
+                    <span class="unit-field small"><input type="number" name="quantity" min="0" step="any" class="num" value="{{ p.dc.quantity|floatformat:"-3u" }}" aria-label="{% blocktrans with name=p.dc.component.title %}Amount of {{ name }}{% endblocktrans %}"><span class="unit">{{ p.unit }}</span></span>
+                </form>
+                <span class="num right muted small">{{ p.each }}</span>
+                <span class="num right strong" data-calc>{{ p.cost|money }}</span>
+                <button class="x-btn" form="part-del-{{ p.dc.id }}" aria-label="{% blocktrans with name=p.dc.component.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                <form method="post" action="{{ action_url }}" id="part-adj-{{ p.dc.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="part_adjustable"><input type="hidden" name="part" value="{{ p.dc.id }}"></form>
+                <form method="post" action="{{ action_url }}" id="part-del-{{ p.dc.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="part_remove"><input type="hidden" name="part" value="{{ p.dc.id }}"></form>
+            </div>
+            {% empty %}
+            <div class="empty small">{% trans "No components yet, so there's no food cost, stock or allergens for this dish." %}</div>
+            {% endfor %}
+            <div class="card-foot">
+                <form method="post" action="{{ action_url }}" data-search>{% csrf_token %}
+                    <input type="hidden" name="action" value="part_add">
+                    <select class="outline-select" name="component" aria-label="{% trans 'Add a component' %}">
+                        <option value="">{% trans "+ Add a component" %}</option>
+                        {% for o in e.component_choices %}<option value="{{ o.c.id }}">{{ o.label }}</option>{% endfor %}
+                    </select>
+                </form>
+                <span class="grow"></span>
+                <span class="hint" data-calc>{% trans "Plate cost" %} <b class="num ink">{{ e.plate_cost|money }}</b></span>
+                <span class="fc-pill {{ e.fc_level }}" data-calc>{{ e.fc_text }}</span>
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Modifiers' %}" id="dish-mods" data-region>
+            {% with m=e.mods %}
+            <div class="card-head base">
+                <div>
+                    <h2 class="disp card-title">{% trans "Modifiers" %}</h2>
+                    <div class="card-sub">{% trans "Choices the cashier sees when ringing up this dish" %}</div>
+                </div>
+                <form method="post" action="{{ action_url }}">{% csrf_token %}
+                    <button class="outline-btn" name="action" value="group_add">{% icon "plus" 13 2.8 %}{% trans "Modifier group" %}</button>
+                </form>
+            </div>
+            <div class="mod-list">
+                {% for g in m.groups %}
+                <div class="mod-group">
+                    <div class="mod-top">
+                        <form method="post" action="{{ action_url }}" data-search class="grow">{% csrf_token %}
+                            <input type="hidden" name="action" value="group_rename"><input type="hidden" name="group" value="{{ g.group.id }}">
+                            <input class="mod-name" name="title" value="{{ g.group.title }}" maxlength="80" aria-label="{% trans 'Modifier group name' %}">
+                        </form>
+                        <span class="mod-rule">{% trans "Pick one" %}</span>
+                        <form method="post" action="{{ action_url }}">{% csrf_token %}
+                            <input type="hidden" name="group" value="{{ g.group.id }}">
+                            <button class="x-btn on-white" name="action" value="group_remove" aria-label="{% blocktrans with name=g.group.title %}Remove {{ name }}{% endblocktrans %}" onclick="return confirm(gettext('Remove this modifier group?'))">{% icon "close" 13 2.8 %}</button>
+                        </form>
+                    </div>
+                    <div class="opt-chips" role="radiogroup" aria-label="{% blocktrans with name=g.group.title %}{{ name }}: standard choice{% endblocktrans %}">
+                        {% for o in g.options %}
+                        <span class="opt-chip">
+                            <button class="std-dot" form="opt-std-{{ o.id }}" role="radio" aria-checked="{% if o.is_default %}true{% else %}false{% endif %}" title="{% trans 'Standard choice' %}" aria-label="{% blocktrans with name=o.title %}Make {{ name }} the standard choice{% endblocktrans %}"></button>
+                            <form method="post" action="{{ action_url }}" data-search class="contents">{% csrf_token %}
+                                <input type="hidden" name="action" value="option_set"><input type="hidden" name="option" value="{{ o.id }}">
+                                <input class="opt-name" name="title" value="{{ o.title }}" maxlength="80" aria-label="{% trans 'Option name' %}">
+                                <span class="unit">+$</span>
+                                <input class="opt-price num" type="number" name="price" step="0.01" value="{{ o.price }}" aria-label="{% trans 'Extra price' %}">
+                            </form>
+                            <button class="x-btn tiny" form="opt-del-{{ o.id }}" aria-label="{% blocktrans with name=o.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
+                            <form method="post" action="{{ action_url }}" id="opt-std-{{ o.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="option_default"><input type="hidden" name="option" value="{{ o.id }}"></form>
+                            <form method="post" action="{{ action_url }}" id="opt-del-{{ o.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="option_remove"><input type="hidden" name="option" value="{{ o.id }}"></form>
+                        </span>
+                        {% endfor %}
+                        <form method="post" action="{{ action_url }}">{% csrf_token %}
+                            <input type="hidden" name="group" value="{{ g.group.id }}">
+                            <button class="add-opt" name="action" value="option_add">{% trans "+ Option" %}</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="mod-group">
+                    <div class="mod-top">
+                        <span class="mod-title grow">{% trans "Add-ons" %}</span>
+                        <span class="mod-rule">{% trans "Pick any" %}</span>
+                    </div>
+                    <div class="opt-chips">
+                        {% for a in m.addons %}
+                        <span class="opt-chip">
+                            <form method="post" action="{{ action_url }}" data-search class="contents">{% csrf_token %}
+                                <input type="hidden" name="action" value="addon_set"><input type="hidden" name="addon" value="{{ a.id }}">
+                                <input class="opt-name" name="title" value="{{ a.title }}" placeholder="{{ a.component.title }}" maxlength="80" aria-label="{% blocktrans with name=a.component.title %}Name for {{ name }}{% endblocktrans %}">
+                                <span class="unit">+$</span>
+                                <input class="opt-price num" type="number" name="price" min="0" step="0.01" value="{{ a.price }}" aria-label="{% trans 'Extra price' %}">
+                            </form>
+                            <button class="x-btn tiny" form="addon-del-{{ a.id }}" aria-label="{% blocktrans with name=a.label %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
+                            <form method="post" action="{{ action_url }}" id="addon-del-{{ a.id }}" hidden>{% csrf_token %}<input type="hidden" name="action" value="addon_remove"><input type="hidden" name="addon" value="{{ a.id }}"></form>
+                        </span>
+                        {% endfor %}
+                        <form method="post" action="{{ action_url }}" data-search>{% csrf_token %}
+                            <input type="hidden" name="action" value="addon_add">
+                            <select class="add-opt" name="component" aria-label="{% trans 'Add an add-on' %}">
+                                <option value="">{% trans "+ Add-on" %}</option>
+                                {% for c in m.addon_choices %}<option value="{{ c.id }}">{{ c.title }}</option>{% endfor %}
+                            </select>
+                        </form>
+                    </div>
+                </div>
+
+                {% for g in m.inherited %}
+                <div class="mod-group inherited">
+                    <div class="mod-top">
+                        <span class="mod-title grow">{{ g.group.title }}</span>
+                        <span class="hint">{% blocktrans with name=g.component.title %}From {{ name }} · edit it on the component{% endblocktrans %}</span>
+                    </div>
+                    <div class="opt-chips">{% for o in g.options %}<span class="opt-chip read{% if o.is_default %} std{% endif %}">{{ o.title }}{% if o.price %} <span class="unit num">{% if o.price > 0 %}+{% endif %}{{ o.price|money }}</span>{% endif %}</span>{% endfor %}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endwith %}
+        </section>
+    </div>
+
+    <div class="editor-col side" id="dish-side" data-region>
+        <section class="card" aria-label="{% trans 'Availability' %}">
+            <div class="ov muted">{% trans "Availability" %}</div>
+            <form method="post" action="{{ action_url }}" class="seg soft avail-seg" role="radiogroup" aria-label="{% trans 'Availability' %}">{% csrf_token %}
+                <input type="hidden" name="action" value="availability">
+                <button class="seg-btn{% if e.dish.availability == 'off' %} red{% endif %}" name="value" value="off" role="radio" aria-checked="{% if e.dish.availability == 'off' %}true{% else %}false{% endif %}">{% trans "Off" %}</button>
+                <button class="seg-btn" name="value" value="auto" role="radio" aria-checked="{% if e.dish.availability == 'auto' %}true{% else %}false{% endif %}">{% trans "Auto" %}</button>
+                <button class="seg-btn" name="value" value="always" role="radio" aria-checked="{% if e.dish.availability == 'always' %}true{% else %}false{% endif %}">{% trans "Always" %}</button>
+            </form>
+            <div class="side-hint">{{ e.avail_hint }}</div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Allergens and dietary' %}">
+            <div class="ov muted">{% trans "Allergens and dietary" %}</div>
+            <div class="hint small">{% trans "Worked out from the ingredients in the recipe. Change them on the ingredients." %}</div>
+            <div class="tag-row">
+                {% if not e.has_recipe %}<span class="info-chip">{% trans "Add a recipe to see allergens" %}</span>
+                {% else %}
+                {% for a in e.allergens %}<span class="info-chip allergen">{{ a }}</span>{% empty %}<span class="info-chip">{% trans "No allergens" %}</span>{% endfor %}
+                {% for d in e.diets %}<span class="info-chip diet">{{ d.label }}</span>{% endfor %}
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'On menus' %}">
+            <div class="ov muted">{% trans "On these menus" %}</div>
+            <div class="menu-checks">
+                {% for m in e.menus %}
+                <form method="post" action="{{ action_url }}">{% csrf_token %}
+                    <input type="hidden" name="action" value="menu"><input type="hidden" name="menu" value="{{ m.menu.id }}">
+                    <button class="check-row" role="checkbox" aria-checked="{% if m.on %}true{% else %}false{% endif %}">
+                        <span class="box">{% if m.on %}{% icon "check" 13 3.2 %}{% endif %}</span>
+                        <span class="grow strong">{{ m.menu.title }}</span>
+                        <span class="hint small">{{ m.note }}</span>
+                    </button>
+                </form>
+                {% empty %}
+                <div class="empty small">{% trans "No menus yet." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Last 7 days' %}">
+            <div class="ov muted">{% trans "Last 7 days" %}</div>
+            <div class="week-stats">
+                <div class="wk-stat"><div class="disp num">{{ e.week.sold }}</div><div class="wk-label">{% trans "Sold" %}</div></div>
+                <div class="wk-stat"><div class="disp num">{{ e.week.sales|money0 }}</div><div class="wk-label">{% trans "Sales" %}</div></div>
+                <div class="wk-stat"><div class="disp num">{% if e.week.profit is None %}—{% else %}{{ e.week.profit|money0 }}{% endif %}</div><div class="wk-label">{% trans "Gross profit" %}</div></div>
+            </div>
+            <div class="spark" role="img" aria-label="{{ e.week.aria }}">
+                {% for b in e.week.bars %}<span class="{% if b.today %}today{% endif %}" style="height:{{ b.height }}%" title="{{ b.title }}"></span>{% endfor %}
+            </div>
+            <div class="hint small">{% trans "Sold counts the dish in combos too; sales and profit count it sold on its own." %}</div>
+        </section>
+
+        <form method="post" action="{{ action_url }}">{% csrf_token %}
+            {% if e.dish.archived %}
+            <button class="text-btn" name="action" value="restore">{% trans "Restore this dish" %}</button>
+            {% else %}
+            <button class="text-btn danger" name="action" value="archive" onclick="return confirm(gettext('Archive this dish? It comes off every menu.'))">{% trans "Archive this dish" %}</button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

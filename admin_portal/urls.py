@@ -19,4 +19,8 @@ urlpatterns = [
     path("menus/new", views.menu_new, name="admin_menu_new"),
     path("menus/<int:menu_id>", views.menu_edit, name="admin_menu"),
     path("menus/<int:menu_id>/action", views.menu_action, name="admin_menu_action"),
+    path("dishes", views.dishes, name="admin_dishes"),
+    path("dishes/new", views.dish_new, name="admin_dish_new"),
+    path("dishes/<int:dish_id>", views.dish_edit, name="admin_dish"),
+    path("dishes/<int:dish_id>/action", views.dish_action, name="admin_dish_action"),
 ]

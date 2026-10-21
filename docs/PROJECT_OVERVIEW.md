@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>[/action]]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
 | `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
@@ -102,7 +102,8 @@ Redesigned 2026-10-13 (after the overhaul) for the register mockups in `docs/moc
 
 ```
 Menu (position, draft, auto, manual_on; MenuRule schedules; Menu.live_menus() / Menu.active(), see pos_server/menu_schedule.py)
- ├─ Dish (M2M menu; price Decimal; station FK; in_stock / availability / blocked / visible_in_menu)
+ ├─ Dish (M2M menu; price Decimal; station FK; category FK DishCategory; ticket_name; prep_minutes; archived;
+ │   │      in_stock / availability / blocked / visible_in_menu; catering + catering_min ─ CateringPrice breaks)
  │   ├─ DishComponent (quantity per portion; adjustable; max_portions) ─ Component (inventory; extra_price; …)
  │   │                                                                     └─ ComponentIngredient ─ Ingredient
  │   ├─ OptionGroup (dish-owned, e.g. Size, Dressing) ─ Option (price change; extra component + quantity; multiplier)
@@ -133,6 +134,14 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   and then closes the popup. Sold dishes take what was actually picked (portions × multipliers, swapped
   components, add-ons, condiments). `craft_component` and `auto` components work as before.
 - Choice components (`Component.child_dishes`) and "only-choice" dishes were removed: use combos or option groups.
+- **Allergens and diets** (2026-10-21): `Ingredient.allergens` is a list of `ALLERGENS` (Gluten, Dairy, Egg, Soy,
+  Peanuts, Tree nuts, Sesame, Mustard, Fish, Shellfish, Sulphites; also what customers can flag on the register), and
+  `meat` / `fish` / `animal` flags; Dairy or Egg implies `animal`, Fish or Shellfish implies `fish` (`Ingredient.flags`).
+  A dish's allergens, the `DIETS` it fits (vegetarian, vegan, pescatarian, gluten-free) and its food cost are worked
+  out from its recipe in `pos_server/dish_info.py`; nothing is stored on the dish.
+- **Kitchen tickets** use `Dish.ticket_name` when it's set (`orders._kitchen_rows`). `prep_minutes` is stored for
+  later (estimates). `Dish.catering_price(qty)` is the biggest `CateringPrice` break reached, else retail; the
+  Catering page will use it. Archived dishes are never `available` and come off every menu.
 
 ### 5.2 Stations and orders
 
@@ -382,6 +391,15 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   turn on/off by hand; a week chart with other menus, date notes and overlaps). The design's display tab is left to
   the screens app. Publishes "menus" and "inventory". The register's menu picker lists live menus and remembers the
   pick in the session (`register.register_menu`).
+- **Dishes** (`admin_dishes`, `dishes.py`): the list grouped by station or `DishCategory`, with filters (sold
+  out or off, food cost over 35%, not on a menu, archived), diet badges, allergens, food cost and availability. The
+  editor saves as you go (`admin_dish_action`): basics and photo, catering price breaks with warnings, the recipe
+  (components, amounts in the smallest unit, adjustable, cost), modifiers (the dish's option groups = "pick one" with
+  a standard choice; add-ons = "pick any"; component-owned groups shown read-only), availability, menus, allergens
+  and diets from the ingredients, and the last 7 days (sold includes combos; sales and profit only count it sold on
+  its own). Duplicate copies everything but the menus and starts Off; Archive takes it off every menu.
+  `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped, and a save-as-you-type POST
+  that arrives while another is in flight is sent after it rather than dropped.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
 Django admin at `/advanced-admin/` handles everything not built yet.

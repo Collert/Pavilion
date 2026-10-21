@@ -3,6 +3,7 @@ from pos_server.models import *
 from collections import defaultdict
 from pos_server.views import prettify_dish, group_by_station
 from pos_server.pricing import combo_queryset, price_cart, to_cents
+from pos_server.dish_info import dish_allergens
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
@@ -86,17 +87,13 @@ def dish(request, id):
         item = Dish.objects.get(pk=id)
     except Dish.DoesNotExist:
         return HttpResponseNotFound(_("Dish not found"))
-    allergens = set()
-    for dc in item.dishcomponent_set.all():
-        for ci in dc.component.componentingredient_set.all():
-            if ci.ingredient.allergen:
-                allergens.add(ci.ingredient.allergen)
+    allergens = dish_allergens(item)
     return render(request, "online_store/dish.html", {
         "route":"dish",
         "dish":item,
         "pretty_dish":prettify_dish(item),
         "menu":{"menu":item.menu.first()},
-        "allergens":", ".join(sorted(allergens)) or None,
+        "allergens":", ".join(allergens) or None,
         "store_items": {f"d{item.id}": store_item(item)},
     })
 

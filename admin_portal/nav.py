@@ -17,7 +17,7 @@ MENU = [
     ]),
     ("menu", _("Menu"), "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11 M9 8h6", [
         ("menus", _("Menus"), "admin_menus"),
-        ("dishes", _("Dishes"), None),
+        ("dishes", _("Dishes"), "admin_dishes"),
         ("combos", _("Combos"), None),
         ("recipes", _("Recipes"), None),
         ("services", _("Services"), None),

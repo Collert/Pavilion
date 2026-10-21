@@ -111,11 +111,11 @@ class PricingTests(MenuFixture, TestCase):
 
     def test_options_addons_condiments_and_allergies(self):
         cust = {"options": {self.temp_key: self.well.id, self.bun_key: self.gf.id}, "addons": [self.avocado_addon.id],
-                "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Milk"], "note": "Cut in half"}
+                "condiments": {str(self.ketchup_side.id): 2}, "allergies": ["Dairy"], "note": "Cut in half"}
         cart = price_cart([self.dish(self.burger, cust=cust)])
         self.assertEqual(cart.subtotal, Decimal("18.25"))  # 14.50 + 1.50 bun + 2.25 avocado
         picked = cart.lines[0].picks[0]
-        self.assertEqual(picked.mods, ["Gluten-free", "Well done", "+ Avocado", "2× Ketchup", "Allergy: milk"])
+        self.assertEqual(picked.mods, ["Gluten-free", "Well done", "+ Avocado", "2× Ketchup", "Allergy: dairy"])
         self.assertEqual(picked.note, "Cut in half")
         # The swapped bun is what gets used
         self.assertEqual(picked.use[self.gf_bun.id], 1)

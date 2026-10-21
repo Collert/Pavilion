@@ -97,26 +97,39 @@ AVAILABILITY = (
 )
 
 
+# The allergens an ingredient can carry (and a customer can tell the kitchen about)
+ALLERGENS = ["Gluten", "Dairy", "Egg", "Soy", "Peanuts", "Tree nuts", "Sesame", "Mustard", "Fish", "Shellfish", "Sulphites"]
+
+# Diets a dish or ingredient can fit: key, label, short badge, test on the combined flags (Ingredient.flags)
+DIETS = [
+    ("vegetarian", "Vegetarian", "V", lambda f: not f["meat"] and not f["fish"]),
+    ("vegan", "Vegan", "VG", lambda f: not f["meat"] and not f["fish"] and not f["animal"]),
+    ("pescatarian", "Pescatarian", "P", lambda f: not f["meat"]),
+    ("gluten_free", "Gluten-free", "GF", lambda f: not f["gluten"]),
+]
+
+
+class DishCategory(models.Model):
+    """A heading dishes are grouped under in the admin (Mains, Sides, Drinks...), separate from the station."""
+    name = models.CharField(max_length=60)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        verbose_name_plural = "dish categories"
+
+    def __str__(self):
+        return self.name
+
+
 class Dish(models.Model):
     """
-    Dish model representing a dish in the POS system.
-    Attributes:
-        title (CharField): The title of the dish.
-        price (DecimalField): The price of the dish.
-        image (ImageField): An optional image of the dish.
-        description (TextField): An optional description of the dish.
-        components (ManyToManyField): Components that make up the dish, related through DishComponent.
-        menu (ManyToManyField): Menus that include the dish.
-        station (ForeignKey): The Station that prepares the dish.
-        in_stock (BooleanField): Every component can supply one right now (kept up to date by update_stock()).
-        availability (CharField): Off / Auto / Always (see AVAILABILITY and `available`).
-        blocked (BooleanField): One of its components is turned off.
-        recipe (ForeignKey): The recipe associated with the dish from the inventory.
-        visible_in_menu (BooleanField): Indicates if the dish is visible in the menu.
-    Methods:
-        __str__(): Returns the title of the dish.
-        check_if_only_choice_dish(): Checks whether the dish only consists of components that point to other dishes.
-        serialize_with_options(): Serializes the dish with its options and components.
+    Something sold on its own or in a combo, made at `station` from its components (DishComponent).
+
+    `availability` is Off / Auto / Always (see AVAILABILITY and `available`); `in_stock` and `blocked` are kept up
+    to date by update_stock(). `ticket_name` is the short name on kitchen tickets, `prep_minutes` how long it
+    usually takes. With `catering` on it can be ordered for catering (at least `catering_min`), priced by the
+    best CateringPrice break for the quantity. Archived dishes are off every menu and hidden from the admin list.
     """
     title = models.CharField(max_length=140)
     price = models.DecimalField(max_digits=8, decimal_places=2)
@@ -130,6 +143,12 @@ class Dish(models.Model):
     blocked = models.BooleanField(default=False, help_text="One of its components is turned off")
     recipe = models.ForeignKey("inventory.Recipe", related_name="dish", on_delete=models.DO_NOTHING, null=True, blank=True)
     visible_in_menu = models.BooleanField(default=True)
+    category = models.ForeignKey(DishCategory, related_name="dishes", on_delete=models.SET_NULL, null=True, blank=True)
+    ticket_name = models.CharField(max_length=14, blank=True, help_text="Short name for kitchen tickets")
+    prep_minutes = models.PositiveSmallIntegerField(default=5)
+    archived = models.BooleanField(default=False)
+    catering = models.BooleanField(default=False, help_text="Can be ordered for catering")
+    catering_min = models.PositiveSmallIntegerField(default=10, help_text="Smallest catering order")
 
     class Meta:
         verbose_name_plural = "dishes"
@@ -139,8 +158,16 @@ class Dish(models.Model):
 
     @property
     def available(self) -> bool:
-        """Sellable now: not turned off, no component turned off, and in stock (or set to sell past zero)."""
-        return self.availability != "off" and not self.blocked and (self.availability == "always" or self.in_stock)
+        """Sellable now: not archived or turned off, no component turned off, and in stock (or set to sell past zero)."""
+        return not self.archived and self.availability != "off" and not self.blocked and (self.availability == "always" or self.in_stock)
+
+    def catering_price(self, quantity: int) -> Decimal:
+        """Price each for a catering order of `quantity`: the biggest break it reaches, else the retail price."""
+        price = self.price
+        for tier in self.catering_prices.all():
+            if quantity >= tier.quantity:
+                price = tier.price
+        return price
 
     def update_stock(self):
         """Recompute `in_stock` (every component can supply one) and `blocked` (a component is turned off)."""
@@ -150,6 +177,19 @@ class Dish(models.Model):
         if (in_stock, blocked) != (self.in_stock, self.blocked):
             self.in_stock, self.blocked = in_stock, blocked
             self.save(update_fields=["in_stock", "blocked"])
+
+
+class CateringPrice(models.Model):
+    """A quantity break for catering: `price` each when `quantity` or more are ordered."""
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="catering_prices")
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+
+    class Meta:
+        ordering = ["quantity", "id"]
+
+    def __str__(self):
+        return f"{self.dish}: {self.quantity}+ at {self.price}"
 
 
 class Combo(models.Model):
@@ -804,40 +844,28 @@ class DishComponent(models.Model):
 
 class Ingredient(models.Model):
     """
-    Represents an ingredient in the inventory.
-    For more info, refer to: https://github.com/Collert/Pavilion/wiki/Inventory-Management-System
-    Attributes:
-        units (tuple): Choices for unit of measurement.
-        allergens (tuple): Choices for allergens.
-        title (str): The name of the ingredient.
-        inventory (float): The quantity of the ingredient in inventory, in its unit.
-        unit_of_measurement (str): The unit of measurement for the ingredient.
-        allergen (str): The allergen associated with the ingredient.
-        unlimited (bool): Indicates if the ingredient has unlimited supply.
-        cost (DecimalField): The cost of the ingredient.
-    Methods:
-        __str__(): Returns a string representation of the ingredient.
+    Something bought in and used in components (flour, milk, ground beef), counted in `unit_of_measurement`
+    (g, ml or ea). `cost` is the price of one unit. `allergens` lists entries of ALLERGENS; `meat`, `fish` and
+    `animal` (dairy, eggs, honey, gelatin...) decide which diets it fits (see `diets()`). Dishes inherit both
+    from the ingredients of their components.
     """
     units = UNITS
-    allergens = (
-        ("Eggs", "Eggs"),
-        ("Milk", "Milk"),
-        ("Mustard", "Mustard"),
-        ("Peanuts", "Peanuts"),
-        ("Fish", "Fish"),
-        ("Sesame seeds", "Sesame seeds"),
-        ("Soy", "Soy"),
-        ("Sulphites", "Sulphites"),
-        ("Tree Nuts", "Tree Nuts"),
-        ("Wheat and triticale", "Wheat and triticale"),
-        ("Crustaceans", "Crustaceans")
-    )
     title = models.CharField(max_length=140)
     inventory = models.FloatField(default=0, null=True)
     unit_of_measurement = models.CharField(max_length=10, choices=units)
-    allergen = models.CharField(max_length=20, choices=allergens, blank=True, null=True, default=None)
+    allergens = models.JSONField(default=list, blank=True, help_text="Entries of ALLERGENS")
+    meat = models.BooleanField(default=False, help_text="Meat or poultry")
+    fish = models.BooleanField(default=False, help_text="Fish or seafood")
+    animal = models.BooleanField(default=False, help_text="Animal byproduct: dairy, eggs, honey, gelatin")
     unlimited = models.BooleanField(default=False)
     cost = models.DecimalField(max_digits=14, decimal_places=6, blank=True, null=True, help_text="Cost of one unit (a gram, a millilitre or a piece)")
+
+    @property
+    def flags(self) -> dict:
+        """What decides the diets, with the flags the allergens imply (dairy or egg is an animal product...)."""
+        allergens = set(self.allergens or [])
+        return {"meat": self.meat, "fish": self.fish or bool(allergens & {"Fish", "Shellfish"}),
+                "animal": self.animal or bool(allergens & {"Dairy", "Egg"}), "gluten": "Gluten" in allergens}
 
     def __str__(self) -> str:
         qty = self.inventory

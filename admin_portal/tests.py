@@ -11,8 +11,10 @@ from django.utils import timezone
 from gift_cards.models import GiftCard
 from payments import square
 from pos_server import refunds
-from pos_server.models import CashDrawerSession, CashMovement, Menu, Order, OrderPayment, OrderStation, ReceiptLog, Refund
-from pos_server.orders import create_order
+from pos_server import dish_info
+from pos_server.models import (CashDrawerSession, CashMovement, ComponentIngredient, Dish, DishCategory, DishComponent, Extra,
+                               Ingredient, Menu, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund)
+from pos_server.orders import collect_order, create_order
 from pos_server.tests import MenuFixture
 
 from . import dashboard, reports
@@ -398,6 +400,162 @@ class MenuEditorTests(AdminFixture, TestCase):
         menu = Menu.objects.create(title="M")
         response = self.act(menu, action="manual", back="https://evil.example.com/")
         self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
+
+
+class DishTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+        flour = Ingredient.objects.create(title="Flour", unit_of_measurement="g", allergens=["Gluten"], cost=Decimal("0.002"))
+        beef = Ingredient.objects.create(title="Beef", unit_of_measurement="g", meat=True, cost=Decimal("0.015"))
+        cheese = Ingredient.objects.create(title="Cheese", unit_of_measurement="g", allergens=["Dairy"], cost=Decimal("0.02"))
+        ComponentIngredient.objects.create(component=cls.bun, ingredient=flour, quantity=60)  # $0.12 a bun
+        ComponentIngredient.objects.create(component=cls.patty, ingredient=beef, quantity=120)  # $1.80 a patty
+        ComponentIngredient.objects.create(component=cls.onion, ingredient=cheese, quantity=10)  # $0.20 (a cheesy onion)
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def act(self, dish, **data):
+        return self.client.post(reverse("admin_dish_action", args=[dish.id]), data)
+
+    def test_cost_allergens_and_diets_come_from_the_recipe(self):
+        burger = Dish.objects.get(pk=self.burger.pk)
+        self.assertEqual(dish_info.plate_cost(burger), Decimal("2.12"))
+        self.assertEqual(dish_info.food_cost_pct(Decimal("2.12"), burger.price), 14.6)
+        self.assertEqual(dish_info.dish_allergens(burger), ["Gluten", "Dairy"])
+        self.assertEqual(dish_info.dish_diets(burger), [])  # meat, gluten, dairy
+        self.assertIsNone(dish_info.plate_cost(self.tea))  # no recipe
+        self.assertEqual(dish_info.dish_diets(self.tea), [])
+        # Dairy makes it an animal product: vegetarian and pescatarian, not vegan
+        DishComponent.objects.filter(dish=burger, component=self.patty).delete()
+        DishComponent.objects.filter(dish=burger, component=self.bun).delete()
+        self.assertEqual([d["key"] for d in dish_info.dish_diets(burger)], ["vegetarian", "pescatarian", "gluten_free"])
+
+    def test_list_groups_filters_and_searches(self):
+        page = self.client.get(reverse("admin_dishes")).content.decode()
+        self.assertIn("Burger", page)
+        self.assertIn("Gluten · Dairy", page)
+        self.assertIn("No recipe", page)  # tea
+        nomenu = self.client.get(reverse("admin_dishes") + "?show=nomenu").context["l"]
+        self.assertEqual(nomenu["sections"], [])
+        self.menu.dishes.remove(self.tea)
+        rows = [r["dish"] for s in self.client.get(reverse("admin_dishes") + "?show=nomenu").context["l"]["sections"] for r in s["rows"]]
+        self.assertEqual(rows, [self.tea])
+        by_category = self.client.get(reverse("admin_dishes") + "?by=category&q=coff").context["l"]
+        self.assertEqual([s["name"] for s in by_category["sections"]], ["No category"])
+        self.assertEqual(by_category["sections"][0]["rows"][0]["dish"], self.coffee)
+
+    def test_basics_save_what_is_valid(self):
+        mains = DishCategory.objects.create(name="Mains")
+        self.act(self.burger, action="basics", title="Smash burger", price="15.25", description="Two patties",
+                 ticket_name="smash", prep_minutes="7", station=self.bar.id, category=mains.id)
+        burger = Dish.objects.get(pk=self.burger.pk)
+        self.assertEqual((burger.title, burger.price, burger.ticket_name, burger.prep_minutes, burger.station, burger.category),
+                         ("Smash burger", Decimal("15.25"), "SMASH", 7, self.bar, mains))
+        self.act(self.burger, action="basics", title="  ", price="abc", prep_minutes="0", station="999", category="")
+        burger.refresh_from_db()
+        self.assertEqual((burger.title, burger.price, burger.prep_minutes, burger.station, burger.category),
+                         ("Smash burger", Decimal("15.25"), 7, self.bar, None))
+
+    def test_ticket_name_shows_on_kitchen_tickets(self):
+        Dish.objects.filter(pk=self.burger.pk).update(ticket_name="BRGR")
+        order = self.place([MenuFixture.dish(self.burger), MenuFixture.dish(self.tea)], timezone.now())
+        names = [d["name"] for d in collect_order(Order.objects.get(pk=order.pk))["dishes"]]
+        self.assertEqual(sorted(names), ["BRGR", "Tea"])
+
+    def test_catering_breaks(self):
+        self.act(self.burger, action="catering")
+        burger = Dish.objects.get(pk=self.burger.pk)
+        self.assertTrue(burger.catering)
+        first = burger.catering_prices.get()
+        self.assertEqual((first.quantity, first.price), (10, Decimal("13.25")))  # 92% of retail, to the quarter
+        self.act(self.burger, action="tier_add")
+        second = burger.catering_prices.last()
+        self.assertEqual((second.quantity, second.price), (20, Decimal("12.75")))
+        self.act(self.burger, action="tier_set", tier=second.id, quantity="25", price="11.95")
+        self.assertEqual(burger.catering_price(9), Decimal("14.50"))
+        self.assertEqual(burger.catering_price(10), Decimal("13.25"))
+        self.assertEqual(burger.catering_price(30), Decimal("11.95"))
+        self.act(self.burger, action="catering_min", min="12")
+        notes = self.client.get(reverse("admin_dish", args=[self.burger.id])).context["e"]["catering"]["notes"]
+        self.assertEqual(notes, ["The first break starts below the minimum order of 12."])
+        self.act(self.burger, action="tier_remove", tier=first.id)
+        self.assertEqual(list(burger.catering_prices.values_list("quantity", flat=True)), [25])
+
+    def test_recipe_rows(self):
+        self.act(self.tea, action="part_add", component=self.avocado.id)
+        part = DishComponent.objects.get(dish=self.tea)
+        self.act(self.tea, action="part_set", part=part.id, quantity="2.5")
+        self.act(self.tea, action="part_adjustable", part=part.id)
+        part.refresh_from_db()
+        self.assertEqual((part.quantity, part.adjustable), (2.5, True))
+        self.act(self.tea, action="part_set", part=part.id, quantity="0")  # ignored: remove it instead
+        part.refresh_from_db()
+        self.assertEqual(part.quantity, 2.5)
+        self.act(self.tea, action="part_remove", part=part.id)
+        self.assertFalse(DishComponent.objects.filter(dish=self.tea).exists())
+
+    def test_modifier_groups_and_addons(self):
+        self.act(self.tea, action="group_add")
+        group = OptionGroup.objects.get(dish=self.tea)
+        self.act(self.tea, action="group_rename", group=group.id, title="Milk")
+        self.act(self.tea, action="option_add", group=group.id)
+        first, second = group.options.all()
+        self.assertTrue(first.is_default)
+        self.act(self.tea, action="option_set", option=second.id, title="Oat", price="0.75")
+        self.act(self.tea, action="option_default", option=second.id)
+        second.refresh_from_db()
+        self.assertEqual((second.title, second.price, second.is_default), ("Oat", Decimal("0.75"), True))
+        self.act(self.tea, action="option_remove", option=second.id)
+        self.assertTrue(group.options.get().is_default)  # someone is always the standard
+        self.act(self.tea, action="addon_add", component=self.avocado.id)
+        addon = Extra.objects.get(dish=self.tea)
+        self.act(self.tea, action="addon_set", addon=addon.id, title="Avo", price="2")
+        addon.refresh_from_db()
+        self.assertEqual((addon.label, addon.price, addon.kind), ("Avo", Decimal("2.00"), Extra.ADDON))
+        group.refresh_from_db()
+        self.assertEqual(group.title, "Milk")
+        # Another dish's options can't be touched from here
+        self.act(self.tea, action="option_remove", option=self.large.id)
+        self.assertTrue(Option.objects.filter(pk=self.large.pk).exists())
+
+    def test_menus_availability_duplicate_and_archive(self):
+        self.act(self.tea, action="menu", menu=self.menu.id)
+        self.assertFalse(self.menu.dishes.filter(pk=self.tea.pk).exists())
+        self.act(self.burger, action="availability", value="always")
+        self.assertEqual(Dish.objects.get(pk=self.burger.pk).availability, "always")
+        response = self.act(self.burger, action="duplicate")
+        copy = Dish.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_dish", args=[copy.id]))
+        self.assertEqual((copy.title, copy.availability, copy.menu.count()), ("Burger (copy)", "off", 0))
+        self.assertEqual(copy.dishcomponent_set.count(), 3)
+        self.assertEqual(copy.extras.count(), 2)
+        response = self.act(self.burger, action="archive")
+        self.assertRedirects(response, reverse("admin_dishes"))
+        burger = Dish.objects.get(pk=self.burger.pk)
+        self.assertTrue(burger.archived)
+        self.assertFalse(burger.available)
+        self.assertFalse(burger.menu.exists())
+        self.assertNotIn(burger, [r["dish"] for s in self.client.get(reverse("admin_dishes")).context["l"]["sections"] for r in s["rows"]])
+        self.act(self.burger, action="restore")
+        self.assertFalse(Dish.objects.get(pk=self.burger.pk).archived)
+
+    def test_new_dish_and_editor_render(self):
+        response = self.client.post(reverse("admin_dish_new"))
+        dish = Dish.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_dish", args=[dish.id]))
+        self.assertEqual(dish.availability, "off")
+        for target in (dish, self.burger, self.coffee):
+            self.assertEqual(self.client.get(reverse("admin_dish", args=[target.id])).status_code, 200)
+
+    def test_last_week_counts_combos_in_sold_only(self):
+        now = timezone.now()
+        self.place([MenuFixture.dish(self.coffee, qty=2)], now)
+        self.place([self.lunch(self.coffee)], now)
+        week = self.client.get(reverse("admin_dish", args=[self.coffee.id])).context["e"]["week"]
+        self.assertEqual(week["sold"], 3)
+        self.assertEqual(week["sales"], Decimal("5.00"))
 
 
 class UnitTests(TestCase):
