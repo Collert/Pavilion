@@ -61,6 +61,7 @@ select.field { appearance: auto; }
 .deposit-line { font-size: 12px; font-weight: 700; color: var(--ink-2); margin-top: 10px; }
 
 /* switches: a label with a hidden checkbox and a .switch */
+.switch-row, .deposit-top { position: relative; }  /* holds the hidden checkbox, or it stretches the page */
 .switch-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: var(--softer); cursor: pointer; }
 .switch-row .strong { font-size: 14px; }
 label:has(> input:checked) > .switch { background: var(--green); }
