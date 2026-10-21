@@ -424,8 +424,11 @@ def form_fields(draft, **changes):
                      f"group-{i}-opt-count": len(g["options"])})
         if g["required"]:
             data[f"group-{i}-required"] = "1"
+        if g["addons"]:
+            data[f"group-{i}-addons"] = "1"
         for j, o in enumerate(g["options"]):
-            data.update({f"group-{i}-opt-{j}-id": o["id"], f"group-{i}-opt-{j}-title": o["title"], f"group-{i}-opt-{j}-price": o["price"]})
+            data.update({f"group-{i}-opt-{j}-id": o["id"], f"group-{i}-opt-{j}-title": o["title"], f"group-{i}-opt-{j}-price": o["price"],
+                         f"group-{i}-opt-{j}-component": o["component"], f"group-{i}-opt-{j}-quantity": o["quantity"]})
     return data
 
 
@@ -505,7 +508,7 @@ class DishTests(AdminFixture, TestCase):
         self.assertEqual(draft["tiers"][1], {"quantity": "20", "price": "12.75"})
         data = {**form_fields(draft), "op": "add_group", "add_component": str(self.avocado.id)}
         draft = self.client.post(reverse("admin_dish", args=[self.burger.id]), data).context["e"]["d"]
-        self.assertEqual(draft["groups"][-1]["title"], "New group")
+        self.assertEqual([g["title"] for g in draft["groups"]], ["New group", "Add-ons"])  # Add-ons stays last
         self.assertEqual(draft["parts"][-1]["component"], str(self.avocado.id))
         data = {**form_fields(draft), "op": "remove_part:0"}
         draft = self.client.post(reverse("admin_dish", args=[self.burger.id]), data).context["e"]["d"]
@@ -519,10 +522,13 @@ class DishTests(AdminFixture, TestCase):
         draft["parts"] = [p for p in draft["parts"] if p["component"] != str(self.onion.id)]
         draft["parts"][0]["quantity"] = "2"
         draft["parts"].append({"id": "", "component": str(self.avocado.id), "quantity": "1", "adjustable": True})
-        addons = next(g for g in draft["groups"] if g["title"] == "Add-ons")
-        addons["options"].append({"id": "", "title": "Cheese slice", "price": "1.00"})
-        draft["groups"].append({"id": "", "title": "Doneness", "pick": "one", "required": True,
-                                "options": [{"id": "", "title": "Medium", "price": "0"}, {"id": "", "title": "Well done", "price": "0"}]})
+        draft["groups"].insert(0, {"id": "", "title": "Doneness", "pick": "one", "required": True, "addons": False, "options": [
+            {"id": "", "title": "Medium", "price": "0", "component": "", "quantity": "1"},
+            {"id": "", "title": "Well done", "price": "0", "component": str(self.onion.id), "quantity": "2"}]})
+        # Adding an add-on picks a component: it's named and priced after it
+        draft = self.client.post(reverse("admin_dish", args=[self.burger.id]),
+                                 {**form_fields(draft), "op": "preview", "group-1-add": str(self.patty.id)}).context["e"]["d"]
+        self.assertEqual(draft["groups"][1]["options"][-1], {"id": "", "title": "Patty", "price": "4.00", "component": str(self.patty.id), "quantity": "1"})
         self.client.post(reverse("admin_dish", args=[self.burger.id]), {**form_fields(draft), "op": "save"})
         burger = Dish.objects.get(pk=self.burger.pk)
         self.assertTrue(burger.catering)
@@ -532,7 +538,9 @@ class DishTests(AdminFixture, TestCase):
                          [(self.bun, 2, True), (self.patty, 1, True), (self.avocado, 1, True)])
         self.assertTrue(Option.objects.filter(pk=self.avocado_addon.pk).exists())  # kept, not recreated
         groups = {g.title: g for g in burger.option_groups.all()}
-        self.assertEqual([o.title for o in groups["Add-ons"].options.all()], ["Avocado", "Cheese slice"])
+        self.assertEqual([(o.title, o.component) for o in groups["Add-ons"].options.all()], [("Avocado", self.avocado), ("Patty", self.patty)])
+        self.assertTrue(groups["Add-ons"].addons)
+        self.assertEqual((groups["Doneness"].options.last().component, groups["Doneness"].options.last().quantity), (self.onion, 2))
         self.assertEqual((groups["Doneness"].pick, groups["Doneness"].required, groups["Doneness"].default_option().title),
                          ("one", True, "Medium"))
         notes = self.client.get(reverse("admin_dish", args=[self.burger.id])).context["e"]["catering"]["notes"]
@@ -550,7 +558,7 @@ class DishTests(AdminFixture, TestCase):
         self.assertRedirects(response, reverse("admin_dish", args=[copy.id]))
         self.assertEqual((copy.title, copy.menu.count()), ("Burger deluxe (copy)", 0))
         self.assertEqual(copy.dishcomponent_set.count(), 3)
-        self.assertEqual(copy.option_groups.get().options.get().title, "Avocado")
+        self.assertEqual(copy.option_groups.get(addons=True).options.get().component, self.avocado)
         self.assertEqual(Dish.objects.get(pk=self.burger.pk).title, "Burger")  # the original is untouched
         self.assertRedirects(self.post(self.burger, "archive"), reverse("admin_dishes"))
         burger = Dish.objects.get(pk=self.burger.pk)
@@ -561,6 +569,17 @@ class DishTests(AdminFixture, TestCase):
         self.assertNotIn(burger, listed)
         self.post(self.burger, "restore")
         self.assertFalse(Dish.objects.get(pk=self.burger.pk).archived)
+
+    def test_every_dish_has_an_add_ons_group(self):
+        draft = self.draft(self.tea)
+        self.assertEqual([(g["title"], g["addons"], g["options"]) for g in draft["groups"]], [("Add-ons", True, [])])
+        self.post(self.tea, "remove_group:0")  # can't be removed
+        self.post(self.tea, "save", title="Green tea")
+        self.assertFalse(OptionGroup.objects.filter(dish=self.tea).exists())  # an empty one isn't stored
+        addons = self.draft(self.tea)["groups"][0]
+        addons["options"].append({"id": "", "title": "Honey", "price": "0.50", "component": "", "quantity": "1"})
+        response = self.post(self.tea, "save", groups=[addons])
+        self.assertEqual(response.context["e"]["status"], "Every add-on needs a component")
 
     def test_new_dish_and_editor_render(self):
         response = self.client.post(reverse("admin_dish_new"))

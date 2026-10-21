@@ -308,6 +308,7 @@ class OptionGroup(models.Model):
     component = models.ForeignKey("Component", on_delete=models.CASCADE, related_name="option_groups", null=True, blank=True)
     pick = models.CharField(max_length=3, choices=PICKS, default=ONE)
     required = models.BooleanField(default=False)
+    addons = models.BooleanField(default=False, help_text="The dish's built-in Add-ons group: pick any, each option a component")
     note = models.CharField(max_length=80, blank=True, help_text="Shown next to the title, e.g. 'Cooked to order'")
     position = models.PositiveSmallIntegerField(default=0)
 

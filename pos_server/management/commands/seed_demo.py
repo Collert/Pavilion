@@ -257,12 +257,13 @@ class Command(BaseCommand):
 
         c = self.components
 
-        def group(title, options, component=None, dish=None, note="", default=None, pick=OptionGroup.ONE, required=True):
+        def group(title, options, component=None, dish=None, note="", default=None, pick=OptionGroup.ONE, required=True, addons=False):
             """
             options: "Name", ("Name", "price") or ("Name", "price", {other Option fields}). A required pick-one
             group starts on its first option, so `default` is moved to the front.
             """
-            obj = OptionGroup.objects.create(title=title, component=component, dish=dish, note=note, pick=pick, required=required)
+            obj = OptionGroup.objects.create(title=title, component=component, dish=dish, note=note, pick=pick, required=required,
+                                             addons=addons)
             specs = [(o, "0", {}) if isinstance(o, str) else (o[0], o[1], o[2] if len(o) > 2 else {}) for o in options]
             if default:
                 specs.sort(key=lambda spec: spec[0] != default)
@@ -334,7 +335,7 @@ class Command(BaseCommand):
             key = "dish" if isinstance(owner, Dish) else "combo"
             if addons:
                 group("Add-ons", [(name, price, {"component": c[name]}) for name, price in addons], dish=owner,
-                      pick=OptionGroup.ANY, required=False)
+                      pick=OptionGroup.ANY, required=False, addons=True)
             for position, label in enumerate(condiments):
                 Extra.objects.create(**{key: owner}, component=c[self.side_component[label]], title=label, position=position)
 

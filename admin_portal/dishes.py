@@ -132,10 +132,19 @@ def draft_from_dish(dish):
         "tiers": [{"quantity": str(t.quantity), "price": str(t.price)} for t in dish.catering_prices.all()],
         "parts": [{"id": str(dc.id), "component": str(dc.component_id), "quantity": _plain(dc.quantity), "adjustable": dc.adjustable}
                   for dc in dish.dishcomponent_set.all()],
-        "groups": [{"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required,
-                    "options": [{"id": str(o.id), "title": o.title, "price": str(o.price)} for o in g.options.all()]}
-                   for g in dish.option_groups.all()],
+        "groups": _groups_with_addons([
+            {"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required, "addons": g.addons,
+             "options": [{"id": str(o.id), "title": o.title, "price": str(o.price), "component": str(o.component_id or ""),
+                          "quantity": _plain(o.quantity)} for o in g.options.all()]}
+            for g in dish.option_groups.all()]),
     }
+
+
+def _groups_with_addons(groups):
+    """The dish's groups with its Add-ons group last (an empty one when it has none yet)."""
+    addons = next((g for g in groups if g["addons"]), None) or \
+        {"id": "", "title": _("Add-ons"), "pick": OptionGroup.ANY, "required": False, "addons": True, "options": []}
+    return [g for g in groups if not g["addons"]] + [addons]
 
 
 def draft_from_post(post):
@@ -146,11 +155,13 @@ def draft_from_post(post):
     groups = []
     for i in rows("group-"):
         g = f"group-{i}-"
-        groups.append({"id": post.get(g + "id", ""), "title": post.get(g + "title", ""),
-                       "pick": OptionGroup.ANY if post.get(g + "pick") == OptionGroup.ANY else OptionGroup.ONE,
-                       "required": bool(post.get(g + "required")),
+        addons = bool(post.get(g + "addons"))
+        groups.append({"id": post.get(g + "id", ""), "title": _("Add-ons") if addons else post.get(g + "title", ""),
+                       "pick": OptionGroup.ANY if addons or post.get(g + "pick") == OptionGroup.ANY else OptionGroup.ONE,
+                       "required": not addons and bool(post.get(g + "required")), "addons": addons,
                        "options": [{"id": post.get(f"{g}opt-{j}-id", ""), "title": post.get(f"{g}opt-{j}-title", ""),
-                                    "price": post.get(f"{g}opt-{j}-price", "")} for j in rows(g + "opt-")]})
+                                    "price": post.get(f"{g}opt-{j}-price", ""), "component": post.get(f"{g}opt-{j}-component", ""),
+                                    "quantity": post.get(f"{g}opt-{j}-quantity", "1")} for j in rows(g + "opt-")]})
     menus = sorted({m for m in (_int(v) for v in post.getlist("menus")) if m})
     return {
         "title": post.get("title", ""), "price": post.get("price", ""), "description": post.get("description", ""),
@@ -162,7 +173,7 @@ def draft_from_post(post):
         "parts": [{"id": post.get(f"part-{i}-id", ""), "component": post.get(f"part-{i}-component", ""),
                    "quantity": post.get(f"part-{i}-quantity", ""), "adjustable": bool(post.get(f"part-{i}-adjustable"))}
                   for i in rows("part-")],
-        "groups": groups,
+        "groups": _groups_with_addons(groups),
     }
 
 
@@ -192,16 +203,22 @@ def apply_op(draft, op, post):
     elif name == "remove_part" and at(draft["parts"], args[0]):
         draft["parts"].pop(args[0])
     elif name == "add_group":
-        draft["groups"].append({"id": "", "title": _("New group"), "pick": OptionGroup.ONE, "required": False,
-                                "options": [{"id": "", "title": _("Option"), "price": "0"}]})
-    elif name == "remove_group" and at(draft["groups"], args[0]):
+        draft["groups"].insert(len(draft["groups"]) - 1, {  # before the Add-ons group
+            "id": "", "title": _("New group"), "pick": OptionGroup.ONE, "required": False, "addons": False,
+            "options": [{"id": "", "title": _("Option"), "price": "0", "component": "", "quantity": "1"}]})
+    elif name == "remove_group" and at(draft["groups"], args[0]) and not draft["groups"][args[0]]["addons"]:
         draft["groups"].pop(args[0])
     elif name == "add_option" and at(draft["groups"], args[0]):
-        draft["groups"][args[0]]["options"].append({"id": "", "title": _("New option"), "price": "0"})
+        draft["groups"][args[0]]["options"].append({"id": "", "title": _("New option"), "price": "0", "component": "", "quantity": "1"})
     elif name == "remove_option" and len(args) == 2 and at(draft["groups"], args[0]):
         options = draft["groups"][args[0]]["options"]
         if at(options, args[1]):
             options.pop(args[1])
+    # A component picked in a group's "+ Add-on" becomes an option, priced at its extra price
+    for i, group in enumerate(draft["groups"]):
+        picked = Component.objects.filter(pk=_int(post.get(f"group-{i}-add"))).first()
+        if picked and str(picked.id) not in {o["component"] for o in group["options"]}:
+            group["options"].append({"id": "", "title": picked.title, "price": str(picked.extra_price), "component": str(picked.id), "quantity": "1"})
     # A component picked in "Add a component" joins the recipe whatever was pressed
     component = _int(post.get("add_component"))
     if component and Component.objects.filter(pk=component).exists() and str(component) not in {p["component"] for p in draft["parts"]}:
@@ -217,7 +234,8 @@ def _canonical(draft):
         draft["catering"], _int(draft["catering_min"]),
         tuple(sorted((_int(t["quantity"]), _dec(t["price"])) for t in draft["tiers"])),
         tuple((p["component"], _num(p["quantity"]), p["adjustable"]) for p in draft["parts"]),
-        tuple((g["id"], g["title"].strip(), g["pick"], g["required"], tuple((o["id"], o["title"].strip(), _dec(o["price"])) for o in g["options"]))
+        tuple((g["id"], g["title"].strip(), g["pick"], g["required"], g["addons"],
+               tuple((o["id"], o["title"].strip(), _dec(o["price"]), o["component"], _num(o["quantity"])) for o in g["options"]))
               for g in draft["groups"]),
     )
 
@@ -239,8 +257,10 @@ def problems(draft):
         out.append(_("Check the catering prices"))
     if any((_num(p["quantity"]) or 0) <= 0 for p in draft["parts"]):
         out.append(_("Every component needs an amount"))
-    if any(not g["title"].strip() or not g["options"] for g in draft["groups"]):
+    if any(not g["addons"] and (not g["title"].strip() or not g["options"]) for g in draft["groups"]):
         out.append(_("Every modifier group needs a name and an option"))
+    if any(g["addons"] and not o["component"] for g in draft["groups"] for o in g["options"]):
+        out.append(_("Every add-on needs a component"))
     if any(not o["title"].strip() or _dec(o["price"]) is None for g in draft["groups"] for o in g["options"]):
         out.append(_("Every option needs a name and a price"))
     return out
@@ -280,8 +300,11 @@ def save_draft(draft, dish):
     groups = {str(g.id): g for g in dish.option_groups.all()}
     keep_groups = set()
     for position, g in enumerate(draft["groups"]):
+        if g["addons"] and not g["options"]:
+            continue  # no add-ons: no group (an existing one is deleted below)
         group = groups.get(g["id"]) or OptionGroup(dish=dish)
-        group.title, group.pick, group.required, group.position = g["title"].strip()[:80], g["pick"], g["required"], position
+        group.title, group.pick, group.required, group.addons, group.position = \
+            g["title"].strip()[:80], g["pick"], g["required"], g["addons"], position
         group.save()
         keep_groups.add(group.id)
         options = {str(o.id): o for o in group.options.all()}
@@ -289,6 +312,8 @@ def save_draft(draft, dish):
         for option_position, o in enumerate(g["options"]):
             option = options.get(o["id"]) or Option(group=group)
             option.title, option.price, option.position = o["title"].strip()[:80], _dec(o["price"]).quantize(Decimal("0.01")), option_position
+            option.component_id = _int(o["component"]) if Component.objects.filter(pk=_int(o["component"])).exists() else None
+            option.quantity = _num(o["quantity"]) or 1
             option.save()
             keep_options.add(option.id)
         group.options.exclude(pk__in=keep_options).delete()
@@ -420,6 +445,7 @@ def editor(dish, draft, leave_ask=False, photo_pending=False):
         "catering": _catering(draft, price, cost),
         "recipe": recipe, "plate_cost": cost or Decimal("0"), "fc_level": cost_level(fc), "fc_text": fc_text,
         "component_choices": [{"id": cid, "label": f"{c.title} · {unit_cost_text(c)}"} for cid, c in components.items() if cid not in used],
+        "components": list(components.values()),
         "allergens": parts_allergens(parts), "diets": parts_diets(parts), "has_recipe": bool(parts),
         "menus": [{"menu": m, "on": m.id in draft["menus"]} for m in Menu.objects.all()],
         "week": last_week(dish, cost, price),

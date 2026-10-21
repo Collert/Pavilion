@@ -123,7 +123,7 @@ warnings keep up ([data-calc] parts update even while you type in their region).
                     <input type="hidden" name="part-{{ r.i }}-id" value="{{ r.p.id }}"><input type="hidden" name="part-{{ r.i }}-component" value="{{ r.p.component }}">
                     <span class="strong">{{ r.component.title }}</span>
                     <label class="mini-toggle" title="{% trans 'Customers can leave it out or ask for up to 10 more' %}">
-                        <input type="checkbox" name="part-{{ r.i }}-adjustable" value="1" {% if r.p.adjustable %}checked{% endif %}>{% trans "Adjustable" %}</label>
+                        <input type="checkbox" name="part-{{ r.i }}-adjustable" value="1" {% if r.p.adjustable %}checked{% endif %}>{% icon "check" 11 3 %}{% trans "Adjustable" %}</label>
                 </span>
                 <span class="unit-field small"><input type="number" name="part-{{ r.i }}-quantity" min="0" step="any" class="num" value="{{ r.p.quantity }}" aria-label="{% blocktrans with name=r.component.title %}Amount of {{ name }}{% endblocktrans %}"><span class="unit">{{ r.unit }}</span></span>
                 <span class="num right muted small">{{ r.each }}</span>
@@ -153,9 +153,33 @@ warnings keep up ([data-calc] parts update even while you type in their region).
             </div>
             <div class="mod-list">
                 {% for g in d.groups %}{% with gi=forloop.counter0 %}
-                <div class="mod-group">
+                <div class="mod-group{% if g.addons %} addons{% endif %}">
                     <input type="hidden" name="group-{{ gi }}-id" value="{{ g.id }}">
                     <input type="hidden" name="group-{{ gi }}-opt-count" value="{{ g.options|length }}">
+                    {% if g.addons %}
+                    <input type="hidden" name="group-{{ gi }}-addons" value="1">
+                    <div class="mod-top">
+                        <span class="mod-title grow">{% trans "Add-ons" %}<span class="hint small"> · {% trans "components customers can add, counted from stock" %}</span></span>
+                        <span class="mod-rule">{% trans "Pick any" %}</span>
+                    </div>
+                    <div class="opt-chips">
+                        {% for o in g.options %}{% with oi=forloop.counter0 %}
+                        <span class="opt-chip">
+                            <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-id" value="{{ o.id }}">
+                            <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-component" value="{{ o.component }}">
+                            <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-quantity" value="{{ o.quantity }}">
+                            <input class="opt-name" name="group-{{ gi }}-opt-{{ oi }}-title" value="{{ o.title }}" maxlength="80" aria-label="{% trans 'Add-on name' %}">
+                            <span class="unit">+$</span>
+                            <input class="opt-price num" type="number" name="group-{{ gi }}-opt-{{ oi }}-price" min="0" step="0.25" value="{{ o.price }}" aria-label="{% trans 'Extra price' %}">
+                            <button class="x-btn tiny" name="op" value="remove_option:{{ gi }}:{{ oi }}" aria-label="{% blocktrans with name=o.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
+                        </span>
+                        {% endwith %}{% endfor %}
+                        <select class="add-opt" name="group-{{ gi }}-add" aria-label="{% trans 'Add an add-on' %}">
+                            <option value="">{% trans "+ Add-on" %}</option>
+                            {% for c in e.components %}<option value="{{ c.id }}">{{ c.title }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
                     <div class="mod-top">
                         <input class="mod-name" name="group-{{ gi }}-title" value="{{ g.title }}" maxlength="80" aria-label="{% trans 'Modifier group name' %}">
                         <span class="rule-seg" role="radiogroup" aria-label="{% trans 'How many' %}">
@@ -169,18 +193,22 @@ warnings keep up ([data-calc] parts update even while you type in their region).
                         {% for o in g.options %}{% with oi=forloop.counter0 %}
                         <span class="opt-chip">
                             <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-id" value="{{ o.id }}">
+                            <input type="hidden" name="group-{{ gi }}-opt-{{ oi }}-quantity" value="{{ o.quantity }}">
                             <input class="opt-name" name="group-{{ gi }}-opt-{{ oi }}-title" value="{{ o.title }}" maxlength="80" aria-label="{% trans 'Option name' %}">
                             <span class="unit">+$</span>
                             <input class="opt-price num" type="number" name="group-{{ gi }}-opt-{{ oi }}-price" step="0.25" value="{{ o.price }}" aria-label="{% trans 'Extra price' %}">
+                            <select class="opt-link{% if o.component %} linked{% endif %}" name="group-{{ gi }}-opt-{{ oi }}-component" title="{% trans 'Component it uses from stock' %}" aria-label="{% blocktrans with name=o.title %}Component {{ name }} uses{% endblocktrans %}">
+                                <option value="">{% trans "No stock" %}</option>
+                                {% for c in e.components %}<option value="{{ c.id }}"{% if o.component == c.id|stringformat:"d" %} selected{% endif %}>{{ c.title }}</option>{% endfor %}
+                            </select>
                             <button class="x-btn tiny" name="op" value="remove_option:{{ gi }}:{{ oi }}" aria-label="{% blocktrans with name=o.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 11 3 %}</button>
                         </span>
                         {% endwith %}{% endfor %}
                         <button class="add-opt" name="op" value="add_option:{{ gi }}">{% trans "+ Option" %}</button>
                     </div>
+                    {% endif %}
                 </div>
-                {% endwith %}{% empty %}
-                <div class="no-mods">{% trans "No modifiers. The dish rings up as is." %}</div>
-                {% endfor %}
+                {% endwith %}{% endfor %}
             </div>
         </section>
     </div>

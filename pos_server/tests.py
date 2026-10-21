@@ -61,7 +61,7 @@ class MenuFixture:
         Option.objects.create(group=bun_group, title="Brioche")
         cls.gf = Option.objects.create(group=bun_group, title="Gluten-free", price=Decimal("1.50"), component=cls.gf_bun)
         cls.bun_key = f"{bun_group.id}.{cls.dc_bun.id}"
-        addons = OptionGroup.objects.create(title="Add-ons", dish=cls.burger, pick=OptionGroup.ANY)
+        addons = OptionGroup.objects.create(title="Add-ons", dish=cls.burger, pick=OptionGroup.ANY, addons=True)
         cls.avocado_addon = Option.objects.create(group=addons, title="Avocado", price=Decimal("2.25"), component=cls.avocado)
         cls.addons_key = str(addons.id)
         cls.ketchup_side = Extra.objects.create(dish=cls.burger, component=cls.ketchup, title="Ketchup")

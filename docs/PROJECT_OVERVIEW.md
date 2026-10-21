@@ -121,7 +121,8 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   above the standard; each step above costs the component's `extra_price`. **Modifier groups** (`OptionGroup.pick`):
   *pick one* (a `required` one starts on its first option, the standard; an optional one on nothing and can be
   cleared) or *pick any* (each option any number of times up to 99, e.g. add-ons; `required` = at least one, and the
-  register opens the sheet when such a dish is added). Charged add-ons are a dish's pick-any group (2026-10-21; the
+  register opens the sheet when such a dish is added). Any option can use a component from stock. Charged add-ons
+  are the dish's built-in Add-ons group (`OptionGroup.addons`: pick any, each option a component; 2026-10-21; the
   `Extra` add-on kind is gone, Extras are condiments).
 - **Variants** (small/regular/large) are a dish option group whose options change the price and `multiplier`.
 - **Combos** (2026-10-21) cost `Combo.unit_price(picks)` (set price + each pick's upcharge, or the picks' own prices
