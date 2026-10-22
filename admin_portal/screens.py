@@ -658,9 +658,12 @@ def editor_page(screen, state) -> dict:
         "dirty": dirty, "errors": errors, "can_undo": bool(state["hist"]), "can_save": dirty and not errors and bool(draft["name"]),
         "status": errors[0] if errors else _("Unsaved changes") if dirty else _("All changes saved"),
         "status_kind": "bad" if errors else "dirty" if dirty else "",
+        # the preview frame keeps one address; what it should show is told to it (admin_portal/static/admin_portal/screens.js)
+        "preview_base": reverse("admin_screen_preview", args=[screen.id]),
         "preview": reverse("admin_screen_preview", args=[screen.id]) + f"?sel={sel if tab == 'layout' else ''}"
-                   + (f"&popup={state['pop_preview']}" if state["pop_preview"] else "") + "&v="
-                   + hashlib.sha1(json.dumps(draft, sort_keys=True).encode()).hexdigest()[:10],
+                   + (f"&popup={state['pop_preview']}" if state["pop_preview"] else ""),
+        "preview_v": hashlib.sha1(json.dumps(draft, sort_keys=True).encode()).hexdigest()[:10],
+        "preview_sel": sel if tab == "layout" and sel != "screen" else "", "preview_popup": state["pop_preview"] or "",
         "ratio": f"{width} / {height}", "orient_label": _("Landscape 16:9") if draft["orient"] == "land" else _("Portrait 9:16"),
         "editing": editing, "n_widgets": n_widgets, "tab": tab, "pops": pops, "pop_lib": pop_lib,
         "tabs": [("layout", _("Layout"), n_widgets), ("popups", _("Pop-ups"), len(pops)), ("audio", _("Audio"), len(chans))],

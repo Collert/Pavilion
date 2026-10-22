@@ -13,7 +13,8 @@ it when you change how something works.
 
 - Use **`venv\`**, not `.venv\` (incomplete). `venv\Scripts\python manage.py runserver` (ASGI via daphne) →
   `http://127.0.0.1:8000/en/apps/`
-- All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`). Only `/jsi18n/` and `/events/<topic>` don't.
+- All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`), including the JS translation
+  catalog (`/en/jsi18n/`, cached by browsers for a day). Only `/events/<topic>` doesn't.
 - Fresh DB: `manage.py migrate` then `manage.py seed_demo` (logins admin/admin, cashier/cashier, courier/courier,
   customer/customer; register PINs Alex 0000, Dana 1234, Priya 2468). `seed_demo` refuses to run with DEBUG off or
   on a DB that already has dishes/orders. `manage.py seed_recipes` adds the Cookery mockup's recipes to any DB

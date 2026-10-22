@@ -31,10 +31,11 @@ picking a node there, or dropping a widget from the library on an empty slot, co
         <nav class="sc-crumbs" id="screen-crumbs" data-region aria-label="{% trans 'Selected' %}">
             {% for c in e.crumbs %}{% if not forloop.first %}<span class="sc-sep">›</span>{% endif %}<button name="op" value="sel:{{ c.sel }}"{% if c.on %} aria-current="true"{% endif %}>{{ c.label }}</button>{% endfor %}
             <span class="grow"></span><span class="small muted sc-drag-hint">{% trans "Drag a widget onto an empty slot" %}</span>
+            <span hidden data-preview-state data-v="{{ e.preview_v }}" data-sel="{{ e.preview_sel }}" data-popup="{{ e.preview_popup }}" data-url="{{ e.preview }}" data-ratio="{{ e.ratio }}"></span>
         </nav>
         <div class="sc-stage">
-            <div class="sc-frame-outer" id="screen-frame" data-region style="--r: {{ e.ratio }}">
-                <iframe class="sc-frame" src="{{ e.preview }}" title="{% trans 'Preview' %}" tabindex="-1"></iframe>
+            <div class="sc-frame-outer" id="screen-frame" data-region data-keep data-ratio style="--r: {{ e.ratio }}">
+                <iframe class="sc-frame" src="{{ e.preview_base }}" data-preview title="{% trans 'Preview' %}" tabindex="-1"></iframe>
             </div>
         </div>
         <div class="sc-foot"><span class="sc-dot{% if e.d.public %} on{% endif %}"></span><span class="small strong grow ellipsis">{% if e.d.public %}{% trans "Anyone with the link can open it" %}{% else %}{% trans "Staff only" %}{% endif %}</span>

@@ -19,15 +19,18 @@ from django.urls import include, path
 from django.conf.urls.static import static
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
+from django.views.decorators.cache import cache_control
 from django.views.i18n import JavaScriptCatalog
 from pavilion import realtime
 
 urlpatterns = [
-    path('jsi18n/', JavaScriptCatalog.as_view(), name='javascript-catalog'),
     path('events/<str:topic>', realtime.stream_view, name='events'),
 ]
 
 urlpatterns += i18n_patterns(
+    # The translations for gettext() in our scripts. Under the language prefix so each language has its own address,
+    # which lets browsers keep it for a day instead of fetching it again on every page.
+    path('jsi18n/', cache_control(public=True, max_age=24 * 3600)(JavaScriptCatalog.as_view()), name='javascript-catalog'),
     path('', include("online_store.urls")),
     path("admin/", include("admin_portal.urls")),
     path('advanced-admin/', admin.site.urls),
