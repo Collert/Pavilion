@@ -16,7 +16,7 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.translation import gettext as _, ngettext
+from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from deliveries.models import Delivery
 from events.models import Event
@@ -547,3 +547,76 @@ def order_page(request, id, from_placing=None):
             raise Http404
         return theme_page(request, "order.html", {"rejected": rejected, "order_id": id})
     return theme_page(request, "order.html", {"o": storefront.order_card(order, full=True)})
+
+
+# ---------- events and services ----------
+
+SERVICE_ICONS = [  # words in a service's title -> icon
+    (("class", "workshop", "lesson"), "M4 14h16 M6 14a6 6 0 0 1 12 0 M3 18h18 M12 5v3"),
+    (("coffee", "tasting", "barista"), "M5 9h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z M16 11h2a2 2 0 0 1 0 4h-2 M8 3v3 M12 3v3"),
+    (("bartender", "bar"), "M7 3h10l-1 8a4 4 0 0 1-8 0z M12 15v6 M8 21h8"),
+    (("chef", "cook"), "M6 13a4 4 0 1 1 2-7.5A4 4 0 0 1 16 5.5 4 4 0 1 1 18 13v6H6z M6 16h12"),
+    (("chafing", "dish", "warmer"), "M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z M2 10h20 M9 6h6 M12 6V4"),
+    (("urn",), "M7 4h10v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z M17 8h2v4h-2 M10 14h4"),
+    (("grill", "flat-top", "bbq"), "M4 9h16a8 8 0 0 1-16 0z M8 17l-2 4 M16 17l2 4 M8 5c0-1 1-1 1-2 M12 5c0-1 1-1 1-2 M16 5c0-1 1-1 1-2"),
+    (("table", "chair"), "M3 9h18 M6 9v11 M18 9v11 M3 9l3-4h12l3 4"),
+    (("cake", "bakery"), "M4 21h16 M5 21v-7h14v7 M5 16c2 1 4 1 7 0s5-1 7 0 M12 14V9 M12 7a1.5 1.5 0 0 0 0-3"),
+    (("menu", "print", "card"), "M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h4"),
+    (("delivery", "setup", "teardown"), "M3 7h11v9H3z M14 10h4l3 3v3h-7 M7 19a2 2 0 1 0 0-.01 M17 19a2 2 0 1 0 0-.01"),
+    (("server", "staff", "host"), "M12 8a3.5 3.5 0 1 0 0-.01 M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"),
+]
+GROUP_NOTES = {"experience": gettext_lazy("Small groups · add food for after"), "staff": gettext_lazy("For full-service events"),
+               "equipment": gettext_lazy("Delivered with your food, picked up after"), "extra": gettext_lazy("Small things that make it feel planned")}
+
+
+def _service_icon(service):
+    title = service.title.lower()
+    return next((path for words, path in SERVICE_ICONS if any(w in title for w in words)), storefront.SERVICE_ICONS.get(service.category, storefront.SERVICE_ICONS["extra"]))
+
+
+def _service_sub(service):
+    from services.models import Service
+    if service.category == Service.EQUIPMENT and service.deposit and service.deposit_amount:
+        each = _("%(d)s deposit per booking") if service.deposit_per == Service.PER_BOOKING else _("%(d)s deposit each")
+        return each % {"d": storefront.money(service.deposit_amount).replace(".00", "")}
+    if service.category == Service.EQUIPMENT:
+        return _("No deposit")
+    if service.minimum and service.pricing != Service.FLAT:
+        return service.amount_text(service.minimum) + " " + _("minimum")
+    if service.category == Service.EXPERIENCE and service.detail("minutes"):
+        return _("%(n)d minutes") % {"n": int(service.detail("minutes"))}
+    if service.needs_approval:
+        return _("We confirm availability")
+    return ""
+
+
+def services_page(request):
+    from django.db.models import Count
+    from services.models import Service
+    services = list(Service.objects.filter(online=True, active=True, archived=False)
+                    .annotate(booked=Count("bookings")).order_by("-booked", "title"))
+    venues = [s for s in services if s.category == Service.VENUE][:2]
+    groups = []
+    for key, title in ((Service.EXPERIENCE, _("Experiences")), (Service.STAFF, _("Staff")), (Service.EQUIPMENT, _("Equipment")), ("extra", _("Extras"))):
+        items = [s for s in services if s.category == key or (key == "extra" and s.category in (Service.EXTRA, Service.DELIVERY))]
+        if not items:
+            continue
+        top = max(items, key=lambda s: s.booked)
+        groups.append({"key": key, "title": title, "note": GROUP_NOTES.get(key, ""), "cols": 4 if len(items) % 4 == 0 else 3,
+                       "items": [{"s": s, "icon": _service_icon(s), "price": storefront.service_price(s), "sub": _service_sub(s),
+                                  "tag": _("On request") if s.needs_approval else _("Popular") if s is top and s.booked else "",
+                                  "first": i == 0 and not groups} for i, s in enumerate(items)]})
+    venue_cards = []
+    for n, v in enumerate(venues):
+        facts = []
+        if v.detail("seated"):
+            facts.append(_("Seats %(s)d, or %(t)d standing") % {"s": int(v.detail("seated")), "t": int(v.detail("standing") or v.detail("seated"))})
+        facts += [str(x) for x in (v.includes or [])[:2]]
+        if v.minimum and v.pricing != Service.FLAT:
+            facts.append(v.amount_text(v.minimum) + " " + _("minimum"))
+        if v.needs_approval:
+            facts.append(_("We confirm availability first"))
+        venue_cards.append({"s": v, "facts": facts[:4], "price": storefront.service_price(v),
+                            "tag": _("On request") if v.needs_approval else _("Most booked") if n == 0 and v.booked else ""})
+    jumps = ([("space", _("The space"), len(venue_cards))] if venue_cards else []) + [(g["key"], g["title"], len(g["items"])) for g in groups]
+    return theme_page(request, "services.html", {"venues": venue_cards, "groups": groups, "jumps": jumps}, active="services")

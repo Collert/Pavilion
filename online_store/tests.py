@@ -351,3 +351,20 @@ class AccountTests(MenuFixture, TestCase):
         line = self.client.session["cart"]["lines"][0]
         self.assertEqual((line["id"], line["qty"], line["cust"]["options"][self.temp_key]), (self.burger.id, 2, self.well.id))
         self.assertEqual(self.client.get(reverse("account_receipt", args=[order.id])).status_code, 200)
+
+
+class ServicesPageTests(TestCase):
+    def test_services_page_and_add_to_a_request(self):
+        from services.models import Service
+        room = Service.objects.create(title="Back room", category=Service.VENUE, pricing=Service.HOUR, price=Decimal("75"),
+                                      minimum=2, catering=False, details={"seated": 24, "standing": 35})
+        Service.objects.create(title="Event server", category=Service.STAFF, pricing=Service.HOUR, price=Decimal("38"))
+        Service.objects.create(title="Hidden", category=Service.EXTRA, pricing=Service.UNIT, price=Decimal("1"), online=False)
+        page = self.client.get(reverse("store_services")).context
+        self.assertEqual([v["s"] for v in page["venues"]], [room])
+        self.assertIn("Seats 24, or 35 standing", page["venues"][0]["facts"])
+        self.assertEqual([[x["s"].title for x in g["items"]] for g in page["groups"]], [["Event server"]])
+        self.assertRedirects(self.client.get(reverse("store_catering") + f"?add={room.id}"), reverse("store_catering"), fetch_redirect_response=False)
+        quote = self.client.get(reverse("store_catering")).context
+        self.assertEqual(quote["q"]["services"], {str(room.id): {"q": 1, "h": 2}})
+        self.assertIn(room, [x["s"] for g in quote["svc_groups"] for x in g["items"]])

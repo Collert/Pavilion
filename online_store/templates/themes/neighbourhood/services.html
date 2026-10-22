@@ -1,0 +1,79 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n %}
+{% comment %}
+Events and services (design: StoreServices; online_store/pages.py: services_page): the services booked online,
+the venue first. "Add to a request" starts a catering quote with it (/catering/?add=<id>).
+{% endcomment %}
+{% block title %}{% trans "Events & services" %} · {{ store.name }}{% endblock %}
+{% block content %}
+<section class="nb-svc-hero">
+    <div><div class="nb-kick accent">{% trans "Events & services" %}</div>
+        <h1 class="nb-serif nb-svc-title">{% trans "Rooms, classes and a crew for your crowd." %}</h1></div>
+    <div>
+        <p class="nb-svc-intro">{% trans "Book a room, take a class, or borrow our staff and equipment. Everything is booked through a catering request, so you can add food or skip it." %}</p>
+        <div class="nb-hero-btns">
+            <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.catering }}">{% trans "Start a request" %}</a>
+            {% if store.phone %}<a class="nb-btn nb-btn-line nb-btn-big" href="tel:{{ store.phone }}">{% trans "Talk to us first" %}</a>{% endif %}
+        </div>
+    </div>
+</section>
+
+{% if jumps %}<nav class="nb-jumps" aria-label="{% trans 'Sections' %}">{% for key, label, n in jumps %}<a href="#svc-{{ key }}">{{ label }}<span>{{ n }}</span></a>{% endfor %}</nav>{% endif %}
+
+{% if venues %}
+<section class="nb-section top" id="svc-space">
+    <h2 class="nb-serif nb-h2">{% trans "The space" %}</h2>
+    <div class="nb-venues{% if venues|length == 1 %} one{% endif %}">
+        {% for v in venues %}
+        <article class="nb-venue nb-lift {% if forloop.first %}gold{% else %}ink{% endif %}">
+            <div class="nb-venue-text">
+                {% if v.tag %}<span class="nb-venue-tag">{{ v.tag }}</span>{% endif %}
+                <h3 class="nb-serif">{{ v.s.title }}</h3>
+                {% if v.s.description %}<p>{{ v.s.description }}</p>{% endif %}
+                {% if v.facts %}<ul>{% for f in v.facts %}<li>· {{ f }}</li>{% endfor %}</ul>{% endif %}
+                <span class="nb-grow"></span>
+                <div class="nb-venue-foot"><span class="nb-serif nb-grow">{{ v.price }}</span><a class="nb-btn {% if forloop.first %}nb-btn-ink{% else %}nb-btn-gold{% endif %}" href="{{ links.catering }}?add={{ v.s.id }}">{% if v.s.needs_approval %}{% trans "Ask about a date" %}{% else %}{% trans "Add to a request" %}{% endif %}</a></div>
+            </div>
+            {% if forloop.first %}
+            <div class="nb-venue-art" aria-hidden="true">
+                <svg width="100%" height="100%" viewBox="0 0 300 380" preserveAspectRatio="xMidYMid slice">
+                    <rect width="300" height="380" fill="var(--deep)"/>
+                    <rect x="110" y="50" width="80" height="280" rx="14" fill="#C8923F"/>
+                    <g fill="var(--paper)"><circle cx="150" cy="90" r="11"/><circle cx="150" cy="140" r="11"/><circle cx="150" cy="190" r="11"/><circle cx="150" cy="240" r="11"/><circle cx="150" cy="290" r="11"/></g>
+                    <g fill="var(--highlight)"><rect x="78" y="78" width="22" height="24" rx="6"/><rect x="78" y="128" width="22" height="24" rx="6"/><rect x="78" y="178" width="22" height="24" rx="6"/><rect x="78" y="228" width="22" height="24" rx="6"/><rect x="78" y="278" width="22" height="24" rx="6"/><rect x="200" y="78" width="22" height="24" rx="6"/><rect x="200" y="128" width="22" height="24" rx="6"/><rect x="200" y="178" width="22" height="24" rx="6"/><rect x="200" y="228" width="22" height="24" rx="6"/><rect x="200" y="278" width="22" height="24" rx="6"/></g>
+                </svg>
+            </div>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% for g in groups %}
+<section class="nb-section nb-svc-group" id="svc-{{ g.key }}">
+    <div class="nb-section-head nb-svc-head"><h2 class="nb-serif nb-h2 nb-grow">{{ g.title }}</h2><span class="muted strong">{{ g.note }}</span></div>
+    <div class="nb-svc-grid cols-{{ g.cols }}">
+        {% for x in g.items %}
+        <article class="nb-svc-card nb-lift">
+            <div class="nb-svc-card-top"><span class="nb-svc-icon{% if x.first %} hot{% endif %}"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ x.icon }}"/></svg></span><span class="nb-grow"></span>{% if x.tag %}<span class="nb-svc-tag{% if x.s.needs_approval %} quiet{% endif %}">{{ x.tag }}</span>{% endif %}</div>
+            <h3 class="nb-serif">{{ x.s.title }}</h3>
+            <p>{{ x.s.description }}</p>
+            <div class="nb-svc-foot"><div class="nb-grow"><div class="strong">{{ x.price }}</div>{% if x.sub %}<div class="muted small">{{ x.sub }}</div>{% endif %}</div>
+                <a class="nb-round-add accent" href="{{ links.catering }}?add={{ x.s.id }}" aria-label="{% blocktrans with name=x.s.title %}Add {{ name }} to a request{% endblocktrans %}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14 M5 12h14"/></svg></a></div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+<section class="nb-how">
+    <div class="nb-kick gold">{% trans "How booking works" %}</div>
+    <div class="nb-how-grid">
+        <div><div class="nb-serif nb-how-n">1</div><div class="nb-serif nb-how-title">{% trans "Build a request" %}</div><p>{% trans "Pick a date, add services and, if you like, food from the catering menu. You’ll see an estimate as you go." %}</p></div>
+        <div><div class="nb-serif nb-how-n">2</div><div class="nb-serif nb-how-title">{% trans "We confirm or suggest changes" %}</div><p>{% trans "Usually within a business day. If something needs to change, you see exactly what changed and why." %}</p></div>
+        <div><div class="nb-serif nb-how-n">3</div><div class="nb-serif nb-how-title">{% trans "Approve and you’re booked" %}</div><p>{% trans "Your card stays on file until you approve. Then we charge the final total and start planning." %}</p></div>
+    </div>
+    <div class="nb-how-foot"><span class="nb-grow">{% trans "Rentals with a deposit are held on your card close to the event and released when everything comes back in one piece." %}</span><a class="nb-btn nb-btn-gold nb-btn-big" href="{{ links.catering }}">{% trans "Start a request" %}</a></div>
+</section>
+{% endblock %}

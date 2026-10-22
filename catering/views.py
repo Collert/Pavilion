@@ -32,6 +32,10 @@ FOOD_TONES = 4
 def quote_page(request):
     cfg = CateringSettings.load()
     q = store.load(request)
+    if request.GET.get("add"):
+        q = store.apply_op(q, f"sadd:{request.GET['add']}", {})
+        store.save(request, q)
+        return redirect("store_catering")
     if request.method == "POST":
         op = request.POST.get("op", "")
         q = store.apply_op(q, op, request.POST)
@@ -69,7 +73,7 @@ def quote_page(request):
     groups = []
     for key, label in store.Service.CATEGORIES:
         items = []
-        for s in store.services():
+        for s in store.services(q):
             if s.category != key:
                 continue
             x = q["services"].get(str(s.id))

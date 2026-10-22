@@ -207,3 +207,56 @@
     .nb-banner-btns .nb-btn { flex: 1; }
     .nb-send-sheet { padding: 22px; }
 }
+
+/* ---------- events and services (design: StoreServices) ---------- */
+.nb-svc-hero { padding: 56px var(--pad) 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: end; }
+.nb-svc-title { margin: 12px 0 0; font-size: clamp(44px, 5.8vw, 84px); line-height: .98; font-weight: 600; }
+.nb-svc-intro { margin: 0; font-size: 18px; line-height: 1.6; color: var(--soft-ink); }
+.nb-jumps { padding: 0 var(--pad); display: flex; flex-wrap: wrap; gap: 8px; }
+.nb-jumps a { height: 42px; padding: 0 18px; border-radius: 21px; box-shadow: inset 0 0 0 var(--outline) var(--ink); background: var(--card); font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.nb-jumps a span { font-size: 13px; color: var(--soft-ink); }
+.nb-section.top#svc-space { padding-top: 44px; padding-bottom: 0; }
+.nb-venues { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; margin-top: 20px; }
+.nb-venues.one { grid-template-columns: 1fr; }
+.nb-venue { border-radius: calc(var(--radius) * 1.36); overflow: hidden; display: grid; }
+.nb-venue.gold { background: var(--highlight); color: var(--ink); box-shadow: inset 0 0 0 var(--outline) var(--ink); grid-template-columns: 1fr 1fr; }
+.nb-venue.ink { background: var(--ink); color: var(--paper); }
+.nb-venue-text { padding: 30px; display: flex; flex-direction: column; }
+.nb-venue-text h3 { margin: 20px 0 0; font-size: 40px; font-weight: 600; line-height: 1; }
+.nb-venue-text p { margin: 12px 0 0; font-size: 15px; line-height: 1.6; }
+.nb-venue.ink p { color: color-mix(in srgb, var(--paper) 78%, var(--ink)); }
+.nb-venue-text ul { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
+.nb-venue-tag { height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; align-self: flex-start; background: var(--ink); color: var(--highlight); }
+.nb-venue.ink .nb-venue-tag { background: var(--paper); color: var(--ink); }
+.nb-venue-foot { display: flex; align-items: center; gap: 12px; margin-top: 22px; font-size: 26px; font-weight: 600; }
+.nb-venue-art { min-height: 320px; position: relative; }
+.nb-venue-art svg { position: absolute; inset: 0; }
+.nb-svc-group { padding-top: 56px; padding-bottom: 0; }
+.nb-svc-head { border-bottom: var(--rule); padding-bottom: 12px; align-items: baseline; }
+.nb-svc-head .nb-h2 { margin: 0; }
+.nb-svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+.nb-svc-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.nb-svc-card { display: flex; flex-direction: column; padding: 24px; border-radius: calc(var(--radius) * 1.18); background: var(--card); box-shadow: inset 0 0 0 var(--outline) var(--ink); min-height: 300px; }
+.nb-svc-card-top { display: flex; align-items: flex-start; gap: 12px; }
+.nb-svc-icon { width: 54px; height: 54px; border-radius: 27px; display: flex; align-items: center; justify-content: center; background: var(--paper); box-shadow: inset 0 0 0 var(--outline) var(--ink); }
+.nb-svc-icon.hot { background: var(--highlight); box-shadow: none; }
+.nb-svc-tag { height: 26px; padding: 0 11px; border-radius: 13px; font-size: 12px; font-weight: 700; display: flex; align-items: center; background: var(--accent); color: var(--card); }
+.nb-svc-tag.quiet { background: var(--map); color: var(--soft-ink); }
+.nb-svc-card h3 { margin: 22px 0 0; font-size: 28px; font-weight: 600; line-height: 1.05; }
+.nb-svc-card p { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: var(--soft-ink); flex: 1; }
+.nb-svc-foot { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1.5px dashed var(--dash); font-size: 17px; }
+.nb-round-add.accent { width: 44px; height: 44px; border-radius: 22px; background: var(--accent); color: var(--card); }
+.nb-how { margin: 64px var(--pad) 80px; border-radius: calc(var(--radius) * 1.45); background: var(--deep); color: var(--paper); padding: clamp(28px, 3vw, 44px) clamp(24px, 3.3vw, 48px); }
+.nb-how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 22px; }
+.nb-how-n { font-size: 64px; font-weight: 600; line-height: 1; color: var(--highlight); }
+.nb-how-title { font-size: 28px; font-weight: 600; margin-top: 10px; }
+.nb-how p { margin: 8px 0 0; font-size: 15px; line-height: 1.6; color: color-mix(in srgb, var(--paper) 82%, var(--deep)); }
+.nb-how-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 32px; padding-top: 24px; border-top: 1px solid color-mix(in srgb, var(--paper) 20%, transparent); font-size: 15px; color: color-mix(in srgb, var(--paper) 82%, var(--deep)); }
+@media (max-width: 1180px) { .nb-svc-grid.cols-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 960px) {
+    .nb-svc-hero, .nb-venues, .nb-how-grid { grid-template-columns: 1fr; }
+    .nb-venue.gold { grid-template-columns: 1fr; }
+    .nb-venue-art { min-height: 180px; }
+    .nb-svc-grid, .nb-svc-grid.cols-4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) { .nb-svc-grid, .nb-svc-grid.cols-4 { grid-template-columns: 1fr; } .nb-svc-card { min-height: 0; } }

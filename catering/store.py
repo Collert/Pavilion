@@ -11,6 +11,7 @@ import datetime
 import math
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
@@ -54,8 +55,10 @@ def dishes():
                 .order_by("station__position", "title"))
 
 
-def services():
-    return list(Service.objects.filter(catering=True, active=True, archived=False).order_by("title"))
+def services(q=None):
+    """Services offered on catering requests, plus any already on this quote (added from the services page)."""
+    on_quote = [int(k) for k in (q or {}).get("services", {}) if str(k).isdigit()]
+    return list(Service.objects.filter(Q(catering=True) | Q(pk__in=on_quote), active=True, archived=False).order_by("title"))
 
 
 def delivery_service():
@@ -112,7 +115,8 @@ def apply_op(q, op, post):
             q["dishes"][key] = current + step
         else:
             q["dishes"][key] = 0 if current - step < minimum else current - step
-    service = Service.objects.filter(pk=_int(arg), catering=True).first() if name in ("sadd", "sinc", "sdec", "hinc", "hdec") else None
+    service = Service.objects.filter(Q(catering=True) | Q(online=True), pk=_int(arg), active=True, archived=False).first() \
+        if name in ("sadd", "sinc", "sdec", "hinc", "hdec") else None
     if service:
         key = str(service.id)
         x = q["services"].get(key, {"q": 0, "h": 0})

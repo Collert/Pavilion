@@ -353,7 +353,12 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   automatically at checkout). Checkout offers saved cards (authorized like the card form's payments, by
   `pages._authorize_saved`) and saved addresses; the catering send sheet offers saved cards.
 
-The old `order-history` page and `submit-order` view (old layout) are no longer linked; next: the services page.
+- **Events and services** (`/services`, `pages.services_page`): every service booked online, the venue first,
+  then experiences, staff, equipment and extras, with "Add to a request" starting a catering quote with it
+  (`/catering/?add=<id>`; a quote also takes services that are booked online but not switched on for catering).
+
+Every page of the Neighbourhood theme is built. The old `order-history` page and `submit-order` view (old layout)
+are no longer linked.
 
 `online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 
