@@ -168,8 +168,11 @@ scheduled ones (a menu starting, an event coming up) are worked out at render ti
 `fn(request, params, now)` returning `show`, `until` (hide) and `next` (look again), turned into a hidden data-ends.
 
 **Audio** widgets (`kind: audio`: `music_channel`, `voice_channel`) are listed on `Screen.audio`, top priority first,
-each with an `id` that pop-ups and widgets pick with a `source: "audio:voice"`/`"audio:music"` param. Only the
-editor's Audio tab exists so far: nothing plays until the audio backend (Audio channels, Library) is built.
+each with an `id` (pop-ups pick it with a `source: "audio:voice"` param) and a store channel (`audio.AudioChannel`,
+`params.channel`). The screen page plays them (`screens/static/screens/audio-player.js`, config from
+`screens/views.py: audio_config`): music in step with the channel's timeline (`audio/music.py`) straight from the
+media storage, voice from its WebSocket, ducking lower channels while a voice speaks; "Tap to turn on sound" until a
+tap (or Chrome's `--autoplay-policy=no-user-gesture-required`). Songs on S3 need CORS for the volume control.
 
 **Sessions:** a screen with `sessions` on is opened per display: Apps → Screens → the screen → open or start a
 `ScreenSession` (`/screens/<slug>/s/<code>`; the code shows in a corner until a register pairs). A register pairs in
@@ -217,7 +220,8 @@ for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default
 ## Real-time: read before touching screens
 
 Screens update over **SSE** (`pavilion/realtime.py`). Model signals call `publish("orders"|"inventory"|"checkout")`
-after commit; `/events/<topic>` streams nudges; screens refetch their JSON endpoint via `onLiveUpdate()` in
+after commit; `/events/<topic>[,<topic>...]` streams nudges (a page's topics share ONE stream: browsers allow six
+connections per server over HTTP/1.1, and a stream per topic hung pages); screens refetch their JSON endpoint via `onLiveUpdate()` in
 `static/js/live.js` (no polling: screens refetch on each event and on every (re)connect, and reconnect if the 15 s `ping` heartbeat stops). Redis (`REDIS_URL`) carries events and the cache between workers in
 production; without it an in-process broker is used. POS ↔ customer display talk via `BroadcastChannel` (same browser).
 **Don't add module-level/global state for cross-request data**: per-process memory is what broke the original SSE.
