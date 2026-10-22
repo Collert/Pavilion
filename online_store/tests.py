@@ -1,4 +1,4 @@
-"""Tests for online checkout (place_order): server-side pricing, payment checks and opening hours."""
+"""Tests for the online store: checkout (server-side pricing, payment checks, opening hours), themes, account, services."""
 import datetime
 import json
 from decimal import Decimal
@@ -16,6 +16,7 @@ from pos_server.tests import MenuFixture
 
 
 class PlaceOrderTests(MenuFixture, TestCase):
+    """Placing an order from checkout (pages._place): the card payment's transaction, gift cards, coupons, hours."""
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
@@ -25,9 +26,10 @@ class PlaceOrderTests(MenuFixture, TestCase):
         self.event = Event.objects.create(
             title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=2),
             restaurant_open=True, in_person_open=True, online_open=True, delivery_open=False)
-        self.pickup_time = (now + datetime.timedelta(minutes=30)).strftime("%H:%M")
-        if now.hour == 23 and now.minute >= 29:
-            self.skipTest("Pickup time would roll over to tomorrow")
+        self.url = reverse("store_cart")
+        self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.medium.id,
+                                           f"g-{self.bun_key}": self.gf.id})
+        self.client.post(self.url, {"op": "tip:0"})
 
     def paid_transaction(self, amount):
         transaction = Transaction.objects.create(amount=Decimal(amount), successful=True)
@@ -35,71 +37,55 @@ class PlaceOrderTests(MenuFixture, TestCase):
                                             currency="CAD", transaction=transaction)
         return transaction
 
-    def place(self, items, transaction=None, gift=(), method="pick-up", coupon="", **extra):
-        cart = {"lines": items, "total": 0.01, "coupon": coupon,  # the browser's total is ignored
-                "partialPayments": [{"type": "gift", "number": number, "amount": amount} for number, amount in gift]}
-        data = {
-            "cart-string": json.dumps(cart), "transaction_uuid": str(transaction.uuid) if transaction else "",
-            "delivery-pickup-toggle": method, "name": "Iryna", "phone": "604-555-0123", "time": self.pickup_time,
-            "order-instructions": "", "here-to-go-toggle": "go", **extra,
-        }
-        return self.client.post(reverse("submit_order"), data)
+    def place(self, transaction=None, **extra):
+        return self.client.post(self.url, {"name": "Iryna", "email": "iryna@example.com", "phone": "604-555-0123", "op": "place",
+                                           "transaction_uuid": str(transaction.uuid) if transaction else "", **extra})
 
     def test_paid_order_is_created_pending(self):
-        transaction = self.paid_transaction("16.50")
-        response = self.place([self.dish(self.burger), self.dish(self.tea)], transaction)
-        self.assertEqual(response.status_code, 302)
+        transaction = self.paid_transaction("16.00")
+        response = self.place(transaction)
         order = Order.objects.get()
-        self.assertEqual(order.channel, "web")
-        self.assertEqual(order.total, Decimal("16.50"))
-        self.assertEqual(order.phone, 6045550123)
+        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertEqual((order.channel, order.total, order.phone), ("web", Decimal("16.00"), 6045550123))
         self.assertEqual(set(order.station_status_map().values()), {OrderStation.STATUS_PENDING})
         self.assertEqual(order.authorization.transaction, transaction)
         transaction.refresh_from_db()
         self.assertTrue(transaction.used)
 
     def test_unpaid_transaction_is_refused(self):
-        transaction = Transaction.objects.create(amount=Decimal("16.50"), successful=False)
-        response = self.place([self.dish(self.burger), self.dish(self.tea)], transaction)
-        self.assertEqual(response.status_code, 400)
+        self.place(Transaction.objects.create(amount=Decimal("16.00"), successful=False))
         self.assertFalse(Order.objects.exists())
 
     def test_underpaid_transaction_is_refused(self):
         transaction = self.paid_transaction("0.01")
-        response = self.place([self.dish(self.burger)], transaction)
-        self.assertEqual(response.status_code, 400)
+        self.place(transaction)
         self.assertFalse(Order.objects.exists())
         transaction.refresh_from_db()
         self.assertFalse(transaction.used)
 
     def test_transaction_cannot_be_reused(self):
-        transaction = self.paid_transaction("14.50")
-        self.place([self.dish(self.burger)], transaction)
-        response = self.place([self.dish(self.burger)], transaction)
-        self.assertEqual(response.status_code, 400)
+        transaction = self.paid_transaction("16.00")
+        self.place(transaction)
+        self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.medium.id,
+                                           f"g-{self.bun_key}": self.gf.id})
+        self.place(transaction)
         self.assertEqual(Order.objects.count(), 1)
 
     def test_gift_card_can_cover_everything(self):
         card = GiftCard.objects.create(available_balance=Decimal("20.00"))
-        response = self.place([self.dish(self.burger)], gift=[(card.number, "14.50")])
-        self.assertEqual(response.status_code, 302)
+        self.client.post(self.url, {"op": "code", "code": card.number})
+        self.place()
         card.refresh_from_db()
-        self.assertEqual(card.available_balance, Decimal("5.50"))
+        self.assertEqual(card.available_balance, Decimal("4.00"))
 
-    def test_combo_and_coupon(self):
+    def test_coupon(self):
         from pos_server.models import Discount
         Discount.objects.create(name="Welcome", kind="pct", value=Decimal("10"), scope="order", code="WELCOME10", online=True)
-        response = self.place([self.lunch(self.tea)], self.paid_transaction("14.85"), coupon="welcome10")
-        self.assertEqual(response.status_code, 302)
+        self.client.post(self.url, {"op": "code", "code": "welcome10"})
+        self.place(self.paid_transaction("14.40"))
         order = Order.objects.get()
-        self.assertEqual((order.subtotal, order.discount, order.total), (Decimal("16.50"), Decimal("1.65"), Decimal("14.85")))
+        self.assertEqual((order.subtotal, order.discount, order.total), (Decimal("16.00"), Decimal("1.60"), Decimal("14.40")))
         self.assertEqual(order.discounts.get().label, "WELCOME10")
-
-    def test_quote(self):
-        response = self.client.post(reverse("cart_quote"), json.dumps({"lines": [self.lunch()], "coupon": "NOPE"}),
-                                    content_type="application/json")
-        self.assertEqual(response.json()["total"], 1600)
-        self.assertEqual(response.json()["orderDiscountError"], "That code isn't valid.")
 
     def test_menu_lists_combos(self):
         response = self.client.get(reverse("menu"))
@@ -110,28 +96,24 @@ class PlaceOrderTests(MenuFixture, TestCase):
 
     def test_closed_when_there_is_no_event(self):
         self.event.delete()
-        response = self.place([self.dish(self.burger)], self.paid_transaction("14.50"))
-        self.assertEqual(response.status_code, 400)
+        self.place(self.paid_transaction("16.00"))
+        self.assertFalse(Order.objects.exists())
 
     def test_delivery_needs_delivery_open(self):
-        response = self.place([self.dish(self.burger)], self.paid_transaction("14.50"), method="delivery",
-                              **{"delivery-address-1": "1 Main St", "delivery-address-city": "New Westminster",
-                                 "delivery-address-postal": "V3M 1A1", "delivery-dropoff-method": "door"})
-        self.assertEqual(response.status_code, 400)
+        address = {"address": "1 Main St", "city": "New Westminster", "postal": "V3M 1A1"}
+        self.client.post(self.url, {"op": "method:delivery"})
+        self.place(self.paid_transaction("16.00"), **address)
+        self.assertFalse(Order.objects.exists())
         self.event.delivery_open = True
         self.event.save()
-        response = self.place([self.dish(self.burger)], self.paid_transaction("14.50"), method="delivery",
-                              **{"delivery-address-1": "1 Main St", "delivery-address-city": "New Westminster",
-                                 "delivery-address-postal": "V3M 1A1", "delivery-dropoff-method": "door"})
-        self.assertEqual(response.status_code, 302)
+        priced = self.client.post(self.url, {"op": "preview", **address}).context["total"]
+        self.place(self.paid_transaction(str(priced)), **address)
         self.assertEqual(Delivery.objects.get().order.channel, "delivery")
 
     def test_order_status_page(self):
-        self.place([self.dish(self.burger)], self.paid_transaction("14.50"))
-        order = Order.objects.get()
-        response = self.client.get(reverse("order_status", kwargs={"id": order.id}))
+        self.place(self.paid_transaction("16.00"))
+        response = self.client.get(reverse("order_status", args=[Order.objects.get().id]))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["o"]["progress"], 1)  # scheduled: the pickup time is 30 minutes from now
 
 
 class ThemeTests(MenuFixture, TestCase):

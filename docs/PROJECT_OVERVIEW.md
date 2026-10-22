@@ -75,7 +75,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 
 | Prefix | App | Key routes |
 | --- | --- | --- |
-| `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
+| `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
 | `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
@@ -357,23 +357,16 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   then experiences, staff, equipment and extras, with "Add to a request" starting a catering quote with it
   (`/catering/?add=<id>`; a quote also takes services that are booked online but not switched on for catering).
 
-Every page of the Neighbourhood theme is built. The old `order-history` page and `submit-order` view (old layout)
-are no longer linked.
+Every page of the Neighbourhood theme is built; the old store layout, its IndexedDB cart, `cart-quote`,
+`submit-order`, `order-history` and the service worker are gone.
 
-`online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
-
-0. The menu lists dishes and combos; a combo that asks for a pick opens a picker. The cart
-   (`online_store/static/online_store/cart.js`, kept in IndexedDB) is priced by `cart-quote`; checkout has a coupon
-   field. Dishes are added as standard (no customization sheet online yet).
-1. `check_business_day` (context processor) exposes today's open `Event` (lazily: only pages that use it query it); `place_order` re-checks it on the server,
-   including `online_open`/`delivery_open` and that the pickup time is inside the event.
-2. The checkout form (`attach-card-payment confirmation-needed`) opens `payments/web-payment-window?amount=` in an iframe.
-   That creates a `Transaction` for the amount; `process-web-payment` charges **the transaction's amount** via Square
-   (authorize-only) and only then marks it paid. The form is resubmitted with `transaction_uuid`.
-3. `place_order` calls `create_order` with `initial_status=PENDING`. `verify_payment` requires a paid, unused transaction
-   covering the remainder after gift cards and links its `PaymentAuthorization` to the order. Delivery orders get a
-   `Delivery` (phone required). Errors render `order-error.html`.
-4. The customer's order IDs are kept in `localStorage.orders` for `order-history`.
+Placing an order (`pages._place`, checkout's `op=place`): the schedule is checked again (ASAP only while an `Event`
+is open for online or delivery orders), gift cards are used first, then a saved card (`_authorize_saved`) or the card
+sheet: `payments/web-payment-window?amount=` in an iframe creates a `Transaction`, `process-web-payment` charges
+**the transaction's amount** via Square (authorize-only) and only then marks it paid, and `checkout.js` posts the
+form again with `transaction_uuid`. `create_order` runs with `initial_status=PENDING`; `verify_payment` requires a
+paid, unused transaction covering what's left and links its `PaymentAuthorization` to the order. Delivery orders get
+a `Delivery`. The session keeps the last 20 order ids (`session["orders"]`).
 
 ### 6.6 Deliveries (`/deliveries/`)
 
@@ -756,7 +749,6 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
   checkout still takes delivery orders when no courier is on shift (they show on the KDS as "No courier").
 - Old migrations were discarded, so `db-old-2026-10-13.sqlite3` can't be migrated forward. Its data would need a manual import.
 - The admin portal is mid-rebuild (§6.9); the `Waste*` inventory models have no UI.
-- `online_store` `PlaceOrderTests` fail after 10 PM: their event ends after midnight. Store hours (admin rebuild) replaces that gating.
 - `Staff.allowance` is still a float.
 
 **Fixed in the 2026-10-13 overhaul** (details in the commit messages on `fix-all-problems-for-real`): media catch-all
