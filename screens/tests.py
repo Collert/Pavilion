@@ -209,9 +209,9 @@ class OrderBoardTests(TestCase):
         fresh_tile = ready[ready.index("is-fresh"):]
         self.assertLess(fresh_tile.index("Jun"), fresh_tile.index("Olivia"))
         self.assertIn("data-ends=", fresh_tile)
-        # Live updates: the page listens for order changes and screen edits
+        # Live updates: the page listens for order changes, screen edits and the music
         topics = json.loads(re.search(r'id="screen-topics" type="application/json">(.*?)</script>', html).group(1))
-        self.assertEqual(set(topics), {"screens", "orders"})
+        self.assertEqual(set(topics), {"screens", "orders", "audio"})  # audio: its Now playing follows the music
 
     def test_overflow_is_counted(self):
         Screen.objects.create(name="Small", slug="small", public=True, layout=node("order_list", limit=2, more_text="more"))

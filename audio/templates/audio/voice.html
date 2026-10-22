@@ -1,0 +1,71 @@
+{% extends "audio/base.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+A voice channel (design: AudioVoice; pages.voice_page). The talk stage is voice.js's (hold to talk, the status, the
+waveform, this device's speaker and volume); the server renders the Recent list (who talked in the last hour, and
+order calls, which play again on this device only) and refreshes it on "audio" nudges. Voices aren't recorded.
+{% endcomment %}
+{% block page_title %}{{ v.ch.name }}{% endblock %}
+{% block audio_scripts %}<script type="module" src="{% static 'audio/voice.js' %}"></script>{% endblock %}
+
+{% block content %}
+<header class="au-head">
+    <div class="grow">
+        <div class="au-kicker">{% trans "Voice channel" %}{% if v.where %} · {{ v.where }}{% endif %}</div>
+        <h1 class="disp au-title">{{ v.ch.name }}</h1>
+    </div>
+    <button type="button" class="au-speaker" role="switch" aria-checked="true" data-speaker>
+        <span data-speaker-on>{% icon "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6 M18.5 6.5a7.5 7.5 0 0 1 0 11" 18 2.2 %}{% trans "This speaker is on" %}</span>
+        <span data-speaker-off hidden>{% icon "M4 10v4h4l5 4V6L8 10z M17 9l5 6 M22 9l-5 6" 18 2.2 %}{% trans "This speaker is muted" %}</span>
+    </button>
+</header>
+
+<div class="au-voice">
+    <section class="au-stage" aria-label="{% trans 'Talk' %}" data-voice data-ws="/ws/voice/{{ v.ch.id }}" data-channel="{{ v.ch.id }}" data-name="{{ v.ch.name }}"
+             data-busy-who="{% if v.status.who %}{{ v.status.who.name }}{% endif %}">
+        <div class="au-status idle" role="status" aria-live="polite" data-status>
+            <span class="au-status-dot"></span>
+            <span class="au-q-text"><span class="au-status-head" data-status-head>{% trans "Connecting…" %}</span><span class="au-status-sub" data-status-sub></span></span>
+            <span class="num au-status-timer" data-timer></span>
+        </div>
+        <div class="au-wave" aria-hidden="true" data-wave>{% for i in "1234567890123456789012345678" %}<span></span>{% endfor %}</div>
+        <div class="au-ptt-wrap">
+            <span class="au-ring"></span><span class="au-ring late"></span>
+            <button class="au-ptt" aria-pressed="false" disabled data-ptt>
+                <span data-ptt-icon>{% icon "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5 11a7 7 0 0 0 14 0 M12 18v3" 84 1.8 %}</span>
+                <span data-ptt-busy hidden>{% icon "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5 11a7 7 0 0 0 11.5 5.4 M19 11a7 7 0 0 1-.4 2.3 M12 18v3 M3 3l18 18" 84 1.8 %}</span>
+                <span class="au-ptt-text" data-ptt-text>{% trans "Hold to talk" %}</span>
+                <span class="au-ptt-sub" data-ptt-sub>{% trans "or hold the space bar" %}</span>
+            </button>
+        </div>
+        <span class="au-grow"></span>
+        <div class="au-stage-bar">
+            <button type="button" class="au-soft-pill" data-replay-last disabled>{% icon "M3.5 12a8.5 8.5 0 1 0 2.5-6 M3 4v4h4" 18 2.4 %}{% trans "Replay last" %}</button>
+            <form method="post">{% csrf_token %}
+                <button class="au-soft-pill" name="op" value="chime" data-chime>{% icon "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.9 1.9 0 0 0 3.4 0" 18 2.2 %}{% trans "Chime" %}</button>
+            </form>
+            <span class="au-grow"></span>
+            {% icon "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6" 20 2.2 %}
+            <input class="au-range au-vol wide" type="range" min="0" max="100" step="5" value="80" aria-label="{% trans 'Speaker volume' %}" data-volume style="--pct: 80%">
+            <span class="num au-vol-n" data-volume-n>80%</span>
+        </div>
+    </section>
+
+    <aside class="au-recent" aria-label="{% trans 'Recent' %}">
+        <div class="au-recent-head"><h2 class="disp">{% trans "Recent" %}</h2><div class="au-recent-sub">{% trans "Kept for an hour" %}</div></div>
+        <div class="au-recent-rows" id="au-recent" data-region{% if v.last_call %} data-last-call="{{ v.last_call.url }}" data-last-text="{{ v.last_call.text }}"{% endif %}>
+            {% for r in v.rows %}
+            <div class="au-log{% if r.kind == 'live' %} live{% endif %}">
+                {% if r.kind == "call" %}<span class="au-face call">{% icon "M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2" 18 2.2 %}</span>
+                {% else %}<span class="au-face{% if r.kind == 'live' %} ping{% endif %}" style="background: {{ r.face }}">{{ r.ini }}</span>{% endif %}
+                <span class="au-q-text"><span class="au-log-who">{{ r.who }}</span><span class="au-log-what">{{ r.what }}</span></span>
+                {% if r.kind == "call" %}<button type="button" class="au-log-play" data-replay="{{ r.url }}" data-replay-text="{{ r.text }}"
+                    aria-label="{% trans 'Play it again on this device' %}">{% icon "M7 4v16l13-8z" 14 0 %}</button>{% endif %}
+            </div>
+            {% empty %}
+            <div class="au-none small">{% trans "Nothing in the last hour." %}</div>
+            {% endfor %}
+        </div>
+    </aside>
+</div>
+{% endblock %}

@@ -244,6 +244,7 @@ def render_screen(screen, request, editing=None):
     """The screen's HTML, its pop-ups after the layout. `editing` ({"sel": path, "popup": name}) is the admin editor's
     preview: every node carries its path, and the named pop-up shows with sample data."""
     renderer = _Renderer(request, "w" + layout_key(screen), editing)
+    request.screen_audio = screen.audio or []  # for widgets that show one of the screen's channels (Now playing)
     html = renderer.node(screen.layout or None, "r")
     renderer.result.html = html + render_popups(screen, request, renderer.result, force=(editing or {}).get("popup"))
     return renderer.result

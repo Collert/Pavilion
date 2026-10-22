@@ -1,0 +1,2 @@
+{% comment %}A playlist's artwork, 2×2 (pages.mosaic): blanks when it has no pictures.{% endcomment %}
+<span class="au-mos{% if big %} big{% endif %}{% if not tiles.0 %} blank{% endif %}" aria-hidden="true">{% for t in tiles %}<span{% if t %} style="background-image: url('{{ t }}')"{% endif %}></span>{% endfor %}</span>

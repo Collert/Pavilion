@@ -16,7 +16,7 @@ TYPES = {
     AudioChannel.MUSIC: {"label": _("Music"), "color": "#7A5AC8",
                          "icon": "M9 18V5l11-2v13 M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
                          "desc": _("Songs from your Library. Plays in the background on screens."),
-                         "plays": _("Plays its playlist, or the whole Library, in step on every screen."), "where": _("Music")},
+                         "plays": _("Plays its queue in step on every screen. Staff pick what plays in the Audio app."), "where": _("Music")},
     AudioChannel.VOICE: {"label": _("Voice"), "color": "#2BA3A0",
                          "icon": "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z M5 11a7 7 0 0 0 14 0 M12 18v3 M8 21h8",
                          "desc": _("Spoken calls and announcements, like “Order for Maya is ready.”"),
@@ -194,7 +194,8 @@ def page(draft, new=None) -> dict:
                                       "It’s removed from %(n)d screens. Lower channels on those screens move up a place.", n) % {"n": n}
                              if n else _("It isn’t on any screen, so nothing else changes."),
              "archive_text": _("Remove from screens and archive") if n else _("Archive %(name)s") % {"name": r["name"] or _("channel")},
-             "talk": r["id"] and r["kind"] == AudioChannel.VOICE and saved_kinds.get(r["id"]) == AudioChannel.VOICE}
+             "talk": r["id"] and r["kind"] == AudioChannel.VOICE and saved_kinds.get(r["id"]) == AudioChannel.VOICE,
+             "open": r["id"] and saved_kinds.get(r["id"]) == r["kind"]}
     return {"d": draft, "items": items, "e": e, "count": len(rows), "status": status, "status_kind": kind, "can_save": dirty and not errs,
             "filters": [(key, label, counts[key]) for key, label in (("all", _("All")), ("music", _("Music")), ("voice", _("Voice")))],
             "empty": _("No music channels yet.") if draft["filter"] == "music" else _("No voice channels yet.") if draft["filter"] == "voice" else _("No channels yet."),

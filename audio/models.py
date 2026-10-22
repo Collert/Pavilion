@@ -1,8 +1,9 @@
 """
 Audio: the music library and the channels screens play (design: AdminAudio, AdminLibrary).
 
-A **music** channel is a radio station: its timeline (which song, when it started) lives here, every screen on it plays
-that song from the media storage at the same moment (audio/music.py), and changes nudge screens over SSE ("audio").
+A **music** channel is a radio station: its queue and timeline (which song, when it started) live here, every screen on
+it plays that song from the media storage at the same moment (audio/music.py), and changes nudge screens over SSE
+("audio"). Staff control it in the Audio app (audio/views.py).
 A **voice** channel is push-to-talk: audio is relayed live over a WebSocket (audio/voice.py), and order calls are
 spoken on it.
 """
@@ -68,14 +69,17 @@ class AudioChannel(models.Model):
     kind = models.CharField(max_length=5, choices=KINDS, default=MUSIC)
     notes = models.CharField(max_length=200, blank=True)
     archived = models.BooleanField(default=False)
-    # music: what plays, and the timeline (audio/music.py)
-    playlist = models.ForeignKey(Playlist, null=True, blank=True, on_delete=models.SET_NULL, related_name="channels",
-                                 help_text="Empty: the whole library")
+    # music: the queue and the timeline (audio/music.py)
+    REPEAT_OFF, REPEAT_ALL, REPEAT_ONE = "off", "all", "one"
+    REPEATS = [(REPEAT_OFF, _("Off")), (REPEAT_ALL, _("Repeat the queue")), (REPEAT_ONE, _("Repeat the song"))]
+    queue = models.JSONField(default=list, blank=True, help_text='What plays, in order: [{"k": key, "t": track id}]')
+    cur = models.PositiveIntegerField(default=0, help_text="Which entry of the queue is playing")
+    source = models.CharField(max_length=120, blank=True, help_text="What the queue was started from (a playlist's name)")
+    repeat = models.CharField(max_length=3, choices=REPEATS, default=REPEAT_ALL)
     shuffle = models.BooleanField(default=False)
-    order = models.JSONField(default=list, blank=True, help_text="Track ids in play order (the playlist, shuffled or not)")
-    index = models.PositiveIntegerField(default=0, help_text="Which of `order` is playing")
+    volume = models.PositiveSmallIntegerField(default=70, help_text="0-100, on every screen that plays it")
     started_at = models.DateTimeField(null=True, blank=True, help_text="When the current song started (moved back by any pause)")
-    paused_at = models.DateTimeField(null=True, blank=True, help_text="Set while paused")
+    paused_at = models.DateTimeField(null=True, blank=True, help_text="Set while paused (or stopped at the end of the queue)")
 
     class Meta:
         ordering = ["name"]

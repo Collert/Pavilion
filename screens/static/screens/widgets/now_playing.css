@@ -51,3 +51,4 @@
 .np-next-title { font-size: calc(var(--u) * 20); font-weight: 700; margin-top: calc(var(--u) * 6); }
 .np-next-artist { font-size: calc(var(--u) * 17); font-weight: 500; color: var(--muted); margin-top: calc(var(--u) * 2); }
 @keyframes np-eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+.now-playing img.np-art { object-fit: cover; }

@@ -1,6 +1,6 @@
 // A screen's audio channels (Screen.audio, highest priority first; config from screens/views.py: show).
-// - Music channels are radio stations: the server says which song and how far in (audio/music.py); the song plays
-//   straight from the media storage, seeked to that moment, and follows the channel on every "audio" nudge.
+// - Music channels are radio stations: the server says which song, how far in and how loud (audio/music.py); the
+//   song plays straight from the media storage, seeked to that moment, and follows the channel on every "audio" nudge.
 // - Voice channels listen on a WebSocket (audio/voice.py): live push-to-talk audio (Opus, decoded with WebCodecs)
 //   and order-call clips.
 // - Ducking: while a voice channel is speaking, every channel below it drops to its own "play at" level.
@@ -53,7 +53,8 @@ function music(lane) {
     audio.crossOrigin = "anonymous";  // songs on S3 need CORS for the volume control to reach them
     audio.preload = "auto";
     lane.audio = audio;
-    ctx.createMediaElementSource(audio).connect(lane.gain);
+    const volume = ctx.createGain();  // the channel's volume (set in the Audio app), before ducking
+    ctx.createMediaElementSource(audio).connect(volume).connect(lane.gain);
     let trackId = null;
     let timer = null;
     let clockOffset = 0;  // server clock minus ours
@@ -68,10 +69,11 @@ function music(lane) {
             return;
         }
         clockOffset = data.server_ms - Date.now();
+        volume.gain.setTargetAtTime((data.volume ?? 100) / 100, ctx.currentTime, 0.1);
         if (!data.track) {
             audio.pause();
             trackId = null;
-            timer = setTimeout(sync, 30000);  // nothing in the library yet: look again
+            timer = setTimeout(sync, 30000);  // nothing queued: look again (a nudge comes sooner)
             return;
         }
         if (trackId !== data.track.id) {

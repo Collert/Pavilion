@@ -13,8 +13,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from . import music
-from . import library
+from . import library, music, voice
 from .models import AudioChannel, Playlist, PlaylistTrack, Track
 
 
@@ -62,8 +61,8 @@ class LibraryTests(TestCase):
         self.assertEqual([t.title for t in playlist.ordered_tracks()], ["C", "B", "A"])
 
 
-class MusicTimelineTests(TestCase):
-    """Music channels are radio stations: one timeline per channel, every screen in step."""
+class MusicQueueTests(TestCase):
+    """Music channels are radio stations playing a queue: one timeline per channel, every screen in step."""
 
     def setUp(self):
         self.a = Track.objects.create(file="files/music/a.mp3", title="A", duration=100)
@@ -71,57 +70,186 @@ class MusicTimelineTests(TestCase):
         self.c = Track.objects.create(file="files/music/c.mp3", title="C", duration=30)
         self.channel = AudioChannel.objects.create(name="Lobby music", kind="music")
         self.t0 = timezone.now()
+        nudges = mock.patch("audio.music.publish")
+        self.nudge = nudges.start()
+        self.addCleanup(nudges.stop)
 
     def at(self, seconds):
         return self.t0 + datetime.timedelta(seconds=seconds)
 
-    def test_the_timeline_moves_with_time_and_loops(self):
-        state = music.now_playing(self.channel, self.at(0))  # starts now, the whole library in title order
-        self.assertEqual((state["track"], state["offset"], state["next"]), (self.a, 0, self.b))
-        state = music.now_playing(self.channel, self.at(120))
-        self.assertEqual((state["track"], state["offset"]), (self.b, 20))
-        state = music.now_playing(self.channel, self.at(100 + 50 + 30 + 5))  # past the end: round again
-        self.assertEqual((state["track"], round(state["offset"])), (self.a, 5))
+    def do(self, op, seconds=0, **kw):
+        return music.control(self.channel, op, now=self.at(seconds), **kw)
 
-    def test_pause_play_next_previous_and_playlists(self):
-        music.now_playing(self.channel, self.at(0))
-        with mock.patch("django.utils.timezone.now", return_value=self.at(10)), mock.patch("audio.music.publish") as nudge:
-            music.control(self.channel, "pause")
-        nudge.assert_called_with("audio")
-        state = music.now_playing(self.channel, self.at(500))
+    def state(self, seconds):
+        return music.now_playing(self.channel, self.at(seconds))
+
+    def test_an_empty_channel_is_idle(self):
+        state = self.state(0)
+        self.assertEqual((state["track"], state["paused"]), (None, True))
+        self.do("play")
+        self.assertIsNone(self.state(5)["track"])
+
+    def test_the_queue_plays_through_and_repeats_or_stops(self):
+        self.do("playnow", ids=[self.a.id, self.b.id, self.c.id], source="Evenings")
+        self.nudge.assert_called_with("audio")
+        state = self.state(0)
+        self.assertEqual((state["track"], state["next"], state["channel"].source), (self.a, self.b, "Evenings"))
+        self.assertEqual((self.state(120)["track"], round(self.state(120)["offset"])), (self.b, 20))
+        state = self.state(100 + 50 + 30 + 5 + 180 * 10)  # repeat all (the default): round and round
+        self.assertEqual((state["track"], round(state["offset"])), (self.a, 5))
+        self.do("repeat", 2000, value="one")
+        self.assertEqual(self.state(2000 + 250)["track"], self.a)  # the song again
+        self.do("repeat", 2300, value="off")
+        state = self.state(2300 + 1000)  # off: it stops after the last song, back at its start
+        self.assertEqual((state["track"], state["paused"], state["offset"], state["next"]), (self.c, True, 0, None))
+        self.do("play", 2300 + 1000)
+        self.assertFalse(self.state(2300 + 1001)["paused"])
+
+    def test_pause_seek_skip_and_previous(self):
+        self.do("playnow", ids=[self.a.id, self.b.id, self.c.id])
+        self.do("pause", 10)
+        state = self.state(500)
         self.assertEqual((state["track"], state["offset"], state["paused"]), (self.a, 10, True))  # time stands still
-        with mock.patch("django.utils.timezone.now", return_value=self.at(500)), mock.patch("audio.music.publish"):
-            music.control(self.channel, "play")
-        self.assertEqual(round(music.now_playing(self.channel, self.at(505))["offset"]), 15)  # picks up where it stopped
-        with mock.patch("django.utils.timezone.now", return_value=self.at(505)), mock.patch("audio.music.publish"):
-            music.control(self.channel, "next")
-        self.assertEqual(music.now_playing(self.channel, self.at(506))["track"], self.b)
-        with mock.patch("django.utils.timezone.now", return_value=self.at(506)), mock.patch("audio.music.publish"):
-            music.control(self.channel, "previous")
-            music.control(self.channel, "previous")
-        self.assertEqual(music.now_playing(self.channel, self.at(507))["track"], self.c)  # wraps round
-        playlist = Playlist.objects.create(name="Evenings")
-        PlaylistTrack.objects.create(playlist=playlist, track=self.c, position=0)
-        PlaylistTrack.objects.create(playlist=playlist, track=self.a, position=1)
-        with mock.patch("django.utils.timezone.now", return_value=self.at(600)), mock.patch("audio.music.publish"):
-            music.control(self.channel, "playlist", playlist=playlist)
-        state = music.now_playing(self.channel, self.at(640))
-        self.assertEqual((state["track"], round(state["offset"])), (self.a, 10))  # C (30 s), then A
+        self.do("toggle", 500)
+        self.assertEqual(round(self.state(505)["offset"]), 15)  # picks up where it stopped
+        self.do("seek", 505, value=80)
+        self.assertEqual(round(self.state(506)["offset"]), 81)
+        self.do("next", 506)
+        self.assertEqual((self.state(507)["track"], round(self.state(507)["offset"])), (self.b, 1))
+        self.do("prev", 510)  # 4 s into B: back to its start
+        self.assertEqual((self.state(510)["track"], self.state(510)["offset"]), (self.b, 0))
+        self.do("prev", 511)  # 1 s in: back to A
+        self.assertEqual(self.state(511)["track"], self.a)
+
+    def test_queue_editing(self):
+        self.do("playnow", ids=[self.a.id])
+        self.do("playlast", ids=[self.c.id])
+        self.do("playnext", ids=[self.b.id])
+        keys = lambda: [e["k"] for e in AudioChannel.objects.get(pk=self.channel.pk).queue]  # noqa: E731
+        titles = lambda: [t.title for _e, t in self.state(1)["entries"]]  # noqa: E731
+        self.assertEqual(titles(), ["A", "B", "C"])
+        a, b, c = keys()
+        self.do("tonext", key=c)
+        self.assertEqual(titles(), ["A", "C", "B"])
+        self.do("move", key=a, value=2)  # the playing song moves; it keeps playing
+        self.assertEqual((titles(), self.state(1)["track"]), (["C", "B", "A"], self.a))
+        self.do("remove", key=a)  # not the one playing
+        self.assertEqual(len(keys()), 3)
+        self.do("remove", key=c)
+        self.assertEqual(titles(), ["B", "A"])
+        self.do("jump", 2, key=b)
+        self.assertEqual(self.state(3)["track"], self.b)
+        self.do("clear", 3)
+        self.assertEqual(titles(), ["B"])
+        self.do("volume", value=140)
+        self.assertEqual(AudioChannel.objects.get(pk=self.channel.pk).volume, 100)
+
+    def test_shuffle_mixes_only_whats_up_next(self):
+        many = [Track.objects.create(file=f"files/music/{n}.mp3", title=str(n), duration=60) for n in range(12)]
+        self.do("playnow", ids=[t.id for t in many])
+        self.assertEqual(self.do("shuffle"), "shuffled")
+        entries = self.state(1)["entries"]
+        self.assertEqual(entries[0][1], many[0])  # the playing song stays first
+        self.assertEqual({t.id for _e, t in entries}, {t.id for t in many})
+
+    def test_deleted_songs_leave_the_queue(self):
+        self.do("playnow", ids=[self.a.id, self.b.id, self.c.id])
+        self.do("next", 1)  # B is playing
+        self.b.delete()
+        state = self.state(5)
+        self.assertEqual(([t.title for _e, t in state["entries"]], state["track"]), (["A", "C"], self.c))
 
     def test_endpoints(self):
         staff = User.objects.create_user("staff", password="x", is_staff=True)
+        self.do("playnow", ids=[self.a.id, self.b.id])
         response = self.client.get(reverse("audio_now", args=[self.channel.id]))
         data = response.json()
-        self.assertEqual((data["track"]["title"], data["next"]["title"], data["paused"]), ("A", "B", False))
+        self.assertEqual((data["track"]["title"], data["next"]["title"], data["paused"], data["volume"]), ("A", "B", False, 70))
         self.assertTrue(data["track"]["url"].endswith("files/music/a.mp3"))
         self.assertEqual(self.client.post(reverse("audio_control", args=[self.channel.id]), "{}", content_type="application/json").status_code, 401)
         self.client.force_login(staff)
-        response = self.client.post(reverse("audio_control", args=[self.channel.id]), json.dumps({"action": "pause"}),
+        response = self.client.post(reverse("audio_control", args=[self.channel.id]), json.dumps({"op": "pause"}),
                                     content_type="application/json")
         self.assertTrue(response.json()["paused"])
         voice = AudioChannel.objects.create(name="Calls", kind="voice")
         self.assertEqual(self.client.get(reverse("audio_now", args=[voice.id])).status_code, 404)
 
+
+class AudioAppTests(TestCase):
+    """The Audio app's pages (audio/views.py, pages.py): any staff member plays music and talks."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.staff = User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana", last_name="Wu")
+        self.lobby = AudioChannel.objects.create(name="Lobby music", kind="music", notes="Dining room")
+        self.calls = AudioChannel.objects.create(name="Order calls", kind="voice")
+        self.songs = [Track.objects.create(file=f"files/music/{n}.mp3", title=n, artist="Juno Hale", duration=200) for n in ("Velvet Hour", "Ember")]
+        self.playlist = library.new_playlist([t.id for t in self.songs])
+        self.playlist.name = "Slow evenings"
+        self.playlist.save()
+        self.url = reverse("audio_music", args=[self.lobby.id])
+
+    def test_staff_only(self):
+        self.assertEqual(self.client.get(reverse("audio_index")).status_code, 302)
+        customer = User.objects.create_user("customer", password="x")
+        self.client.force_login(customer)
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_playing_a_playlist_queueing_and_the_overview(self):
+        self.client.force_login(self.staff)
+        p = self.client.get(reverse("audio_index")).context["p"]
+        self.assertEqual(([s["key"] for s in p["sections"]], p["count"]), (["music", "voice"], "1 music · 1 voice"))
+        self.assertEqual(p["sections"][0]["cards"][0]["s"]["pill"], "Idle")
+        response = self.client.post(self.url, {"op": f"playnow:p{self.playlist.id}", "back": self.url + "?view=browse"}, follow=True)
+        self.assertContains(response, "Playing Slow evenings.")
+        m = self.client.get(self.url).context["m"]
+        self.assertEqual((m["track"].title, m["from"], m["playing"]), ("Velvet Hour", "Playing from Slow evenings", True))
+        self.client.post(self.url, {"op": f"playnext:t{self.songs[1].id}"})
+        m = self.client.get(self.url).context["m"]
+        self.assertEqual([q["t"].title for q in m["queue"]], ["Velvet Hour", "Ember", "Ember"])
+        self.assertEqual([q["tag"] for q in m["queue"]], ["Now playing", "Next", ""])
+        self.client.post(self.url, {"op": "volume", "value": "40"})
+        self.assertEqual(AudioChannel.objects.get(pk=self.lobby.id).volume, 40)
+        sheet = self.client.get(self.url, {"view": "browse", "sheet": f"song:{self.songs[0].id}"}).context
+        self.assertEqual(([o[0] for o in sheet["m"]["sheet"]["opts"]], sheet["back"]), (["playnow", "playnext", "playlast"], self.url + "?view=browse"))
+        p = self.client.get(reverse("audio_index"), {"type": "music"}).context["p"]
+        self.assertEqual((len(p["sections"]), p["sections"][0]["cards"][0]["s"]["pill"]), (1, "Playing"))
+        self.assertEqual(self.client.get(reverse("audio_index"), {"q": "zzz"}).context["p"]["sections"], [])
+        # a bad "back" never sends anyone off the site
+        self.assertEqual(self.client.post(self.url, {"op": "toggle", "back": "https://evil.example/"}).url, self.url)
+
+    def test_voice_page_who_is_talking_and_the_last_hour(self):
+        from unittest import mock
+        self.client.force_login(self.staff)
+        voice.log(self.calls.id, {"kind": "call", "text": "Order for Priya S. is ready.", "url": "/media/files/calls/a.mp3"})
+        voice.log(self.calls.id, {"kind": "voice", "name": "Marco Bellini", "first": "Marco", "initials": "MB", "len": 6})
+        v = self.client.get(reverse("audio_voice", args=[self.calls.id])).context["v"]
+        self.assertEqual([r["kind"] for r in v["rows"]], ["voice", "call"])
+        self.assertEqual(v["last_call"]["url"], "/media/files/calls/a.mp3")
+        from django.core.cache import cache
+        cache.set(voice.who_key(self.calls.id), {"name": "Aisha Okafor", "first": "Aisha", "initials": "AO", "since": 0}, 15)
+        context = self.client.get(reverse("audio_voice", args=[self.calls.id])).context
+        self.assertEqual((context["v"]["rows"][0]["what"], context["v"]["status"]["head"]), ("Talking now…", "Aisha Okafor is talking"))
+        self.assertTrue(context["rail"]["groups"][1]["items"][0]["live"])
+        with mock.patch.object(voice, "broadcast") as sent:
+            self.client.post(reverse("audio_voice", args=[self.calls.id]), {"op": "chime"})
+        sent.assert_not_called()  # not over someone talking
+        cache.delete(voice.who_key(self.calls.id))
+        with mock.patch.object(voice, "broadcast") as sent:
+            self.client.post(reverse("audio_voice", args=[self.calls.id]), {"op": "chime"})
+        self.assertTrue(sent.call_args[0][1]["chime"])
+        self.assertRedirects(self.client.get(reverse("audio_talk", args=[self.calls.id])), reverse("audio_voice", args=[self.calls.id]))
+
+    def test_now_playing_widget_shows_the_channel(self):
+        from django.test import RequestFactory
+        from screens import providers
+        request = RequestFactory().get("/")
+        request.screen_audio = [{"id": "lobby", "widget": "music_channel", "params": {"channel": self.lobby.id}}]
+        self.assertIsNone(providers.now_playing(request, {"channel": ""})["track"])
+        music.control(self.lobby, "playnow", ids=[t.id for t in self.songs])
+        data = providers.now_playing(request, {"channel": "lobby"})
+        self.assertEqual((data["track"].title, data["next"].title, data["playing"], data["length"]), ("Velvet Hour", "Ember", True, "3:20"))
 
 
 class VoiceRelayTests(TestCase):
@@ -134,7 +262,7 @@ class VoiceRelayTests(TestCase):
         from . import voice
         cache.clear()
         broker = realtime.LocalBroker()
-        names = iter([None, "Dana", "Alex", None])  # a screen listening, two staff, a customer who tries to talk
+        names = iter([None, voice.person(User(first_name="Dana", last_name="Wu")), voice.person(User(username="alex")), None])  # a screen, two staff, a customer
 
         async def who(scope, channel_id):
             return True, next(names)
@@ -169,7 +297,7 @@ class VoiceRelayTests(TestCase):
             await asyncio.sleep(0.05)
             dana.say(text=json.dumps({"type": "start"}))
             self.assertEqual(json.loads((await dana.next())["text"]), {"type": "talking"})
-            self.assertEqual(json.loads((await screen.next())["text"]), {"type": "start", "who": "Dana"})
+            self.assertEqual(json.loads((await screen.next())["text"]), {"type": "start", "who": "Dana Wu", "first": "Dana"})
             dana.say(bytes=b"opus-packet")
             self.assertEqual((await screen.next())["bytes"], b"opus-packet")
             alex.say(text=json.dumps({"type": "start"}))
@@ -201,6 +329,7 @@ class VoiceRelayTests(TestCase):
             asyncio.run(run())
         self.assertEqual(broker._subscribers, set())
         self.assertIsNone(cache.get(voice.floor_key(7)))  # the channel is free again
+        self.assertEqual([(e["kind"], e["first"]) for e in voice.recent(7)], [("voice", "Dana")])  # who talked, not what was said
 
     def test_the_route(self):
         import asyncio

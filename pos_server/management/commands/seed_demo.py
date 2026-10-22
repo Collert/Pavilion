@@ -1222,6 +1222,12 @@ class Command(BaseCommand):
         evenings = library.new_playlist([made[t].id for t in ("Velvet Hour", "Café Crème")])
         evenings.name, evenings.description = "Slow evenings", "Low and warm after 6 PM"
         evenings.save()
+        # The lobby plays Lunch rush; the patio has Slow evenings queued, paused
+        from audio import music
+        music.control(AudioChannel.objects.get(name="Lobby music"), "playnow", ids=[t.id for t in lunch.ordered_tracks()], source=lunch.name)
+        patio = AudioChannel.objects.get(name="Patio music")
+        music.control(patio, "playnow", ids=[t.id for t in evenings.ordered_tracks()], source=evenings.name)
+        music.control(patio, "pause")
 
     def seed_screens(self):
         # The order board comes with migrations (screens/0002): give it pop-ups (an order-ready call-out, staff

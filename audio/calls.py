@@ -62,7 +62,9 @@ def _clean():
 def _speak(text, popup):
     from misc_tools.speech import speech_mp3
 
-    from .voice import broadcast
+    from pavilion.realtime import publish
+
+    from .voice import broadcast, log
     try:
         channels = channels_for(popup)
         if not channels:
@@ -72,6 +74,8 @@ def _speak(text, popup):
         url = default_storage.url(name)
         for channel in channels:
             broadcast(channel, {"type": "clip", "url": url, "text": text})
+            log(channel, {"kind": "call", "text": text, "url": url})  # the Audio app can play it again
+        publish("audio")
         _clean()
     except Exception:
         logger.exception("Couldn't speak %r", text)

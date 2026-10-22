@@ -71,7 +71,7 @@ or archiving keeps what's changed until Save.
                 {% endfor %}
             </div>
             <div class="au-plays"><span class="au-chip" style="--c: {{ e.t.color }}">{% icon e.t.icon 14 2.4 %}{{ e.t.where }}</span><span class="grow">{{ e.t.plays }}</span>
-                {% if e.talk %}<a class="st-link" href="{% url 'audio_talk' e.r.id %}" target="_blank" rel="noopener">{% trans "Push to talk" %} ›</a>{% endif %}</div>
+                {% if e.open %}<a class="st-link" href="{% if e.r.kind == 'voice' %}{% url 'audio_voice' e.r.id %}{% else %}{% url 'audio_music' e.r.id %}{% endif %}" target="_blank" rel="noopener">{% if e.talk %}{% trans "Push to talk" %}{% else %}{% trans "Open in Audio" %}{% endif %} ›</a>{% endif %}</div>
             {% if e.type_warn %}<div class="au-warn">{% icon "M12 4 2.5 20h19z M12 10v4 M12 17h.01" 18 2.2 %}<span>{{ e.type_warn }}</span></div>{% endif %}
             <label class="st-block top18"><span class="lbl">{% trans "Notes" %} <span class="muted">· {% trans "optional" %}</span></span>
                 <textarea class="field au-notes" name="ch-{{ e.k }}-notes" rows="2" maxlength="140" placeholder="{% trans 'Where it plays or what it’s for, e.g. Ceiling speakers in the dining room' %}">{{ e.r.notes }}</textarea></label>

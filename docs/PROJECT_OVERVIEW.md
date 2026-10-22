@@ -86,6 +86,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
 | `/screens/` | `screens` | `""` list of screens + widget catalogue (staff), `<slug>` a screen (public or staff, per screen) |
+| `/audio/` | `audio` | `""` all channels (staff), `music/<id>` and `voice/<id>` (the Audio app), `channels/<id>/now` (a music channel's song, for screens) and `/control` (JSON), `talk/<id>` (old address of `voice/<id>`); `/ws/voice/<id>` is the voice WebSocket |
 | `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
 | `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders`, `screens` and `catering` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
@@ -606,7 +607,7 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
 - **Audio channels** (`admin_audio`, `audio.py`, 2026-10-22): the store's music and voice channels filtered by type,
   and the selected one: name, type, notes, the screens that use it (role and priority, from `Screen.audio`) and
   archiving (saving a type change or an archive takes it off those screens). A voice channel links to its
-  push-to-talk page (`/audio/talk/<id>`, a bare page until the talk screen is designed).
+  page in the Audio app.
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
   artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
   the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
@@ -717,6 +718,26 @@ past orders with nothing to settle; accepting an order whose hold day has come h
 start with `demo:` (seed_demo's) are never sent to Square.
 
 ---
+
+### 6.13 Audio (`/audio/`)
+
+The store's music and voice channels (`audio.AudioChannel`, set up in the admin's Audio channels page) are played
+by screens (`Screen.audio`, `screens/static/screens/audio-player.js`) and run by staff in the **Audio app** (any
+staff member; designs `AudioRail`, `AudioChannels`, `AudioMusic`, `AudioVoice`; `audio/views.py`, `pages.py`):
+
+- **All channels** (`/audio/?type=all|music|voice&q`): a card per channel: a music one's song, Playing/Paused/Idle
+  and a play/pause button; a voice one's Live/Quiet and who talked last.
+- **A music channel** (`music/<id>`): Now playing (artwork, seek, shuffle, previous, play/pause, next, repeat
+  off/all/one, the volume every screen plays it at) and the queue (jump to a song, play next, remove, drag into
+  order, clear); Browse (playlists and songs from the Library: tap plays now; ⋯ or a long press opens the sheet with
+  Play now / Play next / Add to end of queue); a playlist (Play, Shuffle, Play next, Add to queue); a mini player.
+  Every button is an op on the one `#au-ctl` form (`toggle`, `jump:<entry key>`, `playnext:p<playlist>`,
+  `playnow:t<song>`...) handled by `music.control()`. The queue lives on the channel (`queue`, `cur`, `repeat`,
+  `shuffle`, `volume`, `source`, `started_at`, `paused_at`); `now_playing()` walks the timeline when asked.
+- **A voice channel** (`voice/<id>`): hold to talk (or the space bar), the status (clear, you're live, someone
+  talking, a call playing), a waveform, a chime for everyone, and this device's speaker on/off and volume (it plays
+  the channel too). Recent lists the last hour: who talked and for how long (voices aren't recorded), and order
+  calls, which play again on this device only (`voice.recent()`, kept in the cache; `voice.talking()` is who's on).
 
 ## 7. Real-time: history and current design
 

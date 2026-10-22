@@ -172,3 +172,30 @@ def promo_slides(request, params):
             value = f"{offer['value']}% off" if offer["kind"] != "amt" else f"${int(offer['value']) / 100:,.2f} off".replace(".00", "")
             slides.append({"title": offer["name"], "text": offer["note"], "image": "", "tag": value})
     return {"slides": slides, "ms": params["seconds"] * 1000}
+
+
+def now_playing(request, params):
+    """The song on one of the screen's music channels (its Audio tab's entry `params.channel`, else the first one):
+    title, artist, artwork, how far through (the bar and the time left tick in the browser) and what's next. The
+    screen refetches when the song ends (data-ends) and on "audio" nudges (a skip, a pause)."""
+    from audio import music
+    from audio.models import AudioChannel
+    entries = [e for e in getattr(request, "screen_audio", None) or [] if isinstance(e, dict) and e.get("widget") == "music_channel"]
+    wanted = params.get("channel")
+    entry = next((e for e in entries if e.get("id") == wanted), None) if wanted else (entries[0] if entries else None)
+    channel_id = ((entry or {}).get("params") or {}).get("channel")
+    channel = AudioChannel.objects.filter(pk=channel_id, kind=AudioChannel.MUSIC, archived=False).first() if channel_id else None
+    if channel is None:
+        return {"track": None}
+    state = music.now_playing(channel)
+    track = state["track"]
+    if track is None:
+        return {"track": None}
+    length = music._length(track)
+    playing = not state["paused"]
+
+    def clock(seconds):
+        return f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
+    return {"track": track, "art": track.artwork.url if track.artwork else "", "playing": playing, "next": state["next"] if state["next"] != track else None,
+            "length": clock(length), "left": clock(length - state["offset"]), "pct": round(state["offset"] / length * 100, 2),
+            "ends_ms": int(state["ends_at"].timestamp() * 1000) if playing else 0, "total_ms": int(length * 1000)}

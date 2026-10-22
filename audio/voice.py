@@ -7,8 +7,12 @@ WebCodecs), then {"type": "stop"}. One talker at a time per channel, like a radi
 floor", kept in the cache) talks; someone else gets {"type": "busy"} until it's free.
 
 The server passes everything on to every other connection on the channel through the realtime broker (Redis between
-workers in production), and also sends {"type": "clip", "url"} for order calls (audio/calls.py). Listeners decode and
-play it, ducking the channels below (screens/static/screens/audio-player.js).
+workers in production), and also sends {"type": "clip", "url"} for order calls (audio/calls.py) and chimes. Listeners
+decode and play it, ducking the channels below (screens/static/screens/audio-player.js, audio/static/audio/voice.js).
+
+Who's talking (talking()) and the last hour's messages (recent(): who talked and for how long, and the order calls,
+which can be played again) are kept in the cache for the Audio app; each change nudges "audio". Voices aren't
+recorded.
 """
 import json
 import logging
@@ -25,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 FLOOR_SECONDS = 15  # a talker who goes silent without saying "stop" loses the channel after this
 MAX_FRAME = 4000  # bytes: a 20 ms Opus packet is far smaller
+LOG_SECONDS = 3600  # recent messages are kept for an hour
+LOG_SIZE = 40
 
 
 def topic(channel_id):
@@ -33,6 +39,38 @@ def topic(channel_id):
 
 def floor_key(channel_id):
     return f"audio:voice-floor:{channel_id}"
+
+
+def who_key(channel_id):
+    return f"audio:voice-who:{channel_id}"
+
+
+def log_key(channel_id):
+    return f"audio:voice-log:{channel_id}"
+
+
+def talking(channel_id):
+    """{"name", "first", "initials", "since" (epoch seconds)} of whoever is talking on the channel, or None."""
+    return cache.get(who_key(channel_id))
+
+
+def recent(channel_id) -> list:
+    """The last hour on the channel, newest first: {"kind": "voice", "name", "first", "initials", "at", "len"} for
+    someone talking, {"kind": "call", "text", "url", "at"} for an order call or announcement."""
+    import time
+    cutoff = time.time() - LOG_SECONDS
+    return [e for e in cache.get(log_key(channel_id)) or [] if e.get("at", 0) >= cutoff]
+
+
+def log(channel_id, entry):
+    import time
+    cache.set(log_key(channel_id), ([{"at": time.time(), **entry}] + recent(channel_id))[:LOG_SIZE], LOG_SECONDS)
+
+
+def person(user) -> dict:
+    name = user.get_full_name() or user.username
+    parts = [p for p in name.split() if p]
+    return {"name": name, "first": parts[0] if parts else name, "initials": "".join(p[0] for p in parts[:2]).upper() or name[:2].upper()}
 
 
 def _frame(sender, kind, payload: bytes) -> bytes:
@@ -65,7 +103,7 @@ def _who(scope, channel_id):
     store: SessionBase = import_module(settings.SESSION_ENGINE).SessionStore(morsel.value)
     user_id = store.get("_auth_user_id")
     user = get_user_model().objects.filter(pk=user_id, is_active=True, is_staff=True).first() if user_id else None
-    return True, (user.get_full_name() or user.username) if user else None
+    return True, person(user) if user else None
 
 
 async def voice_socket(scope, receive, send, channel_id):
@@ -96,11 +134,27 @@ async def voice_socket(scope, receive, send, channel_id):
                 await send({"type": "websocket.send", "bytes": payload})
 
     def take_floor():
-        return cache.add(floor_key(channel_id), me, FLOOR_SECONDS) or cache.get(floor_key(channel_id)) == me
+        import time
+        from pavilion.realtime import publish
+        if not (cache.add(floor_key(channel_id), me, FLOOR_SECONDS) or cache.get(floor_key(channel_id)) == me):
+            return False
+        cache.set(who_key(channel_id), {**talker, "since": time.time()}, FLOOR_SECONDS)
+        publish("audio")
+        return True
 
     def let_go():
+        import time
+        from pavilion.realtime import publish
         if cache.get(floor_key(channel_id)) == me:
-            cache.delete(floor_key(channel_id))
+            who = cache.get(who_key(channel_id)) or {**talker, "since": time.time()}
+            cache.delete_many([floor_key(channel_id), who_key(channel_id)])
+            log(channel_id, {"kind": "voice", **{k: who[k] for k in ("name", "first", "initials")},
+                             "len": max(1, round(time.time() - who["since"]))})
+            publish("audio")
+
+    def keep_floor():
+        cache.touch(floor_key(channel_id), FLOOR_SECONDS)
+        cache.touch(who_key(channel_id), FLOOR_SECONDS)
 
     relaying = asyncio.ensure_future(relay())
     try:
@@ -119,7 +173,7 @@ async def voice_socket(scope, receive, send, channel_id):
                         await send({"type": "websocket.send", "text": json.dumps({"type": "denied"})})
                     elif await sync_to_async(take_floor)():
                         holding = True
-                        broker.publish(topic(channel_id), _frame(me, b"T", json.dumps({"type": "start", "who": talker}).encode()))
+                        broker.publish(topic(channel_id), _frame(me, b"T", json.dumps({"type": "start", "who": talker["name"], "first": talker["first"]}).encode()))
                         await send({"type": "websocket.send", "text": json.dumps({"type": "talking"})})
                     else:
                         await send({"type": "websocket.send", "text": json.dumps({"type": "busy"})})
@@ -129,7 +183,7 @@ async def voice_socket(scope, receive, send, channel_id):
                     broker.publish(topic(channel_id), _frame(me, b"T", json.dumps({"type": "stop"}).encode()))
             elif event.get("bytes") and holding and len(event["bytes"]) <= MAX_FRAME:
                 broker.publish(topic(channel_id), _frame(me, b"B", event["bytes"]))
-                await sync_to_async(cache.touch)(floor_key(channel_id), FLOOR_SECONDS)
+                await sync_to_async(keep_floor)()
     finally:
         if holding:
             await sync_to_async(let_go)()

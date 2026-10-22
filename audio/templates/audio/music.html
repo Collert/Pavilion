@@ -1,0 +1,196 @@
+{% extends "audio/base.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+A music channel (design: AudioMusic; pages.music_page): Now playing with the queue, Browse (playlists and songs), a
+playlist, the mini player and the action sheet (?sheet=pl:<id> or song:<id>). Every button belongs to the one
+#au-ctl form (op, e.g. "toggle", "jump:<entry key>", "playnext:p<playlist>", "playnow:t<song>") and comes back to
+this view; music.js ticks the clock, posts the seek and volume sliders, drags the queue and opens the sheet on a
+long press.
+{% endcomment %}
+{% block page_title %}{{ m.ch.name }}{% endblock %}
+{% block audio_scripts %}<script type="module" src="{% static 'audio/music.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" id="au-ctl" hidden>{% csrf_token %}<input type="hidden" name="back" value="{{ back }}">
+    <input type="hidden" name="value" value="" data-move-to><button name="op" value="" data-move tabindex="-1"></button></form>
+<form method="post" id="au-seek" hidden>{% csrf_token %}<input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="op" value="seek"></form>
+<form method="post" id="au-vol" hidden>{% csrf_token %}<input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="op" value="volume"></form>
+
+<header class="au-head">
+    <div class="grow">
+        <div class="au-kicker">{% trans "Music channel" %}{% if m.ch.notes %} · {{ m.ch.notes }}{% endif %}</div>
+        <h1 class="disp au-title">{{ m.ch.name }}</h1>
+    </div>
+    <nav class="au-tabs" aria-label="{% trans 'View' %}" id="au-tabs" data-region>
+        <a class="au-tab" href="?view=now" data-live{% if m.view == 'now' %} aria-current="page"{% endif %}>{% trans "Now playing" %}</a>
+        <a class="au-tab" href="?view=browse" data-live{% if m.view != 'now' %} aria-current="page"{% endif %}>{% trans "Browse" %}</a>
+    </nav>
+</header>
+
+{% if m.view == "now" %}
+<div class="au-now-wrap">
+    <section class="au-now" id="au-now" data-region aria-label="{% trans 'Now playing' %}">
+        <div class="au-disc">
+            <div class="au-cover{% if not m.art %} blank{% endif %}"{% if m.art %} style="background-image: url('{{ m.art }}')"{% endif %}>{% if not m.art %}{% icon "M9 18V5l11-2v13 M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" 64 1.6 %}{% endif %}</div>
+            <div class="au-vinyl{% if m.playing %} spin{% endif %}" aria-hidden="true"><span></span></div>
+        </div>
+        <div class="au-now-text">
+            <div class="au-ov">{% if m.track %}{{ m.from }}{% else %}{% trans "Nothing playing" %}{% endif %}</div>
+            <div class="disp au-np-title">{% if m.track %}{{ m.track.title }}{% else %}{% trans "Nothing playing" %}{% endif %}</div>
+            <div class="au-np-artist">{{ m.artist_line }}</div>
+            <div class="au-seek" data-clock data-started="{{ m.started_ms }}" data-offset="{{ m.offset }}" data-length="{{ m.length }}"{% if m.playing %} data-playing{% endif %}>
+                <span class="num au-time" data-pos>{{ m.pos }}</span>
+                <input class="au-range" type="range" name="value" form="au-seek" min="0" max="{{ m.length }}" step="1" value="{{ m.offset }}"
+                       aria-label="{% trans 'Position' %}" data-seek data-submit-on-change style="--pct: {{ m.pct }}%"{% if not m.track %} disabled{% endif %}>
+                <span class="num au-time right" data-left>-{{ m.left }}</span>
+            </div>
+            {% if m.playing %}<span hidden data-ends="{{ m.status.ends_ms }}"></span>{% endif %}
+            <div class="au-controls">
+                <button class="au-ctl{% if m.shuffle %} on{% endif %}" form="au-ctl" name="op" value="shuffle" aria-pressed="{{ m.shuffle|yesno:'true,false' }}" aria-label="{% trans 'Shuffle' %}">{% icon "M16 3h5v5 M4 20 21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5" 20 2.2 %}</button>
+                <button class="au-ctl big" form="au-ctl" name="op" value="prev" aria-label="{% trans 'Previous' %}"{% if not m.track %} disabled{% endif %}>{% icon "M6 5h2v14H6z M20 5v14L9 12z" 24 0 %}</button>
+                <button class="au-play" form="au-ctl" name="op" value="toggle" aria-label="{% if m.playing %}{% trans 'Pause' %}{% else %}{% trans 'Play' %}{% endif %}"{% if not m.track %} disabled{% endif %}>
+                    {% if m.playing %}{% icon "M6 4h4v16H6z M14 4h4v16h-4z" 28 0 %}{% else %}{% icon "M7 4v16l13-8z" 28 0 %}{% endif %}</button>
+                <button class="au-ctl big" form="au-ctl" name="op" value="next" aria-label="{% trans 'Next' %}"{% if not m.track %} disabled{% endif %}>{% icon "M16 5h2v14h-2z M4 5v14l11-7z" 24 0 %}</button>
+                <button class="au-ctl{% if m.repeat != 'off' %} on{% endif %}" form="au-ctl" name="op" value="repeat" aria-label="{{ m.repeat_label }}" title="{{ m.repeat_label }}">{% icon "M17 2l4 4-4 4 M3 11V9a3 3 0 0 1 3-3h15 M7 22l-4-4 4-4 M21 13v2a3 3 0 0 1-3 3H3" 20 2.2 %}{% if m.repeat == 'one' %}<span class="au-one">1</span>{% endif %}</button>
+                <span class="au-grow"></span>
+                {% icon "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6" 20 2.2 %}
+                <input class="au-range au-vol" type="range" name="value" form="au-vol" min="0" max="100" step="5" value="{{ m.volume }}" aria-label="{% trans 'Volume on every screen' %}"
+                       data-submit-on-change data-vol style="--pct: {{ m.volume }}%">
+                <span class="num au-vol-n" data-vol-n>{{ m.volume }}%</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="au-queue" id="au-queue" data-region aria-label="{% trans 'Queue' %}">
+        <div class="au-q-head">
+            <h2 class="disp">{% trans "Queue" %}</h2>
+            <span class="num au-q-meta">{{ m.queue_meta }}</span>
+            <a class="au-soft-btn" href="?view=browse" data-live>+ {% trans "Add songs" %}</a>
+            {% if m.repeat_chip %}<span class="au-chip">{{ m.repeat_chip }}</span>{% endif %}
+            <button class="au-clear" form="au-ctl" name="op" value="clear"{% if m.queue|length <= 1 %} disabled{% endif %}>{% trans "Clear" %}</button>
+        </div>
+        <div class="au-q-rows" role="list" data-queue>
+            {% for q in m.queue %}
+            <div class="au-q-row{% if q.cur %} cur{% elif q.played %} played{% endif %}" role="listitem" draggable="true" data-key="{{ q.k }}" data-index="{{ forloop.counter0 }}">
+                <span class="au-grip" aria-hidden="true">{% icon "M9 6h.01 M15 6h.01 M9 12h.01 M15 12h.01 M9 18h.01 M15 18h.01" 14 3.4 %}</span>
+                {% if q.cur %}<span class="au-eq-cur{% if m.playing %} on{% endif %}" role="img" aria-label="{% trans 'Now playing' %}"><span></span><span></span><span></span></span>
+                {% else %}<span class="num au-q-n">{{ q.n }}</span>{% endif %}
+                <button class="au-q-main" form="au-ctl" name="op" value="jump:{{ q.k }}" draggable="false"
+                        aria-label="{% if q.cur %}{% blocktrans with t=q.t.title %}{{ t }} is playing{% endblocktrans %}{% else %}{% blocktrans with t=q.t.title %}Play {{ t }} now{% endblocktrans %}{% endif %}">
+                    <span class="au-art{% if not q.art %} blank{% endif %}"{% if q.art %} style="background-image: url('{{ q.art }}')"{% endif %}></span>
+                    <span class="au-q-text"><span class="au-q-title">{{ q.t.title }}</span><span class="au-q-artist">{{ q.t.artist|default:_("Unknown artist") }}{% if q.tag %}<span class="au-tag{% if q.cur %} cur{% endif %}">{{ q.tag }}</span>{% endif %}</span></span>
+                    <span class="num au-q-dur">{{ q.dur }}</span>
+                </button>
+                <button class="au-ico" form="au-ctl" name="op" value="tonext:{{ q.k }}" title="{% trans 'Play next' %}"
+                        aria-label="{% blocktrans with t=q.t.title %}Play {{ t }} next{% endblocktrans %}"{% if q.cur or q.next %} disabled{% endif %}>{% icon "M12 19V7 M6 12l6-6 6 6 M5 3h14" 18 2.2 %}</button>
+                <button class="au-ico" form="au-ctl" name="op" value="remove:{{ q.k }}" title="{% trans 'Remove from queue' %}"
+                        aria-label="{% blocktrans with t=q.t.title %}Remove {{ t }} from the queue{% endblocktrans %}"{% if q.cur %} disabled{% endif %}>{% icon "close" 16 2.6 %}</button>
+            </div>
+            {% empty %}
+            <div class="au-none">{% trans "Nothing queued. Pick a playlist or a song in Browse." %}</div>
+            {% endfor %}
+            {% if m.queue %}<div class="au-end{% if m.repeat != 'off' %} on{% endif %}">
+                {% if m.repeat == 'off' %}{% icon "M6 6h12v12H6z" 16 2.4 %}{% else %}{% icon "M17 2l4 4-4 4 M3 11V9a3 3 0 0 1 3-3h15 M7 22l-4-4 4-4 M21 13v2a3 3 0 0 1-3 3H3" 16 2.4 %}{% endif %}
+                <span>{{ m.end_note }}</span></div>{% endif %}
+        </div>
+    </section>
+</div>
+
+{% elif m.view == "browse" %}
+<div class="au-scroll pad" id="au-browse" data-region>
+    <form method="get" class="au-search" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 20 2.2 %}
+        <input type="hidden" name="view" value="browse"><input type="hidden" name="sort" value="{{ m.sort }}">
+        <input type="search" name="q" value="{{ m.q }}" placeholder="{% trans 'Search songs, artists and playlists' %}" aria-label="{% trans 'Search songs and playlists' %}">
+    </form>
+    {% if m.pls %}
+    <section aria-label="{% trans 'Playlists' %}">
+        <h2 class="disp au-h2">{% trans "Playlists" %}</h2>
+        <div class="au-pl-grid">
+            {% for p in m.pls %}
+            <div class="au-pl">
+                <a class="au-pl-open" href="?view=playlist&pl={{ p.p.id }}" data-live data-sheet-href="?view=browse&q={{ m.q|urlencode }}&sort={{ m.sort }}&sheet=pl:{{ p.p.id }}"
+                   aria-label="{% blocktrans with name=p.name %}Open {{ name }}{% endblocktrans %}">
+                    {% include "audio/_mosaic.html" with tiles=p.tiles %}
+                    <span class="au-pl-name">{{ p.name }}</span><span class="num au-pl-meta">{{ p.meta }}</span>
+                </a>
+                <button class="au-pl-play" form="au-ctl" name="op" value="playnow:p{{ p.p.id }}" aria-label="{% blocktrans with name=p.name %}Play {{ name }}{% endblocktrans %}">{% icon "M7 4v16l13-8z" 18 0 %}</button>
+                <a class="au-ico au-pl-more" href="?view=browse&q={{ m.q|urlencode }}&sort={{ m.sort }}&sheet=pl:{{ p.p.id }}" data-live aria-label="{% blocktrans with name=p.name %}More for {{ name }}{% endblocktrans %}">{% icon "M5 12h.01 M12 12h.01 M19 12h.01" 18 4 %}</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    <section class="au-songs" aria-label="{% trans 'All songs' %}">
+        <div class="au-songs-head">
+            <h2 class="disp au-h2 grow">{{ m.songs_head }}</h2>
+            <nav class="au-sorts" aria-label="{% trans 'Sort' %}">
+                {% for key, label, on in m.sorts %}<a href="?view=browse&q={{ m.q|urlencode }}&sort={{ key }}" data-live{% if on %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+            </nav>
+        </div>
+        <div role="list">
+            {% for r in m.songs %}{% include "audio/_song_row.html" %}
+            {% empty %}<div class="au-none">{% if m.q %}{% blocktrans with q=m.q %}No songs match “{{ q }}”.{% endblocktrans %}{% else %}{% trans "No songs yet. Add them in Admin › Store › Library." %}{% endif %}</div>{% endfor %}
+        </div>
+    </section>
+</div>
+
+{% else %}
+<div class="au-scroll pad" id="au-playlist" data-region>
+    {% with d=m.detail %}
+    <section class="au-pl-hero">
+        {% include "audio/_mosaic.html" with tiles=d.tiles big=True %}
+        <div class="grow">
+            <a class="au-back" href="?view=browse" data-live>← {% trans "Browse" %}</a>
+            <div class="au-ov amber">{% trans "Playlist" %}</div>
+            <div class="disp au-pl-title">{{ d.name }}</div>
+            <div class="au-pl-desc">{% if d.p.description %}{{ d.p.description }} · {% endif %}<span class="num">{{ d.meta }}</span></div>
+            <div class="au-pl-acts">
+                <button class="au-amber-btn" form="au-ctl" name="op" value="playnow:p{{ d.p.id }}">{% icon "M7 4v16l13-8z" 16 0 %}{% trans "Play" %}</button>
+                <button class="au-ghost-btn" form="au-ctl" name="op" value="shuffleplay:p{{ d.p.id }}">{% trans "Shuffle" %}</button>
+                <button class="au-ghost-btn" form="au-ctl" name="op" value="playnext:p{{ d.p.id }}">{% trans "Play next" %}</button>
+                <button class="au-ghost-btn" form="au-ctl" name="op" value="playlast:p{{ d.p.id }}">{% trans "Add to queue" %}</button>
+            </div>
+        </div>
+    </section>
+    <section class="au-songs" role="list">
+        {% for r in d.songs %}{% include "audio/_song_row.html" with numbered=True %}{% endfor %}
+    </section>
+    {% endwith %}
+</div>
+{% endif %}
+
+<div id="au-mini" data-region>{% if m.view != "now" and m.track %}
+    <div class="au-mini">
+        <span class="au-mini-bar" style="width: {{ m.pct }}%"{% if m.playing %} data-bar-ends="{{ m.status.ends_ms }}" data-bar-total="{{ m.status.total_ms }}"{% endif %}></span>
+        <a class="au-mini-open" href="?view=now" data-live aria-label="{% trans 'Open now playing' %}">
+            <span class="au-art big{% if not m.art %} blank{% endif %}"{% if m.art %} style="background-image: url('{{ m.art }}')"{% endif %}></span>
+            <span class="au-q-text"><span class="au-mini-title">{{ m.track.title }}</span><span class="au-mini-artist">{{ m.artist_line }}</span></span>
+        </a>
+        <button class="au-ctl light" form="au-ctl" name="op" value="prev" aria-label="{% trans 'Previous' %}">{% icon "M6 5h2v14H6z M20 5v14L9 12z" 20 0 %}</button>
+        <button class="au-play small" form="au-ctl" name="op" value="toggle" aria-label="{% if m.playing %}{% trans 'Pause' %}{% else %}{% trans 'Play' %}{% endif %}">
+            {% if m.playing %}{% icon "M6 4h4v16H6z M14 4h4v16h-4z" 22 0 %}{% else %}{% icon "M7 4v16l13-8z" 22 0 %}{% endif %}</button>
+        <button class="au-ctl light" form="au-ctl" name="op" value="next" aria-label="{% trans 'Next' %}">{% icon "M16 5h2v14h-2z M4 5v14l11-7z" 20 0 %}</button>
+        <a class="au-mini-q" href="?view=now" data-live>{% icon "M4 6h16 M4 12h16 M4 18h10" 16 2.4 %}{% trans "Queue" %} · {{ m.up_count }}</a>
+        {% if m.playing %}<span hidden data-ends="{{ m.status.ends_ms }}"></span>{% endif %}
+    </div>
+{% endif %}</div>
+
+<div id="au-sheet" data-region>{% with sh=m.sheet %}{% if sh %}
+    <a class="au-scrim" href="{{ close_sheet }}" data-live aria-label="{% trans 'Close' %}" data-close></a>
+    <div class="au-sheet" role="dialog" aria-modal="true" aria-label="{{ sh.title }}">
+        <div class="au-sheet-head">
+            <span class="au-art sheet{% if not sh.art %} blank{% endif %}"{% if sh.art %} style="background-image: url('{{ sh.art }}')"{% endif %}></span>
+            <div class="au-q-text"><div class="disp au-sheet-title">{{ sh.title }}</div><div class="num au-q-artist">{{ sh.sub }}</div></div>
+        </div>
+        <div class="au-sheet-opts">
+            {% for op, label, desc, icon in sh.opts %}
+            <button class="au-sheet-opt" form="au-ctl" name="op" value="{{ op }}:{{ sh.ref }}">
+                <span class="au-sheet-icon">{% icon icon 18 2.2 %}</span><span class="au-q-text"><span>{{ label }}</span><span class="au-sheet-desc">{{ desc }}</span></span>
+            </button>
+            {% endfor %}
+        </div>
+        <a class="au-sheet-cancel" href="{{ close_sheet }}" data-live>{% trans "Cancel" %}</a>
+    </div>
+{% endif %}{% endwith %}</div>
+{% endblock %}

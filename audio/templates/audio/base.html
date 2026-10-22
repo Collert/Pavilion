@@ -1,0 +1,55 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+The Audio app (audio/views.py, pages.py). The rail is the design's AudioRail: three music and three voice channels
+(the open one always in view) and "See all". Pages are server-rendered and kept current by static/js/live-page.js:
+buttons post and come back, "audio" nudges (a song changing, someone talking) refetch and swap what changed.
+{% endcomment %}
+{% block title %}{% block page_title %}{% trans "Audio" %}{% endblock %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'audio/audio.css' %}" rel="stylesheet">{% block audio_head %}{% endblock %}{% endblock %}
+
+{% block rail %}
+<aside class="au-rail" id="au-rail" data-region aria-label="{% trans 'Audio channels' %}">
+    <div class="au-rail-blob" aria-hidden="true"></div>
+    <div class="au-brand">
+        <span class="au-logo">{% icon "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6 M18.5 6.5a7.5 7.5 0 0 1 0 11" 24 2.2 %}</span>
+        <div><div class="disp au-brand-name">{% trans "Audio" %}</div><div class="au-brand-sub">{{ store.name }}</div></div>
+    </div>
+    <div class="au-rail-groups">
+    {% for g in rail.groups %}
+        <div class="au-rail-title">{{ g.title }}</div>
+        <nav class="au-rail-nav" aria-label="{{ g.title }}">
+            {% for c in g.items %}
+            <a class="au-ch{% if c.on %} on{% endif %}" href="{% if c.kind == 'music' %}{% url 'audio_music' c.c.id %}{% else %}{% url 'audio_voice' c.c.id %}{% endif %}"{% if c.on %} aria-current="page"{% endif %}>
+                <span class="au-ch-icon">{% icon c.icon 18 2.2 %}</span>
+                <span class="au-ch-text"><span class="au-ch-name">{{ c.c.name }}</span><span class="au-ch-sub">{{ c.s.sub }}</span></span>
+                {% if c.eq %}<span class="au-eq" role="img" aria-label="{% trans 'Playing' %}"><span></span><span></span><span></span></span>{% endif %}
+                {% if c.live %}<span class="au-ping" role="img" aria-label="{% trans 'Someone is talking' %}"></span>{% endif %}
+            </a>
+            {% endfor %}
+            <a class="au-all{% if g.all_on %} on{% endif %}" href="{% url 'audio_index' %}{{ g.all_href }}"{% if g.all_on %} aria-current="page"{% endif %}>{{ g.all_label }}
+                <span class="au-all-n">{{ g.total }}{% icon "M9 6l6 6-6 6" 14 2.6 %}</span></a>
+        </nav>
+    {% endfor %}
+    </div>
+    <span class="au-rail-spacer"></span>
+    <a class="au-apps" href="{% url 'app_switcher_index' %}">{% icon "M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z" 16 2.4 %}{% trans "Apps" %}</a>
+</aside>
+{% endblock %}
+
+{% block body %}
+<main class="au-main" id="page" data-now="{{ now_ms }}">{% block content %}{% endblock %}</main>
+<div class="au-toasts" id="toasts" data-region data-transient>{% for message in messages %}
+    <div class="au-toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">
+        {% icon "check" 18 2.6 %}<span>{{ message }}</span>
+    </div>{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { livePage } from "{% static 'js/live-page.js' %}";
+    livePage({ topics: ["audio"] });
+</script>
+{% block audio_scripts %}{% endblock %}
+{% endblock %}
