@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from deliveries.models import Delivery
-from events.models import SpecialHours, StoreHours
+from events.models import Event, StoreHours
 from gift_cards.models import GiftCard
 from payments.models import PaymentAuthorization, Transaction
 from pos_server.models import Order, OrderStation
@@ -16,13 +16,15 @@ from pos_server.tests import MenuFixture
 
 
 def open_hours(before=60, after=180, day=None, **cutoffs):
-    """The store open today from `before` minutes ago to `after` from now (the week closed), cutoffs 0 unless given."""
+    """The store open today (an event) from `before` minutes ago to `after` from now (the week closed), cutoffs 0 unless given."""
     StoreHours.objects.update_or_create(pk=1, defaults={"week": [{"open": False, "r": []}] * 7, **{
         "pickup_after": 0, "pickup_before": 0, "delivery_after": 0, "delivery_before": 0, **cutoffs}})
     now = timezone.localtime()
     minute = now.hour * 60 + now.minute
-    return SpecialHours.objects.update_or_create(date=day or now.date(), defaults={
-        "closed": False, "opens": max(0, minute - before), "closes": min(minute + after, 1680)})[0]
+    day = day or now.date()
+    return Event.objects.update_or_create(title="Open", start_date=day, defaults={
+        "kind": Event.OPEN, "end_date": day, "opens": max(0, minute - before), "closes": min(minute + after, 1680),
+        "dine_in": True, "pickup": True, "delivery": True})[0]
 
 
 class PlaceOrderTests(MenuFixture, TestCase):
@@ -263,11 +265,11 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.add_burger()
         url = reverse("store_cart")
         tomorrow = timezone.localdate() + datetime.timedelta(days=1)
-        SpecialHours.objects.filter(date=timezone.localdate()).update(closes=1440)  # nothing past midnight
+        Event.objects.filter(start_date=timezone.localdate()).update(closes=1440)  # nothing past midnight
         self.client.post(url, {"op": "when:later"})
         when = self.client.post(url, {"op": f"date:{tomorrow.isoformat()}"}).context["when"]
         self.assertEqual((when["ok"], when["message"]), (False, "We’re closed that day."))
-        SpecialHours.objects.create(date=tomorrow, closed=False, opens=540, closes=1020)
+        Event.objects.create(title="Tomorrow", kind=Event.OPEN, start_date=tomorrow, end_date=tomorrow, opens=540, closes=1020)
         when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
         self.assertTrue(when["ok"], when["message"])
         self.assertIn("tomorrow at 11:30 AM", when["message"])

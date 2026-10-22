@@ -1037,10 +1037,10 @@ class Command(BaseCommand):
 
     def seed_events(self):
         """Store hours: weekdays 7 to 7 (Friday with a mid-afternoon break and open late), Saturday till 1 AM, a short
-        Sunday; today stays open till midnight so the demo store takes online orders whenever you try it, plus the
-        holidays coming up. And events on top: openings for a market brunch, trivia and the patio, a training day, closing
-        early on Halloween and an afternoon without delivery."""
-        from events.models import SpecialHours, StoreHours
+        Sunday. Events on top: today stays open till midnight so the demo store takes online orders whenever you try it,
+        openings for a market brunch, trivia and the patio, the holidays coming up, a training day, closing early on
+        Halloween and an afternoon without delivery."""
+        from events.models import StoreHours
         cfg = StoreHours.load()
         cfg.week = [{"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]},
                     {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 840], [900, 1320]]},
@@ -1050,17 +1050,22 @@ class Command(BaseCommand):
         now = timezone.localtime()
         today = now.date()
         opens = min(420, now.hour * 60 + now.minute) // 15 * 15
-        SpecialHours.objects.update_or_create(date=today, defaults={"closed": False, "opens": opens, "closes": 1440,
-                                                                    "note": "Open late tonight"})
-        for month, day, closed, hours, note in ((11, 11, True, None, "Closed for Remembrance Day"),
-                                                (12, 24, False, (480, 900), "Christmas Eve, open until 3 PM"),
-                                                (12, 25, True, None, "Closed for Christmas Day"),
-                                                (12, 26, True, None, "Closed for Boxing Day")):
+        everything = {"dine_in": True, "pickup": True, "delivery": True}
+        Event.objects.update_or_create(title="Open late tonight", defaults={
+            "kind": Event.OPEN, "start_date": today, "end_date": today, "opens": opens, "closes": 1440, "banner": False, **everything})
+
+        def upcoming(month, day):
             date = datetime.date(today.year, month, day)
-            if date <= today:
-                date = date.replace(year=today.year + 1)
-            a, b = hours or (480, 1080)
-            SpecialHours.objects.update_or_create(date=date, defaults={"closed": closed, "opens": a, "closes": b, "note": note})
+            return date if date > today else date.replace(year=today.year + 1)
+
+        for title, date, (a, b), all_day, desc in (
+                ("Remembrance Day", upcoming(11, 11), (0, 1440), True, "Closed for Remembrance Day."),
+                ("Christmas Eve, open until 3 PM", upcoming(12, 24), (900, 1680), False, "Closing at 3 PM. Merry Christmas!"),
+                ("Christmas Day", upcoming(12, 25), (0, 1440), True, "Closed for Christmas. Merry everything!"),
+                ("Boxing Day", upcoming(12, 26), (0, 1440), True, "Closed for Boxing Day.")):
+            Event.objects.update_or_create(title=title, defaults={"kind": Event.CLOSED, "start_date": date, "end_date": date, "opens": a,
+                                                                   "closes": b, "all_day": all_day, "description": desc, "banner_days": 14,
+                                                                   **everything})
 
         def weekday(w, ahead):
             """The first `w` (0 = Monday) at least `ahead` days from today."""
@@ -1077,9 +1082,11 @@ class Command(BaseCommand):
                 ("Trivia night", O, weekday(1, 8), (1140, 1320), {"dine_in": True, "pickup": False, "banner_days": 3},
                  "Teams of up to six. Winners eat free."),
                 ("Patio opening", O, weekday(6, 7), (900, 1200), {"dine_in": True, "pickup": True}, "First warm Sunday on the patio. Live music from 3."),
-                ("Staff training day", C, weekday(0, 10), (0, 1440), {"all_day": True}, "We’re closed for a day of training. See you Tuesday!"),
-                ("Halloween, closing early", C, halloween, (1080, 1500), {"banner_days": 5}, "Closing at 6 PM so the team can go trick-or-treating."),
-                ("Short-staffed, no delivery", C, weekday(3, 3), (840, 1140), {"scope": Event.DELIVERY, "banner_days": 1},
+                ("Staff training day", C, weekday(0, 10), (0, 1440), {"all_day": True, **everything},
+                 "We’re closed for a day of training. See you Tuesday!"),
+                ("Halloween, closing early", C, halloween, (1080, 1500), {"banner_days": 5, **everything},
+                 "Closing at 6 PM so the team can go trick-or-treating."),
+                ("Short-staffed, no delivery", C, weekday(3, 3), (840, 1140), {"dine_in": False, "pickup": False, "delivery": True, "banner_days": 1},
                  "Pickup and dine-in as usual. Delivery is off for the afternoon.")):
             Event.objects.update_or_create(title=title, defaults={"kind": kind, "start_date": day, "end_date": day, "opens": a, "closes": b,
                                                                    "description": desc, **extra})

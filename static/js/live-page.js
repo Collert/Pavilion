@@ -62,6 +62,30 @@ function syncCalc(live, next) {
 
 const typingIn = (node) => node.contains(document.activeElement) && document.activeElement.matches("input, textarea");
 
+// Scrolled boxes in a region (the region itself, or panels inside it) keep their place when the region is swapped:
+// each is found again in the new HTML by its id, or by its classes and position among boxes with the same classes
+function scrollKey(node, root) {
+    if (node === root) return ":root";
+    if (node.id) return "#" + node.id;
+    const selector = [...node.classList].map((c) => "." + CSS.escape(c)).join("") || node.tagName.toLowerCase();
+    return selector + "@" + [...root.querySelectorAll(selector)].indexOf(node);
+}
+function findByKey(root, key) {
+    if (key === ":root") return root;
+    if (key.startsWith("#")) return root.querySelector(key) || (root.id === key.slice(1) ? root : null);
+    const at = key.lastIndexOf("@");
+    return root.querySelectorAll(key.slice(0, at))[Number(key.slice(at + 1))] || null;
+}
+function replaceKeepingScroll(live, next) {
+    const scrolled = [live, ...live.querySelectorAll("*")].filter((n) => n.scrollTop || n.scrollLeft)
+        .map((n) => [scrollKey(n, live), n.scrollTop, n.scrollLeft]);
+    live.replaceWith(next);
+    for (const [key, top, left] of scrolled) {
+        const node = findByKey(next, key);
+        if (node) node.scrollTo(left, top);
+    }
+}
+
 // Swap in the regions that changed. Returns false when the page is laid out differently (then replace #page).
 function swapRegions(doc, { transient }) {
     const fresh = [...doc.querySelectorAll("[data-region]")];
@@ -77,7 +101,7 @@ function swapRegions(doc, { transient }) {
             continue;
         }
         if (fingerprint(live) === fingerprint(next)) syncCountdowns(live, next);
-        else live.replaceWith(document.importNode(next, true));
+        else replaceKeepingScroll(live, document.importNode(next, true));
     }
     return true;
 }

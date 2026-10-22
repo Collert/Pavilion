@@ -33,7 +33,7 @@ draft is posted (the others as hidden inputs), so picking, adding and deleting k
     <input type="hidden" name="ev-{{ x.k }}-all_day" value="{% if x.all_day %}1{% endif %}"><input type="hidden" name="ev-{{ x.k }}-from" value="{{ x.from }}">
     <input type="hidden" name="ev-{{ x.k }}-to" value="{{ x.to }}"><input type="hidden" name="ev-{{ x.k }}-dine" value="{% if x.dine %}1{% endif %}">
     <input type="hidden" name="ev-{{ x.k }}-pickup" value="{% if x.pickup %}1{% endif %}"><input type="hidden" name="ev-{{ x.k }}-delivery" value="{% if x.delivery %}1{% endif %}">
-    <input type="hidden" name="ev-{{ x.k }}-scope" value="{{ x.scope }}"><input type="hidden" name="ev-{{ x.k }}-banner" value="{% if x.banner %}1{% endif %}">
+    <input type="hidden" name="ev-{{ x.k }}-banner" value="{% if x.banner %}1{% endif %}">
     <input type="hidden" name="ev-{{ x.k }}-lead" value="{{ x.lead }}">
     {% endfor %}
 
@@ -89,7 +89,7 @@ draft is posted (the others as hidden inputs), so picking, adding and deleting k
         <input type="hidden" name="ev-{{ k }}-id" value="{{ x.id }}"><input type="hidden" name="ev-{{ k }}-kind" value="{{ x.kind }}">
         <input type="hidden" name="ev-{{ k }}-was" value="{{ x.start }}"><input type="hidden" name="ev-{{ k }}-all_day" value="{% if x.all_day %}1{% endif %}">
         <input type="hidden" name="ev-{{ k }}-dine" value="{% if x.dine %}1{% endif %}"><input type="hidden" name="ev-{{ k }}-pickup" value="{% if x.pickup %}1{% endif %}">
-        <input type="hidden" name="ev-{{ k }}-delivery" value="{% if x.delivery %}1{% endif %}"><input type="hidden" name="ev-{{ k }}-scope" value="{{ x.scope }}">
+        <input type="hidden" name="ev-{{ k }}-delivery" value="{% if x.delivery %}1{% endif %}">
         <input type="hidden" name="ev-{{ k }}-banner" value="{% if x.banner %}1{% endif %}">
         {% if not e.show_times %}<input type="hidden" name="ev-{{ k }}-from" value="{{ x.from }}"><input type="hidden" name="ev-{{ k }}-to" value="{{ x.to }}">{% endif %}
         {% if not x.banner %}<input type="hidden" name="ev-{{ k }}-lead" value="{{ x.lead }}">{% endif %}
@@ -147,19 +147,9 @@ draft is posted (the others as hidden inputs), so picking, adding and deleting k
 
         <div class="card ev-card">
             <h2 class="disp ev-h">{% if e.open %}{% trans "What’s open" %}{% else %}{% trans "What closes" %}{% endif %}</h2>
-            {% if e.open %}
-            <div class="lbl top10">{% trans "Taking" %}</div>
-            <div class="ev-chans">{% for key, label, on in e.channels %}<button name="op" value="chan:{{ key }}" aria-pressed="{% if on %}true{% else %}false{% endif %}">{{ label }}</button>{% endfor %}</div>
-            <div class="small muted top8">{% trans "Pickup and delivery use the cutoffs from Store hours." %}</div>
-            {% else %}
-            <div class="ev-scopes" role="radiogroup" aria-label="{% trans 'What closes' %}">
-                {% for key, label, hint in e.scopes %}
-                <button role="radio" aria-checked="{% if x.scope == key %}true{% else %}false{% endif %}" name="op" value="scope:{{ key }}">
-                    <span class="ev-radio"><span></span></span><span class="two-line"><span class="strong">{{ label }}</span><span class="ev-hint">{{ hint }}</span></span>
-                </button>
-                {% endfor %}
-            </div>
-            {% endif %}
+            <div class="lbl top10">{% if e.open %}{% trans "Taking" %}{% else %}{% trans "Closing" %}{% endif %}</div>
+            <div class="ev-chans{% if not e.open %} closing{% endif %}">{% for key, label, on in e.channels %}<button name="op" value="chan:{{ key }}" aria-pressed="{% if on %}true{% else %}false{% endif %}">{{ label }}</button>{% endfor %}</div>
+            <div class="small muted top8">{% if e.open %}{% trans "Pickup and delivery use the cutoffs from Store hours." %}{% else %}{% trans "Tick everything to close the store. What isn’t ticked stays open as usual." %}{% endif %}</div>
         </div>
 
         <div class="card ev-card">

@@ -192,10 +192,11 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
 - `events.StoreHours` (one row: `week` = Monday-first `{open, r: [[from, to]]}` in minutes, `to` past 1440 = after midnight;
   `pickup_after/before`, `delivery_after/before`, `last_call`, `around_breaks`, `ahead`, `ahead_days`, `lead`, `paused_until`),
-  `SpecialHours(date, closed, opens, closes, note)` replacing the week on a date; `events/hours.py` (`Hours`: ranges per
-  day and channel, spans as datetimes, current/next, pause). `events.Event(kind open|closed, title, description, start_date, end_date, all_day, opens, closes, dine_in, pickup,
-  delivery, scope all|online|delivery, banner, banner_days)` is laid over that by `Hours.ranges` (openings add hours for
-  the channels they take, closures subtract theirs, closing wins, cutoffs after). `EventTemplate` is unused.
+  and `events/hours.py` (`Hours`: ranges per day and channel, spans as datetimes, current/next, pause).
+  `events.Event(kind open|closed, title, description, start_date, end_date, all_day, opens, closes, dine_in, pickup,
+  delivery, banner, banner_days)` is laid over that by `Hours.ranges`: openings add hours for the channels ticked,
+  closures (holidays too) take hours from the channels ticked, closing wins, cutoffs after; the store counts as closed
+  only when every channel is. `EventTemplate` is unused.
 - `deliveries.Delivery(order, order_number, customer_name, destination, address_2, instructions, phone, courier,
   passed_by, accepted_at, picked_up_at, arrived_at, delivered_at, handoff, photo, declined_reason, distance_m,
   travel_seconds)`; `phase()` says which step it's at. `CourierShift(user, mode = walking|bicycling|driving,
@@ -329,7 +330,7 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
 "Neighbourhood"). Done:
 
 - **Home** (`index`): hero, menus on now and coming up from the menu schedule, this week's best sellers, a catering
-  teaser from `CateringSettings`, three online services, visit us with this week's hours (special dates show their note) from `events/hours.py`; the
+  teaser from `CateringSettings`, three online services, visit us with this week's hours (with each day's events) from `events/hours.py`; the
   theme's header (open-now banner, the signed-in customer's order in progress, cart count) and footer.
 - **Menu** (`online_store/pages.py: menu_page`): menus live now or starting within a day as tabs, sections by
   station, the cart beside them, and the dish sheet (`?dish=` / `?combo=`): a form built from `pricing.DishKit`
@@ -565,10 +566,10 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   live (and the store details to `StoreSettings`); "Reset to theme defaults" resets the draft.
 - **Store hours** (`admin_hours`, `hours.py`, 2026-10-21): the week with switches, periods (breaks between them),
   "Copy to…" and per-day checks; the week at a glance (open hours, and pickup and delivery windows after cutoffs, with
-  a now line); holidays and special hours with a note for the store; "Right now" (open, kitchen last call, pickup and
+  a now line); "Right now" (open, kitchen last call, pickup and
   delivery windows, what the store shows today); pause online orders (15/30/60 min or the rest of the day, acts at
   once; the store shows "Back soon"); order cutoffs (around breaks or not) and ordering ahead (days, soonest pickup).
-  One form with Save; the draft drives the chart and "Right now".
+  One form with Save; the draft drives the chart and "Right now". Holidays and one-off changes are Events.
 - **Stations** (`admin_stations`, `stations.py`, 2026-10-22): the list in ticket order (arrows reorder) and the
   selected station: name, ticket code, icon (the 18 drawings in `pos_server/station_icons.py`, also drawn on the order
   marking screen), colour (taken ones ringed), target ticket time (the order marking screen's timers turn amber at
@@ -580,8 +581,9 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   event: a closure if the store is usually open, else an opening; a day with events steps through them), what's coming
   up (120 days), and the selected event: open for an event or close the store, name and what customers see, dates and
   times (moving the start keeps the length), what changes on its next three days against the usual hours, overlap
-  warnings, the channels it opens or what it closes, and the online store's banner (from 1 day to 2 weeks before;
+  warnings, the channels it opens or closes (the same dine-in/pickup/delivery toggles), and the online store's banner (from 1 day to 2 weeks before;
   `storefront.event_banner`). One form with Save; the old `Event` rows were converted (migration `0003_event_layers`).
+  `static/js/live-page.js` keeps scrolled boxes in a swapped region where they were (by id, or classes and position).
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

@@ -1,6 +1,6 @@
 """
-The store's opening hours (design: AdminHours): StoreHours' week, SpecialHours dates that replace it, Events laid
-over that (extra hours for the channels an event takes; closures, which win where they overlap), the cutoffs that
+The store's opening hours (design: AdminHours): StoreHours' week, and Events laid over it (extra hours for the
+channels an event opens; closures, holidays included, for the channels they close, which win where they overlap), the cutoffs that
 decide when pickup and delivery orders can be placed, and pausing online orders. Minutes count from a day's midnight
 and a range can end past 1440 (after midnight, still that day's hours).
 
@@ -12,7 +12,7 @@ import datetime
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .models import Event, SpecialHours, StoreHours
+from .models import Event, StoreHours
 
 OPEN, DINE, PICKUP, DELIVERY = "open", "dine", "pickup", "delivery"
 
@@ -51,12 +51,11 @@ def takes(event, channel) -> bool:
 
 
 def closes(event, channel) -> bool:
-    """A "closed" event takes hours away from this channel."""
-    if event.scope == Event.ALL:
-        return True
-    if event.scope == Event.ONLINE:
-        return channel in (PICKUP, DELIVERY)
-    return channel == DELIVERY
+    """A "closed" event takes hours away from this channel (OPEN, the store being open at all: only when it closes
+    every channel)."""
+    if channel == OPEN:
+        return event.dine_in and event.pickup and event.delivery
+    return {DINE: event.dine_in, PICKUP: event.pickup, DELIVERY: event.delivery}[channel]
 
 
 def cut(ranges, after, before, around_breaks=True) -> list[tuple[int, int]]:
@@ -78,9 +77,8 @@ def week_ranges(week, weekday) -> list[tuple[int, int]]:
 class Hours:
     """The hours as saved (or a draft's, from the admin page): ranges per day and channel, as minutes or datetimes."""
 
-    def __init__(self, cfg=None, specials=None, events=None):
+    def __init__(self, cfg=None, events=None):
         self.cfg = cfg or StoreHours.load()
-        self._specials = specials  # {date: SpecialHours}, loaded on first use
         self._events = events  # [Event], loaded on first use
 
     @property
@@ -92,21 +90,8 @@ class Hours:
     def events_on(self, day) -> list:
         return [e for e in self.events if e.covers(day)]
 
-    @property
-    def specials(self) -> dict:
-        if self._specials is None:
-            since = timezone.localdate() - datetime.timedelta(days=1)
-            self._specials = {s.date: s for s in SpecialHours.objects.filter(date__gte=since)}
-        return self._specials
-
-    def special(self, day):
-        return self.specials.get(day)
-
     def usual(self, day) -> list[tuple[int, int]]:
-        """The day's hours before events: its special hours, else the week's."""
-        sp = self.special(day)
-        if sp is not None:
-            return [] if sp.closed else [(sp.opens, sp.closes)]
+        """The day's hours before events: the week's."""
         return week_ranges(self.cfg.week, day.weekday())
 
     def ranges(self, day, channel=OPEN) -> list[tuple[int, int]]:

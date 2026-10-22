@@ -1642,7 +1642,7 @@ class BrandingTests(AdminFixture, TestCase):
 
 
 class StoreHoursTests(AdminFixture, TestCase):
-    """The Store hours page (admin_portal/hours.py): the week, special dates, cutoffs, ordering ahead and pausing."""
+    """The Store hours page (admin_portal/hours.py): the week, cutoffs, ordering ahead and pausing."""
     @classmethod
     def setUpTestData(cls):
         cls.build_admin()
@@ -1660,9 +1660,6 @@ class StoreHoursTests(AdminFixture, TestCase):
             pairs = [(r["a"], r["b"]) for r in x["ranges"]] or x["hidden"]
             data[f"d{x['i']}-from"] = [str(a) for a, _b in pairs]
             data[f"d{x['i']}-to"] = [str(b) for _a, b in pairs]
-        for key, col in (("id", "id"), ("date", "date"), ("from", "opens"), ("to", "closes"), ("note", "note")):
-            data[f"sp-{key}"] = [str(s[col]) for s in h["specials"]]
-        data["sp-closed"] = ["1" if s["closed"] else "" for s in h["specials"]]
         data.update(changes)
         return data
 
@@ -1698,23 +1695,6 @@ class StoreHoursTests(AdminFixture, TestCase):
         self.assertEqual(h["status"], "All changes saved")
         pick = [b for b in h["chart"][0]["bars"] if b["kind"] == "pick"]
         self.assertEqual(len(pick), 2)  # around breaks off: one bar each side of the break, cut only at open and close
-
-    def test_special_dates(self):
-        from events.models import SpecialHours
-        h = self.client.get(self.url).context["h"]
-        h = self.post(h, "spadd").context["h"]
-        day = (timezone.localdate() + datetime.timedelta(days=7)).isoformat()
-        self.assertEqual([(s["date"], s["closed"]) for s in h["specials"]], [(day, True)])
-        h = self.post(h, "spkind:0:hours", **{"sp-note": ["Closing early"]}).context["h"]
-        h = self.post(h, **{"sp-from": ["600"], "sp-to": ["540"]}).context["h"]
-        self.assertTrue(h["specials"][0]["errs"])
-        h = self.post(h, **{"sp-from": ["600"], "sp-to": ["900"]}).context["h"]
-        self.post(h, "save")
-        sp = SpecialHours.objects.get()
-        self.assertEqual((sp.date.isoformat(), sp.closed, sp.opens, sp.closes, sp.note), (day, False, 600, 900, "Closing early"))
-        h = self.client.get(self.url).context["h"]
-        self.post(self.post(h, "spdel:0").context["h"], "save")
-        self.assertFalse(SpecialHours.objects.exists())
 
     def test_pause_and_resume(self):
         from events.models import StoreHours
@@ -1858,6 +1838,14 @@ class EventsTests(AdminFixture, TestCase):
         later = (day + datetime.timedelta(days=3)).isoformat()
         v = self.post(v, **{f"ev-{k}-start": later, f"ev-{k}-was": day.isoformat()}).context["v"]
         self.assertEqual(v["e"]["x"]["end"], (day + datetime.timedelta(days=4)).isoformat())
+        # a closure ticks what it closes; the store shows what stops
+        v = self.post(v, "kind:closed").context["v"]
+        self.assertEqual([on for _k, _l, on in v["e"]["channels"]], [True, True, True])
+        v = self.post(v, "chan:dine").context["v"]
+        v = self.post(v, "chan:pickup").context["v"]
+        self.assertTrue(v["e"]["banner_head"].startswith("No delivery"))
+        v = self.post(v, "chan:delivery").context["v"]
+        self.assertEqual(v["e"]["errs"], ["Pick at least one thing to close."])
         v = self.post(v, "delete").context["v"]
         self.assertIsNone(v["e"])
         self.post(v, "save")

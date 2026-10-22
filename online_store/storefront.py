@@ -60,15 +60,14 @@ def link(name, *args) -> str:
 # ---------- hours ----------
 
 def week_hours(today=None, hours=None) -> list[dict]:
-    """The next seven days, Monday first, with special hours: [{"day", "time", "today", "note"}]."""
+    """The next seven days, Monday first, events included: [{"day", "time", "today", "note": the day's events}]."""
     today = today or timezone.localdate()
     hours = hours or Hours()
     days = sorted((today + datetime.timedelta(days=n) for n in range(7)), key=lambda d: d.weekday())
     out = []
     for d in days:
-        sp = hours.special(d)
         out.append({"day": DAY_NAMES[d.weekday()], "time": ranges_text(hours.ranges(d)) or _("Closed"), "today": d == today,
-                    "note": sp.note if sp else ""})
+                    "note": ", ".join(e.title for e in hours.events_on(d))})
     return out
 
 
@@ -79,13 +78,12 @@ def regular_hours(hours=None) -> list[dict]:
 
 
 def open_now(now=None, hours=None) -> dict:
-    """{"open": bool, "text": "Open now · till 9 PM today", "short": "7–9", "note": today's special note}"""
+    """{"open": bool, "text": "Open now · till 9 PM today", "short": "7–9", "note": today's events}"""
     now = timezone.localtime(now or timezone.now())
     hours = hours or Hours()
     today = hours.ranges(now.date())
     short = f"{clock_minutes(today[0][0], True)}–{clock_minutes(today[-1][1], True)}" if today else ""
-    sp = hours.special(now.date())
-    out = {"short": short, "note": sp.note if sp else ""}
+    out = {"short": short, "note": ", ".join(e.title for e in hours.events_on(now.date()))}
     paused = hours.paused_until(now)
     if paused:
         return {**out, "open": False, "paused": True,
@@ -122,10 +120,18 @@ def event_banner(today=None, hours=None) -> dict | None:
     if e.kind == Event.OPEN:
         head = e.title
     else:
-        head = {Event.ALL: _("Closed"), Event.ONLINE: _("No online orders"), Event.DELIVERY: _("No delivery")}[e.scope]
+        head = closed_label(e)
     when = "" if e.kind == Event.CLOSED and e.all_day else f", {clock_minutes(e.opens)}–{clock_minutes(e.closes)}"
     day_text = _("today") if day == today else _("tomorrow") if day == today + datetime.timedelta(days=1) else f"{day:%a, %b} {day.day}"
     return {"kind": e.kind, "head": f"{head} · {day_text}{when}.", "text": e.description or ""}
+
+
+def closed_label(e) -> str:
+    """Closed, or what a closure stops: "No delivery", "No pickup or delivery"."""
+    if e.closes_everything():
+        return _("Closed")
+    names = [str(label) for on, label in ((e.dine_in, _("dine-in")), (e.pickup, _("pickup")), (e.delivery, _("delivery"))) if on]
+    return _("No %(what)s") % {"what": _(" or ").join(names)} if names else _("Closed")
 
 
 def clock_minutes(minutes, short=False) -> str:

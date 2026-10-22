@@ -14,7 +14,6 @@
 .ico:disabled { opacity: .3; cursor: not-allowed; }
 .tsel { width: 120px; flex: 0 1 auto; min-width: 88px; height: 36px; padding: 0 6px 0 10px; border: none; border-radius: 10px; background: var(--surface); font: inherit; font-size: 13px; font-weight: 800; color: var(--ink); box-shadow: inset 0 0 0 1px #E1E7E3; }
 .tsel.wide { width: 150px; }
-.tsel.mid { width: 140px; }
 
 /* weekly hours */
 .hr-days { display: flex; flex-direction: column; margin-top: 12px; }
@@ -61,21 +60,6 @@
 .hr-bar.pick { top: 20px; height: 4px; border-radius: 2px; background: #C9821A; }
 .hr-bar.deliv { top: 26px; height: 4px; border-radius: 2px; background: #4E79B5; }
 
-/* special hours */
-.hr-pill { height: 40px; padding: 0 14px; border-radius: 20px; border: none; background: var(--mint); color: var(--brand); font-size: 13px; font-weight: 800; flex: none; }
-.hr-specials { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.hr-special { display: grid; grid-template-columns: 150px 150px minmax(0, 1fr) 30px; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 16px; background: var(--softer); }
-.hr-special.bad { box-shadow: inset 0 0 0 2px var(--red-soft); }
-.hr-special .ico { margin-top: 3px; }
-.hr-date, .hr-note { height: 36px; padding: 0 10px; background: var(--surface); border-radius: 12px; font-weight: 700; }
-.hr-when { font-size: 11px; font-weight: 700; margin-top: 5px; padding-left: 2px; color: var(--muted); }
-.hr-when.soon { color: var(--amber-ink); }
-.hr-kind { display: flex; gap: 3px; padding: 3px; border-radius: 11px; background: var(--bg); height: 36px; box-sizing: border-box; }
-.hr-kind button { flex: 1; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; background: transparent; color: var(--muted); }
-.hr-kind button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 38, 31, .14); }
-.hr-special-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.hr-none { padding: 20px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
-
 /* right now */
 .hr-now-card { border-radius: 24px; background: var(--ink); color: #FFFFFF; padding: 18px 20px; }
 .hr-now-top { display: flex; align-items: center; gap: 8px; color: var(--rail-ink); }
@@ -120,7 +104,5 @@
 @media (max-width: 760px) {
     .hr-day { flex-wrap: wrap; }
     .hr-day-name { width: 100%; }
-    .hr-special { grid-template-columns: 1fr 30px; }
-    .hr-special-body { grid-column: 1 / -1; }
     .hr-chart { overflow-x: auto; }
 }

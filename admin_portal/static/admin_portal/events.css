@@ -104,14 +104,7 @@
 .ev-chans { display: flex; gap: 6px; }
 .ev-chans button { flex: 1; height: 38px; border-radius: 12px; border: none; font-size: 13px; font-weight: 800; background: var(--soft); color: var(--ink-2); }
 .ev-chans button[aria-pressed="true"] { background: var(--brand); color: #FFFFFF; }
-.ev-scopes { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.ev-scopes button { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: none; border-radius: 12px; color: var(--ink); background: var(--softer); text-align: left; font: inherit; }
-.ev-scopes button .strong { font-size: 13px; }
-.ev-scopes button[aria-checked="true"] { background: #FDF1EE; box-shadow: inset 0 0 0 1.5px var(--red); }
-.ev-radio { width: 18px; height: 18px; border-radius: 9px; flex: none; display: flex; align-items: center; justify-content: center; background: #FFFFFF; box-shadow: inset 0 0 0 2px #C9D3CD; }
-.ev-radio span { display: none; width: 8px; height: 8px; border-radius: 4px; background: var(--red); }
-.ev-scopes button[aria-checked="true"] .ev-radio { box-shadow: inset 0 0 0 2px var(--red); }
-.ev-scopes button[aria-checked="true"] .ev-radio span { display: block; }
+.ev-chans.closing button[aria-pressed="true"] { background: var(--red); }
 .ev-lead { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
 .ev-lead select { height: 36px; padding: 0 8px; border: none; border-radius: 10px; background: var(--soft); font: inherit; font-size: 13px; font-weight: 800; color: var(--ink); }
 .ev-banner { margin-top: 10px; padding: 9px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1.4; color: #FFFFFF; background: var(--ink); }

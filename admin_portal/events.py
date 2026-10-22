@@ -1,11 +1,11 @@
 """
 Events (design: AdminEvents): a month calendar over the usual hours, what's coming up, and the selected event: open
-for an event (extra hours for dine-in, pickup and/or delivery) or close the store (everything, online orders or
-delivery), when, what changes on its next days, and the online store's banner. One form with Save; picking,
+for an event (extra hours) or close the store (holidays, training, a short-staffed shift), for the channels ticked
+(dine-in, pickup, delivery), when, what changes on its next days, and the online store's banner. One form with Save; picking,
 adding and deleting events are part of the draft until it's saved. events/hours.py lays saved events over Store hours.
 
     draft = {"events": [{"id": 3 or "", "kind", "name", "desc", "start": "2026-11-04", "end", "all_day", "from", "to",
-                         "dine", "pickup", "delivery", "scope", "banner", "lead"}],
+                         "dine", "pickup", "delivery", "banner", "lead"}],
              "sel": index or -1, "month": "2026-11", "gone": [ids deleted]}
 """
 import calendar
@@ -19,12 +19,9 @@ from events.hours import Hours, text as clock
 from events.models import Event
 
 CHANNELS = [("dine", _("Dine-in")), ("pickup", _("Pickup")), ("delivery", _("Delivery"))]
-SCOPES = [(Event.ALL, _("Close everything"), _("No dine-in, pickup or delivery")),
-          (Event.ONLINE, _("Stop online orders only"), _("Dine-in stays open")),
-          (Event.DELIVERY, _("Stop delivery only"), _("Dine-in and pickup stay open"))]
 LEADS = [(1, _("1 day before")), (3, _("3 days before")), (5, _("5 days before")), (7, _("1 week before")), (14, _("2 weeks before"))]
 SHORT_DAYS = [_("Mon"), _("Tue"), _("Wed"), _("Thu"), _("Fri"), _("Sat"), _("Sun")]
-FIELDS = ("id", "kind", "name", "desc", "start", "end", "was", "all_day", "from", "to", "dine", "pickup", "delivery", "scope", "banner", "lead")
+FIELDS = ("id", "kind", "name", "desc", "start", "end", "was", "all_day", "from", "to", "dine", "pickup", "delivery", "banner", "lead")
 HISTORY_DAYS = 400  # older events stay as they are and aren't in the draft
 
 
@@ -45,7 +42,7 @@ def _date(value):
 def _row(e: Event) -> dict:
     return {"id": e.id, "kind": e.kind, "name": e.title, "desc": e.description or "", "start": e.start_date.isoformat(),
             "end": e.end_date.isoformat(), "all_day": e.all_day, "from": e.opens, "to": e.closes, "dine": e.dine_in,
-            "pickup": e.pickup, "delivery": e.delivery, "scope": e.scope, "banner": e.banner, "lead": e.banner_days}
+            "pickup": e.pickup, "delivery": e.delivery, "banner": e.banner, "lead": e.banner_days}
 
 
 def draft_of() -> dict:
@@ -68,7 +65,6 @@ def from_post(post) -> dict:
                        "end": (end or start).isoformat(), "all_day": v["all_day"] == "1",
                        "from": min(max(_int(v["from"], 540), 0), 1425), "to": min(max(_int(v["to"], 1260), 15), 1680),
                        "dine": v["dine"] == "1", "pickup": v["pickup"] == "1", "delivery": v["delivery"] == "1",
-                       "scope": v["scope"] if v["scope"] in (Event.ALL, Event.ONLINE, Event.DELIVERY) else Event.ALL,
                        "banner": v["banner"] == "1", "lead": _int(v["lead"], 7) if _int(v["lead"], 7) in dict(LEADS) else 7})
     month = post.get("month", "")
     if not _date(month + "-01"):
@@ -82,7 +78,7 @@ def _new(day, hours):
     usually_open = bool(hours.usual(day))
     return {"id": "", "kind": Event.CLOSED if usually_open else Event.OPEN, "name": "", "desc": "", "start": day.isoformat(),
             "end": day.isoformat(), "all_day": usually_open, "from": 540, "to": 1260, "dine": True, "pickup": True,
-            "delivery": False, "scope": Event.ALL, "banner": True, "lead": 7}
+            "delivery": usually_open, "banner": True, "lead": 7}
 
 
 def _covers(x, day):
@@ -120,6 +116,8 @@ def apply_op(draft, op) -> tuple[dict, str]:
             if _date(iso):
                 draft["month"] = _date(iso).strftime("%Y-%m")
     elif e and name == "kind" and arg in (Event.OPEN, Event.CLOSED):
+        if e["kind"] != arg:  # each kind starts with its usual channels: closing everything, opening dine-in and pickup
+            e["dine"], e["pickup"], e["delivery"] = True, True, arg == Event.CLOSED
         e["kind"] = arg
         if arg == Event.OPEN:
             e["all_day"] = False
@@ -127,8 +125,6 @@ def apply_op(draft, op) -> tuple[dict, str]:
         e["all_day"] = not e["all_day"]
     elif e and name == "chan" and arg in ("dine", "pickup", "delivery"):
         e[arg] = not e[arg]
-    elif e and name == "scope" and arg in (Event.ALL, Event.ONLINE, Event.DELIVERY):
-        e["scope"] = arg
     elif e and name == "banner":
         e["banner"] = not e["banner"]
     elif e and name == "delete":
@@ -148,8 +144,8 @@ def errors(x) -> list[str]:
         out.append(_("The end date is before the start."))
     if not (x["kind"] == Event.CLOSED and x["all_day"]) and x["to"] <= x["from"]:
         out.append(_("The end time is before the start time."))
-    if x["kind"] == Event.OPEN and not (x["dine"] or x["pickup"] or x["delivery"]):
-        out.append(_("Pick at least one way customers can order."))
+    if not (x["dine"] or x["pickup"] or x["delivery"]):
+        out.append(_("Pick at least one way customers can order.") if x["kind"] == Event.OPEN else _("Pick at least one thing to close."))
     return out
 
 
@@ -167,7 +163,7 @@ def save(draft):
     for x in draft["events"]:
         values = {"kind": x["kind"], "title": x["name"], "description": x["desc"], "start_date": _date(x["start"]),
                   "end_date": _date(x["end"]), "all_day": x["all_day"] and x["kind"] == Event.CLOSED, "opens": x["from"],
-                  "closes": x["to"], "dine_in": x["dine"], "pickup": x["pickup"], "delivery": x["delivery"], "scope": x["scope"],
+                  "closes": x["to"], "dine_in": x["dine"], "pickup": x["pickup"], "delivery": x["delivery"],
                   "banner": x["banner"], "banner_days": x["lead"]}
         if not (x["id"] and Event.objects.filter(pk=x["id"]).update(**values)):
             Event.objects.create(**values)
@@ -216,8 +212,10 @@ def _effects(x, hours, today):
                 text = _("You’re not usually open then, so nothing changes.")
             else:
                 from events.hours import duration
-                text = {Event.ALL: _("Closes %(t)s of usual hours."), Event.ONLINE: _("Stops online orders for %(t)s of usual hours."),
-                        Event.DELIVERY: _("Stops delivery for %(t)s of usual hours.")}[x["scope"]] % {"t": duration(lost)}
+                if x["dine"] and x["pickup"] and x["delivery"]:
+                    text = _("Closes %(t)s of usual hours.") % {"t": duration(lost)}
+                else:
+                    text = _("Stops %(what)s for %(t)s of usual hours.") % {"what": _chans_text(x), "t": duration(lost)}
         out.append({"date": _nice(day, True), "bars": bars, "text": text})
     more = ""
     if len(days) > 3:
@@ -238,10 +236,19 @@ def _wid(a, b):
     return f"{max(0, (min(b, X1) - max(a, X0)) / (X1 - X0)) * 100:.1f}%"
 
 
+def _chans_text(x):
+    return _(" and ").join(str(label).lower() for key, label in CHANNELS if x[key])
+
+
+def _closed_label(x):
+    """Closed, or what a closure stops: "No delivery", "No pickup or delivery"."""
+    if x["dine"] and x["pickup"] and x["delivery"]:
+        return _("Closed")
+    return _("No %(what)s") % {"what": _(" or ").join(str(label).lower() for key, label in CHANNELS if x[key])}
+
+
 def _kind_tag(x):
-    if x["kind"] == Event.OPEN:
-        return _("Open")
-    return {Event.ALL: _("Closed"), Event.ONLINE: _("No online"), Event.DELIVERY: _("No delivery")}[x["scope"]]
+    return _("Open") if x["kind"] == Event.OPEN else _closed_label(x)
 
 
 def page(draft) -> dict:
@@ -316,7 +323,7 @@ def page(draft) -> dict:
         if is_open:
             head = x["name"] or _("Event")
         else:
-            head = {Event.ALL: _("Closed"), Event.ONLINE: _("No online orders"), Event.DELIVERY: _("No delivery")}[x["scope"]]
+            head = _closed_label(x)
         head += " · " + _nice(nxt) + ("" if x["kind"] == Event.CLOSED and x["all_day"] else f", {clock(x['from'])}–{clock(x['to'])}") + "."
         e = {"x": x, "k": k, "open": is_open, "errs": errors(x),
              "kinds": [(Event.OPEN, _("Open for an event"), _("Extra public hours"), "M12 5v14M5 12h14"),
@@ -324,7 +331,7 @@ def page(draft) -> dict:
              "name_ph": _("e.g. Trivia night") if is_open else _("e.g. Closed for Thanksgiving"),
              "desc_ph": _("What’s happening, what’s on the menu") if is_open else _("Why you’re closed and when you’re back"),
              "show_times": is_open or not x["all_day"], "effects": effects, "more": more, "warns": warns,
-             "channels": [(key, label, x[key]) for key, label in CHANNELS], "scopes": SCOPES, "leads": LEADS,
+             "channels": [(key, label, x[key]) for key, label in CHANNELS], "leads": LEADS,
              "banner_hint": _("A strip at the top with the event details") if is_open else _("Warns customers before they try to order"),
              "banner_head": head, "banner_text": x["desc"]}
 

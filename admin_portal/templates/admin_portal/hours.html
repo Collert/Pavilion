@@ -90,44 +90,6 @@ the draft, the week chart and "Right now". The pause buttons act right away.
             </div>
             <div class="card-sub top10">{% trans "Pickup and delivery bars show when customers can actually place those orders, after your cutoffs." %}</div>
         </section>
-
-        <section class="card hr-card" aria-label="{% trans 'Special hours' %}">
-            <div class="hr-card-head">
-                <div class="grow"><h2 class="disp card-title">{% trans "Holidays and special hours" %}</h2>
-                    <div class="card-sub">{% trans "These replace the weekly hours on that date. The note shows on your online store." %}</div></div>
-                <button class="hr-pill" name="op" value="spadd">{% trans "+ Add date" %}</button>
-            </div>
-            <div class="hr-specials">
-                {% for x in h.specials %}
-                <div class="hr-special{% if x.errs %} bad{% endif %}">
-                    <input type="hidden" name="sp-id" value="{{ x.id }}"><input type="hidden" name="sp-closed" value="{% if x.closed %}1{% endif %}">
-                    <div>
-                        <input type="date" class="field hr-date" name="sp-date" value="{{ x.date }}" aria-label="{% trans 'Date' %}">
-                        <div class="hr-when{% if x.soon %} soon{% endif %}">{{ x.when }}</div>
-                    </div>
-                    <div class="hr-kind" role="radiogroup" aria-label="{% trans 'Closed or special hours' %}">
-                        <button role="radio" aria-checked="{% if x.closed %}true{% else %}false{% endif %}" name="op" value="spkind:{{ x.k }}:closed">{% trans "Closed" %}</button>
-                        <button role="radio" aria-checked="{% if x.closed %}false{% else %}true{% endif %}" name="op" value="spkind:{{ x.k }}:hours">{% trans "Hours" %}</button>
-                    </div>
-                    <div class="hr-special-body">
-                        {% if x.closed %}<input type="hidden" name="sp-from" value="{{ x.opens }}"><input type="hidden" name="sp-to" value="{{ x.closes }}">
-                        {% else %}
-                        <div class="hr-range">
-                            <select class="tsel num mid" name="sp-from" aria-label="{% trans 'Opens' %}">{% for v, t in h.from_opts %}<option value="{{ v }}"{% if v == x.opens %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-                            <span class="hr-to">{% trans "to" %}</span>
-                            <select class="tsel num mid" name="sp-to" aria-label="{% trans 'Closes' %}">{% for v, t in h.to_opts %}<option value="{{ v }}"{% if v == x.closes %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-                        </div>
-                        {% endif %}
-                        <input class="field hr-note" name="sp-note" value="{{ x.note }}" maxlength="200" aria-label="{% trans 'Note for customers' %}" placeholder="{% trans 'Note for customers, e.g. Closed for Thanksgiving' %}">
-                        {% for e in x.errs %}<div class="hr-err">{{ e }}</div>{% endfor %}
-                    </div>
-                    <button class="ico" name="op" value="spdel:{{ x.k }}" aria-label="{% blocktrans with d=x.date %}Remove {{ d }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 14 2.4 %}</button>
-                </div>
-                {% empty %}
-                <div class="hr-none">{% trans "No special dates coming up." %}</div>
-                {% endfor %}
-            </div>
-        </section>
     </div>
 
     <div class="hr-col" id="hours-side" data-region>

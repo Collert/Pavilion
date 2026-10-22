@@ -4,11 +4,11 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .hours import DELIVERY, PICKUP, Hours, cut
-from .models import SpecialHours, StoreHours
+from .models import Event, StoreHours
 
 
 class HoursTests(TestCase):
-    """events/hours.py: the week, special dates, cutoffs, hours past midnight and pausing."""
+    """events/hours.py: the week, closures, cutoffs, hours past midnight and pausing."""
 
     def setUp(self):
         week = [{"open": True, "r": [[480, 780], [840, 1260]]}] * 5 + [{"open": True, "r": [[540, 1500]]}, {"open": False, "r": [[540, 900]]}]
@@ -23,7 +23,7 @@ class HoursTests(TestCase):
         self.assertEqual(cut([(480, 780), (840, 1260)], 15, 20, around_breaks=False), [(495, 780), (840, 1240)])
         self.assertEqual(cut([(480, 500)], 15, 20), [])  # too short to take orders at all
 
-    def test_ranges_spans_and_specials(self):
+    def test_ranges_spans_and_closures(self):
         hours = Hours()
         self.assertEqual(hours.ranges(self.monday), [(480, 780), (840, 1260)])
         self.assertEqual(hours.ranges(self.monday, PICKUP), [(495, 760), (855, 1240)])
@@ -33,10 +33,12 @@ class HoursTests(TestCase):
         # Saturday runs till 1 AM: Sunday's calendar day starts with it
         self.assertEqual(hours.on_day(sunday), [(self.at(sunday, 0), self.at(sunday, 1))])
         self.assertEqual(hours.current(self.at(sunday, 0, 30)), (self.at(sunday - datetime.timedelta(days=1), 9), self.at(sunday, 1)))
-        SpecialHours.objects.create(date=self.monday, closed=False, opens=600, closes=900, note="Short day")
-        SpecialHours.objects.create(date=self.monday + datetime.timedelta(days=1), closed=True, note="Closed for a holiday")
+        everything = {"kind": "closed", "dine_in": True, "pickup": True, "delivery": True}
+        Event.objects.create(title="Short day", start_date=self.monday, end_date=self.monday, opens=900, closes=1680, **everything)
+        tuesday = self.monday + datetime.timedelta(days=1)
+        Event.objects.create(title="Holiday", start_date=tuesday, end_date=tuesday, all_day=True, **everything)
         hours = Hours()
-        self.assertEqual(hours.ranges(self.monday), [(600, 900)])
+        self.assertEqual(hours.ranges(self.monday), [(480, 780), (840, 900)])
         self.assertEqual(hours.ranges(self.monday + datetime.timedelta(days=1)), [])
         self.assertEqual(hours.next_start(self.at(self.monday, 16)), self.at(self.monday + datetime.timedelta(days=2), 8))
 
@@ -72,15 +74,15 @@ class EventLayerTests(TestCase):
         self.event(kind="open", opens=1200, closes=1380, dine_in=True, pickup=True)
         self.assertEqual(Hours().ranges(self.monday, PICKUP), [(480, 1380)])  # extends the usual hours
 
-    def test_closures_by_scope_and_all_day(self):
-        self.event(kind="closed", opens=780, closes=840)
-        self.event(kind="closed", scope="delivery", opens=1080, closes=1440, end=self.monday + datetime.timedelta(days=1))
+    def test_closures_by_channel_and_all_day(self):
+        self.event(kind="closed", opens=780, closes=840, dine_in=True, pickup=True, delivery=True)
+        self.event(kind="closed", dine_in=False, pickup=False, delivery=True, opens=1080, closes=1440, end=self.monday + datetime.timedelta(days=1))
         hours = Hours()
         self.assertEqual(hours.ranges(self.monday), [(480, 780), (840, 1260)])
         self.assertEqual(hours.ranges(self.monday, DELIVERY), [(480, 780), (840, 1080)])
         tuesday = self.monday + datetime.timedelta(days=1)
         self.assertEqual(hours.ranges(tuesday, PICKUP), [(480, 1260)])
-        self.event(day=tuesday, kind="closed", all_day=True, scope="online")
+        self.event(day=tuesday, kind="closed", all_day=True, dine_in=False, pickup=True, delivery=True)
         hours = Hours()
         self.assertEqual((hours.ranges(tuesday), hours.ranges(tuesday, PICKUP)), ([(480, 1260)], []))  # dine-in stays open
 

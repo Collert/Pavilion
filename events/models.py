@@ -6,15 +6,13 @@ from django.utils.translation import gettext_lazy as _
 class Event(models.Model):
     """
     A change to the usual hours (design: AdminEvents), on every day from `start_date` to `end_date`: open for an event
-    (extra hours for dine-in, pickup and/or delivery) or closed (everything, online orders only, or delivery only),
-    from `opens` to `closes` (minutes from that day's midnight, past 1440 = after midnight) or all day (closures only).
+    (extra hours) or closed, for the channels ticked (dine-in, pickup, delivery), from `opens` to `closes` (minutes from
+    that day's midnight, past 1440 = after midnight) or all day (closures only). Holidays are closures too.
     events/hours.py lays them over Store hours; closing wins where they overlap. `banner` shows it across the top of
     the online store from `banner_days` before until it ends.
     """
     OPEN, CLOSED = "open", "closed"
     KINDS = [(OPEN, _("Open for an event")), (CLOSED, _("Close the store"))]
-    ALL, ONLINE, DELIVERY = "all", "online", "delivery"
-    SCOPES = [(ALL, _("Close everything")), (ONLINE, _("Stop online orders only")), (DELIVERY, _("Stop delivery only"))]
 
     kind = models.CharField(max_length=6, choices=KINDS, default=OPEN)
     title = models.CharField(max_length=120)
@@ -24,10 +22,9 @@ class Event(models.Model):
     all_day = models.BooleanField(default=False, help_text="Closed all day (closures only)")
     opens = models.PositiveSmallIntegerField(default=540)
     closes = models.PositiveSmallIntegerField(default=1260)
-    dine_in = models.BooleanField(default=True, help_text="Open for an event: taking dine-in")
-    pickup = models.BooleanField(default=True, help_text="Open for an event: taking pickup orders")
-    delivery = models.BooleanField(default=False, help_text="Open for an event: taking delivery orders")
-    scope = models.CharField(max_length=8, choices=SCOPES, default=ALL, help_text="Closed: what closes")
+    dine_in = models.BooleanField(default=True, help_text="Dine-in opens (or closes)")
+    pickup = models.BooleanField(default=True, help_text="Pickup orders open (or close)")
+    delivery = models.BooleanField(default=False, help_text="Delivery orders open (or close)")
     banner = models.BooleanField(default=True, help_text="A banner on the online store")
     banner_days = models.PositiveSmallIntegerField(default=7, help_text="Days before it starts that the banner shows")
     location_title = models.CharField(max_length=120, null=True, blank=True)
@@ -41,6 +38,9 @@ class Event(models.Model):
 
     def covers(self, day) -> bool:
         return self.start_date <= day <= self.end_date
+
+    def closes_everything(self) -> bool:
+        return self.kind == self.CLOSED and self.dine_in and self.pickup and self.delivery
 
     def span(self) -> tuple[int, int]:
         """(from, to) minutes on each of its days."""
@@ -83,19 +83,3 @@ class StoreHours(models.Model):
     @classmethod
     def load(cls):
         return cls.objects.get_or_create(pk=1)[0]
-
-
-class SpecialHours(models.Model):
-    """A date whose hours replace the week's: closed, or open `opens` to `closes` (minutes, as in StoreHours.week)."""
-    date = models.DateField(unique=True)
-    closed = models.BooleanField(default=True)
-    opens = models.PositiveSmallIntegerField(default=480)
-    closes = models.PositiveSmallIntegerField(default=1080)
-    note = models.CharField(max_length=200, blank=True, help_text="Shown on the online store")
-
-    class Meta:
-        ordering = ["date"]
-        verbose_name_plural = _("special hours")
-
-    def __str__(self):
-        return f"{self.date}: {self.note or ('closed' if self.closed else 'special hours')}"

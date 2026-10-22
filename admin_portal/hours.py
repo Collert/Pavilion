@@ -1,6 +1,6 @@
 """
-Store hours (design: AdminHours): the weekly hours with breaks, holidays and special hours, the cutoffs for pickup,
-delivery and the kitchen's last call, ordering ahead, and pausing online orders. One form with Save: every change
+Store hours (design: AdminHours): the weekly hours with breaks, the cutoffs for pickup,
+delivery and the kitchen's last call, ordering ahead, and pausing online orders (holidays and other changes are Events). One form with Save: every change
 posts the draft back (op=preview or a button's op) and the page shows it, the week chart and "Right now" included.
 Pausing and resuming act right away. The hours themselves are worked out in events/hours.py.
 """
@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
 from events.hours import DELIVERY, DINE, PICKUP, Hours, cut, duration, ranges_text, text as clock, week_ranges
-from events.models import SpecialHours, StoreHours
+from events.models import StoreHours
 
 DAYS = [_("Monday"), _("Tuesday"), _("Wednesday"), _("Thursday"), _("Friday"), _("Saturday"), _("Sunday")]
 SHORT = [_("Mon"), _("Tue"), _("Wed"), _("Thu"), _("Fri"), _("Sat"), _("Sun")]
@@ -32,11 +32,8 @@ def _int(value, default=0):
 
 def draft_of(cfg=None) -> dict:
     cfg = cfg or StoreHours.load()
-    today = timezone.localdate()
     return {"week": [{"open": bool(d.get("open")), "r": sorted([int(a), int(b)] for a, b in d.get("r", []))} for d in cfg.week],
-            **{k: getattr(cfg, k) for k in STEPS}, **{k: getattr(cfg, k) for k in SWITCHES},
-            "specials": [{"id": s.id, "date": s.date.isoformat(), "closed": s.closed, "opens": s.opens, "closes": s.closes, "note": s.note}
-                         for s in SpecialHours.objects.filter(date__gte=today)]}
+            **{k: getattr(cfg, k) for k in STEPS}, **{k: getattr(cfg, k) for k in SWITCHES}}
 
 
 def from_post(post) -> dict:
@@ -48,9 +45,6 @@ def from_post(post) -> dict:
     out = {"week": week, **{k: post.get(k) == "1" for k in SWITCHES}}
     for key, (lo, hi, _step) in STEPS.items():
         out[key] = min(max(_int(post.get(key), lo), lo), hi)
-    columns = [post.getlist(f"sp-{k}") for k in ("id", "date", "closed", "from", "to", "note")]
-    out["specials"] = [{"id": _int(i) or "", "date": d[:10], "closed": c == "1", "opens": min(max(_int(a, 480), 0), 1425),
-                        "closes": min(max(_int(b, 1080), 15), LAST), "note": n.strip()[:200]} for i, d, c, a, b, n in zip(*columns)]
     return out
 
 
@@ -95,18 +89,6 @@ def apply_op(draft, op) -> dict:
         draft[arg] = min(max(draft[arg] + (step if name == "more" else -step), lo), hi)
     elif name == "toggle" and arg in SWITCHES:
         draft[arg] = not draft[arg]
-    elif name == "spadd":
-        taken = {s["date"] for s in draft["specials"]}
-        day = timezone.localdate() + datetime.timedelta(days=7)
-        while day.isoformat() in taken:
-            day += datetime.timedelta(days=1)
-        draft["specials"].append({"id": "", "date": day.isoformat(), "closed": True, "opens": 480, "closes": 1080, "note": ""})
-    elif name == "spdel" and 0 <= _int(arg, -1) < len(draft["specials"]):
-        draft["specials"].pop(_int(arg))
-    elif name == "spkind":
-        k, _s, kind = arg.partition(":")
-        if 0 <= _int(k, -1) < len(draft["specials"]):
-            draft["specials"][_int(k)]["closed"] = kind == "closed"
     for day in week:
         day["r"].sort()
     return draft
@@ -130,35 +112,12 @@ def day_errors(day) -> list[str]:
     return out
 
 
-def special_errors(draft) -> dict:
-    """{index: [problem]} for the special dates."""
-    out, seen = {}, set()
-    for k, s in enumerate(draft["specials"]):
-        errs = []
-        try:
-            datetime.date.fromisoformat(s["date"])
-        except ValueError:
-            errs.append(_("Pick a date."))
-        if s["date"] in seen:
-            errs.append(_("That date is already on the list."))
-        seen.add(s["date"])
-        if not s["closed"] and s["closes"] <= s["opens"]:
-            errs.append(_("%(a)s to %(b)s ends before it starts.") % {"a": clock(s["opens"]), "b": clock(s["closes"])})
-        if errs:
-            out[k] = errs
-    return out
-
-
 def problem_count(draft) -> int:
-    return sum(len(day_errors(d)) for d in draft["week"]) + sum(len(e) for e in special_errors(draft).values())
-
-
-def _canonical(draft):
-    return {**draft, "specials": sorted(((str(s["id"]), s["date"], s["closed"], s["opens"], s["closes"], s["note"]) for s in draft["specials"]))}
+    return sum(len(day_errors(d)) for d in draft["week"])
 
 
 def is_dirty(draft) -> bool:
-    return _canonical(draft) != _canonical(draft_of())
+    return draft != draft_of()
 
 
 def save(draft):
@@ -167,15 +126,6 @@ def save(draft):
     for key in (*STEPS, *SWITCHES):
         setattr(cfg, key, draft[key])
     cfg.save()
-    today = timezone.localdate()
-    keep = {s["id"] for s in draft["specials"] if s["id"]}
-    SpecialHours.objects.filter(date__gte=today).exclude(id__in=keep).delete()
-    for s in draft["specials"]:
-        values = {"date": datetime.date.fromisoformat(s["date"]), "closed": s["closed"], "opens": s["opens"], "closes": s["closes"], "note": s["note"]}
-        if s["id"] and SpecialHours.objects.filter(pk=s["id"]).update(**values):
-            continue
-        SpecialHours.objects.filter(date=values["date"]).delete()  # a past row on that date
-        SpecialHours.objects.create(**values)
 
 
 def pause(minutes, now=None) -> datetime.datetime:
@@ -202,14 +152,7 @@ def _hours_of(draft) -> Hours:
     """The draft as an Hours (with the real pause), so the chart and "Right now" show what saving would do."""
     saved = StoreHours.load()
     cfg = StoreHours(week=draft["week"], paused_until=saved.paused_until, **{k: draft[k] for k in (*STEPS, *SWITCHES)})
-    specials = {}
-    for s in draft["specials"]:
-        try:
-            day = datetime.date.fromisoformat(s["date"])
-        except ValueError:
-            continue
-        specials[day] = SpecialHours(date=day, closed=s["closed"], opens=s["opens"], closes=s["closes"], note=s["note"])
-    return Hours(cfg, specials)
+    return Hours(cfg)
 
 
 def _options(start, end):
@@ -223,12 +166,6 @@ def _step(value, key, label, unit="min"):
     else:
         shown = _("Today only") if unit == "days" else _("Right away")
     return {"key": key, "label": label, "value": shown, "less_off": value <= lo, "more_off": value >= hi}
-
-
-def _when(day, today):
-    n = (day - today).days
-    rel = _("today") if n == 0 else _("tomorrow") if n == 1 else _("%(n)d days ago") % {"n": -n} if n < 0 else _("in %(n)d days") % {"n": n}
-    return f"{DAYS[day.weekday()]} · {rel}", 0 <= n <= 7
 
 
 def page(draft, now=None) -> dict:
@@ -290,7 +227,7 @@ def page(draft, now=None) -> dict:
     nxt = hours.next_start(now, days=1)
     nxt = nxt if nxt and timezone.localtime(nxt).date() == today else None
     paused = hours.paused_until(now)
-    sp = hours.special(today)
+    today_events = hours.events_on(today)
 
     def at(dt):
         return clock(timezone.localtime(dt).hour * 60 + timezone.localtime(dt).minute)
@@ -301,8 +238,8 @@ def page(draft, now=None) -> dict:
         value = _("Paused") if paused else _("Until %(t)s") % {"t": at(win[1])} if win else _("From %(t)s") % {"t": at(upcoming)} if upcoming else _("Done for today")
         return {"label": label, "kind": kind, "value": value, "state": "paused" if paused else "on" if win else "off"}
 
-    if sp:
-        sub = _("Special hours today: %(note)s") % {"note": sp.note or (_("Closed") if sp.closed else ranges_text(hours.ranges(today)))}
+    if today_events:
+        sub = _("Today: %(events)s") % {"events": ", ".join(e.title for e in today_events)}
     elif current and nxt:
         sub = _("Break after %(a)s, back at %(b)s") % {"a": at(current[1]), "b": at(nxt)}
     else:
@@ -345,15 +282,6 @@ def page(draft, now=None) -> dict:
     if draft["around_breaks"] and any(g < 60 and draft["delivery_after"] + draft["delivery_before"] >= g * 2 for g in gaps):
         warnings.append(_("With a short break, delivery stays off for a long stretch around it. Turn off “Apply cutoffs around breaks” if that’s too much."))
 
-    # special dates
-    specials, sp_errors = [], special_errors(draft)
-    for k, s in sorted(enumerate(draft["specials"]), key=lambda x: x[1]["date"] or "9999"):
-        try:
-            when, soon = _when(datetime.date.fromisoformat(s["date"]), today)
-        except ValueError:
-            when, soon = "", False
-        specials.append({**s, "k": k, "when": when, "soon": soon, "errs": sp_errors.get(k, [])})
-
     if errors:
         status, kind = ngettext("%(n)d thing to fix", "%(n)d things to fix", errors) % {"n": errors}, "bad"
     elif dirty:
@@ -371,6 +299,6 @@ def page(draft, now=None) -> dict:
         "cutoffs": cutoffs, "warnings": warnings,
         "ahead_rows": [_step(draft["ahead_days"], "ahead_days", _("How far ahead"), "days"),
                        _step(draft["lead"], "lead", _("Soonest a pickup can be ready"))],
-        "specials": specials, "switches": [(k, draft[k]) for k in SWITCHES], "steps": [(k, draft[k]) for k in STEPS],
+        "switches": [(k, draft[k]) for k in SWITCHES], "steps": [(k, draft[k]) for k in STEPS],
         "tz": settings.TIME_ZONE,
     }
