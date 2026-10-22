@@ -337,3 +337,8 @@
     .order-panel { width: auto; height: clamp(560px, 52dvh, 780px); }
     .lines { max-height: none; }
 }
+
+/* Screens sheet: announce (and pair) */
+.reg-screens-btn { flex: none; }
+.screens-form { display: grid; gap: 12px; }
+.screens-form textarea { resize: none; min-height: 96px; }

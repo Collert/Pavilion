@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'screens/screens.css' %}" rel="stylesheet">
+    <link href="{% static 'screens/popups.css' %}" rel="stylesheet">
     {% for path in rendered.css %}<link href="{% static path %}" rel="stylesheet">
     {% endfor %}
     {% if preview %}<link href="{% static 'screens/preview.css' %}" rel="stylesheet">{% endif %}

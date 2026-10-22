@@ -1920,3 +1920,24 @@ class ScreensEditorTests(AdminFixture, TestCase):
         self.assertEqual(screen.layout, {"widget": "clock"})  # nothing saved
         e = self.client.get(reverse("admin_screen", args=[screen.id])).context["e"]
         self.assertEqual(e["status"], "All changes saved")
+
+    def test_popups_tab(self):
+        from screens.models import Screen
+        screen = Screen.objects.create(name="Board", slug="board", layout={"widget": "clock"})
+        e = self.op(screen, "tab:popups")
+        self.assertEqual((e["tab"], e["pops"]), ("popups", []))
+        e = self.op(screen, "padd:order_ready")
+        self.assertEqual((e["editing"], [x["w"].name for x in e["pops"]]), ("pop:0", ["order_ready"]))
+        self.assertTrue(next(x for x in e["pop_lib"] if x["name"] == "order_ready")["added"])
+        e = self.op(screen, "pset:style:banner", editing="pop:0")
+        e = self.op(screen, "pmore:seconds", editing="pop:0")
+        self.assertEqual(e["d"]["popups"], [{"widget": "order_ready", "params": {"style": "banner", "seconds": 7}}])
+        e = self.op(screen, "ppreview:0", editing="pop:0")
+        self.assertIn("popup=order_ready", e["preview"])
+        preview = self.client.get(e["preview"])
+        self.assertContains(preview, "Priya S.")  # sample data
+        self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "save", "editing": "pop:0"})
+        screen.refresh_from_db()
+        self.assertEqual(screen.popups, [{"widget": "order_ready", "params": {"style": "banner", "seconds": 7}}])
+        e = self.op(screen, "pdel:0")
+        self.assertEqual(e["pops"], [])

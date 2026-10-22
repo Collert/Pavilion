@@ -1,0 +1,2 @@
+{% load i18n %}{% blocktrans with t=data.starts|time:"g:i A" asvar kicker %}Coming up at {{ t }}{% endblocktrans %}
+{% include "screens/popups/_card.html" with kicker=kicker big=data.event.title small=data.event.description %}

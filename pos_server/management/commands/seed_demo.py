@@ -1178,9 +1178,15 @@ class Command(BaseCommand):
                                status=Booking.DECLINED, total=Decimal("152.00"), created_at=now - datetime.timedelta(days=2))
 
     def seed_screens(self):
-        # The order board comes with migrations (screens/0002); add a portrait one for a vertical TV
+        # The order board comes with migrations (screens/0002): give it pop-ups (an order-ready call-out, staff
+        # announcements, a reminder before events, menu changes)
+        Screen.objects.filter(slug="order-board").update(popups=[
+            {"widget": "order_ready", "params": {}}, {"widget": "announcement", "params": {}},
+            {"widget": "event_reminder", "params": {"before": 30}}, {"widget": "menu_change", "params": {}}])
+        # and a portrait one for a vertical TV
         Screen.objects.get_or_create(slug="pickup-portrait", defaults={
             "name": "Pickup (portrait)", "public": True, "width": 1080, "height": 1920, "padding": 32,
+            "popups": [{"widget": "order_ready", "params": {"style": "banner"}}],
             "layout": {"widget": "rows", "params": {"count": 3, "weights": [1, 1.3, "340px"], "gap": 24}, "children": [
                 {"widget": "order_list", "params": {"show": "preparing", "columns": 3, "limit": 9}},
                 {"widget": "order_list", "params": {

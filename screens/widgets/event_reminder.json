@@ -1,0 +1,42 @@
+{
+  "title": "Event reminder",
+  "description": "Before an event from Store › Events",
+  "kind": "popup",
+  "trigger": "event_reminder",
+  "icon": "M5 5h14v15H5z M5 10h14 M9 3v4 M15 3v4",
+  "color": "#E87BA4",
+  "template": "screens/popups/event_reminder.html",
+  "context": "screens.popups.event_reminder",
+  "live": [
+    "screens"
+  ],
+  "params": {
+    "before": {
+      "type": "int",
+      "default": 30,
+      "min": 5,
+      "max": 240,
+      "step": 5,
+      "unit": "min",
+      "label": "Show this long before"
+    },
+    "style": {
+      "type": "choice",
+      "options": [
+        "full",
+        "banner"
+      ],
+      "default": "banner",
+      "label": "Style",
+      "help": "Full screen, or a banner along the bottom"
+    },
+    "seconds": {
+      "type": "int",
+      "default": 10,
+      "min": 2,
+      "max": 60,
+      "unit": "s",
+      "label": "Show for"
+    }
+  }
+}

@@ -1640,6 +1640,21 @@ $("#clear-cart").addEventListener("click", clearCart);
 $("#disc-toggle").addEventListener("click", () => { ui.discListOpen = !ui.discListOpen; renderTotals(); });
 $("#menu-switch").addEventListener("click", () => $("#menu-sheet").showModal());
 
+// Screens: a staff announcement shows on screens with the announcement pop-up (screens/views.py: announce)
+$("#screens-open").addEventListener("click", () => $("#screens-sheet").showModal());
+$("#announce-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const result = await post(form.dataset.url, { text: form.elements.text.value });
+    if (!result.ok) {
+        toast(result.data.message || t("The announcement wasn't sent."), { error: true });
+        return;
+    }
+    form.reset();
+    $("#screens-sheet").close();
+    toast(t("Announcement sent to the screens"));
+});
+
 // Sold-out changes arrive live; the catalog is fetched again and the grid redrawn
 onLiveUpdate("inventory", async () => {
     const response = await fetch(urls.catalog).catch(() => null);

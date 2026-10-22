@@ -593,6 +593,8 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   background, public link), the widget library (an empty slot; click or drag), rows/columns (count, weights, gap,
   turn around) or the widget's settings from its JSON params (text, choices, steppers, sliders, toggles, colours,
   uploads, menus and dishes to pick). Save validates and publishes "screens" so open screens reload.
+  The Pop-ups tab lists the screen's pop-ups (`Screen.popups`): each opens to its settings, Preview shows it in the
+  preview with sample data (`popups.SAMPLES`), and "Add a pop-up" lists the popup-kind widgets (one of each).
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

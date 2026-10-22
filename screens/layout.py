@@ -241,7 +241,41 @@ def layout_key(screen):
 
 
 def render_screen(screen, request, editing=None):
-    """The screen's HTML. `editing` ({"sel": path}) is the admin editor's preview: every node carries its path."""
+    """The screen's HTML, its pop-ups after the layout. `editing` ({"sel": path, "popup": name}) is the admin editor's
+    preview: every node carries its path, and the named pop-up shows with sample data."""
     renderer = _Renderer(request, "w" + layout_key(screen), editing)
-    renderer.result.html = renderer.node(screen.layout or None, "r")
+    html = renderer.node(screen.layout or None, "r")
+    renderer.result.html = html + render_popups(screen, request, renderer.result, force=(editing or {}).get("popup"))
     return renderer.result
+
+
+def render_popups(screen, request, result, force=None):
+    """Each of the screen's pop-ups as its own live region: its card while it's showing, and a hidden data-ends for
+    when the page should look again (to hide it, or for a scheduled one to appear). See popups.py."""
+    from django.utils import timezone
+
+    from .popups import SAMPLES
+    now = timezone.now()
+    parts = []
+    for index, spec in enumerate(screen.popups or []):
+        widget = registry.popups().get(spec.get("widget")) if isinstance(spec, dict) else None
+        if widget is None:
+            continue
+        params = clean_params(widget, spec.get("params"))
+        _add(result.css, widget.css)
+        _add(result.topics, widget.live)
+        try:
+            if force == widget.name:
+                state = {"show": True, **SAMPLES[widget.trigger]()}
+            else:
+                provider = widget.provider()
+                state = provider(request, params, now) if provider else {"show": False}
+            html = render_to_string(widget.template, {"params": params, "data": state, "widget": widget, "request": request})                 if state.get("show") else ""
+        except Exception:
+            logger.exception("Screen pop-up %s failed", widget.name)
+            state, html = {"show": False}, ""
+        ends = state.get("until") if state.get("show") else state.get("next")
+        timer = format_html('<span hidden data-ends="{}"></span>', int(ends.timestamp() * 1000)) if ends and not force else ""
+        parts.append(format_html('<div class="popup-slot" id="pop-{}-{}" data-region>{}{}</div>', index, widget.name,
+                                 mark_safe(html), timer))
+    return mark_safe("".join(parts))

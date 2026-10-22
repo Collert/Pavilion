@@ -1,0 +1,17 @@
+/* Pop-ups over a screen (screens/popups.py). Full: a card over a dimmed screen. Banner: a strip along the bottom. */
+.popup-slot { display: contents; }
+.popup { position: fixed; z-index: 50; display: flex; pointer-events: none; animation: popupIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+.popup--full { inset: 0; align-items: center; justify-content: center; background: rgba(12, 16, 14, .55); backdrop-filter: blur(calc(var(--u) * 14)); }
+.popup--banner { left: calc(var(--u) * 40); right: calc(var(--u) * 40); bottom: calc(var(--u) * 40); }
+.popup-card { background: #14261F; color: #FFFFFF; border-radius: calc(var(--u) * 40); box-shadow: 0 calc(var(--u) * 30) calc(var(--u) * 90) rgba(0, 0, 0, .45); }
+.popup--full .popup-card { width: min(80%, calc(var(--u) * 1100)); padding: calc(var(--u) * 70) calc(var(--u) * 80); text-align: center; }
+.popup--banner .popup-card { flex: 1; padding: calc(var(--u) * 30) calc(var(--u) * 44); display: flex; align-items: baseline; gap: calc(var(--u) * 24); border-left: calc(var(--u) * 14) solid var(--pop); }
+.popup-kicker { font-size: calc(var(--u) * 26); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--pop); flex: none; }
+.popup-big { font-weight: 800; letter-spacing: -.03em; line-height: 1.02; }
+.popup--full .popup-big { font-size: calc(var(--u) * 120); margin-top: calc(var(--u) * 18); }
+.popup--banner .popup-big { font-size: calc(var(--u) * 48); flex: 1; min-width: 0; }
+.popup-small { font-size: calc(var(--u) * 30); font-weight: 600; opacity: .7; }
+.popup--full .popup-small { margin-top: calc(var(--u) * 18); }
+.popup--banner .popup-small { font-size: calc(var(--u) * 24); flex: none; max-width: 40%; }
+@keyframes popupIn { from { opacity: 0; transform: translateY(calc(var(--u) * 30)); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .popup { animation: none; } }

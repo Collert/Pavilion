@@ -352,3 +352,57 @@ class MenuBoardTests(TestCase):
         screen.layout = {"widget": "menu_board", "params": {"menu": 0}}
         screen.save()
         self.assertIn("Pick a menu for this board", self.client.get(reverse("screen", args=["board"])).content.decode())
+
+
+class PopupTests(TestCase):
+    """Pop-ups (screens/popups.py): moments from the cache, scheduled ones from the schedule, each its own region."""
+
+    def setUp(self):
+        cache.clear()
+        self.screen = Screen(name="Board", slug="board", layout={"widget": "clock"}, popups=[
+            {"widget": "order_ready", "params": {"seconds": 6}}, {"widget": "announcement", "params": {"style": "full"}},
+            {"widget": "event_reminder", "params": {"before": 30, "seconds": 10}}])
+
+    def render(self):
+        return render_screen(self.screen, RequestFactory().get("/"))
+
+    def test_moments_show_for_their_seconds(self):
+        from .popups import record
+        rendered = self.render()
+        self.assertIn('id="pop-0-order_ready" data-region', rendered.html)
+        self.assertNotIn("popup-card", rendered.html)
+        self.assertIn("popups", rendered.topics)
+        record("order_ready", {"name": "Priya S.", "number": "0142"})
+        html = self.render().html
+        self.assertIn("Priya S.", html)
+        self.assertIn("popup--full", html)
+        self.assertRegex(html, r'data-ends="\d+"')  # the page looks again when it should hide
+        later = timezone.now() + datetime.timedelta(seconds=7)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            self.assertNotIn("Priya S.", self.render().html)
+
+    def test_ready_orders_and_register_announcements(self):
+        from types import SimpleNamespace
+        from pos_server.signals import order_ready
+        order_ready.send(sender=Order, order=SimpleNamespace(channel="web", name="Iryna Koval", id=57))
+        self.assertIn("Iryna K.", self.render().html)
+        self.assertIn("Order #0057", self.render().html)
+        staff = User.objects.create_user("staff", password="x", is_staff=True)
+        self.client.force_login(staff)
+        response = self.client.post(reverse("screens_announce"), json.dumps({"text": "Buns are out"}), content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Buns are out", self.render().html)
+        self.assertEqual(self.client.post(reverse("screens_announce"), "{}", content_type="application/json").status_code, 400)
+
+    def test_event_reminder_shows_before_the_event(self):
+        from events.models import Event
+        soon = timezone.localtime() + datetime.timedelta(minutes=29, seconds=55)
+        Event.objects.create(title="Trivia night", kind="open", start_date=soon.date(), end_date=soon.date(),
+                             opens=soon.hour * 60 + soon.minute, closes=min(soon.hour * 60 + soon.minute + 60, 1680))
+        start = timezone.make_aware(datetime.datetime.combine(soon.date(), datetime.time(soon.hour, soon.minute)))
+        with mock.patch("django.utils.timezone.now", return_value=start - datetime.timedelta(minutes=30, seconds=-2)):
+            self.assertIn("Trivia night", self.render().html)
+        with mock.patch("django.utils.timezone.now", return_value=start - datetime.timedelta(minutes=40)):
+            html = self.render().html
+            self.assertNotIn("Trivia night", html)
+            self.assertRegex(html, r'id="pop-2-event_reminder" data-region><span hidden data-ends="\d+">')  # wakes up for it

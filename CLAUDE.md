@@ -160,6 +160,12 @@ topics and swaps the leaf widgets whose HTML changed. Editing a Screen publishes
 - `screens/static/screens/widgets/<name>.css` (and `.js` only for what HTML can't do, e.g. the ticking clock).
 - A test in `screens/tests.py` (`WidgetDefinitionTests` already checks every definition's files and defaults).
 
+**Pop-ups** (`kind: popup`) are listed on `Screen.popups` and rendered after the layout, each as its own region that
+holds its card only while it shows (`layout.render_popups`, `screens/popups.py`): moments (an order ready, a staff
+announcement from the register's Screens sheet) are recorded in the cache by `popups.record()` and nudge "popups";
+scheduled ones (a menu starting, an event coming up) are worked out at render time. A pop-up's context is
+`fn(request, params, now)` returning `show`, `until` (hide) and `next` (look again), turned into a hidden data-ends.
+
 Providers run on every refetch and on public screens: keep them cheap, cache outside calls (weather is fetched on
 the server and cached 15 min, so the key never reaches the browser) and return only what a public board may show
 (order lists show "Priya S." and the number). A widget that needs a refetch at a set time (a highlight ending, a

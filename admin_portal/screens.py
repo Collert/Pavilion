@@ -7,8 +7,12 @@ JSON definition (screens/widgets/<name>.json, see screens/registry.py).
 The draft lives in the session while it's edited, with an undo history; Save writes it to the Screen and nudges open
 screens to reload ("screens"). Nodes are addressed by path: "r" is the root, "r-0-1" the second child of its first.
 
-    request.session["screen_edit_<id>"] = {"draft": {"name", "orient": "land"|"port", "bg", "public", "layout"},
-                                             "sel": "screen" or a path, "hist": [earlier drafts]}
+    request.session["screen_edit_<id>"] = {"draft": {"name", "orient": "land"|"port", "bg", "public", "layout",
+                                                       "popups": [{"widget", "params"}]},
+                                             "sel": "screen" or a path, "tab": "layout"|"popups", "open_pop": index,
+                                             "pop_preview": a pop-up's name, "hist": [earlier drafts]}
+
+Settings forms post their fields as p-<param> for what's being edited (`editing`: a node's path, or "pop:<index>").
 """
 import copy
 import hashlib
@@ -115,7 +119,7 @@ def orient_of(screen):
 
 def draft_of(screen) -> dict:
     return {"name": screen.name, "orient": orient_of(screen), "bg": screen.background, "public": screen.public,
-            "layout": copy.deepcopy(screen.layout) or None}
+            "layout": copy.deepcopy(screen.layout) or None, "popups": copy.deepcopy(screen.popups or [])}
 
 
 def key(screen):
@@ -126,6 +130,10 @@ def load(request, screen) -> dict:
     state = request.session.get(key(screen))
     if not state:
         state = {"draft": draft_of(screen), "sel": "screen", "hist": []}
+    state.setdefault("tab", "layout")
+    state.setdefault("open_pop", None)
+    state.setdefault("pop_preview", None)
+    state["draft"].setdefault("popups", [])
     return state
 
 
@@ -164,19 +172,37 @@ def _param_from_post(param, raw, current):
     return current if check_value(param, value) else value
 
 
+def target(draft, editing):
+    """What a settings form edits: (widget, params, write(params)) for a layout node's path or "pop:<index>"."""
+    if editing.startswith("pop:"):
+        i = _int(editing[4:], -1)
+        if not 0 <= i < len(draft["popups"]):
+            return None
+        spec = draft["popups"][i]
+        widget = registry.popups().get(spec.get("widget"))
+
+        def write(params):
+            draft["popups"][i] = {**spec, "params": _changed(widget, params)}
+        return (widget, clean_params(widget, spec.get("params")), write) if widget else None
+    node = node_at(draft["layout"], editing) if editing else False
+    widget = registry.get(node.get("widget")) if isinstance(node, dict) else None
+    if widget is None:
+        return None
+
+    def write(params):
+        draft["layout"] = put(draft["layout"], editing, {**node, "params": _changed(widget, params)})
+    return widget, clean_params(widget, node.get("params")), write
+
+
 def from_post(state, post, files):
-    """The posted fields onto the draft: the screen's name and the edited node's params (`editing` is its path)."""
+    """The posted fields onto the draft: the screen's name and the edited node's or pop-up's params."""
     draft = state["draft"]
     if "name" in post:
         draft["name"] = post["name"].strip()[:100]
-    path = post.get("editing", "")
-    node = node_at(draft["layout"], path) if path else False
-    if not isinstance(node, dict):
+    found = target(draft, post.get("editing", ""))
+    if found is None:
         return []
-    widget = registry.get(node.get("widget"))
-    if widget is None:
-        return []
-    params = clean_params(widget, node.get("params"))
+    widget, params, write = found
     errors = []
     for name, param in widget.params.items():
         field = f"p-{name}"
@@ -190,8 +216,7 @@ def from_post(state, post, files):
             continue
         if field in post:
             params[name] = _param_from_post(param, post[field], params[name])
-    node = {**node, "params": _changed(widget, params)}
-    draft["layout"] = put(draft["layout"], path, node)
+    write(params)
     return errors
 
 
@@ -220,16 +245,18 @@ def _place(state, path, name):
     return True
 
 
-def apply_op(state, op) -> str:
+def apply_op(state, op, editing="") -> str:
     """Apply a button's op to the draft; returns a toast. Changes go on the undo history."""
     before = copy.deepcopy(state["draft"])
-    toast = _apply(state, op)
+    if not op.startswith("ppreview:"):
+        state["pop_preview"] = None
+    toast = _apply(state, op, editing)
     if op != "undo" and state["draft"] != before:
         state["hist"] = (state["hist"] + [before])[-HIST:]
     return toast
 
 
-def _apply(state, op) -> str:
+def _apply(state, op, editing="") -> str:
     draft, sel = state["draft"], state["sel"]
     name, _sep, arg = op.partition(":")
     tree = draft["layout"]
@@ -242,10 +269,10 @@ def _apply(state, op) -> str:
         if state["sel"] != "screen" and node_at(state["draft"]["layout"], state["sel"]) is False:
             state["sel"] = "screen"
     elif name == "add" and registry.get(arg):
-        target = sel if sel != "screen" and node is None else first_empty(tree)
-        if target is None:
+        slot = sel if sel != "screen" and node is None else first_empty(tree)
+        if slot is None:
             return _("No empty slot. Remove a widget or add rows or columns first.")
-        _place(state, target, arg)
+        _place(state, slot, arg)
     elif name == "drop":
         path, _s, widget_name = arg.rpartition(":")
         _place(state, path, widget_name)
@@ -289,17 +316,33 @@ def _apply(state, op) -> str:
         draft["bg"] = arg
     elif name == "public":
         draft["public"] = not draft["public"]
-    elif name in ("pset", "ptog", "pless", "pmore") and widget:
+    elif name == "tab" and arg in ("layout", "popups"):
+        state["tab"] = arg
+    elif name == "padd" and arg in registry.popups() and not any(p.get("widget") == arg for p in draft["popups"]):
+        draft["popups"].append({"widget": arg, "params": {}})
+        state["open_pop"] = len(draft["popups"]) - 1
+    elif name == "pdel" and 0 <= _int(arg, -1) < len(draft["popups"]):
+        gone = draft["popups"].pop(_int(arg))
+        state["open_pop"] = None
+        w = registry.popups().get(gone.get("widget"))
+        return _("%(what)s removed. Undo brings it back.") % {"what": w.title if w else gone.get("widget")}
+    elif name == "popen" and 0 <= _int(arg, -1) < len(draft["popups"]):
+        state["open_pop"] = None if state["open_pop"] == _int(arg) else _int(arg)
+    elif name == "ppreview" and 0 <= _int(arg, -1) < len(draft["popups"]):
+        state["pop_preview"] = draft["popups"][_int(arg)].get("widget")
+    elif name in ("pset", "ptog", "pless", "pmore"):
+        found = target(draft, editing or (sel if sel != "screen" else ""))
+        if found is None:
+            return ""
+        widget, params, write = found
         pname, _s, value = arg.partition(":")
         param = widget.params.get(pname)
         if param is None:
             return ""
-        params = clean_params(widget, node.get("params"))
         if name == "ptog":
             params[pname] = not params[pname]
         elif name == "pset":
-            new = _param_from_post(param, value, params[pname])
-            params[pname] = new
+            params[pname] = _param_from_post(param, value, params[pname])
         else:
             step = param.step or 1
             new = params[pname] + (step if name == "pmore" else -step)
@@ -308,7 +351,7 @@ def _apply(state, op) -> str:
             if param.max is not None:
                 new = min(param.max, new)
             params[pname] = int(new) if param.type == "int" else new
-        draft["layout"] = put(tree, sel, {**node, "params": _changed(widget, params)})
+        write(params)
     return ""
 
 
@@ -334,6 +377,8 @@ def save(screen, state) -> list[str]:
     if errors:
         return errors
     screen.name, screen.background, screen.public, screen.layout = draft["name"], draft["bg"], draft["public"], draft["layout"]
+    screen.popups = [{"widget": p["widget"], "params": _changed(registry.popups()[p["widget"]], clean_params(registry.popups()[p["widget"]], p.get("params")))}
+                     for p in draft["popups"] if p.get("widget") in registry.popups()]
     if orient_of(screen) != draft["orient"]:
         screen.width, screen.height = SIZES[draft["orient"]]
     screen.save()
@@ -429,7 +474,8 @@ def source_options() -> dict:
     from pos_server.models import Dish, Menu
     return {"menus": [(0, _("Pick a menu"))] + [(m.id, m.title) for m in Menu.objects.all().order_by("position", "id")],
             "dishes": [(0, _("Pick a dish"))] + [(d.id, d.title) for d in Dish.objects.filter(archived=False).order_by("title")],
-            "audio:music": [], "audio:voice": []}
+            "audio:music": [("", _("No music channels on this screen yet"))],
+            "audio:voice": [("", _("No voice channels on this screen yet"))]}
 
 
 def editor_page(screen, state) -> dict:
@@ -495,6 +541,21 @@ def editor_page(screen, state) -> dict:
     else:
         panel = {"kind": "missing"}
 
+    # pop-ups
+    options = source_options()
+    pops = []
+    for i, spec in enumerate(draft["popups"]):
+        w = registry.popups().get(spec.get("widget"))
+        if w is None:
+            continue
+        params = clean_params(w, spec.get("params"))
+        pops.append({"i": i, "w": w, "open": state["open_pop"] == i,
+                     "fields": [_field(n, p, params[n], options) for n, p in w.params.items()] if state["open_pop"] == i else []})
+    taken = {p.get("widget") for p in draft["popups"]}
+    pop_lib = [{"name": n, "w": w, "added": n in taken} for n, w in registry.popups().items()]
+    tab = state["tab"]
+    editing = f"pop:{state['open_pop']}" if tab == "popups" and state["open_pop"] is not None else (sel if isinstance(node, dict) else "")
+
     counted = [n for _p, n, _d in walk(tree)]
     n_widgets = sum(1 for n in counted if n and (w := registry.get(n.get("widget"))) and not w.slots)
     width, height = SIZES[draft["orient"]]
@@ -503,9 +564,11 @@ def editor_page(screen, state) -> dict:
         "dirty": dirty, "errors": errors, "can_undo": bool(state["hist"]), "can_save": dirty and not errors and bool(draft["name"]),
         "status": errors[0] if errors else _("Unsaved changes") if dirty else _("All changes saved"),
         "status_kind": "bad" if errors else "dirty" if dirty else "",
-        "preview": reverse("admin_screen_preview", args=[screen.id]) + f"?sel={sel}&v="
+        "preview": reverse("admin_screen_preview", args=[screen.id]) + f"?sel={sel if tab == 'layout' else ''}"
+                   + (f"&popup={state['pop_preview']}" if state["pop_preview"] else "") + "&v="
                    + hashlib.sha1(json.dumps(draft, sort_keys=True).encode()).hexdigest()[:10],
         "ratio": f"{width} / {height}", "orient_label": _("Landscape 16:9") if draft["orient"] == "land" else _("Portrait 9:16"),
-        "editing": sel if isinstance(node, dict) else "", "n_widgets": n_widgets,
+        "editing": editing, "n_widgets": n_widgets, "tab": tab, "pops": pops, "pop_lib": pop_lib,
+        "tabs": [("layout", _("Layout"), n_widgets), ("popups", _("Pop-ups"), len(pops))],
         "address": reverse("screen", args=[screen.slug]),
     }

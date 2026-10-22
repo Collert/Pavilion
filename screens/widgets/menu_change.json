@@ -1,0 +1,39 @@
+{
+  "title": "Menu change",
+  "description": "When the scheduled menu switches",
+  "kind": "popup",
+  "trigger": "menu_change",
+  "icon": "M4 12a8 8 0 0 1 14-5 M20 12a8 8 0 0 1-14 5 M18 3v4h-4 M6 21v-4h4",
+  "color": "#F4A93B",
+  "template": "screens/popups/menu_change.html",
+  "context": "screens.popups.menu_change",
+  "live": [
+    "menus"
+  ],
+  "params": {
+    "message": {
+      "type": "string",
+      "default": "",
+      "label": "Message",
+      "help": "Empty: “<menu> starts now”"
+    },
+    "style": {
+      "type": "choice",
+      "options": [
+        "full",
+        "banner"
+      ],
+      "default": "banner",
+      "label": "Style",
+      "help": "Full screen, or a banner along the bottom"
+    },
+    "seconds": {
+      "type": "int",
+      "default": 8,
+      "min": 2,
+      "max": 60,
+      "unit": "s",
+      "label": "Show for"
+    }
+  }
+}

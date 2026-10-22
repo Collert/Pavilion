@@ -1,0 +1,8 @@
+{# A pop-up's look: full screen (a card over a dimmed screen) or a banner along the bottom. #}
+<div class="popup popup--{{ params.style }} popup--{{ widget.name }}" role="status" aria-live="polite">
+    <div class="popup-card" style="--pop: {{ widget.color }}">
+        {% if kicker %}<div class="popup-kicker">{{ kicker }}</div>{% endif %}
+        <div class="popup-big">{{ big }}</div>
+        {% if small %}<div class="popup-small">{{ small }}</div>{% endif %}
+    </div>
+</div>

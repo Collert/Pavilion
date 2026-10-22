@@ -25,6 +25,8 @@ class Screen(models.Model):
     background = models.CharField(_("background"), max_length=7, default="#F4F1EA", validators=[hex_color])
     padding = models.PositiveIntegerField(_("padding"), default=36, validators=[MaxValueValidator(400)],
                                           help_text=_("Space around the edge, in design pixels"))
+    popups = models.JSONField(_("pop-ups"), default=list, blank=True,
+                              help_text=_('Pop-up widgets shown over the screen: [{"widget": "order_ready", "params": {...}}]'))
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

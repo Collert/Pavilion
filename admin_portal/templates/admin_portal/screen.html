@@ -43,8 +43,40 @@ picking a node there, or dropping a widget from the library on an empty slot, co
 
     <section class="sc-panel card" aria-label="{% trans 'Screen settings' %}" id="screen-panel" data-region>
         <input type="hidden" name="editing" value="{{ e.editing }}">
-        <div class="sc-tabs" role="tablist"><span role="tab" aria-selected="true">{% trans "Layout" %}<b>{{ e.n_widgets }}</b></span></div>
+        <div class="sc-tabs" role="tablist" aria-label="{% trans 'Editor sections' %}">{% for key, lbl, n in e.tabs %}<button role="tab" name="op" value="tab:{{ key }}" aria-selected="{% if e.tab == key %}true{% else %}false{% endif %}">{{ lbl }}<b>{{ n }}</b></button>{% endfor %}</div>
         <div class="sc-panel-scroll">
+            {% if e.tab == "popups" %}
+            <h2 class="disp sc-h0">{% trans "Pop-ups" %}</h2>
+            <div class="small muted">{% trans "They don’t take up a slot. Each one appears over the screen when its trigger fires." %}</div>
+            <div class="sc-pops">
+                {% for x in e.pops %}
+                <div class="sc-pop">
+                    <div class="sc-pop-head">
+                        <span class="sc-pop-icon" style="color: {{ x.w.color }}">{% icon x.w.icon 16 2 %}</span>
+                        <span class="grow two-line"><span class="strong">{{ x.w.title }}</span><span class="sc-trigger">{% icon "M13 3 4 14h7l-1 7 9-11h-7z" 11 2.6 %}{{ x.w.description }}</span></span>
+                        <button class="sc-preview-btn" name="op" value="ppreview:{{ x.i }}">{% trans "Preview" %}</button>
+                        <button class="ico" name="op" value="popen:{{ x.i }}" aria-expanded="{% if x.open %}true{% else %}false{% endif %}" aria-label="{% if x.open %}{% blocktrans with t=x.w.title %}Hide {{ t }} settings{% endblocktrans %}{% else %}{% blocktrans with t=x.w.title %}Show {{ t }} settings{% endblocktrans %}{% endif %}"><span class="sc-chev{% if x.open %} open{% endif %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</span></button>
+                    </div>
+                    {% if x.open %}
+                    <div class="sc-fields sc-pop-fields">{% for f in x.fields %}{% include "admin_portal/_screen_field.html" %}{% endfor %}
+                        <button class="sc-pop-remove" name="op" value="pdel:{{ x.i }}">{% trans "Remove pop-up" %}</button></div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="sc-none">{% trans "No pop-ups on this screen." %}</div>
+                {% endfor %}
+            </div>
+            <div class="ov muted top12">{% trans "Add a pop-up" %}</div>
+            <div class="sc-pop-lib">
+                {% for x in e.pop_lib %}
+                <button class="sc-lib-item wide" name="op" value="padd:{{ x.name }}" {% if x.added %}disabled{% endif %}>
+                    <span class="sc-pop-icon" style="color: {{ x.w.color }}">{% icon x.w.icon 16 2 %}</span>
+                    <span class="grow two-line"><span class="strong">{{ x.w.title }}</span><span class="sc-lib-hint">{{ x.w.description }}</span></span>
+                    <span class="sc-cta">{% if x.added %}{% trans "Added" %}{% else %}{% trans "+ Add" %}{% endif %}</span>
+                </button>
+                {% endfor %}
+            </div>
+            {% else %}
             <div class="ov muted">{% trans "Layout" %}</div>
             <div class="sc-tree" role="tree" aria-label="{% trans 'Layout' %}">
                 {% for n in e.tree %}
@@ -115,6 +147,7 @@ picking a node there, or dropping a widget from the library on an empty slot, co
             <div class="sc-two"><button class="sc-soft-btn" name="op" value="swap">{% trans "Swap widget" %}</button><button class="sc-remove" name="op" value="remove">{% trans "Remove" %}</button></div>
             {% endif %}
             {% endwith %}
+            {% endif %}
         </div>
     </section>
 </div>

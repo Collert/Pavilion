@@ -1086,7 +1086,7 @@ def screen_edit(request, id):
                 messages.success(request, _("Saved. Open screens update within a few seconds."))
                 return redirect("admin_screen", id=screen.id)
         else:
-            toast = screens_data.apply_op(state, op)
+            toast = screens_data.apply_op(state, op, request.POST.get("editing", ""))
             if toast:
                 messages.success(request, toast)
         screens_data.store(request, screen, state)
@@ -1104,7 +1104,8 @@ def screen_preview(request, id):
     width, height = screens_data.SIZES[draft["orient"]]
     shown = Screen(id=screen.id, name=draft["name"], slug=screen.slug, layout=draft["layout"], width=width, height=height,
                    background=draft["bg"], padding=screen.padding, public=draft["public"])
-    rendered = render_screen(shown, request, editing={"sel": request.GET.get("sel", "")})
+    shown.popups = draft.get("popups", [])
+    rendered = render_screen(shown, request, editing={"sel": request.GET.get("sel", ""), "popup": request.GET.get("popup", "")})
     return render(request, "screens/screen.html", {"screen": shown, "rendered": rendered, "topics": [], "preview": True,
                                                    "now_ms": int(time_.time() * 1000)})
 
