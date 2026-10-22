@@ -79,6 +79,52 @@ class LayoutValidationTests(TestCase):
                          "minmax(0, 1fr) calc(var(--u) * 132) auto 25% minmax(0, 1fr)")
 
 
+class WidgetKindTests(TestCase):
+    """Widgets are visible (layout slots), pop-ups or audio channels; the editor lists each kind on its own tab."""
+
+    def test_kinds_are_listed_apart(self):
+        self.assertTrue({"featured_dish", "qr_code", "promo_slides", "menu_board"} <= registry.widgets().keys())
+        self.assertFalse(registry.widgets().keys() & (registry.popups().keys() | registry.audio().keys()))
+        self.assertEqual(registry.widgets()["menu_board"].params["menu"].source, "menus")
+        self.assertTrue(registry.widgets()["clock"].icon)
+
+    def test_a_popup_needs_a_trigger(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad_popup.json"
+            path.write_text(json.dumps({"title": "Bad", "template": "x.html", "kind": "popup"}), encoding="utf-8")
+            with self.assertRaises(ImproperlyConfigured):
+                registry._load(path)
+            path.write_text(json.dumps({"title": "Old", "template": "x.html", "kind": "widget"}), encoding="utf-8")
+            self.assertEqual(registry._load(path).kind, "visible")  # the old name still works
+
+
+class NewWidgetTests(TestCase):
+    def render(self, layout):
+        screen = Screen(name="Test", slug="test", layout=layout, public=True)  # not saved: rendering needs no row
+        return render_screen(screen, RequestFactory().get("/")).html
+
+    def test_featured_dish_qr_code_and_promo_slides(self):
+        from decimal import Decimal
+        from pos_server.models import Discount, Dish
+        station = Station.objects.first()
+        dish = Dish.objects.create(title="Smash burger", price=Decimal("14.50"), station=station, description="Two patties")
+        html = self.render(node("featured_dish", dish=dish.id, badge="New"))
+        self.assertIn("Smash burger", html)
+        self.assertIn("Two patties", html)
+        self.assertIn("New", html)
+        html = self.render(node("qr_code", opens="link", link="https://example.com/review", caption="Leave a review"))
+        self.assertIn("<svg", html)
+        self.assertIn("example.com/review", html)
+        Discount.objects.create(name="Happy hour", note="Weekdays 3 to 5", kind="pct", value=Decimal("15"))
+        html = self.render(node("promo_slides", headline="Burger Monday"))
+        self.assertIn("Burger Monday", html)
+        self.assertIn("Happy hour", html)
+        self.assertIn("15% off", html)
+
+
 class RenderTests(TestCase):
     def render(self, layout, **fields):
         screen = Screen.objects.create(name="Test", slug="test", layout=layout, public=True, **fields)

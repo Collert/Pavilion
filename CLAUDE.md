@@ -141,12 +141,17 @@ any display. The server renders the whole tree (`screens/layout.py`); `live-page
 topics and swaps the leaf widgets whose HTML changed. Editing a Screen publishes `screens`, which reloads open ones.
 
 **Adding a widget** (all four files share the widget's name, lowercase with `_`):
-- `screens/widgets/<name>.json`: `title`, `description`, `template`, optional `context` (dotted path to
+- `screens/widgets/<name>.json`: `title`, `description`, `template`, `kind` (`visible`, the default: placed in the
+  layout's slots; `popup`: shown over the screen when its `trigger` fires, one of order_ready, announcement,
+  menu_change, event_reminder, order_summary; `audio`: a sound channel, `channel` music or voice), `icon` (24×24 SVG
+  path) and `color` (how the admin's editor shows it), optional `context` (dotted path to
   `fn(request, params) -> dict`, given to the template as `data`; put it in `screens/providers.py`), `live` (SSE
   topics), `css`/`js` (static paths, loaded once per screen), `slots` (int param giving the number of children; containers
   only) and `params`: `{name: {type, default, label, help, options|item|min|max}}`. Types: `string`, `text`, `url`
   (`/...` or `https://` only), `int`, `number`, `bool`, `choice` (`options`), `color` (`#hex`), `size` (number = fr,
-  or `"132px"`/`"40%"`/`"auto"`), `list` (`item` = the item's param spec; `min`/`max` = length).
+  or `"132px"`/`"40%"`/`"auto"`), `list` (`item` = the item's param spec; `min`/`max` = length), `image` (an uploaded
+  picture's address). For the editor, a param may add `control` ("slider"), `unit`, `step`, `presets` (colours) and
+  `source` ("menus", "dishes", "audio:music", "audio:voice": picked from a list).
 - `screens/templates/screens/widgets/<name>.html`: a partial with `params` (validated, defaults filled in), `data`,
   `children` (rendered HTML, containers only), `node_id`, `widget`, `request`. One root element; it's wrapped in
   `<div class="widget widget--<name>" data-region>`. Use the `.screen-card` look and the `:root` colours in

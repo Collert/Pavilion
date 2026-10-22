@@ -1,6 +1,8 @@
 {
   "title": "Rows",
   "description": "Stacks widgets top to bottom. Each row's height is its weight: a number is a share (fr) of the space left, or a fixed size like 132px.",
+  "icon": "M4 5h16v6H4z M4 13h16v6H4z",
+  "color": "#3D4D45",
   "template": "screens/widgets/layout.html",
   "css": ["screens/widgets/layout.css"],
   "slots": "count",

@@ -1,0 +1,7 @@
+.qr { display: flex; align-items: center; gap: calc(var(--u) * 28); padding: calc(var(--u) * 30); border-radius: calc(var(--u) * 36); overflow: hidden; }
+.qr-code { flex: 0 0 auto; height: 100%; max-height: calc(var(--u) * 320); aspect-ratio: 1; }
+.qr-code svg { width: 100%; height: 100%; display: block; }
+.qr-text { flex: 1; min-width: 0; }
+.qr h3 { margin: 0; font-size: calc(var(--u) * 40); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
+.qr p { margin: calc(var(--u) * 10) 0 0; font-size: calc(var(--u) * 20); opacity: .6; overflow-wrap: anywhere; }
+.qr-empty { margin: auto; font-size: calc(var(--u) * 22); opacity: .6; }

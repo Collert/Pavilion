@@ -1,6 +1,8 @@
 {
   "title": "Now playing",
   "description": "What's playing in the restaurant, and what's up next. Placeholder: it shows the track you type in; the music player isn't connected yet.",
+  "icon": "M9 18V6l10-2v12 M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3z M19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z",
+  "color": "#7A5AC8",
   "template": "screens/widgets/now_playing.html",
   "css": ["screens/widgets/now_playing.css"],
   "params": {

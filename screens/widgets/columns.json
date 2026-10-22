@@ -1,6 +1,8 @@
 {
   "title": "Columns",
   "description": "Puts widgets side by side. Each column's width is its weight: a number is a share (fr) of the space left, or a fixed size like 560px.",
+  "icon": "M4 4h7v16H4z M13 4h7v16h-7z",
+  "color": "#3D4D45",
   "template": "screens/widgets/layout.html",
   "css": ["screens/widgets/layout.css"],
   "slots": "count",

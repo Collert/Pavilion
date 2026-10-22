@@ -127,3 +127,48 @@ def menu_board(request, params):
     if menu is None:
         return {"board": None}
     return {"board": board(menu, store_name=StoreSettings.load().name)}
+
+
+def featured_dish(request, params):
+    from pos_server.models import Dish
+    dish = Dish.objects.filter(pk=params["dish"], archived=False).select_related("station").first()
+    if dish is None:
+        return {"dish": None}
+    return {"dish": dish, "photo": dish.image.url if dish.image else "", "available": dish.available,
+            "price": f"${dish.price:,.2f}".replace(".00", "")}
+
+
+QR_TARGETS = {"order": "menu", "menu": "menu", "catering": "store_catering"}
+
+
+def qr_code(request, params):
+    """An SVG QR code for the store's page (or the link), made on the server."""
+    import segno
+    from django.urls import NoReverseMatch, reverse
+    from django.utils.safestring import mark_safe
+    if params["opens"] == "link":
+        url = params["link"]
+        if url.startswith("/"):
+            url = request.build_absolute_uri(url)
+    else:
+        try:
+            url = request.build_absolute_uri(reverse(QR_TARGETS[params["opens"]]) if params["opens"] != "order" else "/")
+        except NoReverseMatch:
+            url = request.build_absolute_uri("/")
+    if not url:
+        return {"svg": "", "url": ""}
+    svg = segno.make(url, error="m").svg_inline(scale=10, border=0, dark=params["color"], light=None)
+    return {"svg": mark_safe(svg), "url": url.split("://", 1)[-1].rstrip("/")}
+
+
+def promo_slides(request, params):
+    """Its own slide, then a slide for each offer on the register now."""
+    from pos_server.pricing import offers_for_register
+    slides = []
+    if params["headline"] or params["image"]:
+        slides.append({"title": params["headline"], "text": params["details"], "image": params["image"], "tag": ""})
+    if params["offers"]:
+        for offer in offers_for_register():
+            value = f"{offer['value']}% off" if offer["kind"] != "amt" else f"${int(offer['value']) / 100:,.2f} off".replace(".00", "")
+            slides.append({"title": offer["name"], "text": offer["note"], "image": "", "tag": value})
+    return {"slides": slides, "ms": params["seconds"] * 1000}

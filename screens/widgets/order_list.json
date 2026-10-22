@@ -1,6 +1,8 @@
 {
   "title": "Order list",
   "description": "Pickup orders being prepared, or ready to collect, with the customer's first name and order number. Delivery orders aren't shown.",
+  "icon": "M4 5h7v14H4z M13 5h7v14h-7z M6 9h3 M15 9h3",
+  "color": "#C9821A",
   "template": "screens/widgets/order_list.html",
   "context": "screens.providers.order_list",
   "live": ["orders"],

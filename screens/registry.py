@@ -15,6 +15,15 @@ A definition looks like this (see the "Screens and widgets" section of CLAUDE.md
       "params": {"title": {"type": "string", "default": "Preparing", "label": "Heading"}, ...}
     }
 
+Every widget has a **kind**: "visible" (the default; placed in the layout's slots), "popup" (shown over the screen
+when its `trigger` fires: order_ready, announcement, menu_change, event_reminder or order_summary) or "audio" (a sound
+channel, `channel` "music" or "voice"; its source and level are its params). The admin's screen editor lists them on
+its Layout, Pop-ups and Audio tabs. Optional `icon` (24×24 SVG path data) and `color` are how the editor shows it.
+
+Params may also say how the editor shows them: `control` ("slider" for a number), `unit` ("s", "min", "%"),
+`step`, `presets` (colours to pick from) and `source` (the value is picked from a list instead: "menus", "dishes",
+"audio:music" or "audio:voice", the screen's audio channels of that kind).
+
 The widget's name is its file name. Definitions are read from disk on every call in DEBUG (edit and reload) and
 once per process otherwise; they are part of the code, not cross-request state.
 
@@ -44,7 +53,10 @@ WIDGETS_DIR = Path(__file__).resolve().parent / "widgets"
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # Param types and what a value must look like. "size" is a grid track: a number (fr) or "132px" / "40%" / "auto".
-PARAM_TYPES = ("string", "text", "url", "int", "number", "bool", "choice", "color", "size", "list")
+PARAM_TYPES = ("string", "text", "url", "image", "int", "number", "bool", "choice", "color", "size", "list")
+KINDS = ("visible", "popup", "audio", "menu_template")
+TRIGGERS = ("order_ready", "announcement", "menu_change", "event_reminder", "order_summary")
+SOURCES = ("menus", "dishes", "audio:music", "audio:voice")
 
 
 @dataclass(frozen=True)
@@ -58,6 +70,11 @@ class Param:
     item: "Param | None" = None  # list: the type of each item
     min: float | None = None  # int/number: value bounds; list: length bounds
     max: float | None = None
+    control: str = ""        # how the editor shows it: "slider" for numbers
+    unit: str = ""
+    step: float | None = None
+    presets: tuple = ()      # color: swatches to pick from
+    source: str = ""         # the value is picked from a list (see SOURCES)
 
 
 @dataclass(frozen=True)
@@ -72,8 +89,12 @@ class Widget:
     css: tuple = ()
     js: tuple = ()
     slots: str = ""  # name of the int param giving the number of child slots; "" = takes no children
-    kind: str = "widget"  # or "menu_template"
+    kind: str = "visible"  # "popup", "audio" or "menu_template"
     layout: dict = field(default_factory=dict)  # menu templates: orientation, width, height, groups, per_group, featured, fonts
+    icon: str = ""
+    color: str = "#3D4D45"
+    trigger: str = ""   # popups
+    channel: str = ""   # audio: "music" or "voice"
 
     def provider(self):
         return import_string(self.context) if self.context else None
@@ -88,9 +109,12 @@ def _param(name, spec, where):
         item = _param(f"{name}[]", spec.get("item"), where)
     if kind == "choice" and not spec.get("options"):
         raise ImproperlyConfigured(f"{where}: choice param {name!r} needs options")
+    if spec.get("source", "") and spec["source"] not in SOURCES:
+        raise ImproperlyConfigured(f"{where}: param {name!r} source must be one of {', '.join(SOURCES)}")
     return Param(name=name, type=kind, default=spec.get("default"), label=spec.get("label", ""),
                  help=spec.get("help", ""), options=tuple(spec.get("options", ())), item=item,
-                 min=spec.get("min"), max=spec.get("max"))
+                 min=spec.get("min"), max=spec.get("max"), control=spec.get("control", ""), unit=spec.get("unit", ""),
+                 step=spec.get("step"), presets=tuple(spec.get("presets", ())), source=spec.get("source", ""))
 
 
 def _load(path):
@@ -108,7 +132,15 @@ def _load(path):
     slots = spec.get("slots", "")
     if slots and (slots not in params or params[slots].type != "int"):
         raise ImproperlyConfigured(f"{where}: slots must name an int param")
-    kind = spec.get("kind", "widget")
+    kind = spec.get("kind", "visible")
+    if kind == "widget":
+        kind = "visible"
+    if kind not in KINDS:
+        raise ImproperlyConfigured(f"{where}: kind is one of {', '.join(KINDS)}")
+    if kind == "popup" and spec.get("trigger") not in TRIGGERS:
+        raise ImproperlyConfigured(f"{where}: a popup needs a trigger, one of {', '.join(TRIGGERS)}")
+    if kind == "audio" and spec.get("channel") not in ("music", "voice"):
+        raise ImproperlyConfigured(f"{where}: an audio widget needs a channel, music or voice")
     layout = {}
     if kind == "menu_template":
         layout = {"orientation": spec.get("orientation", "portrait"), "width": int(spec.get("width", 1080)),
@@ -117,11 +149,11 @@ def _load(path):
         if layout["orientation"] not in ("portrait", "landscape") or layout["featured"] not in ("optional", "none") \
                 or not 1 <= layout["groups"] <= 8 or layout["per_group"] < 1:
             raise ImproperlyConfigured(f"{where}: check orientation, featured, groups and per_group")
-    elif kind != "widget":
-        raise ImproperlyConfigured(f"{where}: kind is \"widget\" or \"menu_template\"")
     return Widget(name=name, title=spec["title"], template=spec["template"], description=spec.get("description", ""),
                   params=params, context=spec.get("context", ""), live=tuple(spec.get("live", ())),
-                  css=tuple(spec.get("css", ())), js=tuple(spec.get("js", ())), slots=slots, kind=kind, layout=layout)
+                  css=tuple(spec.get("css", ())), js=tuple(spec.get("js", ())), slots=slots, kind=kind, layout=layout,
+                  icon=spec.get("icon", ""), color=spec.get("color", "#3D4D45"), trigger=spec.get("trigger", ""),
+                  channel=spec.get("channel", ""))
 
 
 def _read_all():
@@ -136,8 +168,24 @@ def _everything() -> dict:
 
 
 def widgets() -> dict:
-    """{name: Widget} for every widget a screen can place (menu templates aren't placed directly)."""
-    return {name: w for name, w in _everything().items() if w.kind == "widget"}
+    """{name: Widget} for every visible widget a screen's layout can place (menu templates aren't placed directly)."""
+    return {name: w for name, w in _everything().items() if w.kind == "visible"}
+
+
+def popups() -> dict:
+    """{name: Widget} for every pop-up a screen can have."""
+    return {name: w for name, w in _everything().items() if w.kind == "popup"}
+
+
+def audio() -> dict:
+    """{name: Widget} for every kind of audio channel a screen can have."""
+    return {name: w for name, w in _everything().items() if w.kind == "audio"}
+
+
+def any_kind(name):
+    """The widget, pop-up or audio channel called `name`, or None."""
+    w = _everything().get(name)
+    return w if w and w.kind != "menu_template" else None
 
 
 def get(name):

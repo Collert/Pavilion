@@ -1,6 +1,8 @@
 {
   "title": "Image",
   "description": "A picture that fills its slot.",
+  "icon": "M4 5h16v14H4z M4 15l5-5 4 4 3-3 4 4",
+  "color": "#E87BA4",
   "template": "screens/widgets/image.html",
   "css": ["screens/widgets/image.css"],
   "params": {

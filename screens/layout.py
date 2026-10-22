@@ -31,7 +31,7 @@ MAX_DEPTH = 12
 MAX_NODES = 300
 COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 SIZE_RE = re.compile(r"^(?:\d+(?:\.\d+)?(?:px|fr|%)|auto)$")
-TEXT_LIMITS = {"string": 300, "text": 3000, "url": 2000}
+TEXT_LIMITS = {"string": 300, "text": 3000, "url": 2000, "image": 2000}
 
 
 def _is_number(value):
@@ -46,7 +46,7 @@ def check_value(param, value):
             return "should be text"
         if len(value) > TEXT_LIMITS[kind]:
             return f"is longer than {TEXT_LIMITS[kind]} characters"
-        if kind == "url" and value and not (value.startswith("https://") or (value.startswith("/") and not value.startswith("//"))):
+        if kind in ("url", "image") and value and not (value.startswith("https://") or (value.startswith("/") and not value.startswith("//"))):
             return "should start with https:// or /"
         return None
     if kind == "bool":

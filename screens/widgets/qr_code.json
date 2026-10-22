@@ -1,0 +1,16 @@
+{
+  "title": "QR code",
+  "description": "A code to scan: online ordering, the menu, catering, or any link, with a caption.",
+  "icon": "M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h2v2h-2z M18 18h2v2h-2z M14 18h2",
+  "color": "#14261F",
+  "template": "screens/widgets/qr_code.html",
+  "context": "screens.providers.qr_code",
+  "css": ["screens/widgets/qr_code.css"],
+  "params": {
+    "opens": {"type": "choice", "options": ["order", "menu", "catering", "link"], "default": "order", "label": "Opens", "help": "Online ordering (the store), the menu, catering, or the link below"},
+    "link": {"type": "url", "default": "", "label": "Link", "help": "For Opens: link. An https:// address (a review page, the guest Wi-Fi...)"},
+    "caption": {"type": "string", "default": "Scan to order ahead", "label": "Caption"},
+    "background": {"type": "color", "default": "#FFFFFF", "label": "Background", "presets": ["#FFFFFF", "#FBE7B5", "#1C2321"]},
+    "color": {"type": "color", "default": "#1C2321", "label": "Text colour", "presets": ["#1C2321", "#F4F1EA"]}
+  }
+}

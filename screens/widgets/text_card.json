@@ -1,6 +1,8 @@
 {
   "title": "Text card",
   "description": "A coloured card with a tag, a heading, some text and a big footer line (a price, say). For specials and announcements.",
+  "icon": "M5 6h14 M12 6v13 M9 19h6",
+  "color": "#3D4D45",
   "template": "screens/widgets/text_card.html",
   "css": ["screens/widgets/text_card.css"],
   "params": {

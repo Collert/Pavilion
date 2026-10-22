@@ -1,0 +1,20 @@
+{
+  "title": "Promo slides",
+  "description": "Rotating slides: your own headline and photo, then the register's current offers.",
+  "icon": "M4 5h16v14H4z M4 15l5-5 4 4 3-3 4 4",
+  "color": "#E87BA4",
+  "template": "screens/widgets/promo_slides.html",
+  "context": "screens.providers.promo_slides",
+  "live": ["menus"],
+  "css": ["screens/widgets/promo_slides.css"],
+  "js": ["screens/widgets/promo_slides.js"],
+  "params": {
+    "headline": {"type": "string", "default": "Two smash burgers, $24", "label": "Headline"},
+    "details": {"type": "string", "default": "Every Monday after 5 PM", "label": "Details"},
+    "image": {"type": "image", "default": "", "label": "Background photo"},
+    "offers": {"type": "bool", "default": true, "label": "Offers", "help": "Add a slide for each offer on the register now"},
+    "seconds": {"type": "int", "default": 8, "min": 3, "max": 60, "unit": "s", "label": "Time per slide"},
+    "background": {"type": "color", "default": "#E87BA4", "label": "Background", "presets": ["#E87BA4", "#F4A93B", "#12875A", "#1C2321"]},
+    "color": {"type": "color", "default": "#FFFFFF", "label": "Text colour", "presets": ["#FFFFFF", "#1C2321"]}
+  }
+}

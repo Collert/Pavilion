@@ -1,0 +1,14 @@
+{% load i18n %}<article class="featured" style="background: {{ params.background }}; color: {{ params.color }}">
+    {% if data.dish %}
+    <div class="featured-photo">{% if data.photo %}<img src="{{ data.photo }}" alt="">{% else %}<span class="featured-plate" aria-hidden="true"></span>{% endif %}</div>
+    <div class="featured-body">
+        {% if params.badge %}<span class="featured-badge">{{ params.badge }}</span>{% endif %}
+        <h3>{{ data.dish.title }}</h3>
+        {% if params.description and data.dish.description %}<p>{{ data.dish.description }}</p>{% endif %}
+        {% if not data.available %}<span class="featured-price">{% trans "Sold out today" %}</span>
+        {% elif params.price %}<span class="featured-price">{{ data.price }}</span>{% endif %}
+    </div>
+    {% else %}
+    <p class="featured-empty">{% trans "Pick a dish to feature." %}</p>
+    {% endif %}
+</article>

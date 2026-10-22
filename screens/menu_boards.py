@@ -44,7 +44,7 @@ def groups(menu):
     """[(key, name, color)] the menu can fill slots with: its stations (in station order) and its combos."""
     from pos_server.models import Station
     station_ids = set(menu.dishes.filter(archived=False).values_list("station_id", flat=True))
-    out = [(f"s:{s.id}", s.heading or s.name, s.color) for s in Station.objects.all() if s.id in station_ids]
+    out = [(f"s:{s.id}", s.heading or s.name, s.color) for s in Station.objects.filter(archived=False) if s.id in station_ids]
     if menu.combos.filter(archived=False, active=True).exists():
         out.append(("combos", _("Combos"), "#14261F"))
     return out

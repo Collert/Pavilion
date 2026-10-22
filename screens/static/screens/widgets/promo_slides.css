@@ -1,0 +1,10 @@
+.promo { position: relative; border-radius: calc(var(--u) * 36); overflow: hidden; }
+.promo-slide { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: calc(var(--u) * 40); background-size: cover; background-position: center; opacity: 0; transition: opacity .8s ease; }
+.promo-slide.on { opacity: 1; }
+.promo-tag { align-self: flex-start; height: calc(var(--u) * 40); padding: 0 calc(var(--u) * 18); border-radius: calc(var(--u) * 20); background: rgba(255, 255, 255, .92); color: var(--ink); font-size: calc(var(--u) * 19); font-weight: 800; display: inline-flex; align-items: center; }
+.promo h3 { margin: calc(var(--u) * 16) 0 0; font-size: calc(var(--u) * 56); line-height: 1.02; font-weight: 800; letter-spacing: -.03em; }
+.promo p { margin: calc(var(--u) * 12) 0 0; font-size: calc(var(--u) * 24); line-height: 1.35; opacity: .85; }
+.promo-dots { position: absolute; right: calc(var(--u) * 32); top: calc(var(--u) * 32); display: flex; gap: calc(var(--u) * 8); }
+.promo-dots span { width: calc(var(--u) * 12); height: calc(var(--u) * 12); border-radius: 50%; background: currentColor; opacity: .35; transition: opacity .4s ease; }
+.promo-dots span.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .promo-slide { transition: none; } }
