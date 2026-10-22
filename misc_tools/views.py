@@ -57,33 +57,8 @@ def tts(request):
         Exception: For any other exceptions that may occur during audio processing.
     """
     
-    # Get the text from query params
     text = request.GET.get('text', 'Hello')[:300]  # public (the status board uses it); keep it short
-
-    # Generate TTS audio from text
-    tts_buffer = io.BytesIO()
-    gTTS(text=text, lang='en').write_to_fp(tts_buffer)
-
-    # Pick a random intro chime
-    intro_dir_path = os.path.join(settings.BASE_DIR, 'misc_tools', 'static', 'misc_tools', 'announcement_chimes')
-    files = [f for f in os.listdir(intro_dir_path) if os.path.isfile(os.path.join(intro_dir_path, f))]
-    intro_path = os.path.join(intro_dir_path, random.choice(files))
-
-    # Chime + speech in one MP3. ffmpeg re-encodes both so differing sample rates join cleanly.
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as speech_file:
-        speech_file.write(tts_buffer.getvalue())
-    try:
-        result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", intro_path, "-i", speech_file.name,
-             "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1", "-f", "mp3", "pipe:1"],
-            capture_output=True, check=True, timeout=30,
-        )
-    finally:
-        os.remove(speech_file.name)
-    combined_buffer = io.BytesIO(result.stdout)
-
-    # Create an HTTP response with the combined audio content
-    response = HttpResponse(combined_buffer.getvalue(), content_type="audio/mpeg")
+    from .speech import speech_mp3
+    response = HttpResponse(speech_mp3(text), content_type="audio/mpeg")
     response['Content-Disposition'] = 'attachment; filename="combined_tts.mp3"'
-
     return response

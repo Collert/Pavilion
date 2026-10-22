@@ -160,4 +160,6 @@ def announce(request):
     if not text:
         return JsonResponse({"message": _("Type what to announce.")}, status=400)
     record("announcement", {"text": text, "by": request.user.first_name or request.user.username})
+    from audio.calls import speak
+    speak(text, "announcement")  # read out on the voice channels screens picked for it
     return JsonResponse({"ok": True})

@@ -12,3 +12,5 @@ class StrictDeprecationRunner(DiscoverRunner):
         for name in dir(django.utils.deprecation):
             if name.startswith("Removed"):
                 warnings.filterwarnings("error", category=getattr(django.utils.deprecation, name))
+        import audio.calls
+        audio.calls.background = False  # spoken calls run straight away in tests, not in threads

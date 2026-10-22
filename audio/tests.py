@@ -207,3 +207,40 @@ class VoiceRelayTests(TestCase):
             voice_socket.side_effect = fake
             asyncio.run(application({"type": "websocket", "path": "/ws/voice/12"}, receive, send))
         self.assertEqual(sent[-1], 12)
+
+
+
+class OrderCallTests(TestCase):
+    """audio/calls.py: an order turning ready is spoken on the voice channels screens picked for it."""
+
+    def test_ready_orders_are_called_on_the_picked_channels(self):
+        from types import SimpleNamespace
+        from pos_server.models import Order
+        from pos_server.signals import order_ready
+        from screens.models import Screen
+        calls = AudioChannel.objects.create(name="Order calls", kind="voice")
+        quiet = AudioChannel.objects.create(name="Kitchen", kind="voice")
+        Screen.objects.create(name="Board", slug="board-calls", layout={"widget": "clock"},
+                              audio=[{"id": "c1", "widget": "voice_channel", "params": {"channel": calls.id}},
+                                     {"id": "c2", "widget": "voice_channel", "params": {"channel": quiet.id}}],
+                              popups=[{"widget": "order_ready", "params": {"channel": "c1"}},
+                                      {"widget": "announcement", "params": {"channel": "c2"}}])
+        Screen.objects.create(name="Silent", slug="silent", layout={"widget": "clock"},
+                              audio=[{"id": "c1", "widget": "voice_channel", "params": {"channel": quiet.id}}],
+                              popups=[{"widget": "order_ready", "params": {"channel": "c1", "speak": False}}])
+        with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media),                 mock.patch("misc_tools.speech.speech_mp3", return_value=b"ID3mp3") as speech,                 mock.patch("audio.voice.broadcast") as broadcast:
+            order_ready.send(sender=Order, order=SimpleNamespace(channel="web", name="Priya Singh", id=142))
+            speech.assert_called_once_with("Order for Priya S. is ready.")
+            self.assertEqual([c.args[0] for c in broadcast.call_args_list], [calls.id])  # not the silent screen's
+            clip = broadcast.call_args.args[1]
+            self.assertEqual(clip["type"], "clip")
+            self.assertTrue(default_storage.exists(clip["url"].split("/media/", 1)[1]))
+            from .calls import speak
+            speak("Closing in ten minutes", "announcement")
+            self.assertEqual(broadcast.call_args.args[0], quiet.id)
+
+    def test_nothing_is_made_when_no_screen_wants_it(self):
+        from .calls import speak
+        with mock.patch("misc_tools.speech.speech_mp3") as speech:
+            speak("Hello", "order_ready")
+        speech.assert_not_called()

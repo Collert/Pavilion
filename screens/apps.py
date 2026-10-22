@@ -24,7 +24,10 @@ class ScreensConfig(AppConfig):
             from .popups import record
             from .providers import public_name
             if order.channel != "delivery":  # couriers collect those
-                record("order_ready", {"name": public_name(order.name) or "", "number": f"{order.id:04d}"})
+                name = public_name(order.name) or ""
+                record("order_ready", {"name": name, "number": f"{order.id:04d}"})
+                from audio.calls import order_ready as call  # and say it on the screens' voice channels
+                call(name, order.id)
 
         order_ready.connect(call_out, dispatch_uid="screens-order-ready", weak=False)  # a local function: keep it alive
         post_delete.connect(screen_changed, sender=Screen, dispatch_uid="realtime-Screen-delete", weak=False)
