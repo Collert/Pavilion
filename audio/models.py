@@ -11,7 +11,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class Track(models.Model):
-    """A song in the library: a file under files/music/ in the media storage, with what its tags say."""
+    """A song in the library: a file under files/music/ in the media storage, kept as it was uploaded, with what its
+    tags said (read by the browser before uploading: audio/library.py) and anything the admin changed since."""
     file = models.FileField(upload_to="files/music/", max_length=300, unique=True)
     title = models.CharField(max_length=200)
     artist = models.CharField(max_length=200, blank=True)
@@ -23,6 +24,7 @@ class Track(models.Model):
     format = models.CharField(max_length=10, blank=True, help_text="MP3, M4A, FLAC...")
     bitrate = models.PositiveIntegerField(default=0, help_text="kbps")
     size = models.PositiveBigIntegerField(default=0, help_text="Bytes")
+    original_name = models.CharField(max_length=255, blank=True, help_text="The file's name when it was uploaded")
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -33,7 +35,7 @@ class Track(models.Model):
 
 
 class Playlist(models.Model):
-    name = models.CharField(max_length=120)
+    name = models.CharField(max_length=120, blank=True, help_text="Blank: Untitled playlist")
     description = models.CharField(max_length=200, blank=True)
     tracks = models.ManyToManyField(Track, through="PlaylistTrack", related_name="playlists", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

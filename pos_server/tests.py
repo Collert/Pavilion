@@ -912,6 +912,8 @@ class SeedDemoTests(TestCase):
         self.assertEqual(Menu.active().title, "Lunch")
         self.assertTrue(Order.objects.filter(items__children__isnull=False).exists())  # a combo was sold
         self.assertTrue(Staff.objects.get(user__username="cashier").check_pin("1234"))
+        from audio.models import Playlist
+        self.assertEqual(Playlist.objects.get(name="Lunch rush").entries.count(), 3)  # a library to play
 
 
 class RealtimeTests(MenuFixture, TestCase):

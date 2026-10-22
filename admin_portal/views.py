@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.db.models import Max
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -38,6 +38,7 @@ from . import combos as combos_data
 from . import audio as audio_data
 from . import events as events_data
 from . import hours as hours_data
+from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
 from . import components as components_data
@@ -1144,6 +1145,29 @@ def audio_channels(request):
     else:
         draft = audio_data.draft_of()
     return page(request, "admin_portal/audio.html", "audio", {"a": audio_data.page(draft, new)})
+
+
+@superuser_required
+def library(request):
+    """Library: songs and playlists (admin_portal/library.py). The view lives in the address; buttons post an op
+    and come back to it."""
+    if request.method == "POST":
+        toast, go = library_data.apply(request.POST, request.FILES)
+        if toast:
+            messages.success(request, toast)
+        st = {**library_data.state(request.POST), **{k: v for k, v in go.items() if k in ("view", "q", "sort")}}
+        return redirect(reverse("admin_library") + library_data.url(st))
+    st = library_data.state(request.GET)
+    data = library_data.page(st, song=request.GET.get("song"), add=request.GET.get("add") == "1", aq=request.GET.get("aq", ""))
+    return page(request, "admin_portal/library.html", "library", {"l": data})
+
+
+@superuser_required
+@require_POST
+def library_upload(request):
+    """One song from the Add music dialog: the file as is, plus the tags the browser read."""
+    status, body = library_data.upload(request.POST, request.FILES)
+    return JsonResponse(body, status=status)
 
 
 # ---------- branding ----------

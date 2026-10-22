@@ -39,18 +39,9 @@ def _fresh_order(channel):
     return ids
 
 
-def _maybe_scan():
-    """In development, pick up songs dropped into files/music/ without running the scan by hand (every 30 s at most)."""
-    from django.conf import settings
-    if settings.DEBUG and cache.add("audio:dev-scan", 1, 30):
-        from .library import scan
-        scan()
-
-
 def now_playing(channel, now=None) -> dict:
     """{"track": Track or None, "offset": seconds into it, "paused": bool, "started_at", "ends_at", "next": Track}.
     Starts the channel if it never has, and saves how far time has moved it (only when it moved)."""
-    _maybe_scan()
     now = now or timezone.now()
     channel = AudioChannel.objects.get(pk=channel.pk)
     tracks = {t.id: t for t in Track.objects.filter(id__in=_pool(channel))}

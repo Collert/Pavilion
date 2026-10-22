@@ -1179,13 +1179,49 @@ class Command(BaseCommand):
                                status=Booking.DECLINED, total=Decimal("152.00"), created_at=now - datetime.timedelta(days=2))
 
     def seed_audio(self):
-        """Audio channels for the screens (songs come from files/music/: drop MP3s there; manage.py scan_music)."""
-        from audio.models import AudioChannel
+        """Audio channels for the screens, and a small library to play on them: short generated tones standing in for
+        songs (real ones are uploaded in the admin's Library), with their tags, in two playlists."""
+        import math
+        import struct
+        import wave
+
+        from audio import library
+        from audio.models import AudioChannel, Track
         for name, kind, notes in (("Order calls", "voice", "Calls out names when orders are ready."),
                                   ("Lobby music", "music", "Ceiling speakers in the dining room."),
                                   ("Patio music", "music", ""),
                                   ("Announcements", "voice", "Closing time and event messages.")):
             AudioChannel.objects.get_or_create(name=name, defaults={"kind": kind, "notes": notes})
+        if Track.objects.exists():
+            return
+
+        def tone(freq, seconds=20, rate=8000):
+            buffer = io.BytesIO()
+            with wave.open(buffer, "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(rate)
+                w.writeframes(b"".join(struct.pack("<h", int(3000 * math.sin(2 * math.pi * freq * i / rate) * min(1, (seconds * rate - i) / 4000)))
+                                       for i in range(seconds * rate)))
+            return buffer.getvalue()
+
+        songs = [("Lighthouse Keeper", "Lantern Coast", "Harbor Lights", 2023, "Indie pop", 392),
+                 ("Sea Glass", "Lantern Coast", "Harbor Lights", 2023, "Indie pop", 440),
+                 ("Velvet Hour", "Juno Hale", "Paper Moons", 2024, "Soul", 330),
+                 ("Café Crème", "Odile Brun", "Rue Basse", 2020, "Jazz", 294),
+                 ("Steam Buns", "Saltwater Radio", "Night Market", 2024, "Lo-fi", 523),
+                 ("track_07", "", "", None, "", 262)]
+        made = {}
+        for title, artist, album, year, genre, freq in songs:
+            upload = ContentFile(tone(freq), name=f"{title}.wav")
+            made[title] = library.add_track(upload, {"title": title, "artist": artist, "album": album, "year": year or "",
+                                                     "genre": genre, "duration": 20, "bitrate": 128})
+        lunch = library.new_playlist([made[t].id for t in ("Steam Buns", "Sea Glass", "Lighthouse Keeper")])
+        lunch.name, lunch.description = "Lunch rush", "Upbeat, keeps the line moving"
+        lunch.save()
+        evenings = library.new_playlist([made[t].id for t in ("Velvet Hour", "Café Crème")])
+        evenings.name, evenings.description = "Slow evenings", "Low and warm after 6 PM"
+        evenings.save()
 
     def seed_screens(self):
         # The order board comes with migrations (screens/0002): give it pop-ups (an order-ready call-out, staff

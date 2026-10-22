@@ -36,7 +36,7 @@ MENU = [
         ("events", _("Events"), "admin_events"),
         ("screens", _("Screens"), "admin_screens"),
         ("audio", _("Audio channels"), "admin_audio"),
-        ("library", _("Library"), None),
+        ("library", _("Library"), "admin_library"),
     ]),
     ("team", _("Team"), "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0 M16 4.3a3.5 3.5 0 0 1 0 6.4 M18 14.2a6.5 6.5 0 0 1 3.5 5.8", [
         ("staff", _("Staff"), None),

@@ -1,126 +1,99 @@
 """
-The music library: songs are files under files/music/ in the media storage (a local folder in development, the S3
-bucket or a NAS mount in production). scan() adds the files it finds that aren't in the library yet, reading their
-tags (title, artist, album, year, genre, length, artwork) with mutagen, and drops songs whose files are gone.
-Run it with `manage.py scan_music`, from the admin, or let development pick new files up on its own (audio/music.py).
+The music library: songs uploaded in the admin's Library (design: AdminLibrary). The browser reads each file's tags
+(title, artist, album, year, genre, artwork, length: admin_portal/static/admin_portal/library.js with audio/tags.js)
+before it uploads, so the server never opens a song: the file is stored as is under files/music/ in the media storage
+and what the tags said is kept on the Track. Screens play songs straight from the storage.
 """
-import logging
-import os
 import posixpath
 
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Max, Sum
 
-from .models import Track
+from .models import Playlist, PlaylistTrack, Track
 
-logger = logging.getLogger(__name__)
-
-MUSIC_DIR = "files/music"
-SKIP_DIRS = {"artwork"}
 EXTENSIONS = {".mp3": "MP3", ".m4a": "M4A", ".aac": "AAC", ".flac": "FLAC", ".ogg": "OGG", ".oga": "OGG", ".opus": "OPUS", ".wav": "WAV"}
+MAX_SIZE = 200 * 1024 * 1024  # bytes, per song
+ART_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+MAX_ART = 10 * 1024 * 1024
 
 
-def ensure_folder():
-    """Make files/music/ when the media storage is a folder on this machine (S3 has no folders to make)."""
+def limit_bytes() -> int:
+    return int(float(getattr(settings, "MUSIC_STORAGE_GB", 10)) * 1000 ** 3)
+
+
+def used_bytes() -> int:
+    return Track.objects.aggregate(n=Sum("size"))["n"] or 0
+
+
+def format_of(name) -> str:
+    return EXTENSIONS.get(posixpath.splitext(name or "")[1].lower(), "")
+
+
+def _text(value, n):
+    return str(value or "").strip()[:n]
+
+
+def _year(value):
+    text = _text(value, 4)
+    return int(text) if text.isdigit() and 1000 <= int(text) <= 2999 else None
+
+
+def add_track(upload, meta, artwork=None, playlist=None) -> Track:
+    """Keep an uploaded song: the file as it came, with the tags the browser read (`meta`: title, artist, album,
+    year, genre, duration in seconds, bitrate in kbps). A song without a title is named after its file."""
+    stem = posixpath.splitext(posixpath.basename(upload.name))[0]
     try:
-        os.makedirs(default_storage.path(MUSIC_DIR), exist_ok=True)
-    except (NotImplementedError, OSError):
-        pass
-
-
-def _files(folder=MUSIC_DIR):
+        duration = max(0.0, float(meta.get("duration") or 0))
+    except (TypeError, ValueError):
+        duration = 0.0
     try:
-        dirs, files = default_storage.listdir(folder)
-    except (FileNotFoundError, OSError):
-        return
-    for name in files:
-        if posixpath.splitext(name)[1].lower() in EXTENSIONS:
-            yield posixpath.join(folder, name)
-    for name in dirs:
-        if name not in SKIP_DIRS:
-            yield from _files(posixpath.join(folder, name))
+        bitrate = max(0, int(float(meta.get("bitrate") or 0)))
+    except (TypeError, ValueError):
+        bitrate = 0
+    track = Track(title=_text(meta.get("title"), 200) or stem[:200], artist=_text(meta.get("artist"), 200),
+                  album=_text(meta.get("album"), 200), year=_year(meta.get("year")), genre=_text(meta.get("genre"), 80),
+                  duration=duration, bitrate=bitrate, format=format_of(upload.name), size=upload.size or 0,
+                  original_name=posixpath.basename(upload.name)[:255])
+    track.file.save(posixpath.basename(upload.name), upload, save=False)
+    if artwork:
+        track.artwork.save(f"{posixpath.basename(track.file.name)}.{ART_TYPES.get(artwork.content_type, 'jpg')}", artwork, save=False)
+    track.save()
+    if playlist:
+        append(playlist, [track.id])
+    return track
 
 
-def _first(tags, key):
-    value = tags.get(key) if tags else None
-    if isinstance(value, list):
-        value = value[0] if value else ""
-    return str(value or "").strip()
+def append(playlist, track_ids):
+    """Add songs to the end of a playlist (songs already in it are skipped). Returns how many were added."""
+    have = set(playlist.entries.values_list("track_id", flat=True))
+    start = (playlist.entries.aggregate(n=Max("position"))["n"] or 0) + 1
+    fresh = [i for i in dict.fromkeys(track_ids) if i not in have]
+    PlaylistTrack.objects.bulk_create(PlaylistTrack(playlist=playlist, track_id=i, position=start + n) for n, i in enumerate(fresh))
+    return len(fresh)
 
 
-def _artwork(path):
-    """The cover picture inside the file, as (bytes, extension), or None."""
-    import mutagen
-    try:
-        with default_storage.open(path) as f:
-            audio = mutagen.File(f)
-    except Exception:
-        return None
-    if audio is None:
-        return None
-    for picture in getattr(audio, "pictures", []) or []:  # FLAC
-        return picture.data, "png" if picture.mime == "image/png" else "jpg"
-    tags = getattr(audio, "tags", None) or {}
-    for key in list(tags.keys()):
-        if str(key).startswith("APIC"):  # MP3 (ID3)
-            frame = tags[key]
-            return frame.data, "png" if frame.mime == "image/png" else "jpg"
-    covers = tags.get("covr") if hasattr(tags, "get") else None  # M4A
-    if covers:
-        return bytes(covers[0]), "png" if getattr(covers[0], "imageformat", 0) == 14 else "jpg"
-    return None
+def reorder(playlist, track_ids):
+    """Put a playlist's songs in this order (songs left out keep their place after the ones given)."""
+    entries = {e.track_id: e for e in playlist.entries.all()}
+    order = [i for i in track_ids if i in entries] + [i for i in entries if i not in track_ids]
+    for position, track_id in enumerate(order):
+        entries[track_id].position = position
+    PlaylistTrack.objects.bulk_update(entries.values(), ["position"])
 
 
-def read_tags(path) -> dict:
-    """What a file's tags say, with the file name as the title when it has none."""
-    import mutagen
-    stem = posixpath.splitext(posixpath.basename(path))[0]
-    info = {"title": stem.replace("_", " ").strip() or stem, "artist": "", "album": "", "year": None, "genre": "",
-            "duration": 0.0, "bitrate": 0, "format": EXTENSIONS.get(posixpath.splitext(path)[1].lower(), "")}
-    try:
-        with default_storage.open(path) as f:
-            audio = mutagen.File(f, easy=True)
-    except Exception:
-        logger.warning("Couldn't read the tags of %s", path)
-        return info
-    if audio is None:
-        return info
-    tags = audio.tags or {}
-    info["title"] = _first(tags, "title")[:200] or info["title"]
-    info["artist"] = _first(tags, "artist")[:200]
-    info["album"] = _first(tags, "album")[:200]
-    info["genre"] = _first(tags, "genre")[:80]
-    year = _first(tags, "date")[:4]
-    info["year"] = int(year) if year.isdigit() else None
-    info["duration"] = float(getattr(audio.info, "length", 0) or 0)
-    info["bitrate"] = int((getattr(audio.info, "bitrate", 0) or 0) // 1000)
-    return info
+@transaction.atomic
+def delete_tracks(ids) -> int:
+    """Delete songs, their files and artwork (from the media storage) and their places in playlists."""
+    tracks = list(Track.objects.filter(id__in=ids))
+    for track in tracks:
+        files = [f for f in (track.file, track.artwork) if f]
+        transaction.on_commit(lambda files=files: [f.storage.delete(f.name) for f in files])
+    Track.objects.filter(id__in=[t.id for t in tracks]).delete()
+    return len(tracks)
 
 
-def scan() -> dict:
-    """Add new files to the library and drop songs whose files are gone. Returns {"added", "removed", "total"}."""
-    ensure_folder()
-    known = {t.file.name: t for t in Track.objects.all()}
-    found = set()
-    added = 0
-    for path in _files():
-        found.add(path)
-        if path in known:
-            continue
-        info = read_tags(path)
-        try:
-            size = default_storage.size(path)
-        except Exception:
-            size = 0
-        track = Track(title=info["title"], artist=info["artist"], album=info["album"], year=info["year"], genre=info["genre"],
-                      duration=info["duration"], bitrate=info["bitrate"], format=info["format"], size=size)
-        track.file.name = path
-        track.save()
-        cover = _artwork(path)
-        if cover:
-            data, ext = cover
-            track.artwork.save(f"{track.id}.{ext}", ContentFile(data), save=True)
-        added += 1
-    gone = [t.id for name, t in known.items() if name not in found]
-    Track.objects.filter(id__in=gone).delete()
-    return {"added": added, "removed": len(gone), "total": Track.objects.count()}
+def new_playlist(track_ids=()) -> Playlist:
+    playlist = Playlist.objects.create(name="")
+    append(playlist, list(track_ids))
+    return playlist

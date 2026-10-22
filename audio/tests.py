@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import music
-from .library import scan
+from . import library
 from .models import AudioChannel, Playlist, PlaylistTrack, Track
 
 
@@ -29,20 +29,37 @@ def tone(seconds=2.0, rate=8000):
     return buffer.getvalue()
 
 
-class LibraryScanTests(TestCase):
-    def test_scan_adds_new_files_and_drops_missing_ones(self):
-        from django.core.files.base import ContentFile
+class LibraryTests(TestCase):
+    """audio/library.py: songs are kept exactly as uploaded, with the tags the browser read."""
+
+    def test_add_track_keeps_the_file_as_is_and_the_tags_given(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        song = tone(1.0)
         with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media):
-            default_storage.save("files/music/Velvet_Hour.wav", ContentFile(tone(2.0)))
-            default_storage.save("files/music/evenings/Ember.wav", ContentFile(tone(1.0)))
-            default_storage.save("files/music/notes.txt", ContentFile(b"not a song"))
-            self.assertEqual(scan(), {"added": 2, "removed": 0, "total": 2})
-            velvet = Track.objects.get(title="Velvet Hour")  # the file name, when there are no tags
-            self.assertAlmostEqual(velvet.duration, 2.0, places=1)
-            self.assertEqual(velvet.format, "WAV")
-            self.assertEqual(scan()["added"], 0)  # already known
-            default_storage.delete("files/music/evenings/Ember.wav")
-            self.assertEqual(scan(), {"added": 0, "removed": 1, "total": 1})
+            playlist = Playlist.objects.create(name="Evenings")
+            track = library.add_track(SimpleUploadedFile("Velvet Hour.wav", song, "audio/wav"),
+                                      {"title": " Velvet Hour ", "artist": "Juno Hale", "year": "2024-05-01", "duration": "1.0", "bitrate": "128"},
+                                      artwork=SimpleUploadedFile("cover.png", b"\x89PNG fake", "image/png"), playlist=playlist)
+            with default_storage.open(track.file.name) as f:
+                self.assertEqual(f.read(), song)  # not a byte changed
+            self.assertEqual((track.title, track.artist, track.year, track.format, track.size, track.original_name),
+                             ("Velvet Hour", "Juno Hale", 2024, "WAV", len(song), "Velvet Hour.wav"))  # a date keeps its year
+            self.assertTrue(track.artwork.name.endswith(".png"))
+            self.assertEqual([t.title for t in playlist.ordered_tracks()], ["Velvet Hour"])
+            untitled = library.add_track(SimpleUploadedFile("track_07.wav", song, "audio/wav"), {"year": "2021"})
+            self.assertEqual((untitled.title, untitled.year), ("track_07", 2021))  # no title: the file's name
+            files = [track.file.name, track.artwork.name]
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(library.delete_tracks([track.id]), 1)
+            self.assertFalse(any(default_storage.exists(name) for name in files))
+            self.assertFalse(playlist.entries.exists())
+
+    def test_playlist_append_and_reorder(self):
+        a, b, c = (Track.objects.create(file=f"files/music/{n}.mp3", title=n) for n in "ABC")
+        playlist = library.new_playlist([b.id, a.id])
+        self.assertEqual(library.append(playlist, [a.id, c.id]), 1)  # A is already in it
+        library.reorder(playlist, [c.id, b.id])
+        self.assertEqual([t.title for t in playlist.ordered_tracks()], ["C", "B", "A"])
 
 
 class MusicTimelineTests(TestCase):
@@ -54,9 +71,6 @@ class MusicTimelineTests(TestCase):
         self.c = Track.objects.create(file="files/music/c.mp3", title="C", duration=30)
         self.channel = AudioChannel.objects.create(name="Lobby music", kind="music")
         self.t0 = timezone.now()
-        cache_patch = mock.patch("audio.music._maybe_scan")
-        cache_patch.start()
-        self.addCleanup(cache_patch.stop)
 
     def at(self, seconds):
         return self.t0 + datetime.timedelta(seconds=seconds)

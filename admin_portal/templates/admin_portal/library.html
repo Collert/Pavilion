@@ -1,0 +1,243 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Library (design: AdminLibrary; admin_portal/library.py). The view is in the address: ?view=all|needs|p<id>, q, sort,
+song=<id> opens the song's details, add=1 the "Add songs" dialog of a playlist. Every button posts an op with the view
+in hidden fields and comes back to it. library.js adds what HTML can't: the selection's count, previews, dragging a
+playlist into order, and the Add music dialog (tags read in the browser, then each file uploaded as is).
+{% endcomment %}
+{% block title %}{% trans "Library" %}{% endblock %}
+{% block main_class %}lib-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/library.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/library.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with st=l.st %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Library" %}</h1>
+    </div>
+    <form method="post" class="head-tools" id="lib-head">{% csrf_token %}
+        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+        <input type="hidden" name="n" value="" data-up-n><input type="hidden" name="pl" value="" data-up-pl>
+        <button name="op" value="uploaded" hidden data-up-done tabindex="-1"></button>
+        <button class="btn-light" name="op" value="newpl">{% icon "plus" 18 2.4 %}{% trans "New playlist" %}</button>
+        <button type="button" class="btn-amber" data-upload-open>{% icon "M12 16V4 M7 9l5-5 5 5 M5 20h14" 18 2.4 %}{% trans "Add music" %}</button>
+    </form>
+</header>
+
+<div class="lib-body">
+    <aside class="lib-side card" id="lib-side" data-region aria-label="{% trans 'Library sections' %}">
+        <nav class="lib-smart">
+            {% for n in l.smart %}
+            <a class="lib-nav{% if n.on %} on{% endif %}" href="{{ n.href }}" data-live{% if n.on %} aria-current="page"{% endif %}>
+                <span class="lib-nav-tile" style="background: {{ n.color }}">{% icon n.icon 20 2.2 %}</span>
+                <span class="grow strong">{{ n.label }}</span><span class="lib-count{% if n.warn %} warn{% endif %}">{{ n.count }}</span>
+            </a>
+            {% endfor %}
+        </nav>
+        <form method="post" class="lib-pl-head">{% csrf_token %}
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <span class="ov muted grow">{% trans "Playlists" %}</span>
+            <button class="lib-ico" name="op" value="newpl" aria-label="{% trans 'New playlist' %}">{% icon "plus" 16 2.6 %}</button>
+        </form>
+        <nav class="lib-pls" aria-label="{% trans 'Playlists' %}">
+            {% for p in l.nav %}
+            <a class="lib-nav{% if p.on %} on{% endif %}" href="{{ p.href }}" data-live{% if p.on %} aria-current="page"{% endif %}>
+                {% include "admin_portal/_mosaic.html" with tiles=p.tiles cls="lib-mos small" %}
+                <span class="grow two-line"><span class="strong ellipsis">{{ p.name }}</span><span class="small muted">{{ p.sub }}</span></span>
+            </a>
+            {% empty %}
+            <div class="lib-none small muted">{% trans "No playlists yet." %}</div>
+            {% endfor %}
+        </nav>
+        <div class="lib-storage">
+            <div class="lib-storage-text"><span>{% trans "Storage" %}</span><span class="num">{{ l.storage.text }}</span></div>
+            <div class="lib-storage-bar"><span style="width: {{ l.storage.pct }}%"></span></div>
+        </div>
+    </aside>
+
+    <section class="lib-list card" id="lib-list" data-region aria-label="{{ l.v.title }}">
+        {% if l.v.is_pl %}
+        <form method="post" class="lib-pl-top" data-search>{% csrf_token %}
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <input type="hidden" name="op" value="plsave">
+            {% include "admin_portal/_mosaic.html" with tiles=l.v.tiles cls="lib-mos big" %}
+            <div class="grow">
+                <div class="ov muted">{% trans "Playlist" %}</div>
+                <input class="lib-inline disp lib-pl-name" name="pl_name" value="{{ l.v.name }}" maxlength="40" placeholder="{% trans 'Name this playlist' %}" aria-label="{% trans 'Playlist name' %}">
+                <input class="lib-inline lib-pl-desc" name="pl_desc" value="{{ l.v.desc }}" maxlength="80" placeholder="{% trans 'Add a short description' %}" aria-label="{% trans 'Playlist description' %}">
+                <div class="num lib-pl-sub" data-calc>{{ l.v.sub }}</div>
+            </div>
+            <div class="lib-pl-acts">
+                <a class="btn-dark lib-btn" href="{{ l.v.add_href }}" data-live>{% icon "plus" 16 2.6 %}{% trans "Add songs" %}</a>
+                <button class="lib-del-pl" name="op" value="pldelete">{% trans "Delete playlist" %}</button>
+            </div>
+        </form>
+        {% else %}
+        <form method="get" class="lib-top" data-search role="search">
+            <div class="grow">
+                <h2 class="disp lib-title">{{ l.v.title }}</h2>
+                <div class="small muted lib-sub">{{ l.v.sub }}</div>
+            </div>
+            <input type="hidden" name="view" value="{{ st.view }}">
+            <label class="lib-search">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
+                <input class="field" type="search" name="q" value="{{ st.q }}" placeholder="{% trans 'Search title, artist, album' %}" aria-label="{% trans 'Search songs' %}"></label>
+            <select class="field lib-sort" name="sort" aria-label="{% trans 'Sort' %}">
+                {% for key, label, on in l.sorts %}<option value="{{ key }}"{% if on %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        <form method="post" class="lib-rows-form{% if l.v.is_pl %} in-pl{% endif %}" id="lib-rows">{% csrf_token %}
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <input type="hidden" name="order" value="" data-order><button name="op" value="reorder" hidden data-reorder tabindex="-1"></button>
+            <div class="lib-bar-wrap">
+                <div class="lib-bulk">
+                    <button type="button" class="lib-ico light" data-clear aria-label="{% trans 'Clear selection' %}">{% icon "close" 14 2.8 %}</button>
+                    <span class="grow strong" data-sel-count></span>
+                    <details class="lib-menu">
+                        <summary class="lib-bulk-amber">{% trans "Add to playlist" %}{% icon "M6 9l6 6 6-6" 12 3 %}</summary>
+                        <div class="lib-menu-list" role="menu">
+                            {% for t in l.targets %}
+                            <button class="lib-mi" role="menuitem" name="op" value="addto:{{ t.id }}" data-has="{{ t.has }}"><span class="grow ellipsis">{{ t.name }}</span><span class="lib-mi-hint" data-hint></span></button>
+                            {% endfor %}
+                            {% if l.targets %}<div class="lib-mi-line"></div>{% endif %}
+                            <button class="lib-mi brand" role="menuitem" name="op" value="newpl">{% icon "plus" 14 2.8 %}{% trans "New playlist with these" %}</button>
+                        </div>
+                    </details>
+                    {% if l.v.is_pl %}<button class="lib-bulk-soft" name="op" value="plremove">{% trans "Remove from playlist" %}</button>{% endif %}
+                    <button class="lib-bulk-soft red" name="op" value="delete">{% trans "Delete from library" %}</button>
+                </div>
+                <div class="lib-thead">
+                    <label class="lib-box"><input type="checkbox" data-all aria-label="{% trans 'Select all' %}"><span></span></label>
+                    {% if l.v.is_pl %}<span class="lib-lead">#</span>{% endif %}
+                    <span class="lib-art-col"></span>
+                    <span class="grow">{% trans "Title" %}</span>
+                    <span class="lib-album">{% trans "Album" %}</span>
+                    {% if not l.v.is_pl %}<span class="lib-pls-col">{% trans "Playlists" %}</span><span class="lib-added">{% trans "Added" %}</span>{% endif %}
+                    <span class="lib-time">{% trans "Time" %}</span>
+                    <span class="lib-ico-col"></span>
+                </div>
+            </div>
+            <div class="lib-rows" role="list">
+                {% for r in l.rows %}
+                <div class="lib-row" role="listitem" data-id="{{ r.t.id }}"{% if l.v.is_pl %} draggable="true"{% endif %}>
+                    <label class="lib-box"><input type="checkbox" name="sel" value="{{ r.t.id }}" aria-label="{% blocktrans with t=r.title %}Select {{ t }}{% endblocktrans %}"><span></span></label>
+                    {% if l.v.is_pl %}<span class="lib-lead num">{% icon "M9 6h.01 M15 6h.01 M9 12h.01 M15 12h.01 M9 18h.01 M15 18h.01" 14 3.2 %}{{ r.n }}</span>{% endif %}
+                    <button type="button" class="lib-art{% if not r.art %} blank{% endif %}" data-preview-src="{{ r.src }}" aria-label="{% blocktrans with t=r.title %}Preview {{ t }}{% endblocktrans %}"{% if r.art %} style="background-image: url('{{ r.art }}')"{% endif %}>
+                        {% if not r.art %}{% icon "M9 18V5l11-2v13 M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" 18 2.2 %}{% endif %}
+                        <span class="lib-art-play">{% icon "M8 5v14l11-7z" 16 0 %}</span>
+                        <span class="lib-art-eq"><span></span><span></span><span></span></span>
+                    </button>
+                    <a class="lib-open" href="{{ r.song_href }}" data-live{% if l.v.is_pl %} draggable="false"{% endif %}>
+                        <span class="grow two-line"><span class="strong ellipsis lib-row-title">{{ r.title }}</span><span class="small ellipsis{% if r.artist %} muted{% else %} lib-missing{% endif %}">{{ r.artist|default:_("Unknown artist") }}</span></span>
+                        <span class="lib-album ellipsis{% if not r.album %} lib-missing{% endif %}">{{ r.album|default:_("No album") }}</span>
+                        {% if not l.v.is_pl %}<span class="lib-pls-col{% if r.pls == '—' %} faint{% endif %}">{{ r.pls }}</span><span class="lib-added">{{ r.added }}</span>{% endif %}
+                        <span class="lib-time num">{{ r.dur }}</span>
+                    </a>
+                    {% if l.v.is_pl %}
+                    <button class="lib-ico" name="op" value="plremove:{{ r.t.id }}" aria-label="{% blocktrans with t=r.title %}Remove {{ t }} from playlist{% endblocktrans %}">{% icon "close" 14 2.8 %}</button>
+                    {% else %}
+                    <a class="lib-ico" href="{{ r.song_href }}" data-live aria-label="{% blocktrans with t=r.title %}Edit {{ t }}{% endblocktrans %}">{% icon "M4 20h4L19 9l-4-4L4 16z M13 7l4 4" 16 2.2 %}</a>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="lib-empty">
+                    <div class="lib-empty-tile">{% icon "M9 18V5l11-2v13 M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" 28 2 %}</div>
+                    <div class="disp lib-empty-head">{{ l.empty.head }}</div>
+                    <div class="small muted">{{ l.empty.text }}</div>
+                    {% if l.empty.upload %}<button type="button" class="btn-dark lib-btn" data-upload-open>{{ l.empty.btn }}</button>
+                    {% else %}<a class="btn-dark lib-btn" href="{{ l.empty.href }}" data-live>{{ l.empty.btn }}</a>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </form>
+    </section>
+</div>
+
+<div id="lib-drawer" data-region>{% with d=l.drawer %}{% if d %}
+    <a class="lib-scrim" href="{{ d.close }}" data-live aria-label="{% trans 'Close' %}" data-close></a>
+    <form method="post" enctype="multipart/form-data" class="lib-drawer" role="dialog" aria-modal="true" aria-label="{% trans 'Edit song' %}" data-dirty-form>{% csrf_token %}
+        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+        <input type="hidden" name="song" value="{{ d.t.id }}"><input type="hidden" name="art_clear" value="" data-art-clear>
+        <button name="op" value="track" hidden tabindex="-1"></button>
+        <div class="lib-drawer-head"><h2 class="disp grow">{% trans "Song details" %}</h2>
+            <a class="close-btn" href="{{ d.close }}" data-live aria-label="{% trans 'Close' %}">{% icon "close" 16 2.6 %}</a></div>
+        <div class="lib-drawer-body">
+            <div class="lib-art-edit">
+                <span class="lib-art-big{% if not d.art %} blank{% endif %}" data-art-box{% if d.art %} style="background-image: url('{{ d.art }}')"{% endif %}>
+                    {% icon "M9 18V5l11-2v13 M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" 40 1.8 %}</span>
+                <div class="grow lib-art-side">
+                    <div class="small muted">{% trans "Artwork shows on the Music player widget and the Now playing screen." %}</div>
+                    <label class="lib-art-btn"><input type="file" name="artwork" accept="image/jpeg,image/png,image/webp" hidden data-art-input>
+                        <span data-art-label>{% if d.art %}{% trans "Replace artwork" %}{% else %}{% trans "Upload artwork" %}{% endif %}</span></label>
+                    <button type="button" class="lib-art-rm" data-art-remove{% if not d.art %} hidden{% endif %}>{% trans "Remove artwork" %}</button>
+                </div>
+            </div>
+            <div class="lib-fields">
+                <label class="span2"><span class="lbl">{% trans "Title" %}</span><input class="field" name="title" value="{{ d.t.title }}" maxlength="200" placeholder="{% trans 'Song title' %}"></label>
+                <label><span class="lbl">{% trans "Artist" %}</span><input class="field" name="artist" value="{{ d.t.artist }}" maxlength="200" placeholder="{% trans 'Who performs it' %}"></label>
+                <label><span class="lbl">{% trans "Album" %}</span><input class="field" name="album" value="{{ d.t.album }}" maxlength="200" placeholder="{% trans 'Album or single' %}"></label>
+                <label><span class="lbl">{% trans "Year" %}</span><input class="field" name="year" value="{{ d.year }}" maxlength="4" inputmode="numeric" placeholder="{% trans 'e.g. 2024' %}"></label>
+                <label><span class="lbl">{% trans "Genre" %}</span><input class="field" name="genre" value="{{ d.t.genre }}" maxlength="80" placeholder="{% trans 'e.g. Jazz' %}"></label>
+            </div>
+            {% if d.pls %}
+            <div class="lbl top18">{% trans "Playlists" %}</div>
+            <div class="lib-chips">
+                {% for p in d.pls %}<label class="lib-chip"><input type="checkbox" name="pls" value="{{ p.id }}"{% if p.on %} checked{% endif %}>{% icon "check" 12 3.4 %}{{ p.name }}</label>{% endfor %}
+            </div>
+            {% endif %}
+            <div class="lib-file">
+                <div class="ov muted">{% trans "File" %}</div>
+                <div class="strong lib-file-name">{{ d.file }}</div>
+                <div class="small muted num">{{ d.meta }}</div>
+            </div>
+            <button class="lib-del" name="op" value="trackdel">{{ d.del }}</button>
+        </div>
+        <div class="lib-drawer-foot">
+            <a class="btn-soft" href="{{ d.close }}" data-live>{% trans "Cancel" %}</a>
+            <button class="btn-amber" name="op" value="track" data-dirty-save>{% trans "Save changes" %}</button>
+        </div>
+    </form>
+{% endif %}{% endwith %}</div>
+
+<div id="lib-add" data-region>{% with a=l.adding %}{% if a %}
+    <div class="overlay">
+        <a class="scrim" href="{{ a.close }}" data-live aria-label="{% trans 'Close' %}" data-close></a>
+        <div class="sheet lib-add" role="dialog" aria-modal="true" aria-labelledby="add-title">
+            <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="add-title">{{ a.title }}</h2>
+                <div class="small muted">{% trans "Songs already in it aren’t shown." %}</div></div>
+                <a class="close-btn" href="{{ a.close }}" data-live aria-label="{% trans 'Close' %}">{% icon "close" 16 2.6 %}</a></div>
+            <form method="get" data-search role="search">
+                <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="add" value="1">
+                <input class="field" type="search" name="aq" value="{{ a.aq }}" placeholder="{% trans 'Search title, artist, album' %}" aria-label="{% trans 'Search songs' %}">
+            </form>
+            <form method="post" class="lib-add-form" data-add-form>{% csrf_token %}
+                <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+                <div class="lib-add-rows">
+                    {% for r in a.rows %}
+                    <label class="lib-add-row"><span class="lib-box"><input type="checkbox" name="sel" value="{{ r.t.id }}" data-secs="{{ r.secs }}"><span></span></span>
+                        <span class="lib-art small{% if not r.art %} blank{% endif %}"{% if r.art %} style="background-image: url('{{ r.art }}')"{% endif %}></span>
+                        <span class="grow two-line"><span class="strong ellipsis">{{ r.t.title }}</span><span class="small muted">{{ r.artist }}</span></span>
+                        <span class="small muted num">{{ r.dur }}</span></label>
+                    {% empty %}
+                    <div class="lib-none small muted">{% trans "No other songs to add." %}</div>
+                    {% endfor %}
+                </div>
+                <div class="sheet-foot">
+                    <span class="grow small muted strong" data-add-count>{% trans "Pick songs to add" %}</span>
+                    <a class="btn-soft" href="{{ a.close }}" data-live>{% trans "Cancel" %}</a>
+                    <button class="btn-amber" name="op" value="addsongs" data-add-btn disabled>{% trans "Add songs" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}{% endwith %}</div>
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}
+{% include "admin_portal/_upload_music.html" %}
+{% endblock %}

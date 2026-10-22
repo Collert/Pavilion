@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -607,6 +607,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   and the selected one: name, type, notes, the screens that use it (role and priority, from `Screen.audio`) and
   archiving (saving a type change or an archive takes it off those screens). A voice channel links to its
   push-to-talk page (`/audio/talk/<id>`, a bare page until the talk screen is designed).
+- **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
+  artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
+  the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
+  songs); selecting songs shows a bar (add to a playlist, a new playlist with them, remove, delete). Playlists are
+  renamed as you type and dragged into order. **Add music** (`_upload_music.html`, `library.js`) reads each file's
+  tags in the browser (`audio/static/audio/tags.js`: ID3, MP4, FLAC/Ogg comments, RIFF INFO; length from an
+  `<audio>` element), lets you check and fill them in, and uploads the file untouched with what was read
+  (`library/upload` → `audio.library.add_track`): the server never opens a song.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

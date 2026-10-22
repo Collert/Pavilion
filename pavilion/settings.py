@@ -94,6 +94,8 @@ RESTAURANT_ADDRESS = os.getenv('RESTAURANT_ADDRESS', '501 4th Ave, New Westminst
 
 # Sales tax charged on orders after discounts, as a fraction (0.05 = 5%). 0 = no tax.
 TAX_RATE = os.getenv('TAX_RATE', '0')
+# How much room the music library may take in the media storage (the admin's Library shows it), in GB
+MUSIC_STORAGE_GB = float(os.getenv('MUSIC_STORAGE_GB', '10'))
 
 # Default login redirect
 LOGIN_URL = reverse_lazy('login_view')

@@ -2068,3 +2068,88 @@ class AudioChannelsTests(AdminFixture, TestCase):
         front = Screen.objects.get(slug="front")
         self.assertEqual([e["id"] for e in front.audio], ["c2"])  # taken off the screen
         self.assertEqual(front.popups[0]["params"], {})  # and the call-out no longer points at it
+
+
+
+class LibraryPageTests(AdminFixture, TestCase):
+    """The Library (admin_portal/library.py): uploads, lists, playlists and a song's details."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        import tempfile
+        media = tempfile.TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        override = self.settings(MEDIA_ROOT=media.name)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_library")
+
+    def upload(self, name, data=b"ID3 fake song", **fields):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return self.client.post(reverse("admin_library_upload"), {"file": SimpleUploadedFile(name, data, "audio/mpeg"), "rights": "1", **fields})
+
+    def test_uploads_need_rights_audio_and_room(self):
+        from audio.models import Playlist, Track
+        self.assertEqual(self.upload("a.mp3", rights="").status_code, 400)
+        self.assertEqual(self.upload("menu.jpg").status_code, 400)
+        with self.settings(MUSIC_STORAGE_GB=0.000000001):
+            self.assertEqual(self.upload("a.mp3").json()["message"], "The library is full. Delete some songs to make room.")
+        lunch = Playlist.objects.create(name="Lunch rush")
+        response = self.upload("01 Tidepool.mp3", title="Tidepool", artist="Lantern Coast", album="Harbor Lights", year="2023",
+                               genre="Indie pop", duration="215.4", bitrate="320", pl=str(lunch.id))
+        track = Track.objects.get(pk=response.json()["id"])
+        self.assertEqual((track.title, track.artist, track.year, track.duration, track.bitrate, track.format),
+                         ("Tidepool", "Lantern Coast", 2023, 215.4, 320, "MP3"))
+        self.assertEqual(list(lunch.entries.values_list("track_id", flat=True)), [track.id])
+        self.client.logout()
+        self.assertEqual(self.upload("b.mp3").status_code, 302)  # superusers only
+
+    def test_lists_search_and_missing_info(self):
+        from audio.models import Track
+        Track.objects.create(file="files/music/a.mp3", title="Velvet Hour", artist="Juno Hale", album="Paper Moons", artwork="files/music/artwork/a.png", duration=232)
+        Track.objects.create(file="files/music/b.mp3", title="track_07", duration=190)
+        l = self.client.get(self.url).context["l"]
+        self.assertEqual([r["title"] for r in l["rows"]], ["track_07", "Velvet Hour"])  # newest first
+        self.assertEqual([(s["key"], s["count"]) for s in l["smart"]], [("all", 2), ("needs", 1)])
+        l = self.client.get(self.url, {"view": "needs"}).context["l"]
+        self.assertEqual([r["title"] for r in l["rows"]], ["track_07"])
+        l = self.client.get(self.url, {"q": "juno", "sort": "title"}).context["l"]
+        self.assertEqual(([r["title"] for r in l["rows"]], l["v"]["sub"]), (["Velvet Hour"], "1 match for “juno”"))
+        self.assertEqual(self.client.get(self.url, {"view": "needs", "q": "zzz"}).context["l"]["empty"]["btn"], "Clear search")
+
+    def test_playlists_bulk_actions_and_song_details(self):
+        from audio.models import Playlist, Track
+        a, b, c = (Track.objects.create(file=f"files/music/{n}.mp3", title=n, duration=60) for n in ("Ember", "Gulls", "Long Wire"))
+        back = {"view": "all", "q": "", "sort": "added"}
+        response = self.client.post(self.url, {**back, "op": "newpl", "sel": [a.id, b.id]})
+        playlist = Playlist.objects.get()
+        self.assertRedirects(response, self.url + f"?view=p{playlist.id}", fetch_redirect_response=False)
+        in_pl = {**back, "view": f"p{playlist.id}"}
+        self.client.post(self.url, {**in_pl, "op": "plsave", "pl_name": "Closing time", "pl_desc": "Wind-down"})
+        playlist.refresh_from_db()
+        self.assertEqual((playlist.name, playlist.description), ("Closing time", "Wind-down"))
+        self.client.post(self.url, {**back, "op": f"addto:{playlist.id}", "sel": [b.id, c.id]})  # Gulls is already in
+        self.client.post(self.url, {**in_pl, "op": "reorder", "order": f"{c.id},{a.id},{b.id}"})
+        self.assertEqual([t.title for t in playlist.ordered_tracks()], ["Long Wire", "Ember", "Gulls"])
+        l = self.client.get(self.url, {"view": f"p{playlist.id}", "add": "1"}).context["l"]
+        self.assertEqual((l["v"]["title"], l["adding"]["rows"]), ("Closing time", []))  # every song is already in it
+        self.client.post(self.url, {**in_pl, "op": f"plremove:{a.id}"})
+        self.assertEqual([t.title for t in playlist.ordered_tracks()], ["Long Wire", "Gulls"])
+        drawer = self.client.get(self.url, {"song": b.id}).context["l"]["drawer"]
+        self.assertEqual((drawer["del"], [p["on"] for p in drawer["pls"]]), ("Delete from library and 1 playlist", [True]))
+        self.client.post(self.url, {**back, "op": "track", "song": b.id, "title": "Gulls", "artist": "The Quiet Ferries",
+                                    "album": "", "year": "2022", "genre": "Acoustic"})  # its playlist chip unticked
+        b.refresh_from_db()
+        self.assertEqual((b.artist, b.year, b.genre), ("The Quiet Ferries", 2022, "Acoustic"))
+        self.assertEqual([t.title for t in playlist.ordered_tracks()], ["Long Wire"])
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self.url, {**back, "op": "delete", "sel": [c.id]})
+        self.assertFalse(Track.objects.filter(pk=c.id).exists())
+        response = self.client.post(self.url, {**in_pl, "op": "pldelete"})
+        self.assertRedirects(response, self.url + "?view=all", fetch_redirect_response=False)
+        self.assertEqual(Track.objects.count(), 2)  # songs stay in the library
+        response = self.client.post(self.url, {**back, "op": "uploaded", "n": "3"}, follow=True)
+        self.assertContains(response, "3 songs added to the library.")

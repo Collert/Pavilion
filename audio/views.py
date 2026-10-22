@@ -11,7 +11,6 @@ from django.shortcuts import render
 from pos_server.devices import api_staff_required, staff_required
 
 from . import music
-from .library import scan
 from .models import AudioChannel, Playlist
 
 
@@ -46,10 +45,3 @@ def talk(request, id):
     """Push-to-talk on a voice channel (a bare page until the talk screen is designed)."""
     channel = get_object_or_404(AudioChannel, pk=id, archived=False, kind=AudioChannel.VOICE)
     return render(request, "audio/talk.html", {"channel": channel})
-
-
-@require_POST
-@api_staff_required
-def rescan(request):
-    """Look for new songs in files/music/."""
-    return JsonResponse(scan())
