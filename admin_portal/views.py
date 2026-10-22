@@ -35,6 +35,7 @@ from services.models import Service
 from . import branding as branding_data
 from . import catering as catering_data
 from . import combos as combos_data
+from . import hours as hours_data
 from . import components as components_data
 from . import condiments as condiments_data
 from . import dashboard as dashboard_data
@@ -952,6 +953,37 @@ def catering_settings(request):
     return page(request, "admin_portal/catering_settings.html", "catering", {
         "s": catering_data.settings_page(draft), "view": "settings",
         "c": {"new_count": CateringOrder.objects.filter(status=CateringOrder.NEW).count(), "off": not draft["on"]}})
+
+
+# ---------- store hours ----------
+
+@superuser_required
+def store_hours(request):
+    """Store hours: one form with Save; every change posts the draft back (admin_portal/hours.py). Pausing and resuming
+    online orders happen right away."""
+    if request.method == "POST":
+        draft, op = hours_data.from_post(request.POST), request.POST.get("op", "")
+        if op == "save":
+            if hours_data.problem_count(draft):
+                messages.error(request, _("Fix the hours marked in red first."))
+            else:
+                hours_data.save(draft)
+                messages.success(request, _("Store hours saved. The online store and register are updated."))
+                return redirect("admin_hours")
+        elif op.startswith("pause:"):
+            hours_data.pause(min(max(hours_data._int(op[6:]), 0), 240))
+            messages.success(request, _("Online orders paused. The store shows “Back soon”."))
+        elif op == "resume":
+            hours_data.resume()
+            messages.success(request, _("Online orders are back on"))
+        else:
+            copied = hours_data.copy_days(draft, request.POST)
+            if copied:
+                messages.success(request, copied)
+            draft = hours_data.apply_op(draft, op)
+    else:
+        draft = hours_data.draft_of()
+    return page(request, "admin_portal/hours.html", "hours", {"h": hours_data.page(draft)})
 
 
 # ---------- branding ----------

@@ -1639,3 +1639,99 @@ class BrandingTests(AdminFixture, TestCase):
         self.assertEqual(b["values"]["hero"], "")
         b = self.client.post(url, {**self.fields(b), "op": "clear:s.logo"}).context["b"]
         self.assertEqual(b["store"]["logo"], "")
+
+
+class StoreHoursTests(AdminFixture, TestCase):
+    """The Store hours page (admin_portal/hours.py): the week, special dates, cutoffs, ordering ahead and pausing."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_hours")
+
+    def fields(self, h, **changes):
+        """The form's POST fields for what the page shows (hours.html)."""
+        data = {k: "1" if v else "" for k, v in h["switches"]}
+        data.update({k: str(v) for k, v in h["steps"]})
+        for x in h["days"]:
+            data[f"d{x['i']}-open"] = "1" if x["open"] else ""
+            pairs = [(r["a"], r["b"]) for r in x["ranges"]] or x["hidden"]
+            data[f"d{x['i']}-from"] = [str(a) for a, _b in pairs]
+            data[f"d{x['i']}-to"] = [str(b) for _a, b in pairs]
+        for key, col in (("id", "id"), ("date", "date"), ("from", "opens"), ("to", "closes"), ("note", "note")):
+            data[f"sp-{key}"] = [str(s[col]) for s in h["specials"]]
+        data["sp-closed"] = ["1" if s["closed"] else "" for s in h["specials"]]
+        data.update(changes)
+        return data
+
+    def post(self, h, op="preview", **changes):
+        return self.client.post(self.url, self.fields(h, op=op, **changes))
+
+    def test_week_breaks_copy_and_save(self):
+        from events.models import StoreHours
+        h = self.client.get(self.url).context["h"]
+        self.assertEqual((h["status"], h["can_save"]), ("All changes saved", False))
+        h = self.post(h, "add:0").context["h"]  # a second period on Monday, an hour after the first ends
+        self.assertEqual([(r["a"], r["b"]) for r in h["days"][0]["ranges"]], [(480, 1260), (1320, 1500)])
+        h = self.post(h, **{"d0-to": ["780", "1260"], "d0-from": ["480", "840"]}).context["h"]
+        self.assertEqual(h["days"][0]["ranges"][1]["break"], "Break 1 PM to 2 PM · 1 h")
+        self.assertEqual(h["days"][0]["sub"], "12 h · 1 break")
+        h = self.post(h, **{"copy-0": "week"}).context["h"]
+        self.assertEqual([len(d["ranges"]) for d in h["days"]], [2, 2, 2, 2, 2, 1, 1])
+        h = self.post(h, "day:6").context["h"]
+        self.assertEqual((h["days"][6]["open"], h["days"][6]["hidden"]), (False, [[480, 1260]]))
+        h = self.post(h, **{"d1-from": ["480", "700"], "d1-to": ["780", "1260"]}).context["h"]  # overlaps
+        self.assertEqual((h["status"], h["can_save"]), ("1 thing to fix", False))
+        self.post(h, "save")
+        self.assertEqual(StoreHours.load().week[1]["r"], [[480, 1260]])  # not saved
+        h = self.post(h, **{"d1-from": ["480", "840"], "d1-to": ["780", "1260"]}).context["h"]
+        h = self.post(h, "less:pickup_before").context["h"]
+        h = self.post(h, "toggle:around_breaks").context["h"]
+        self.assertEqual((h["status"], h["can_save"]), ("Unsaved changes", True))
+        self.assertRedirects(self.post(h, "save"), self.url, fetch_redirect_response=False)
+        cfg = StoreHours.load()
+        self.assertEqual((cfg.week[0], cfg.week[6]["open"], cfg.pickup_before, cfg.around_breaks),
+                         ({"open": True, "r": [[480, 780], [840, 1260]]}, False, 15, False))
+        h = self.client.get(self.url).context["h"]
+        self.assertEqual(h["status"], "All changes saved")
+        pick = [b for b in h["chart"][0]["bars"] if b["kind"] == "pick"]
+        self.assertEqual(len(pick), 2)  # around breaks off: one bar each side of the break, cut only at open and close
+
+    def test_special_dates(self):
+        from events.models import SpecialHours
+        h = self.client.get(self.url).context["h"]
+        h = self.post(h, "spadd").context["h"]
+        day = (timezone.localdate() + datetime.timedelta(days=7)).isoformat()
+        self.assertEqual([(s["date"], s["closed"]) for s in h["specials"]], [(day, True)])
+        h = self.post(h, "spkind:0:hours", **{"sp-note": ["Closing early"]}).context["h"]
+        h = self.post(h, **{"sp-from": ["600"], "sp-to": ["540"]}).context["h"]
+        self.assertTrue(h["specials"][0]["errs"])
+        h = self.post(h, **{"sp-from": ["600"], "sp-to": ["900"]}).context["h"]
+        self.post(h, "save")
+        sp = SpecialHours.objects.get()
+        self.assertEqual((sp.date.isoformat(), sp.closed, sp.opens, sp.closes, sp.note), (day, False, 600, 900, "Closing early"))
+        h = self.client.get(self.url).context["h"]
+        self.post(self.post(h, "spdel:0").context["h"], "save")
+        self.assertFalse(SpecialHours.objects.exists())
+
+    def test_pause_and_resume(self):
+        from events.models import StoreHours
+        from online_store import storefront
+        h = self.client.get(self.url).context["h"]
+        self.post(h, "pause:30")
+        self.assertIsNotNone(StoreHours.load().paused_until)
+        self.assertTrue(self.client.get(self.url).context["h"]["paused"])
+        self.assertTrue(storefront.open_now()["text"].startswith("Back soon"))
+        self.post(h, "resume")
+        self.assertIsNone(StoreHours.load().paused_until)
+
+    def test_ordering_ahead_limits_checkout(self):
+        h = self.client.get(self.url).context["h"]
+        h = self.post(h, "less:ahead_days").context["h"]
+        self.assertEqual(h["ahead_rows"][0]["value"], "2 days")
+        self.post(self.post(h, "toggle:ahead").context["h"], "save")
+        from online_store.pages import _schedule
+        when = _schedule({"when": "later", "date": timezone.localdate().isoformat(), "time": ""}, [], False)
+        self.assertEqual((when["ahead"], len(when["days"])), (False, 1))

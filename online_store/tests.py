@@ -8,11 +8,21 @@ from django.urls import reverse
 from django.utils import timezone
 
 from deliveries.models import Delivery
-from events.models import Event
+from events.models import SpecialHours, StoreHours
 from gift_cards.models import GiftCard
 from payments.models import PaymentAuthorization, Transaction
 from pos_server.models import Order, OrderStation
 from pos_server.tests import MenuFixture
+
+
+def open_hours(before=60, after=180, day=None, **cutoffs):
+    """The store open today from `before` minutes ago to `after` from now (the week closed), cutoffs 0 unless given."""
+    StoreHours.objects.update_or_create(pk=1, defaults={"week": [{"open": False, "r": []}] * 7, **{
+        "pickup_after": 0, "pickup_before": 0, "delivery_after": 0, "delivery_before": 0, **cutoffs}})
+    now = timezone.localtime()
+    minute = now.hour * 60 + now.minute
+    return SpecialHours.objects.update_or_create(date=day or now.date(), defaults={
+        "closed": False, "opens": max(0, minute - before), "closes": min(minute + after, 1680)})[0]
 
 
 class PlaceOrderTests(MenuFixture, TestCase):
@@ -22,10 +32,7 @@ class PlaceOrderTests(MenuFixture, TestCase):
         cls.build_menu()
 
     def setUp(self):
-        now = timezone.localtime()
-        self.event = Event.objects.create(
-            title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=2),
-            restaurant_open=True, in_person_open=True, online_open=True, delivery_open=False)
+        self.today = open_hours(after=120)
         self.url = reverse("store_cart")
         self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.medium.id,
                                            f"g-{self.bun_key}": self.gf.id})
@@ -94,18 +101,18 @@ class PlaceOrderTests(MenuFixture, TestCase):
         sheet = self.client.get(reverse("menu") + f"?combo={self.combo.id}").context["sheet"]
         self.assertEqual([g["title"] for g in sheet["groups"]], ["Drink"])
 
-    def test_closed_when_there_is_no_event(self):
-        self.event.delete()
+    def test_closed_outside_store_hours(self):
+        self.today.delete()
         self.place(self.paid_transaction("16.00"))
         self.assertFalse(Order.objects.exists())
 
-    def test_delivery_needs_delivery_open(self):
+    def test_delivery_stops_at_its_cutoff(self):
+        open_hours(after=30, delivery_before=45)  # pickup is still on, delivery stopped
         address = {"address": "1 Main St", "city": "New Westminster", "postal": "V3M 1A1"}
         self.client.post(self.url, {"op": "method:delivery"})
         self.place(self.paid_transaction("16.00"), **address)
         self.assertFalse(Order.objects.exists())
-        self.event.delivery_open = True
-        self.event.save()
+        open_hours(after=180, delivery_before=45)
         priced = self.client.post(self.url, {"op": "preview", **address}).context["total"]
         self.place(self.paid_transaction(str(priced)), **address)
         self.assertEqual(Delivery.objects.get().order.channel, "delivery")
@@ -171,8 +178,9 @@ class ThemeTests(MenuFixture, TestCase):
     def test_hours_and_open_status(self):
         from online_store import storefront
         now = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
-        Event.objects.create(title="Open", start=now.replace(hour=7), end=now.replace(hour=21), restaurant_open=True,
-                             in_person_open=True, online_open=True, delivery_open=True)
+        week = [{"open": False, "r": [[420, 1260]]}] * 7
+        week[now.weekday()] = {"open": True, "r": [[420, 1260]]}
+        StoreHours.objects.update_or_create(pk=1, defaults={"week": week})
         status = storefront.open_now(now)
         self.assertEqual((status["open"], status["text"], status["short"]), (True, "Open now · till 9 PM today", "7–9"))
         self.assertFalse(storefront.open_now(now.replace(hour=22))["open"])
@@ -190,9 +198,7 @@ class StoreOrderingTests(MenuFixture, TestCase):
         cls.build_menu()
 
     def setUp(self):
-        now = timezone.localtime()
-        self.event = Event.objects.create(title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=3),
-                                          restaurant_open=True, in_person_open=True, online_open=True, delivery_open=True)
+        open_hours()
 
     def add_burger(self, **extra):
         data = {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.medium.id,
@@ -248,12 +254,11 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.add_burger()
         url = reverse("store_cart")
         tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        SpecialHours.objects.filter(date=timezone.localdate()).update(closes=1440)  # nothing past midnight
         self.client.post(url, {"op": "when:later"})
         when = self.client.post(url, {"op": f"date:{tomorrow.isoformat()}"}).context["when"]
         self.assertEqual((when["ok"], when["message"]), (False, "We’re closed that day."))
-        start = timezone.make_aware(datetime.datetime.combine(tomorrow, datetime.time(9, 0)))
-        Event.objects.create(title="Tomorrow", start=start, end=start + datetime.timedelta(hours=8), restaurant_open=True,
-                             in_person_open=True, online_open=True, delivery_open=False)
+        SpecialHours.objects.create(date=tomorrow, closed=False, opens=540, closes=1020)
         when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
         self.assertTrue(when["ok"], when["message"])
         self.assertIn("tomorrow at 11:30 AM", when["message"])
@@ -274,9 +279,7 @@ class AccountTests(MenuFixture, TestCase):
         cls.user = User.objects.create_user("sofia@example.com", email="sofia@example.com", password="juniperlane", first_name="Sofia")
 
     def setUp(self):
-        now = timezone.localtime()
-        Event.objects.create(title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=3),
-                             restaurant_open=True, in_person_open=True, online_open=True, delivery_open=True)
+        open_hours()
 
     def test_sign_in_join_and_sign_out(self):
         self.assertRedirects(self.client.get(reverse("account")), reverse("store_signin") + "?next=/en/account", fetch_redirect_response=False)

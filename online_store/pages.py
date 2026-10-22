@@ -4,8 +4,9 @@ order. They follow CLAUDE.md: forms post and redirect or come back as the page; 
 in the background and swaps the regions that changed. The cart and the checkout's choices live in the session
 (online_store/cart.py); what's on the menu and when we're open come from online_store/storefront.py.
 
-Orders can be for as soon as possible (while an event is open now) or scheduled up to two weeks ahead, inside an
-open event (events.Event) and while a menu with everything in the cart is live.
+Orders can be for as soon as possible (while the store takes pickup or delivery orders and they aren't paused) or,
+when the store lets customers order ahead, scheduled up to StoreHours.ahead_days ahead: inside the store's hours
+after the pickup or delivery cutoffs (events/hours.py) and while a menu with everything in the cart is live.
 """
 import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -19,7 +20,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from deliveries.models import Delivery
-from events.models import Event
+from events.hours import DELIVERY, PICKUP, Hours
 from gift_cards.models import GiftCard
 from payments.models import PaymentError, Transaction
 from pos_server import dish_info
@@ -33,7 +34,7 @@ from .views import menu_sections, theme_page
 
 CENT = Decimal("0.01")
 TIPS = [0, 10, 15, 18]
-SCHEDULE_DAYS = 14
+SCHEDULE_DAYS = 15  # the most the store can take orders ahead (StoreHours.ahead_days ≤ 14)
 STEP_MINUTES = 5
 
 
@@ -170,13 +171,9 @@ def dish_redirect(request, id):
 
 # ---------- checkout ----------
 
-def _windows(day, delivery=False):
-    """The open (event) windows on `day` for online orders: [(start, end)] aware datetimes."""
-    tz = timezone.get_current_timezone()
-    since = timezone.make_aware(datetime.datetime.combine(day, datetime.time.min), tz)
-    until = since + datetime.timedelta(days=1)
-    events = Event.objects.filter(restaurant_open=True, start__lt=until, end__gt=since).order_by("start")
-    return [(max(e.start, since), min(e.end, until)) for e in events if (e.delivery_open if delivery else e.online_open)]
+def _windows(day, delivery=False, hours=None):
+    """When online orders can be for on `day` (the store's hours after the pickup or delivery cutoffs): [(start, end)]."""
+    return (hours or Hours()).on_day(day, DELIVERY if delivery else PICKUP)
 
 
 def _state(request) -> dict:
@@ -275,27 +272,39 @@ def _clock(minutes):
 def _schedule(state, cart_dishes, delivery):
     """When the order can be: today's/the chosen day's windows, the calendar, and whether the time works."""
     now = timezone.localtime()
+    hours = Hours()
+    cfg = hours.cfg
     lead = storefront.pickup_minutes() + (20 if delivery else 0)
-    open_now = any(a <= now < b for a, b in _windows(now.date(), delivery))
-    if state["when"] == "asap" and not open_now:
+    paused = hours.paused_until(now)
+    open_now = not paused and hours.current(now, DELIVERY if delivery else PICKUP) is not None
+    if state["when"] == "asap" and not open_now and cfg.ahead:
         state["when"] = "later"
+    if not cfg.ahead:
+        state["when"] = "asap"
     today = now.date()
     days = []
-    for n in range(SCHEDULE_DAYS):
+    for n in range(cfg.ahead_days + 1 if cfg.ahead else 1):
         day = today + datetime.timedelta(days=n)
-        days.append({"date": day, "iso": day.isoformat(), "open": bool(_windows(day, delivery)), "on": state["date"] == day.isoformat(), "today": n == 0})
+        days.append({"date": day, "iso": day.isoformat(), "open": bool(_windows(day, delivery, hours)), "on": state["date"] == day.isoformat(), "today": n == 0})
     try:
         day = datetime.date.fromisoformat(state["date"])
+        if not any(d["date"] == day for d in days):
+            raise ValueError
     except ValueError:
         day = today
-    windows = _windows(day, delivery)
+        state["date"] = today.isoformat()
+    windows = _windows(day, delivery, hours)
     ok, message, start = False, "", None
     if state["when"] == "asap":
-        if open_now:
+        if paused:
+            message = _("Online orders are paused until %(time)s.") % {"time": storefront.clock(timezone.localtime(paused).time())}
+            if cfg.ahead:
+                message += " " + _("Schedule it for later.")
+        elif open_now:
             start, ok = now, True
             message = (_("Arrives around %(time)s") if delivery else _("Ready around %(time)s")) % {"time": storefront.clock((now + datetime.timedelta(minutes=lead)).time())}
         else:
-            message = _("We’re closed right now. Schedule it for later.")
+            message = _("We’re closed right now. Schedule it for later.") if cfg.ahead else _("We’re closed right now.")
     else:
         if not state["time"] and windows:
             first = max(windows[0][0], now + datetime.timedelta(minutes=lead)) if day == today else windows[0][0]
@@ -303,7 +312,7 @@ def _schedule(state, cart_dishes, delivery):
             state["time"] = f"{minute // 60 % 24:02d}:{minute % 60:02d}"
         h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
         at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(h % 24, m)), timezone.get_current_timezone())
-        earliest = now + datetime.timedelta(minutes=lead)
+        earliest = max(now + datetime.timedelta(minutes=cfg.lead + (20 if delivery else 0)), paused or now)
         inside = next(((a, b) for a, b in windows if a <= at <= b - datetime.timedelta(minutes=15)), None)
         if not windows:
             message = _("We’re closed that day.")
@@ -328,7 +337,8 @@ def _schedule(state, cart_dishes, delivery):
     h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
     picker = {"hour": (h % 12) or 12, "minute": f"{m:02d}", "ampm": "PM" if h >= 12 else "AM"}
     hint = " · ".join(f"{storefront.clock(timezone.localtime(a).time())} – {storefront.clock(timezone.localtime(b).time())}" for a, b in windows) or _("Closed")
-    return {"ok": ok, "message": message, "start": start, "open_now": open_now, "days": days, "picker": picker,
+    return {"ok": ok, "message": message, "start": start, "open_now": open_now, "days": days, "picker": picker, "ahead": cfg.ahead,
+            "paused": storefront.clock(timezone.localtime(paused).time()) if paused else "",
             "hint": hint, "lead": lead}
 
 
@@ -392,8 +402,7 @@ def checkout(request):
         lines.append((_("Gift card •• %(last4)s") % {"last4": card.number[-4:]}, -amount, "deal"))
     lines = [(label, ("−" if value < 0 else "") + store_cart.money(abs(value)), kind) for label, value, kind in lines]
     upsell = _upsell(cart_dishes, pictures)
-    event = next((e for e in Event.objects.filter(restaurant_open=True, end__gt=timezone.now()).order_by("start")[:1]), None)
-    delivery_open = bool(event and event.delivery_open) or any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
+    delivery_open = any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
     to_pay = total - gift_total
     user = request.user
     saved_cards = list(user.saved_cards.all()) if user.is_authenticated else []

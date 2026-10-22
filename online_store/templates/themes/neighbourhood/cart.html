@@ -101,13 +101,15 @@ order, or first opens Square's card form for what gift cards don't cover (checko
             {% endif %}
             <div class="strong small-title">{% trans "When" %}</div>
             <input type="hidden" name="when" value="{{ state.when }}">
-            <div class="nb-options two" role="radiogroup" aria-label="{% trans 'When' %}">
+            <div class="nb-options{% if when.ahead %} two{% endif %}" role="radiogroup" aria-label="{% trans 'When' %}">
                 <button class="nb-option{% if state.when == 'asap' %} on{% endif %}" role="radio" aria-checked="{% if state.when == 'asap' %}true{% else %}false{% endif %}" name="op" value="when:asap" {% if not when.open_now %}disabled{% endif %}>
-                    <span class="nb-radio"></span><span class="nb-grow"><span class="strong">{% trans "As soon as possible" %}</span><span class="nb-option-sub">{% if when.open_now %}{% if state.when == 'asap' %}{{ when.message }}{% else %}{% trans "Straight to the kitchen" %}{% endif %}{% else %}{% trans "We’re closed right now" %}{% endif %}</span></span>
+                    <span class="nb-radio"></span><span class="nb-grow"><span class="strong">{% trans "As soon as possible" %}</span><span class="nb-option-sub">{% if when.open_now %}{% if state.when == 'asap' %}{{ when.message }}{% else %}{% trans "Straight to the kitchen" %}{% endif %}{% elif when.paused %}{% blocktrans with t=when.paused %}Paused until {{ t }}{% endblocktrans %}{% else %}{% trans "We’re closed right now" %}{% endif %}</span></span>
                 </button>
+                {% if when.ahead %}
                 <button class="nb-option{% if state.when == 'later' %} on{% endif %}" role="radio" aria-checked="{% if state.when == 'later' %}true{% else %}false{% endif %}" name="op" value="when:later">
                     <span class="nb-radio"></span><span class="nb-grow"><span class="strong">{% trans "Schedule for later" %}</span><span class="nb-option-sub">{% trans "Pick a date and time" %}</span></span>
                 </button>
+                {% endif %}
             </div>
             {% if state.when == "later" %}
             <div class="nb-schedule">

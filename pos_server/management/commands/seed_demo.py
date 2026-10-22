@@ -1035,16 +1035,30 @@ class Command(BaseCommand):
     # ---------- store ----------
 
     def seed_events(self):
-        """Opening hours for the next two weeks (weekdays 7 to 9, weekends 8 to 9). Today stays open till midnight so
-        the demo store takes online orders whenever you try it, and a patio party next week."""
+        """Store hours: weekdays 7 to 7 (Friday with a mid-afternoon break and open late), Saturday till 1 AM, a short
+        Sunday; today stays open till midnight so the demo store takes online orders whenever you try it, plus the
+        holidays coming up. And a patio party next week (events.Event, for the Events page)."""
+        from events.models import SpecialHours, StoreHours
+        cfg = StoreHours.load()
+        cfg.week = [{"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]},
+                    {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 840], [900, 1320]]},
+                    {"open": True, "r": [[480, 1500]]}, {"open": True, "r": [[540, 900]]}]
+        cfg.pickup_after, cfg.pickup_before, cfg.delivery_after, cfg.delivery_before, cfg.last_call = 15, 20, 30, 45, 15
+        cfg.save()
         now = timezone.localtime()
-        for n in range(14):
-            day = (now + datetime.timedelta(days=n)).replace(second=0, microsecond=0)
-            opens = day.replace(hour=7 if day.weekday() < 5 else 8, minute=0)
-            closes = day.replace(hour=23, minute=59) if n == 0 else day.replace(hour=21, minute=0)
-            Event.objects.get_or_create(title="Open" if n else "Open today", start=min(opens, now) if n == 0 else opens, defaults={
-                "end": closes, "location_title": "Main location", "location_address": "1200 Main St",
-                "restaurant_open": True, "in_person_open": True, "online_open": True, "delivery_open": True})
+        today = now.date()
+        opens = min(420, now.hour * 60 + now.minute) // 15 * 15
+        SpecialHours.objects.update_or_create(date=today, defaults={"closed": False, "opens": opens, "closes": 1440,
+                                                                    "note": "Open late tonight"})
+        for month, day, closed, hours, note in ((11, 11, True, None, "Closed for Remembrance Day"),
+                                                (12, 24, False, (480, 900), "Christmas Eve, open until 3 PM"),
+                                                (12, 25, True, None, "Closed for Christmas Day"),
+                                                (12, 26, True, None, "Closed for Boxing Day")):
+            date = datetime.date(today.year, month, day)
+            if date <= today:
+                date = date.replace(year=today.year + 1)
+            a, b = hours or (480, 1080)
+            SpecialHours.objects.update_or_create(date=date, defaults={"closed": closed, "opens": a, "closes": b, "note": note})
         next_week = now + datetime.timedelta(days=7)
         Event.objects.get_or_create(title="Patio opening", start=next_week.replace(hour=11, minute=0, second=0, microsecond=0), defaults={
             "end": next_week.replace(hour=15, minute=0, second=0, microsecond=0), "restaurant_open": True, "in_person_open": True,

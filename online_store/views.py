@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from events.hours import Hours
 from pos_server.models import Dish
 from pos_server.pricing import combo_queryset
 from pos_server.views import group_by_station
@@ -25,11 +26,11 @@ def theme_page(request, page, context=None, active=""):
     nav = [(key, label, links[key]) for key, label in (("home", _("Home")), ("menu", _("Menu")), ("catering", _("Catering")),
                                                         ("services", _("Events & services"))) if links[key]]
     user = request.user
-    week = storefront.week_hours()
+    hours = Hours()
     return render(request, cur.theme.template(page), {
-        "hours": week, "footer_hours": storefront.hours_summary(week),
+        "hours": storefront.week_hours(hours=hours), "footer_hours": storefront.hours_summary(storefront.regular_hours(hours)),
         "theme": cur.theme, "t": cur.values, "store": cur.store, "logo_url": cur.logo_url, "preview": cur.preview,
-        "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "status": storefront.open_now(),
+        "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "status": storefront.open_now(hours=hours),
         "cart_count": storefront.cart_count(request), "live_order": storefront.live_order(user), "links": links,
         "nav": nav, "active": active, "me": {"initials": storefront.initials(user), "first": user.first_name or user.username} if user.is_authenticated else None,
         "banner_url": links.get(cur.values.get("banner_link", ""), ""),

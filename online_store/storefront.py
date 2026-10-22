@@ -1,6 +1,5 @@
 """
-What the online store's pages show, worked out once for any theme: opening hours (from events.Event until the Hours
-page exists), the menus on now and coming up, best sellers, the catering and services teasers, the signed-in
+What the online store's pages show, worked out once for any theme: opening hours (events/hours.py), the menus on now and coming up, best sellers, the catering and services teasers, the signed-in
 customer's order in progress, and a drawing for dishes without a photo. Themes get these through
 online_store/views.py and decide how they look.
 """
@@ -12,7 +11,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
-from events.models import Event
+from events.hours import Hours, ranges_text, week_ranges
 from pos_server import dish_info
 from pos_server.menu_schedule import Schedule, days_text, minute_of_week
 from pos_server.models import Dish, Menu, Order, OrderItem
@@ -60,56 +59,58 @@ def link(name, *args) -> str:
 
 # ---------- hours ----------
 
-def _events(start, days):
-    end = start + datetime.timedelta(days=days)
-    tz = timezone.get_current_timezone()
-    since = timezone.make_aware(datetime.datetime.combine(start, datetime.time.min), tz)
-    until = timezone.make_aware(datetime.datetime.combine(end, datetime.time.min), tz)
-    by_day = {}
-    for event in Event.objects.filter(restaurant_open=True, end__gt=since, start__lt=until).order_by("start"):
-        day = timezone.localtime(event.start).date()
-        by_day.setdefault(day, []).append(event)
-    return by_day
-
-
-def hours_text(events) -> str:
-    if not events:
-        return _("Closed")
-    first, last = timezone.localtime(events[0].start).time(), timezone.localtime(max(e.end for e in events)).time()
-    return f"{clock(first)} – {clock(last)}"
-
-
-def week_hours(today=None) -> list[dict]:
-    """The next seven days, Monday first: [{"day", "time", "today"}]."""
+def week_hours(today=None, hours=None) -> list[dict]:
+    """The next seven days, Monday first, with special hours: [{"day", "time", "today", "note"}]."""
     today = today or timezone.localdate()
-    by_day = _events(today, 7)
-    days = [today + datetime.timedelta(days=n) for n in range(7)]
-    days.sort(key=lambda d: d.weekday())
-    return [{"day": DAY_NAMES[d.weekday()], "time": hours_text(by_day.get(d, [])), "today": d == today} for d in days]
+    hours = hours or Hours()
+    days = sorted((today + datetime.timedelta(days=n) for n in range(7)), key=lambda d: d.weekday())
+    out = []
+    for d in days:
+        sp = hours.special(d)
+        out.append({"day": DAY_NAMES[d.weekday()], "time": ranges_text(hours.ranges(d)) or _("Closed"), "today": d == today,
+                    "note": sp.note if sp else ""})
+    return out
 
 
-def open_now(now=None) -> dict:
-    """{"open": bool, "text": "Open now · till 9 PM today", "short": "7–9"}"""
+def regular_hours(hours=None) -> list[dict]:
+    """The usual week, Monday first: [{"day", "time"}]."""
+    hours = hours or Hours()
+    return [{"day": DAY_NAMES[i], "time": ranges_text(week_ranges(hours.cfg.week, i)) or _("Closed")} for i in range(7)]
+
+
+def open_now(now=None, hours=None) -> dict:
+    """{"open": bool, "text": "Open now · till 9 PM today", "short": "7–9", "note": today's special note}"""
     now = timezone.localtime(now or timezone.now())
-    by_day = _events(now.date(), 2)
-    today = by_day.get(now.date(), [])
-    short = ""
-    if today:
-        start, end = timezone.localtime(today[0].start).time(), timezone.localtime(max(e.end for e in today)).time()
-        short = f"{clock(start, True)}–{clock(end, True)}"
-    current = next((e for e in today if e.start <= now < e.end), None)
+    hours = hours or Hours()
+    today = hours.ranges(now.date())
+    short = f"{clock_minutes(today[0][0], True)}–{clock_minutes(today[-1][1], True)}" if today else ""
+    sp = hours.special(now.date())
+    out = {"short": short, "note": sp.note if sp else ""}
+    paused = hours.paused_until(now)
+    if paused:
+        return {**out, "open": False, "paused": True,
+                "text": _("Back soon · online orders resume at %(time)s") % {"time": clock(timezone.localtime(paused).time())}}
+    current = hours.current(now)
     if current:
-        end = timezone.localtime(current.end).time()
-        if end >= datetime.time(23, 59):
-            return {"open": True, "short": short, "text": _("Open now · till midnight")}
-        return {"open": True, "short": short, "text": _("Open now · till %(time)s today") % {"time": clock(end)}}
-    later = next((e for e in today if e.start > now), None)
-    if later:
-        return {"open": False, "short": short, "text": _("Closed now · opens at %(time)s") % {"time": clock(timezone.localtime(later.start).time())}}
-    tomorrow = by_day.get(now.date() + datetime.timedelta(days=1), [])
-    if tomorrow:
-        return {"open": False, "short": short, "text": _("Closed now · opens tomorrow at %(time)s") % {"time": clock(timezone.localtime(tomorrow[0].start).time())}}
-    return {"open": False, "short": short, "text": _("Closed today")}
+        end = timezone.localtime(current[1])
+        if end.time() == datetime.time.min:
+            return {**out, "open": True, "text": _("Open now · till midnight")}
+        if end.date() != now.date():
+            return {**out, "open": True, "text": _("Open now · till %(time)s") % {"time": clock(end.time())}}
+        return {**out, "open": True, "text": _("Open now · till %(time)s today") % {"time": clock(end.time())}}
+    nxt = hours.next_start(now)
+    if nxt:
+        nxt = timezone.localtime(nxt)
+        if nxt.date() == now.date():
+            return {**out, "open": False, "text": _("Closed now · opens at %(time)s") % {"time": clock(nxt.time())}}
+        if nxt.date() == now.date() + datetime.timedelta(days=1):
+            return {**out, "open": False, "text": _("Closed now · opens tomorrow at %(time)s") % {"time": clock(nxt.time())}}
+    return {**out, "open": False, "text": _("Closed today")}
+
+
+def clock_minutes(minutes, short=False) -> str:
+    m = int(minutes) % 1440
+    return clock(datetime.time(m // 60, m % 60), short)
 
 
 # ---------- menus ----------

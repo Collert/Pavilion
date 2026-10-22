@@ -158,6 +158,7 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
 .nb-visit-city { font-size: 16px; color: var(--soft-ink); margin-top: 4px; }
 .nb-hours { display: grid; grid-template-columns: auto 1fr; gap: 8px 20px; margin-top: 22px; font-size: 16px; color: var(--soft-ink); }
 .nb-hours .today { font-weight: 700; color: var(--ink); }
+.nb-hours-note { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--accent); }
 .nb-visit-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .nb-visit-btns .nb-btn { flex: 1; height: 48px; }
 

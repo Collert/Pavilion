@@ -127,7 +127,7 @@
         <div class="nb-kick deep">{% trans "Visit us" %}</div>
         <div class="nb-serif nb-visit-addr">{{ store.address }}</div>
         {% if store.city %}<div class="nb-visit-city">{{ store.city }}</div>{% endif %}
-        <div class="nb-hours">{% for h in hours %}<span class="{% if h.today %}today{% endif %}">{{ h.day }}</span><span class="{% if h.today %}today{% endif %}">{{ h.time }}{% if h.today %} · {% trans "today" %}{% endif %}</span>{% endfor %}</div>
+        <div class="nb-hours">{% for h in hours %}<span class="{% if h.today %}today{% endif %}">{{ h.day }}</span><span class="{% if h.today %}today{% endif %}">{{ h.time }}{% if h.today %} · {% trans "today" %}{% endif %}{% if h.note %}<small class="nb-hours-note">{{ h.note }}</small>{% endif %}</span>{% endfor %}</div>
         <span class="nb-grow"></span>
         <div class="nb-visit-btns">
             <a class="nb-btn nb-btn-ink" href="{% if store.directions %}{{ store.directions }}{% else %}https://www.google.com/maps/search/?api=1&query={{ store.address|urlencode }}%20{{ store.city|urlencode }}{% endif %}" target="_blank" rel="noopener">{% trans "Get directions" %}</a>

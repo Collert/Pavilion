@@ -22,7 +22,7 @@ through listmonk (2026-10-20, replacing SendGrid); their wording lives in listmo
 | **Customer-facing display** | Second screen mirroring the cart, linked to the POS by `BroadcastChannel` | ✅ Works (same browser only) |
 | **Order status board** | TV screen with in-progress/ready columns, TTS announcements, weather, YouTube player | ✅ Works, live (SSE) |
 | **Online store** | Customer PWA: menu, cart, pickup/delivery ordering, Square web payments, order history | ✅ Works (Square popup not re-tested against sandbox) |
-| **Events / business days** | Online ordering only during an `Event` with `restaurant_open` + `online_open`/`delivery_open` | ✅ Enforced on the server |
+| **Store hours** | Online ordering only inside the store's hours after the pickup/delivery cutoffs (`events/hours.py`), not while paused | ✅ Enforced on the server |
 | **Deliveries** | Courier app: start a shift, accept or pass on orders (before the kitchen sees them), steps to the door with a proof photo, ETAs via Google Distance Matrix, web push | ✅ Works (push and Google untested end-to-end) |
 | **Gift cards** | Buy online (Square), email via listmonk, barcode card page, scan/charge at POS | ✅ Works |
 | **Inventory** | Ingredients → Components → Dishes, Cookery (recipes, guided cooking, transforms), shopping log, Availability screen (Off / Auto / Always) | ✅ Works, Cookery and availability live (SSE) |
@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -190,7 +190,10 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `gift_cards.GiftCard(number 16 random digits, available_balance, email, image)`, `GiftCardAuthorization` (charge per
   order, refunded on rejection), `CardPreset`, `SpecialCard(CardPreset)`.
 - `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
-- `events.Event(start, end, restaurant_open, in_person_open, online_open, delivery_open, location…)`, `EventTemplate` (unused).
+- `events.StoreHours` (one row: `week` = Monday-first `{open, r: [[from, to]]}` in minutes, `to` past 1440 = after midnight;
+  `pickup_after/before`, `delivery_after/before`, `last_call`, `around_breaks`, `ahead`, `ahead_days`, `lead`, `paused_until`),
+  `SpecialHours(date, closed, opens, closes, note)` replacing the week on a date; `events/hours.py` (`Hours`: ranges per
+  day and channel, spans as datetimes, current/next, pause). `events.Event` and `EventTemplate` are unused until the Events page.
 - `deliveries.Delivery(order, order_number, customer_name, destination, address_2, instructions, phone, courier,
   passed_by, accepted_at, picked_up_at, arrived_at, delivered_at, handoff, photo, declined_reason, distance_m,
   travel_seconds)`; `phase()` says which step it's at. `CourierShift(user, mode = walking|bicycling|driving,
@@ -324,7 +327,7 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
 "Neighbourhood"). Done:
 
 - **Home** (`index`): hero, menus on now and coming up from the menu schedule, this week's best sellers, a catering
-  teaser from `CateringSettings`, three online services, visit us with this week's hours from `events.Event`; the
+  teaser from `CateringSettings`, three online services, visit us with this week's hours (special dates show their note) from `events/hours.py`; the
   theme's header (open-now banner, the signed-in customer's order in progress, cart count) and footer.
 - **Menu** (`online_store/pages.py: menu_page`): menus live now or starting within a day as tabs, sections by
   station, the cart beside them, and the dish sheet (`?dish=` / `?combo=`): a form built from `pricing.DishKit`
@@ -360,8 +363,8 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
 Every page of the Neighbourhood theme is built; the old store layout, its IndexedDB cart, `cart-quote`,
 `submit-order`, `order-history` and the service worker are gone.
 
-Placing an order (`pages._place`, checkout's `op=place`): the schedule is checked again (ASAP only while an `Event`
-is open for online or delivery orders), gift cards are used first, then a saved card (`_authorize_saved`) or the card
+Placing an order (`pages._place`, checkout's `op=place`): the schedule is checked again (ASAP only inside the pickup or
+delivery window and not while paused; scheduled only when ordering ahead is on, up to `ahead_days`), gift cards are used first, then a saved card (`_authorize_saved`) or the card
 sheet: `payments/web-payment-window?amount=` in an iframe creates a `Transaction`, `process-web-payment` charges
 **the transaction's amount** via Square (authorize-only) and only then marks it paid, and `checkout.js` posts the
 form again with `transaction_uuid`. `create_order` runs with `initial_status=PENDING`; `verify_payment` requires a
@@ -558,6 +561,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   the store details (name, logo, address, phone, map link), with contrast warnings, and the real store in a scaled
   iframe (desktop 1440 or phone 390) showing the draft. Every change is kept as a draft at once; Publish copies it
   live (and the store details to `StoreSettings`); "Reset to theme defaults" resets the draft.
+- **Store hours** (`admin_hours`, `hours.py`, 2026-10-21): the week with switches, periods (breaks between them),
+  "Copy to…" and per-day checks; the week at a glance (open hours, and pickup and delivery windows after cutoffs, with
+  a now line); holidays and special hours with a note for the store; "Right now" (open, kitchen last call, pickup and
+  delivery windows, what the store shows today); pause online orders (15/30/60 min or the rest of the day, acts at
+  once; the store shows "Back soon"); order cutoffs (around breaks or not) and ordering ahead (days, soonest pickup).
+  One form with Save; the draft drives the chart and "Right now".
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the
