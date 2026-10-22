@@ -49,7 +49,7 @@ without asking.
 | `events` | — | Store hours: `StoreHours` (one row: the week as minute ranges, past 1440 = after midnight; pickup/delivery cutoffs, last call, ordering ahead, `paused_until`) edited on the admin's Store hours page and worked out in `events/hours.py` (`Hours`): the store's open status, hours and checkout schedule all come from it. `Event`s (admin's Events page) are laid over the hours: open for an event or closed (holidays too), each for the channels ticked (dine-in, pickup, delivery; closing wins), with an optional banner on the store. |
 | `services` | — | Service (staff, rentals, venue, delivery, classes, extras: pricing, details, deposit, booking rules; `quote()`) and Booking. Edited in the admin's Services page. |
 | `catering` | `/catering/` | Catering orders (CateringOrder/Line/Message, CateringSettings): `flow.py` does every step (accept charges the card on file, propose changes, the customer's counter-proposals and cancelling, reject/cancel refunds, deposit holds; each version kept as a CateringVersion), `pricing.py` the money, `store.py` the store's quote builder; answered in the admin's Catering page; `/catering/` builds a quote, `<token>` is the customer's request page. Daily cron: `manage.py catering_deposits`. Never on the register or KDS. |
-| `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
+| `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage, menu boards): `Screen.layout` is a JSON tree rendered on the server, `Screen.popups` the pop-ups over it, `ScreenSession` one display of a screen with sessions (a register pairs with it). See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile; Staff/Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
@@ -165,6 +165,12 @@ holds its card only while it shows (`layout.render_popups`, `screens/popups.py`)
 announcement from the register's Screens sheet) are recorded in the cache by `popups.record()` and nudge "popups";
 scheduled ones (a menu starting, an event coming up) are worked out at render time. A pop-up's context is
 `fn(request, params, now)` returning `show`, `until` (hide) and `next` (look again), turned into a hidden data-ends.
+
+**Sessions:** a screen with `sessions` on is opened per display: Apps → Screens → the screen → open or start a
+`ScreenSession` (`/screens/<slug>/s/<code>`; the code shows in a corner until a register pairs). A register pairs in
+its Screens sheet by typing the code (`screens_pair`; kept in the register's localStorage) and, while it takes
+payment, posts its order (`screen_summary`, cents) to the cache for that session only; the `order_summary` pop-up
+shows it there. The old same-device customer display (BroadcastChannel) still works alongside.
 
 Providers run on every refetch and on public screens: keep them cheap, cache outside calls (weather is fetched on
 the server and cached 15 min, so the key never reaches the browser) and return only what a public board may show

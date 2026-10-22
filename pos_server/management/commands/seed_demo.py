@@ -43,7 +43,7 @@ from pos_server.models import (CashDrawerSession, CashMovement, Combo, ComboSlot
 from pos_server import refunds
 from pos_server.orders import create_order
 from pos_server.pricing import price_cart
-from screens.models import Screen
+from screens.models import Screen, ScreenSession
 from services.models import Booking, Service
 from users.models import Staff
 
@@ -1201,11 +1201,14 @@ class Command(BaseCommand):
             ]},
         })
 
-        # A menu board for a vertical TV: the Lunch menu on the Showcase template
-        Screen.objects.get_or_create(slug="menu-board", defaults={
+        # A menu board for a vertical TV beside the register: the Lunch menu on the Showcase template, with sessions so
+        # each register's display shows its own order summary while it takes payment
+        board, _ = Screen.objects.get_or_create(slug="menu-board", defaults={
             "name": "Menu board", "public": True, "width": 1080, "height": 1920, "padding": 0, "background": "#16110E",
-            "layout": {"widget": "menu_board", "params": {"menu": self.lunch_menu.id}},
+            "layout": {"widget": "menu_board", "params": {"menu": self.lunch_menu.id}}, "sessions": True,
+            "popups": [{"widget": "order_summary", "params": {}}],
         })
+        ScreenSession.objects.get_or_create(screen=board, name="Register 1 display")
 
     def seed_gift_cards(self):
         for amount, color in [(10, "#2c7a7b"), (25, "#6b46c1"), (50, "#c05621")]:

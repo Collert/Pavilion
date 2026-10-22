@@ -361,11 +361,24 @@
 <dialog class="sheet w-sm" id="screens-sheet" aria-labelledby="screens-title">
     <div class="sheet-head">
         <div>
-            <div class="overline">{% trans "Screens" %}</div>
-            <h2 class="h2" id="screens-title">{% trans "Make an announcement" %}</h2>
+            <div class="overline">{% trans "Register" %}</div>
+            <h2 class="h2" id="screens-title">{% trans "Screens" %}</h2>
         </div>
         <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
     </div>
+    <div class="screens-pair" id="screen-pair">
+        <div class="overline">{% trans "Order summary screen" %}</div>
+        <div class="screens-paired" id="screen-paired" hidden>
+            <span class="grow"><b id="screen-paired-name"></b><span class="sub" id="screen-paired-code"></span></span>
+            <button class="btn btn-sm" type="button" id="screen-unpair">{% trans "Unpair" %}</button>
+        </div>
+        <form class="screens-pair-form" id="screen-pair-form">
+            <input class="input" name="code" maxlength="7" autocomplete="off" autocapitalize="characters" placeholder="{% trans 'Code on the screen, e.g. K7Q-42M' %}" aria-label="{% trans 'Pairing code' %}" required>
+            <button class="btn btn-dark">{% trans "Pair" %}</button>
+        </form>
+        <p class="hint">{% trans "While you take payment, the order shows on the paired screen." %}</p>
+    </div>
+    <div class="overline">{% trans "Announcement" %}</div>
     <form id="announce-form" data-url="{% url 'screens_announce' %}" class="screens-form">
         <textarea class="input" name="text" rows="3" maxlength="200" required placeholder="{% trans 'e.g. Fresh cardamom buns just came out of the oven' %}" aria-label="{% trans 'Announcement' %}"></textarea>
         <button class="btn btn-primary">{% trans "Show on screens" %}</button>

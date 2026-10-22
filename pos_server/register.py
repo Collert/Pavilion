@@ -171,6 +171,8 @@ def register(request):
                 "drawer": reverse("cash_drawer"),
                 "cardStatus": reverse("check_card_status"),
                 "giftCard": "/gift-cards/card-api/",
+                "screenPair": reverse("screens_pair"),
+                "screenSummary": reverse("screen_summary", args=["CODE"]),
             },
         },
     })

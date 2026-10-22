@@ -1075,7 +1075,13 @@ def screen_edit(request, id):
             return redirect("admin_screens")
         for problem in screens_data.from_post(state, request.POST, request.FILES):
             messages.error(request, problem)
-        if op == "save":
+        if op.startswith("sdel:"):  # removing a session happens right away
+            from screens.models import ScreenSession
+            gone = ScreenSession.objects.filter(screen=screen, pk=screens_data._int(op[5:])).first()
+            if gone:
+                gone.delete()
+                messages.success(request, _("%(name)s removed. Its display goes back to the session list.") % {"name": gone.name})
+        elif op == "save":
             problems = screens_data.save(screen, state)
             if problems:
                 messages.error(request, problems[0])

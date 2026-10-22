@@ -1,0 +1,41 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+A screen's sessions (screens/views.py: sessions): open one on this display, or start a new one. A register pairs with
+a session by typing its code (the register's Screens sheet).
+{% endcomment %}
+{% block title %}{{ screen.name }} · {% trans "Screens" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'screens/index.css' %}" rel="stylesheet">{% endblock %}
+
+{% block body %}
+<main class="screens-index">
+    <header class="screens-head">
+        <div>
+            <a class="sub screens-back" href="{% url 'screens' %}">‹ {% trans "Screens" %}</a>
+            <h1>{{ screen.name }}</h1>
+        </div>
+    </header>
+    <p class="sub">{% trans "Open a session on this display. Each one has its own code for pairing a register." %}</p>
+
+    <section class="screens-list" aria-label="{% trans 'Sessions' %}">
+        {% for s in sessions %}
+        <div class="screen-row">
+            <a class="screen-open" href="{% url 'screen_session' slug=screen.slug code=s.code %}">
+                <span class="screen-name">{{ s.name }}</span>
+                <span class="sub">{% if s.paired_by %}{% blocktrans with who=s.paired_by %}Paired by {{ who }}{% endblocktrans %}{% else %}{% trans "No register paired" %}{% endif %}{% if s.last_seen %} · {% blocktrans with ago=s.last_seen|timesince %}seen {{ ago }} ago{% endblocktrans %}{% endif %}</span>
+            </a>
+            <span class="session-code-chip">{{ s.code }}</span>
+            <span class="screen-go" aria-hidden="true">{% trans "Open" %} ›</span>
+        </div>
+        {% empty %}
+        <p class="sub screens-none">{% trans "No sessions yet. Start one for this display." %}</p>
+        {% endfor %}
+    </section>
+
+    <form method="post" class="screens-new">{% csrf_token %}
+        <label class="field overline">{% trans "New session" %}
+            <input class="input" name="name" maxlength="60" required placeholder="{% trans 'e.g. Register 1 display' %}"></label>
+        <button class="btn btn-dark btn-md">{% trans "Start and open" %}</button>
+    </form>
+</main>
+{% endblock %}

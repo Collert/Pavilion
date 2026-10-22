@@ -25,6 +25,9 @@ class Screen(models.Model):
     background = models.CharField(_("background"), max_length=7, default="#F4F1EA", validators=[hex_color])
     padding = models.PositiveIntegerField(_("padding"), default=36, validators=[MaxValueValidator(400)],
                                           help_text=_("Space around the edge, in design pixels"))
+    sessions = models.BooleanField(_("sessions"), default=False, help_text=_(
+        "Each display opens its own session, which a register can pair with by its code (an order summary then "
+        "shows only on that display). Off: every display shows the same screen."))
     popups = models.JSONField(_("pop-ups"), default=list, blank=True,
                               help_text=_('Pop-up widgets shown over the screen: [{"widget": "order_ready", "params": {...}}]'))
     updated_at = models.DateTimeField(auto_now=True)
@@ -34,3 +37,37 @@ class Screen(models.Model):
 
     def __str__(self):
         return self.name
+
+
+def _new_code():
+    import secrets
+    letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # nothing that reads two ways (0/O, 1/I)
+    while True:
+        code = "".join(secrets.choice(letters) for _n in range(3)) + "-" + "".join(secrets.choice(letters) for _n in range(3))
+        if not ScreenSession.objects.filter(code=code).exists():
+            return code
+
+
+class ScreenSession(models.Model):
+    """
+    One display showing a screen that supports sessions (e.g. "Register 1 display"), at /screens/<slug>/s/<code>. A
+    register pairs with it by typing its code, and from then on its order summary shows only here.
+    """
+    screen = models.ForeignKey(Screen, on_delete=models.CASCADE, related_name="screen_sessions")
+    name = models.CharField(_("name"), max_length=60)
+    code = models.CharField(_("pairing code"), max_length=7, unique=True, default=_new_code)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(null=True, blank=True, help_text=_("When the display last loaded it"))
+    paired_by = models.CharField(_("paired with"), max_length=120, blank=True, help_text=_("Who paired a register with it"))
+    paired_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.screen.name} · {self.name}"
+
+    @property
+    def online(self) -> bool:
+        from django.utils import timezone
+        return bool(self.last_seen and (timezone.now() - self.last_seen).total_seconds() < 600)

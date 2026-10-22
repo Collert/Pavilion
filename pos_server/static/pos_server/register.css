@@ -342,3 +342,10 @@
 .reg-screens-btn { flex: none; }
 .screens-form { display: grid; gap: 12px; }
 .screens-form textarea { resize: none; min-height: 96px; }
+.screens-pair { display: grid; gap: 10px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.screens-paired { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--soft); }
+.screens-paired .grow { flex: 1; min-width: 0; }
+.screens-pair-form { display: flex; gap: 10px; }
+.screens-pair-form .input { flex: 1; }
+.screens-pair-form .input:not(:placeholder-shown) { text-transform: uppercase; letter-spacing: .1em; }
+#screens-sheet > .overline { margin-bottom: 8px; }

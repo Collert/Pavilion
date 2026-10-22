@@ -98,6 +98,22 @@ picking a node there, or dropping a widget from the library on an empty slot, co
             <button class="sc-toggle top12" name="op" value="public" role="switch" aria-checked="{% if e.d.public %}true{% else %}false{% endif %}">
                 <span class="grow two-line"><span class="strong">{% trans "Anyone with the link" %}</span><span class="small muted">{% trans "For screens customers see, like a pickup board. Off: staff only." %}</span></span>
                 <span class="switch{% if e.d.public %} on{% endif %}"><span></span></span></button>
+            <button class="sc-toggle top12" name="op" value="sessions" role="switch" aria-checked="{% if e.d.sessions %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="strong">{% trans "Sessions" %}</span><span class="small muted">{% trans "Each display opens its own session with a code a register can pair with, so its order summary shows only there." %}</span></span>
+                <span class="switch{% if e.d.sessions %} on{% endif %}"><span></span></span></button>
+            {% if e.d.sessions %}
+            <div class="lbl top12">{% trans "Showing on" %}</div>
+            <div class="sc-devices">
+                {% for s in p.sessions %}
+                <div class="sc-device"><span class="sc-dot{% if s.online %} on{% endif %}"></span>
+                    <span class="grow two-line"><span class="strong">{{ s.name }}</span><span class="small muted">{% if s.paired_by %}{% blocktrans with who=s.paired_by %}Paired by {{ who }}{% endblocktrans %}{% else %}{% trans "No register paired" %}{% endif %}{% if s.last_seen %} · {% blocktrans with ago=s.last_seen|timesince %}seen {{ ago }} ago{% endblocktrans %}{% endif %}</span></span>
+                    <span class="sc-code">{{ s.code }}</span>
+                    <button class="ico" name="op" value="sdel:{{ s.id }}" aria-label="{% blocktrans with n=s.name %}Remove {{ n }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 13 2.4 %}</button></div>
+                {% empty %}
+                <div class="sc-device"><span class="sc-dot"></span><span class="grow small muted">{% trans "No sessions yet. Open the screen from Apps → Screens on a display to start one." %}</span></div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% elif p.kind == "slot" %}
             <h2 class="disp sc-h">{% trans "Add a widget" %}</h2>

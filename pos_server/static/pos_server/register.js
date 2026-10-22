@@ -734,6 +734,42 @@ function broadcast() {
     });
 }
 
+// The paired screen session (screens/views.py: pair, summary): while paying, the order shows on that display only.
+const PAIR_KEY = "pavilion.screenPairing";
+let pairing = null;
+try { pairing = JSON.parse(localStorage.getItem(PAIR_KEY) || "null"); } catch { pairing = null; }
+let lastSummary = "";
+
+function sendSummary(body) {
+    if (!pairing) return;
+    const text = JSON.stringify(body);
+    if (text === lastSummary) return;
+    lastSummary = text;
+    post(urls.screenSummary.replace("CODE", encodeURIComponent(pairing.code)), body).catch(() => {});
+}
+
+function summaryBody() {
+    const quote = ui.quote;
+    if (ui.mode !== "pay" || !state.lines.length) return { paying: false };
+    return {
+        paying: true, name: state.name, number: pad(ui.orderNumber), toGo: state.toGo,
+        lines: state.lines.map((line) => ({
+            title: titleOf(line), qty: line.qty, mods: lineSummary(line),
+            total: unitPrice(line) * line.qty - (quotedLine(line)?.discount?.amount || 0),
+        })),
+        subtotal: quote?.subtotal ?? 0, discount: quote?.discount ?? 0, tax: quote?.tax ?? 0, total: quote?.total ?? 0,
+    };
+}
+
+function renderPairing() {
+    $("#screen-paired").hidden = !pairing;
+    $("#screen-pair-form").hidden = !!pairing;
+    if (pairing) {
+        $("#screen-paired-name").textContent = `${pairing.screen} · ${pairing.name}`;
+        $("#screen-paired-code").textContent = ` ${pairing.code}`;
+    }
+}
+
 function renderAll() {
     renderTabs();
     renderGrid();
@@ -742,6 +778,7 @@ function renderAll() {
     if (ui.mode === "cart") renderCartView();
     else renderPay();
     broadcast();
+    sendSummary(summaryBody());
 }
 
 // ---------- dialogs ----------
@@ -1640,8 +1677,32 @@ $("#clear-cart").addEventListener("click", clearCart);
 $("#disc-toggle").addEventListener("click", () => { ui.discListOpen = !ui.discListOpen; renderTotals(); });
 $("#menu-switch").addEventListener("click", () => $("#menu-sheet").showModal());
 
-// Screens: a staff announcement shows on screens with the announcement pop-up (screens/views.py: announce)
-$("#screens-open").addEventListener("click", () => $("#screens-sheet").showModal());
+// Screens: pair with a screen session, and staff announcements (screens/views.py: pair, announce)
+$("#screens-open").addEventListener("click", () => { renderPairing(); $("#screens-sheet").showModal(); });
+$("#screen-pair-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const result = await post(urls.screenPair, { code: form.elements.code.value });
+    if (!result.ok) {
+        toast(result.data.message || t("That screen couldn't be paired."), { error: true });
+        return;
+    }
+    pairing = { code: result.data.code, name: result.data.name, screen: result.data.screen };
+    try { localStorage.setItem(PAIR_KEY, JSON.stringify(pairing)); } catch { /* private mode: paired until reload */ }
+    form.reset();
+    lastSummary = "";
+    renderPairing();
+    toast(interpolate(t("Paired with %s"), [pairing.name]));
+});
+$("#screen-unpair").addEventListener("click", async () => {
+    if (!pairing) return;
+    sendSummary({ paying: false });
+    await post(urls.screenPair, { code: pairing.code, unpair: true }).catch(() => {});
+    pairing = null;
+    try { localStorage.removeItem(PAIR_KEY); } catch { /* nothing kept */ }
+    renderPairing();
+    toast(t("Unpaired"));
+});
 $("#announce-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;

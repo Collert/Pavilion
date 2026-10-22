@@ -1,0 +1,28 @@
+{% load i18n %}{# The paired register's order while it takes payment (design: MenuShowcase, order summary). #}
+<div class="popup popup--full popup--order_summary" role="dialog" aria-label="{{ params.title }}">
+    <section class="os-card">
+        <div class="os-head">
+            <div>
+                {% if data.over %}<div class="os-over">{{ data.over }}</div>{% endif %}
+                <h2 class="os-title">{{ params.title }}{% if data.name %}, {{ data.name }}{% endif %}</h2>
+            </div>
+            <span class="os-count">{% blocktrans count n=data.count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span>
+        </div>
+        <div class="os-lines">
+            {% for l in data.lines %}
+            <div class="os-line">
+                <span class="os-name"><b>{{ l.title }}</b>{% if l.mods %}<small>{{ l.mods }}</small>{% endif %}</span>
+                <span class="os-qty">{{ l.qty }}</span>
+                <span class="os-price">{{ l.price }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="os-totals">{% for label, value, kind in data.totals %}<div class="os-total {{ kind }}"><span>{{ label }}</span><span>{{ value }}</span></div>{% endfor %}</div>
+        {% if params.prompt %}
+        <div class="os-prompt">
+            <span class="os-tap" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 8.5a5 5 0 0 1 0 7"/><path d="M11.5 6a8.5 8.5 0 0 1 0 12"/><path d="M14.5 3.5a12 12 0 0 1 0 17"/><path d="M5.5 11a1.5 1.5 0 0 1 0 2"/></svg></span>
+            <span><b>{% trans "Tap, insert or swipe" %}</b><small>{% trans "on the card reader when you’re ready" %}</small></span>
+        </div>
+        {% endif %}
+    </section>
+</div>

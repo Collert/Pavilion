@@ -14,6 +14,7 @@ import datetime
 
 from django.core.cache import cache
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from pavilion.realtime import publish
 
@@ -104,10 +105,39 @@ def event_reminder(request, params, now):
     return {"show": True, "until": show + seconds, "next": upcoming, "event": e, "starts": start}
 
 
+def order_summary(request, params, now):
+    """The paired register's order while it takes payment, on this session's display only (screens/views.py: summary)."""
+    session = getattr(request, "screen_session", None)
+    data = cache.get(f"screens:order-summary:{session.code}") if session else None
+    if not data:
+        return {"show": False}
+    return {"show": True, "until": now + datetime.timedelta(minutes=15), **_order(data)}
+
+
+def _order(data):
+    def money(cents):
+        return f"${cents / 100:,.2f}"
+    lines = [{**line, "price": money(line["total"])} for line in data["lines"]]
+    totals = [(gettext("Subtotal"), money(data["subtotal"]), "")]
+    if data.get("discount"):
+        totals.append((gettext("Discount"), "−" + money(data["discount"]), ""))
+    if data.get("tax"):
+        totals.append((gettext("Tax"), money(data["tax"]), ""))
+    totals.append((gettext("Total"), money(data["total"]), "total"))
+    over = " · ".join(filter(None, [gettext("Order #%(n)s") % {"n": data["number"]} if data.get("number") else "",
+                                     gettext("To go") if data.get("to_go") else gettext("For here")]))
+    return {"lines": lines, "totals": totals, "count": sum(line["qty"] for line in data["lines"]), "over": over,
+            "name": data.get("name", "")}
+
+
 SAMPLES = {  # what the editor's Preview shows
     "order_ready": lambda: {"name": "Priya S.", "number": 142},
     "announcement": lambda: {"text": "Fresh cardamom buns just came out of the oven."},
     "menu_change": lambda: {"menu": type("M", (), {"title": "Happy hour"})()},
+    "order_summary": lambda: _order({"number": "0142", "name": "Maya", "to_go": False, "subtotal": 3135, "discount": 0,
+                                      "tax": 157, "total": 3292, "lines": [
+                                          {"title": "Smash burger", "qty": 2, "mods": "No onion · Extra sauce", "total": 2900},
+                                          {"title": "Iced latte", "qty": 1, "mods": "Oat milk", "total": 235}]}),
     "event_reminder": lambda: {"event": type("E", (), {"title": "Trivia night", "description": "Teams of up to six. Winners eat free."})(),
                                "starts": timezone.localtime() + datetime.timedelta(minutes=30)},
 }

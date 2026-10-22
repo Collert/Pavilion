@@ -119,7 +119,7 @@ def orient_of(screen):
 
 def draft_of(screen) -> dict:
     return {"name": screen.name, "orient": orient_of(screen), "bg": screen.background, "public": screen.public,
-            "layout": copy.deepcopy(screen.layout) or None, "popups": copy.deepcopy(screen.popups or [])}
+            "layout": copy.deepcopy(screen.layout) or None, "popups": copy.deepcopy(screen.popups or []), "sessions": screen.sessions}
 
 
 def key(screen):
@@ -134,6 +134,7 @@ def load(request, screen) -> dict:
     state.setdefault("open_pop", None)
     state.setdefault("pop_preview", None)
     state["draft"].setdefault("popups", [])
+    state["draft"].setdefault("sessions", screen.sessions)
     return state
 
 
@@ -316,6 +317,8 @@ def _apply(state, op, editing="") -> str:
         draft["bg"] = arg
     elif name == "public":
         draft["public"] = not draft["public"]
+    elif name == "sessions":
+        draft["sessions"] = not draft["sessions"]
     elif name == "tab" and arg in ("layout", "popups"):
         state["tab"] = arg
     elif name == "padd" and arg in registry.popups() and not any(p.get("widget") == arg for p in draft["popups"]):
@@ -377,6 +380,7 @@ def save(screen, state) -> list[str]:
     if errors:
         return errors
     screen.name, screen.background, screen.public, screen.layout = draft["name"], draft["bg"], draft["public"], draft["layout"]
+    screen.sessions = draft["sessions"]
     screen.popups = [{"widget": p["widget"], "params": _changed(registry.popups()[p["widget"]], clean_params(registry.popups()[p["widget"]], p.get("params")))}
                      for p in draft["popups"] if p.get("widget") in registry.popups()]
     if orient_of(screen) != draft["orient"]:
@@ -508,7 +512,8 @@ def editor_page(screen, state) -> dict:
     # the panel
     panel = {}
     if sel == "screen":
-        panel = {"kind": "screen", "orients": [("land", _("Landscape")), ("port", _("Portrait"))], "bgs": BACKGROUNDS}
+        panel = {"kind": "screen", "orients": [("land", _("Landscape")), ("port", _("Portrait"))], "bgs": BACKGROUNDS,
+                 "sessions": list(screen.screen_sessions.all())}
     elif node is None:
         lib = [{"name": n, "w": w} for n, w in registry.widgets().items()]
         panel = {"kind": "slot", "groups": [(_("Layout"), [x for x in lib if x["w"].slots]), (_("Widgets"), [x for x in lib if not x["w"].slots])]}

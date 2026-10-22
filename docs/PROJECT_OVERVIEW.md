@@ -595,6 +595,11 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   uploads, menus and dishes to pick). Save validates and publishes "screens" so open screens reload.
   The Pop-ups tab lists the screen's pop-ups (`Screen.popups`): each opens to its settings, Preview shows it in the
   preview with sample data (`popups.SAMPLES`), and "Add a pop-up" lists the popup-kind widgets (one of each).
+  Screen settings also turn on sessions and list the screen's sessions ("Showing on": who paired, last seen, the
+  code; removing one sends its display back to the session list). Apps → Screens (`screens/views.py: index`) opens a
+  screen, or for one with sessions its session picker (`sessions`: open one, or start a named one). The register's
+  Screens sheet pairs with a session by code and sends staff announcements; while paying it posts the order to its
+  session (`summary`), which the `order_summary` pop-up shows on that display only.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

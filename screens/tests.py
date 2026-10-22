@@ -245,7 +245,7 @@ class AccessTests(TestCase):
         self.assertEqual(self.client.get(reverse("screen", kwargs={"slug": "back"})).status_code, 200)
         index = self.client.get(reverse("screens"))
         self.assertContains(index, "Back office")
-        self.assertContains(index, "order_list")  # the widget catalogue
+        self.assertContains(index, reverse("screen", kwargs={"slug": "back"}))  # opens straight away: no sessions
         self.assertEqual(self.client.get(reverse("screen", kwargs={"slug": "missing"})).status_code, 404)
 
     def test_editing_a_screen_nudges_open_screens(self):
@@ -406,3 +406,58 @@ class PopupTests(TestCase):
             html = self.render().html
             self.assertNotIn("Trivia night", html)
             self.assertRegex(html, r'id="pop-2-event_reminder" data-region><span hidden data-ends="\d+">')  # wakes up for it
+
+
+class SessionTests(TestCase):
+    """Screens with sessions: each display its own session; a register pairs by code and its order shows only there."""
+
+    def setUp(self):
+        cache.clear()
+        self.staff = User.objects.create_user("staff", password="x", is_staff=True, first_name="Dana")
+        self.client.force_login(self.staff)
+        self.screen = Screen.objects.create(name="Counter menu", slug="counter-menu", sessions=True, public=True,
+                                            layout={"widget": "clock"}, popups=[{"widget": "order_summary", "params": {}}])
+
+    def test_sessions_pairing_and_the_order_summary(self):
+        from .models import ScreenSession
+        self.assertRedirects(self.client.get(reverse("screen", args=[self.screen.slug])),
+                             reverse("screen_sessions", args=[self.screen.slug]), fetch_redirect_response=False)
+        response = self.client.post(reverse("screen_sessions", args=[self.screen.slug]), {"name": "Register 1 display"})
+        one = ScreenSession.objects.get(name="Register 1 display")
+        self.assertRedirects(response, reverse("screen_session", args=[self.screen.slug, one.code]), fetch_redirect_response=False)
+        two = ScreenSession.objects.create(screen=self.screen, name="Register 2 display")
+        page = self.client.get(reverse("screen_session", args=[self.screen.slug, one.code]))
+        self.assertContains(page, one.code)  # until a register pairs
+        self.assertIn("popups", page.context["topics"])
+
+        response = self.client.post(reverse("screens_pair"), json.dumps({"code": one.code.replace("-", "").lower()}),
+                                    content_type="application/json")
+        self.assertEqual(response.json(), {"code": one.code, "name": "Register 1 display", "screen": "Counter menu"})
+        one.refresh_from_db()
+        self.assertEqual(one.paired_by, "Dana")
+        self.assertNotContains(self.client.get(reverse("screen_session", args=[self.screen.slug, one.code])), one.code)
+
+        order = {"paying": True, "name": "Maya", "number": "0142", "toGo": False, "subtotal": 2900, "discount": 0, "tax": 145,
+                 "total": 3045, "lines": [{"title": "Smash burger", "qty": 2, "mods": "No onion", "total": 2900}]}
+        self.client.post(reverse("screen_summary", args=[one.code]), json.dumps(order), content_type="application/json")
+        mine = self.client.get(reverse("screen_session", args=[self.screen.slug, one.code])).content.decode()
+        self.assertIn("Smash burger", mine)
+        self.assertIn("$30.45", mine)
+        self.assertNotIn("Smash burger", self.client.get(reverse("screen_session", args=[self.screen.slug, two.code])).content.decode())
+        self.client.post(reverse("screen_summary", args=[one.code]), json.dumps({"paying": False}), content_type="application/json")
+        self.assertNotIn("Smash burger", self.client.get(reverse("screen_session", args=[self.screen.slug, one.code])).content.decode())
+
+        self.client.post(reverse("screens_pair"), json.dumps({"code": one.code, "unpair": True}), content_type="application/json")
+        one.refresh_from_db()
+        self.assertEqual(one.paired_by, "")
+        self.assertEqual(self.client.post(reverse("screens_pair"), json.dumps({"code": "ZZZ-ZZZ"}),
+                                          content_type="application/json").status_code, 404)
+        one.delete()
+        self.assertRedirects(self.client.get(reverse("screen_session", args=[self.screen.slug, one.code])),
+                             reverse("screen_sessions", args=[self.screen.slug]), fetch_redirect_response=False)
+
+    def test_apps_screens_lists_them(self):
+        page = self.client.get(reverse("screens"))
+        self.assertContains(page, reverse("screen_sessions", args=[self.screen.slug]))
+        self.client.logout()
+        self.assertEqual(self.client.post(reverse("screen_summary", args=["ABC-DEF"]), "{}", content_type="application/json").status_code, 401)

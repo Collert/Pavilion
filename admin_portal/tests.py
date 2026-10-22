@@ -1941,3 +1941,17 @@ class ScreensEditorTests(AdminFixture, TestCase):
         self.assertEqual(screen.popups, [{"widget": "order_ready", "params": {"style": "banner", "seconds": 7}}])
         e = self.op(screen, "pdel:0")
         self.assertEqual(e["pops"], [])
+
+    def test_sessions_on_the_screen(self):
+        from screens.models import Screen, ScreenSession
+        screen = Screen.objects.create(name="Counter", slug="counter", layout={"widget": "clock"})
+        e = self.op(screen, "sessions")
+        self.assertTrue(e["d"]["sessions"])
+        self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "save"})
+        screen.refresh_from_db()
+        self.assertTrue(screen.sessions)
+        session = ScreenSession.objects.create(screen=screen, name="Register 1 display")
+        e = self.op(screen, "sel:screen")
+        self.assertEqual([s.name for s in e["panel"]["sessions"]], ["Register 1 display"])
+        self.op(screen, f"sdel:{session.id}")
+        self.assertFalse(ScreenSession.objects.exists())

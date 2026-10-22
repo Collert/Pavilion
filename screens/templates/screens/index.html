@@ -1,6 +1,9 @@
 {% extends "pos_server/staff_layout.html" %}
 {% load static i18n %}
-
+{% comment %}
+Apps → Screens: open a screen on this display. A screen with sessions asks which session first (screens/views.py:
+sessions), so each display keeps its own (and its register's order summary).
+{% endcomment %}
 {% block title %}{% trans "Screens" %} · Pavilion{% endblock %}
 {% block head %}<link href="{% static 'screens/index.css' %}" rel="stylesheet">{% endblock %}
 
@@ -11,30 +14,22 @@
             <div class="overline">{% trans "Displays" %}</div>
             <h1>{% trans "Screens" %}</h1>
         </div>
-        {% if perms.screens.add_screen %}
-        <a class="btn btn-dark btn-md" href="{% url 'admin:screens_screen_add' %}">{% trans "New screen" %}</a>
-        {% endif %}
+        {% if user.is_superuser %}<a class="btn btn-dark btn-md" href="{% url 'admin_screens' %}">{% trans "Edit screens" %}</a>{% endif %}
     </header>
+    <p class="sub">{% trans "Open a screen on this display. Screens with sessions let each display keep its own, so a register can pair with it." %}</p>
 
     <section class="screens-list" aria-label="{% trans 'Screens' %}">
         {% for screen in screens %}
         <div class="screen-row">
-            <a class="screen-open" href="{% url 'screen' slug=screen.slug %}">
+            <a class="screen-open" href="{% if screen.sessions %}{% url 'screen_sessions' slug=screen.slug %}{% else %}{% url 'screen' slug=screen.slug %}{% endif %}">
                 <span class="screen-name">{{ screen.name }}</span>
-                <span class="sub">/screens/{{ screen.slug }} · {{ screen.width }}×{{ screen.height }}{% if screen.public %} · {% trans "public" %}{% endif %}</span>
+                <span class="sub">{% if screen.width >= screen.height %}{% trans "Landscape" %}{% else %}{% trans "Portrait" %}{% endif %}{% if screen.sessions %} · {% trans "Sessions" %}{% endif %}{% if screen.public %} · {% trans "Anyone with the link" %}{% endif %}</span>
             </a>
-            {% if perms.screens.change_screen %}
-            <a class="btn btn-sm" href="{% url 'admin:screens_screen_change' screen.pk %}">{% trans "Edit" %}</a>
-            {% endif %}
+            <span class="screen-go" aria-hidden="true">{% if screen.sessions %}{% trans "Pick a session" %}{% else %}{% trans "Open" %}{% endif %} ›</span>
         </div>
         {% empty %}
         <p class="sub">{% trans "No screens yet." %}</p>
         {% endfor %}
-    </section>
-
-    <section class="screens-widgets">
-        <h2>{% trans "Widgets" %}</h2>
-        {% include "screens/widget_reference.html" %}
     </section>
 </main>
 {% endblock %}
