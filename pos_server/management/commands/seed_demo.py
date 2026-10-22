@@ -1038,7 +1038,8 @@ class Command(BaseCommand):
     def seed_events(self):
         """Store hours: weekdays 7 to 7 (Friday with a mid-afternoon break and open late), Saturday till 1 AM, a short
         Sunday; today stays open till midnight so the demo store takes online orders whenever you try it, plus the
-        holidays coming up. And a patio party next week (events.Event, for the Events page)."""
+        holidays coming up. And events on top: openings for a market brunch, trivia and the patio, a training day, closing
+        early on Halloween and an afternoon without delivery."""
         from events.models import SpecialHours, StoreHours
         cfg = StoreHours.load()
         cfg.week = [{"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 1140]]},
@@ -1060,10 +1061,28 @@ class Command(BaseCommand):
                 date = date.replace(year=today.year + 1)
             a, b = hours or (480, 1080)
             SpecialHours.objects.update_or_create(date=date, defaults={"closed": closed, "opens": a, "closes": b, "note": note})
-        next_week = now + datetime.timedelta(days=7)
-        Event.objects.get_or_create(title="Patio opening", start=next_week.replace(hour=11, minute=0, second=0, microsecond=0), defaults={
-            "end": next_week.replace(hour=15, minute=0, second=0, microsecond=0), "restaurant_open": True, "in_person_open": True,
-            "online_open": True, "delivery_open": False})
+
+        def weekday(w, ahead):
+            """The first `w` (0 = Monday) at least `ahead` days from today."""
+            day = today + datetime.timedelta(days=ahead)
+            return day + datetime.timedelta(days=(w - day.weekday()) % 7)
+
+        halloween = datetime.date(today.year, 10, 31)
+        if halloween < today:
+            halloween = halloween.replace(year=today.year + 1)
+        O, C = Event.OPEN, Event.CLOSED
+        for title, kind, day, (a, b), extra, desc in (
+                ("Harvest market brunch", O, weekday(6, 5), (480, 540), {"dine_in": True, "pickup": True},
+                 "We’re opening early on Sunday for the Main Street harvest market. Local cider and live fiddle."),
+                ("Trivia night", O, weekday(1, 8), (1140, 1320), {"dine_in": True, "pickup": False, "banner_days": 3},
+                 "Teams of up to six. Winners eat free."),
+                ("Patio opening", O, weekday(6, 7), (900, 1200), {"dine_in": True, "pickup": True}, "First warm Sunday on the patio. Live music from 3."),
+                ("Staff training day", C, weekday(0, 10), (0, 1440), {"all_day": True}, "We’re closed for a day of training. See you Tuesday!"),
+                ("Halloween, closing early", C, halloween, (1080, 1500), {"banner_days": 5}, "Closing at 6 PM so the team can go trick-or-treating."),
+                ("Short-staffed, no delivery", C, weekday(3, 3), (840, 1140), {"scope": Event.DELIVERY, "banner_days": 1},
+                 "Pickup and dine-in as usual. Delivery is off for the afternoon.")):
+            Event.objects.update_or_create(title=title, defaults={"kind": kind, "start_date": day, "end_date": day, "opens": a, "closes": b,
+                                                                   "description": desc, **extra})
 
     def seed_store(self):
         store = StoreSettings.load()

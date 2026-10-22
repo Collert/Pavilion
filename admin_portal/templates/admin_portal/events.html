@@ -1,0 +1,184 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Events (design: AdminEvents; admin_portal/events.py: page). One form with Save: the month calendar (a day with events
+steps through them, an empty day adds one), what's coming up, and the selected event's fields. Every event in the
+draft is posted (the others as hidden inputs), so picking, adding and deleting keep what's changed until Save.
+{% endcomment %}
+{% block title %}{% trans "Events" %}{% endblock %}
+{% block main_class %}ev-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/events.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_events' %}" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="events-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Events" %}</h1>
+    </div>
+    <span class="saved-text {{ v.status_kind }}">{{ v.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New event" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not v.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="ev-body" id="events-body" data-region>
+    <input type="hidden" name="count" value="{{ v.count }}"><input type="hidden" name="sel" value="{{ v.d.sel }}"><input type="hidden" name="month" value="{{ v.d.month }}">
+    {% for g in v.d.gone %}<input type="hidden" name="gone" value="{{ g }}">{% endfor %}
+    {% for x in v.rows %}
+    <input type="hidden" name="ev-{{ x.k }}-id" value="{{ x.id }}"><input type="hidden" name="ev-{{ x.k }}-kind" value="{{ x.kind }}">
+    <input type="hidden" name="ev-{{ x.k }}-name" value="{{ x.name }}"><input type="hidden" name="ev-{{ x.k }}-desc" value="{{ x.desc }}">
+    <input type="hidden" name="ev-{{ x.k }}-start" value="{{ x.start }}"><input type="hidden" name="ev-{{ x.k }}-end" value="{{ x.end }}">
+    <input type="hidden" name="ev-{{ x.k }}-all_day" value="{% if x.all_day %}1{% endif %}"><input type="hidden" name="ev-{{ x.k }}-from" value="{{ x.from }}">
+    <input type="hidden" name="ev-{{ x.k }}-to" value="{{ x.to }}"><input type="hidden" name="ev-{{ x.k }}-dine" value="{% if x.dine %}1{% endif %}">
+    <input type="hidden" name="ev-{{ x.k }}-pickup" value="{% if x.pickup %}1{% endif %}"><input type="hidden" name="ev-{{ x.k }}-delivery" value="{% if x.delivery %}1{% endif %}">
+    <input type="hidden" name="ev-{{ x.k }}-scope" value="{{ x.scope }}"><input type="hidden" name="ev-{{ x.k }}-banner" value="{% if x.banner %}1{% endif %}">
+    <input type="hidden" name="ev-{{ x.k }}-lead" value="{{ x.lead }}">
+    {% endfor %}
+
+    <div class="ev-left">
+        <section class="card ev-cal" aria-label="{% trans 'Calendar' %}">
+            <div class="ev-cal-head">
+                <h2 class="disp card-title grow">{{ v.month_title }}</h2>
+                <button class="ico soft" name="op" value="month:prev" aria-label="{% trans 'Previous month' %}">{% icon "M15 6l-6 6 6 6" 16 2.6 %}</button>
+                <button class="ev-today" name="op" value="month:today">{% trans "Today" %}</button>
+                <button class="ico soft" name="op" value="month:next" aria-label="{% trans 'Next month' %}">{% icon "M9 6l6 6-6 6" 16 2.6 %}</button>
+            </div>
+            <div class="ev-grid">
+                {% for w in v.dows %}<div class="ev-dow">{{ w }}</div>{% endfor %}
+                {% for c in v.cells %}
+                <button class="ev-cell{% if c.on %} on{% endif %}{% if not c.in_month %} out{% endif %}" name="op" value="day:{{ c.iso }}" aria-label="{{ c.aria }}">
+                    <span class="ev-cell-top"><span class="num{% if c.today %} today{% endif %}">{{ c.num }}</span>{% if c.usual %}<span class="ev-usual"></span>{% endif %}</span>
+                    <span class="ev-cell-evs">{% for x in c.evs %}<span class="ev-chip {{ x.kind }}{% if x.on %} on{% endif %}">{{ x.label }}</span>{% endfor %}{% if c.more %}<span class="ev-more">{% blocktrans with n=c.more %}+{{ n }} more{% endblocktrans %}</span>{% endif %}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="ev-legend">
+                <span><span class="ev-key usual"></span>{% trans "Usually open" %}</span>
+                <span><span class="ev-key open"></span>{% trans "Open for an event" %}</span>
+                <span><span class="ev-key closed"></span>{% trans "Closed" %}</span>
+                <span class="ev-legend-hint">{% trans "Click an empty day to add an event" %}</span>
+            </div>
+        </section>
+
+        <section class="card ev-ups" aria-label="{% trans 'Coming up' %}">
+            <div class="ov muted ev-ups-title">{% trans "Coming up" %}</div>
+            <div class="ev-ups-list">
+                {% for u in v.upcoming %}
+                <button class="ev-up{% if u.on %} on{% endif %}" name="op" value="pick:{{ u.k }}:{{ u.iso }}">
+                    <span class="ev-datebox {{ u.kind }}"><span>{{ u.mon }}</span><b class="disp num">{{ u.day }}</b></span>
+                    <span class="grow two-line"><span class="strong ellipsis">{{ u.name }}</span><span class="small muted ellipsis">{{ u.sub }}</span></span>
+                    <span class="ev-tag {{ u.kind }}">{{ u.tag }}</span>
+                </button>
+                {% empty %}
+                <div class="ev-none">{% trans "Nothing coming up." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <section class="ev-edit" aria-label="{% trans 'Event' %}">
+        {% with e=v.e %}{% if not e %}
+        <div class="card ev-pick">
+            <div class="disp ev-pick-title">{% trans "Pick an event" %}</div>
+            <div class="muted">{% trans "Or click an empty day on the calendar to add one." %}</div>
+        </div>
+        {% else %}
+        {% with x=e.x k=e.k %}
+        <input type="hidden" name="ev-{{ k }}-id" value="{{ x.id }}"><input type="hidden" name="ev-{{ k }}-kind" value="{{ x.kind }}">
+        <input type="hidden" name="ev-{{ k }}-was" value="{{ x.start }}"><input type="hidden" name="ev-{{ k }}-all_day" value="{% if x.all_day %}1{% endif %}">
+        <input type="hidden" name="ev-{{ k }}-dine" value="{% if x.dine %}1{% endif %}"><input type="hidden" name="ev-{{ k }}-pickup" value="{% if x.pickup %}1{% endif %}">
+        <input type="hidden" name="ev-{{ k }}-delivery" value="{% if x.delivery %}1{% endif %}"><input type="hidden" name="ev-{{ k }}-scope" value="{{ x.scope }}">
+        <input type="hidden" name="ev-{{ k }}-banner" value="{% if x.banner %}1{% endif %}">
+        {% if not e.show_times %}<input type="hidden" name="ev-{{ k }}-from" value="{{ x.from }}"><input type="hidden" name="ev-{{ k }}-to" value="{{ x.to }}">{% endif %}
+        {% if not x.banner %}<input type="hidden" name="ev-{{ k }}-lead" value="{{ x.lead }}">{% endif %}
+
+        <div class="card ev-card">
+            <div class="ev-kinds" role="radiogroup" aria-label="{% trans 'Kind of event' %}">
+                {% for key, label, hint, path in e.kinds %}
+                <button class="ev-kind {{ key }}" role="radio" aria-checked="{% if x.kind == key %}true{% else %}false{% endif %}" name="op" value="kind:{{ key }}">
+                    <span class="ev-badge">{% icon path 16 2.4 %}</span>
+                    <span class="two-line"><span class="strong">{{ label }}</span><span class="ev-hint">{{ hint }}</span></span>
+                </button>
+                {% endfor %}
+            </div>
+            <label class="ev-block top14"><span class="lbl">{% trans "Name" %}</span><input class="field" name="ev-{{ k }}-name" value="{{ x.name }}" maxlength="48" placeholder="{{ e.name_ph }}"></label>
+            <label class="ev-block top12"><span class="lbl">{% trans "What customers see" %}</span><textarea class="field ev-desc" name="ev-{{ k }}-desc" rows="2" maxlength="200" placeholder="{{ e.desc_ph }}">{{ x.desc }}</textarea></label>
+        </div>
+
+        <div class="card ev-card">
+            <h2 class="disp ev-h">{% trans "When" %}</h2>
+            <div class="ev-two">
+                <label><span class="lbl">{% trans "Starts" %}</span><input type="date" class="field" name="ev-{{ k }}-start" value="{{ x.start }}"></label>
+                <label><span class="lbl">{% trans "Ends" %}</span><input type="date" class="field" name="ev-{{ k }}-end" value="{{ x.end }}"></label>
+            </div>
+            {% if not e.open %}
+            <button class="ev-switch-row" name="op" value="allday" role="switch" aria-checked="{% if x.all_day %}true{% else %}false{% endif %}">
+                <span class="grow strong">{% trans "Closed all day" %}</span><span class="switch{% if x.all_day %} on{% endif %}"><span></span></span>
+            </button>
+            {% endif %}
+            {% if e.show_times %}
+            <div class="ev-times">
+                <select class="field num" name="ev-{{ k }}-from" aria-label="{% trans 'From' %}">{% for val, t in v.from_opts %}<option value="{{ val }}"{% if val == x.from %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+                <span class="ev-to">{% trans "to" %}</span>
+                <select class="field num" name="ev-{{ k }}-to" aria-label="{% trans 'To' %}">{% for val, t in v.to_opts %}<option value="{{ val }}"{% if val == x.to %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+            </div>
+            {% endif %}
+            {% for err in e.errs %}<div class="ev-err">{{ err }}</div>{% endfor %}
+        </div>
+
+        <div class="ev-changes">
+            <div class="ov">{% trans "What changes" %}</div>
+            <div class="ev-effects">
+                {% for f in e.effects %}
+                <div>
+                    <div class="strong ev-eff-date">{{ f.date }}</div>
+                    <div class="ev-track">{% for b in f.bars %}<span class="ev-bar {{ b.kind }}" title="{{ b.title }}" style="left: {{ b.left }}; width: {{ b.width }}"></span>{% endfor %}</div>
+                    <div class="ev-axis"><span>{% trans "6 AM" %}</span><span>{% trans "12 PM" %}</span><span>{% trans "6 PM" %}</span><span>{% trans "12 AM" %}</span></div>
+                    <div class="ev-eff-text">{{ f.text }}</div>
+                </div>
+                {% endfor %}
+                {% if e.more %}<div class="ev-eff-more">{{ e.more }}</div>{% endif %}
+            </div>
+            <div class="ev-eff-keys"><span><span class="ev-sw usual"></span>{% trans "Usual" %}</span><span><span class="ev-sw added"></span>{% trans "Added" %}</span><span><span class="ev-sw closed"></span>{% trans "Closed" %}</span></div>
+        </div>
+        {% for w in e.warns %}<div class="ev-warn{% if w.bad %} bad{% endif %}">{{ w.text }}</div>{% endfor %}
+
+        <div class="card ev-card">
+            <h2 class="disp ev-h">{% if e.open %}{% trans "What’s open" %}{% else %}{% trans "What closes" %}{% endif %}</h2>
+            {% if e.open %}
+            <div class="lbl top10">{% trans "Taking" %}</div>
+            <div class="ev-chans">{% for key, label, on in e.channels %}<button name="op" value="chan:{{ key }}" aria-pressed="{% if on %}true{% else %}false{% endif %}">{{ label }}</button>{% endfor %}</div>
+            <div class="small muted top8">{% trans "Pickup and delivery use the cutoffs from Store hours." %}</div>
+            {% else %}
+            <div class="ev-scopes" role="radiogroup" aria-label="{% trans 'What closes' %}">
+                {% for key, label, hint in e.scopes %}
+                <button role="radio" aria-checked="{% if x.scope == key %}true{% else %}false{% endif %}" name="op" value="scope:{{ key }}">
+                    <span class="ev-radio"><span></span></span><span class="two-line"><span class="strong">{{ label }}</span><span class="ev-hint">{{ hint }}</span></span>
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card ev-card">
+            <h2 class="disp ev-h">{% trans "Let people know" %}</h2>
+            <button class="ev-switch-row" name="op" value="banner" role="switch" aria-checked="{% if x.banner %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="strong">{% trans "Banner on the online store" %}</span><span class="ev-hint">{{ e.banner_hint }}</span></span>
+                <span class="switch{% if x.banner %} on{% endif %}"><span></span></span>
+            </button>
+            {% if x.banner %}
+            <div class="ev-lead"><span class="grow">{% trans "Start showing the banner" %}</span>
+                <select name="ev-{{ k }}-lead" aria-label="{% trans 'Start showing the banner' %}">{% for val, t in e.leads %}<option value="{{ val }}"{% if val == x.lead %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+            <div class="ev-banner {{ x.kind }}"><b>{{ e.banner_head }}</b> {{ e.banner_text }}</div>
+            {% endif %}
+        </div>
+
+        <button class="ev-delete" name="op" value="delete">{% trans "Delete this event" %}</button>
+        {% endwith %}
+        {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

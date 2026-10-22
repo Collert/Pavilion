@@ -1803,3 +1803,62 @@ class StationsTests(AdminFixture, TestCase):
         self.assertEqual(Dish.objects.get(pk=self.burger.pk).station, self.bar)
         from pos_server.orders import station_list
         self.assertNotIn("kitchen", [x["code"] for x in station_list()])
+
+
+class EventsTests(AdminFixture, TestCase):
+    """The Events page (admin_portal/events.py): adding from the calendar, editing, what changes, deleting."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_events")
+
+    def fields(self, v, **changes):
+        from .events import FIELDS
+        data = {"count": str(v["count"]), "sel": str(v["d"]["sel"]), "month": v["d"]["month"], "gone": [str(g) for g in v["d"]["gone"]]}
+        for k, x in enumerate(v["d"]["events"]):
+            for f in FIELDS:
+                if f == "was":
+                    continue
+                value = x[f]
+                data[f"ev-{k}-{f}"] = ("1" if value else "") if isinstance(value, bool) else str(value)
+        data.update(changes)
+        return data
+
+    def post(self, v, op="preview", **changes):
+        return self.client.post(self.url, self.fields(v, op=op, **changes))
+
+    def test_add_edit_save_and_delete(self):
+        from events.models import Event
+        v = self.client.get(self.url).context["v"]
+        self.assertIsNone(v["e"])
+        day = timezone.localdate() + datetime.timedelta(days=9)
+        v = self.post(v, f"day:{day.isoformat()}").context["v"]
+        e = v["e"]
+        self.assertEqual((e["x"]["start"], e["x"]["kind"]), (day.isoformat(), "closed"))  # usually open: a closure, all day
+        self.assertTrue(e["x"]["all_day"])
+        self.assertEqual(v["status"], "1 event needs fixing")  # no name yet
+        k = e["k"]
+        v = self.post(v, "kind:open", **{f"ev-{k}-name": "Trivia night", f"ev-{k}-desc": "Teams of six"}).context["v"]
+        v = self.post(v, "chan:delivery", **{f"ev-{k}-from": "1140", f"ev-{k}-to": "1320"}).context["v"]
+        self.assertEqual(v["status"], "Unsaved changes")
+        self.assertIn("Trivia night", v["e"]["banner_head"])
+        self.assertTrue(v["e"]["effects"])
+        end = (day + datetime.timedelta(days=1)).isoformat()
+        v = self.post(v, **{f"ev-{k}-end": end}).context["v"]
+        self.assertRedirects(self.post(v, "save"), self.url, fetch_redirect_response=False)
+        ev = Event.objects.get()
+        self.assertEqual((ev.kind, ev.title, ev.opens, ev.closes, ev.delivery, ev.start_date, ev.end_date.isoformat()),
+                         ("open", "Trivia night", 1140, 1320, True, day, end))
+        # moving the start keeps the length
+        v = self.client.get(self.url).context["v"]
+        k = v["d"]["sel"]
+        later = (day + datetime.timedelta(days=3)).isoformat()
+        v = self.post(v, **{f"ev-{k}-start": later, f"ev-{k}-was": day.isoformat()}).context["v"]
+        self.assertEqual(v["e"]["x"]["end"], (day + datetime.timedelta(days=4)).isoformat())
+        v = self.post(v, "delete").context["v"]
+        self.assertIsNone(v["e"])
+        self.post(v, "save")
+        self.assertFalse(Event.objects.exists())

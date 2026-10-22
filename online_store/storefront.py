@@ -108,6 +108,26 @@ def open_now(now=None, hours=None) -> dict:
     return {**out, "open": False, "text": _("Closed today")}
 
 
+def event_banner(today=None, hours=None) -> dict | None:
+    """The soonest event with a banner that's due to show (from its banner_days before until it ends):
+    {"kind": "open"|"closed", "head": "Trivia night · Tue, Nov 3, 7–10 PM.", "text": its description}."""
+    from events.models import Event
+    today = today or timezone.localdate()
+    hours = hours or Hours()
+    due = [e for e in hours.events if e.banner and e.end_date >= today and e.start_date - datetime.timedelta(days=e.banner_days) <= today]
+    if not due:
+        return None
+    e = min(due, key=lambda e: (max(e.start_date, today), e.opens))
+    day = max(e.start_date, today)
+    if e.kind == Event.OPEN:
+        head = e.title
+    else:
+        head = {Event.ALL: _("Closed"), Event.ONLINE: _("No online orders"), Event.DELIVERY: _("No delivery")}[e.scope]
+    when = "" if e.kind == Event.CLOSED and e.all_day else f", {clock_minutes(e.opens)}–{clock_minutes(e.closes)}"
+    day_text = _("today") if day == today else _("tomorrow") if day == today + datetime.timedelta(days=1) else f"{day:%a, %b} {day.day}"
+    return {"kind": e.kind, "head": f"{head} · {day_text}{when}.", "text": e.description or ""}
+
+
 def clock_minutes(minutes, short=False) -> str:
     m = int(minutes) % 1440
     return clock(datetime.time(m // 60, m % 60), short)

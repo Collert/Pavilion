@@ -21,6 +21,7 @@ urlpatterns = [
     path("branding", views.branding, name="admin_branding"),
     path("hours", views.store_hours, name="admin_hours"),
     path("stations", views.stations, name="admin_stations"),
+    path("events", views.events, name="admin_events"),
     path("menus", views.menus, name="admin_menus"),
     path("menus/new", views.menu_new, name="admin_menu_new"),
     path("menus/<int:menu_id>", views.menu_edit, name="admin_menu"),

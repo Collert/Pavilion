@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -193,7 +193,9 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `events.StoreHours` (one row: `week` = Monday-first `{open, r: [[from, to]]}` in minutes, `to` past 1440 = after midnight;
   `pickup_after/before`, `delivery_after/before`, `last_call`, `around_breaks`, `ahead`, `ahead_days`, `lead`, `paused_until`),
   `SpecialHours(date, closed, opens, closes, note)` replacing the week on a date; `events/hours.py` (`Hours`: ranges per
-  day and channel, spans as datetimes, current/next, pause). `events.Event` and `EventTemplate` are unused until the Events page.
+  day and channel, spans as datetimes, current/next, pause). `events.Event(kind open|closed, title, description, start_date, end_date, all_day, opens, closes, dine_in, pickup,
+  delivery, scope all|online|delivery, banner, banner_days)` is laid over that by `Hours.ranges` (openings add hours for
+  the channels they take, closures subtract theirs, closing wins, cutoffs after). `EventTemplate` is unused.
 - `deliveries.Delivery(order, order_number, customer_name, destination, address_2, instructions, phone, courier,
   passed_by, accepted_at, picked_up_at, arrived_at, delivered_at, handoff, photo, declined_reason, distance_m,
   travel_seconds)`; `phase()` says which step it's at. `CourierShift(user, mode = walking|bicycling|driving,
@@ -574,6 +576,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   dishes, a ticket preview, the last 30 days (tickets, average and red share from `OrderStation` confirmed → ready)
   and archiving (its dishes move to another station). One form with Save; archived stations leave every list.
   There's no ticket printing, so the mockup's printer picker isn't there.
+- **Events** (`admin_events`, `events.py`, 2026-10-22): a month calendar over the usual hours (an empty day adds an
+  event: a closure if the store is usually open, else an opening; a day with events steps through them), what's coming
+  up (120 days), and the selected event: open for an event or close the store, name and what customers see, dates and
+  times (moving the start keeps the length), what changes on its next three days against the usual hours, overlap
+  warnings, the channels it opens or what it closes, and the online store's banner (from 1 day to 2 weeks before;
+  `storefront.event_banner`). One form with Save; the old `Event` rows were converted (migration `0003_event_layers`).
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

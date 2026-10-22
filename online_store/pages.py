@@ -308,7 +308,9 @@ def _schedule(state, cart_dishes, delivery):
     else:
         if not state["time"] and windows:
             first = max(windows[0][0], now + datetime.timedelta(minutes=lead)) if day == today else windows[0][0]
-            minute = (timezone.localtime(first).hour * 60 + timezone.localtime(first).minute + STEP_MINUTES - 1) // STEP_MINUTES * STEP_MINUTES
+            first = timezone.localtime(first)
+            exact = first.hour * 60 + first.minute + (1 if first.second or first.microsecond else 0)  # never before `first`
+            minute = (exact + STEP_MINUTES - 1) // STEP_MINUTES * STEP_MINUTES
             state["time"] = f"{minute // 60 % 24:02d}:{minute % 60:02d}"
         h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
         at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(h % 24, m)), timezone.get_current_timezone())

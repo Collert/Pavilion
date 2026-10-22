@@ -35,6 +35,7 @@ from services.models import Service
 from . import branding as branding_data
 from . import catering as catering_data
 from . import combos as combos_data
+from . import events as events_data
 from . import hours as hours_data
 from . import stations as stations_data
 from . import components as components_data
@@ -1012,6 +1013,29 @@ def stations(request):
     else:
         draft = stations_data.draft_of()
     return page(request, "admin_portal/stations.html", "stations", {"s": stations_data.page(draft, move_to)})
+
+
+# ---------- events ----------
+
+@superuser_required
+def events(request):
+    """Events: the calendar, what's coming up and the selected event, one form with Save (admin_portal/events.py)."""
+    if request.method == "POST":
+        draft, op = events_data.from_post(request.POST), request.POST.get("op", "")
+        if op == "save":
+            if any(events_data.errors(x) for x in draft["events"]):
+                messages.error(request, _("Fix the events marked in red first."))
+            else:
+                events_data.save(draft)
+                messages.success(request, _("Events saved. Store hours, the online store and the register are updated."))
+                return redirect("admin_events")
+        else:
+            draft, toast = events_data.apply_op(draft, op)
+            if toast:
+                messages.success(request, toast)
+    else:
+        draft = events_data.draft_of()
+    return page(request, "admin_portal/events.html", "events", {"v": events_data.page(draft)})
 
 
 # ---------- branding ----------

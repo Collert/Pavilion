@@ -1,5 +1,6 @@
 """
-The store's opening hours (design: AdminHours): StoreHours' week, SpecialHours dates that replace it, the cutoffs that
+The store's opening hours (design: AdminHours): StoreHours' week, SpecialHours dates that replace it, Events laid
+over that (extra hours for the channels an event takes; closures, which win where they overlap), the cutoffs that
 decide when pickup and delivery orders can be placed, and pausing online orders. Minutes count from a day's midnight
 and a range can end past 1440 (after midnight, still that day's hours).
 
@@ -11,9 +12,51 @@ import datetime
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .models import SpecialHours, StoreHours
+from .models import Event, SpecialHours, StoreHours
 
-OPEN, PICKUP, DELIVERY = "open", "pickup", "delivery"
+OPEN, DINE, PICKUP, DELIVERY = "open", "dine", "pickup", "delivery"
+
+
+def merge(ranges) -> list[tuple[int, int]]:
+    out = []
+    for a, b in sorted(ranges):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
+def subtract(ranges, holes) -> list[tuple[int, int]]:
+    out = list(ranges)
+    for c, d in holes:
+        nxt = []
+        for a, b in out:
+            if d <= a or c >= b:
+                nxt.append((a, b))
+                continue
+            if a < c:
+                nxt.append((a, c))
+            if d < b:
+                nxt.append((d, b))
+        out = nxt
+    return out
+
+
+def takes(event, channel) -> bool:
+    """An "open" event adds hours to this channel."""
+    if channel == OPEN:
+        return event.dine_in or event.pickup or event.delivery
+    return {DINE: event.dine_in, PICKUP: event.pickup, DELIVERY: event.delivery}[channel]
+
+
+def closes(event, channel) -> bool:
+    """A "closed" event takes hours away from this channel."""
+    if event.scope == Event.ALL:
+        return True
+    if event.scope == Event.ONLINE:
+        return channel in (PICKUP, DELIVERY)
+    return channel == DELIVERY
 
 
 def cut(ranges, after, before, around_breaks=True) -> list[tuple[int, int]]:
@@ -35,9 +78,19 @@ def week_ranges(week, weekday) -> list[tuple[int, int]]:
 class Hours:
     """The hours as saved (or a draft's, from the admin page): ranges per day and channel, as minutes or datetimes."""
 
-    def __init__(self, cfg=None, specials=None):
+    def __init__(self, cfg=None, specials=None, events=None):
         self.cfg = cfg or StoreHours.load()
         self._specials = specials  # {date: SpecialHours}, loaded on first use
+        self._events = events  # [Event], loaded on first use
+
+    @property
+    def events(self) -> list:
+        if self._events is None:
+            self._events = list(Event.objects.filter(end_date__gte=timezone.localdate() - datetime.timedelta(days=2)))
+        return self._events
+
+    def events_on(self, day) -> list:
+        return [e for e in self.events if e.covers(day)]
 
     @property
     def specials(self) -> dict:
@@ -49,12 +102,24 @@ class Hours:
     def special(self, day):
         return self.specials.get(day)
 
-    def ranges(self, day, channel=OPEN) -> list[tuple[int, int]]:
+    def usual(self, day) -> list[tuple[int, int]]:
+        """The day's hours before events: its special hours, else the week's."""
         sp = self.special(day)
         if sp is not None:
-            rs = [] if sp.closed else [(sp.opens, sp.closes)]
-        else:
-            rs = week_ranges(self.cfg.week, day.weekday())
+            return [] if sp.closed else [(sp.opens, sp.closes)]
+        return week_ranges(self.cfg.week, day.weekday())
+
+    def ranges(self, day, channel=OPEN) -> list[tuple[int, int]]:
+        """The day's hours for a channel (OPEN = open at all; DINE, PICKUP and DELIVERY), events and cutoffs included."""
+        rs = self.usual(day)
+        added = [e.span() for e in self.events_on(day) if e.kind == Event.OPEN and takes(e, channel)]
+        rs = merge(rs + added) if added else rs
+        tomorrow = day + datetime.timedelta(days=1)
+        holes = [e.span() for e in self.events_on(day) if e.kind == Event.CLOSED and closes(e, channel)]
+        holes += [(a + 1440, b + 1440) for e in self.events_on(tomorrow) if e.kind == Event.CLOSED and closes(e, channel)
+                  for a, b in [e.span()]]
+        if holes:
+            rs = subtract(rs, holes)
         c = self.cfg
         if channel == PICKUP:
             return cut(rs, c.pickup_after, c.pickup_before, c.around_breaks)

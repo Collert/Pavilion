@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
-from events.hours import DELIVERY, PICKUP, Hours, cut, duration, ranges_text, text as clock, week_ranges
+from events.hours import DELIVERY, DINE, PICKUP, Hours, cut, duration, ranges_text, text as clock, week_ranges
 from events.models import SpecialHours, StoreHours
 
 DAYS = [_("Monday"), _("Tuesday"), _("Wednesday"), _("Thursday"), _("Friday"), _("Saturday"), _("Sunday")]
@@ -286,6 +286,7 @@ def page(draft, now=None) -> dict:
 
     # right now
     current = hours.current(now)
+    dine = hours.current(now, DINE)
     nxt = hours.next_start(now, days=1)
     nxt = nxt if nxt and timezone.localtime(nxt).date() == today else None
     paused = hours.paused_until(now)
@@ -318,8 +319,8 @@ def page(draft, now=None) -> dict:
         "clock": clock(now_minute), "open": bool(current),
         "head": _("Open · closes at %(t)s") % {"t": at(current[1])} if current else _("Closed · opens at %(t)s") % {"t": at(nxt)} if nxt else _("Closed for today"),
         "sub": sub, "store_line": store_line,
-        "lines": [{"label": _("Dine-in kitchen"), "kind": "store", "state": "on" if current else "off",
-                   "value": _("Last call %(t)s") % {"t": at(current[1] - datetime.timedelta(minutes=draft["last_call"]))} if current else "—"},
+        "lines": [{"label": _("Dine-in kitchen"), "kind": "store", "state": "on" if dine else "off",
+                   "value": _("Last call %(t)s") % {"t": at(dine[1] - datetime.timedelta(minutes=draft["last_call"]))} if dine else "—"},
                   channel(_("Pickup orders"), PICKUP, "pick"), channel(_("Delivery orders"), DELIVERY, "deliv")]}
 
     # cutoffs

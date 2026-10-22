@@ -1,5 +1,6 @@
 {% load i18n %}
 <header class="nb-header">
+    {% if event_banner %}<div class="nb-event-banner {{ event_banner.kind }}" role="note"><b>{{ event_banner.head }}</b> {{ event_banner.text }}</div>{% endif %}
     {% if t.banner %}
     <div class="nb-banner">
         <span class="nb-dot{% if status.open %} open{% endif %}"></span><span>{{ status.text }}</span>

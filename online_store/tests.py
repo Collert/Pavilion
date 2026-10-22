@@ -250,6 +250,15 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.assertIn("confirmation_needed=1", page["pay"]["url"])
         self.assertFalse(Order.objects.exists())
 
+    def test_first_scheduled_time_is_never_too_early(self):
+        from unittest import mock
+        from online_store.pages import _schedule
+        now = timezone.now()
+        at = now.replace(minute=now.minute // 5 * 5, second=50, microsecond=0)  # 20 min later is :x0:50, not a whole 5 minutes
+        with mock.patch("django.utils.timezone.now", return_value=at):
+            when = _schedule({"when": "later", "date": timezone.localdate(at).isoformat(), "time": ""}, [], False)
+        self.assertTrue(when["ok"], when["message"])
+
     def test_scheduling_follows_events_and_menus(self):
         self.add_burger()
         url = reverse("store_cart")

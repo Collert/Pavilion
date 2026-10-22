@@ -33,7 +33,7 @@ MENU = [
         ("branding", _("Branding"), "admin_branding"),
         ("hours", _("Store hours"), "admin_hours"),
         ("stations", _("Stations"), "admin_stations"),
-        ("events", _("Events"), None),
+        ("events", _("Events"), "admin_events"),
         ("screens", _("Screens"), None),
         ("audio", _("Audio channels"), None),
         ("library", _("Library"), None),

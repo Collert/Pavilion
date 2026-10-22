@@ -4,16 +4,47 @@ from django.utils.translation import gettext_lazy as _
 
 
 class Event(models.Model):
+    """
+    A change to the usual hours (design: AdminEvents), on every day from `start_date` to `end_date`: open for an event
+    (extra hours for dine-in, pickup and/or delivery) or closed (everything, online orders only, or delivery only),
+    from `opens` to `closes` (minutes from that day's midnight, past 1440 = after midnight) or all day (closures only).
+    events/hours.py lays them over Store hours; closing wins where they overlap. `banner` shows it across the top of
+    the online store from `banner_days` before until it ends.
+    """
+    OPEN, CLOSED = "open", "closed"
+    KINDS = [(OPEN, _("Open for an event")), (CLOSED, _("Close the store"))]
+    ALL, ONLINE, DELIVERY = "all", "online", "delivery"
+    SCOPES = [(ALL, _("Close everything")), (ONLINE, _("Stop online orders only")), (DELIVERY, _("Stop delivery only"))]
+
+    kind = models.CharField(max_length=6, choices=KINDS, default=OPEN)
     title = models.CharField(max_length=120)
-    start = models.DateTimeField()
-    end = models.DateTimeField()
+    description = models.TextField(null=True, blank=True, help_text="What customers see")
+    start_date = models.DateField()
+    end_date = models.DateField()
+    all_day = models.BooleanField(default=False, help_text="Closed all day (closures only)")
+    opens = models.PositiveSmallIntegerField(default=540)
+    closes = models.PositiveSmallIntegerField(default=1260)
+    dine_in = models.BooleanField(default=True, help_text="Open for an event: taking dine-in")
+    pickup = models.BooleanField(default=True, help_text="Open for an event: taking pickup orders")
+    delivery = models.BooleanField(default=False, help_text="Open for an event: taking delivery orders")
+    scope = models.CharField(max_length=8, choices=SCOPES, default=ALL, help_text="Closed: what closes")
+    banner = models.BooleanField(default=True, help_text="A banner on the online store")
+    banner_days = models.PositiveSmallIntegerField(default=7, help_text="Days before it starts that the banner shows")
     location_title = models.CharField(max_length=120, null=True, blank=True)
     location_address = models.TextField(null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
-    restaurant_open = models.BooleanField(default=True)
-    in_person_open = models.BooleanField()
-    online_open = models.BooleanField()
-    delivery_open = models.BooleanField()
+
+    class Meta:
+        ordering = ["start_date", "opens"]
+
+    def __str__(self):
+        return self.title
+
+    def covers(self, day) -> bool:
+        return self.start_date <= day <= self.end_date
+
+    def span(self) -> tuple[int, int]:
+        """(from, to) minutes on each of its days."""
+        return (0, 1440) if self.all_day and self.kind == self.CLOSED else (self.opens, self.closes)
 
 
 class EventTemplate(Event):
