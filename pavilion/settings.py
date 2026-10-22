@@ -84,37 +84,6 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
-# Icons from google fonts
-AVAILABLE_ICONS = (
-    ("kitchen", "Fridge"),
-    ("local_cafe", "Cup"),
-    ("coffee_maker", "Coffee maker"),
-    ("soup_kitchen", "Soup scoop"),
-    ("skillet", "Skillet"),
-    ("blender", "Blender"),
-    ("microwave", "Microwave"),
-    ("faucet", "Faucet"),
-    ("kettle", "Kettle"),
-    ("dishwasher", "Dishwasher"),
-    ("cake", "Cake"),
-    ("cooking", "Cooking"),
-    ("mode_heat", "Fire"),
-    ("flatware", "Flatware"),
-    ("outdoor_grill", "Grill"),
-    ("table_bar", "Table"),
-    ("deck", "Deck"),
-    ("icecream", "Ice Cream"),
-    ("dinner_dining", "Dinner"),
-    ("sports_bar", "Beer"),
-    ("liquor", "Liquor"),
-    ("bakery_dining", "Croissant"),
-    ("ramen_dining", "Ramen"),
-    ("local_bar", "Bar"),
-    ("lunch_dining", "Burger"),
-    ("rice_bowl", "Rice"),
-    ("wine_bar", "Wine glass")
-)
-
 # Registered-device allowlist for POS/KDS views (see pos_server/devices.py).
 # On in production, off in dev unless ENFORCE_DEVICE_CHECK=true.
 ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('ENVIRONMENT') == "production" else 'false').lower() == 'true'

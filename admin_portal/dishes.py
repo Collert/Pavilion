@@ -80,7 +80,7 @@ def dish_list(query="", show="all"):
     if archived_count:
         filters.append({"key": "archived", "label": _("Archived"), "count": archived_count})
     sections = []
-    for station in Station.objects.all():
+    for station in Station.objects.filter(archived=False):
         part = [r for r in shown if r["dish"].station_id == station.id]
         if part:
             avg = sum((r["dish"].price for r in part), Decimal("0")) / len(part)
@@ -267,7 +267,7 @@ def problems(draft):
     if not draft["title"].strip() or price is None or price <= 0:
         return [_("Needs a name and a price")]
     out = []
-    if not Station.objects.filter(pk=_int(draft["station"])).exists():
+    if not Station.objects.filter(pk=_int(draft["station"]), archived=False).exists():
         out.append(_("Pick a station"))
     if any(_int(t["quantity"]) is None or _int(t["quantity"]) < 1 or _dec(t["price"]) is None or _dec(t["price"]) < 0
            for t in draft["tiers"]):
@@ -481,7 +481,7 @@ def editor(dish, draft, leave_ask=False, photo_pending=False):
         "status": issues[0] if issues else (_("Unsaved changes") if dirty else _("All changes saved")),
         "status_kind": "bad" if issues else "dirty" if dirty else "",
         "can_save": dirty and not issues, "leave_ask": leave_ask,
-        "stations": Station.objects.all(),
+        "stations": Station.objects.filter(archived=False),
         "catering": _catering(draft, price, cost),
         "recipe": recipe, "plate_cost": cost or Decimal("0"), "fc_level": cost_level(fc), "fc_text": fc_text,
         "component_choices": [{"id": cid, "label": f"{c.title} · {unit_cost_text(c)}"} for cid, c in components.items() if cid not in used],

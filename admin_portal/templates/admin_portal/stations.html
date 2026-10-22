@@ -1,0 +1,140 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Stations (design: AdminStations; admin_portal/stations.py: page). One form with Save: the list (ticket order, arrows to
+reorder) and the selected station's settings. Every station's fields are posted (the others as hidden inputs), so
+picking another station or archiving one keeps what's changed until Save.
+{% endcomment %}
+{% block title %}{% trans "Stations" %}{% endblock %}
+{% block main_class %}st-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/stations.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_stations' %}" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="stations-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Stations" %}</h1>
+    </div>
+    <span class="saved-text {{ s.status_kind }}">{{ s.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New station" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not s.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="st-body" id="stations-body" data-region>
+    <input type="hidden" name="sel" value="{{ s.d.sel }}">
+    {% for g in s.gone %}<input type="hidden" name="gone" value="{{ g }}">{% endfor %}
+    <input type="hidden" name="count" value="{{ s.count }}">
+    {% for x in s.items %}{% if not x.on %}
+    <input type="hidden" name="st-{{ x.k }}-id" value="{{ x.id }}"><input type="hidden" name="st-{{ x.k }}-name" value="{{ x.name }}"><input type="hidden" name="st-{{ x.k }}-tag" value="{{ x.tag }}">
+    <input type="hidden" name="st-{{ x.k }}-icon" value="{{ x.icon }}"><input type="hidden" name="st-{{ x.k }}-color" value="{{ x.color }}"><input type="hidden" name="st-{{ x.k }}-target" value="{{ x.target }}">
+    <input type="hidden" name="st-{{ x.k }}-active" value="{% if x.active %}1{% endif %}">
+    {% endif %}{% endfor %}
+
+    <section class="st-list card" aria-label="{% trans 'Stations' %}">
+        <div class="card-sub st-list-sub">{% trans "Tickets show stations in this order. Use the arrows to reorder." %}</div>
+        <div class="st-rows">
+            {% for x in s.items %}
+            <div class="st-row-wrap">
+                <button class="st-row{% if x.on %} on{% endif %}{% if not x.active %} off{% endif %}" name="op" value="pick:{{ x.k }}" aria-pressed="{% if x.on %}true{% else %}false{% endif %}">
+                    <span class="st-tile" style="background: {{ x.color }}">{% icon x.path 24 2 %}</span>
+                    <span class="st-row-text">
+                        <span class="st-row-top"><span class="st-row-name ellipsis">{{ x.name|default:_("Untitled") }}</span><span class="st-code" style="--c: {{ x.color }}">{{ x.tag|default:"—" }}</span></span>
+                        <span class="st-row-sub ellipsis">{{ x.sub }}</span>
+                    </span>
+                    {% if not x.active %}<span class="st-off">{% trans "Off" %}</span>{% endif %}
+                </button>
+                <span class="st-arrows">
+                    <button class="ico" name="op" value="up:{{ x.k }}" {% if x.first %}disabled{% endif %} aria-label="{% blocktrans with n=x.name %}Move {{ n }} up{% endblocktrans %}">{% icon "m6 15 6-6 6 6" 14 2.6 %}</button>
+                    <button class="ico" name="op" value="down:{{ x.k }}" {% if x.last %}disabled{% endif %} aria-label="{% blocktrans with n=x.name %}Move {{ n }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% with e=s.e %}{% if e %}
+    <section class="st-edit" aria-label="{% trans 'Station settings' %}">
+        <input type="hidden" name="st-{{ e.k }}-id" value="{{ e.r.id }}"><input type="hidden" name="st-{{ e.k }}-icon" value="{{ e.r.icon }}">
+        <input type="hidden" name="st-{{ e.k }}-color" value="{{ e.r.color }}"><input type="hidden" name="st-{{ e.k }}-target" value="{{ e.r.target }}">
+        <input type="hidden" name="st-{{ e.k }}-active" value="{% if e.r.active %}1{% endif %}">
+        <div class="card st-card">
+            <div class="st-ident">
+                <span class="st-big-tile" style="background: {{ e.r.color }}; --c: {{ e.r.color }}">{% icon e.path 40 1.8 %}</span>
+                <div class="st-names">
+                    <label><span class="lbl">{% trans "Station name" %}</span><input class="field" name="st-{{ e.k }}-name" value="{{ e.r.name }}" maxlength="24"></label>
+                    <label><span class="lbl">{% trans "Ticket code" %}</span><input class="field st-code-in" name="st-{{ e.k }}-tag" value="{{ e.r.tag }}" maxlength="4"></label>
+                </div>
+            </div>
+            {% if e.problem %}<div class="st-err">{{ e.problem }}</div>{% endif %}
+            <div class="lbl top18">{% trans "Icon" %}</div>
+            <div class="st-icons" role="radiogroup" aria-label="{% trans 'Icon' %}">
+                {% for i in e.icons %}<button role="radio" aria-checked="{% if i.on %}true{% else %}false{% endif %}" aria-label="{{ i.label }}" title="{{ i.label }}" name="op" value="icon:{{ i.key }}"{% if i.on %} style="background: {{ e.r.color }}"{% endif %}>{% icon i.path 22 2 %}</button>{% endfor %}
+            </div>
+            <div class="lbl top18">{% trans "Color" %}</div>
+            <div class="st-colors" role="radiogroup" aria-label="{% trans 'Color' %}">
+                {% for c in e.colors %}<button role="radio" aria-checked="{% if c.on %}true{% else %}false{% endif %}" aria-label="{{ c.label }}" title="{{ c.label }}" name="op" value="color:{{ c.hex }}" style="--c: {{ c.hex }}">{% if c.taken %}<span></span>{% endif %}</button>{% endfor %}
+            </div>
+            <div class="small muted top8">{{ e.color_hint }}</div>
+        </div>
+
+        <div class="st-grid">
+            <div class="st-col">
+                <div class="card st-card">
+                    <h2 class="disp card-title">{% trans "Tickets" %}</h2>
+                    <div class="st-target">
+                        <span class="grow two-line"><span class="strong">{% trans "Target ticket time" %}</span><span class="small muted">{% trans "Tickets turn amber at the target and red at double" %}</span></span>
+                        <span class="st-stepper">
+                            <button class="ico" name="op" value="less" {% if e.r.target <= 1 %}disabled{% endif %} aria-label="{% trans 'Shorter target' %}">{% icon "M5 12h14" 13 3 %}</button>
+                            <span class="num">{% blocktrans with n=e.r.target %}{{ n }} min{% endblocktrans %}</span>
+                            <button class="ico" name="op" value="more" {% if e.r.target >= 45 %}disabled{% endif %} aria-label="{% trans 'Longer target' %}">{% icon "M12 5v14M5 12h14" 13 3 %}</button>
+                        </span>
+                    </div>
+                    <button class="st-toggle" name="op" value="active" role="switch" aria-checked="{% if e.r.active %}true{% else %}false{% endif %}">
+                        <span class="grow two-line"><span class="strong">{% trans "Taking tickets" %}</span><span class="small muted">{{ e.active_hint }}</span></span>
+                        <span class="switch big{% if e.r.active %} on{% endif %}"><span></span></span>
+                    </button>
+                </div>
+                <div class="card st-card">
+                    <div class="st-dish-head">
+                        <div class="grow"><h2 class="disp card-title">{{ e.dish_head }}</h2><div class="card-sub">{{ e.dish_sub }}</div></div>
+                        <a class="st-link" href="{% url 'admin_dishes' %}">{% trans "Manage in Dishes" %}</a>
+                    </div>
+                    <div class="st-chips">{% for d in e.dishes %}<span>{{ d }}</span>{% endfor %}</div>
+                </div>
+            </div>
+
+            <div class="st-col">
+                <div class="st-preview">
+                    <div class="ov">{% trans "Ticket preview" %}</div>
+                    <div class="st-ticket">
+                        <div class="st-ticket-head" style="background: {{ e.r.color }}">{% icon e.path 18 2.2 %}<span class="grow">{{ e.ticket.tag }}</span><span class="num">#1042</span></div>
+                        <div class="st-ticket-body">
+                            {% for qty, name in e.ticket.lines %}<div class="st-ticket-line"><span class="num">{{ qty }}</span><span class="grow">{{ name }}</span></div>{% endfor %}
+                            <div class="st-ticket-mods">{% trans "· No onion  · Extra sauce" %}</div>
+                        </div>
+                        <div class="st-ticket-foot"><span>{% trans "Pickup · Maya" %}</span><span class="num">{{ e.ticket.timer }}</span></div>
+                    </div>
+                    <div class="st-preview-note">{{ e.ticket.note }}</div>
+                </div>
+                <div class="card st-card">
+                    <div class="ov muted">{% trans "Last 30 days" %}</div>
+                    <div class="st-stats">{% for t in e.stats %}<div><div class="disp num {{ t.tone }}">{{ t.value }}</div><div class="st-stat-label">{{ t.label }}</div></div>{% endfor %}</div>
+                </div>
+                <div class="card st-card">
+                    <div class="ov muted">{% trans "Archive" %}</div>
+                    {% if e.n and e.moves %}
+                    <label class="top10 st-block"><span class="lbl">{{ e.move_label }}</span>
+                        <select class="field" name="move_to">{% for m in e.moves %}<option value="{{ m.key }}"{% if m.on %} selected{% endif %}>{{ m.name }}</option>{% endfor %}</select></label>
+                    {% endif %}
+                    <button class="st-archive" name="op" value="archive" {% if e.archive_off %}disabled{% endif %}>{{ e.archive_text }}</button>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}{% endwith %}
+</div>
+</form>
+{% endblock %}

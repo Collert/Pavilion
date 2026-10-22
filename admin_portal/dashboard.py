@@ -260,7 +260,7 @@ def live_panel(now):
 
     load_rows = dict(OrderStation.objects.filter(order__picked_up=False, status__in=[OrderStation.STATUS_PENDING, OrderStation.STATUS_APPROVED])
                      .values("station").annotate(n=Count("id")).values_list("station", "n"))
-    stations = list(Station.objects.all())
+    stations = list(Station.objects.filter(archived=False))
     scale = max([8] + list(load_rows.values()))
     kitchen = [{"name": st.name, "n": load_rows.get(st.id, 0), "busy": load_rows.get(st.id, 0) >= 5,
                 "width": round(load_rows.get(st.id, 0) / scale * 100)} for st in stations]

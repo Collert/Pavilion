@@ -304,4 +304,4 @@ def collect_order(order, done=False):
 
 
 def station_list():
-    return [station.as_dict() for station in Station.objects.all()]
+    return [station.as_dict() for station in Station.objects.filter(archived=False)]

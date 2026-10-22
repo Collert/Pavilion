@@ -8,6 +8,7 @@ import uuid
 from payments.models import PaymentAuthorization
 from django.core.cache import cache
 from django.conf import settings
+from . import station_icons
 
 # Create your models here.
     
@@ -146,8 +147,10 @@ class Dish(models.Model):
 
     @property
     def available(self) -> bool:
-        """Sellable now: not archived or turned off, no component turned off, and in stock (or set to sell past zero)."""
-        return not self.archived and self.availability != "off" and not self.blocked and (self.availability == "always" or self.in_stock)
+        """Sellable now: not archived or turned off, no component turned off, its station taking tickets, and in stock
+        (or set to sell past zero)."""
+        return (not self.archived and self.availability != "off" and not self.blocked and self.station.taking_tickets
+                and (self.availability == "always" or self.in_stock))
 
     def catering_price(self, quantity: int) -> Decimal:
         """Price each for a catering order of `quantity`: the biggest break it reaches, else the retail price."""
@@ -1157,11 +1160,15 @@ class Station(models.Model):
     with ?filter=<code>. Menus are grouped into sections by station, using `menu_heading`.
     """
     name = models.CharField(max_length=50, help_text="Shown on kitchen screens, e.g. 'Kitchen'")
-    code = models.SlugField(max_length=20, unique=True)
-    icon = models.CharField(max_length=20, choices=settings.AVAILABLE_ICONS)
+    code = models.SlugField(max_length=20, unique=True, help_text="The key screens filter on (?filter=<code>); never shown")
+    ticket_code = models.CharField(max_length=4, blank=True, help_text="Short code on tickets, e.g. GRL")
+    icon = models.CharField(max_length=20, choices=station_icons.CHOICES, default=station_icons.DEFAULT)
     menu_heading = models.CharField(max_length=80, blank=True, help_text="Menu section title, e.g. 'Hot food'. Defaults to the name.")
     position = models.PositiveSmallIntegerField(default=0, help_text="Order of menu sections and screen filters")
     color = models.CharField(max_length=7, default="#1F4A3A", help_text="Used on kitchen screens, tickets and reports")
+    target_minutes = models.PositiveSmallIntegerField(default=10, help_text="Tickets turn amber at this age and red at double")
+    taking_tickets = models.BooleanField(default=True, help_text="Off: its dishes show as sold out (e.g. the fryer is down)")
+    archived = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["position", "id"]
@@ -1173,8 +1180,18 @@ class Station(models.Model):
     def heading(self):
         return self.menu_heading or self.name
 
+    @property
+    def icon_path(self):
+        return station_icons.path(self.icon)
+
+    @property
+    def tag(self):
+        """The ticket code, or the first letters of the name."""
+        return self.ticket_code or self.name[:3].upper()
+
     def as_dict(self):
-        return {"code": self.code, "name": self.name, "icon": self.icon, "heading": self.heading}
+        return {"code": self.code, "name": self.name, "icon": self.icon_path, "heading": self.heading, "tag": self.tag,
+                "color": self.color, "target": self.target_minutes}
 
 class OrderStation(models.Model):
     """Status of one station's work on one order."""

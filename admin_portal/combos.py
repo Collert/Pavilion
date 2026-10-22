@@ -306,7 +306,7 @@ def editor(combo, draft, leave_ask=False):
     off = _dec(draft["percent_off"]) or Decimal("0")
     errors = problems(draft)
     dirty = is_dirty(draft, combo)
-    stations = list(Station.objects.all())
+    stations = list(Station.objects.filter(archived=False))
     choices = [d for d in Dish.objects.filter(archived=False).select_related("station").order_by("station__position", "title")]
 
     slots = []

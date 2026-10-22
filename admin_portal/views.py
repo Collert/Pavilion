@@ -36,6 +36,7 @@ from . import branding as branding_data
 from . import catering as catering_data
 from . import combos as combos_data
 from . import hours as hours_data
+from . import stations as stations_data
 from . import components as components_data
 from . import condiments as condiments_data
 from . import dashboard as dashboard_data
@@ -315,13 +316,13 @@ def menu_action(request, menu_id):
 @superuser_required
 def dishes(request):
     data = dishes_data.dish_list(request.GET.get("q", ""), request.GET.get("show", "all"))
-    return page(request, "admin_portal/dishes.html", "dishes", {"l": data, "has_stations": Station.objects.exists()})
+    return page(request, "admin_portal/dishes.html", "dishes", {"l": data, "has_stations": Station.objects.filter(archived=False).exists()})
 
 
 @superuser_required
 @require_POST
 def dish_new(request):
-    station = Station.objects.first()
+    station = Station.objects.filter(archived=False).first()
     if station is None:
         messages.error(request, _("Add a station first: every dish is made at one."))
         return redirect("admin_dishes")
@@ -984,6 +985,33 @@ def store_hours(request):
     else:
         draft = hours_data.draft_of()
     return page(request, "admin_portal/hours.html", "hours", {"h": hours_data.page(draft)})
+
+
+# ---------- stations ----------
+
+@superuser_required
+def stations(request):
+    """Stations: the list and the selected station's settings, one form with Save (admin_portal/stations.py)."""
+    move_to = ""
+    if request.method == "POST":
+        draft, op = stations_data.from_post(request.POST), request.POST.get("op", "")
+        move_to = request.POST.get("move_to", "")
+        if op == "save":
+            problems = stations_data.problems(draft)
+            if problems:
+                messages.error(request, problems[0])
+            else:
+                stations_data.save(draft)
+                publish("orders")
+                messages.success(request, _("Stations saved. Order marking screens pick up the changes on their next refresh."))
+                return redirect("admin_stations")
+        else:
+            draft, toast = stations_data.apply_op(draft, op, request.POST)
+            if toast:
+                messages.success(request, toast)
+    else:
+        draft = stations_data.draft_of()
+    return page(request, "admin_portal/stations.html", "stations", {"s": stations_data.page(draft, move_to)})
 
 
 # ---------- branding ----------

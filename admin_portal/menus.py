@@ -78,7 +78,7 @@ def menu_list(now=None):
     now = now or timezone.now()
     menus = list(Menu.objects.all())
     schedule = Schedule(menus)
-    stations = list(Station.objects.all())
+    stations = list(Station.objects.filter(archived=False))
     live = schedule.live(now)
     rows = []
     for i, menu in enumerate(menus):
@@ -335,7 +335,7 @@ def save_draft(draft, menu):
 
 def catalog(draft, group="all", query=""):
     """Every dish and combo, with whether it's in the draft, filtered by station (or combos) and a search."""
-    stations = list(Station.objects.all())
+    stations = list(Station.objects.filter(archived=False))
     groups = [{"key": "all", "label": _("All"), "color": None}] + \
              [{"key": str(s.id), "label": s.name, "color": s.color} for s in stations] + \
              [{"key": "combos", "label": _("Combos"), "color": "#14261F"}]

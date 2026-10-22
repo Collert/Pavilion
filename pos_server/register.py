@@ -85,7 +85,7 @@ def register_catalog(menu):
     """Everything the register needs to show and customize the active menu. Money is in cents."""
     if menu is None:
         return {"sections": [], "items": [], "dishes": {}, "combos": {}}
-    stations = list(Station.objects.all())
+    stations = list(Station.objects.filter(archived=False))
     dishes = list(dish_queryset().filter(menu=menu, visible_in_menu=True).order_by("station__position", "id"))
     combos = list(combo_queryset().filter(menu=menu, active=True, archived=False).order_by("id"))
     in_combos = {option.dish_id for combo in combos for slot in combo.slots.all() for option in slot.options.all()}

@@ -97,7 +97,9 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
 - **Combo → ComboSlot → ComboSlotOption(dish, upcharge, is_default).** A combo is a set price + upcharges or a percent
   off the picks (`Combo.unit_price`); each slot takes `picks` dishes and is required (starts on its default) or optional.
   Cart lines list every pick (`slots: {id: [{dish, cust}]}`). Each picked dish is made at its own station. Variants (S/M/L) are a "Size" option group.
-- **Stations:** `Dish.station` → `Station` (code, name, icon, menu_heading, position). Per-order status is
+- **Stations:** `Dish.station` → `Station` (code = the key screens filter on, never shown; name, `ticket_code`, icon from
+  `pos_server/station_icons.py`, colour, menu_heading, position, `target_minutes` (tickets amber at it, red at double),
+  `taking_tickets` (off = its dishes are sold out), `archived`; edited on the admin's Stations page). Per-order status is
   `OrderStation(order, station, status)`: 0 pending approval · 1 being made · 2 done · 3 rejected; no row = not involved.
   POS orders start at 1, online/delivery at 0 (approved on the KDS). Change statuses only via `Order.set_station_status()`.
 - **Create orders only via `pos_server.orders.create_order()`.** It prices the cart *lines* with

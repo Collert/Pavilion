@@ -13,7 +13,7 @@ from payments import square
 from pos_server import refunds
 from pos_server import dish_info
 from pos_server.models import (CashDrawerSession, CashMovement, Combo, Component, ComponentIngredient, Condiment, Disposable, Extra, Dish, DishComponent,
-                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, StorageLocation, Supplier)
+                               Ingredient, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, ReceiptLog, Refund, Station, StorageLocation, Supplier)
 from pos_server.orders import collect_order, create_order
 from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
@@ -1735,3 +1735,71 @@ class StoreHoursTests(AdminFixture, TestCase):
         from online_store.pages import _schedule
         when = _schedule({"when": "later", "date": timezone.localdate().isoformat(), "time": ""}, [], False)
         self.assertEqual((when["ahead"], len(when["days"])), (False, 1))
+
+
+class StationsTests(AdminFixture, TestCase):
+    """The Stations page (admin_portal/stations.py): editing, reordering, new stations, taking tickets, archiving."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_stations")
+
+    def fields(self, s, **changes):
+        data = {"count": str(s["count"]), "sel": str(s["d"]["sel"]), "gone": s["gone"]}
+        for x in s["items"]:
+            for f in ("id", "name", "tag", "icon", "color", "target"):
+                data[f"st-{x['k']}-{f}"] = str(x[f])
+            data[f"st-{x['k']}-active"] = "1" if x["active"] else ""
+        data.update(changes)
+        return data
+
+    def post(self, s, op="preview", **changes):
+        return self.client.post(self.url, self.fields(s, op=op, **changes))
+
+    def test_edit_reorder_and_save(self):
+        s = self.client.get(self.url).context["s"]
+        names = [x["name"] for x in s["items"]]
+        self.assertEqual((s["status"], s["e"]["r"]["name"]), ("All changes saved", names[0]))
+        s = self.post(s, "icon:basket", **{"st-0-tag": "grl", "st-0-name": "Grill"}).context["s"]
+        self.assertEqual((s["items"][0]["tag"], s["items"][0]["icon"], s["status"]), ("GRL", "basket", "Unsaved changes"))
+        s = self.post(s, "more").context["s"]
+        s = self.post(s, "down:0").context["s"]
+        self.assertEqual((s["items"][1]["name"], s["d"]["sel"]), ("Grill", 1))
+        s = self.post(s, **{"st-0-tag": "GRL"}).context["s"]  # the same code twice
+        self.assertEqual((s["status"], s["can_save"]), ("Each station needs its own name and code", False))
+        s = self.post(s, **{"st-0-tag": "BAR"}).context["s"]
+        self.post(s, "save")
+        self.kitchen.refresh_from_db()
+        self.assertEqual((self.kitchen.name, self.kitchen.ticket_code, self.kitchen.icon, self.kitchen.target_minutes, self.kitchen.position),
+                         ("Grill", "GRL", "basket", 11, 1))
+        self.assertEqual(self.kitchen.as_dict()["tag"], "GRL")
+
+    def test_new_station_and_taking_tickets(self):
+        s = self.client.get(self.url).context["s"]
+        s = self.post(s, "new").context["s"]
+        k = s["d"]["sel"]
+        s = self.post(s, **{f"st-{k}-name": "Fry", f"st-{k}-tag": "FRY"}).context["s"]
+        self.post(s, "save")
+        fry = Station.objects.get(name="Fry")
+        self.assertEqual((fry.code, fry.ticket_code, fry.position), ("fry", "FRY", k))
+        s = self.client.get(self.url).context["s"]
+        self.post(self.post(s, "active").context["s"], "save")  # the first station stops taking tickets
+        self.kitchen.refresh_from_db()
+        self.assertFalse(self.kitchen.taking_tickets)
+        self.assertFalse(Dish.objects.get(pk=self.burger.pk).available)
+
+    def test_archive_moves_dishes(self):
+        s = self.client.get(self.url).context["s"]
+        s = self.post(s, "archive", move_to=str(self.bar.id)).context["s"]  # archive the first (kitchen)
+        self.assertNotIn(self.kitchen.id, [x["id"] for x in s["items"]])
+        self.assertTrue(s["gone"])
+        self.assertEqual(Dish.objects.get(pk=self.burger.pk).station, self.kitchen)  # not saved yet
+        self.post(s, "save")
+        self.kitchen.refresh_from_db()
+        self.assertTrue(self.kitchen.archived)
+        self.assertEqual(Dish.objects.get(pk=self.burger.pk).station, self.bar)
+        from pos_server.orders import station_list
+        self.assertNotIn("kitchen", [x["code"] for x in station_list()])

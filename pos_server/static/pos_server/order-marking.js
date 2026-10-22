@@ -95,7 +95,17 @@ function statusIcon(key, size = 22) {
         + (i.mark ? `<path d="${i.mark}" fill="none" stroke="${i.markColor}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>` : "")
         + "</svg>");
 }
-const stationIcon = (code) => el("span", { className: "msym", text: stationBy[code]?.icon || "restaurant", attrs: { "aria-hidden": "true" } });
+// A station's icon: its line drawing (path data from Station.icon_path), sized by the surrounding font size
+function stationIcon(code) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svgNode = document.createElementNS(NS, "svg");
+    for (const [k, v] of Object.entries({ class: "msym", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2",
+        "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" })) svgNode.setAttribute(k, v);
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", stationBy[code]?.icon || "");
+    svgNode.append(path);
+    return svgNode;
+}
 const kbd = (text, dark = false) => el("kbd", { className: "kbd" + (dark ? " on-dark" : ""), text });
 
 // ---------- formatting ----------
@@ -335,9 +345,14 @@ function actions(order, key) {
     return el("div", { className: "actions" }, [el("span", { className: "cap hint", text: hint }), autoDue(order), ...buttons]);
 }
 
+// The strictest target ticket time (seconds) among the stations on an order
+const targetOf = (order) => Math.min(...involved(order).map((code) => stationBy[code]?.target || 10), 60) * 60;
+
+// Amber at the target ticket time, red at double
 function timerClass(order) {
     const age = ageOf(order);
-    return "timer" + (age >= 720 ? " late" : age >= 420 ? " warn" : "");
+    const target = order.target ?? targetOf(order);
+    return "timer" + (age >= target * 2 ? " late" : age >= target ? " warn" : "");
 }
 
 function buildCard(order, open) {
@@ -349,7 +364,7 @@ function buildCard(order, open) {
     const allergyItems = [...new Set(dishes.filter((dish) => dish.allergies.length).map((dish) => dish.name))];
     const name = order.name || t("No name");
 
-    const timer = el("span", { className: timerClass(order), attrs: { "data-start": order.start_time } },
+    const timer = el("span", { className: timerClass(order), attrs: { "data-start": order.start_time, "data-target": targetOf(order) } },
         [icon(P.clock, 18, 2.2), el("span", { text: fmtElapsed(ageOf(order)) })]);
     const head = el("button", { className: "card-head", attrs: { "aria-expanded": String(open) }, on: { click: () => toggle(order.order_id) } }, [
         el("span", { className: "order-num" }, [el("span", { className: "cap", text: "#" }), el("span", { className: "disp", text: order.order_id })]),
@@ -490,7 +505,7 @@ function tickHeader(shown = visibleOrders()) {
 
 setInterval(() => {
     listNode.querySelectorAll(".timer[data-start]").forEach((node) => {
-        const order = { start_time: node.dataset.start };
+        const order = { start_time: node.dataset.start, target: Number(node.dataset.target) || 600 };
         node.lastElementChild.textContent = fmtElapsed(ageOf(order));
         node.className = timerClass(order);
     });

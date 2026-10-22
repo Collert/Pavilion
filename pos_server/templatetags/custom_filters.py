@@ -24,5 +24,5 @@ def kds_url():
     from django.urls import reverse
     from django.utils.http import urlencode
     from pos_server.models import Station
-    codes = list(Station.objects.values_list("code", flat=True))
+    codes = list(Station.objects.filter(archived=False).values_list("code", flat=True))
     return reverse("order_marking") + ("?" + urlencode([("filter", code) for code in codes]) if codes else "")
