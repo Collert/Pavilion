@@ -1,0 +1,38 @@
+{
+  "title": "Voice channel",
+  "description": "Spoken calls, chimes and announcements",
+  "kind": "audio",
+  "channel": "voice",
+  "icon": "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5 11a7 7 0 0 0 14 0 M12 18v3",
+  "color": "#6FA8FF",
+  "template": "screens/audio/channel.html",
+  "params": {
+    "name": {
+      "type": "string",
+      "default": "Voice",
+      "label": "Name"
+    },
+    "source": {
+      "type": "choice",
+      "options": [
+        "order_calls",
+        "intercom",
+        "announcements"
+      ],
+      "default": "order_calls",
+      "label": "Source",
+      "help": "Order calls (spoken), the register intercom, or announcements from Pavilion"
+    },
+    "keep": {
+      "type": "int",
+      "default": 100,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "control": "slider",
+      "label": "When a channel above plays, play at",
+      "help": "Its volume while a higher channel plays"
+    }
+  }
+}

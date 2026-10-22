@@ -1955,3 +1955,35 @@ class ScreensEditorTests(AdminFixture, TestCase):
         self.assertEqual([s.name for s in e["panel"]["sessions"]], ["Register 1 display"])
         self.op(screen, f"sdel:{session.id}")
         self.assertFalse(ScreenSession.objects.exists())
+
+    def test_audio_tab(self):
+        from screens.models import Screen
+        screen = Screen.objects.create(name="Board", slug="board", layout={"widget": "clock"},
+                                       popups=[{"widget": "order_ready", "params": {}}])
+        e = self.op(screen, "tab:audio")
+        self.assertEqual(e["chans"], [])
+        e = self.op(screen, "aadd:music")
+        e = self.op(screen, "aadd:voice")
+        self.assertEqual([c["w"].channel for c in e["chans"]], ["music", "voice"])
+        e = self.op(screen, "aup:1", **{"a-0-name": "Lobby", "a-0-source": "stream", "a-0-keep": "100",
+                                         "a-1-name": "Calls", "a-1-source": "order_calls", "a-1-keep": "100"})
+        self.assertEqual([c["p"]["name"] for c in e["chans"]], ["Calls", "Lobby"])  # the voice channel is on top now
+        self.assertTrue(e["chans"][0]["top"])
+        e = self.op(screen, **{"a-0-name": "Calls", "a-1-name": "Lobby", "a-1-keep": "30"})
+        self.assertEqual(e["chans"][1]["p"]["keep"], 30)
+        self.assertIn("ducked", [b["kind"] for b in e["mix"][1]["bars"]])  # music drops while the calls play
+        # pop-ups pick from the screen's voice channels
+        voice_id = e["d"]["audio"][0]["id"]
+        e = self.op(screen, "tab:popups")
+        e = self.op(screen, "popen:0")
+        chime = next(f for f in e["pops"][0]["fields"] if f["name"] == "channel")
+        self.assertEqual(chime["options"], [("", "None"), (voice_id, "Calls")])
+        e = self.op(screen, f"pset:channel:{voice_id}", editing="pop:0")
+        e = self.op(screen, "tab:audio")
+        self.assertEqual(e["chans"][0]["used"], "Used by Order ready call-out")
+        e = self.op(screen, "atype:1:voice")
+        self.assertEqual(e["chans"][1]["w"].channel, "voice")
+        self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "save"})
+        screen.refresh_from_db()
+        self.assertEqual([c["widget"] for c in screen.audio], ["voice_channel", "voice_channel"])
+        self.assertEqual(screen.popups[0]["params"], {"channel": voice_id})

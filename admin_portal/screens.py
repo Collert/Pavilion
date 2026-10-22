@@ -8,7 +8,8 @@ The draft lives in the session while it's edited, with an undo history; Save wri
 screens to reload ("screens"). Nodes are addressed by path: "r" is the root, "r-0-1" the second child of its first.
 
     request.session["screen_edit_<id>"] = {"draft": {"name", "orient": "land"|"port", "bg", "public", "layout",
-                                                       "popups": [{"widget", "params"}]},
+                                                       "popups": [{"widget", "params"}],
+                                                       "audio": [{"id", "widget", "params"}], top channel first},
                                              "sel": "screen" or a path, "tab": "layout"|"popups", "open_pop": index,
                                              "pop_preview": a pop-up's name, "hist": [earlier drafts]}
 
@@ -119,7 +120,8 @@ def orient_of(screen):
 
 def draft_of(screen) -> dict:
     return {"name": screen.name, "orient": orient_of(screen), "bg": screen.background, "public": screen.public,
-            "layout": copy.deepcopy(screen.layout) or None, "popups": copy.deepcopy(screen.popups or []), "sessions": screen.sessions}
+            "layout": copy.deepcopy(screen.layout) or None, "popups": copy.deepcopy(screen.popups or []), "sessions": screen.sessions,
+            "audio": copy.deepcopy(screen.audio or [])}
 
 
 def key(screen):
@@ -135,6 +137,7 @@ def load(request, screen) -> dict:
     state.setdefault("pop_preview", None)
     state["draft"].setdefault("popups", [])
     state["draft"].setdefault("sessions", screen.sessions)
+    state["draft"].setdefault("audio", [])
     return state
 
 
@@ -196,10 +199,20 @@ def target(draft, editing):
 
 
 def from_post(state, post, files):
-    """The posted fields onto the draft: the screen's name and the edited node's or pop-up's params."""
+    """The posted fields onto the draft: the screen's name, the audio channels shown, and the edited node's or
+    pop-up's params."""
     draft = state["draft"]
     if "name" in post:
         draft["name"] = post["name"].strip()[:100]
+    for i, channel in enumerate(draft["audio"]):  # the Audio tab shows every channel's fields: a-<index>-<param>
+        widget = registry.audio().get(channel.get("widget"))
+        if widget is None or f"a-{i}-name" not in post:
+            continue
+        params = clean_params(widget, channel.get("params"))
+        for name, param in widget.params.items():
+            if f"a-{i}-{name}" in post:
+                params[name] = _param_from_post(param, post[f"a-{i}-{name}"], params[name])
+        channel["params"] = _changed(widget, params)
     found = target(draft, post.get("editing", ""))
     if found is None:
         return []
@@ -319,7 +332,26 @@ def _apply(state, op, editing="") -> str:
         draft["public"] = not draft["public"]
     elif name == "sessions":
         draft["sessions"] = not draft["sessions"]
-    elif name == "tab" and arg in ("layout", "popups"):
+    elif name == "aadd" and arg in ("music", "voice"):
+        widget = f"{arg}_channel"
+        name_ = _("Lobby music") if arg == "music" else _("Order calls")
+        draft["audio"].append({"id": "c" + uuid.uuid4().hex[:6], "widget": widget, "params": {"name": str(name_)}})
+    elif name == "adel" and 0 <= _int(arg, -1) < len(draft["audio"]):
+        gone = draft["audio"].pop(_int(arg))
+        return _("%(name)s removed. Undo brings it back.") % {"name": gone.get("params", {}).get("name") or _("Channel")}
+    elif name in ("aup", "adown") and 0 <= _int(arg, -1) < len(draft["audio"]):
+        i = _int(arg)
+        j = i - 1 if name == "aup" else i + 1
+        if 0 <= j < len(draft["audio"]):
+            draft["audio"][i], draft["audio"][j] = draft["audio"][j], draft["audio"][i]
+    elif name == "atype":
+        index, _s, kind = arg.partition(":")
+        if 0 <= _int(index, -1) < len(draft["audio"]) and kind in ("music", "voice"):
+            channel = draft["audio"][_int(index)]
+            if channel["widget"] != f"{kind}_channel":
+                draft["audio"][_int(index)] = {**channel, "widget": f"{kind}_channel",
+                                               "params": {"name": channel.get("params", {}).get("name", "")}}
+    elif name == "tab" and arg in ("layout", "popups", "audio"):
         state["tab"] = arg
     elif name == "padd" and arg in registry.popups() and not any(p.get("widget") == arg for p in draft["popups"]):
         draft["popups"].append({"widget": arg, "params": {}})
@@ -381,6 +413,8 @@ def save(screen, state) -> list[str]:
         return errors
     screen.name, screen.background, screen.public, screen.layout = draft["name"], draft["bg"], draft["public"], draft["layout"]
     screen.sessions = draft["sessions"]
+    screen.audio = [{"id": c["id"], "widget": c["widget"], "params": c.get("params", {})} for c in draft["audio"]
+                    if c.get("widget") in registry.audio()]
     screen.popups = [{"widget": p["widget"], "params": _changed(registry.popups()[p["widget"]], clean_params(registry.popups()[p["widget"]], p.get("params")))}
                      for p in draft["popups"] if p.get("widget") in registry.popups()]
     if orient_of(screen) != draft["orient"]:
@@ -439,7 +473,9 @@ def list_page() -> dict:
         nodes = [n for _p, n, _d in walk(screen.layout)] if screen.layout else []
         widgets = sum(1 for n in nodes if n and (w := registry.get(n.get("widget"))) and not w.slots)
         cards.append({"s": screen, "thumb": thumb(screen), "orient": _("Landscape") if orient_of(screen) == "land" else _("Portrait"),
-                      "chips": [ngettext("%(n)d widget", "%(n)d widgets", widgets) % {"n": widgets}],
+                      "chips": [ngettext("%(n)d widget", "%(n)d widgets", widgets) % {"n": widgets},
+                                ngettext("%(n)d pop-up", "%(n)d pop-ups", len(screen.popups or [])) % {"n": len(screen.popups or [])},
+                                (ngettext("%(n)d audio", "%(n)d audio", len(screen.audio or [])) % {"n": len(screen.audio or [])}) if screen.audio else _("Silent")],
                       "where": _("Anyone with the link") if screen.public else _("Staff only")})
     return {"cards": cards}
 
@@ -474,12 +510,45 @@ def _field(name, param, value, source_options):
     return f
 
 
-def source_options() -> dict:
+def source_options(draft) -> dict:
     from pos_server.models import Dish, Menu
-    return {"menus": [(0, _("Pick a menu"))] + [(m.id, m.title) for m in Menu.objects.all().order_by("position", "id")],
-            "dishes": [(0, _("Pick a dish"))] + [(d.id, d.title) for d in Dish.objects.filter(archived=False).order_by("title")],
-            "audio:music": [("", _("No music channels on this screen yet"))],
-            "audio:voice": [("", _("No voice channels on this screen yet"))]}
+    out = {"menus": [(0, _("Pick a menu"))] + [(m.id, m.title) for m in Menu.objects.all().order_by("position", "id")],
+           "dishes": [(0, _("Pick a dish"))] + [(d.id, d.title) for d in Dish.objects.filter(archived=False).order_by("title")]}
+    for kind in ("music", "voice"):
+        channels = [(c["id"], c.get("params", {}).get("name") or c["id"]) for c in draft.get("audio", []) if c.get("widget") == f"{kind}_channel"]
+        none = _("None") if channels else (_("No music channels on this screen yet") if kind == "music" else _("No voice channels on this screen yet"))
+        out[f"audio:{kind}"] = [("", none)] + channels
+    return out
+
+
+def _mix(channels):
+    """The "How they mix" chart: a minute of each channel as bars; lower channels drop while a voice above speaks."""
+    import math
+    lanes, speaking = [], [False] * 40
+    for i, (c, widget) in enumerate(channels):
+        voice = widget.channel == "voice"
+        keep = clean_params(widget, c.get("params"))["keep"]
+        bars = []
+        for k in range(40):
+            if voice:
+                on = any(a <= (k + i * 7) % 40 < a + 5 for a in (6, 25))
+                bars.append({"h": round(55 + 40 * abs(math.sin(k * 1.3))) if on else 8, "kind": "voice" if on else "quiet"})
+            else:
+                h = round(40 + 50 * abs(math.sin(k * 0.6 + i)))
+                ducked = i > 0 and speaking[k]
+                bars.append({"h": max(8, round(h * keep / 100)) if ducked else h, "kind": "ducked" if ducked else "music"})
+        if voice:
+            speaking = [s or b["kind"] == "voice" for s, b in zip(speaking, bars)]
+        lanes.append({"name": c.get("params", {}).get("name") or widget.title, "bars": bars})
+    return lanes
+
+
+SOURCE_LABELS = {"playlist": _("A playlist from the Library"), "stream": _("Internet radio stream"),
+                 "order_calls": _("Order calls (spoken)"), "intercom": _("Register intercom"), "announcements": _("Announcements from Pavilion")}
+
+
+def _source_label(value):
+    return SOURCE_LABELS.get(value, value)
 
 
 def editor_page(screen, state) -> dict:
@@ -541,13 +610,13 @@ def editor_page(screen, state) -> dict:
                  "warn": ngettext("%(n)d empty slot shows as blank space on the screen.", "%(n)d empty slots show as blank space on the screen.", empty) % {"n": empty} if empty else ""}
     elif widget:
         params = clean_params(widget, node.get("params"))
-        options = source_options()
+        options = source_options(draft)
         panel = {"kind": "widget", "w": widget, "fields": [_field(n, p, params[n], options) for n, p in widget.params.items()]}
     else:
         panel = {"kind": "missing"}
 
     # pop-ups
-    options = source_options()
+    options = source_options(draft)
     pops = []
     for i, spec in enumerate(draft["popups"]):
         w = registry.popups().get(spec.get("widget"))
@@ -558,6 +627,26 @@ def editor_page(screen, state) -> dict:
                      "fields": [_field(n, p, params[n], options) for n, p in w.params.items()] if state["open_pop"] == i else []})
     taken = {p.get("widget") for p in draft["popups"]}
     pop_lib = [{"name": n, "w": w, "added": n in taken} for n, w in registry.popups().items()]
+    # audio channels
+    channels = [(c, registry.audio()[c["widget"]]) for c in draft["audio"] if c.get("widget") in registry.audio()]
+    users = {}
+    for _p, n, _d in walk(tree):
+        if n and isinstance(n.get("params"), dict) and n["params"].get("channel"):
+            users.setdefault(n["params"]["channel"], []).append(label(n))
+    for p in draft["popups"]:
+        w = registry.popups().get(p.get("widget"))
+        if w and (p.get("params") or {}).get("channel"):
+            users.setdefault(p["params"]["channel"], []).append(w.title)
+    chans = []
+    for i, (c, w) in enumerate(channels):
+        params = clean_params(w, c.get("params"))
+        used = users.get(c["id"], [])
+        chans.append({"i": i, "c": c, "w": w, "p": params, "n": i + 1, "top": i == 0, "last": i == len(channels) - 1,
+                      "source": [(o, _source_label(o)) for o in w.params["source"].options],
+                      "keep_example": _("Lobby music at %(n)d%% means it’s still there, just softer, while an order is called.") % {"n": params["keep"]}
+                      if w.channel == "music" else _("At 100% it keeps playing at full volume."),
+                      "used": (_("Used by %(what)s") % {"what": ", ".join(used)}) if used else _("Not used by any widget or pop-up yet.")})
+
     tab = state["tab"]
     editing = f"pop:{state['open_pop']}" if tab == "popups" and state["open_pop"] is not None else (sel if isinstance(node, dict) else "")
 
@@ -574,6 +663,7 @@ def editor_page(screen, state) -> dict:
                    + hashlib.sha1(json.dumps(draft, sort_keys=True).encode()).hexdigest()[:10],
         "ratio": f"{width} / {height}", "orient_label": _("Landscape 16:9") if draft["orient"] == "land" else _("Portrait 9:16"),
         "editing": editing, "n_widgets": n_widgets, "tab": tab, "pops": pops, "pop_lib": pop_lib,
-        "tabs": [("layout", _("Layout"), n_widgets), ("popups", _("Pop-ups"), len(pops))],
+        "tabs": [("layout", _("Layout"), n_widgets), ("popups", _("Pop-ups"), len(pops)), ("audio", _("Audio"), len(chans))],
+        "chans": chans, "mix": _mix(channels),
         "address": reverse("screen", args=[screen.slug]),
     }

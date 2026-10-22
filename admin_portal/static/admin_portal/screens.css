@@ -147,3 +147,36 @@
 .sc-device { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--softer); }
 .sc-device .strong { font-size: 13px; }
 .sc-code { height: 26px; padding: 0 8px; border-radius: 8px; background: var(--ink); color: var(--amber); font-size: 12px; font-weight: 800; letter-spacing: .12em; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
+
+/* audio */
+.sc-mix { margin-top: 12px; border-radius: 16px; background: var(--ink); padding: 12px 12px 10px; }
+.sc-mix-head { display: flex; align-items: center; justify-content: space-between; color: var(--rail-ink); }
+.sc-mix-head > span:last-child { font-size: 10px; font-weight: 700; color: #6F857A; }
+.sc-lane { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.sc-lane-name { width: 74px; flex: none; font-size: 10px; font-weight: 800; color: #E6EEE9; }
+.sc-lane-bars { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 26px; }
+.sc-lane-bars span { flex: 1; border-radius: 1px; }
+.sc-lane-bars .music { background: #B9A6F0; }
+.sc-lane-bars .voice { background: #6FA8FF; }
+.sc-lane-bars .quiet { background: rgba(255, 255, 255, .12); }
+.sc-lane-bars .ducked { background: #F3A99A; }
+.sc-mix-keys { display: flex; gap: 12px; margin-top: 8px; font-size: 10px; font-weight: 700; color: var(--rail-ink); flex-wrap: wrap; }
+.sc-mix-keys span { display: inline-flex; align-items: center; gap: 4px; }
+.sc-mix-keys i { width: 8px; height: 8px; border-radius: 2px; }
+.sc-mix-keys .music { background: #B9A6F0; }
+.sc-mix-keys .voice { background: #6FA8FF; }
+.sc-mix-keys .ducked { background: #F3A99A; }
+.sc-chans { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.sc-chan { border-radius: 16px; background: var(--softer); padding: 12px; }
+.sc-chan-head { display: flex; align-items: center; gap: 8px; }
+.sc-chan-n { width: 22px; height: 22px; border-radius: 11px; background: var(--ink); color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.sc-chan-name { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: none; border-radius: 10px; background: var(--surface); font: inherit; font-size: 14px; font-weight: 800; color: var(--ink); }
+.sc-chan-head .ico { width: 28px; height: 28px; }
+.sc-chan-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.sc-chan-type { background: #E8EDE9; }
+.sc-chan-type .seg-btn { height: 28px; }
+.sc-chan-source { height: 36px; padding: 0 8px; border: none; border-radius: 10px; background: var(--surface); font: inherit; font-size: 12px; font-weight: 800; color: var(--ink); min-width: 0; }
+.sc-chan-top { font-size: 11px; font-weight: 700; color: var(--brand); margin-top: 8px; }
+.sc-add { height: 40px; border-radius: 20px; border: none; font-size: 13px; font-weight: 800; }
+.sc-add.music { background: var(--mint); color: var(--brand); }
+.sc-add.voice { background: var(--blue-soft); color: var(--blue-ink); }

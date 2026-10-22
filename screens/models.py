@@ -30,6 +30,8 @@ class Screen(models.Model):
         "shows only on that display). Off: every display shows the same screen."))
     popups = models.JSONField(_("pop-ups"), default=list, blank=True,
                               help_text=_('Pop-up widgets shown over the screen: [{"widget": "order_ready", "params": {...}}]'))
+    audio = models.JSONField(_("audio channels"), default=list, blank=True, help_text=_(
+        'Audio widgets, highest priority first: [{"id": "c1", "widget": "music_channel", "params": {...}}]'))
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

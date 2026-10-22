@@ -600,6 +600,9 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   screen, or for one with sessions its session picker (`sessions`: open one, or start a named one). The register's
   Screens sheet pairs with a session by code and sends staff announcements; while paying it posts the order to its
   session (`summary`), which the `order_summary` pop-up shows on that display only.
+  The Audio tab (visual only for now) lists the screen's audio channels (`Screen.audio`, music or voice, top one
+  wins): name, order, type, source, the level it drops to while a channel above plays, what uses it, and a "How they
+  mix" chart; pop-ups' "Chime on"/"Play on" and Now playing pick from them. Playback comes with the audio backend.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

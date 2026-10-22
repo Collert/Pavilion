@@ -166,6 +166,10 @@ announcement from the register's Screens sheet) are recorded in the cache by `po
 scheduled ones (a menu starting, an event coming up) are worked out at render time. A pop-up's context is
 `fn(request, params, now)` returning `show`, `until` (hide) and `next` (look again), turned into a hidden data-ends.
 
+**Audio** widgets (`kind: audio`: `music_channel`, `voice_channel`) are listed on `Screen.audio`, top priority first,
+each with an `id` that pop-ups and widgets pick with a `source: "audio:voice"`/`"audio:music"` param. Only the
+editor's Audio tab exists so far: nothing plays until the audio backend (Audio channels, Library) is built.
+
 **Sessions:** a screen with `sessions` on is opened per display: Apps → Screens → the screen → open or start a
 `ScreenSession` (`/screens/<slug>/s/<code>`; the code shows in a corner until a register pairs). A register pairs in
 its Screens sheet by typing the code (`screens_pair`; kept in the register's localStorage) and, while it takes
