@@ -24,8 +24,9 @@ Params may also say how the editor shows them: `control` ("slider" for a number)
 `step`, `presets` (colours to pick from) and `source` (the value is picked from a list instead: "menus", "dishes",
 "audio:music" or "audio:voice", the screen's audio channels of that kind).
 
-The widget's name is its file name. Definitions are read from disk on every call in DEBUG (edit and reload) and
-once per process otherwise; they are part of the code, not cross-request state.
+The widget's name is its file name. Definitions are read once per process; in DEBUG they're read again when a file
+changes (checked at most once a second), so editing a definition shows on the next reload. They are part of the code,
+not cross-request state.
 
 A **menu template** is a special kind of widget ("kind": "menu_template", file name menu_<name>.json): a menu-board
 layout. Screens don't place it directly; the "menu_board" widget shows a menu with the template picked in the menu's
@@ -41,6 +42,7 @@ says how it lays a menu out:
 """
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
@@ -163,8 +165,23 @@ def _read_all():
 _read_cached = cache(_read_all)
 
 
+_dev = {"checked": 0.0, "stamp": None, "widgets": None}
+
+
+def _stamp():
+    return tuple((p.name, p.stat().st_mtime_ns) for p in sorted(WIDGETS_DIR.glob("*.json")))
+
+
 def _everything() -> dict:
-    return _read_all() if settings.DEBUG else _read_cached()
+    if not settings.DEBUG:
+        return _read_cached()
+    now = time.monotonic()
+    if _dev["widgets"] is None or now - _dev["checked"] > 1:
+        _dev["checked"] = now
+        stamp = _stamp()
+        if stamp != _dev["stamp"]:
+            _dev.update(stamp=stamp, widgets=_read_all())
+    return _dev["widgets"]
 
 
 def widgets() -> dict:

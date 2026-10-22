@@ -1987,3 +1987,14 @@ class ScreensEditorTests(AdminFixture, TestCase):
         screen.refresh_from_db()
         self.assertEqual([c["widget"] for c in screen.audio], ["voice_channel", "voice_channel"])
         self.assertEqual(screen.popups[0]["params"], {"channel": voice_id})
+
+    def test_previewing_a_popup_again_and_its_time(self):
+        from screens.models import Screen
+        screen = Screen.objects.create(name="Board", slug="board", layout={"widget": "clock"},
+                                       popups=[{"widget": "order_ready", "params": {"seconds": 4}}])
+        first = self.op(screen, "ppreview:0")["preview_popup"]
+        again = self.op(screen, "ppreview:0")["preview_popup"]
+        self.assertNotEqual(first, again)  # the frame shows it again
+        preview = self.client.get(reverse("admin_screen_preview", args=[screen.id]) + "?popup=order_ready")
+        self.assertContains(preview, 'data-preview-seconds="4"')  # and hides it after its own time
+        self.assertEqual(self.op(screen, "sel:screen")["preview_popup"], "")

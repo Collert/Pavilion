@@ -276,6 +276,7 @@ def render_popups(screen, request, result, force=None):
             state, html = {"show": False}, ""
         ends = state.get("until") if state.get("show") else state.get("next")
         timer = format_html('<span hidden data-ends="{}"></span>', int(ends.timestamp() * 1000)) if ends and not force else ""
-        parts.append(format_html('<div class="popup-slot" id="pop-{}-{}" data-region>{}{}</div>', index, widget.name,
+        shown_for = format_html(' data-preview-seconds="{}"', params.get("seconds", 6)) if force == widget.name else ""
+        parts.append(format_html('<div class="popup-slot" id="pop-{}-{}" data-region{}>{}{}</div>', index, widget.name, shown_for,
                                  mark_safe(html), timer))
     return mark_safe("".join(parts))

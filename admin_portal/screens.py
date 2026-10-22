@@ -334,7 +334,7 @@ def _apply(state, op, editing="") -> str:
         draft["sessions"] = not draft["sessions"]
     elif name == "aadd" and arg in ("music", "voice"):
         widget = f"{arg}_channel"
-        name_ = _("Lobby music") if arg == "music" else _("Order calls")
+        name_ = _("Music") if arg == "music" else _("Voice")  # the channel's Music/Voice switch changes it
         draft["audio"].append({"id": "c" + uuid.uuid4().hex[:6], "widget": widget, "params": {"name": str(name_)}})
     elif name == "adel" and 0 <= _int(arg, -1) < len(draft["audio"]):
         gone = draft["audio"].pop(_int(arg))
@@ -349,8 +349,10 @@ def _apply(state, op, editing="") -> str:
         if 0 <= _int(index, -1) < len(draft["audio"]) and kind in ("music", "voice"):
             channel = draft["audio"][_int(index)]
             if channel["widget"] != f"{kind}_channel":
-                draft["audio"][_int(index)] = {**channel, "widget": f"{kind}_channel",
-                                               "params": {"name": channel.get("params", {}).get("name", "")}}
+                name_ = channel.get("params", {}).get("name", "")
+                if name_ in (str(_("Music")), str(_("Voice"))):  # still the default name: follow the switch
+                    name_ = str(_("Music")) if kind == "music" else str(_("Voice"))
+                draft["audio"][_int(index)] = {**channel, "widget": f"{kind}_channel", "params": {"name": name_}}
     elif name == "tab" and arg in ("layout", "popups", "audio"):
         state["tab"] = arg
     elif name == "padd" and arg in registry.popups() and not any(p.get("widget") == arg for p in draft["popups"]):
@@ -365,6 +367,7 @@ def _apply(state, op, editing="") -> str:
         state["open_pop"] = None if state["open_pop"] == _int(arg) else _int(arg)
     elif name == "ppreview" and 0 <= _int(arg, -1) < len(draft["popups"]):
         state["pop_preview"] = draft["popups"][_int(arg)].get("widget")
+        state["pop_seq"] = state.get("pop_seq", 0) + 1  # pressing Preview again shows it again
     elif name in ("pset", "ptog", "pless", "pmore"):
         found = target(draft, editing or (sel if sel != "screen" else ""))
         if found is None:
@@ -663,7 +666,7 @@ def editor_page(screen, state) -> dict:
         "preview": reverse("admin_screen_preview", args=[screen.id]) + f"?sel={sel if tab == 'layout' else ''}"
                    + (f"&popup={state['pop_preview']}" if state["pop_preview"] else ""),
         "preview_v": hashlib.sha1(json.dumps(draft, sort_keys=True).encode()).hexdigest()[:10],
-        "preview_sel": sel if tab == "layout" and sel != "screen" else "", "preview_popup": state["pop_preview"] or "",
+        "preview_sel": sel if tab == "layout" and sel != "screen" else "", "preview_popup": f"{state['pop_preview']}-{state.get('pop_seq', 0)}" if state["pop_preview"] else "",
         "ratio": f"{width} / {height}", "orient_label": _("Landscape 16:9") if draft["orient"] == "land" else _("Portrait 9:16"),
         "editing": editing, "n_widgets": n_widgets, "tab": tab, "pops": pops, "pop_lib": pop_lib,
         "tabs": [("layout", _("Layout"), n_widgets), ("popups", _("Pop-ups"), len(pops)), ("audio", _("Audio"), len(chans))],

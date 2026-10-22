@@ -461,3 +461,25 @@ class SessionTests(TestCase):
         self.assertContains(page, reverse("screen_sessions", args=[self.screen.slug]))
         self.client.logout()
         self.assertEqual(self.client.post(reverse("screen_summary", args=["ABC-DEF"]), "{}", content_type="application/json").status_code, 401)
+
+
+class RegistryReloadTests(TestCase):
+    @override_settings(DEBUG=True)
+    def test_definitions_are_read_once_and_again_when_a_file_changes(self):
+        import os
+        from pathlib import Path
+        registry._dev.update(checked=0.0, stamp=None, widgets=None)
+        with mock.patch.object(registry, "_read_all", wraps=registry._read_all) as read:
+            registry.widgets()
+            registry.widgets()
+            registry.get("clock")
+            self.assertEqual(read.call_count, 1)  # not once per lookup
+            path = Path(registry.WIDGETS_DIR) / "clock.json"
+            stat = path.stat()
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
+            try:
+                registry._dev["checked"] = 0.0
+                registry.widgets()
+                self.assertEqual(read.call_count, 2)
+            finally:
+                os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))

@@ -56,7 +56,18 @@ async function refresh(url) {
     })));
     const current = document.getElementById("page");
     current.replaceWith(document.importNode(page, true));
+    hidePreviewedPopup();
 }
+
+// A pop-up shown with Preview goes away after its "Show for" time, like on the real screen
+let hideTimer;
+function hidePreviewedPopup() {
+    clearTimeout(hideTimer);
+    const slot = document.querySelector("[data-preview-seconds]");
+    if (!slot?.querySelector(".popup")) return;
+    hideTimer = setTimeout(() => slot.querySelector(".popup")?.remove(), Number(slot.dataset.previewSeconds || 6) * 1000);
+}
+hidePreviewedPopup();
 
 window.addEventListener("message", (event) => {
     if (event.origin !== location.origin || typeof event.data !== "object" || !event.data) return;

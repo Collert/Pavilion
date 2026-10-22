@@ -120,10 +120,7 @@ picking a node there, or dropping a widget from the library on an empty slot, co
                 <div class="sc-none">{% trans "This screen is silent." %}</div>
                 {% endfor %}
             </div>
-            <div class="sc-two top12">
-                <button class="sc-add music" name="op" value="aadd:music">{% trans "+ Music channel" %}</button>
-                <button class="sc-add voice" name="op" value="aadd:voice">{% trans "+ Voice channel" %}</button>
-            </div>
+            <button class="sc-add top12" name="op" value="aadd:music">{% trans "+ Add channel" %}</button>
             <div class="sc-help top12">{% trans "Channels don’t play yet: playback comes with Audio channels and the Library." %}</div>
             {% else %}
             <div class="ov muted">{% trans "Layout" %}</div>
