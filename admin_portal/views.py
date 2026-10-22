@@ -35,6 +35,7 @@ from services.models import Service
 from . import branding as branding_data
 from . import catering as catering_data
 from . import combos as combos_data
+from . import audio as audio_data
 from . import events as events_data
 from . import hours as hours_data
 from . import screens as screens_data
@@ -1114,6 +1115,35 @@ def screen_preview(request, id):
     rendered = render_screen(shown, request, editing={"sel": request.GET.get("sel", ""), "popup": request.GET.get("popup", "")})
     return render(request, "screens/screen.html", {"screen": shown, "rendered": rendered, "topics": [], "preview": True,
                                                    "now_ms": int(time_.time() * 1000)})
+
+
+# ---------- audio channels ----------
+
+@superuser_required
+def audio_channels(request):
+    """Audio channels: the list and the selected channel, one form with Save (admin_portal/audio.py)."""
+    new = None
+    if request.method == "POST":
+        draft, op = audio_data.from_post(request.POST), request.POST.get("op", "")
+        if op == "save":
+            problems = audio_data.problems(draft)
+            if problems:
+                messages.error(request, problems[0])
+            else:
+                audio_data.save(draft)
+                publish("screens")
+                messages.success(request, _("Audio channels saved. Screens pick up the changes on their next refresh."))
+                return redirect("admin_audio")
+        elif op == "new" or op.startswith("newkind:"):
+            kind = op.partition(":")[2] or request.POST.get("new_kind") or "music"
+            new = {"name": request.POST.get("new_name", ""), "kind": kind if kind in audio_data.TYPES else "music"}
+        elif op != "closenew":
+            toast = audio_data.apply_op(draft, op, request.POST)
+            if toast:
+                messages.success(request, toast)
+    else:
+        draft = audio_data.draft_of()
+    return page(request, "admin_portal/audio.html", "audio", {"a": audio_data.page(draft, new)})
 
 
 # ---------- branding ----------

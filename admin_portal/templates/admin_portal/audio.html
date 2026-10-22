@@ -1,0 +1,133 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Audio channels (design: AdminAudio; admin_portal/audio.py: page). One form with Save: the list (filtered by type) and
+the selected channel. Every channel's fields are posted (the others as hidden inputs), so picking another, adding one
+or archiving keeps what's changed until Save.
+{% endcomment %}
+{% block title %}{% trans "Audio channels" %}{% endblock %}
+{% block main_class %}st-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/stations.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/audio.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_audio' %}" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="audio-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Audio channels" %}</h1>
+    </div>
+    <span class="saved-text {{ a.status_kind }}">{{ a.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New channel" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not a.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="st-body" id="audio-body" data-region>
+    <input type="hidden" name="count" value="{{ a.count }}"><input type="hidden" name="sel" value="{{ a.d.sel }}"><input type="hidden" name="filter" value="{{ a.d.filter }}">
+    {% for g in a.d.gone %}<input type="hidden" name="gone" value="{{ g }}">{% endfor %}
+    {% for r in a.d.rows %}{% if forloop.counter0 != a.d.sel %}
+    <input type="hidden" name="ch-{{ forloop.counter0 }}-id" value="{{ r.id }}"><input type="hidden" name="ch-{{ forloop.counter0 }}-name" value="{{ r.name }}">
+    <input type="hidden" name="ch-{{ forloop.counter0 }}-kind" value="{{ r.kind }}"><input type="hidden" name="ch-{{ forloop.counter0 }}-notes" value="{{ r.notes }}">
+    {% endif %}{% endfor %}
+
+    <section class="st-list card" aria-label="{% trans 'Channels' %}">
+        <div class="au-filters" role="tablist" aria-label="{% trans 'Filter channels' %}">
+            {% for key, label, n in a.filters %}<button role="tab" name="op" value="filter:{{ key }}" aria-selected="{% if a.d.filter == key %}true{% else %}false{% endif %}">{{ label }}<span>{{ n }}</span></button>{% endfor %}
+        </div>
+        <div class="st-rows">
+            {% for x in a.items %}
+            <button class="st-row{% if x.on %} on{% endif %}" name="op" value="pick:{{ x.k }}" aria-pressed="{% if x.on %}true{% else %}false{% endif %}">
+                <span class="st-tile" style="background: {{ x.t.color }}">{% icon x.t.icon 22 2 %}</span>
+                <span class="st-row-text">
+                    <span class="st-row-top"><span class="st-row-name ellipsis">{{ x.name|default:_("Untitled") }}</span><span class="st-code" style="--c: {{ x.t.color }}">{{ x.t.label }}</span></span>
+                    <span class="st-row-sub ellipsis">{{ x.sub }}</span>
+                </span>
+            </button>
+            {% empty %}
+            <div class="au-none">{{ a.empty }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% with e=a.e %}{% if e %}
+    <section class="st-edit" aria-label="{% trans 'Channel settings' %}">
+        <input type="hidden" name="ch-{{ e.k }}-id" value="{{ e.r.id }}"><input type="hidden" name="ch-{{ e.k }}-kind" value="{{ e.r.kind }}">
+        <div class="card st-card">
+            <div class="st-ident">
+                <span class="st-big-tile" style="background: {{ e.t.color }}; --c: {{ e.t.color }}">{% icon e.t.icon 38 1.8 %}</span>
+                <label class="grow"><span class="lbl">{% trans "Channel name" %}</span><input class="field au-name" name="ch-{{ e.k }}-name" value="{{ e.r.name }}" maxlength="32" placeholder="{% trans 'e.g. Lobby music' %}"></label>
+            </div>
+            {% if e.name_err %}<div class="st-err">{{ e.name_err }}</div>{% endif %}
+            <div class="lbl top18">{% trans "Type" %}</div>
+            <div class="au-types" role="radiogroup" aria-label="{% trans 'Channel type' %}">
+                {% for key, t in e.types %}
+                <button role="radio" name="op" value="kind:{{ key }}" aria-checked="{% if e.r.kind == key %}true{% else %}false{% endif %}" style="--c: {{ t.color }}">
+                    <span class="au-type-tile">{% icon t.icon 22 2 %}</span>
+                    <span class="grow two-line"><span class="strong">{{ t.label }}</span><span class="au-desc">{{ t.desc }}</span></span>
+                    <span class="au-radio"><span></span></span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="au-plays"><span class="au-chip" style="--c: {{ e.t.color }}">{% icon e.t.icon 14 2.4 %}{{ e.t.where }}</span><span class="grow">{{ e.t.plays }}</span>
+                {% if e.talk %}<a class="st-link" href="{% url 'audio_talk' e.r.id %}" target="_blank" rel="noopener">{% trans "Push to talk" %} ›</a>{% endif %}</div>
+            {% if e.type_warn %}<div class="au-warn">{% icon "M12 4 2.5 20h19z M12 10v4 M12 17h.01" 18 2.2 %}<span>{{ e.type_warn }}</span></div>{% endif %}
+            <label class="st-block top18"><span class="lbl">{% trans "Notes" %} <span class="muted">· {% trans "optional" %}</span></span>
+                <textarea class="field au-notes" name="ch-{{ e.k }}-notes" rows="2" maxlength="140" placeholder="{% trans 'Where it plays or what it’s for, e.g. Ceiling speakers in the dining room' %}">{{ e.r.notes }}</textarea></label>
+        </div>
+
+        <div class="au-grid">
+            <div class="card st-card">
+                <div class="st-dish-head"><div class="grow"><h2 class="disp card-title">{{ e.use_head }}</h2><div class="card-sub">{{ e.use_sub }}</div></div>
+                    <a class="st-link" href="{% url 'admin_screens' %}">{% trans "Open Screens" %}</a></div>
+                <div class="au-uses">
+                    {% for u in e.uses %}
+                    <div class="au-use"><span class="au-frame {{ u.orient }}"></span>
+                        <span class="grow two-line"><span class="strong ellipsis">{{ u.screen }}</span><span class="small muted">{{ u.as }}</span></span>
+                        <span class="au-rank{% if u.rank == 1 %} top{% endif %}">{{ u.rank_text }}</span></div>
+                    {% empty %}
+                    <div class="au-empty">{{ e.no_uses }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card st-card">
+                <div class="ov muted">{% trans "Archive" %}</div>
+                <div class="small muted top8">{{ e.archive_hint }}</div>
+                <button class="st-archive" name="op" value="archive">{{ e.archive_text }}</button>
+            </div>
+        </div>
+    </section>
+    {% else %}
+    <section class="st-edit"><div class="card st-card au-pick">{% trans "No channels yet. Add one with New channel." %}</div></section>
+    {% endif %}{% endwith %}
+
+    {% if a.new %}
+    <div class="overlay">
+        <button class="scrim" name="op" value="closenew" aria-label="{% trans 'Close' %}"></button>
+        <div class="sheet au-sheet" role="dialog" aria-modal="true" aria-labelledby="new-ch-title">
+            <input type="hidden" name="new_kind" value="{{ a.new.kind }}">
+            <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="new-ch-title">{% trans "New audio channel" %}</h2>
+                <div class="small muted">{% trans "Name it and pick a type. You choose what plays on it later." %}</div></div>
+                <button class="close-btn" name="op" value="closenew" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
+            <label class="st-block"><span class="lbl">{% trans "Channel name" %}</span><input class="field au-name" name="new_name" value="{{ a.new.name }}" maxlength="32" placeholder="{% trans 'e.g. Bar playlist' %}" autofocus></label>
+            <div class="lbl">{% trans "Type" %}</div>
+            <div class="au-types col" role="radiogroup" aria-label="{% trans 'Channel type' %}">
+                {% for key, t in a.types %}
+                <button role="radio" name="op" value="newkind:{{ key }}" aria-checked="{% if a.new.kind == key %}true{% else %}false{% endif %}" style="--c: {{ t.color }}">
+                    <span class="au-type-tile">{% icon t.icon 24 2 %}</span>
+                    <span class="grow two-line"><span class="strong">{{ t.label }}</span><span class="au-desc">{{ t.desc }}</span></span>
+                    <span class="au-radio"><span></span></span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="sheet-foot">
+                <button class="btn-soft" name="op" value="closenew">{% trans "Cancel" %}</button>
+                <button class="btn-amber" name="op" value="create">{% trans "Create channel" %}</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+</form>
+{% endblock %}

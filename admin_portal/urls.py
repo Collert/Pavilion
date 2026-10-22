@@ -23,6 +23,7 @@ urlpatterns = [
     path("stations", views.stations, name="admin_stations"),
     path("events", views.events, name="admin_events"),
     path("screens", views.screens, name="admin_screens"),
+    path("audio", views.audio_channels, name="admin_audio"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),
     path("screens/<int:id>/preview", views.screen_preview, name="admin_screen_preview"),
     path("menus", views.menus, name="admin_menus"),

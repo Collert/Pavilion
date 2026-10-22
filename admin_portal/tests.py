@@ -2007,3 +2007,64 @@ class ScreensEditorTests(AdminFixture, TestCase):
         preview = self.client.get(reverse("admin_screen_preview", args=[screen.id]) + "?popup=order_ready")
         self.assertContains(preview, 'data-preview-seconds="4"')  # and hides it after its own time
         self.assertEqual(self.op(screen, "sel:screen")["preview_popup"], "")
+
+
+
+class AudioChannelsTests(AdminFixture, TestCase):
+    """The Audio channels page (admin_portal/audio.py): new channels, names, types, where they play, archiving."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_audio")
+
+    def fields(self, a, **changes):
+        data = {"count": str(a["count"]), "sel": str(a["d"]["sel"]), "filter": a["d"]["filter"], "gone": [str(g) for g in a["d"]["gone"]]}
+        for k, r in enumerate(a["d"]["rows"]):
+            for f in ("id", "name", "kind", "notes"):
+                data[f"ch-{k}-{f}"] = str(r[f])
+        data.update(changes)
+        return data
+
+    def post(self, a, op="preview", **changes):
+        return self.client.post(self.url, self.fields(a, op=op, **changes)).context["a"]
+
+    def test_new_channels_type_changes_and_archiving(self):
+        from audio.models import AudioChannel
+        from screens.models import Screen
+        calls = AudioChannel.objects.create(name="Order calls", kind="voice")
+        lobby = AudioChannel.objects.create(name="Lobby music", kind="music")
+        Screen.objects.create(name="Front counter", slug="front", layout={"widget": "clock"},
+                              audio=[{"id": "c1", "widget": "voice_channel", "params": {"channel": calls.id}},
+                                     {"id": "c2", "widget": "music_channel", "params": {"channel": lobby.id}}],
+                              popups=[{"widget": "order_ready", "params": {"channel": "c1"}}])
+        a = self.client.get(self.url).context["a"]
+        self.assertEqual([x["name"] for x in a["items"]], ["Lobby music", "Order calls"])
+        a = self.post(a, "pick:1")
+        self.assertEqual([(u["screen"], u["as"], u["rank_text"]) for u in a["e"]["uses"]],
+                         [("Front counter", "Order ready pop-up", "Top priority")])
+        self.assertTrue(a["e"]["talk"])
+        a = self.post(a, "new")
+        self.assertTrue(a["new"])
+        a = self.post(a, "create", new_name="Bar playlist", new_kind="music")
+        self.assertEqual((a["e"]["r"]["name"], a["status"]), ("Bar playlist", "Unsaved changes"))
+        a = self.post(a, "filter:voice")
+        self.assertEqual([x["name"] for x in a["items"]], ["Order calls"])
+        a = self.post(a, "pick:0")  # Lobby music
+        a = self.post(a, **{"ch-0-name": "Order calls"})
+        self.assertEqual(a["status"], "Each channel needs its own name")
+        a = self.post(a, **{"ch-0-name": "Lobby music", "ch-0-notes": "Dining room"})
+        a = self.post(a, "kind:voice")
+        self.assertIn("takes it off", a["e"]["type_warn"])
+        a = self.post(a, "kind:music")
+        a = self.post(a, "pick:1")
+        a = self.post(a, "archive")  # Order calls
+        self.assertRedirects(self.client.post(self.url, self.fields(a, op="save")), self.url, fetch_redirect_response=False)
+        self.assertTrue(AudioChannel.objects.get(pk=calls.id).archived)
+        self.assertEqual(AudioChannel.objects.get(pk=lobby.id).notes, "Dining room")
+        self.assertTrue(AudioChannel.objects.filter(name="Bar playlist", kind="music").exists())
+        front = Screen.objects.get(slug="front")
+        self.assertEqual([e["id"] for e in front.audio], ["c2"])  # taken off the screen
+        self.assertEqual(front.popups[0]["params"], {})  # and the call-out no longer points at it

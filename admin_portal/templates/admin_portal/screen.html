@@ -104,7 +104,7 @@ picking a node there, or dropping a widget from the library on an empty slot, co
                             <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:music" aria-pressed="{% if c.w.channel == 'music' %}true{% else %}false{% endif %}">{% trans "Music" %}</button>
                             <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:voice" aria-pressed="{% if c.w.channel == 'voice' %}true{% else %}false{% endif %}">{% trans "Voice" %}</button>
                         </div>
-                        <a class="sc-chan-source" href="{% url 'admin:audio_audiochannel_changelist' %}">{% trans "Edit channels" %} ›</a>
+                        <a class="sc-chan-source" href="{% url 'admin_audio' %}">{% trans "Edit channels" %} ›</a>
                     </div>
                     {% if c.top %}
                     <input type="hidden" name="a-{{ c.i }}-keep" value="{{ c.p.keep }}">
