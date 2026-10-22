@@ -62,11 +62,31 @@ def show(request, slug, code=None):
     rendered = render_screen(screen, request)
     topics = ["screens", *rendered.topics] + (["popups"] if session and "popups" not in rendered.topics else [])
     return render(request, "screens/screen.html", {
-        "screen": screen, "session": session,
+        "screen": screen, "session": session, "audio": audio_config(screen),
         "rendered": rendered,
         "topics": topics,
         "now_ms": int(time.time() * 1000),
     })
+
+
+def audio_config(screen) -> list:
+    """The screen's audio channels for screens/static/screens/audio-player.js, highest priority first."""
+    from django.urls import reverse
+
+    from audio.models import AudioChannel
+    out = []
+    for entry in screen.audio or []:
+        widget = registry.audio().get(entry.get("widget")) if isinstance(entry, dict) else None
+        params = entry.get("params") or {} if widget else {}
+        channel = AudioChannel.objects.filter(pk=params.get("channel") or 0, archived=False, kind=widget.channel).first() if widget else None
+        if channel is None:
+            continue
+        keep = params.get("keep", widget.params["keep"].default)
+        out.append({"id": entry.get("id", ""), "kind": channel.kind, "channel": channel.id, "name": channel.name,
+                    "keep": keep if isinstance(keep, int) and 0 <= keep <= 100 else 100,
+                    "now": reverse("audio_now", args=[channel.id]) if channel.kind == AudioChannel.MUSIC else "",
+                    "ws": f"/ws/voice/{channel.id}" if channel.kind == AudioChannel.VOICE else ""})
+    return out
 
 
 def _json(request):

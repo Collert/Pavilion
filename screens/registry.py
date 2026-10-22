@@ -22,7 +22,8 @@ its Layout, Pop-ups and Audio tabs. Optional `icon` (24×24 SVG path data) and `
 
 Params may also say how the editor shows them: `control` ("slider" for a number), `unit` ("s", "min", "%"),
 `step`, `presets` (colours to pick from) and `source` (the value is picked from a list instead: "menus", "dishes",
-"audio:music" or "audio:voice", the screen's audio channels of that kind).
+"audio:music" or "audio:voice", the screen's audio channels of that kind; "channels:music" or
+"channels:voice", the store's audio channels).
 
 The widget's name is its file name. Definitions are read once per process; in DEBUG they're read again when a file
 changes (checked at most once a second), so editing a definition shows on the next reload. They are part of the code,
@@ -58,7 +59,7 @@ NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 PARAM_TYPES = ("string", "text", "url", "image", "int", "number", "bool", "choice", "color", "size", "list")
 KINDS = ("visible", "popup", "audio", "menu_template")
 TRIGGERS = ("order_ready", "announcement", "menu_change", "event_reminder", "order_summary")
-SOURCES = ("menus", "dishes", "audio:music", "audio:voice")
+SOURCES = ("menus", "dishes", "audio:music", "audio:voice", "channels:music", "channels:voice")
 
 
 @dataclass(frozen=True)

@@ -74,3 +74,36 @@ class EventStreamTests(SimpleTestCase):
 
         asyncio.run(run())
         self.assertEqual(broker._subscribers, set())
+
+    def test_one_stream_carries_several_topics(self):
+        """A page listens to all its topics on one connection (browsers allow six per server over HTTP/1.1)."""
+        broker = realtime.LocalBroker()
+
+        async def run():
+            with mock.patch.object(realtime, "get_broker", return_value=broker):
+                stream = realtime.event_stream(["orders", "audio"])
+                self.assertIn("event: ready", await stream.__anext__())
+                waiting = asyncio.ensure_future(stream.__anext__())
+                await asyncio.sleep(0.05)
+                broker.publish("audio", "{}")
+                self.assertTrue((await waiting).startswith("event: audio\n"))
+                waiting = asyncio.ensure_future(stream.__anext__())
+                await asyncio.sleep(0.01)
+                broker.publish("menus", "{}")  # not listened to
+                broker.publish("orders", "{}")
+                self.assertTrue((await waiting).startswith("event: orders\n"))
+                await stream.aclose()
+
+        asyncio.run(run())
+        self.assertEqual(broker._subscribers, set())
+
+    def test_the_view_takes_a_list_and_checks_each_topic(self):
+        from asgiref.sync import async_to_sync
+        from django.contrib.auth.models import AnonymousUser
+        from django.http import Http404
+        from django.test import RequestFactory
+        request = RequestFactory().get("/events/orders,checkout")
+        request.user = AnonymousUser()
+        self.assertEqual(async_to_sync(realtime.stream_view)(request, "orders,checkout").status_code, 403)  # checkout is private
+        with self.assertRaises(Http404):
+            async_to_sync(realtime.stream_view)(request, "orders,nope")

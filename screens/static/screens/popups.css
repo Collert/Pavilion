@@ -41,3 +41,6 @@
 /* A session's pairing code, until a register pairs with it */
 .session-code { position: fixed; right: calc(var(--u) * 24); bottom: calc(var(--u) * 24); z-index: 40; display: flex; align-items: center; gap: calc(var(--u) * 14); padding: calc(var(--u) * 12) calc(var(--u) * 18); border-radius: calc(var(--u) * 18); background: rgba(20, 38, 31, .88); color: #FFFFFF; font-size: calc(var(--u) * 18); font-weight: 700; }
 .session-code b { padding: calc(var(--u) * 4) calc(var(--u) * 12); border-radius: calc(var(--u) * 8); background: #14261F; color: #F4A93B; font-size: calc(var(--u) * 24); letter-spacing: .12em; }
+
+/* Sound needs one tap on a screen with audio channels (screens/static/screens/audio-player.js) */
+.sound-on { position: fixed; left: 50%; bottom: calc(var(--u, 1px) * 40); transform: translateX(-50%); z-index: 60; padding: 14px 26px; border: none; border-radius: 999px; background: #14261F; color: #F4A93B; font: 800 18px/1 "Sora", system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); cursor: pointer; }

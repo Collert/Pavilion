@@ -1190,11 +1190,13 @@ class Command(BaseCommand):
     def seed_screens(self):
         # The order board comes with migrations (screens/0002): give it pop-ups (an order-ready call-out, staff
         # announcements, a reminder before events, menu changes) and audio (order calls over the lobby music)
+        from audio.models import AudioChannel
+        calls, lobby = AudioChannel.objects.get(name="Order calls"), AudioChannel.objects.get(name="Lobby music")
         Screen.objects.filter(slug="order-board").update(popups=[
             {"widget": "order_ready", "params": {"channel": "calls"}}, {"widget": "announcement", "params": {"channel": "calls"}},
             {"widget": "event_reminder", "params": {"before": 30}}, {"widget": "menu_change", "params": {}}], audio=[
-            {"id": "calls", "widget": "voice_channel", "params": {"name": "Order calls"}},
-            {"id": "lobby", "widget": "music_channel", "params": {"name": "Lobby music", "keep": 20}}])
+            {"id": "calls", "widget": "voice_channel", "params": {"channel": calls.id}},
+            {"id": "lobby", "widget": "music_channel", "params": {"channel": lobby.id, "keep": 20}}])
         # and a portrait one for a vertical TV
         Screen.objects.get_or_create(slug="pickup-portrait", defaults={
             "name": "Pickup (portrait)", "public": True, "width": 1080, "height": 1920, "padding": 32,

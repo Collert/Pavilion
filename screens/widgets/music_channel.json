@@ -1,26 +1,18 @@
 {
   "title": "Music channel",
-  "description": "Background music: a playlist or a radio stream",
+  "description": "Background music from a music channel (Store › Audio channels), in step on every screen",
   "kind": "audio",
   "channel": "music",
   "icon": "M9 18V6l10-2v12 M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3z M19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z",
   "color": "#B9A6F0",
   "template": "screens/audio/channel.html",
   "params": {
-    "name": {
-      "type": "string",
-      "default": "Music",
-      "label": "Name"
-    },
-    "source": {
-      "type": "choice",
-      "options": [
-        "playlist",
-        "stream"
-      ],
-      "default": "playlist",
-      "label": "Source",
-      "help": "A playlist from the Library, or an internet radio stream"
+    "channel": {
+      "type": "int",
+      "default": 0,
+      "min": 0,
+      "source": "channels:music",
+      "label": "Channel"
     },
     "keep": {
       "type": "int",

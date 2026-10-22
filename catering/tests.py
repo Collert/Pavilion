@@ -188,7 +188,7 @@ class CustomerPageTests(CateringFixture, TestCase):
         request = RequestFactory().get("/events/catering")
         request.user = AnonymousUser()
         self.assertTrue(async_to_sync(_can_listen)(request, "catering"))
-        self.assertFalse(async_to_sync(_can_listen)(request, "inventory"))
+        self.assertFalse(async_to_sync(_can_listen)(request, "checkout"))
 
 
 @override_settings(TAX_RATE="0")

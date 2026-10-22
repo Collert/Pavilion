@@ -22,6 +22,11 @@
         {{ rendered.html }}
         {% if session %}<div id="session-code" data-region>{% if not session.paired_by %}<div class="session-code">{% blocktrans with n=session.name %}{{ n }} · Pair a register with{% endblocktrans %} <b>{{ session.code }}</b></div>{% endif %}</div>{% endif %}
     </main>
+    {% if audio %}
+    {{ audio|json_script:"screen-audio" }}
+    <button class="sound-on" id="sound-on" hidden>{% trans "Tap to turn on sound" %}</button>
+    <script type="module" src="{% static 'screens/audio-player.js' %}"></script>
+    {% endif %}
     {% if preview %}<script type="module" src="{% static 'screens/preview.js' %}"></script>
     {% else %}
     {{ topics|json_script:"screen-topics" }}

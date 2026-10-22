@@ -483,3 +483,16 @@ class RegistryReloadTests(TestCase):
                 self.assertEqual(read.call_count, 2)
             finally:
                 os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+
+
+class PublicTopicTests(TestCase):
+    def test_public_screens_hear_every_topic_their_widgets_use(self):
+        from asgiref.sync import async_to_sync
+        from django.contrib.auth.models import AnonymousUser
+        from pavilion.realtime import _can_listen
+        request = RequestFactory().get("/events/menus")
+        request.user = AnonymousUser()
+        topics = {t for w in [*registry.widgets().values(), *registry.popups().values()] for t in w.live} | {"screens", "audio"}
+        for topic in topics:
+            self.assertTrue(async_to_sync(_can_listen)(request, topic), topic)
+        self.assertFalse(async_to_sync(_can_listen)(request, "checkout"))

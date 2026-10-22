@@ -206,7 +206,7 @@ def from_post(state, post, files):
         draft["name"] = post["name"].strip()[:100]
     for i, channel in enumerate(draft["audio"]):  # the Audio tab shows every channel's fields: a-<index>-<param>
         widget = registry.audio().get(channel.get("widget"))
-        if widget is None or f"a-{i}-name" not in post:
+        if widget is None or f"a-{i}-channel" not in post:
             continue
         params = clean_params(widget, channel.get("params"))
         for name, param in widget.params.items():
@@ -333,12 +333,13 @@ def _apply(state, op, editing="") -> str:
     elif name == "sessions":
         draft["sessions"] = not draft["sessions"]
     elif name == "aadd" and arg in ("music", "voice"):
-        widget = f"{arg}_channel"
-        name_ = _("Music") if arg == "music" else _("Voice")  # the channel's Music/Voice switch changes it
-        draft["audio"].append({"id": "c" + uuid.uuid4().hex[:6], "widget": widget, "params": {"name": str(name_)}})
+        from audio.models import AudioChannel
+        used = {c.get("params", {}).get("channel") for c in draft["audio"]}
+        pick = next((c.id for c in AudioChannel.objects.filter(kind=arg, archived=False) if c.id not in used), 0)
+        draft["audio"].append({"id": "c" + uuid.uuid4().hex[:6], "widget": f"{arg}_channel", "params": {"channel": pick} if pick else {}})
     elif name == "adel" and 0 <= _int(arg, -1) < len(draft["audio"]):
         gone = draft["audio"].pop(_int(arg))
-        return _("%(name)s removed. Undo brings it back.") % {"name": gone.get("params", {}).get("name") or _("Channel")}
+        return _("%(name)s removed. Undo brings it back.") % {"name": _channel_name(gone)}
     elif name in ("aup", "adown") and 0 <= _int(arg, -1) < len(draft["audio"]):
         i = _int(arg)
         j = i - 1 if name == "aup" else i + 1
@@ -349,10 +350,9 @@ def _apply(state, op, editing="") -> str:
         if 0 <= _int(index, -1) < len(draft["audio"]) and kind in ("music", "voice"):
             channel = draft["audio"][_int(index)]
             if channel["widget"] != f"{kind}_channel":
-                name_ = channel.get("params", {}).get("name", "")
-                if name_ in (str(_("Music")), str(_("Voice"))):  # still the default name: follow the switch
-                    name_ = str(_("Music")) if kind == "music" else str(_("Voice"))
-                draft["audio"][_int(index)] = {**channel, "widget": f"{kind}_channel", "params": {"name": name_}}
+                from audio.models import AudioChannel
+                pick = AudioChannel.objects.filter(kind=kind, archived=False).values_list("id", flat=True).first()
+                draft["audio"][_int(index)] = {**channel, "widget": f"{kind}_channel", "params": {"channel": pick} if pick else {}}
     elif name == "tab" and arg in ("layout", "popups", "audio"):
         state["tab"] = arg
     elif name == "padd" and arg in registry.popups() and not any(p.get("widget") == arg for p in draft["popups"]):
@@ -517,11 +517,21 @@ def source_options(draft) -> dict:
     from pos_server.models import Dish, Menu
     out = {"menus": [(0, _("Pick a menu"))] + [(m.id, m.title) for m in Menu.objects.all().order_by("position", "id")],
            "dishes": [(0, _("Pick a dish"))] + [(d.id, d.title) for d in Dish.objects.filter(archived=False).order_by("title")]}
+    from audio.models import AudioChannel
     for kind in ("music", "voice"):
-        channels = [(c["id"], c.get("params", {}).get("name") or c["id"]) for c in draft.get("audio", []) if c.get("widget") == f"{kind}_channel"]
+        store = list(AudioChannel.objects.filter(kind=kind, archived=False).values_list("id", "name"))
+        out[f"channels:{kind}"] = [(0, _("Pick a channel") if store else _("No channels yet: add one in Store › Audio channels"))] + store
+        channels = [(c["id"], _channel_name(c)) for c in draft.get("audio", []) if c.get("widget") == f"{kind}_channel"]
         none = _("None") if channels else (_("No music channels on this screen yet") if kind == "music" else _("No voice channels on this screen yet"))
         out[f"audio:{kind}"] = [("", none)] + channels
     return out
+
+
+def _channel_name(entry):
+    """The store channel a screen's audio entry plays, by name."""
+    from audio.models import AudioChannel
+    channel = AudioChannel.objects.filter(pk=(entry.get("params") or {}).get("channel") or 0).first()
+    return channel.name if channel else str(_("No channel picked"))
 
 
 def _mix(channels):
@@ -542,16 +552,8 @@ def _mix(channels):
                 bars.append({"h": max(8, round(h * keep / 100)) if ducked else h, "kind": "ducked" if ducked else "music"})
         if voice:
             speaking = [s or b["kind"] == "voice" for s, b in zip(speaking, bars)]
-        lanes.append({"name": c.get("params", {}).get("name") or widget.title, "bars": bars})
+        lanes.append({"name": _channel_name(c), "bars": bars})
     return lanes
-
-
-SOURCE_LABELS = {"playlist": _("A playlist from the Library"), "stream": _("Internet radio stream"),
-                 "order_calls": _("Order calls (spoken)"), "intercom": _("Register intercom"), "announcements": _("Announcements from Pavilion")}
-
-
-def _source_label(value):
-    return SOURCE_LABELS.get(value, value)
 
 
 def editor_page(screen, state) -> dict:
@@ -645,8 +647,8 @@ def editor_page(screen, state) -> dict:
         params = clean_params(w, c.get("params"))
         used = users.get(c["id"], [])
         chans.append({"i": i, "c": c, "w": w, "p": params, "n": i + 1, "top": i == 0, "last": i == len(channels) - 1,
-                      "source": [(o, _source_label(o)) for o in w.params["source"].options],
-                      "keep_example": _("Lobby music at %(n)d%% means it’s still there, just softer, while an order is called.") % {"n": params["keep"]}
+                      "name": _channel_name(c), "options": options[f"channels:{w.channel}"],
+                      "keep_example": _("%(name)s at %(n)d%% means it’s still there, just softer, while an order is called.") % {"name": _channel_name(c), "n": params["keep"]}
                       if w.channel == "music" else _("At 100% it keeps playing at full volume."),
                       "used": (_("Used by %(what)s") % {"what": ", ".join(used)}) if used else _("Not used by any widget or pop-up yet.")})
 

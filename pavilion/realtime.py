@@ -127,34 +127,42 @@ def publish(topic, **data):
 
 # ---------- streaming ----------
 
-async def event_stream(topic):
-    """SSE body: a 'ready' event, then one event per published message, with a 'ping' event as a heartbeat."""
-    yield f"retry: 3000\nevent: ready\ndata: {{}}\n\n"
-    messages = get_broker().subscribe(topic).__aiter__()
-    next_message = asyncio.ensure_future(messages.__anext__())
+async def event_stream(topics):
+    """SSE body for one or more topics: a 'ready' event, then one event per published message (named after its
+    topic), with a 'ping' event as a heartbeat. A page listens to all its topics on one stream: browsers allow only
+    six connections to a server over HTTP/1.1, and one stream per topic used them all up (pages and files hung)."""
+    if isinstance(topics, str):
+        topics = [topics]
+    yield "retry: 3000\nevent: ready\ndata: {}\n\n"
+    readers = {topic: get_broker().subscribe(topic).__aiter__() for topic in topics}
+    pending = {asyncio.ensure_future(reader.__anext__()): topic for topic, reader in readers.items()}
     try:
         while True:
-            done, _ = await asyncio.wait({next_message}, timeout=HEARTBEAT_SECONDS)
+            done, _ = await asyncio.wait(pending.keys(), timeout=HEARTBEAT_SECONDS, return_when=asyncio.FIRST_COMPLETED)
             if not done:
                 yield "event: ping\ndata: {}\n\n"  # an event, not a comment, so clients can tell the stream is alive
                 continue
-            message = next_message.result()
-            yield f"event: {topic}\ndata: {message}\n\n"
-            next_message = asyncio.ensure_future(messages.__anext__())
+            for future in done:
+                topic = pending.pop(future)
+                yield f"event: {topic}\ndata: {future.result()}\n\n"
+                pending[asyncio.ensure_future(readers[topic].__anext__())] = topic
     finally:
-        # The browser went away. Stop the pending read and let it actually finish before closing the
-        # subscription: cancel() only requests it, and aclose() on a generator that is still mid-await raises
+        # The browser went away. Stop the pending reads and let them actually finish before closing the
+        # subscriptions: cancel() only requests it, and aclose() on a generator that is still mid-await raises
         # "asynchronous generator is already running".
-        next_message.cancel()
-        try:
-            await next_message
-        except (asyncio.CancelledError, StopAsyncIteration):
-            pass
-        await messages.aclose()
+        for future in pending:
+            future.cancel()
+        for future in pending:
+            try:
+                await future
+            except (asyncio.CancelledError, StopAsyncIteration):
+                pass
+        for reader in readers.values():
+            await reader.aclose()
 
 
-def stream_response(topic):
-    response = StreamingHttpResponse(event_stream(topic), content_type="text/event-stream")
+def stream_response(topics):
+    response = StreamingHttpResponse(event_stream(topics), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"  # nginx: don't buffer the stream
     return response
@@ -163,8 +171,8 @@ def stream_response(topic):
 @sync_to_async
 def _can_listen(request, topic):
     from pos_server.devices import is_registered_device
-    if topic in ("orders", "screens", "catering"):
-        return True  # public screens and customers' catering pages listen too; a nudge carries no data, the page they refetch decides what to show
+    if topic in ("orders", "screens", "catering", "menus", "inventory", "popups", "audio"):
+        return True  # public screens (menu boards, pop-ups, music) and customers' catering pages listen too; a nudge carries no data, the page they refetch decides what to show
     user = request.user
     if not user.is_authenticated:
         return False
@@ -174,9 +182,11 @@ def _can_listen(request, topic):
 
 
 async def stream_view(request, topic):
-    """GET /events/<topic>: an SSE stream of change notifications."""
-    if topic not in TOPICS:
+    """GET /events/<topic>[,<topic>...]: one SSE stream of change notifications for every topic a page listens to."""
+    topics = list(dict.fromkeys(t for t in topic.split(",") if t))
+    if not topics or any(t not in TOPICS for t in topics):
         raise Http404
-    if not await _can_listen(request, topic):
-        return HttpResponseForbidden()
-    return stream_response(topic)
+    for t in topics:
+        if not await _can_listen(request, t):
+            return HttpResponseForbidden()
+    return stream_response(topics)

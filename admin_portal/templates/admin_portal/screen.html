@@ -94,17 +94,17 @@ picking a node there, or dropping a widget from the library on an empty slot, co
                 <div class="sc-chan">
                     <div class="sc-chan-head">
                         <span class="sc-chan-n num">{{ c.n }}</span>
-                        <input class="sc-chan-name" name="a-{{ c.i }}-name" value="{{ c.p.name }}" maxlength="28" aria-label="{% trans 'Channel name' %}">
-                        <button class="ico" name="op" value="aup:{{ c.i }}" {% if c.top %}disabled{% endif %} aria-label="{% blocktrans with n=c.p.name %}Move {{ n }} up{% endblocktrans %}">{% icon "m6 15 6-6 6 6" 14 2.6 %}</button>
-                        <button class="ico" name="op" value="adown:{{ c.i }}" {% if c.last %}disabled{% endif %} aria-label="{% blocktrans with n=c.p.name %}Move {{ n }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
-                        <button class="ico" name="op" value="adel:{{ c.i }}" aria-label="{% blocktrans with n=c.p.name %}Remove {{ n }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 13 2.4 %}</button>
+                        <select class="sc-chan-name" name="a-{{ c.i }}-channel" aria-label="{% trans 'Channel' %}">{% for v, lbl in c.options %}<option value="{{ v }}"{% if v == c.p.channel %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
+                        <button class="ico" name="op" value="aup:{{ c.i }}" {% if c.top %}disabled{% endif %} aria-label="{% blocktrans with n=c.name %}Move {{ n }} up{% endblocktrans %}">{% icon "m6 15 6-6 6 6" 14 2.6 %}</button>
+                        <button class="ico" name="op" value="adown:{{ c.i }}" {% if c.last %}disabled{% endif %} aria-label="{% blocktrans with n=c.name %}Move {{ n }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                        <button class="ico" name="op" value="adel:{{ c.i }}" aria-label="{% blocktrans with n=c.name %}Remove {{ n }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 13 2.4 %}</button>
                     </div>
                     <div class="sc-chan-row">
                         <div class="seg soft sc-seg sc-chan-type" role="radiogroup" aria-label="{% trans 'Channel type' %}">
                             <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:music" aria-pressed="{% if c.w.channel == 'music' %}true{% else %}false{% endif %}">{% trans "Music" %}</button>
                             <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:voice" aria-pressed="{% if c.w.channel == 'voice' %}true{% else %}false{% endif %}">{% trans "Voice" %}</button>
                         </div>
-                        <select class="sc-chan-source" name="a-{{ c.i }}-source" aria-label="{% trans 'Source' %}">{% for v, lbl in c.source %}<option value="{{ v }}"{% if v == c.p.source %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
+                        <a class="sc-chan-source" href="{% url 'admin:audio_audiochannel_changelist' %}">{% trans "Edit channels" %} ›</a>
                     </div>
                     {% if c.top %}
                     <input type="hidden" name="a-{{ c.i }}-keep" value="{{ c.p.keep }}">

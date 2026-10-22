@@ -4,49 +4,85 @@
 // right after every (re)connect, so anything missed while disconnected is caught up. Several events in quick
 // succession trigger a single refresh.
 //
+// Every topic a page listens to shares ONE stream (/events/orders,menus,...): browsers allow only six connections to
+// a server over HTTP/1.1, and a stream per topic used them all up, so images, songs and refetches hung. Adding a
+// topic reopens the stream with the new set.
+//
 // The server sends a "ping" event every 15 s. If nothing arrives for `staleMs` (a connection that died without
 // the browser noticing, e.g. behind a proxy), the stream is reopened, which refreshes once on "ready".
 //
 // refreshOnConnect: false skips the refresh when the stream first connects, for pages that arrive with their data
 // already rendered. Reconnects still refresh (that's how missed events are caught up).
-export function onLiveUpdate(topic, refresh, { debounceMs = 250, staleMs = 45000, refreshOnConnect = true } = {}) {
-    let timer = null;
-    let connectedBefore = false;
-    let source = null;
-    let lastHeard = Date.now();
-    const trigger = () => {
-        clearTimeout(timer);
-        timer = setTimeout(refresh, debounceMs);
-    };
-    const heard = () => { lastHeard = Date.now(); };
-    const connect = () => {
-        source?.close();
-        heard();
-        source = new EventSource(`/events/${topic}`);
-        source.addEventListener(topic, () => { heard(); trigger(); });
-        source.addEventListener("ready", () => {
+const STALE_MS = 45000;
+const listeners = new Set();  // {topic, trigger, refreshOnConnect, connectedBefore}
+let source = null;
+let openTopics = "";
+let lastHeard = Date.now();
+let reopenQueued = false;
+
+const heard = () => { lastHeard = Date.now(); };
+
+function wanted() {
+    return [...new Set([...listeners].map((l) => l.topic))].sort().join(",");
+}
+
+function connect() {
+    source?.close();
+    source = null;
+    openTopics = wanted();
+    if (!openTopics) return;
+    heard();
+    source = new EventSource(`/events/${openTopics}`);
+    for (const topic of openTopics.split(",")) {
+        source.addEventListener(topic, () => {
             heard();
-            if (connectedBefore || refreshOnConnect) trigger();
-            connectedBefore = true;
+            for (const l of listeners) if (l.topic === topic) l.trigger();
         });
-        source.addEventListener("ping", heard);
+    }
+    source.addEventListener("ready", () => {
+        heard();
+        for (const l of listeners) {
+            if (l.connectedBefore || l.refreshOnConnect) l.trigger();
+            l.connectedBefore = true;
+        }
+    });
+    source.addEventListener("ping", heard);
+}
+
+// Topics added in the same moment (a page's scripts starting) open one stream between them
+function reopenSoon() {
+    if (reopenQueued) return;
+    reopenQueued = true;
+    queueMicrotask(() => {
+        reopenQueued = false;
+        if (wanted() !== openTopics || !source) connect();
+    });
+}
+
+setInterval(() => {
+    if (source && Date.now() - lastHeard > STALE_MS) connect();
+}, STALE_MS / 3);
+
+// Leaving the page: let go of the stream. Browsers may keep the old page (back/forward cache) with its stream
+// still open, and a handful of those use up every connection to the server, so new pages hang. Coming back to a
+// cached page reconnects, which refreshes it.
+window.addEventListener("pagehide", () => { source?.close(); source = null; });
+window.addEventListener("pageshow", (event) => { if (event.persisted) connect(); });
+
+export function onLiveUpdate(topic, refresh, { debounceMs = 250, refreshOnConnect = true } = {}) {
+    let timer = null;
+    const listener = {
+        topic, refreshOnConnect, connectedBefore: false,
+        trigger: () => {
+            clearTimeout(timer);
+            timer = setTimeout(refresh, debounceMs);
+        },
     };
-    connect();
-    const watchdog = setInterval(() => {
-        if (source && Date.now() - lastHeard > staleMs) connect();
-    }, staleMs / 3);
-    // Leaving the page: let go of the stream. Browsers may keep the old page (back/forward cache) with its
-    // stream still open, and a handful of those use up every connection to the server, so new pages hang.
-    // Coming back to a cached page reconnects, which refreshes it.
-    const hide = () => { source?.close(); source = null; };
-    const show = (event) => { if (event.persisted) connect(); };
-    window.addEventListener("pagehide", hide);
-    window.addEventListener("pageshow", show);
+    listeners.add(listener);
+    reopenSoon();
     return () => {
         clearTimeout(timer);
-        clearInterval(watchdog);
-        window.removeEventListener("pagehide", hide);
-        window.removeEventListener("pageshow", show);
-        hide();
+        listeners.delete(listener);
+        reopenSoon();
     };
 }
