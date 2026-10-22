@@ -11,6 +11,7 @@
     <link href="{% static 'screens/screens.css' %}" rel="stylesheet">
     {% for path in rendered.css %}<link href="{% static path %}" rel="stylesheet">
     {% endfor %}
+    {% if preview %}<link href="{% static 'screens/preview.css' %}" rel="stylesheet">{% endif %}
     <script src="{% url 'javascript-catalog' %}"></script>
 </head>
 <body>
@@ -19,11 +20,14 @@
           style="--u: min(100vw / {{ screen.width }}, 100vh / {{ screen.height }}); --screen-bg: {{ screen.background }}; --screen-pad: calc(var(--u) * {{ screen.padding }})">
         {{ rendered.html }}
     </main>
+    {% if preview %}<script type="module" src="{% static 'screens/preview.js' %}"></script>
+    {% else %}
     {{ topics|json_script:"screen-topics" }}
     <script type="module">
         import { livePage } from "{% static 'js/live-page.js' %}";
         livePage({ topics: JSON.parse(document.getElementById("screen-topics").textContent) });
     </script>
+    {% endif %}
     {% for path in rendered.js %}<script type="module" src="{% static path %}"></script>
     {% endfor %}
 </body>

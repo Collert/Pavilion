@@ -1850,3 +1850,73 @@ class EventsTests(AdminFixture, TestCase):
         self.assertIsNone(v["e"])
         self.post(v, "save")
         self.assertFalse(Event.objects.exists())
+
+
+class ScreensEditorTests(AdminFixture, TestCase):
+    """The Screens page (admin_portal/screens.py): new screens, the layout editor's ops, widget settings, undo, save."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def op(self, screen, op="preview", **fields):
+        return self.client.post(reverse("admin_screen", args=[screen.id]), {"op": op, **fields}).context["e"]
+
+    def test_new_screen_widgets_rows_and_save(self):
+        from screens.models import Screen
+        response = self.client.post(reverse("admin_screens"), {"op": "create", "name": "Patio TV", "orient": ["land", "port"]})
+        screen = Screen.objects.get(name="Patio TV")
+        self.assertRedirects(response, reverse("admin_screen", args=[screen.id]), fetch_redirect_response=False)
+        self.assertEqual((screen.slug, screen.width, screen.height, screen.layout), ("patio-tv", 1080, 1920, None))
+        e = self.client.get(reverse("admin_screen", args=[screen.id])).context["e"]
+        self.assertEqual((e["sel"], e["panel"]["kind"]), ("r", "slot"))  # straight to the library
+        e = self.op(screen, "add:rows")
+        self.assertEqual((e["sel"], e["panel"]["kind"]), ("r-0", "slot"))
+        e = self.op(screen, "add:clock")
+        e = self.op(screen, "drop:r-1:text_card")
+        self.assertEqual([n["label"] for n in e["tree"]], ["Patio TV", "Rows", "Clock", "Text card"])
+        e = self.op(screen, "add:weather")
+        self.assertEqual(e["tree"][-1]["label"], "Text card")  # no empty slot left: nothing added
+        # the text card's settings
+        e = self.op(screen, "sel:r-1")
+        self.assertEqual(e["panel"]["kind"], "widget")
+        e = self.op(screen, editing="r-1", **{"p-title": "Burger Monday", "p-align": "top"})
+        e = self.op(screen, "pset:background:#F4A93B", editing="r-1")
+        node = e["d"]["layout"]["children"][1]
+        self.assertEqual(node["params"], {"title": "Burger Monday", "align": "top", "background": "#F4A93B"})
+        # rows: a third slot, a bigger second row, then columns
+        e = self.op(screen, "sel:r")
+        e = self.op(screen, "more")
+        e = self.op(screen, "wmore:1")
+        self.assertEqual(e["d"]["layout"]["params"], {"count": 3, "weights": [1, 2, 1]})
+        e = self.op(screen, "flip")
+        self.assertEqual(e["d"]["layout"]["widget"], "columns")
+        e = self.op(screen, "undo")
+        self.assertEqual(e["d"]["layout"]["widget"], "rows")
+        self.assertEqual((e["status"], e["can_save"]), ("Unsaved changes", True))
+        self.op(screen, "sel:screen")
+        self.assertRedirects(self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "save", "name": "Patio"}),
+                             reverse("admin_screen", args=[screen.id]), fetch_redirect_response=False)
+        screen.refresh_from_db()
+        self.assertEqual(screen.name, "Patio")
+        self.assertEqual([c and c["widget"] for c in screen.layout["children"]], ["clock", "text_card", None])
+        self.assertEqual(self.client.get(reverse("screen", args=[screen.slug])).status_code, 200)
+
+    def test_remove_orientation_preview_and_leaving(self):
+        from screens.models import Screen
+        screen = Screen.objects.create(name="Board", slug="board", layout={"widget": "clock"})
+        e = self.op(screen, "sel:r")
+        e = self.op(screen, "remove")
+        self.assertIsNone(e["d"]["layout"])
+        e = self.op(screen, "orient:port")
+        self.assertEqual(e["ratio"], "1080 / 1920")
+        preview = self.client.get(reverse("admin_screen_preview", args=[screen.id]) + "?sel=r")
+        self.assertContains(preview, 'data-path="r"')  # the empty root, ready for a widget
+        self.assertContains(preview, "slot-edit is-selected")
+        self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "leave"})
+        screen.refresh_from_db()
+        self.assertEqual(screen.layout, {"widget": "clock"})  # nothing saved
+        e = self.client.get(reverse("admin_screen", args=[screen.id])).context["e"]
+        self.assertEqual(e["status"], "All changes saved")

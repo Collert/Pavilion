@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -584,6 +584,15 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   warnings, the channels it opens or closes (the same dine-in/pickup/delivery toggles), and the online store's banner (from 1 day to 2 weeks before;
   `storefront.event_banner`). One form with Save; the old `Event` rows were converted (migration `0003_event_layers`).
   `static/js/live-page.js` keeps scrolled boxes in a swapped region where they were (by id, or classes and position).
+- **Screens** (`admin_screens`, `screens.py`, 2026-10-22): cards with a thumbnail of each layout (`boxes()` lays
+  the tree out like the CSS grid), "New screen" (name and landscape or portrait), and the editor: the draft lives in
+  the session (`screen_edit_<id>`, with a 40-step undo); the preview is the real screen rendered from the draft in an
+  iframe (`admin_screen_preview`, `render_screen(editing=...)` marks every node with its path, empty slots invite a
+  widget; `screens/static/screens/preview.js` tells the editor what was picked or dropped, `admin_portal/screens.js`
+  posts it as an op); the layout tree and breadcrumbs; the panel shows the screen's settings (name, orientation,
+  background, public link), the widget library (an empty slot; click or drag), rows/columns (count, weights, gap,
+  turn around) or the widget's settings from its JSON params (text, choices, steppers, sliders, toggles, colours,
+  uploads, menus and dishes to pick). Save validates and publishes "screens" so open screens reload.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

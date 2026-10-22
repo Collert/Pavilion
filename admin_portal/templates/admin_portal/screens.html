@@ -1,0 +1,65 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Screens (design: AdminScreens, list and new; admin_portal/screens.py: list_page). Each card is a thumbnail of the
+screen's layout and opens its editor. "New screen" asks for a name and which way the display hangs.
+{% endcomment %}
+{% block title %}{% trans "Screens" %}{% endblock %}
+{% block main_class %}sc-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/screens.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Screens" %}</h1>
+    </div>
+    <a class="btn-dark" href="?new=1" data-live>{% icon "plus" 18 2.4 %}{% trans "New screen" %}</a>
+</header>
+<div class="sc-intro">{% trans "Build a layout once, then open it on any TV or tablet." %}</div>
+
+<div class="sc-cards">
+    {% for c in l.cards %}
+    <a class="sc-card" href="{% url 'admin_screen' c.s.id %}" aria-label="{% blocktrans with n=c.s.name %}Edit {{ n }}{% endblocktrans %}">
+        <div class="sc-thumb-box">
+            <div class="sc-thumb" style="width: {{ c.thumb.w }}px; height: {{ c.thumb.h }}px; background: {{ c.thumb.bg }}">
+                {% for r in c.thumb.rects %}<span class="{% if r.empty %}empty{% endif %}" style="left: {{ r.x }}px; top: {{ r.y }}px; width: {{ r.w }}px; height: {{ r.h }}px{% if not r.empty %}; background: {{ r.color }}{% endif %}"></span>{% endfor %}
+            </div>
+        </div>
+        <div class="sc-card-line"><span class="strong ellipsis grow">{{ c.s.name }}</span><span class="sc-orient">{{ c.orient }}</span></div>
+        <div class="sc-card-sub"><span class="sc-dot{% if c.s.public %} on{% endif %}"></span><span class="ellipsis">{{ c.where }} · /screens/{{ c.s.slug }}</span></div>
+        <div class="sc-chips">{% for k in c.chips %}<span>{{ k }}</span>{% endfor %}</div>
+    </a>
+    {% endfor %}
+    <a class="sc-card sc-new" href="?new=1" data-live>
+        <span class="sc-new-plus">{% icon "plus" 22 2.4 %}</span>
+        <span class="strong">{% trans "New screen" %}</span>
+        <span class="small muted">{% trans "Landscape or portrait" %}</span>
+    </a>
+</div>
+
+<div id="screens-new" data-region>
+    {% if new.open %}
+    <div class="overlay">
+        <a class="scrim" href="{% url 'admin_screens' %}" data-live aria-label="{% trans 'Close' %}"></a>
+        <form method="post" action="{% url 'admin_screens' %}" class="sheet sc-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'New screen' %}">{% csrf_token %}
+            <input type="hidden" name="orient" value="{{ new.orient }}">{# the orientation buttons post theirs after this one #}
+            <div class="sheet-head"><h2 class="disp sheet-title grow">{% trans "New screen" %}</h2>
+                <a class="close-btn" href="{% url 'admin_screens' %}" data-live aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</a></div>
+            <div class="muted">{% trans "Which way will the TV or tablet hang?" %}</div>
+            <div class="sc-orients" role="radiogroup" aria-label="{% trans 'Orientation' %}">
+                <button type="submit" name="orient" value="land" role="radio" aria-checked="{% if new.orient == 'land' %}true{% else %}false{% endif %}">
+                    <span class="sc-shape land"><span>16:9</span></span><span class="strong">{% trans "Landscape" %}</span><span class="small muted">{% trans "Wide TVs, order boards" %}</span></button>
+                <button type="submit" name="orient" value="port" role="radio" aria-checked="{% if new.orient == 'port' %}true{% else %}false{% endif %}">
+                    <span class="sc-shape port"><span>9:16</span></span><span class="strong">{% trans "Portrait" %}</span><span class="small muted">{% trans "Menu boards, kiosks" %}</span></button>
+            </div>
+            <label class="sc-block"><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ new.name }}" placeholder="{% trans 'e.g. Patio TV' %}" maxlength="40" autofocus></label>
+            <div class="sheet-foot">
+                <a class="btn-soft" href="{% url 'admin_screens' %}" data-live>{% trans "Cancel" %}</a>
+                <button class="btn-amber" name="op" value="create">{% trans "Create and add widgets" %}</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

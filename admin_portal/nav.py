@@ -34,7 +34,7 @@ MENU = [
         ("hours", _("Store hours"), "admin_hours"),
         ("stations", _("Stations"), "admin_stations"),
         ("events", _("Events"), "admin_events"),
-        ("screens", _("Screens"), None),
+        ("screens", _("Screens"), "admin_screens"),
         ("audio", _("Audio channels"), None),
         ("library", _("Library"), None),
     ]),

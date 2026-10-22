@@ -133,7 +133,8 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
 ## Screens and widgets
 
 Admins build screens (`/screens/<slug>`, e.g. the pickup `order-board`) out of pre-made widgets; edit them in
-`/advanced-admin/` → Screens (the form lists every widget and its params). `Screen.layout` is one node,
+the admin's Screens page (`admin_portal/screens.py`: a live preview of the draft in an iframe, the layout tree, the
+widget library and each widget's settings built from its JSON; `/advanced-admin/` → Screens still edits raw JSON). `Screen.layout` is one node,
 `{"widget": "name", "params": {...}, "children": [...]}`; only `rows`/`columns` take `children` (one per slot, `null`
 = empty), so screens are grids nested as deep as needed. `width`/`height` are the design canvas: every size in a
 widget is a design pixel, written `calc(var(--u) * 24)` in CSS (`{{ 24|u }}` in templates), so a screen scales to

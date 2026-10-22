@@ -1,0 +1,22 @@
+{% load i18n admin_tags %}{# One widget param in the screen editor (admin_portal/screens.py: _field). Posted as p-<name>. #}
+<div class="sc-field">
+    <div class="sc-label-line"><span class="lbl">{{ f.label }}</span>{% if f.control == "slider" %}<span class="num small strong">{{ f.value }}{{ f.unit }}</span>{% endif %}</div>
+    {% if f.control == "text" %}<input class="field" name="p-{{ f.name }}" value="{{ f.value }}">
+    {% elif f.control == "area" %}<textarea class="field sc-area" name="p-{{ f.name }}" rows="2">{{ f.value }}</textarea>
+    {% elif f.control == "select" %}<select class="field" name="p-{{ f.name }}">{% for v, lbl in f.options %}<option value="{{ v }}"{% if v == f.value %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
+    {% elif f.control == "seg" %}<input type="hidden" name="p-{{ f.name }}" value="{{ f.value }}">
+        <div class="seg soft sc-seg" role="radiogroup" aria-label="{{ f.label }}">{% for v, lbl in f.options %}<button class="seg-btn" role="radio" name="op" value="pset:{{ f.name }}:{{ v }}" aria-pressed="{% if v == f.value %}true{% else %}false{% endif %}">{{ lbl }}</button>{% endfor %}</div>
+    {% elif f.control == "slider" %}<input type="range" name="p-{{ f.name }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" value="{{ f.value }}" aria-label="{{ f.label }}">
+    {% elif f.control == "number" %}<input type="hidden" name="p-{{ f.name }}" value="{{ f.value }}">
+        <span class="sc-stepper"><button class="ico" name="op" value="pless:{{ f.name }}" {% if f.less_off %}disabled{% endif %} aria-label="{% blocktrans with l=f.label %}Less {{ l }}{% endblocktrans %}">{% icon "M5 12h14" 12 3 %}</button><span class="num">{{ f.value }}{% if f.unit %} {{ f.unit }}{% endif %}</span><button class="ico" name="op" value="pmore:{{ f.name }}" {% if f.more_off %}disabled{% endif %} aria-label="{% blocktrans with l=f.label %}More {{ l }}{% endblocktrans %}">{% icon "M12 5v14M5 12h14" 12 3 %}</button></span>
+    {% elif f.control == "toggle" %}<input type="hidden" name="p-{{ f.name }}" value="{% if f.value %}1{% endif %}">
+        <button class="sc-toggle" name="op" value="ptog:{{ f.name }}" role="switch" aria-checked="{% if f.value %}true{% else %}false{% endif %}" aria-label="{{ f.label }}"><span class="grow small muted">{{ f.help }}</span><span class="switch{% if f.value %} on{% endif %}"><span></span></span></button>
+    {% elif f.control == "color" %}<div class="sc-colors">{% for c in f.presets %}<button name="op" value="pset:{{ f.name }}:{{ c }}" aria-label="{{ c }}" aria-pressed="{% if c|lower == f.value|lower %}true{% else %}false{% endif %}" style="background: {{ c }}"></button>{% endfor %}
+        <input type="color" name="p-{{ f.name }}" value="{{ f.value }}" aria-label="{{ f.label }}"></div>
+    {% elif f.control == "image" %}<input type="hidden" name="p-{{ f.name }}" value="{{ f.value }}">
+        <div class="sc-image"><span class="sc-image-box"{% if f.value %} style="background-image: url('{{ f.value }}')"{% endif %}></span>
+            <label class="sc-upload">{% if f.value %}{% trans "Replace" %}{% else %}{% trans "Upload" %}{% endif %}<input type="file" name="upload-{{ f.name }}" accept="image/*" data-upload class="visually-hidden"></label>
+            {% if f.value %}<button class="sc-small-btn" name="op" value="pset:{{ f.name }}:">{% trans "Remove" %}</button>{% endif %}</div>
+    {% endif %}
+    {% if f.help and f.control != "toggle" %}<div class="sc-help">{{ f.help }}</div>{% endif %}
+</div>

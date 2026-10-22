@@ -182,15 +182,25 @@ def _add(target, items):
 
 
 class _Renderer:
-    def __init__(self, request, prefix):
+    def __init__(self, request, prefix, editing=None):
         self.request = request
         self.prefix = prefix
         self.result = RenderedScreen(html="")
         self.count = 0
+        self.editing = editing  # the admin editor's preview: {"sel": path}; nodes carry their path, empty slots invite a widget
+
+    def _edit_attrs(self, path):
+        return format_html(' data-path="{}"', path) if self.editing is not None else ""
+
+    def _selected(self, path):
+        return " is-selected" if self.editing is not None and self.editing.get("sel") == path else ""
 
     def node(self, spec, path, depth=0):
         node_id = f"{self.prefix}-{path}"
         if not isinstance(spec, dict) or depth > MAX_DEPTH or self.count >= MAX_NODES:
+            if self.editing is not None:
+                return format_html('<div class="widget slot-empty slot-edit{}" id="{}" data-path="{}"><span>+ Add widget</span></div>',
+                                   " is-selected" if self.editing.get("sel") == path else "", node_id, path)
             return format_html('<div class="widget slot-empty" id="{}"></div>', node_id)
         self.count += 1
         widget = registry.get(spec.get("widget"))
@@ -217,8 +227,8 @@ class _Renderer:
         _add(self.result.topics, widget.live)
         # Leaves are live regions (static/js/live-page.js swaps the ones whose HTML changed). Containers aren't, so
         # an update to one order list doesn't replace (and restart the animations of) everything around it.
-        return format_html('<div class="widget widget--{}" id="{}"{}>{}</div>', widget.name, node_id,
-                           mark_safe("" if widget.slots else " data-region"), html)
+        return format_html('<div class="widget widget--{}{}" id="{}"{}{}>{}</div>', widget.name, self._selected(path), node_id,
+                           mark_safe("" if widget.slots else " data-region"), self._edit_attrs(path), html)
 
     def placeholder(self, node_id, message):
         return format_html('<div class="widget widget-missing" id="{}" data-region><p>{}</p></div>', node_id, message)
@@ -230,7 +240,8 @@ def layout_key(screen):
     return hashlib.sha1(blob.encode()).hexdigest()[:8]
 
 
-def render_screen(screen, request):
-    renderer = _Renderer(request, "w" + layout_key(screen))
+def render_screen(screen, request, editing=None):
+    """The screen's HTML. `editing` ({"sel": path}) is the admin editor's preview: every node carries its path."""
+    renderer = _Renderer(request, "w" + layout_key(screen), editing)
     renderer.result.html = renderer.node(screen.layout or None, "r")
     return renderer.result

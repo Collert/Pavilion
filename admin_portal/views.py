@@ -37,6 +37,7 @@ from . import catering as catering_data
 from . import combos as combos_data
 from . import events as events_data
 from . import hours as hours_data
+from . import screens as screens_data
 from . import stations as stations_data
 from . import components as components_data
 from . import condiments as condiments_data
@@ -1036,6 +1037,76 @@ def events(request):
     else:
         draft = events_data.draft_of()
     return page(request, "admin_portal/events.html", "events", {"v": events_data.page(draft)})
+
+
+# ---------- screens ----------
+
+@superuser_required
+def screens(request):
+    """The screens, each with a thumbnail of its layout; ?new=1 opens "New screen" (name and orientation)."""
+    from screens.models import Screen
+    new = {"open": request.GET.get("new") == "1", "name": "", "orient": "land"}
+    if request.method == "POST":
+        new.update(open=True, name=request.POST.get("name", "").strip(), orient=(request.POST.getlist("orient") or ["land"])[-1])
+        if new["orient"] not in screens_data.SIZES:
+            new["orient"] = "land"
+        if request.POST.get("op") == "create" and new["name"]:
+            screen = screens_data.create(new["name"], new["orient"])
+            state = screens_data.load(request, screen)
+            state["sel"] = "r"  # straight to the widget library
+            screens_data.store(request, screen, state)
+            return redirect("admin_screen", id=screen.id)
+    return page(request, "admin_portal/screens.html", "screens", {"l": screens_data.list_page(), "new": new})
+
+
+@superuser_required
+def screen_edit(request, id):
+    """The screen editor: the draft (in the session, with undo) is changed by each button's op and saved with Save."""
+    from screens.models import Screen
+    screen = get_object_or_404(Screen, pk=id)
+    state = screens_data.load(request, screen)
+    if request.method == "POST":
+        op = request.POST.get("op", "")
+        if op == "leave":
+            dirty = screens_data.is_dirty(screen, state)
+            screens_data.forget(request, screen)
+            if dirty:
+                messages.success(request, _("Left without saving. Changes were discarded."))
+            return redirect("admin_screens")
+        for problem in screens_data.from_post(state, request.POST, request.FILES):
+            messages.error(request, problem)
+        if op == "save":
+            problems = screens_data.save(screen, state)
+            if problems:
+                messages.error(request, problems[0])
+            else:
+                state["hist"] = []
+                screens_data.store(request, screen, state)
+                publish("screens")
+                messages.success(request, _("Saved. Open screens update within a few seconds."))
+                return redirect("admin_screen", id=screen.id)
+        else:
+            toast = screens_data.apply_op(state, op)
+            if toast:
+                messages.success(request, toast)
+        screens_data.store(request, screen, state)
+    return page(request, "admin_portal/screen.html", "screens", {"e": screens_data.editor_page(screen, state)})
+
+
+@superuser_required
+def screen_preview(request, id):
+    """The editor's preview: the draft rendered like the real screen, with each node marked so it can be picked."""
+    import time as time_
+    from screens.layout import render_screen
+    from screens.models import Screen
+    screen = get_object_or_404(Screen, pk=id)
+    draft = screens_data.load(request, screen)["draft"]
+    width, height = screens_data.SIZES[draft["orient"]]
+    shown = Screen(id=screen.id, name=draft["name"], slug=screen.slug, layout=draft["layout"], width=width, height=height,
+                   background=draft["bg"], padding=screen.padding, public=draft["public"])
+    rendered = render_screen(shown, request, editing={"sel": request.GET.get("sel", "")})
+    return render(request, "screens/screen.html", {"screen": shown, "rendered": rendered, "topics": [], "preview": True,
+                                                   "now_ms": int(time_.time() * 1000)})
 
 
 # ---------- branding ----------
