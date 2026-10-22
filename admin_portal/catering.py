@@ -486,14 +486,14 @@ def detail(order, me, draft=None, sheet="") -> dict:
 
 # ---------- settings ----------
 
-SWITCHES = ("on", "big_on", "rush", "pickup", "delivery", "full_service")
+SWITCHES = ("on", "big_on", "rush", "pickup", "delivery")
 
 
 def settings_draft(cfg) -> dict:
     return {"on": cfg.on, "lead": str(cfg.lead), "lead_unit": cfg.lead_unit, "max_ahead": str(cfg.max_ahead),
             "big_on": cfg.big_on, "big_hours": str(cfg.big_hours), "rush": cfg.rush, "min_subtotal": f"{cfg.min_subtotal.normalize():f}",
             "days": [bool(x) for x in (cfg.days or [True] * 7)][:7], "earliest": cfg.earliest.strftime("%H:%M"),
-            "latest": cfg.latest.strftime("%H:%M"), "pickup": cfg.pickup, "delivery": cfg.delivery, "full_service": cfg.full_service,
+            "latest": cfg.latest.strftime("%H:%M"), "pickup": cfg.pickup, "delivery": cfg.delivery,
             "hold_days": str(cfg.hold_days), "policy": cfg.policy, "auto_reply": cfg.auto_reply,
             "services": sorted(Service.objects.filter(catering=True, archived=False).values_list("id", flat=True))}
 
@@ -553,7 +553,7 @@ def settings_problems(draft):
     start, end = _time(draft["earliest"]), _time(draft["latest"])
     if not start or not end or start >= end:
         return _("The latest time has to be after the earliest.")
-    if not (draft["pickup"] or draft["delivery"] or draft["full_service"]):
+    if not (draft["pickup"] or draft["delivery"]):
         return _("Turn on at least one way for customers to get their order.")
     if _dec(draft["min_subtotal"]) < 0:
         return _("The minimum order can’t be negative.")
@@ -605,8 +605,7 @@ def settings_page(draft) -> dict:
             "days": [{"i": i, "label": label, "on": draft["days"][i]} for i, label in enumerate([_("Mon"), _("Tue"), _("Wed"), _("Thu"), _("Fri"), _("Sat"), _("Sun")])],
             "switches": [(k, draft[k]) for k in SWITCHES],
             "fulfilment": [("pickup", _("Pickup"), _("They collect it from the store."), draft["pickup"]),
-                           ("delivery", _("Delivery"), _("You bring it to them. Add a delivery service to charge for it."), draft["delivery"]),
-                           ("full_service", _("Full service"), _("You deliver, set up and serve. Needs at least one staffing service."), draft["full_service"])],
+                           ("delivery", _("Delivery"), _("You bring it to them. Your delivery service is added to the quote; staff and setup are booked as services."), draft["delivery"])],
             "dishes": [{"d": d, "price": d.catering_price(d.catering_min)} for d in dishes],
             "dish_sub": ngettext("%(n)d dish is on for catering. Turn dishes on or off, and set quantity prices, under Catering pricing on each dish.",
                                  "%(n)d dishes are on for catering. Turn dishes on or off, and set quantity prices, under Catering pricing on each dish.", len(dishes)) % {"n": len(dishes)},

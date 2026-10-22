@@ -59,13 +59,13 @@ as you type (data-search) so the quote stays in the session and the totals and c
                 </div>
             </div>
             <div class="strong small-title">{% trans "How should we get it to you?" %}</div>
-            <div class="nb-options three" role="radiogroup" aria-label="{% trans 'Fulfilment' %}">
+            <div class="nb-options{% if fuls|length > 1 %} two{% endif %}" role="radiogroup" aria-label="{% trans 'Fulfilment' %}">
                 {% for way, label, desc in fuls %}
                 <button class="nb-option big{% if q.ful == way %} on{% endif %}" role="radio" aria-checked="{% if q.ful == way %}true{% else %}false{% endif %}" name="op" value="ful:{{ way }}">
                     <span class="nb-option-top"><span class="nb-radio"></span><span class="nb-serif">{{ label }}</span></span><span class="nb-option-sub">{{ desc }}</span></button>
                 {% endfor %}
             </div>
-            {% if q.ful and q.ful != "pickup" %}<label class="nb-block"><span class="nb-lbl">{% if q.ful == "full" %}{% trans "Event address" %}{% else %}{% trans "Delivery address" %}{% endif %}</span><input class="nb-input" name="address" value="{{ q.address }}" placeholder="{% trans 'Street address, unit, buzzer' %}" autocomplete="street-address"></label>{% endif %}
+            {% if q.ful and q.ful != "pickup" %}<label class="nb-block"><span class="nb-lbl">{% trans "Delivery address" %}</span><input class="nb-input" name="address" value="{{ q.address }}" placeholder="{% trans 'Street address, unit, buzzer' %}" autocomplete="street-address"></label>{% endif %}
         </section>
 
         <section class="nb-card" id="cq-food" data-region>
@@ -89,7 +89,6 @@ as you type (data-search) so the quote stays in the session and the totals and c
         <section class="nb-card" id="cq-svc" data-region>
             <div class="nb-step-head"><span class="nb-step-n">3</span><h2 class="nb-serif">{% trans "Services" %}</h2><span class="muted small">{% trans "Optional" %}</span></div>
             <p class="muted nb-step-text">{% trans "Staff, equipment, rentals and extras. Rentals with a deposit are held on your card close to the event and released when everything comes back." %}</p>
-            {% if st.full_warn %}<div class="nb-notice warn top8">{% trans "Full service needs at least one server or bartender. Add one below." %}</div>{% endif %}
             {% for g in svc_groups %}
             <div class="nb-kick small muted top14">{{ g.title }}</div>
             {% for x in g.items %}

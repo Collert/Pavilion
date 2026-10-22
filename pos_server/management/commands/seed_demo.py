@@ -930,9 +930,9 @@ class Command(BaseCommand):
                (S, "Catering delivery", 1), (S, "Setup and teardown", 1, 2), (S, "Chafing dish set", 4)],
               org="Hartley & Co.", address="1100 Melville St, 14th floor", phone="604-555-0142",
               note="Three people are gluten-free, please label their bowls. Use the loading bay elevator.")
-        order("Anjali Rao", "Rao–Mehta wedding brunch", 25, (10, 30), CateringOrder.FULL, at(0, 9, 12), "MASTERCARD 8810",
+        order("Anjali Rao", "Rao–Mehta wedding brunch", 25, (10, 30), CateringOrder.DELIVERY, at(0, 9, 12), "MASTERCARD 8810",
               [(D, "Cardamom bun", 120), (D, "Almond croissant", 120), (D, "Halloumi grain bowl", 60), (D, "Pulled pork plate", 60),
-               (D, "Flat white", 120), (D, "Fresh lemonade", 120), (S, "Event server", 4, 5), (S, "Bartender", 1, 5),
+               (D, "Flat white", 120), (D, "Fresh lemonade", 120), (S, "Catering delivery", 1), (S, "Event server", 4, 5), (S, "Bartender", 1, 5),
                (S, "Coffee urn, 100 cups", 3), (S, "Chafing dish set", 8), (S, "Folding tables and chairs", 12),
                (S, "Custom celebration cake", 1), (S, "Printed event menus", 120)],
               address="Cedar Hall, 2150 W 4th Ave", phone="778-555-0198",

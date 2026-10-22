@@ -38,7 +38,6 @@ class CateringSettings(models.Model):
     latest = models.TimeField(default=datetime.time(22, 0))
     pickup = models.BooleanField(default=True)
     delivery = models.BooleanField(default=True)
-    full_service = models.BooleanField(default=True)
     hold_days = models.PositiveSmallIntegerField(default=1, choices=HOLDS, help_text="Days before the event to hold deposits")
     policy = models.TextField(blank=True, help_text="Cancellation policy, shown at checkout")
     auto_reply = models.TextField(blank=True, help_text="Sent when an order comes in")
@@ -74,8 +73,8 @@ class CateringOrder(models.Model):
     STATUSES = [(NEW, _("New")), (WAITING, _("Waiting on customer")), (CONFIRMED, _("Confirmed")), (DONE, _("Completed")),
                 (REJECTED, _("Rejected")), (CANCELLED, _("Cancelled"))]
     OPEN = (NEW, WAITING, CONFIRMED)
-    PICKUP, DELIVERY, FULL = "pickup", "delivery", "full"
-    FULFILMENT = [(PICKUP, _("Pickup")), (DELIVERY, _("Delivery")), (FULL, _("Full service"))]
+    PICKUP, DELIVERY = "pickup", "delivery"
+    FULFILMENT = [(PICKUP, _("Pickup")), (DELIVERY, _("Delivery"))]
     HELD, RELEASED, KEPT = "held", "released", "kept"
     HOLD_STATES = [("", _("Not held")), (HELD, _("Held")), (RELEASED, _("Released")), (KEPT, _("Kept"))]
 
@@ -89,7 +88,7 @@ class CateringOrder(models.Model):
     event_date = models.DateField()
     event_time = models.TimeField()
     fulfilment = models.CharField(max_length=8, choices=FULFILMENT, default=PICKUP)
-    address = models.CharField(max_length=240, blank=True, help_text="Delivery and full service: where the event is")
+    address = models.CharField(max_length=240, blank=True, help_text="Delivery: where the event is")
     note = models.TextField(blank=True, help_text="From the customer")
     status = models.CharField(max_length=10, choices=STATUSES, default=NEW)
     rush = models.BooleanField(default=False, help_text="Asked for less notice than the minimum")

@@ -193,7 +193,7 @@ def catering_teaser() -> dict | None:
         return None
     lead = ngettext("Order at least %(n)d day ahead", "Order at least %(n)d days ahead", cfg.lead) % {"n": cfg.lead} \
         if cfg.lead_unit == cfg.DAYS else ngettext("Order at least %(n)d hour ahead", "Order at least %(n)d hours ahead", cfg.lead) % {"n": cfg.lead}
-    ways = [label for on, label in ((cfg.pickup, _("pickup")), (cfg.delivery, _("delivery")), (cfg.full_service, _("full service with staff"))) if on]
+    ways = [label for on, label in ((cfg.pickup, _("pickup")), (cfg.delivery, _("delivery"))) if on]
     rules = [lead]
     if cfg.min_subtotal:
         rules.append(_("Quotes from %(amount)s before tax") % {"amount": money(cfg.min_subtotal).replace(".00", "")})

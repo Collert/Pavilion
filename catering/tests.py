@@ -259,3 +259,19 @@ class QuoteTests(CateringFixture, TestCase):
         self.assertEqual((order.title, order.fulfilment, order.event_date, order.card_last4, order.lines.count()), ("Lunch", "delivery", day, "1111", 2))
         self.assertEqual(order.versions.count(), 1)
         self.assertNotIn("catering_quote", self.client.session)
+
+    def test_delivery_adds_the_delivery_service(self, send):
+        url = reverse("store_catering")
+        Service.objects.filter(pk=self.delivery.id).update(catering=False, online=True)  # booked online counts too
+        q = self.client.post(url, {"op": "ful:delivery"}).context["q"]
+        self.assertEqual(q["services"], {str(self.delivery.id): {"q": 1, "h": 0}})
+        q = self.client.post(url, {"op": "ful:pickup"}).context["q"]
+        self.assertEqual(q["services"], {})  # pickup takes delivery off
+        self.client.get(url + f"?add={self.delivery.id}")  # from the services page: they want it delivered
+        q = self.client.get(url).context["q"]
+        self.assertEqual((q["ful"], list(q["services"])), ("delivery", [str(self.delivery.id)]))
+        self.assertEqual([w for w, _l, _d in self.client.get(url).context["fuls"]], ["pickup", "delivery"])
+        Service.objects.filter(pk=self.delivery.id).update(active=False)
+        self.client.post(url, {"op": "ful:pickup"})
+        q = self.client.post(url, {"op": "ful:delivery"}).context["q"]
+        self.assertEqual(q["services"], {})  # no delivery service: delivery is free

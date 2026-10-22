@@ -565,7 +565,7 @@ SERVICE_ICONS = [  # words in a service's title -> icon
     (("delivery", "setup", "teardown"), "M3 7h11v9H3z M14 10h4l3 3v3h-7 M7 19a2 2 0 1 0 0-.01 M17 19a2 2 0 1 0 0-.01"),
     (("server", "staff", "host"), "M12 8a3.5 3.5 0 1 0 0-.01 M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"),
 ]
-GROUP_NOTES = {"experience": gettext_lazy("Small groups · add food for after"), "staff": gettext_lazy("For full-service events"),
+GROUP_NOTES = {"experience": gettext_lazy("Small groups · add food for after"), "staff": gettext_lazy("Serving, cooking and pouring at your event"),
                "equipment": gettext_lazy("Delivered with your food, picked up after"), "extra": gettext_lazy("Small things that make it feel planned")}
 
 

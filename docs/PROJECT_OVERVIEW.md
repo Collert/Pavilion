@@ -209,7 +209,7 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   Booking per service line (`CateringLine.booking`); the register and the store don't book services yet.
 - `catering`: `CateringSettings` (one row: on/off, minimum notice in hours or days, book-ahead limit, more notice for
   big orders = one day per `big_hours` of kitchen time from dishes' `prep_minutes`, less-notice requests, minimum
-  subtotal, event days and hours, pickup/delivery/full service, when deposits are held, policy, auto-reply),
+  subtotal, event days and hours, pickup/delivery, when deposits are held, policy, auto-reply),
   `CateringOrder` (token for the customer's page, contact, event date/time, fulfilment and address, note, status
   new → waiting (changes proposed) → confirmed → done, or rejected / cancelled; `previous` = the lines before the
   proposed changes; the Square card on file, `charged`/`refunded`, the deposit hold), `CateringLine` (dish, service,
@@ -640,8 +640,9 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
 
 Orders come in through the store's quote page (`/catering/`, `catering/views.py: quote_page`, state and checks in
 `catering/store.py`: notice incl. big-order days, event days and hours, book-ahead limit, minimum subtotal and per-dish
-minimums, pickup/delivery/full service with the flat delivery service added for the last two, full service needs
-staff) and `catering.flow.place()`, with a Square card on file saved first (`payments/save-card`: Square's card form
+minimums, pickup or delivery; choosing delivery adds the store's delivery service (`store.delivery_service()`: one on
+for catering first, else one booked online; none = no charge), adding a delivery service from the services page picks
+delivery, pickup takes delivery services off; staff and setup are booked as services) and `catering.flow.place()`, with a Square card on file saved first (`payments/save-card`: Square's card form
 in an iframe, `create_customer` + `save_card`; in DEBUG a "Use a test card" button saves a `demo:` card). Nothing is
 held on the card when it's sent (holds expire in about 7 days); it's charged when both sides agree. Every set of
 lines is kept as a `CateringVersion` (1 = the request, then each proposal by the store or the customer). `flow` does every step and adds a

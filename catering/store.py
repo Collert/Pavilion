@@ -22,7 +22,7 @@ from . import pricing
 from .models import CateringLine, CateringOrder, CateringSettings
 
 KEY = "catering_quote"
-FULS = {CateringOrder.PICKUP: "pickup", CateringOrder.DELIVERY: "delivery", CateringOrder.FULL: "full_service"}
+FULS = {CateringOrder.PICKUP: "pickup", CateringOrder.DELIVERY: "delivery"}
 
 
 def load(request) -> dict:
@@ -62,13 +62,17 @@ def services(q=None):
 
 
 def delivery_service():
-    """The flat delivery fee added to delivered and full-service orders."""
-    return Service.objects.filter(catering=True, active=True, archived=False, category=Service.DELIVERY,
-                                  pricing=Service.FLAT).order_by("price").first()
+    """The delivery service added to a delivered order, if the store has one: one on for catering first, else one
+    booked online; the cheapest of those."""
+    return Service.objects.filter(Q(catering=True) | Q(online=True), active=True, archived=False, category=Service.DELIVERY) \
+        .order_by("-catering", "price", "id").first()
 
 
-def staffing(service) -> bool:
-    return service.category == Service.STAFF
+def _start(service) -> dict:
+    """A service as it's first added: its minimum, for a day/hour at least."""
+    timed = service.pricing in (Service.HOUR, Service.DAY)
+    return {"q": max(1, service.minimum if service.pricing in (Service.UNIT, Service.PERSON) else 1) if not service.counts_units else 1,
+            "h": max(service.minimum, 1) if timed else 0}
 
 
 def lines(q) -> list[dict]:
@@ -122,8 +126,9 @@ def apply_op(q, op, post):
         x = q["services"].get(key, {"q": 0, "h": 0})
         timed = service.pricing in (Service.HOUR, Service.DAY)
         if name == "sadd":
-            x = {"q": max(1, service.minimum if service.pricing in (Service.UNIT, Service.PERSON) else 1) if not service.counts_units else 1,
-                 "h": max(service.minimum, 1) if timed else 0}
+            x = _start(service)
+            if service.category == Service.DELIVERY and getattr(CateringSettings.load(), "delivery", False):
+                q["ful"] = CateringOrder.DELIVERY  # added from the services page: they want it delivered
         elif name == "sinc":
             x["q"] += 1
         elif name == "sdec":
@@ -155,13 +160,13 @@ def apply_op(q, op, post):
         q["time"] = f"{minutes // 60:02d}:{minutes % 60:02d}"
     elif name == "agree":
         q["agree"] = not q["agree"]
-    # Delivery and full service come with the delivery fee; pickup doesn't
+    # Delivered orders come with the delivery service (if there is one); pickup ones have no delivery
     fee = delivery_service()
-    if fee:
-        if q["ful"] in (CateringOrder.DELIVERY, CateringOrder.FULL):
-            q["services"][str(fee.id)] = {"q": 1, "h": 0}
-        else:
-            q["services"].pop(str(fee.id), None)
+    if q["ful"] == CateringOrder.PICKUP:
+        delivery_ids = {str(i) for i in Service.objects.filter(category=Service.DELIVERY).values_list("id", flat=True)}
+        q["services"] = {k: v for k, v in q["services"].items() if str(k) not in delivery_ids}
+    elif q["ful"] == CateringOrder.DELIVERY and fee and str(fee.id) not in q["services"]:
+        q["services"][str(fee.id)] = _start(fee)
     return q
 
 
@@ -219,8 +224,6 @@ def state(q) -> dict:
         time_msg = _("Events can be between %(window)s.") % {"window": window}
     elif q["ful"] == CateringOrder.PICKUP:
         time_msg = _("Ready for pickup at %(t)s.") % {"t": clock(datetime.time(h, m))}
-    elif q["ful"] == CateringOrder.FULL:
-        time_msg = _("We arrive about 45 minutes before %(t)s.") % {"t": clock(datetime.time(h, m))}
     else:
         early = (datetime.datetime.combine(today, datetime.time(h, m)) - datetime.timedelta(minutes=30)).time()
         time_msg = _("We arrive between %(a)s and %(b)s.") % {"a": clock(early), "b": clock(datetime.time(h, m))}
@@ -245,8 +248,6 @@ def state(q) -> dict:
     # the blocker
     dish_rows = [l for l in ls if l["kind"] == CateringLine.DISH]
     under = [catalog.get(l["kind"], l["ref"]) for l in dish_rows if l["quantity"] < catalog.get(l["kind"], l["ref"]).catering_min]
-    staff = [catalog.get(l["kind"], l["ref"]) for l in ls if l["kind"] == CateringLine.SERVICE and staffing(catalog.get(l["kind"], l["ref"]))]
-    full_warn = q["ful"] == CateringOrder.FULL and not staff
     fee = delivery_service()
     paid_services = [l for l in ls if l["kind"] == CateringLine.SERVICE and not (fee and l["ref"] == fee.id)]
     if not day:
@@ -258,7 +259,7 @@ def state(q) -> dict:
     elif not time_ok:
         blocker = _("Set a time between %(window)s.") % {"window": window}
     elif not q["ful"]:
-        blocker = _("Choose pickup, delivery or full service.")
+        blocker = _("Choose pickup or delivery.")
     elif q["ful"] != CateringOrder.PICKUP and not q["address"].strip():
         blocker = _("Add the address.")
     elif not dish_rows and not paid_services:
@@ -267,8 +268,6 @@ def state(q) -> dict:
         blocker = _("%(dish)s has a minimum of %(n)d.") % {"dish": under[0].title, "n": under[0].catering_min}
     elif totals["subtotal"] < cfg.min_subtotal:
         blocker = _("Catering starts at %(min)s before tax.") % {"min": pricing.money(cfg.min_subtotal)}
-    elif full_warn:
-        blocker = _("Add a server or bartender for full service.")
     elif not q["name"].strip() or "@" not in q["email"]:
         blocker = _("Add your name and email so we can reply.")
     else:
@@ -276,7 +275,7 @@ def state(q) -> dict:
     return {"cfg": cfg, "lines": ls, "catalog": catalog, "totals": totals, "need": need, "earliest": earliest, "rush": rush,
             "cells": cells, "month": month, "next_month": next_month.isoformat(), "prev_month": prev_month.isoformat(),
             "no_prev": prev_month < today.replace(day=1), "day": day, "time_ok": time_ok, "time_msg": time_msg,
-            "picker": picker, "window": window, "lead": lead, "lead_ok": lead_ok, "blocker": blocker, "full_warn": full_warn,
+            "picker": picker, "window": window, "lead": lead, "lead_ok": lead_ok, "blocker": blocker,
             "delivery_fee": fee, "min_pct": min(100, int(totals["subtotal"] / cfg.min_subtotal * 100)) if cfg.min_subtotal else 100}
 
 

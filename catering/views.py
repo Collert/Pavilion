@@ -95,8 +95,7 @@ def quote_page(request):
             quote_groups.append({"title": title, "rows": rows})
     fuls = [(way, label, desc) for way, label, desc in (
         (CateringOrder.PICKUP, _("Pickup"), _("Collect it from the store, packed and labelled.")),
-        (CateringOrder.DELIVERY, _("Delivery"), _("We drop it off.") + (" " + _("Adds %(fee)s.") % {"fee": pricing.money(st["delivery_fee"].price)} if st["delivery_fee"] else "")),
-        (CateringOrder.FULL, _("Full service"), _("We deliver, set up and serve. Add staff below.")))
+        (CateringOrder.DELIVERY, _("Delivery"), _("We drop it off.") + (" " + _("Adds %(fee)s.") % {"fee": storefront.service_price(st["delivery_fee"])} if st["delivery_fee"] else "")))
         if getattr(cfg, store.FULS[way])]
     rules = [
         ("M12 7v5l3 2 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", _("%(n)d days’ notice") % {"n": round(cfg.lead_days)} if cfg.lead_unit == cfg.DAYS else _("%(n)d hours’ notice") % {"n": cfg.lead}, _("Very large orders need a day or two more.")),
