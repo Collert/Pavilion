@@ -42,6 +42,10 @@ def quote_page(request):
                 return redirect("catering_order", token=result.token)
         elif op == "drop_card":
             request.session.pop("saved_card", None)
+        elif op.startswith("use_card:") and request.user.is_authenticated:
+            saved = request.user.saved_cards.filter(pk=op[9:]).first()
+            if saved:
+                request.session["saved_card"] = saved.as_card()
     st = store.state(q)
     foods = []
     stations = {}
@@ -99,7 +103,8 @@ def quote_page(request):
     ]
     return theme_page(request, "catering.html", {
         "q": q, "st": st, "cfg": cfg, "foods": foods, "cats": cats, "svc_groups": groups, "quote_groups": quote_groups,
-        "fuls": fuls, "rules": rules, "card": request.session.get("saved_card"), "sending": request.POST.get("op") in ("review", "agree", "drop_card") or (request.POST.get("op") == "send"),
+        "fuls": fuls, "rules": rules, "card": request.session.get("saved_card"), "sending": request.POST.get("op", "").startswith(("review", "agree", "drop_card", "use_card", "send")),
+        "saved_cards": list(request.user.saved_cards.all()) if request.user.is_authenticated else [],
         "off": not cfg.on,
     }, active="catering")
 

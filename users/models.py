@@ -56,10 +56,71 @@ class Staff(models.Model):
         return False
 
 class Customer(models.Model):
+    """A customer's profile: what the store's account pages edit (online_store/account.py)."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="customer_profile")
     profile_picture = models.ImageField(null=True, blank=True, upload_to='files/pfps')
     phone = models.PositiveBigIntegerField(null=True, blank=True)
     home_address = models.TextField(null=True, blank=True)
+    organization = models.CharField(max_length=120, blank=True, help_text="Shows on catering requests and invoices")
+    order_texts = models.BooleanField(default=True, help_text="Texts when an order is ready or on the way")
+    catering_emails = models.BooleanField(default=True, help_text="Emails about catering messages and proposed changes")
+    newsletter = models.BooleanField(default=False, help_text="The monthly menu email")
+    square_customer_id = models.CharField(max_length=64, blank=True, help_text="Where their saved cards live in Square")
+
+    @property
+    def phone_text(self) -> str:
+        digits = str(self.phone or "")
+        if len(digits) == 10:
+            return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+        return digits
+
+
+class SavedCard(models.Model):
+    """A card on file in Square for a signed-in customer (only its brand and last 4 are kept here)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_cards")
+    square_customer_id = models.CharField(max_length=64)
+    square_card_id = models.CharField(max_length=64, help_text="'demo:' ids are seed_demo's or a DEBUG test card")
+    brand = models.CharField(max_length=24, blank=True)
+    last4 = models.CharField(max_length=4, blank=True)
+    exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-is_default", "-created_at"]
+
+    def __str__(self):
+        return self.label
+
+    @property
+    def label(self) -> str:
+        return f"{(self.brand or 'Card').title()} ending {self.last4}"
+
+    def as_card(self) -> dict:
+        """The shape catering and checkout use for a card on file."""
+        return {"customer": self.square_customer_id, "id": self.square_card_id, "brand": self.brand, "last4": self.last4}
+
+
+class SavedAddress(models.Model):
+    """A delivery address a customer keeps (Work, Home...)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_addresses")
+    label = models.CharField(max_length=40, default="Home")
+    line = models.CharField(max_length=160, help_text="Street address")
+    unit = models.CharField(max_length=60, blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    postal = models.CharField(max_length=12, blank=True)
+    note = models.CharField(max_length=160, blank=True, help_text="For the driver: buzzer, where to leave it")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.label}: {self.line}"
+
+    @property
+    def one_line(self) -> str:
+        return ", ".join(filter(None, [self.line, self.unit]))
 
 @receiver(post_save, sender=User)
 def create_customer_profile(sender, instance, created, **kwargs):

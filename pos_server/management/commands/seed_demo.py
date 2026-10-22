@@ -106,6 +106,7 @@ class Command(BaseCommand):
                     RegisterSignIn.record(device, User.objects.get(username=username))
             Packaging.objects.get_or_create(name="Takeout container", defaults={"quantity": 200, "cost": Decimal("0.35")})
             self.seed_orders()
+            self.seed_account()
             # Availability overrides, as in the mockup (after the orders, which need these to sell):
             # a component turned off (its dish becomes unavailable) and a sold-out dish kept selling past zero
             for obj, mode in ((Component.objects.get(title="Halloumi"), "off"), (Dish.objects.get(title="Cold brew"), "always")):
@@ -991,6 +992,25 @@ class Command(BaseCommand):
                      "can do on a race weekend. We’d love to help with something smaller next year.", quiet=True)
         stamp(maya, at(-7, 9, 20))
         CateringOrder.objects.filter(pk=maya.pk).update(closed_at=at(-7, 9, 20))
+
+    def seed_account(self):
+        """The customer login's account: a name, preferences, a test card, two addresses and the holiday party request."""
+        from catering.models import CateringOrder
+        from users.models import Customer, SavedAddress, SavedCard
+        user = User.objects.get(username="customer")
+        user.first_name, user.last_name = "Sofia", "Moreau"
+        user.save(update_fields=["first_name", "last_name"])
+        profile, _created = Customer.objects.get_or_create(user=user)
+        profile.phone, profile.organization, profile.newsletter = 6045550110, "Lumen Studio", True
+        profile.square_customer_id = "demo:cust-sofia"
+        profile.save()
+        SavedCard.objects.create(user=user, square_customer_id="demo:cust-sofia", square_card_id="demo:card-sofia-amex",
+                                 brand="AMEX", last4="1007", exp_month=3, exp_year=2029, is_default=True)
+        SavedAddress.objects.create(user=user, label="Work", line="355 Railway St", unit="unit 200", city="Vancouver",
+                                    postal="V6A 1A4", note="Loading bay off the lane")
+        SavedAddress.objects.create(user=user, label="Home", line="455 E 8th Ave", unit="apt 3", city="Vancouver",
+                                    postal="V5T 1S2", note="Buzz 03")
+        CateringOrder.objects.filter(name="Sofia Moreau").update(customer=user)
 
     def seed_discounts(self):
         specs = [

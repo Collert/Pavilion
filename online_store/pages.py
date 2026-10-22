@@ -185,11 +185,13 @@ def _state(request) -> dict:
     defaults = {"method": "pickup", "when": "asap", "date": timezone.localdate().isoformat(), "time": "",
                 "tip": 15, "name": (user.get_full_name() if user.is_authenticated else ""), "phone": "",
                 "email": user.email if user.is_authenticated else "", "address": "", "unit": "", "city": "",
-                "postal": "", "driver_note": "", "note": ""}
+                "postal": "", "driver_note": "", "note": "", "pay": "", "address_id": ""}
     return {**defaults, **{k: v for k, v in state.items() if k in defaults}}
 
 
 def _from_post(state, post):
+    if post.get("pay") and (post["pay"] == "new" or post["pay"].startswith("card:")):
+        state["pay"] = post["pay"]
     for key in ("name", "phone", "email", "address", "unit", "city", "postal", "driver_note", "note"):
         if key in post:
             state[key] = post.get(key, "").strip()[:200]
@@ -214,6 +216,13 @@ def _apply_op(request, state, op, post):
                 state["date"] = arg
         except ValueError:
             pass
+    elif name == "pay" and (arg == "new" or arg.startswith("card")):
+        state["pay"] = arg
+    elif name == "address":
+        state["address_id"] = arg
+        saved = request.user.saved_addresses.filter(pk=_int(arg)).first() if request.user.is_authenticated else None
+        if saved:
+            state.update(address=saved.line, unit=saved.unit, city=saved.city, postal=saved.postal, driver_note=saved.note)
     elif name == "tip" and _int(arg, -1) in TIPS:
         state["tip"] = _int(arg)
     elif name in ("hup", "hdown", "mup", "mdown", "am", "pm"):
@@ -324,9 +333,14 @@ def _schedule(state, cart_dishes, delivery):
 
 
 def _gift_cover(request, total):
-    """[(GiftCard, amount)] the cart's gift cards pay, in order, up to `total`."""
+    """[(GiftCard, amount)] the cart's gift cards pay, in order, up to `total`; a signed-in customer's own gift
+    cards (sent to their email) are used too."""
     out, left = [], total
-    for number in store_cart.load(request)["gifts"]:
+    numbers = list(store_cart.load(request)["gifts"])
+    user = request.user
+    if user.is_authenticated and user.email:
+        numbers += [n for n in GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0).values_list("number", flat=True) if n not in numbers]
+    for number in numbers:
         card = GiftCard.objects.filter(number=number).first()
         if card is None or card.available_balance <= 0 or left <= 0:
             continue
@@ -381,7 +395,15 @@ def checkout(request):
     event = next((e for e in Event.objects.filter(restaurant_open=True, end__gt=timezone.now()).order_by("start")[:1]), None)
     delivery_open = bool(event and event.delivery_open) or any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
     to_pay = total - gift_total
+    user = request.user
+    saved_cards = list(user.saved_cards.all()) if user.is_authenticated else []
+    for card in saved_cards:
+        card.key = f"card:{card.id}"
+    saved_addresses = list(user.saved_addresses.all()) if user.is_authenticated else []
+    if not state["pay"]:
+        state["pay"] = f"card:{saved_cards[0].id}" if saved_cards else "new"
     return theme_page(request, "cart.html", {
+        "saved_cards": saved_cards, "saved_addresses": saved_addresses,
         "empty": False, "rows": rows, "count": sum(r["qty"] for r in rows), "state": state, "when": when,
         "priced": priced, "tip": tip, "tips": [{"pct": p, "amount": (base * p / 100).quantize(CENT, rounding=ROUND_HALF_UP), "on": state["tip"] == p} for p in TIPS],
         "total": total, "to_pay": to_pay, "lines": lines, "upsell": upsell, "delivery": delivery, "delivery_open": delivery_open,
@@ -438,6 +460,19 @@ def _place(request, state):
     gifts = _gift_cover(request, total)
     remaining = total - sum((a for _c, a in gifts), Decimal("0"))
     uuid_ = request.POST.get("transaction_uuid", "")
+    if not state.get("pay") and request.user.is_authenticated:
+        default = request.user.saved_cards.first()
+        state["pay"] = f"card:{default.id}" if default else "new"
+    if remaining > 0 and not uuid_ and state.get("pay", "").startswith("card:") and request.user.is_authenticated:
+        card = request.user.saved_cards.filter(pk=_int(state["pay"][5:])).first()
+        if card is None:
+            messages.error(request, _("Pick a card."))
+            return None
+        try:
+            uuid_ = str(_authorize_saved(card, remaining).uuid)
+        except Exception:
+            messages.error(request, _("That card was declined. Try another one."))
+            return None
     if remaining > 0 and not uuid_:
         return {"amount": remaining, "url": reverse("web-payment-window") + f"?amount={remaining}&confirmation_needed=1"}
     cart = store_cart.load(request)
@@ -479,6 +514,26 @@ def _place(request, state):
     store_cart.clear(request)
     request.session["orders"] = (request.session.get("orders", []) + [order.id])[-20:]
     return order
+
+
+def _authorize_saved(card, amount):
+    """Hold `amount` on a saved card (charged when the kitchen accepts, like the card form's payments): a paid
+    Transaction with its PaymentAuthorization, ready for Transaction.consume. Test cards ("demo:") skip Square."""
+    import uuid as uuid_lib
+    from payments import square
+    from payments.models import PaymentAuthorization
+    transaction = Transaction.objects.create(amount=amount)
+    if card.square_card_id.startswith("demo:"):
+        payment_id = f"demo:pay-{uuid_lib.uuid4().hex[:12]}"
+    else:
+        payment_id = square.charge_card(card.square_customer_id, card.square_card_id, amount, key=f"ord-{transaction.uuid}",
+                                        note="Online order", autocomplete=False)
+    PaymentAuthorization.objects.create(payment_id=payment_id, amount=square.to_cents(amount), currency="CAD",
+                                        status=PaymentAuthorization.AUTHORIZED, transaction=transaction,
+                                        card_brand=card.brand, card_last4=card.last4)
+    transaction.successful = True
+    transaction.save(update_fields=["successful"])
+    return transaction
 
 
 # ---------- the placed order ----------

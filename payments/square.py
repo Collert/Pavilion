@@ -245,6 +245,13 @@ def charge_card(customer_id, card_id, amount, key, note="", autocomplete=True):
     return result.body["payment"]["id"]
 
 
+def disable_card(card_id):
+    """Stop a card on file from being charged (a customer removed it)."""
+    result = square_client.cards.disable_card(card_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+
+
 def complete_payment(payment_id):
     result = square_client.payments.complete_payment(payment_id, body={})
     if not result.is_success():

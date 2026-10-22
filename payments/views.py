@@ -125,16 +125,28 @@ def save_card(request):
     except ValueError:
         return JsonResponse({"message": "Bad request"}, status=400)
     if data.get("demo") and settings.DEBUG:
-        request.session["saved_card"] = {"customer": "demo:cust-test", "id": "demo:card-test", "brand": "VISA", "last4": "1111"}
+        import uuid as uuid_
+        card = {"customer": "demo:cust-test", "id": f"demo:card-{uuid_.uuid4().hex[:8]}", "brand": "VISA", "last4": "1111"}
+        _keep(request, card)
         return JsonResponse({"ok": True})
     token = str(data.get("token") or "")
     if not token:
         return JsonResponse({"message": "No card"}, status=400)
     user = request.user if request.user.is_authenticated else None
+    known = getattr(getattr(user, "customer_profile", None), "square_customer_id", "") if user else ""
     try:
-        customer = square.create_customer(user.get_full_name() if user else "", user.email if user else "")
+        customer = known or square.create_customer(user.get_full_name() if user else "", user.email if user else "")
         card = square.save_card(token, customer, user.get_full_name() if user else "")
     except square.SquareError:
         return JsonResponse({"message": "The card was declined. Try another one."}, status=400)
-    request.session["saved_card"] = {"customer": customer, **card}
+    _keep(request, {"customer": customer, **card})
     return JsonResponse({"ok": True})
+
+
+def _keep(request, card):
+    """The page that asked uses the session's card; a signed-in customer's account keeps it too."""
+    if request.user.is_authenticated:
+        from online_store.account import save_customer_card
+        saved = save_customer_card(request.user, card)
+        card = {**card, "saved": saved.id}
+    request.session["saved_card"] = card

@@ -41,7 +41,7 @@ without asking.
 | App | Prefix | Role |
 | --- | --- | --- |
 | `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Combo, Component, OptionGroup/Option, Extra, Ingredient, Station, Order, OrderItem, OrderDiscount, OrderPayment, Discount, CashDrawerSession, EligibleDevice. Register + lock screen + cash drawer (`register.py`), KDS, customer display, status board, Square webhook. `pricing.py` = cart pricing/discounts/tax; `orders.py` = order creation/serialization; `devices.py` = access decorators. |
-| `online_store` | `/` | Customer store: menu, cart, checkout (`place_order`), order status/history. Drawn by a **theme** (see "Store themes" below): home, menu + dish sheet, checkout (`pages.py`, session cart in `cart.py`), the placed order, and catering (`catering/views.py`) so far. RejectedOrder. |
+| `online_store` | `/` | Customer store: menu, cart, checkout (`place_order`), order status/history. Drawn by a **theme** (see "Store themes" below): home, menu + dish sheet, checkout (`pages.py`, session cart in `cart.py`), the placed order, catering (`catering/views.py`), sign in/join and the customer account (`account.py`; the account pages use Pavilion's own look) so far. RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
 | `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; email; barcode page; `card-api`. |
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
@@ -51,7 +51,7 @@ without asking.
 | `catering` | `/catering/` | Catering orders (CateringOrder/Line/Message, CateringSettings): `flow.py` does every step (accept charges the card on file, propose changes, the customer's counter-proposals and cancelling, reject/cancel refunds, deposit holds; each version kept as a CateringVersion), `pricing.py` the money, `store.py` the store's quote builder; answered in the admin's Catering page; `/catering/` builds a quote, `<token>` is the customer's request page. Daily cron: `manage.py catering_deposits`. Never on the register or KDS. |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage): `Screen.layout` is a JSON tree rendered on the server. See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
-| `users` | `/users/` | Login (`LOGIN_URL`), register, profile; Staff/Customer profiles. |
+| `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile; Staff/Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |

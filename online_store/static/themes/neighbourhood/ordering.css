@@ -269,3 +269,45 @@
     .nb-sheet { border-radius: 24px 24px 0 0; max-height: 92dvh; }
     .nb-sheet-top h2 { font-size: 28px; }
 }
+
+
+/* ---------- sign in and join (design: StoreLogin) ---------- */
+.nb-login { min-height: 100dvh; display: grid; grid-template-columns: 600px 1fr; }
+.nb-login-art { position: relative; background: var(--deep); color: var(--paper); padding: 44px 48px; display: flex; flex-direction: column; overflow: hidden; }
+.nb-brand.light { color: var(--paper); position: relative; z-index: 1; }
+.nb-login-sun { position: absolute; left: 250px; top: 150px; width: 420px; height: 420px; border-radius: 50%; background: var(--highlight); }
+.nb-login-food { position: absolute; left: 300px; top: 190px; }
+.nb-login-food .drawing { width: 320px; }
+.nb-login-bubble { position: absolute; left: 190px; top: 400px; width: 170px; height: 170px; border-radius: 50%; background: var(--paper); display: flex; align-items: center; justify-content: center; }
+.nb-login-bubble .drawing { width: 130px; }
+.nb-login-pitch { margin: 0; font-size: 54px; line-height: 1; font-weight: 600; position: relative; }
+.nb-ticks.light { position: relative; margin-top: 22px; }
+.nb-login-side { position: relative; display: flex; align-items: center; justify-content: center; padding: 80px 24px 40px; }
+.nb-login-back { position: absolute; top: 40px; right: 48px; font-size: 15px; }
+.nb-login-form { width: min(460px, 100%); }
+.nb-login-form.wide { width: min(500px, 100%); }
+.nb-login-title { margin: 10px 0 0; font-size: clamp(44px, 4.2vw, 60px); line-height: 1; font-weight: 600; }
+.nb-login-text { margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: var(--soft-ink); }
+.nb-social { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 28px; }
+.nb-social .nb-btn { height: 54px; background: var(--card); }
+.nb-social .nb-btn:disabled { opacity: .55; color: var(--ink); background: var(--card); }
+.nb-or { display: flex; align-items: center; gap: 12px; margin: 22px 0 8px; font-size: 13px; font-weight: 700; color: var(--soft-ink); }
+.nb-or span { flex: 1; height: 1px; background: var(--dash); }
+.nb-input-lg { height: 54px; border-radius: 16px; background: var(--card); font-size: 16px; }
+.nb-login-form .nb-block { margin-top: 14px; }
+.nb-login-form .nb-field-grid { margin-top: 22px; }
+.nb-login-error { margin-top: 12px; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 16%, var(--card)); color: color-mix(in srgb, var(--accent) 65%, var(--ink)); font-size: 14px; font-weight: 700; }
+.nb-login-btn { margin-top: 20px; width: 100%; height: 56px; font-size: 17px; }
+.nb-login-switch { margin-top: 22px; font-size: 15px; color: var(--soft-ink); text-align: center; }
+.nb-login-switch a { color: var(--accent); font-weight: 700; }
+.nb-check input:checked + .nb-checkbox { background: var(--ink); color: var(--paper); box-shadow: none; }
+.nb-check input:focus-visible + .nb-checkbox { outline: 3px solid var(--deep); outline-offset: 2px; }
+.nb-check { position: relative; }
+@media (max-width: 1080px) {
+    .nb-login { grid-template-columns: 1fr; }
+    .nb-login-art { min-height: 220px; padding: 28px 24px; }
+    .nb-login-sun, .nb-login-food, .nb-login-bubble, .nb-ticks.light { display: none; }
+    .nb-login-pitch { font-size: 36px; margin-top: 30px; }
+    .nb-login-side { padding: 32px 16px 48px; }
+    .nb-login-back { top: -150px; right: 24px; color: var(--paper); }
+}

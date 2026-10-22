@@ -281,3 +281,73 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.menu.save()
         when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
         self.assertEqual(when["message"], "Burger isn’t on the menu then.")
+
+
+class AccountTests(MenuFixture, TestCase):
+    """online_store/account.py: sign in and join, the account pages, saved cards at checkout."""
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth.models import User
+        cls.build_menu()
+        cls.user = User.objects.create_user("sofia@example.com", email="sofia@example.com", password="juniperlane", first_name="Sofia")
+
+    def setUp(self):
+        now = timezone.localtime()
+        Event.objects.create(title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=3),
+                             restaurant_open=True, in_person_open=True, online_open=True, delivery_open=True)
+
+    def test_sign_in_join_and_sign_out(self):
+        self.assertRedirects(self.client.get(reverse("account")), reverse("store_signin") + "?next=/en/account", fetch_redirect_response=False)
+        self.assertTrue(self.client.post(reverse("store_signin"), {"email": "sofia@example.com", "password": "nope"}).context["form"]["failed"])
+        self.assertRedirects(self.client.post(reverse("store_signin"), {"email": "SOFIA@example.com", "password": "juniperlane"}),
+                             reverse("account"), fetch_redirect_response=False)
+        self.client.get(reverse("store_signout"))
+        page = self.client.post(reverse("store_join"), {"first": "Noor", "last": "Haddad", "email": "sofia@example.com", "password": "longenough"}).context
+        self.assertIn("already an account", page["problem"])
+        response = self.client.post(reverse("store_join"), {"first": "Noor", "last": "Haddad", "email": "noor@example.com",
+                                                            "phone": "604-555-0171", "password": "longenough", "news": "1"})
+        self.assertRedirects(response, reverse("account"), fetch_redirect_response=False)
+        from django.contrib.auth.models import User
+        noor = User.objects.get(email="noor@example.com")
+        self.assertEqual((noor.customer_profile.phone, noor.customer_profile.newsletter), (6045550171, True))
+
+    def test_profile_addresses_and_cards(self):
+        from users.models import SavedCard
+        self.client.force_login(self.user)
+        url = reverse("account_profile")
+        self.client.post(url, {"op": "save", "first": "Sofia", "last": "Moreau", "email": "sofia@example.com", "phone": "604 555 0110",
+                               "org": "Lumen Studio", "order_texts": "1"})
+        profile = self.user.customer_profile
+        profile.refresh_from_db()
+        self.assertEqual((profile.phone_text, profile.organization, profile.order_texts, profile.newsletter), ("604-555-0110", "Lumen Studio", True, False))
+        self.client.post(url, {"op": "address_save", "label": "Work", "line": "355 Railway St", "unit": "200"})
+        self.assertEqual(self.user.saved_addresses.get().one_line, "355 Railway St, 200")
+        with self.settings(DEBUG=True):
+            self.client.post(reverse("save-card"), json.dumps({"demo": True}), content_type="application/json")
+            self.client.post(reverse("save-card"), json.dumps({"demo": True}), content_type="application/json")
+        cards = list(self.user.saved_cards.all())
+        self.assertEqual([c.is_default for c in cards], [True, False])
+        self.client.post(url, {"op": f"card_remove:{cards[0].id}"})
+        self.assertTrue(SavedCard.objects.get().is_default)
+
+    def test_checkout_with_a_saved_card_then_reorder(self):
+        from payments.models import PaymentAuthorization
+        from users.models import SavedCard
+        self.client.force_login(self.user)
+        SavedCard.objects.create(user=self.user, square_customer_id="demo:c", square_card_id="demo:card", brand="VISA", last4="4242", is_default=True)
+        self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "2", "op": "add", f"g-{self.temp_key}": self.well.id,
+                                           f"g-{self.bun_key}": self.gf.id})
+        url = reverse("store_cart")
+        self.assertTrue(self.client.get(url).context["state"]["pay"].startswith("card:"))
+        response = self.client.post(url, {"name": "Sofia", "op": "place"})
+        order = Order.objects.get()
+        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertEqual(order.customer, self.user)
+        self.assertEqual(PaymentAuthorization.objects.get().status, PaymentAuthorization.AUTHORIZED)
+        self.assertEqual(order.payments.get(method="card").card_last4, "4242")
+        page = self.client.get(reverse("account")).context
+        self.assertEqual((page["rows"][0]["o"], page["d"]["number"]), (order, order.id))
+        self.client.post(reverse("account_reorder", args=[order.id]))
+        line = self.client.session["cart"]["lines"][0]
+        self.assertEqual((line["id"], line["qty"], line["cust"]["options"][self.temp_key]), (self.burger.id, 2, self.well.id))
+        self.assertEqual(self.client.get(reverse("account_receipt", args=[order.id])).status_code, 200)

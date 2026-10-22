@@ -165,6 +165,7 @@ as you type (data-search) so the quote stays in the session and the totals and c
         {% if card %}
         <div class="nb-pay-card"><span class="nb-card-mark">{{ card.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{% blocktrans with last4=card.last4 %}Card ending {{ last4 }}{% endblocktrans %}</span><button class="nb-link-btn" name="op" value="drop_card">{% trans "Use another card" %}</button></div>
         {% else %}
+        {% if saved_cards %}<div class="nb-options">{% for c in saved_cards %}<button class="nb-option" name="op" value="use_card:{{ c.id }}"><span class="nb-radio"></span><span class="nb-card-mark">{{ c.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{{ c.label }}</span></button>{% endfor %}</div><div class="muted small top8">{% trans "Or add a new card:" %}</div>{% endif %}
         <iframe class="nb-card-frame" src="{% url 'save-card' %}" title="{% trans 'Add a card' %}"></iframe>
         {% endif %}
         {% if st.cfg.policy %}<div class="nb-policy"><b>{% trans "Cancellation policy." %}</b> {{ st.cfg.policy }}</div>{% endif %}

@@ -342,8 +342,18 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
 - **The placed order** (`order-status/<id>`, `order_page`): steps, ETA, where, "need a change", receipt; follows
   the kitchen over SSE.
 
-Still on the old `online_store/layout.html`: order history (next: catering, then account and sign-in, services).
-The old `submit-order` view stays for now.
+- **Sign in and join** (`/account/sign-in`, `/account/join`, `online_store/account.py`, drawn by the theme): email
+  (or username) and password; Apple/Google buttons are shown but not set up, email codes come later. Staff still
+  use `users/login`.
+- **The account** (`/account/`, Pavilion's own look like the mockup, not the theme): orders (the one in progress,
+  reorder into the cart from each item's saved selection, a printable receipt), catering requests (waiting ones
+  first-class, linked by customer or email), profile and wallet (`users.Customer`: phone, company, order texts,
+  catering emails, newsletter; `users.SavedCard`: Square cards on file, added through `payments/save-card`, a
+  default, removed with `square.disable_card`; `users.SavedAddress`; gift cards sent to their email, used
+  automatically at checkout). Checkout offers saved cards (authorized like the card form's payments, by
+  `pages._authorize_saved`) and saved addresses; the catering send sheet offers saved cards.
+
+The old `order-history` page and `submit-order` view (old layout) are no longer linked; next: the services page.
 
 `online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 

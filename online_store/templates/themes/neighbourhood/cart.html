@@ -85,6 +85,11 @@ order, or first opens Square's card form for what gift cards don't cover (checko
             {% if delivery %}
             <div class="nb-fields">
                 <div class="strong small-title">{% trans "Deliver to" %}</div>
+                {% if saved_addresses %}
+                <div class="nb-options">
+                    {% for a in saved_addresses %}<button class="nb-option{% if state.address_id == a.id|stringformat:'s' %} on{% endif %}" role="radio" name="op" value="address:{{ a.id }}" aria-checked="{% if state.address_id == a.id|stringformat:'s' %}true{% else %}false{% endif %}"><span class="nb-radio"></span><span class="nb-grow"><span class="strong">{{ a.label }}</span><span class="nb-option-sub">{{ a.one_line }}</span></span></button>{% endfor %}
+                </div>
+                {% endif %}
                 <div class="nb-field-grid">
                     <label class="wide"><span class="nb-lbl">{% trans "Street address" %}</span><input class="nb-input" name="address" value="{{ state.address }}" autocomplete="address-line1" placeholder="{% trans '355 Railway St' %}"></label>
                     <label><span class="nb-lbl">{% trans "Unit or floor" %}</span><input class="nb-input" name="unit" value="{{ state.unit }}" autocomplete="address-line2"></label>
@@ -138,7 +143,15 @@ order, or first opens Square's card form for what gift cards don't cover (checko
                 <label><span class="nb-lbl">{% trans "Phone" %}{% if not delivery %} <span class="muted">· {% trans "optional" %}</span>{% endif %}</span><input class="nb-input" name="phone" value="{{ state.phone }}" autocomplete="tel" inputmode="tel"></label>
                 {% if not me %}<label class="wide"><span class="nb-lbl">{% trans "Email for the receipt" %}</span><input class="nb-input" type="email" name="email" value="{{ state.email }}" autocomplete="email"></label>{% endif %}
             </div>
-            <div class="nb-pay-card"><span class="nb-card-mark">{% trans "CARD" %}</span><span class="nb-grow strong">{% trans "Pay by card" %}</span><span class="muted small">{% trans "You’ll enter it on the next step" %}</span></div>
+            <input type="hidden" name="pay" value="{{ state.pay }}">
+            <div class="nb-options" role="radiogroup" aria-label="{% trans 'Payment method' %}">
+                {% for c in saved_cards %}
+                <button class="nb-option{% if state.pay == c.key %} on{% endif %}" role="radio" name="op" value="pay:card:{{ c.id }}" aria-checked="{% if state.pay == c.key %}true{% else %}false{% endif %}">
+                    <span class="nb-radio"></span><span class="nb-card-mark">{{ c.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{{ c.label }}</span>{% if c.is_default %}<span class="muted small">{% trans "Default" %}</span>{% endif %}</button>
+                {% endfor %}
+                <button class="nb-option{% if state.pay == 'new' %} on{% endif %}" role="radio" name="op" value="pay:new" aria-checked="{% if state.pay == 'new' %}true{% else %}false{% endif %}">
+                    <span class="nb-radio"></span><span class="nb-card-mark">{% if saved_cards %}+{% else %}{% trans "CARD" %}{% endif %}</span><span class="nb-grow strong">{% if saved_cards %}{% trans "Add a new card" %}{% else %}{% trans "Pay by card" %}{% endif %}</span><span class="muted small">{% trans "You’ll enter it on the next step" %}</span></button>
+            </div>
             <div class="nb-code-row">
                 <input class="nb-input" name="code" placeholder="{% trans 'Promo or gift card code' %}" aria-label="{% trans 'Promo or gift card code' %}" autocomplete="off">
                 <button class="nb-btn nb-btn-line" name="op" value="code">{% trans "Apply" %}</button>
