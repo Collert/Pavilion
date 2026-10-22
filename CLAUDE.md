@@ -41,7 +41,7 @@ without asking.
 | App | Prefix | Role |
 | --- | --- | --- |
 | `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Combo, Component, OptionGroup/Option, Extra, Ingredient, Station, Order, OrderItem, OrderDiscount, OrderPayment, Discount, CashDrawerSession, EligibleDevice. Register + lock screen + cash drawer (`register.py`), KDS, customer display, status board, Square webhook. `pricing.py` = cart pricing/discounts/tax; `orders.py` = order creation/serialization; `devices.py` = access decorators. |
-| `online_store` | `/` | Customer PWA: menu, cart, checkout (`place_order`), order status/history. PromoContent, RejectedOrder. |
+| `online_store` | `/` | Customer store: menu, cart, checkout (`place_order`), order status/history. Drawn by a **theme** (see "Store themes" below; the home page so far, other pages move over one by one). RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
 | `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; email; barcode page; `card-api`. |
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
@@ -165,6 +165,19 @@ the template, pages, group slots, timing and the template's params (its look) ar
 tab and kept on `Menu.display` (`screens/menu_boards.py`). A template's JSON adds `orientation`, `width`/`height`,
 `groups`, `per_group`, `featured` and `fonts`; its partial gets `b` (`menu_boards.board()`), renders every
 `.mb-page` and each slot's `.mb-screen`s, and `screens/widgets/menu_board.js` turns them over.
+
+## Store themes
+
+The online store is drawn by a theme, built like widgets: `online_store/themes/<name>.json` (title, fonts, css,
+`thumb`, `contrast` pairs and `groups` of params: string, text, url, bool, int, number, choice, color, image, with
+`control`, `presets`, `show_if`...; see `online_store/themes.py`), templates in
+`online_store/templates/themes/<name>/` (`base.html` + one per page) and CSS in `online_store/static/themes/<name>/`.
+Views render through `online_store.views.theme_page(request, "home.html", context)`; templates get `t` (the theme's
+values), `store` (name, logo, address, city, phone, directions), `links`, `status`, `hours` and the like; colours,
+sizes and fonts arrive as CSS variables (`themes.css_vars`). What pages show is worked out theme-independently in
+`online_store/storefront.py`. The admin's Branding page edits a draft per theme (`admin_portal.StoreTheme`, store
+details in `StoreSettings.draft`) that its preview iframe shows (`themes.previewing`: a superuser's iframe request
+while Branding is open); Publish makes it live. Only "neighbourhood" (the canvas's `Store*` artboards) exists so far.
 
 ## Access control
 

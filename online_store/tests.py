@@ -130,3 +130,70 @@ class PlaceOrderTests(MenuFixture, TestCase):
         response = self.client.get(reverse("order_status", kwargs={"id": order.id}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["status"], 1)  # scheduled: the pickup time is 30 minutes from now
+
+
+class ThemeTests(MenuFixture, TestCase):
+    """online_store/themes.py and the home page the live theme draws."""
+    @classmethod
+    def setUpTestData(cls):
+        from admin_portal.models import StoreSettings
+        cls.build_menu()
+        store = StoreSettings.load()
+        store.name, store.address, store.city, store.phone = "Juniper Lane", "1200 Main St", "Vancouver", "604-555-0100"
+        store.save()
+
+    def test_every_theme_loads_with_its_templates_and_css(self):
+        from django.contrib.staticfiles import finders
+        from django.template.loader import get_template
+        from online_store import themes
+        found = themes.themes()
+        self.assertIn("neighbourhood", found)
+        for theme in found.values():
+            for page in ("base.html", "home.html"):
+                get_template(theme.template(page))
+            for css in theme.css:
+                self.assertTrue(finders.find(css), css)
+            self.assertEqual(theme.clean({}), theme.defaults())
+
+    def test_values_are_checked(self):
+        from online_store import themes
+        theme = themes.get("neighbourhood")
+        values = theme.clean({"accent": "#1f4a3a", "paper": "red", "radius": 99, "outline": "2.5", "heading_font": "Comic Sans",
+                              "hero": "../../etc/passwd", "banner": "yes"})
+        self.assertEqual((values["accent"], values["paper"], values["radius"], values["outline"]), ("#1F4A3A", "#F6F0E4", 22, 2.5))
+        self.assertEqual((values["heading_font"], values["hero"], values["banner"]), ("Fraunces", "", True))
+        css = themes.css_vars(theme, values)
+        self.assertIn("--accent: #1F4A3A;", css)
+        self.assertIn("--outline: 2.5px;", css)
+        self.assertIn("--heading-font: 'Fraunces', serif;", css)
+
+    def test_home_shows_the_live_theme_and_the_draft_only_in_the_preview(self):
+        from django.contrib.auth.models import User
+        from admin_portal.models import StoreTheme
+        from online_store import themes
+        StoreTheme.objects.create(name="neighbourhood", live={"headline": "Live headline"}, draft={"headline": "Draft headline"})
+        home = reverse("store_home")
+        response = self.client.get(home)
+        self.assertContains(response, "Live headline")
+        self.assertContains(response, "1200 Main St")
+        owner = User.objects.create_superuser("owner", password="x")
+        self.client.force_login(owner)
+        session = self.client.session
+        session[themes.PREVIEW_KEY] = "neighbourhood"
+        session.save()
+        self.assertContains(self.client.get(home), "Live headline")  # a normal visit
+        self.assertContains(self.client.get(home, headers={"Sec-Fetch-Dest": "iframe"}), "Draft headline")
+
+    def test_hours_and_open_status(self):
+        from online_store import storefront
+        now = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
+        Event.objects.create(title="Open", start=now.replace(hour=7), end=now.replace(hour=21), restaurant_open=True,
+                             in_person_open=True, online_open=True, delivery_open=True)
+        status = storefront.open_now(now)
+        self.assertEqual((status["open"], status["text"], status["short"]), (True, "Open now · till 9 PM today", "7–9"))
+        self.assertFalse(storefront.open_now(now.replace(hour=22))["open"])
+        week = storefront.week_hours(now.date())
+        self.assertEqual([h["time"] for h in week if h["today"]], ["7 AM – 9 PM"])
+        self.assertEqual(sum(1 for h in storefront.hours_summary(week) if h["time"] == "Closed"), len(storefront.hours_summary(week)) - 1)
+        self.assertEqual(storefront.drawing("Smash burger"), "burger")
+        self.assertEqual(storefront.drawing("Mystery"), "plate")

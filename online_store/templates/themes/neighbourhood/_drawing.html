@@ -1,0 +1,90 @@
+{% comment %}A food drawing for dishes without a photo: kind = burger, sandwich, bowl, fries, latte, lemonade, croissant, tart or plate (online_store.storefront.drawing), size in px.{% endcomment %}
+<svg class="drawing" role="img" aria-label="{{ label|default:kind }}" width="{{ size|default:200 }}" height="{{ size|default:200 }}" viewBox="0 0 200 200">
+{% if kind == "burger" %}<g>
+        <ellipse cx="100" cy="168" rx="70" ry="9" fill="#000" opacity=".12"/>
+        <path d="M34 92c0-34 30-52 66-52s66 18 66 52z" fill="#E9A64B"/>
+        <path d="M58 62l6-3M82 52l7-1M112 52l7 1M136 62l6 3M98 68l6 0M70 76l6-2M124 76l6 2" stroke="#FFF3D6" stroke-width="5" stroke-linecap="round"/>
+        <path d="M30 98h140l-10 12-12-6-12 8-12-6-12 8-12-6-12 8-12-6-12 8-12-6-12 8z" fill="#7FB53E"/>
+        <path d="M34 108h132l-6 18-60 6-60-6z" fill="#F2C230"/>
+        <rect x="34" y="118" width="132" height="22" rx="11" fill="#6B3A1E"/>
+        <path d="M34 146h132a0 0 0 0 1 0 0c0 14-12 22-28 22H62c-16 0-28-8-28-22z" fill="#D9933F"/>
+      </g>
+{% elif kind == "sandwich" %}<g>
+        <ellipse cx="100" cy="170" rx="72" ry="9" fill="#000" opacity=".12"/>
+        <path d="M30 104c0-28 32-46 70-46s70 18 70 46z" fill="#D99A47"/>
+        <path d="M24 108c18-10 30 6 46-2s28 8 44 0 30 6 44-2 18 4 18 4l-6 18H30z" fill="#C8752F"/>
+        <path d="M30 124h140l-8 10-14-6-14 8-14-6-14 8-14-6-14 8-14-6-14 8-14-6z" fill="#9CCB5B"/>
+        <path d="M30 134h140c0 20-14 30-32 30H62c-18 0-32-10-32-30z" fill="#E6A956"/>
+        <path d="M150 104l18 -14" stroke="#F4D35E" stroke-width="5" stroke-linecap="round"/>
+      </g>
+{% elif kind == "bowl" %}<g>
+        <ellipse cx="100" cy="170" rx="70" ry="9" fill="#000" opacity=".12"/>
+        <ellipse cx="100" cy="96" rx="74" ry="20" fill="#F1E3C6"/>
+        <circle cx="70" cy="88" r="16" fill="#7FB53E"/>
+        <circle cx="96" cy="80" r="14" fill="#5E9B2D"/>
+        <rect x="108" y="78" width="34" height="18" rx="5" fill="#F2D49B" transform="rotate(-12 125 87)"/>
+        <path d="M112 84l26-6" stroke="#B8763A" stroke-width="3"/>
+        <circle cx="140" cy="98" r="9" fill="#E2442F"/>
+        <circle cx="56" cy="102" r="7" fill="#E9A64B"/>
+        <path d="M26 98c0 40 32 66 74 66s74-26 74-66z" fill="#2F5D4B"/>
+        <path d="M40 112c8 22 30 38 60 38" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity=".2" fill="none"/>
+      </g>
+{% elif kind == "fries" %}<g>
+        <ellipse cx="100" cy="174" rx="54" ry="8" fill="#000" opacity=".12"/>
+        <g fill="#F2C230" stroke="#D9A21E" stroke-width="2">
+          <rect x="62" y="34" width="14" height="80" rx="4" transform="rotate(-10 69 74)"/>
+          <rect x="82" y="26" width="14" height="86" rx="4" transform="rotate(-3 89 69)"/>
+          <rect x="102" y="24" width="14" height="88" rx="4" transform="rotate(4 109 68)"/>
+          <rect x="120" y="32" width="14" height="80" rx="4" transform="rotate(11 127 72)"/>
+          <rect x="92" y="40" width="14" height="70" rx="4"/>
+        </g>
+        <path d="M52 86h96l-12 84H64z" fill="#E2442F"/>
+        <path d="M52 86h96l-2 14H54z" fill="#C2331F"/>
+        <circle cx="100" cy="132" r="16" fill="#FFF3D6"/>
+        <path d="M93 132l5 5 9-10" stroke="#E2442F" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+{% elif kind == "latte" %}<g>
+        <ellipse cx="100" cy="174" rx="50" ry="8" fill="#000" opacity=".12"/>
+        <path d="M58 52h84l-10 118H68z" fill="#FFFFFF" opacity=".55" stroke="#C9D6CF" stroke-width="3"/>
+        <path d="M62 90h76l-7 76H69z" fill="#B9835A"/>
+        <path d="M60 70h80l-2 20H62z" fill="#F3E6D2"/>
+        <rect x="70" y="100" width="18" height="16" rx="3" fill="#EAF6FA" opacity=".9" transform="rotate(-12 79 108)"/>
+        <rect x="104" y="116" width="16" height="15" rx="3" fill="#EAF6FA" opacity=".9" transform="rotate(14 112 123)"/>
+        <rect x="108" y="22" width="8" height="64" rx="4" fill="#1F4A3A" transform="rotate(14 112 54)"/>
+      </g>
+{% elif kind == "lemonade" %}<g>
+        <ellipse cx="100" cy="174" rx="48" ry="8" fill="#000" opacity=".12"/>
+        <path d="M60 56h80l-8 114H68z" fill="#FBE68A" stroke="#E8CC4E" stroke-width="3"/>
+        <path d="M60 56h80l-1 14H61z" fill="#FFF7C9"/>
+        <circle cx="140" cy="62" r="22" fill="#F2C230"/>
+        <circle cx="140" cy="62" r="16" fill="#FBE68A"/>
+        <path d="M140 46v32M124 62h32M129 51l22 22M151 51l-22 22" stroke="#F2C230" stroke-width="2"/>
+        <circle cx="84" cy="120" r="5" fill="#FFFFFF" opacity=".8"/>
+        <circle cx="110" cy="100" r="4" fill="#FFFFFF" opacity=".8"/>
+        <circle cx="98" cy="144" r="3" fill="#FFFFFF" opacity=".8"/>
+        <path d="M70 92c10 6 18-4 28 2s20-2 30 2" stroke="#7FB53E" stroke-width="6" fill="none" stroke-linecap="round"/>
+      </g>
+{% elif kind == "croissant" %}<g>
+        <ellipse cx="100" cy="160" rx="74" ry="9" fill="#000" opacity=".12"/>
+        <path d="M22 128c10-30 34-50 50-52l8 64c-22 4-44 0-58-12z" fill="#D9933F"/>
+        <path d="M178 128c-10-30-34-50-50-52l-8 64c22 4 44 0 58-12z" fill="#D9933F"/>
+        <path d="M64 70c10-16 26-24 36-24s26 8 36 24l-8 78c-10 4-18 6-28 6s-18-2-28-6z" fill="#E9A64B"/>
+        <path d="M82 64l-4 84M100 50v100M118 64l4 84" stroke="#C17A2C" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+        <path d="M76 82c8-6 16-8 24-8s16 2 24 8" stroke="#FFF3D6" stroke-width="4" fill="none" stroke-linecap="round" opacity=".7"/>
+      </g>
+{% elif kind == "tart" %}<g>
+        <ellipse cx="100" cy="164" rx="70" ry="9" fill="#000" opacity=".12"/>
+        <path d="M30 104h140l-12 50H42z" fill="#D9933F"/>
+        <path d="M30 104h140l-3 10H33z" fill="#C17A2C"/>
+        <path d="M42 112l6 40M60 112l4 42M80 112l2 42M100 112v42M120 112l-2 42M140 112l-4 42M158 112l-6 40" stroke="#C17A2C" stroke-width="3"/>
+        <ellipse cx="100" cy="100" rx="70" ry="16" fill="#F7DA4A"/>
+        <path d="M70 96c4-8 12-12 18-6M104 92c4-8 12-12 18-6" stroke="#FFFFFF" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>
+        <path d="M100 84c-8-14-2-30 14-36" stroke="#5E9B2D" stroke-width="6" stroke-linecap="round" fill="none"/>
+      </g>
+{% else %}<g>
+        <ellipse cx="100" cy="162" rx="72" ry="9" fill="#000" opacity=".12"/>
+        <ellipse cx="100" cy="120" rx="80" ry="34" fill="#FFFFFF" stroke="#DDE4DF" stroke-width="3"/>
+        <ellipse cx="100" cy="116" rx="54" ry="20" fill="#EEF2EF"/>
+        <path d="M60 60c0 20 40 20 40 0M120 60c0 20 40 20 40 0" stroke="#C9D6CF" stroke-width="5" fill="none" stroke-linecap="round" opacity=".7"/>
+      </g>
+{% endif %}</svg>

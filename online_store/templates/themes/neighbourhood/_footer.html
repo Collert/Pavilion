@@ -1,0 +1,29 @@
+{% load i18n %}
+<footer class="nb-footer">
+    <div class="nb-foot-grid">
+        <div>
+            <div class="nb-serif nb-foot-name">{{ store.name }}</div>
+            {% if t.about %}<p class="nb-foot-about">{{ t.about }}</p>{% endif %}
+        </div>
+        {% if store.address or store.phone %}
+        <div>
+            <div class="nb-foot-kick">{% trans "Visit" %}</div>
+            <p class="nb-foot-text">{% if store.address %}{{ store.address }}<br>{% endif %}{% if store.city %}{{ store.city }}<br>{% endif %}{% if store.phone %}<a href="tel:{{ store.phone }}">{{ store.phone }}</a>{% endif %}</p>
+        </div>
+        {% endif %}
+        <div>
+            <div class="nb-foot-kick">{% trans "Hours" %}</div>
+            <div class="nb-foot-hours">{% for h in footer_hours %}<span class="muted">{{ h.day }}</span><span>{{ h.time }}</span>{% endfor %}</div>
+        </div>
+        <div>
+            <div class="nb-foot-kick">{% trans "Order" %}</div>
+            <div class="nb-foot-links">
+                {% if links.menu %}<a href="{{ links.menu }}">{% trans "Menu" %}</a>{% endif %}
+                {% if links.catering %}<a href="{{ links.catering }}">{% trans "Catering" %}</a>{% endif %}
+                {% if links.services %}<a href="{{ links.services }}">{% trans "Events & services" %}</a>{% endif %}
+                {% if links.account %}<a href="{{ links.account }}">{% trans "Your account" %}</a>{% elif links.login %}<a href="{{ links.login }}">{% trans "Sign in" %}</a>{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="nb-foot-base"><span>© {{ year }} {{ store.name }}</span><span>{% trans "Online ordering by Pavilion" %}</span></div>
+</footer>

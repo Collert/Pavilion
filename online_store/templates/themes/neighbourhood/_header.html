@@ -1,0 +1,38 @@
+{% load i18n %}
+<header class="nb-header">
+    {% if t.banner %}
+    <div class="nb-banner">
+        <span class="nb-dot{% if status.open %} open{% endif %}"></span><span>{{ status.text }}</span>
+        {% if t.banner_text and banner_url %}<span class="nb-sep" aria-hidden="true">·</span><a href="{{ banner_url }}">{{ t.banner_text }} →</a>{% endif %}
+    </div>
+    {% endif %}
+    <div class="nb-bar">
+        <a class="nb-brand" href="{{ links.home }}" aria-label="{% blocktrans with name=store.name %}{{ name }} home{% endblocktrans %}">
+            {% if logo_url %}<img src="{{ logo_url }}" alt="" class="nb-logo">{% else %}<svg aria-hidden="true" class="nb-logo" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="var(--deep)"/><path d="M20 31V12 M20 17l-6-5 M20 17l6-5 M20 23l-7-5 M20 23l7-5 M20 28l-5-4 M20 28l5-4" stroke="var(--highlight)" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>{% endif %}
+            <span class="nb-serif nb-brand-name">{{ store.name }}</span>
+        </a>
+        <nav class="nb-nav" aria-label="{% trans 'Main' %}">
+            {% for key, label, url in nav %}<a href="{{ url }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        </nav>
+        <span class="nb-grow"></span>
+        {% if me %}
+        <a class="nb-me" href="{{ links.account }}"><span class="nb-avatar">{{ me.initials }}</span><span class="nb-me-name">{{ me.first }}</span></a>
+        {% elif links.login %}
+        <a class="nb-signin" href="{{ links.login }}">{% trans "Sign in" %}</a>
+        {% endif %}
+        {% if live_order %}
+        <a class="nb-live" href="{{ live_order.url }}" aria-label="{{ live_order.label }}. {{ live_order.ready }}">
+            <span class="nb-live-icon"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16 M6 14a6 6 0 0 1 12 0 M3 18h18 M12 5v3"/></svg>{% if not live_order.done %}<span class="nb-live-dot"></span>{% endif %}</span>
+            <span class="nb-live-text"><span class="nb-live-kick">{{ live_order.label }}</span><span>{{ live_order.ready }}</span></span>
+        </a>
+        {% endif %}
+        <a class="nb-cart" href="{{ links.cart }}" aria-label="{% blocktrans count n=cart_count %}Cart, {{ n }} item{% plural %}Cart, {{ n }} items{% endblocktrans %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+            {% if cart_count %}<span class="nb-cart-count">{{ cart_count }}</span>{% endif %}
+        </a>
+        <a class="nb-btn nb-order" href="{{ links.menu }}">{% trans "Order online" %}<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14 M13 6l6 6-6 6"/></svg></a>
+    </div>
+    <nav class="nb-nav-mobile" aria-label="{% trans 'Main' %}">
+        {% for key, label, url in nav %}<a href="{{ url }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+</header>

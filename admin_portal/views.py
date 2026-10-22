@@ -32,6 +32,7 @@ from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disp
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
+from . import branding as branding_data
 from . import catering as catering_data
 from . import combos as combos_data
 from . import components as components_data
@@ -951,3 +952,40 @@ def catering_settings(request):
     return page(request, "admin_portal/catering_settings.html", "catering", {
         "s": catering_data.settings_page(draft), "view": "settings",
         "c": {"new_count": CateringOrder.objects.filter(status=CateringOrder.NEW).count(), "off": not draft["on"]}})
+
+
+# ---------- branding ----------
+
+@superuser_required
+def branding(request):
+    """Branding: the theme's settings form (every change is kept as a draft, see branding.py) and its preview."""
+    from online_store import themes as store_themes
+    theme = store_themes.get(request.GET.get("theme") or StoreSettings.load().theme)
+    request.session[store_themes.PREVIEW_KEY] = theme.name  # the preview iframe shows this theme's draft
+    device = request.GET.get("device", "desktop")
+    if request.method == "POST":
+        values, store = branding_data.from_post(theme, request.POST)
+        for key, file in request.FILES.items():
+            target = key.removeprefix("upload-")
+            saved = branding_data.upload(file, "logo" if target == "s.logo" else target)
+            if not saved:
+                messages.error(request, _("Use a PNG, JPEG, WebP, GIF or SVG image under 8 MB."))
+            elif target == "s.logo":
+                store["logo"] = saved
+            elif target in theme.params and theme.params[target].type == "image":
+                values[target] = saved
+        op = request.POST.get("op", "")
+        values, store = branding_data.apply_op(theme, values, store, op)
+        if op == "publish":
+            if not store["name"].strip():
+                messages.error(request, _("Give the store a name first."))
+            else:
+                branding_data.publish(theme, values, store)
+                messages.success(request, _("%(name)s is live on your online store") % {"name": theme.title})
+        else:
+            branding_data.save_draft(theme, values, store)
+        if op in ("publish", "reset"):
+            return redirect(reverse("admin_branding") + f"?theme={theme.name}&device={device}")
+    else:
+        values, store = branding_data.draft_of(theme)
+    return page(request, "admin_portal/branding.html", "branding", {"b": branding_data.page(theme, values, store, device)})

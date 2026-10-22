@@ -1575,3 +1575,67 @@ class CateringAdminTests(CateringFixture, TestCase):
         self.assertEqual((cfg.rush, cfg.lead), (False, 3))
         self.chafer.refresh_from_db()
         self.assertFalse(self.chafer.catering)
+
+
+class BrandingTests(AdminFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+        store = StoreSettings.load()
+        store.name, store.address = "Corner Kitchen", "1 Main St"
+        store.save()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+
+    def fields(self, b, **changes):
+        """The Branding form's POST fields for what the page shows (branding.html)."""
+        data = {}
+        for g in b["groups"]:
+            for name, value in g.get("hidden", []):
+                data[f"v-{name}"] = value
+            for f in g["fields"]:
+                value = f["value"]
+                data[f["name"]] = ("1" if value else "") if f["p"].type == "bool" else value
+        data.update(changes)
+        return data
+
+    def test_drafts_publish_and_reset(self):
+        from admin_portal.models import StoreTheme
+        url = reverse("admin_branding")
+        b = self.client.get(url).context["b"]
+        self.assertEqual((b["theme"].name, b["can_publish"], b["status"]), ("neighbourhood", False, "Everything is live"))
+        b = self.client.post(url, {**self.fields(b, **{"s-name": "Juniper Lane"}), "op": "set:accent:#1F4A3A"}).context["b"]
+        self.assertEqual((b["values"]["accent"], b["store"]["name"], b["can_publish"]), ("#1F4A3A", "Juniper Lane", True))
+        self.assertEqual(StoreTheme.objects.get().draft["accent"], "#1F4A3A")  # kept for the preview
+        self.assertEqual(StoreSettings.load().name, "Corner Kitchen")  # not live yet
+        b = self.client.post(url, {**self.fields(b), "op": "toggle:banner"}).context["b"]
+        self.assertNotIn("banner_text", [f["p"].name for g in b["groups"] for f in g["fields"]])  # shown only with the banner
+        b = self.client.post(url, {**self.fields(b, **{"v-ink": "#F6F0E4"}), "op": "preview"}).context["b"]
+        self.assertIn("Aim for 4.5:1", next(f["warn"] for g in b["groups"] for f in g["fields"] if f["p"].name == "ink"))
+        self.client.post(url, {**self.fields(b, **{"v-ink": "#221E18"}), "op": "publish"})
+        live = StoreTheme.objects.get()
+        self.assertEqual((live.live["accent"], live.live["banner"], StoreSettings.load().name), ("#1F4A3A", False, "Juniper Lane"))
+        b = self.client.get(url).context["b"]
+        self.assertFalse(b["can_publish"])
+        self.client.post(url, {**self.fields(b), "op": "reset"})
+        self.assertEqual(StoreTheme.objects.get().draft["accent"], "#CF4A2C")
+
+    def test_upload_and_remove_images(self):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media):
+            self.upload_and_remove()
+
+    def upload_and_remove(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        url = reverse("admin_branding")
+        b = self.client.get(url).context["b"]
+        png = SimpleUploadedFile("logo.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
+        b = self.client.post(url, {**self.fields(b), "op": "preview", "upload-s.logo": png}).context["b"]
+        self.assertTrue(b["store"]["logo"].startswith("files/branding/logo-"))
+        bad = SimpleUploadedFile("hero.exe", b"MZ", content_type="application/octet-stream")
+        b = self.client.post(url, {**self.fields(b), "op": "preview", "upload-hero": bad}).context["b"]
+        self.assertEqual(b["values"]["hero"], "")
+        b = self.client.post(url, {**self.fields(b), "op": "clear:s.logo"}).context["b"]
+        self.assertEqual(b["store"]["logo"], "")

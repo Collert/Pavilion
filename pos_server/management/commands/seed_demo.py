@@ -29,7 +29,7 @@ from django.db.models import F
 from django.core.management import call_command
 from django.utils import timezone
 
-from admin_portal.models import StoreSettings
+from admin_portal.models import StoreSettings, StoreTheme
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
 from gift_cards.models import CardPreset, GiftCard
@@ -1015,21 +1015,29 @@ class Command(BaseCommand):
     # ---------- store ----------
 
     def seed_events(self):
+        """Opening hours for the next two weeks (weekdays 7 to 9, weekends 8 to 9). Today stays open till midnight so
+        the demo store takes online orders whenever you try it, and a patio party next week."""
         now = timezone.localtime()
-        today_open = now.replace(hour=0, minute=1, second=0, microsecond=0)
-        today_close = now.replace(hour=23, minute=59, second=0, microsecond=0)
-        Event.objects.get_or_create(title="Open today", start=today_open, defaults={
-            "end": today_close, "location_title": "Main location", "location_address": "100 Main St, Springfield",
-            "restaurant_open": True, "in_person_open": True, "online_open": True, "delivery_open": True})
-        next_week = today_open + datetime.timedelta(days=7)
-        Event.objects.get_or_create(title="Patio opening", start=next_week.replace(hour=11), defaults={
-            "end": next_week.replace(hour=15), "restaurant_open": True, "in_person_open": True,
+        for n in range(14):
+            day = (now + datetime.timedelta(days=n)).replace(second=0, microsecond=0)
+            opens = day.replace(hour=7 if day.weekday() < 5 else 8, minute=0)
+            closes = day.replace(hour=23, minute=59) if n == 0 else day.replace(hour=21, minute=0)
+            Event.objects.get_or_create(title="Open" if n else "Open today", start=min(opens, now) if n == 0 else opens, defaults={
+                "end": closes, "location_title": "Main location", "location_address": "1200 Main St",
+                "restaurant_open": True, "in_person_open": True, "online_open": True, "delivery_open": True})
+        next_week = now + datetime.timedelta(days=7)
+        Event.objects.get_or_create(title="Patio opening", start=next_week.replace(hour=11, minute=0, second=0, microsecond=0), defaults={
+            "end": next_week.replace(hour=15, minute=0, second=0, microsecond=0), "restaurant_open": True, "in_person_open": True,
             "online_open": True, "delivery_open": False})
 
     def seed_store(self):
         store = StoreSettings.load()
         store.name = "Corner Kitchen"
+        store.address, store.city, store.phone = "1200 Main St", "Vancouver, BC V6A 2T9", "604-555-0100"
+        store.draft = store.details()
         store.save()
+        # The online store's theme: its defaults, with a banner pointing at catering
+        StoreTheme.objects.update_or_create(name="neighbourhood", defaults={"live": {}, "draft": {}})
         for title, tagline, color in [("Lunch combos", "A main, a side and a drink from $18.95", "#1f4a3a"),
                                       ("Gift cards", "Give someone lunch", "#14261f")]:
             promo, created = PromoContent.objects.get_or_create(title=title, defaults={

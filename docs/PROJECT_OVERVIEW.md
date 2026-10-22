@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `submit-order`, `order-status/<id>[/<from_placing>]`, `order-history`, `service-worker.js` |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -320,6 +320,13 @@ tile); open it at its URL.
 
 ### 6.5 Online ordering (`/`)
 
+The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the canvas's `Store*` artboards, theme
+"Neighbourhood"). Done: the home page (`index`: hero, menus on now and coming up from the menu schedule, this week's
+best sellers, a catering teaser from `CateringSettings`, three online services, visit us with this week's hours from
+`events.Event`) with the theme's header (open-now banner, the signed-in customer's order in progress, cart count from
+the session) and footer. Still on the old `online_store/layout.html`: menu, dish, cart and checkout, order status
+and history (next: menu + checkout, then catering, account and sign-in, services).
+
 `online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 
 0. The menu lists dishes and combos; a combo that asks for a pick opens a picker. The cart
@@ -521,6 +528,10 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   editor follows the mockup. Disposables' ingredients leave the Ingredients list and the recipe picker.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
+- **Branding** (`admin_branding`, `branding.py`, 2026-10-21): theme cards, the theme's settings (from its JSON) plus
+  the store details (name, logo, address, phone, map link), with contrast warnings, and the real store in a scaled
+  iframe (desktop 1440 or phone 390) showing the draft. Every change is kept as a draft at once; Publish copies it
+  live (and the store details to `StoreSettings`); "Reset to theme defaults" resets the draft.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the

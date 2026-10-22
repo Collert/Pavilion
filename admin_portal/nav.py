@@ -30,7 +30,7 @@ MENU = [
         ("restocks", _("Restocks"), "admin_restocks"),
     ]),
     ("store", _("Store"), "M4 9h16l-1-4H5z M5 9v11h14V9 M9 20v-6h6v6", [
-        ("branding", _("Branding"), None),
+        ("branding", _("Branding"), "admin_branding"),
         ("hours", _("Store hours"), None),
         ("stations", _("Stations"), None),
         ("events", _("Events"), None),

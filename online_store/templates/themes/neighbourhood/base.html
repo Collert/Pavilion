@@ -1,0 +1,27 @@
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+{% comment %}
+The Neighbourhood theme's page shell (online_store/themes/neighbourhood.json; online_store/views.py: theme_page).
+`t` holds the theme's values, `store` the store details; the theme's colours, sizes and fonts are CSS variables
+from themes.css_vars.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ store.name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="{{ theme.fonts }}" rel="stylesheet">
+    {% for css in theme.css %}<link href="{% static css %}" rel="stylesheet">{% endfor %}
+    <style>:root { {{ css_vars }} }</style>
+    {% block head %}{% endblock %}
+</head>
+<body class="nb">
+    {% csrf_token %}
+    {% include "themes/neighbourhood/_header.html" %}
+    <main id="page" data-now="0">{% block content %}{% endblock %}</main>
+    {% include "themes/neighbourhood/_footer.html" %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

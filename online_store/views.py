@@ -18,12 +18,43 @@ from pos_server.orders import OrderError, collect_order, create_order
 from payments.models import PaymentError, Transaction
 from django.db import transaction as db_transaction
 import datetime
+from django.utils import timezone
 from events.models import Event
 from django.db.models import Q
 from django.conf import settings
 from gift_cards.models import GiftCard, GiftCardAuthorization
 from django.utils.translation import gettext_lazy as _
 from .context_processors import current_business_event
+from django.utils.safestring import mark_safe
+from . import storefront, themes
+
+
+def store_links(request) -> dict:
+    """Where the theme's header, footer and buttons go. Pages not built yet are "" and their links are left out."""
+    signed_in = request.user.is_authenticated
+    return {"home": storefront.link("store_home"), "menu": storefront.link("menu"), "catering": storefront.link("store_catering"),
+            "services": storefront.link("store_services"), "cart": storefront.link("store_cart") or storefront.link("menu"),
+            "account": storefront.link("order_history") if signed_in else "", "login": storefront.link("login_view")}
+
+
+def theme_page(request, page, context=None, active=""):
+    """Render one of the live theme's pages (themes/<name>/<page>) with what every theme page gets."""
+    cur = themes.current(request)
+    links = store_links(request)
+    nav = [(key, label, links[key]) for key, label in (("home", _("Home")), ("menu", _("Menu")), ("catering", _("Catering")),
+                                                        ("services", _("Events & services"))) if links[key]]
+    user = request.user
+    week = storefront.week_hours()
+    return render(request, cur.theme.template(page), {
+        "hours": week, "footer_hours": storefront.hours_summary(week),
+        "theme": cur.theme, "t": cur.values, "store": cur.store, "logo_url": cur.logo_url, "preview": cur.preview,
+        "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "status": storefront.open_now(),
+        "cart_count": storefront.cart_count(request), "live_order": storefront.live_order(user), "links": links,
+        "nav": nav, "active": active, "me": {"initials": storefront.initials(user), "first": user.first_name or user.username} if user.is_authenticated else None,
+        "banner_url": links.get(cur.values.get("banner_link", ""), ""),
+        "year": timezone.localdate().year,
+        **(context or {}),
+    })
 
 def store_item(obj):
     """
@@ -123,28 +154,26 @@ def cart_quote(request):
     return JsonResponse(cart.as_json())
 
 def index(request):
-    """
-    Renders the home page of the online store.
+    """The store's home page, as the live theme draws it (online_store/storefront.py works out what's on it)."""
+    t = themes.current(request).values
+    headline = t.get("headline", "")
+    first, amp, rest = headline.partition(" & ")
+    return theme_page(request, "home.html", {
+        "headline": {"first": first, "amp": bool(amp), "rest": rest},
+        "menus_now": storefront.menus_now() if t.get("show_menus") else [],
+        "favourites": storefront.best_sellers(pictures=t.get("pictures", "photos")) if t.get("show_favourites") else [],
+        "catering": storefront.catering_teaser() if t.get("show_catering") else None,
+        "services": storefront.services_teaser() if t.get("show_services") else [],
+        "pickup_minutes": storefront.pickup_minutes(),
+        "hero_url": themes.media_url(t.get("hero")), "hero_drawing": _hero_drawing(),
+    }, active="home")
 
-    This view function retrieves the active menu and all promotional content,
-    then renders the "online_store/home.html" template with the retrieved data.
 
-    Args:
-        request (HttpRequest): The HTTP request object.
+def _hero_drawing():
+    """The best seller's drawing, for a hero without a photo."""
+    top = storefront.best_sellers(count=1)
+    return storefront.drawing(top[0]["dish"].title) if top else "burger"
 
-    Returns:
-        HttpResponse: The rendered home page with the context data.
-    """
-    menu = Menu.active()
-    offers = PromoContent.objects.all()
-    now = timezone.localtime(timezone.now())
-    next_event = Event.objects.filter(start__gt=now).first()
-    return render(request, "online_store/home.html", {
-        "route":"index",
-        "menu":{"menu":menu},
-        "offers":offers,
-        "next_event":next_event
-    })
 
 def order_status(request, id, from_placing = False):
     """
