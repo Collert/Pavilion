@@ -176,11 +176,11 @@ class CateringLine(models.Model):
 class CateringMessage(models.Model):
     """One step of an order's conversation (the timeline on both sides)."""
     CUSTOMER, STAFF, SYSTEM = "customer", "staff", "system"
-    PLACED, CHANGES, ACCEPTED, REJECTED, CANCELLED, MESSAGE, AGREED, DECLINED = (
-        "placed", "changes", "accepted", "rejected", "cancelled", "message", "agreed", "declined")
+    PLACED, CHANGES, ACCEPTED, REJECTED, CANCELLED, MESSAGE, AGREED, DECLINED, COUNTER = (
+        "placed", "changes", "accepted", "rejected", "cancelled", "message", "agreed", "declined", "counter")
     KINDS = [(PLACED, _("Placed")), (CHANGES, _("Proposed changes")), (ACCEPTED, _("Accepted")), (REJECTED, _("Rejected")),
              (CANCELLED, _("Cancelled")), (MESSAGE, _("Message")), (AGREED, _("Accepted the changes")),
-             (DECLINED, _("Declined the changes"))]
+             (DECLINED, _("Declined the changes")), (COUNTER, _("Suggested changes"))]
 
     order = models.ForeignKey(CateringOrder, on_delete=models.CASCADE, related_name="messages")
     who = models.CharField(max_length=8, choices=[(CUSTOMER, _("Customer")), (STAFF, _("Staff")), (SYSTEM, _("System"))])
@@ -202,3 +202,21 @@ class CateringMessage(models.Model):
 
 def ceil_days(days: float) -> int:
     return int(math.ceil(days))
+
+
+class CateringVersion(models.Model):
+    """A full version of an order's lines: the request (1), then each set of changes by either side."""
+    CUSTOMER, STAFF = "customer", "staff"
+    order = models.ForeignKey(CateringOrder, on_delete=models.CASCADE, related_name="versions")
+    number = models.PositiveSmallIntegerField()
+    by = models.CharField(max_length=8, choices=[(CUSTOMER, _("Customer")), (STAFF, _("Staff"))])
+    lines = models.JSONField(default=list, help_text="catering.pricing line dicts")
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["order", "number"]
+        constraints = [models.UniqueConstraint(fields=["order", "number"], name="catering_version_number")]
+
+    def __str__(self):
+        return f"{self.order.number} v{self.number}"

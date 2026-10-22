@@ -107,3 +107,34 @@ def process_web_payment(request):
 
     return JsonResponse({'status': 'method not allowed'}, status=405)
 
+
+
+def save_card(request):
+    """
+    Keep a card on file for later (a catering request is charged when it's agreed, weeks after it's sent).
+    GET: Square's card form (payments/save-card.html, in an iframe). POST JSON {"token"} from it: creates the Square
+    customer and card and keeps {"customer", "id", "brand", "last4"} in the session as "saved_card" for the page that
+    asked. In DEBUG, {"demo": true} saves a made-up card ("demo:" ids, never sent to Square).
+    """
+    from . import square
+    if request.method != "POST":
+        return render(request, "payments/save-card.html", {"location_id": settings.SQUARE_LOCATION_ID,
+                                                           "app_id": settings.SQUARE_APPLICATION_ID, "dev_env": settings.DEBUG})
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"message": "Bad request"}, status=400)
+    if data.get("demo") and settings.DEBUG:
+        request.session["saved_card"] = {"customer": "demo:cust-test", "id": "demo:card-test", "brand": "VISA", "last4": "1111"}
+        return JsonResponse({"ok": True})
+    token = str(data.get("token") or "")
+    if not token:
+        return JsonResponse({"message": "No card"}, status=400)
+    user = request.user if request.user.is_authenticated else None
+    try:
+        customer = square.create_customer(user.get_full_name() if user else "", user.email if user else "")
+        card = square.save_card(token, customer, user.get_full_name() if user else "")
+    except square.SquareError:
+        return JsonResponse({"message": "The card was declined. Try another one."}, status=400)
+    request.session["saved_card"] = {"customer": customer, **card}
+    return JsonResponse({"ok": True})

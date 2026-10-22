@@ -175,7 +175,7 @@ class CustomerPageTests(CateringFixture, TestCase):
         draft = pricing.lines_of(order)
         draft[0]["quantity"] = 25
         flow.propose(order, self.owner, draft, "More burgers")
-        self.assertContains(self.client.get(url), "Accept and pay")
+        self.assertContains(self.client.get(url), "Accept changes")
         self.client.post(url, {"op": "agree"})
         self.assertEqual(CateringOrder.objects.get(pk=order.pk).status, CateringOrder.CONFIRMED)
         self.assertEqual(self.client.get(reverse("catering_order", args=["00000000-0000-4000-8000-000000000000"])).status_code, 404)
@@ -189,3 +189,73 @@ class CustomerPageTests(CateringFixture, TestCase):
         request.user = AnonymousUser()
         self.assertTrue(async_to_sync(_can_listen)(request, "catering"))
         self.assertFalse(async_to_sync(_can_listen)(request, "inventory"))
+
+
+@override_settings(TAX_RATE="0")
+@mock.patch("catering.flow.send_email")
+class CounterTests(CateringFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+
+    def test_versions_counter_and_cancel(self, send):
+        order = self.make_order()
+        flow.place(order)
+        draft = pricing.lines_of(order)
+        draft[0]["quantity"] = 30
+        flow.propose(order, self.owner, draft, "More burgers")
+        self.assertEqual([(v.number, v.by) for v in order.versions.all()], [(1, "customer"), (2, "staff")])
+        url = reverse("catering_order", args=[order.token])
+        page = self.client.get(url + "?edit=1").context
+        lines = page["draft"]["lines"]
+        fields = {"editing": "1", "line-count": len(lines), "add_kind": "dish", "add_ref": "", "add_qty": "10", "add_price": "", "add_last": "", "msg": "Fewer clamshells"}
+        for i, line in enumerate(lines):
+            fields.update({f"line-{i}-{k}": line[k] for k in ("id", "kind", "ref", "quantity", "amount", "price")})
+            fields[f"line-{i}-removed"] = ""
+        fields["line-4-removed"] = "1"  # no clamshells
+        self.client.post(url, {**fields, "op": "send"})
+        order.refresh_from_db()
+        self.assertEqual((order.status, order.lines.count(), order.versions.count()), (CateringOrder.NEW, 4, 3))
+        self.assertEqual(order.messages.filter(kind=CateringMessage.COUNTER).get().changes[0][1], "rm")
+        page = self.client.get(url + "?v=2").context
+        self.assertEqual(page["chosen"], 2)
+        self.client.post(url, {"op": "cancel"})
+        order.refresh_from_db()
+        self.assertEqual((order.status, order.charged), (CateringOrder.CANCELLED, Decimal("0")))
+
+
+@override_settings(TAX_RATE="0")
+@mock.patch("catering.flow.send_email")
+class QuoteTests(CateringFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+        CateringSettings.objects.update_or_create(pk=1, defaults={"lead": 7, "min_subtotal": Decimal("200"), "rush": False})
+
+    def test_build_and_send(self, send):
+        url = reverse("store_catering")
+        day = timezone.localdate() + datetime.timedelta(days=10)
+        st = self.client.post(url, {"op": "ful:delivery"}).context["st"]
+        self.assertEqual(st["blocker"], "Pick a date for your event.")
+        self.assertTrue(all(c["off"] for c in st["cells"] if c and c["date"] < timezone.localdate() + datetime.timedelta(days=7)))
+        self.client.post(url, {"op": f"date:{day.isoformat()}"})
+        self.client.post(url, {"op": f"add:{self.burger.id}", "hour": "12", "minute": "00", "ampm": "PM", "address": "1 Main St",
+                               "name": "Ben", "email": "ben@example.com", "title": "Lunch"})
+        page = self.client.post(url, {"op": f"inc:{self.burger.id}"}).context
+        q, st = page["q"], page["st"]
+        self.assertEqual(q["dishes"], {str(self.burger.id): 15})
+        self.assertEqual(q["services"], {str(self.delivery.id): {"q": 1, "h": 0}})  # delivery adds the fee
+        self.assertEqual(st["totals"]["subtotal"], Decimal("222.50"))  # 15 × 12.50 + 35
+        self.assertEqual(st["blocker"], "")
+        self.client.post(url, {"op": "send"})
+        self.assertFalse(CateringOrder.objects.exists())  # no card yet
+        session = self.client.session
+        session["saved_card"] = {"customer": "demo:cust", "id": "demo:card", "brand": "VISA", "last4": "1111"}
+        session.save()
+        self.client.post(url, {"op": "agree"})
+        response = self.client.post(url, {"op": "send"})
+        order = CateringOrder.objects.get()
+        self.assertRedirects(response, reverse("catering_order", args=[order.token]), fetch_redirect_response=False)
+        self.assertEqual((order.title, order.fulfilment, order.event_date, order.card_last4, order.lines.count()), ("Lunch", "delivery", day, "1111", 2))
+        self.assertEqual(order.versions.count(), 1)
+        self.assertNotIn("catering_quote", self.client.session)

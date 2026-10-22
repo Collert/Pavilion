@@ -19,7 +19,7 @@ from misc_tools.email import EmailError, send as send_email
 from services.models import Booking
 
 from . import payments, pricing
-from .models import CateringLine, CateringMessage, CateringOrder, CateringSettings
+from .models import CateringLine, CateringMessage, CateringOrder, CateringSettings, CateringVersion
 
 logger = logging.getLogger(__name__)
 REASONS = [_("Fully booked that day"), _("Not enough notice"), _("Too large for us"), _("Outside our delivery area"),
@@ -47,6 +47,14 @@ def _email(kind, order, request=None, **data):
         logger.exception("Catering email %s for %s wasn't sent", kind, order.number)
 
 
+def snapshot(order, by):
+    """Keep the order's lines as its next version."""
+    lines = pricing.lines_of(order)
+    number = (order.versions.order_by("-number").values_list("number", flat=True).first() or 0) + 1
+    total = pricing.totals(lines, pricing.Catalog(lines))["total"]
+    return CateringVersion.objects.create(order=order, number=number, by=by, lines=lines, total=total)
+
+
 def _say(order, who, kind=CateringMessage.MESSAGE, user=None, **fields):
     return CateringMessage.objects.create(order=order, who=who, kind=kind, user=user, **fields)
 
@@ -55,6 +63,9 @@ def place(order, request=None, quiet=False):
     """A new order came in (its lines are saved): note it, and send the auto-reply."""
     cfg = CateringSettings.load()
     totals = pricing.order_totals(order)
+    if not order.versions.exists():
+        snapshot(order, CateringVersion.CUSTOMER)
+        CateringVersion.objects.filter(order=order).update(at=order.placed_at)
     if order.days_ahead < cfg.notice_days(totals["minutes"]):
         order.rush = True
         order.save(update_fields=["rush"])
@@ -67,6 +78,20 @@ def place(order, request=None, quiet=False):
         _say(order, CateringMessage.SYSTEM, at=order.placed_at, text=_("Auto-reply sent: “%(text)s”") % {"text": cfg.auto_reply})
     if not quiet:
         _email("catering_received", order, request, message=cfg.auto_reply)
+
+
+def write_lines(order, draft_lines):
+    """Make the order's lines match `draft_lines` (keeping the rows that stay, so ids carry over)."""
+    keep = []
+    for position, line in enumerate(l for l in draft_lines if not l.get("removed")):
+        row = order.lines.filter(pk=line["id"]).first() if line.get("id") else None
+        row = row or CateringLine(order=order, kind=line["kind"])
+        setattr(row, CateringLine.FIELDS[line["kind"]] + "_id", int(line["ref"]))
+        row.quantity, row.amount = max(int(line["quantity"]), 1), int(line.get("amount") or 0)
+        row.price, row.position = Decimal(str(line["price"])), position
+        row.save()
+        keep.append(row.id)
+    order.lines.exclude(pk__in=keep).delete()
 
 
 def pricing_days(days: float) -> str:
@@ -161,6 +186,8 @@ def propose(order, user, draft_lines, message, request=None, quiet=False):
     if order.status not in (CateringOrder.NEW, CateringOrder.WAITING):
         raise CateringError(_("Only orders that aren’t confirmed yet can be changed."))
     before = pricing.lines_of(order)
+    if not order.versions.exists():
+        snapshot(order, CateringVersion.CUSTOMER)
     catalog = pricing.Catalog(before, draft_lines)
     diff = pricing.changes(before, draft_lines, catalog)
     if not diff:
@@ -168,20 +195,11 @@ def propose(order, user, draft_lines, message, request=None, quiet=False):
     if not message.strip():
         raise CateringError(_("Add a reason for the changes."))
     was, now = pricing.totals(before, catalog)["total"], pricing.totals(draft_lines, catalog)["total"]
-    keep = []
-    for position, line in enumerate(l for l in draft_lines if not l.get("removed")):
-        row = order.lines.filter(pk=line["id"]).first() if line.get("id") else None
-        row = row or CateringLine(order=order, kind=line["kind"])
-        setattr(row, CateringLine.FIELDS[line["kind"]] + "_id", int(line["ref"]))
-        row.quantity, row.amount = max(int(line["quantity"]), 1), int(line.get("amount") or 0)
-        row.price, row.position = Decimal(str(line["price"])), position
-        row.save()
-        keep.append(row.id)
-    order.lines.exclude(pk__in=keep).delete()
-    # The customer compares against what they ordered, so the first proposal's "before" is kept
-    order.previous = order.previous if order.status == CateringOrder.WAITING and order.previous else before
+    write_lines(order, draft_lines)
+    order.previous = before
     order.status, order.proposed_at = CateringOrder.WAITING, timezone.now()
     order.save()
+    snapshot(order, CateringVersion.STAFF)
     _say(order, CateringMessage.STAFF, CateringMessage.CHANGES, user=user, text=message.strip(), changes=diff,
          was_total=was, now_total=now)
     if quiet:
@@ -198,6 +216,38 @@ def agree(order, request=None):
     _say(order, CateringMessage.CUSTOMER, CateringMessage.AGREED)
     _confirm(order, request)
     _email("catering_accepted", order, request, message="")
+
+
+@transaction.atomic
+def counter(order, draft_lines, message="", request=None):
+    """The customer suggests their own version (to the store's proposal or their own request): it goes back to the
+    store as a new request to answer, compared with the version before."""
+    if order.status not in (CateringOrder.NEW, CateringOrder.WAITING):
+        raise CateringError(_("This request can’t be changed any more."))
+    before = pricing.lines_of(order)
+    catalog = pricing.Catalog(before, draft_lines)
+    diff = pricing.changes(before, draft_lines, catalog)
+    if not diff:
+        raise CateringError(_("Make a change first."))
+    if not order.versions.exists():
+        snapshot(order, CateringVersion.CUSTOMER)
+    was, now = pricing.totals(before, catalog)["total"], pricing.totals(draft_lines, catalog)["total"]
+    write_lines(order, draft_lines)
+    order.previous, order.status = before, CateringOrder.NEW
+    order.save()
+    version = snapshot(order, CateringVersion.CUSTOMER)
+    _say(order, CateringMessage.CUSTOMER, CateringMessage.COUNTER, text=message.strip()[:600], changes=diff,
+         was_total=was, now_total=now, reason=str(version.number))
+
+
+@transaction.atomic
+def customer_cancel(order, request=None):
+    """The customer calls off a request that isn't confirmed yet. Nothing was charged."""
+    if order.status not in (CateringOrder.NEW, CateringOrder.WAITING):
+        raise CateringError(_("Confirmed orders are cancelled by the store. Send them a message."))
+    order.status, order.closed_at, order.reason, order.previous = CateringOrder.CANCELLED, timezone.now(), _("Cancelled by the customer"), None
+    order.save()
+    _say(order, CateringMessage.CUSTOMER, CateringMessage.CANCELLED, reason=_("Cancelled by the customer"))
 
 
 @transaction.atomic

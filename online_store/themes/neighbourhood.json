@@ -2,7 +2,7 @@
   "title": "Neighbourhood",
   "description": "Warm, editorial, a corner kitchen",
   "fonts": "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=DM+Serif+Display&family=Playfair+Display:wght@500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap",
-  "css": ["themes/neighbourhood/theme.css", "themes/neighbourhood/ordering.css"],
+  "css": ["themes/neighbourhood/theme.css", "themes/neighbourhood/ordering.css", "themes/neighbourhood/catering.css"],
   "thumb": {"background": "paper", "text": "ink", "accent": "accent", "card": "card", "band": "deep", "font": "heading_font"},
   "contrast": [["ink", "paper", "Text on the background"], ["ink", "card", "Text on cards"], ["soft_ink", "paper", "Quiet text"],
                ["paper", "deep", "Banner text"], ["card", "accent", "Button text"]],

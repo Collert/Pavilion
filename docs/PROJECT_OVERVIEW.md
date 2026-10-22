@@ -331,6 +331,8 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   (substitutes, modifier groups, leave off / extra for adjustable parts, condiments on the side, a note) that
   re-prices as it changes and adds a line to the **session cart** (`online_store/cart.py`; the old IndexedDB cart is
   only used by the pages still on the old layout).
+- **Catering** (`/catering/` and `/catering/<token>`, see §6.12): build a quote and send it with a card on file;
+  then the request page with its versions and messages.
 - **Checkout** (`/cart`, `checkout`): quantities, "goes well with", pickup or delivery (address and driver note),
   as soon as possible (while an event is open) or scheduled up to 14 days ahead inside an open event and while a
   menu with every dish in the cart is live (`_schedule`), name/phone/email, promo or gift-card code, tip
@@ -628,11 +630,18 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
 
 ### 6.12 Catering (`catering/`)
 
-Orders come in through `catering.flow.place()` (the online ordering form is still to come; `seed_demo` makes them)
-with a Square card on file (`payments/square.py`: `create_customer`, `save_card`). `flow` does every step and adds a
+Orders come in through the store's quote page (`/catering/`, `catering/views.py: quote_page`, state and checks in
+`catering/store.py`: notice incl. big-order days, event days and hours, book-ahead limit, minimum subtotal and per-dish
+minimums, pickup/delivery/full service with the flat delivery service added for the last two, full service needs
+staff) and `catering.flow.place()`, with a Square card on file saved first (`payments/save-card`: Square's card form
+in an iframe, `create_customer` + `save_card`; in DEBUG a "Use a test card" button saves a `demo:` card). Nothing is
+held on the card when it's sent (holds expire in about 7 days); it's charged when both sides agree. Every set of
+lines is kept as a `CateringVersion` (1 = the request, then each proposal by the store or the customer). `flow` does every step and adds a
 `CateringMessage` for it, emailing the customer (`catering_*` listmonk kinds): `accept` charges the card in full
 (`catering/payments.py`), `propose` rewrites the lines (keeping the first `previous`) and waits for the customer,
-who `agree`s (charged) or `decline`s on `/catering/<token>`; `reject` rejects a new order or cancels a later one
+who `agree`s (charged), suggests their own version (`counter`: the order goes back to New for the store, shown
+against the version before) or cancels (`customer_cancel`) on `/catering/<token>` (the themed request page: versions
+as tabs, what changed, messages); `reject` rejects a new order or cancels a later one
 (refund, hold let go); `finish` closes it after the event, letting the deposit hold go or keeping it. Money is in
 `catering/pricing.py` on line dicts: dishes at their catering price for the quantity, services through
 `Service.quote` (with the price kept on the line), condiments and disposables at the price set on the line; tax is

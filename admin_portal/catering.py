@@ -341,9 +341,10 @@ def _timeline(order, me):
             CateringMessage.CHANGES: _("%(name)s proposed changes") % {"name": staff},
             CateringMessage.ACCEPTED: _("%(name)s accepted the order") % {"name": staff},
             CateringMessage.REJECTED: _("%(name)s rejected the order · %(reason)s") % {"name": staff, "reason": m.reason},
-            CateringMessage.CANCELLED: _("%(name)s cancelled the order · %(reason)s") % {"name": staff, "reason": m.reason},
+            CateringMessage.CANCELLED: _("%(name)s cancelled the order") % {"name": order.first_name} if m.who == CateringMessage.CUSTOMER else _("%(name)s cancelled the order · %(reason)s") % {"name": staff, "reason": m.reason},
             CateringMessage.AGREED: _("%(name)s accepted the changes") % {"name": order.first_name},
             CateringMessage.DECLINED: _("%(name)s declined the changes") % {"name": order.first_name},
+            CateringMessage.COUNTER: _("%(name)s suggested changes") % {"name": order.first_name},
         }.get(m.kind)
         if head is None:
             head = order.name if m.who == CateringMessage.CUSTOMER else staff if m.who == CateringMessage.STAFF else store
@@ -369,7 +370,7 @@ def detail(order, me, draft=None, sheet="") -> dict:
         cur, prev = draft["lines"], saved
     else:
         cur = saved
-        prev = order.previous if order.status == CateringOrder.WAITING and order.previous else None
+        prev = order.previous if order.status in (CateringOrder.NEW, CateringOrder.WAITING) and order.previous else None
     catalog = pricing.Catalog(cur, prev, saved)
     t = pricing.totals(cur, catalog)
     tp = pricing.totals(prev, catalog) if prev is not None else None
@@ -405,7 +406,7 @@ def detail(order, me, draft=None, sheet="") -> dict:
          "who": " · ".join(filter(None, [order.name, order.organization, _("ordered %(when)s") % {"when": placed}])),
          "ini": initials(order.organization or order.name), "color": avatar(order.organization or order.name),
          "groups": _rows(cur, prev, catalog, editing), "totals": _totals(order, t, tp, editing), "t": t,
-         "head": _("Editing the order") if editing else _("Your proposed changes") if prev is not None else _("Order"),
+         "head": _("Editing the order") if editing else (_("Their suggested changes") if order.status == CateringOrder.NEW else _("Your proposed changes")) if prev is not None else _("Order"),
          "portions": ngettext("%(n)d portion", "%(n)d portions", t["portions"]) % {"n": t["portions"]},
          "timeline": _timeline(order, me), "closed": order.status not in CateringOrder.OPEN}
     # Deposit

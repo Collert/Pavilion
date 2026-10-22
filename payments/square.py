@@ -204,8 +204,9 @@ def refund_payment(payment_id, amount, key, reason=""):
 def create_customer(name, email, phone="", company="", key=None):
     """A Square customer to keep cards on. Returns its id."""
     first, _, last = (name or "").partition(" ")
-    body = {"idempotency_key": (key or str(uuid.uuid4()))[:45], "given_name": first, "family_name": last,
-            "email_address": email}
+    body = {"idempotency_key": (key or str(uuid.uuid4()))[:45], "given_name": first or "Customer", "family_name": last}
+    if email:
+        body["email_address"] = email
     if phone:
         body["phone_number"] = phone
     if company:

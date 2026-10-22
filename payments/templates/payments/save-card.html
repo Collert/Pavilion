@@ -1,0 +1,63 @@
+{% load i18n %}<!DOCTYPE html>
+{% comment %}
+Square's card form, to keep a card on file (payments/views.py: save_card). Shown in an iframe by pages that need a
+card for later (catering requests). On success it tells the parent page: postMessage({action: "cardSaved"}).
+{% endcomment %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "Save a card" %}</title>
+    <style>
+        body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; color: #221E18; background: transparent; }
+        button { width: 100%; height: 50px; border: none; border-radius: 25px; background: #221E18; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 12px; }
+        button:disabled { opacity: .5; cursor: default; }
+        button.soft { background: #F1ECE2; color: #221E18; }
+        #status { min-height: 22px; margin-top: 10px; font-size: 14px; font-weight: 600; text-align: center; }
+        #status.bad { color: #B3361F; }
+        .demo { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #D9CDB6; font-size: 13px; color: #5C5446; text-align: center; }
+    </style>
+    <script type="text/javascript" src="https://{% if dev_env %}sandbox.{% endif %}web.squarecdn.com/v1/square.js"></script>
+</head>
+<body>
+    {% csrf_token %}
+    <div id="card-container"></div>
+    <button id="save" disabled>{% trans "Save card" %}</button>
+    <div id="status" role="status"></div>
+    {% if dev_env %}
+    <div class="demo">{% trans "Testing on this computer?" %}<button class="soft" id="demo">{% trans "Use a test card" %}</button></div>
+    {% endif %}
+    <script>
+        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const status = document.getElementById("status");
+        async function send(body) {
+            const response = await fetch("{% url 'save-card' %}", {method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrftoken}, body: JSON.stringify(body)});
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || "{% trans 'The card couldn’t be saved.' %}");
+            status.className = ""; status.textContent = "{% trans 'Card saved.' %}";
+            parent.postMessage({action: "cardSaved"}, location.origin);
+        }
+        document.getElementById("demo")?.addEventListener("click", () => send({demo: true}).catch((e) => { status.className = "bad"; status.textContent = e.message; }));
+        (async () => {
+            try {
+                const payments = Square.payments("{{ app_id }}", "{{ location_id }}");
+                const card = await payments.card();
+                await card.attach("#card-container");
+                const button = document.getElementById("save");
+                button.disabled = false;
+                button.addEventListener("click", async () => {
+                    button.disabled = true;
+                    try {
+                        const result = await card.tokenize();
+                        if (result.status !== "OK") throw new Error("{% trans 'Check the card details.' %}");
+                        await send({token: result.token});
+                    } catch (e) { status.className = "bad"; status.textContent = e.message; button.disabled = false; }
+                });
+            } catch (e) {
+                status.className = "bad";
+                status.textContent = "{% trans 'The card form couldn’t load.' %}";
+            }
+        })();
+    </script>
+</body>
+</html>
