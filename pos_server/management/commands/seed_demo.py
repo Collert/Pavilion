@@ -97,6 +97,7 @@ class Command(BaseCommand):
             self.seed_store()
             self.seed_services()
             self.seed_catering()
+            self.seed_audio()
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
@@ -1176,6 +1177,15 @@ class Command(BaseCommand):
         # One that was declined, so the counts skip it
         Booking.objects.create(service=services[0], name="Late request", date=today + datetime.timedelta(days=1), amount=4,
                                status=Booking.DECLINED, total=Decimal("152.00"), created_at=now - datetime.timedelta(days=2))
+
+    def seed_audio(self):
+        """Audio channels for the screens (songs come from files/music/: drop MP3s there; manage.py scan_music)."""
+        from audio.models import AudioChannel
+        for name, kind, notes in (("Order calls", "voice", "Calls out names when orders are ready."),
+                                  ("Lobby music", "music", "Ceiling speakers in the dining room."),
+                                  ("Patio music", "music", ""),
+                                  ("Announcements", "voice", "Closing time and event messages.")):
+            AudioChannel.objects.get_or_create(name=name, defaults={"kind": kind, "notes": notes})
 
     def seed_screens(self):
         # The order board comes with migrations (screens/0002): give it pop-ups (an order-ready call-out, staff

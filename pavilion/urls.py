@@ -44,6 +44,7 @@ urlpatterns += i18n_patterns(
     path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
     path("screens/", include("screens.urls")),
+    path("audio/", include("audio.urls")),
 )
 
 if settings.DEBUG:

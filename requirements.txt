@@ -22,6 +22,7 @@ Pillow~=11.0
 Markdown~=3.7
 python-barcode~=0.15
 segno~=1.6
+mutagen~=1.47
 pywebpush~=2.0
 gTTS~=2.5
 sentry-sdk~=2.0

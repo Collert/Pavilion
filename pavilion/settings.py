@@ -133,6 +133,7 @@ INSTALLED_APPS = [
     'events',  # Event handling
     'admin_portal',  # /admin/: the store's back office (admin_portal/)
     'screens',  # Screens built from widgets (status boards, signage)
+    'audio',  # Music library and audio channels (music in sync, push-to-talk voice)
     'services',  # Services (staff, rentals, venue...) and their bookings
     'catering',  # Catering orders, their conversation and settings
 ]
