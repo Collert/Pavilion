@@ -107,3 +107,103 @@ class MusicTimelineTests(TestCase):
         self.assertTrue(response.json()["paused"])
         voice = AudioChannel.objects.create(name="Calls", kind="voice")
         self.assertEqual(self.client.get(reverse("audio_now", args=[voice.id])).status_code, 404)
+
+
+
+class VoiceRelayTests(TestCase):
+    """audio/voice.py: push-to-talk over a WebSocket, one talker at a time, relayed to everyone else on the channel."""
+
+    def test_talking_listening_busy_and_clips(self):
+        import asyncio
+        from django.core.cache import cache
+        from pavilion import realtime
+        from . import voice
+        cache.clear()
+        broker = realtime.LocalBroker()
+        names = iter([None, "Dana", "Alex", None])  # a screen listening, two staff, a customer who tries to talk
+
+        async def who(scope, channel_id):
+            return True, next(names)
+
+        class Socket:
+            def __init__(self):
+                self.inbox, self.outbox = asyncio.Queue(), asyncio.Queue()
+
+            async def receive(self):
+                return await self.inbox.get()
+
+            async def send(self, message):
+                await self.outbox.put(message)
+
+            async def next(self, kind="websocket.send"):
+                while True:
+                    message = await asyncio.wait_for(self.outbox.get(), 2)
+                    if message["type"] == kind:
+                        return message
+
+            def say(self, **message):
+                self.inbox.put_nowait({"type": "websocket.receive", **message})
+
+        async def run():
+            sockets = [Socket() for _n in range(4)]
+            tasks = []
+            for s in sockets:
+                s.inbox.put_nowait({"type": "websocket.connect"})
+                tasks.append(asyncio.ensure_future(voice.voice_socket({"headers": []}, s.receive, s.send, 7)))
+                await s.next("websocket.accept")
+            screen, dana, alex, guest = sockets
+            await asyncio.sleep(0.05)
+            dana.say(text=json.dumps({"type": "start"}))
+            self.assertEqual(json.loads((await dana.next())["text"]), {"type": "talking"})
+            self.assertEqual(json.loads((await screen.next())["text"]), {"type": "start", "who": "Dana"})
+            dana.say(bytes=b"opus-packet")
+            self.assertEqual((await screen.next())["bytes"], b"opus-packet")
+            alex.say(text=json.dumps({"type": "start"}))
+            self.assertEqual(json.loads((await alex.next())["text"])["type"], "start")  # hears Dana start...
+            alex_msgs = []
+            while True:
+                message = await alex.next()
+                alex_msgs.append(message)
+                if "text" in message and json.loads(message["text"])["type"] == "busy":
+                    break
+            guest.say(text=json.dumps({"type": "start"}))
+            while json.loads((await guest.next()).get("text") or "{}").get("type") != "denied":
+                pass
+            dana.say(text=json.dumps({"type": "stop"}))
+            while json.loads((await screen.next()).get("text") or "{}").get("type") != "stop":
+                pass
+            self.assertTrue(dana.outbox.empty() or all("bytes" not in m for m in list(dana.outbox._queue)))  # no echo
+            voice.broadcast(7, {"type": "clip", "url": "/media/files/calls/a.mp3"})
+            while True:
+                message = json.loads((await screen.next()).get("text") or "{}")
+                if message.get("type") == "clip":
+                    self.assertEqual(message["url"], "/media/files/calls/a.mp3")
+                    break
+            for s in sockets:
+                s.inbox.put_nowait({"type": "websocket.disconnect"})
+            await asyncio.gather(*tasks)
+
+        with mock.patch.object(voice, "_who", who), mock.patch.object(voice, "get_broker", return_value=broker):
+            asyncio.run(run())
+        self.assertEqual(broker._subscribers, set())
+        self.assertIsNone(cache.get(voice.floor_key(7)))  # the channel is free again
+
+    def test_the_route(self):
+        import asyncio
+        from pavilion.asgi import application
+        sent = []
+
+        async def receive():
+            return {"type": "websocket.connect"}
+
+        async def send(message):
+            sent.append(message)
+
+        asyncio.run(application({"type": "websocket", "path": "/ws/nope"}, receive, send))
+        self.assertEqual(sent, [{"type": "websocket.close", "code": 4404}])
+        with mock.patch("audio.voice.voice_socket") as voice_socket:
+            async def fake(*args):
+                sent.append(args[3])
+            voice_socket.side_effect = fake
+            asyncio.run(application({"type": "websocket", "path": "/ws/voice/12"}, receive, send))
+        self.assertEqual(sent[-1], 12)

@@ -52,7 +52,7 @@ class LocalBroker:
             if wanted == topic:
                 loop.call_soon_threadsafe(queue.put_nowait, message)
 
-    async def subscribe(self, topic):
+    async def subscribe(self, topic, raw=False):
         queue = asyncio.Queue()
         entry = (asyncio.get_running_loop(), queue, topic)
         with self._lock:
@@ -75,7 +75,8 @@ class RedisBroker:
     def publish(self, topic, message):
         self._sync.publish(CHANNEL_PREFIX + topic, message)
 
-    async def subscribe(self, topic):
+    async def subscribe(self, topic, raw=False):
+        """Messages on `topic`, as text (raw=True: as bytes, for voice packets)."""
         import redis.asyncio
         client = redis.asyncio.Redis.from_url(self._url)
         pubsub = client.pubsub()
@@ -84,7 +85,7 @@ class RedisBroker:
             async for item in pubsub.listen():
                 if item.get("type") == "message":
                     data = item["data"]
-                    yield data.decode() if isinstance(data, bytes) else data
+                    yield data if raw else data.decode() if isinstance(data, bytes) else data
         finally:
             await pubsub.unsubscribe()
             await pubsub.aclose()

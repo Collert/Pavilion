@@ -136,7 +136,10 @@ function voice(lane) {
     function connect() {
         const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${lane.ws}`);
         socket.binaryType = "arraybuffer";
+        lane.heard = lane.heard || { messages: 0, packets: 0 };  // for looking into it from the console
         socket.addEventListener("message", (event) => {
+            if (typeof event.data === "string") lane.heard.messages += 1;
+            else lane.heard.packets += 1;
             if (typeof event.data === "string") {
                 let message;
                 try { message = JSON.parse(event.data); } catch { return; }

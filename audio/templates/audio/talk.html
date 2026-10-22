@@ -1,0 +1,22 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+Push-to-talk on a voice channel (audio/static/audio/talk.js). A bare page for testing the voice backend: the real
+talk screen comes from its design.
+{% endcomment %}
+{% block title %}{{ channel.name }} · Pavilion{% endblock %}
+{% block body %}
+<main class="talk-page" data-talk data-ws="/ws/voice/{{ channel.id }}">
+    <div class="overline">{% trans "Voice channel" %}</div>
+    <h1 class="h1">{{ channel.name }}</h1>
+    <button class="talk-button" data-talk-button aria-pressed="false" disabled>{% trans "Hold to talk" %}</button>
+    <p class="sub" data-talk-status>{% trans "Connecting…" %}</p>
+</main>
+<style>
+    .talk-page { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .talk-button { width: 240px; height: 240px; border-radius: 50%; border: none; background: var(--brand); color: #fff; font: 800 22px var(--heading, sans-serif); touch-action: none; user-select: none; }
+    .talk-button[aria-pressed="true"] { background: var(--amber); color: var(--ink); transform: scale(.97); }
+    .talk-button:disabled { opacity: .4; }
+</style>
+<script type="module" src="{% static 'audio/talk.js' %}"></script>
+{% endblock %}

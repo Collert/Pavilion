@@ -49,40 +49,48 @@ def _maybe_scan():
 
 def now_playing(channel, now=None) -> dict:
     """{"track": Track or None, "offset": seconds into it, "paused": bool, "started_at", "ends_at", "next": Track}.
-    Starts the channel if it never has, and saves how far time has moved it."""
+    Starts the channel if it never has, and saves how far time has moved it (only when it moved)."""
     _maybe_scan()
     now = now or timezone.now()
-    with transaction.atomic():
-        channel = AudioChannel.objects.select_for_update().get(pk=channel.pk)
-        tracks = {t.id: t for t in Track.objects.filter(id__in=_pool(channel))}
-        order = [i for i in channel.order if i in tracks]
-        if set(order) != set(tracks):  # songs added or removed: a new order
-            order = _fresh_order(channel)
-            channel.index, channel.started_at = 0, None
-        changed = order != channel.order
-        channel.order = order
-        if not order:
-            if changed:
-                channel.save(update_fields=["order", "index", "started_at"])
-            return {"track": None, "offset": 0, "paused": bool(channel.paused_at), "next": None}
-        if channel.index >= len(order):
-            channel.index, channel.started_at = 0, None
-        if channel.started_at is None:
-            channel.started_at, changed = now, True
-        clock = channel.paused_at or now
-        elapsed = (clock - channel.started_at).total_seconds()
-        laps = 0
-        while elapsed >= _length(tracks[order[channel.index]]) and laps < 10000:
-            elapsed -= _length(tracks[order[channel.index]])
-            channel.started_at += datetime.timedelta(seconds=_length(tracks[order[channel.index]]))
-            channel.index = (channel.index + 1) % len(order)
-            changed, laps = True, laps + 1
-        if changed:
-            channel.save(update_fields=["order", "index", "started_at"])
+    channel = AudioChannel.objects.get(pk=channel.pk)
+    tracks = {t.id: t for t in Track.objects.filter(id__in=_pool(channel))}
+    order = [i for i in channel.order if i in tracks]
+    fields = {}
+    if set(order) != set(tracks):  # songs added or removed: a new order
+        order = _fresh_order(channel)
+        channel.index, channel.started_at = 0, None
+        fields.update(index=0, started_at=None)
+    if order != channel.order:
+        fields["order"] = order
+    channel.order = order
+    if not order:
+        _save(channel, fields)
+        return {"track": None, "offset": 0, "paused": bool(channel.paused_at), "next": None}
+    if channel.index >= len(order):
+        channel.index, channel.started_at = 0, None
+    if channel.started_at is None:
+        channel.started_at = now
+    clock = channel.paused_at or now
+    elapsed = (clock - channel.started_at).total_seconds()
+    laps = 0
+    while elapsed >= _length(tracks[order[channel.index]]) and laps < 10000:
+        elapsed -= _length(tracks[order[channel.index]])
+        channel.started_at += datetime.timedelta(seconds=_length(tracks[order[channel.index]]))
+        channel.index = (channel.index + 1) % len(order)
+        laps += 1
+    if laps or "started_at" in fields or channel.started_at != AudioChannel.objects.values_list("started_at", flat=True).get(pk=channel.pk):
+        fields.update(index=channel.index, started_at=channel.started_at)
+    _save(channel, fields)
     track = tracks[order[channel.index]]
     upcoming = tracks[order[(channel.index + 1) % len(order)]]
     return {"track": track, "offset": max(elapsed, 0.0), "paused": bool(channel.paused_at), "started_at": channel.started_at,
             "ends_at": channel.started_at + datetime.timedelta(seconds=_length(track)), "next": upcoming}
+
+
+def _save(channel, fields):
+    """Write only what moved, as one short UPDATE (no lock: screens asking at once work out the same answer)."""
+    if fields:
+        AudioChannel.objects.filter(pk=channel.pk).update(**fields)
 
 
 def as_json(channel, request=None) -> dict:

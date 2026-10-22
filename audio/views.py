@@ -6,7 +6,9 @@ from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
-from pos_server.devices import api_staff_required
+from django.shortcuts import render
+
+from pos_server.devices import api_staff_required, staff_required
 
 from . import music
 from .library import scan
@@ -37,6 +39,13 @@ def control(request, id):
     playlist = Playlist.objects.filter(pk=body.get("playlist")).first() if body.get("playlist") else None
     channel = music.control(channel, action, playlist=playlist, shuffle=body.get("shuffle"))
     return JsonResponse(music.as_json(channel, request))
+
+
+@staff_required
+def talk(request, id):
+    """Push-to-talk on a voice channel (a bare page until the talk screen is designed)."""
+    channel = get_object_or_404(AudioChannel, pk=id, archived=False, kind=AudioChannel.VOICE)
+    return render(request, "audio/talk.html", {"channel": channel})
 
 
 @require_POST
