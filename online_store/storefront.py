@@ -281,3 +281,49 @@ def hours_summary(week) -> list[dict]:
         else:
             out.append({"first": short, "last": "", "time": h["time"]})
     return [{"day": f"{g['first']}–{g['last']}" if g["last"] else g["first"], "time": g["time"]} for g in out]
+
+
+def kit_needed(dish) -> bool:
+    """Whether the dish has a required choice with nothing picked by default (it opens its sheet to be added)."""
+    from pos_server.models import OptionGroup
+    groups = list(dish.option_groups.all())
+    for dc in dish.dishcomponent_set.select_related("component").all():
+        groups += list(dc.component.option_groups.all())
+    return any(g.required and not (g.pick == OptionGroup.ONE and g.default_option()) for g in groups)
+
+
+def order_card(order, full=False) -> dict:
+    """An order as the store shows it: number, state, the steps it goes through, when it's ready, its receipt."""
+    delivery = order.channel == "delivery"
+    progress = order.progress_status() or 2
+    started = timezone.localtime(order.start_time)
+    eta = started + datetime.timedelta(minutes=pickup_minutes() + (20 if delivery else 0))
+    scheduled = order.start_time > order.timestamp + datetime.timedelta(minutes=10)
+    steps = [(_("Received"), clock(timezone.localtime(order.timestamp).time())),
+             (_("Cooking"), _("We’re on it") if progress >= 3 else ""),
+             ((_("On the way") if delivery else _("Ready")), "" if progress < 4 else _("On the shelf") if not delivery else ""),
+             ((_("Delivered") if delivery else _("Picked up")), "")]
+    done = {1: 1, 2: 1, 3: 1, 4: 3 if not delivery else 2, 5: 4, 6: 4}.get(progress, 1)
+    current = min(done, 3) if progress < 5 else 4
+    out = {"order": order, "number": order.id, "delivery": delivery, "progress": progress, "scheduled": scheduled,
+           "placed": clock(timezone.localtime(order.timestamp).time()), "eta": clock(eta.time()) if not scheduled else clock(started.time()),
+           "eta_day": "" if started.date() == timezone.localdate() else f"{started:%a, %b} {started.day}",
+           "steps": [{"n": i + 1, "label": label, "sub": sub, "done": i < done, "now": i == current and progress < 5} for i, (label, sub) in enumerate(steps)],
+           "label": _("Ready for pickup") if progress == 4 and not delivery else _("Done") if progress >= 5 else _("Scheduled") if progress == 1 else _("Cooking"),
+           "url": link("order_status", order.id)}
+    if full:
+        items = [i for i in order.items.all() if i.parent_id is None]
+        out["items"] = [{"qty": i.quantity, "name": i.title, "mods": ", ".join(i.mods or []) or "", "total": i.line_total} for i in items]
+        totals = [(_("Subtotal"), order.subtotal)]
+        if order.discount:
+            totals.append((_("Discount"), -order.discount))
+        totals += [(f.label, f.amount) for f in order.fee_lines.all()]
+        if order.tax:
+            totals.append((_("Tax"), order.tax))
+        if order.tip:
+            totals.append((_("Tip"), order.tip))
+        out["totals"] = [(label, ("−" if value < 0 else "") + money(abs(value))) for label, value in totals]
+        dest = order.delivery.first() if delivery else None
+        out["where"] = dest.destination if dest else ""
+        out["where_note"] = (dest.instructions or "") if dest else ""
+    return out

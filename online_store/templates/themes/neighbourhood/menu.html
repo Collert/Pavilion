@@ -1,0 +1,131 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n %}
+{% comment %}
+The menu (design: StoreMenu; online_store/pages.py: menu_page). Menus on now and starting within a day as tabs,
+sections by station, the cart beside them, and the dish sheet (?dish= / ?combo=): a form that posts its choices as
+they change (data-search; the default op is "preview") so its price follows, and "add" puts it in the cart.
+{% endcomment %}
+{% block title %}{% trans "Menu" %} · {{ store.name }}{% endblock %}
+{% block content %}
+<section class="nb-page-top">
+    <div class="nb-kick accent">{% trans "Order online" %}</div>
+    <h1 class="nb-serif nb-page-title">{% trans "Menus" %}</h1>
+    {% if tabs %}
+    <nav class="nb-menu-tabs" aria-label="{% trans 'Menus' %}">
+        {% for m in tabs %}
+        <a class="nb-menu-tab{% if m.on %} on{% endif %}" href="?actual={{ m.menu.id }}" data-live {% if m.on %}aria-current="page"{% endif %}>
+            <span class="nb-pill {{ m.state }}">{{ m.pill }}</span>
+            <span class="nb-serif nb-tab-name">{{ m.menu.title }}</span>
+            <span class="nb-tab-when">{{ m.when }}</span>
+        </a>
+        {% endfor %}
+    </nav>
+    {% endif %}
+    {% if notice %}
+    <div class="nb-notice {{ notice_kind }}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>{{ notice }}</span></div>
+    {% endif %}
+</section>
+
+<section class="nb-menu-body">
+    {% if sections %}
+    <nav class="nb-sections" aria-label="{% trans 'Sections' %}">
+        <div class="nb-kick small muted">{{ menu.title }}</div>
+        {% for s in sections %}<a href="#{{ s.id }}"{% if forloop.first %} class="on"{% endif %}>{{ s.title }}<span>{{ s.items|length }}</span></a>{% endfor %}
+    </nav>
+    <div class="nb-menu-list">
+        {% for s in sections %}
+        <div class="nb-menu-section" id="{{ s.id }}">
+            <div class="nb-sec-head"><h2 class="nb-serif">{{ s.title }}</h2></div>
+            <div class="nb-dishes">
+                {% for it in s.items %}
+                <article class="nb-dish{% if it.sold_out %} off{% endif %}">
+                    <div class="nb-dish-text">
+                        <h3 class="nb-serif">{{ it.obj.title }}</h3>
+                        {% if it.obj.description %}<p>{{ it.obj.description }}</p>{% endif %}
+                        <div class="nb-dish-meta">
+                            <span class="nb-dish-price">{{ it.price }}</span>
+                            {% if it.sold_out %}<span class="nb-tag sold">{% trans "Sold out today" %}</span>{% endif %}
+                            {% for d in it.diets %}<span class="nb-tag diet">{{ d }}</span>{% endfor %}
+                        </div>
+                    </div>
+                    <div class="nb-dish-art-wrap">
+                        <div class="nb-dish-art tone-{{ it.tone }}">{% if it.picture.photo %}<img src="{{ it.picture.photo }}" alt="">{% else %}{% include "themes/neighbourhood/_drawing.html" with kind=it.picture.drawing size=104 label=it.obj.title %}{% endif %}</div>
+                        {% if it.sold_out %}<span class="nb-add off" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14 M5 12h14"/></svg></span>
+                        {% else %}<a class="nb-add" href="{{ it.url }}{% if query %}&actual={{ query }}{% endif %}" data-live aria-label="{% blocktrans with name=it.obj.title %}Add {{ name }}{% endblocktrans %}"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14 M5 12h14"/></svg></a>{% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="nb-empty-note">{% trans "There’s no menu online right now. Have a look again soon." %}</div>
+    {% endif %}
+
+    <aside class="nb-order-box" aria-label="{% trans 'Your order' %}" id="nb-order" data-region>
+        <div class="nb-order-head"><h2 class="nb-serif">{% trans "Your order" %}</h2><span>{% blocktrans count n=count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>
+        <div class="nb-order-rows">
+            {% for r in cart_rows %}
+            <div class="nb-order-row"><span class="nb-qty">{{ r.qty }}</span><div class="nb-grow"><div class="strong">{{ r.title }}</div><div class="nb-mods">{{ r.mods }}{% if r.note %} · “{{ r.note }}”{% endif %}</div></div><span class="strong">${{ r.total|floatformat:2 }}</span></div>
+            {% empty %}
+            <div class="nb-order-empty">{% trans "Nothing yet. Tap + on anything you like." %}</div>
+            {% endfor %}
+        </div>
+        <div class="nb-order-foot">
+            <div class="nb-order-sub"><span class="nb-grow">{% trans "Subtotal" %}</span><span>${{ subtotal|floatformat:2 }}</span></div>
+            <div class="nb-order-hint">{% trans "Pickup or delivery, timing and tax at checkout." %}</div>
+            {% if cart_rows %}<a class="nb-btn nb-btn-accent nb-wide" href="{{ links.cart }}">{% blocktrans with total=subtotal|floatformat:2 %}Checkout · ${{ total }}{% endblocktrans %}</a>{% endif %}
+        </div>
+    </aside>
+</section>
+
+<div id="nb-sheet" data-region>
+{% if sheet %}
+<div class="nb-overlay">
+    <a class="nb-scrim" href="?{% if query %}actual={{ query }}{% endif %}" data-live aria-label="{% trans 'Close' %}"></a>
+    <form method="post" action="{% url 'menu' %}" class="nb-sheet" role="dialog" aria-modal="true" aria-label="{{ sheet.obj.title }}" data-search>
+        {% csrf_token %}
+        <input type="hidden" name="{{ sheet.kind }}" value="{{ sheet.id }}"><input type="hidden" name="actual" value="{{ query }}"><input type="hidden" name="qty" value="{{ sheet.qty }}">
+        <div class="nb-sheet-art tone-0">
+            {% if sheet.picture.photo %}<img src="{{ sheet.picture.photo }}" alt="">{% else %}{% include "themes/neighbourhood/_drawing.html" with kind=sheet.picture.drawing size=300 label=sheet.obj.title %}{% endif %}
+            {% if sheet.diets %}<div class="nb-sheet-diets">{% for d in sheet.diets %}<span>{{ d }}</span>{% endfor %}</div>{% endif %}
+        </div>
+        <div class="nb-sheet-body">
+            <div class="nb-sheet-top">
+                <div class="nb-grow"><h2 class="nb-serif">{{ sheet.obj.title }}</h2><div class="nb-sheet-price">{% if sheet.kind == "dish" %}${{ sheet.obj.price|floatformat:2 }}{% else %}${{ sheet.obj.standard_price|floatformat:2 }}{% endif %}</div></div>
+                <a class="nb-close" href="?{% if query %}actual={{ query }}{% endif %}" data-live aria-label="{% trans 'Close' %}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+            </div>
+            {% if sheet.obj.description %}<p class="nb-sheet-desc">{{ sheet.obj.description }}</p>{% endif %}
+            {% if sheet.allergens %}<div class="nb-sheet-allergens">{% blocktrans with list=sheet.allergens %}Contains: {{ list }}{% endblocktrans %}</div>{% endif %}
+            <div class="nb-sheet-groups">
+                {% for g in sheet.groups %}
+                <fieldset class="nb-choice">
+                    <legend><span class="strong">{{ g.title }}</span>{% if g.note %} <span class="muted">· {{ g.note }}</span>{% endif %}<span class="nb-req{% if g.required %} on{% endif %}">{{ g.req }}</span></legend>
+                    <div class="nb-chips">
+                        {% for o in g.opts %}
+                        <label class="nb-chip{% if o.off %} off{% endif %}"><input type="{{ g.kind }}" name="{{ o.name }}" value="{{ o.value }}" {% if o.on %}checked{% endif %} {% if o.off %}disabled{% endif %} class="visually-hidden"><span>{{ o.label }}{% if o.price %}<em>{{ o.price }}</em>{% endif %}</span></label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                {% endfor %}
+            </div>
+            {% if sheet.kind == "dish" %}
+            <label class="nb-sheet-note"><span class="strong">{% trans "Anything else for the kitchen?" %}</span>
+                <textarea name="note" rows="2" maxlength="140" placeholder="{% trans 'Allergies or requests, e.g. sauce on the side' %}">{{ sheet.note }}</textarea></label>
+            {% endif %}
+            <div class="nb-sheet-foot">
+                <span class="nb-stepper">
+                    <button name="op" value="less" aria-label="{% trans 'One fewer' %}" {% if sheet.qty <= 1 %}disabled{% endif %}>−</button>
+                    <span>{{ sheet.qty }}</span>
+                    <button name="op" value="more" aria-label="{% trans 'One more' %}">+</button>
+                </span>
+                <button class="nb-btn nb-btn-accent nb-add-btn" name="op" value="add" {% if sheet.missing or sheet.error %}disabled{% endif %} data-calc>{% blocktrans with n=sheet.qty total=sheet.total|floatformat:2 %}Add {{ n }} to order · ${{ total }}{% endblocktrans %}</button>
+            </div>
+            <div class="nb-sheet-missing" data-calc>{% if sheet.error %}{{ sheet.error }}{% elif sheet.missing %}{% blocktrans with what=sheet.missing|join:" and " %}Choose {{ what }} to add this.{% endblocktrans %}{% endif %}</div>
+        </div>
+    </form>
+</div>
+{% endif %}
+</div>
+{% endblock %}

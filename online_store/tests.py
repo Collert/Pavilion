@@ -103,8 +103,10 @@ class PlaceOrderTests(MenuFixture, TestCase):
 
     def test_menu_lists_combos(self):
         response = self.client.get(reverse("menu"))
-        self.assertIn(f"c{self.combo.id}", response.context["store_items"])
-        self.assertEqual(response.context["store_items"][f"c{self.combo.id}"]["ask"]["title"], "Drink")
+        items = [it["obj"] for sec in response.context["sections"] for it in sec["items"]]
+        self.assertIn(self.combo, items)
+        sheet = self.client.get(reverse("menu") + f"?combo={self.combo.id}").context["sheet"]
+        self.assertEqual([g["title"] for g in sheet["groups"]], ["Drink"])
 
     def test_closed_when_there_is_no_event(self):
         self.event.delete()
@@ -129,7 +131,7 @@ class PlaceOrderTests(MenuFixture, TestCase):
         order = Order.objects.get()
         response = self.client.get(reverse("order_status", kwargs={"id": order.id}))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["status"], 1)  # scheduled: the pickup time is 30 minutes from now
+        self.assertEqual(response.context["o"]["progress"], 1)  # scheduled: the pickup time is 30 minutes from now
 
 
 class ThemeTests(MenuFixture, TestCase):
@@ -197,3 +199,85 @@ class ThemeTests(MenuFixture, TestCase):
         self.assertEqual(sum(1 for h in storefront.hours_summary(week) if h["time"] == "Closed"), len(storefront.hours_summary(week)) - 1)
         self.assertEqual(storefront.drawing("Smash burger"), "burger")
         self.assertEqual(storefront.drawing("Mystery"), "plate")
+
+
+class StoreOrderingTests(MenuFixture, TestCase):
+    """The themed menu, dish sheet, session cart, checkout and placed order (online_store/pages.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def setUp(self):
+        now = timezone.localtime()
+        self.event = Event.objects.create(title="Today", start=now - datetime.timedelta(hours=1), end=now + datetime.timedelta(hours=3),
+                                          restaurant_open=True, in_person_open=True, online_open=True, delivery_open=True)
+
+    def add_burger(self, **extra):
+        data = {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.medium.id,
+                f"g-{self.bun_key}": self.gf.id, **extra}
+        return self.client.post(reverse("menu"), data)
+
+    def test_sheet_adds_merges_and_changes_lines(self):
+        sheet = self.client.get(reverse("menu") + f"?dish={self.burger.id}").context["sheet"]
+        self.assertEqual([g["title"] for g in sheet["groups"]][:3], ["Add-ons", "Bun", "Temperature"])
+        self.assertEqual(sheet["missing"], [])  # required groups start on their first option
+        self.assertTrue(next(g for g in sheet["groups"] if g["title"] == "Temperature")["opts"][0]["on"])
+        preview = self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "2", f"g-{self.addons_key}": self.avocado_addon.id,
+                                                     f"g-{self.temp_key}": self.medium.id, f"g-{self.bun_key}": self.gf.id}).context["sheet"]
+        self.assertEqual((preview["unit"], preview["total"]), (Decimal("18.25"), Decimal("36.50")))  # 14.50 + 2.25 + 1.50
+        self.assertRedirects(self.add_burger(), reverse("menu"), fetch_redirect_response=False)
+        self.add_burger()
+        cart = self.client.session["cart"]
+        self.assertEqual([line["qty"] for line in cart["lines"]], [2])  # the same burger twice is one line
+        rows = self.client.get(reverse("store_cart")).context["rows"]
+        self.assertEqual((rows[0]["qty"], rows[0]["total"]), (2, Decimal("32.00")))
+        key = rows[0]["key"]
+        self.client.post(reverse("store_cart"), {"op": f"dec:{key}"})
+        self.assertEqual(self.client.session["cart"]["lines"][0]["qty"], 1)
+        self.client.post(reverse("store_cart"), {"op": f"remove:{key}"})
+        self.assertTrue(self.client.get(reverse("store_cart")).context["empty"])
+
+    def test_gift_card_order_with_a_tip(self):
+        card = GiftCard.objects.create(available_balance=Decimal("100"))
+        self.add_burger()
+        url = reverse("store_cart")
+        self.client.post(url, {"op": "code", "code": card.number})
+        self.client.post(url, {"op": "tip:10"})
+        page = self.client.post(url, {"name": "Iryna", "email": "iryna@example.com", "op": "preview"}).context
+        self.assertTrue(page["ready"])
+        self.assertEqual((page["tip"], page["to_pay"]), (Decimal("1.60"), Decimal("0.00")))
+        response = self.client.post(url, {"name": "Iryna", "email": "iryna@example.com", "op": "place"})
+        order = Order.objects.get()
+        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertEqual((order.tip, order.total, order.name, order.email), (Decimal("1.60"), Decimal("17.60"), "Iryna", "iryna@example.com"))
+        self.assertEqual(order.stations.count(), 1)
+        self.assertEqual(self.client.session["cart"]["lines"], [])
+        o = self.client.get(reverse("order_status", args=[order.id])).context["o"]
+        self.assertEqual(o["totals"][-1], ("Tip", "$1.60"))
+
+    def test_card_payment_opens_the_card_sheet(self):
+        self.add_burger()
+        page = self.client.post(reverse("store_cart"), {"name": "Iryna", "email": "iryna@example.com", "op": "place"}).context
+        self.assertEqual(page["pay"]["amount"], Decimal("18.40"))  # 16.00 + 15% tip
+        self.assertIn("confirmation_needed=1", page["pay"]["url"])
+        self.assertFalse(Order.objects.exists())
+
+    def test_scheduling_follows_events_and_menus(self):
+        self.add_burger()
+        url = reverse("store_cart")
+        tomorrow = timezone.localdate() + datetime.timedelta(days=1)
+        self.client.post(url, {"op": "when:later"})
+        when = self.client.post(url, {"op": f"date:{tomorrow.isoformat()}"}).context["when"]
+        self.assertEqual((when["ok"], when["message"]), (False, "We’re closed that day."))
+        start = timezone.make_aware(datetime.datetime.combine(tomorrow, datetime.time(9, 0)))
+        Event.objects.create(title="Tomorrow", start=start, end=start + datetime.timedelta(hours=8), restaurant_open=True,
+                             in_person_open=True, online_open=True, delivery_open=False)
+        when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
+        self.assertTrue(when["ok"], when["message"])
+        self.assertIn("tomorrow at 11:30 AM", when["message"])
+        when = self.client.post(url, {"op": "preview", "hour": "6", "minute": "00", "ampm": "PM"}).context["when"]
+        self.assertFalse(when["ok"])
+        self.menu.manual_on = False
+        self.menu.save()
+        when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
+        self.assertEqual(when["message"], "Burger isn’t on the menu then.")

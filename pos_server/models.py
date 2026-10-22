@@ -495,7 +495,7 @@ class Order(models.Model):
 
     `picked_up` defaults to True and is set False when any station is needed; the order is done once it
     is True. The money fields are computed on the server when the order is created (see pos_server.orders):
-    total = subtotal - discount + tax + fees (disposables charged to the customer, like a bag fee: OrderFee rows,
+    total = subtotal - discount + tax + fees + tip (disposables charged to the customer, like a bag fee: OrderFee rows,
     not taxed or discounted).
     """
     order_channels = (
@@ -516,6 +516,7 @@ class Order(models.Model):
     discount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     tax = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"))
     fees = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Disposables charged to the customer (OrderFee)")
+    tip = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="For the team, added by the customer online")
     total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="What the customer pays")
     channel = models.CharField(max_length=10, choices=order_channels)
     phone = models.PositiveBigIntegerField(null=True, blank=True)

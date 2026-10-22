@@ -321,11 +321,27 @@ tile); open it at its URL.
 ### 6.5 Online ordering (`/`)
 
 The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the canvas's `Store*` artboards, theme
-"Neighbourhood"). Done: the home page (`index`: hero, menus on now and coming up from the menu schedule, this week's
-best sellers, a catering teaser from `CateringSettings`, three online services, visit us with this week's hours from
-`events.Event`) with the theme's header (open-now banner, the signed-in customer's order in progress, cart count from
-the session) and footer. Still on the old `online_store/layout.html`: menu, dish, cart and checkout, order status
-and history (next: menu + checkout, then catering, account and sign-in, services).
+"Neighbourhood"). Done:
+
+- **Home** (`index`): hero, menus on now and coming up from the menu schedule, this week's best sellers, a catering
+  teaser from `CateringSettings`, three online services, visit us with this week's hours from `events.Event`; the
+  theme's header (open-now banner, the signed-in customer's order in progress, cart count) and footer.
+- **Menu** (`online_store/pages.py: menu_page`): menus live now or starting within a day as tabs, sections by
+  station, the cart beside them, and the dish sheet (`?dish=` / `?combo=`): a form built from `pricing.DishKit`
+  (substitutes, modifier groups, leave off / extra for adjustable parts, condiments on the side, a note) that
+  re-prices as it changes and adds a line to the **session cart** (`online_store/cart.py`; the old IndexedDB cart is
+  only used by the pages still on the old layout).
+- **Checkout** (`/cart`, `checkout`): quantities, "goes well with", pickup or delivery (address and driver note),
+  as soon as possible (while an event is open) or scheduled up to 14 days ahead inside an open event and while a
+  menu with every dish in the cart is live (`_schedule`), name/phone/email, promo or gift-card code, tip
+  (`Order.tip`, added after fees), and Place order: gift cards first, then Square's card form in a sheet
+  (`payments/web-payment-window`, authorize-only; `checkout.js` places the order once paid). Orders start pending
+  like before. No delivery fee or saved cards yet (saved cards come with the account pages).
+- **The placed order** (`order-status/<id>`, `order_page`): steps, ETA, where, "need a change", receipt; follows
+  the kitchen over SSE.
+
+Still on the old `online_store/layout.html`: order history (next: catering, then account and sign-in, services).
+The old `submit-order` view stays for now.
 
 `online_store/layout.html` holds most of the logic: cart, gift-card lookup, delivery ETA, service worker, push.
 

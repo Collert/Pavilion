@@ -41,7 +41,7 @@ without asking.
 | App | Prefix | Role |
 | --- | --- | --- |
 | `pos_server` | `/restaurant/` | **Core.** Menu, Dish, Combo, Component, OptionGroup/Option, Extra, Ingredient, Station, Order, OrderItem, OrderDiscount, OrderPayment, Discount, CashDrawerSession, EligibleDevice. Register + lock screen + cash drawer (`register.py`), KDS, customer display, status board, Square webhook. `pricing.py` = cart pricing/discounts/tax; `orders.py` = order creation/serialization; `devices.py` = access decorators. |
-| `online_store` | `/` | Customer store: menu, cart, checkout (`place_order`), order status/history. Drawn by a **theme** (see "Store themes" below; the home page so far, other pages move over one by one). RejectedOrder. |
+| `online_store` | `/` | Customer store: menu, cart, checkout (`place_order`), order status/history. Drawn by a **theme** (see "Store themes" below): home, menu + dish sheet, checkout (`pages.py`, session cart in `cart.py`) and the placed order so far. RejectedOrder. |
 | `payments` | `/payments/` | Square: Terminal checkout and pairing, Web Payments popup, capture/void (`square.py`). Transaction, PaymentAuthorization, SquareTerminal. |
 | `gift_cards` | `/gift-cards/` | GiftCard, GiftCardAuthorization, presets; email; barcode page; `card-api`. |
 | `inventory` | `/inventory/` | Cookery (`crafting`: batches from Recipe/RecipeStep/RecipeIngredient, shared CookingSessions, Transformations such as freeze/thaw; `cookery.py`), Availability screen, shopping log. `craft_component()` lives here. |
@@ -103,7 +103,7 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
 - **Create orders only via `pos_server.orders.create_order()`.** It prices the cart *lines* with
   `pricing.price_cart()` (never trust browser prices/totals; line format is in `pricing.py`'s docstring), checks stock,
   takes stock for what was actually picked, counts disposables (packaging) off stock for the order type and adds their
-  fees (`OrderFee`, after tax: total = subtotal − discount + tax + fees), records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
+  fees (`OrderFee`, after tax: total = subtotal − discount + tax + fees + tip; `tip` is the store's "Tip the team"), records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
   with a `GiftCardAuthorization`, and rolls back on `OrderError`. `collect_order()` is the order → dict serializer for
   screens (`dishes` = what stations make, `lines` = what was sold).
 - **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*

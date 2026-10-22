@@ -95,42 +95,6 @@ def menu_sections(menu):
     return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
 
-def menu(request):
-    """
-    The online menu: the top live menu (or ?actual=<live menu id>) by section, and the other live menus' dishes
-    for browsing. `store_items` feeds the cart JS (json_script).
-    """
-    query = request.GET.get('actual', None)
-    live = Menu.live_menus()  # menus that aren't live never show online
-    active = next((m for m in live if str(m.id) == str(query)), None) or (live[0] if live else None)
-    sections = menu_sections(active)
-    others = {menu_obj.title: menu_sections(menu_obj) for menu_obj in live if menu_obj != active}
-    return render(request, "online_store/menu.html", {
-        "route":"menu",
-        "menu":{"menu":active, "dishes":[(station, [{"obj": obj, "key": store_item(obj)["key"], "is_combo": isinstance(obj, Combo)}
-                                                    for obj in items]) for station, items in sections]},
-        "others":others,
-        "override_menu": query,
-        "store_items": {store_item(obj)["key"]: store_item(obj) for _station, items in sections for obj in items},
-    })
-
-def dish(request, id):
-    """A dish's page: description, what it's made of, allergens, and an add-to-cart button."""
-    try:
-        item = Dish.objects.get(pk=id)
-    except Dish.DoesNotExist:
-        return HttpResponseNotFound(_("Dish not found"))
-    allergens = dish_allergens(item)
-    return render(request, "online_store/dish.html", {
-        "route":"dish",
-        "dish":item,
-        "pretty_dish":prettify_dish(item),
-        "menu":{"menu":item.menu.first()},
-        "allergens":", ".join(allergens) or None,
-        "store_items": {f"d{item.id}": store_item(item)},
-    })
-
-
 def cart_quote(request):
     """
     Price the online cart for display: {"lines": [...], "coupon": "CODE", "method": "pickup"|"delivery", "toGo": bool}
@@ -174,36 +138,6 @@ def _hero_drawing():
     top = storefront.best_sellers(count=1)
     return storefront.drawing(top[0]["dish"].title) if top else "burger"
 
-
-def order_status(request, id, from_placing = False):
-    """
-    View function to display the status of an order.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-        id (int): The ID of the order.
-        from_placing (bool, optional): Flag indicating if the request is from placing an order. Defaults to False.
-
-    Returns:
-        HttpResponse: The rendered order status page or a 404 response if the order is not found.
-    """
-    try:
-        order = Order.objects.get(pk=id)
-        rejected_order = None
-    except Order.DoesNotExist:
-        try:
-            order = None
-            rejected_order = RejectedOrder.objects.get(order_id=id)
-        except RejectedOrder.DoesNotExist:
-            return HttpResponseNotFound(_("Order not found"))
-    return render(request, "online_store/order.html", {
-        "route":"order_status",
-        "order":collect_order(order),
-        "rejected_order":rejected_order,
-        "from_placing":bool(from_placing),
-        "status":order.progress_status() if order else None,
-        "menu":{"menu":Menu.active()},
-    })
 
 def place_order(request):
     """
@@ -288,7 +222,7 @@ def place_order(request):
                                         phone=phone, instructions=f"{dropoff}{post.get('delivery-instructions', '')}")
     except OrderError as e:
         return order_error(request, str(e))
-    return redirect(reverse("order_status", kwargs={"id":order.id, "from_placing":True}))
+    return redirect(reverse("order_status", kwargs={"id": order.id}))
 
 def order_error(request, message):
     return render(request, "online_store/order-error.html", {

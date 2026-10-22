@@ -26,10 +26,10 @@
             <span class="nb-live-text"><span class="nb-live-kick">{{ live_order.label }}</span><span>{{ live_order.ready }}</span></span>
         </a>
         {% endif %}
-        <a class="nb-cart" href="{{ links.cart }}" aria-label="{% blocktrans count n=cart_count %}Cart, {{ n }} item{% plural %}Cart, {{ n }} items{% endblocktrans %}">
+        <span id="nb-cart" data-region><a class="nb-cart" href="{{ links.cart }}" aria-label="{% blocktrans count n=cart_count %}Cart, {{ n }} item{% plural %}Cart, {{ n }} items{% endblocktrans %}">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2"/></svg>
             {% if cart_count %}<span class="nb-cart-count">{{ cart_count }}</span>{% endif %}
-        </a>
+        </a></span>
         <a class="nb-btn nb-order" href="{{ links.menu }}">{% trans "Order online" %}<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14 M13 6l6 6-6 6"/></svg></a>
     </div>
     <nav class="nb-nav-mobile" aria-label="{% trans 'Main' %}">

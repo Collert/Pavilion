@@ -1,0 +1,494 @@
+"""
+The themed store's ordering pages: the menu (with the dish sheet and the cart beside it), checkout and the placed
+order. They follow CLAUDE.md: forms post and redirect or come back as the page; static/js/live-page.js submits them
+in the background and swaps the regions that changed. The cart and the checkout's choices live in the session
+(online_store/cart.py); what's on the menu and when we're open come from online_store/storefront.py.
+
+Orders can be for as soon as possible (while an event is open now) or scheduled up to two weeks ahead, inside an
+open event (events.Event) and while a menu with everything in the cart is live.
+"""
+import datetime
+from decimal import ROUND_HALF_UP, Decimal
+
+from django.contrib import messages
+from django.db import transaction as db_transaction
+from django.http import Http404
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.translation import gettext as _, ngettext
+
+from deliveries.models import Delivery
+from events.models import Event
+from gift_cards.models import GiftCard
+from payments.models import PaymentError, Transaction
+from pos_server import dish_info
+from pos_server.menu_schedule import Schedule
+from pos_server.models import Combo, Dish, Menu, Order, OrderPayment, OrderStation
+from pos_server.orders import OrderError, create_order
+from pos_server.pricing import price_cart
+
+from . import cart as store_cart, storefront, themes
+from .views import menu_sections, theme_page
+
+CENT = Decimal("0.01")
+TIPS = [0, 10, 15, 18]
+SCHEDULE_DAYS = 14
+STEP_MINUTES = 5
+
+
+def _picture(pictures):
+    return lambda item: storefront.picture(item, pictures)
+
+
+# ---------- the menu ----------
+
+def _menu_tabs(selected_id):
+    now = timezone.localtime()
+    menus = [m for m in storefront.menus_now(limit=6) if m["state"] == "now" or m["order"] < 24 * 60]
+    selected = next((m for m in menus if str(m["menu"].id) == str(selected_id)), menus[0] if menus else None)
+    for m in menus:
+        m["on"] = m is selected
+    return menus, selected
+
+
+def _item(obj, pictures, index):
+    is_combo = isinstance(obj, Combo)
+    diets = [] if is_combo else [d["short"] for d in dish_info.dish_diets(obj)]
+    available = obj.available
+    return {"obj": obj, "is_combo": is_combo, "price": store_cart.money(obj.standard_price() if is_combo else obj.price),
+            "diets": [d for d in diets if d in ("V", "VG", "GF")], "sold_out": not available,
+            "picture": storefront.picture(obj, pictures), "tone": index % 4,
+            "url": f"?{'combo' if is_combo else 'dish'}={obj.id}"}
+
+
+def menu_page(request, sheet_post=None):
+    if request.method == "POST" and sheet_post is None:
+        return _menu_post(request)
+    t = themes.current(request).values
+    pictures = t.get("pictures", "photos")
+    actual = (sheet_post or request.GET).get("actual")
+    tabs, selected = _menu_tabs(actual)
+    menu = selected["menu"] if selected else None
+    sections = []
+    for n, (station, items) in enumerate(menu_sections(menu)):
+        visible = [obj for obj in items if getattr(obj, "visible_in_menu", True) and not getattr(obj, "archived", False)]
+        if visible:
+            sections.append({"id": f"s{station.id}", "title": station.menu_heading or station.name,
+                             "items": [_item(obj, pictures, i + n) for i, obj in enumerate(visible)]})
+    notice, notice_kind = "", "good"
+    if selected and selected["state"] == "now":
+        notice = _("%(menu)s is being served now. Choose pickup or delivery, and when, at checkout.") % {"menu": menu.title}
+    elif selected:
+        notice = _("%(menu)s starts %(when)s. Add what you like and schedule it for then or later at checkout.") % {
+            "menu": menu.title, "when": selected["pill"][:1].lower() + selected["pill"][1:]}
+        notice_kind = "warn"
+    if not storefront.open_now()["open"]:
+        notice += " " + _("We’re closed right now, so orders are for later.")
+        notice_kind = "warn"
+    priced, problems = store_cart.priced(request)
+    for problem in problems:
+        messages.error(request, problem)
+    rows = store_cart.rows(request, priced, _picture(pictures))
+    return theme_page(request, "menu.html", {
+        "tabs": tabs, "menu": menu, "sections": sections, "notice": notice, "notice_kind": notice_kind,
+        "cart_rows": rows, "subtotal": priced.subtotal if priced else Decimal("0"), "sheet": _sheet(request, sheet_post),
+        "count": sum(r["qty"] for r in rows), "query": actual or "",
+    }, active="menu")
+
+
+def _sheet(request, post):
+    """The dish or combo sheet asked for in ?dish= / ?combo= (or in the posted form)."""
+    source = post if post is not None else request.GET
+    dish_id, combo_id = source.get("dish"), source.get("combo")
+    t = themes.current(request).values
+    if dish_id:
+        kit = store_cart.kit_of(_int(dish_id))
+        if not kit or not kit.dish.available:
+            return None
+        data = store_cart.sheet(kit, post)
+        diets = [d["label"] for d in dish_info.dish_diets(kit.dish)]
+        allergens = dish_info.dish_allergens(kit.dish)
+        return {"kind": "dish", "obj": kit.dish, "id": kit.dish.id, "picture": storefront.picture(kit.dish, t.get("pictures", "photos")),
+                "diets": diets, "allergens": ", ".join(allergens), **data}
+    if combo_id:
+        combo = store_cart.combo_of(_int(combo_id))
+        if not combo or not combo.available:
+            return None
+        first = next((p.dish for p in combo.default_picks()), None)
+        return {"kind": "combo", "obj": combo, "id": combo.id, "picture": storefront.picture(first or combo, t.get("pictures", "photos")),
+                "diets": [], "allergens": "", **store_cart.combo_sheet(combo, post)}
+    return None
+
+
+def _int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _menu_post(request):
+    post = request.POST
+    sheet_open = bool(post.get("dish") or post.get("combo"))
+    op = post.get("op") or ("preview" if sheet_open else "")
+    back = reverse("menu") + (f"?actual={post.get('actual')}" if post.get("actual") else "")
+    if sheet_open and op in ("add", "preview", "more", "less"):
+        sheet_post = post.copy()
+        if op in ("more", "less"):
+            sheet_post["qty"] = str(max(1, min(store_cart.MAX_QTY, _int(post.get("qty"), 1) + (1 if op == "more" else -1))))
+        if op != "add":
+            return menu_page(request, sheet_post)  # the sheet as it now is (prices follow the choices)
+        if post.get("dish"):
+            kit = store_cart.kit_of(_int(post.get("dish")))
+            if kit is None:
+                raise Http404
+            data = store_cart.sheet(kit, sheet_post)
+            if data["missing"] or data["error"]:
+                messages.error(request, data["error"] or _("Choose %(what)s to add this.") % {"what": " and ".join(data["missing"]).lower()})
+                return menu_page(request, sheet_post)
+            store_cart.add(request, store_cart.line_from_post(kit, sheet_post))
+            title = kit.dish.title
+        else:
+            combo = store_cart.combo_of(_int(post.get("combo")))
+            if combo is None:
+                raise Http404
+            store_cart.add(request, store_cart.combo_line_from_post(combo, sheet_post))
+            title = combo.title
+        messages.success(request, _("%(item)s added to your order.") % {"item": title})
+        return redirect(back)
+    if op.startswith(("inc:", "dec:", "remove:")):
+        name, _sep, key = op.partition(":")
+        store_cart.change(request, key, delta=1 if name == "inc" else -1, remove=name == "remove")
+    return redirect(post.get("next") or back)
+
+
+def dish_redirect(request, id):
+    """Old dish links open the dish's sheet on the menu."""
+    return redirect(reverse("menu") + f"?dish={id}")
+
+
+# ---------- checkout ----------
+
+def _windows(day, delivery=False):
+    """The open (event) windows on `day` for online orders: [(start, end)] aware datetimes."""
+    tz = timezone.get_current_timezone()
+    since = timezone.make_aware(datetime.datetime.combine(day, datetime.time.min), tz)
+    until = since + datetime.timedelta(days=1)
+    events = Event.objects.filter(restaurant_open=True, start__lt=until, end__gt=since).order_by("start")
+    return [(max(e.start, since), min(e.end, until)) for e in events if (e.delivery_open if delivery else e.online_open)]
+
+
+def _state(request) -> dict:
+    user = request.user
+    state = request.session.get("checkout") or {}
+    defaults = {"method": "pickup", "when": "asap", "date": timezone.localdate().isoformat(), "time": "",
+                "tip": 15, "name": (user.get_full_name() if user.is_authenticated else ""), "phone": "",
+                "email": user.email if user.is_authenticated else "", "address": "", "unit": "", "city": "",
+                "postal": "", "driver_note": "", "note": ""}
+    return {**defaults, **{k: v for k, v in state.items() if k in defaults}}
+
+
+def _from_post(state, post):
+    for key in ("name", "phone", "email", "address", "unit", "city", "postal", "driver_note", "note"):
+        if key in post:
+            state[key] = post.get(key, "").strip()[:200]
+    if post.get("hour") is not None and post.get("minute") is not None:
+        h, m, ap = _int(post.get("hour"), 12), _int(post.get("minute"), 0), post.get("ampm", "PM")
+        if 1 <= h <= 12 and 0 <= m <= 59:
+            state["time"] = f"{(h % 12) + (12 if ap == 'PM' else 0):02d}:{m:02d}"
+    return state
+
+
+def _apply_op(request, state, op, post):
+    name, _sep, arg = op.partition(":")
+    cart = store_cart.load(request)
+    if name == "method" and arg in ("pickup", "delivery"):
+        state["method"] = arg
+    elif name == "when" and arg in ("asap", "later"):
+        state["when"] = arg
+    elif name == "date":
+        try:
+            day = datetime.date.fromisoformat(arg)
+            if 0 <= (day - timezone.localdate()).days < SCHEDULE_DAYS:
+                state["date"] = arg
+        except ValueError:
+            pass
+    elif name == "tip" and _int(arg, -1) in TIPS:
+        state["tip"] = _int(arg)
+    elif name in ("hup", "hdown", "mup", "mdown", "am", "pm"):
+        current = state.get("time") or "12:00"
+        h, m = (int(x) for x in current.split(":"))
+        minutes = h * 60 + m + {"hup": 60, "hdown": -60, "mup": STEP_MINUTES, "mdown": -STEP_MINUTES}.get(name, 0)
+        if name == "am" and minutes >= 720:
+            minutes -= 720
+        if name == "pm" and minutes < 720:
+            minutes += 720
+        minutes %= 1440
+        state["time"] = f"{minutes // 60:02d}:{minutes % 60:02d}"
+    elif name == "code":
+        code = post.get("code", "").strip()
+        if not code:
+            pass
+        elif GiftCard.objects.filter(number=code.replace(" ", "")).exists():
+            number = code.replace(" ", "")
+            if number not in cart["gifts"]:
+                cart["gifts"].append(number)
+            messages.success(request, _("Gift card added."))
+        else:
+            priced, _p = store_cart.priced(request)
+            try:
+                price_cart(store_cart.plain(cart["lines"]), order_discount={"code": code}, channel="web", to_go=True, strict=True)
+                cart["coupon"] = code.upper()
+                messages.success(request, _("%(code)s applied.") % {"code": code.upper()})
+            except OrderError as e:
+                messages.error(request, str(e))
+        store_cart.save(request, cart)
+    elif name == "drop_code":
+        cart["coupon"] = ""
+        store_cart.save(request, cart)
+    elif name == "drop_gift":
+        cart["gifts"] = [g for g in cart["gifts"] if g != arg]
+        store_cart.save(request, cart)
+    elif name in ("inc", "dec", "remove"):
+        store_cart.change(request, arg, delta=1 if name == "inc" else -1, remove=name == "remove")
+    elif name == "upsell":
+        dish = Dish.objects.filter(pk=_int(arg), archived=False).first()
+        if dish and dish.available:
+            store_cart.add(request, {"type": "dish", "id": dish.id, "qty": 1, "cust": {}, "note": ""})
+    return state
+
+
+def _clock(minutes):
+    return storefront.clock(datetime.time(minutes // 60 % 24, minutes % 60))
+
+
+def _schedule(state, cart_dishes, delivery):
+    """When the order can be: today's/the chosen day's windows, the calendar, and whether the time works."""
+    now = timezone.localtime()
+    lead = storefront.pickup_minutes() + (20 if delivery else 0)
+    open_now = any(a <= now < b for a, b in _windows(now.date(), delivery))
+    if state["when"] == "asap" and not open_now:
+        state["when"] = "later"
+    today = now.date()
+    days = []
+    for n in range(SCHEDULE_DAYS):
+        day = today + datetime.timedelta(days=n)
+        days.append({"date": day, "iso": day.isoformat(), "open": bool(_windows(day, delivery)), "on": state["date"] == day.isoformat(), "today": n == 0})
+    try:
+        day = datetime.date.fromisoformat(state["date"])
+    except ValueError:
+        day = today
+    windows = _windows(day, delivery)
+    ok, message, start = False, "", None
+    if state["when"] == "asap":
+        if open_now:
+            start, ok = now, True
+            message = (_("Arrives around %(time)s") if delivery else _("Ready around %(time)s")) % {"time": storefront.clock((now + datetime.timedelta(minutes=lead)).time())}
+        else:
+            message = _("We’re closed right now. Schedule it for later.")
+    else:
+        if not state["time"] and windows:
+            first = max(windows[0][0], now + datetime.timedelta(minutes=lead)) if day == today else windows[0][0]
+            minute = (timezone.localtime(first).hour * 60 + timezone.localtime(first).minute + STEP_MINUTES - 1) // STEP_MINUTES * STEP_MINUTES
+            state["time"] = f"{minute // 60 % 24:02d}:{minute % 60:02d}"
+        h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
+        at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(h % 24, m)), timezone.get_current_timezone())
+        earliest = now + datetime.timedelta(minutes=lead)
+        inside = next(((a, b) for a, b in windows if a <= at <= b - datetime.timedelta(minutes=15)), None)
+        if not windows:
+            message = _("We’re closed that day.")
+        elif at < earliest:
+            message = _("The earliest is %(time)s.") % {"time": storefront.clock(timezone.localtime(max(earliest, windows[0][0])).time())}
+        elif not inside:
+            a, b = windows[0][0], windows[-1][1] - datetime.timedelta(minutes=15)
+            message = _("We take orders for %(from)s to %(to)s that day.") % {"from": storefront.clock(timezone.localtime(a).time()), "to": storefront.clock(timezone.localtime(b).time())}
+        else:
+            ok, start = True, at
+            when = _("today") if day == today else _("tomorrow") if day == today + datetime.timedelta(days=1) else f"{day:%a, %b} {day.day}"
+            message = (_("Arrives %(when)s at %(time)s, give or take 10 min") if delivery else _("Ready for pickup %(when)s at %(time)s")) % {
+                "when": when, "time": storefront.clock(at.time())}
+    # Everything in the cart has to be on a menu that's live then
+    if ok and cart_dishes:
+        schedule = Schedule(list(Menu.objects.filter(draft=False)))
+        live = {m.id for m in schedule.live(start)}
+        off = [d.title for d in cart_dishes if not any(m.id in live for m in d.menu.all())]
+        if off:
+            ok = False
+            message = _("%(items)s isn’t on the menu then.") % {"items": ", ".join(off[:2])}
+    h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
+    picker = {"hour": (h % 12) or 12, "minute": f"{m:02d}", "ampm": "PM" if h >= 12 else "AM"}
+    hint = " · ".join(f"{storefront.clock(timezone.localtime(a).time())} – {storefront.clock(timezone.localtime(b).time())}" for a, b in windows) or _("Closed")
+    return {"ok": ok, "message": message, "start": start, "open_now": open_now, "days": days, "picker": picker,
+            "hint": hint, "lead": lead}
+
+
+def _gift_cover(request, total):
+    """[(GiftCard, amount)] the cart's gift cards pay, in order, up to `total`."""
+    out, left = [], total
+    for number in store_cart.load(request)["gifts"]:
+        card = GiftCard.objects.filter(number=number).first()
+        if card is None or card.available_balance <= 0 or left <= 0:
+            continue
+        amount = min(card.available_balance, left)
+        out.append((card, amount))
+        left -= amount
+    return out
+
+
+def checkout(request):
+    state = _state(request)
+    t = themes.current(request).values
+    pictures = t.get("pictures", "photos")
+    pay = None
+    if request.method == "POST":
+        op = request.POST.get("op", "")
+        state = _apply_op(request, _from_post(state, request.POST), op, request.POST)
+        request.session["checkout"] = state
+        if op == "place":
+            result = _place(request, state)
+            if isinstance(result, Order):
+                return redirect("order_status", id=result.id)
+            pay = result  # card still to pay: the payment sheet
+        elif op in ("inc", "dec", "remove") or op.startswith(("inc:", "dec:", "remove:", "upsell:", "code", "drop_")):
+            return redirect("store_cart")
+    delivery = state["method"] == "delivery"
+    priced, problems = store_cart.priced(request, channel="delivery" if delivery else "web", to_go=True)
+    for problem in problems:
+        messages.error(request, problem)
+    rows = store_cart.rows(request, priced, _picture(pictures))
+    if priced is None:
+        return theme_page(request, "cart.html", {"empty": True, "menus_now": storefront.menus_now(limit=2),
+                                                 "orders": _recent(request)}, active="")
+    cart_dishes = [p.dish for line in priced.lines for p in line.picks]
+    when = _schedule(state, cart_dishes, delivery)
+    base = priced.subtotal - priced.discount
+    tip = (base * Decimal(state["tip"]) / 100).quantize(CENT, rounding=ROUND_HALF_UP)
+    total = priced.total + tip
+    gifts = _gift_cover(request, total)
+    gift_total = sum((a for _c, a in gifts), Decimal("0"))
+    lines = [(_("Subtotal"), priced.subtotal, "")]
+    for applied in priced.applied_discounts():
+        lines.append((applied.label, -applied.amount, "deal"))
+    lines += [(f.label, f.amount, "") for f in priced.fees]
+    if priced.tax:
+        lines.append((_("Tax"), priced.tax, ""))
+    lines.append((_("Tip"), tip, ""))
+    for card, amount in gifts:
+        lines.append((_("Gift card •• %(last4)s") % {"last4": card.number[-4:]}, -amount, "deal"))
+    lines = [(label, ("−" if value < 0 else "") + store_cart.money(abs(value)), kind) for label, value, kind in lines]
+    upsell = _upsell(cart_dishes, pictures)
+    event = next((e for e in Event.objects.filter(restaurant_open=True, end__gt=timezone.now()).order_by("start")[:1]), None)
+    delivery_open = bool(event and event.delivery_open) or any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
+    to_pay = total - gift_total
+    return theme_page(request, "cart.html", {
+        "empty": False, "rows": rows, "count": sum(r["qty"] for r in rows), "state": state, "when": when,
+        "priced": priced, "tip": tip, "tips": [{"pct": p, "amount": (base * p / 100).quantize(CENT, rounding=ROUND_HALF_UP), "on": state["tip"] == p} for p in TIPS],
+        "total": total, "to_pay": to_pay, "lines": lines, "upsell": upsell, "delivery": delivery, "delivery_open": delivery_open,
+        "coupon": store_cart.load(request)["coupon"], "gifts": gifts, "pay": pay, "ready": when["ok"] and _contact_ok(request, state)[0],
+        "contact_problem": _contact_ok(request, state)[1], "pickup_minutes": storefront.pickup_minutes(),
+        "store_line": ", ".join(filter(None, [themes.current(request).store.get("address")])),
+    }, active="")
+
+
+def _contact_ok(request, state):
+    if not state["name"].strip():
+        return False, _("Add your name so we know whose order it is.")
+    if not request.user.is_authenticated and "@" not in state["email"]:
+        return False, _("Add your email for the receipt.")
+    if state["method"] == "delivery":
+        if not state["address"].strip():
+            return False, _("Add the address to deliver to.")
+        if len("".join(c for c in state["phone"] if c.isdigit())) < 7:
+            return False, _("Add a phone number for the driver.")
+    return True, ""
+
+
+def _upsell(cart_dishes, pictures, count=3):
+    taken = {d.id for d in cart_dishes}
+    out = []
+    for f in storefront.best_sellers(count=12, pictures=pictures):
+        if f["dish"].id not in taken and not storefront.kit_needed(f["dish"]):
+            out.append(f)
+        if len(out) == count:
+            break
+    return out
+
+
+def _recent(request):
+    ids = request.session.get("orders", [])[-3:]
+    return [storefront.order_card(o) for o in Order.objects.filter(pk__in=ids).order_by("-id")]
+
+
+def _place(request, state):
+    """Create the order, or return {"amount", "url"} for the card still to pay (the payment sheet)."""
+    delivery = state["method"] == "delivery"
+    priced, problems = store_cart.priced(request, channel="delivery" if delivery else "web", to_go=True)
+    if priced is None:
+        messages.error(request, _("Your cart is empty."))
+        return None
+    when = _schedule(state, [p.dish for line in priced.lines for p in line.picks], delivery)
+    ok, problem = _contact_ok(request, state)
+    if not when["ok"] or not ok:
+        messages.error(request, problem if not ok else when["message"])
+        return None
+    base = priced.subtotal - priced.discount
+    tip = (base * Decimal(state["tip"]) / 100).quantize(CENT, rounding=ROUND_HALF_UP)
+    total = priced.total + tip
+    gifts = _gift_cover(request, total)
+    remaining = total - sum((a for _c, a in gifts), Decimal("0"))
+    uuid_ = request.POST.get("transaction_uuid", "")
+    if remaining > 0 and not uuid_:
+        return {"amount": remaining, "url": reverse("web-payment-window") + f"?amount={remaining}&confirmation_needed=1"}
+    cart = store_cart.load(request)
+    payment = {}
+
+    def verify_payment(left):
+        if left > 0:
+            try:
+                transaction = Transaction.consume(uuid_, left)
+            except PaymentError as e:
+                raise OrderError(str(e))
+            payment["authorization"] = transaction.authorization.first()
+
+    phone = "".join(c for c in state["phone"] if c.isdigit())
+    user = request.user if request.user.is_authenticated else None
+    try:
+        with db_transaction.atomic():
+            order = create_order(
+                lines=store_cart.plain(cart["lines"]), order_discount={"code": cart["coupon"]} if cart["coupon"] else None,
+                channel="delivery" if delivery else "web", initial_status=OrderStation.STATUS_PENDING,
+                gift_card_payments=[(c.number, a) for c, a in gifts], verify_payment=verify_payment, tip=tip,
+                special_instructions=state["note"] or None, to_go_order=True, phone=int(phone) if phone else None,
+                start_time=when["start"], name=state["name"].strip()[:140], customer=user,
+                email=(user.email if user else state["email"]).strip(),
+            )
+            if payment.get("authorization"):
+                authorization = payment["authorization"]
+                order.authorization = authorization
+                order.save(update_fields=["authorization"])
+                order.payments.filter(method=OrderPayment.CARD).update(
+                    square_payment_id=authorization.payment_id, card_brand=authorization.card_brand, card_last4=authorization.card_last4)
+            if delivery:
+                address = ", ".join(filter(None, [state["address"], state["city"], state["postal"]]))
+                Delivery.objects.create(order=order, destination=address, address_2=state["unit"], phone=int(phone),
+                                        instructions=state["driver_note"])
+    except OrderError as e:
+        messages.error(request, str(e))
+        return None
+    store_cart.clear(request)
+    request.session["orders"] = (request.session.get("orders", []) + [order.id])[-20:]
+    return order
+
+
+# ---------- the placed order ----------
+
+def order_page(request, id, from_placing=None):
+    from .models import RejectedOrder
+    order = Order.objects.filter(pk=id).prefetch_related("items", "fee_lines").first()
+    if order is None:
+        rejected = RejectedOrder.objects.filter(order_id=id).first()
+        if rejected is None:
+            raise Http404
+        return theme_page(request, "order.html", {"rejected": rejected, "order_id": id})
+    return theme_page(request, "order.html", {"o": storefront.order_card(order, full=True)})

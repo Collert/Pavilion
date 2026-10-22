@@ -56,7 +56,7 @@ def _count_discount_uses(cart):
 
 @transaction.atomic
 def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
-                 verify_payment=None, can_manual_discount=False, expected_total=None, drawer=None, **fields):
+                 verify_payment=None, can_manual_discount=False, expected_total=None, drawer=None, tip=ZERO, **fields):
     """
     Create an order from a cart.
 
@@ -75,6 +75,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
         expected_total: the total the cashier saw. If the server's total differs, the order is refused.
         drawer: the register's open CashDrawerSession. Cash needs one; every register payment is linked to it.
+        tip: added on top of the total (the online store's "Tip the team"); paid with the rest.
         **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier,
             device, customer, email).
 
@@ -84,7 +85,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
                       can_manual=can_manual_discount)
     if not cart.lines:
         raise OrderError(_("The cart is empty."))
-    total = cart.total
+    tip = to_money(tip or 0)
+    total = cart.total + tip
     if expected_total is not None and to_money(expected_total) != total:
         raise OrderError(_("The total changed to $%(total)s. Please check the order and try again.") % {"total": total})
 
@@ -126,7 +128,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
 
     _count_discount_uses(cart)
     order = Order.objects.create(channel=channel, subtotal=cart.subtotal, discount=cart.discount, tax=cart.tax,
-                                 fees=cart.fee_total, total=total, **fields)
+                                 fees=cart.fee_total, tip=tip, total=total, **fields)
 
     use = Counter()
     station_ids = set()

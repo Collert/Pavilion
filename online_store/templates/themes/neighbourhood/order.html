@@ -1,0 +1,67 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n %}
+{% comment %}An order after it's placed (design: StoreCart, placed state; online_store/pages.py: order_page). It follows the kitchen (SSE "orders").{% endcomment %}
+{% block title %}{% if o %}{% blocktrans with n=o.number %}Order #{{ n }}{% endblocktrans %}{% else %}{% trans "Order" %}{% endif %} · {{ store.name }}{% endblock %}
+{% block live_topics %}"orders"{% endblock %}
+{% block content %}
+{% if rejected %}
+<section class="nb-placed one">
+    <div class="nb-kick accent">{% blocktrans with n=order_id %}Order #{{ n }}{% endblocktrans %}</div>
+    <h1 class="nb-serif nb-page-title">{% trans "We couldn’t take this order" %}</h1>
+    <p class="nb-placed-sub">{{ rejected.reason|default:_("Sorry about that. Nothing was charged.") }}</p>
+    <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.menu }}">{% trans "Back to the menu" %}</a>
+</section>
+{% else %}
+<section class="nb-placed" id="nb-placed" data-region>
+    <div>
+        <div class="nb-placed-kick"><span class="nb-placed-check"><svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+            <span class="nb-kick deep">{% blocktrans with n=o.number t=o.placed %}Order #{{ n }} · placed {{ t }}{% endblocktrans %}</span></div>
+        <h1 class="nb-serif nb-placed-title">
+            {% if o.progress >= 5 %}{% trans "Enjoy!" %}
+            {% elif o.progress == 4 and not o.delivery %}{% if o.order.name %}{% blocktrans with name=o.order.name %}It’s ready, {{ name }}!{% endblocktrans %}{% else %}{% trans "It’s ready!" %}{% endif %}
+            {% elif o.delivery %}{% if o.order.name %}{% blocktrans with name=o.order.name %}It’s coming, {{ name }}.{% endblocktrans %}{% else %}{% trans "It’s coming." %}{% endif %}
+            {% elif o.order.name %}{% blocktrans with name=o.order.name %}Thanks, {{ name }}! It’s on the grill.{% endblocktrans %}
+            {% else %}{% trans "Thanks! It’s on the grill." %}{% endif %}
+        </h1>
+        <p class="nb-placed-sub">{% if o.progress == 1 %}{% trans "The kitchen will look at it soon, and start it in time for your pickup." %}{% elif o.delivery %}{% trans "A courier brings it as soon as it’s ready. Follow it here." %}{% else %}{% trans "Your name will be on the bag on the pickup shelf by the door." %}{% endif %}</p>
+
+        <div class="nb-card nb-eta">
+            <div class="nb-eta-top"><span class="muted strong nb-grow">{% if o.scheduled %}{% if o.delivery %}{% trans "Scheduled to arrive" %}{% else %}{% trans "Scheduled for pickup" %}{% endif %}{% if o.eta_day %} {{ o.eta_day }}{% endif %}{% elif o.delivery %}{% trans "Arriving around" %}{% else %}{% trans "Ready around" %}{% endif %}</span><span class="nb-serif nb-eta-time">{{ o.eta }}</span></div>
+            <ol class="nb-steps">
+                {% for st in o.steps %}
+                <li class="{% if st.done %}done{% elif st.now %}now{% endif %}"><div class="nb-step-line"><span class="nb-step-dot">{% if st.done %}✓{% else %}{{ st.n }}{% endif %}</span>{% if not forloop.last %}<span class="nb-step-bar"></span>{% endif %}</div>
+                    <div class="strong">{{ st.label }}</div><div class="muted small">{{ st.sub }}</div></li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <div class="nb-placed-cards">
+            <div class="nb-card">
+                <div class="nb-kick accent small">{% if o.delivery %}{% trans "Delivering to" %}{% else %}{% trans "Pick up at" %}{% endif %}</div>
+                <div class="nb-serif nb-card-title">{% if o.delivery %}{{ o.where }}{% else %}{{ store.address|default:store.name }}{% endif %}</div>
+                <p class="muted">{% if o.delivery %}{{ o.where_note|default:_("No note for the driver.") }}{% else %}{% trans "Walk in and skip the line. The pickup shelf is just inside the door." %}{% endif %}</p>
+            </div>
+            {% if store.phone %}
+            <div class="nb-card">
+                <div class="nb-kick accent small">{% trans "Need a change?" %}</div>
+                <div class="nb-serif nb-card-title">{% trans "Call us" %}</div>
+                <p class="muted">{% trans "The kitchen’s already on it, so changes are by phone:" %} <a class="strong" href="tel:{{ store.phone }}">{{ store.phone }}</a>.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <aside class="nb-card nb-receipt">
+        <h2 class="nb-serif">{% trans "Receipt" %}</h2>
+        {% for it in o.items %}
+        <div class="nb-receipt-row"><span class="strong nb-receipt-qty">{{ it.qty }}×</span><span class="nb-grow"><span class="strong">{{ it.name }}</span>{% if it.mods %}<span class="muted small nb-block">{{ it.mods }}</span>{% endif %}</span><span class="strong">${{ it.total|floatformat:2 }}</span></div>
+        {% endfor %}
+        <div class="nb-receipt-totals">
+            {% for label, value in o.totals %}<div><span class="nb-grow">{{ label }}</span><span>{{ value }}</span></div>{% endfor %}
+            <div class="big"><span class="nb-grow">{% trans "Total" %}</span><span>${{ o.order.total|floatformat:2 }}</span></div>
+        </div>
+        {% if links.account %}<a class="nb-btn nb-btn-line nb-wide" href="{{ links.account }}">{% trans "See it in your account" %}</a>{% endif %}
+    </aside>
+</section>
+{% endif %}
+{% endblock %}
