@@ -177,6 +177,8 @@ def order_page(order):
         totals.append({"label": f"{fee.label} × {fee.quantity}" if fee.quantity > 1 else fee.label, "value": fee.amount})
     if order.tip:
         totals.append({"label": _("Tip"), "value": order.tip})
+    for card in order.gift_cards_sold.all():
+        totals.append({"label": _("Gift card •• %(last4)s") % {"last4": card.last4}, "value": card.original})
     totals.append({"label": _("Total"), "value": order.total, "big": True})
     if refunded:
         totals.append({"label": _("Refunded"), "value": -refunded, "red": True})
@@ -312,6 +314,8 @@ def receipt_data(order, store_name):
         totals.append({"label": f"{fee.label} × {fee.quantity}" if fee.quantity > 1 else fee.label, "value": f"${fee.amount:.2f}"})
     if order.tip:
         totals.append({"label": "Tip", "value": f"${order.tip:.2f}"})
+    for card in order.gift_cards_sold.all():
+        totals.append({"label": _("Gift card •• %(last4)s") % {"last4": card.last4}, "value": f"${card.original:.2f}"})
     totals.append({"label": "Total", "value": f"${order.total:.2f}"})
     refunded = refunds.refunded_total(order)
     if refunded:

@@ -355,6 +355,39 @@
 .ap-keys { gap: 10px; margin-top: 6px; }
 .ap-keys .key { height: 64px; border-radius: 22px; font-size: 26px; }
 
+/* Gift cards: tiles in the Gift cards tab (a design's colour or picture), rows in the order, the sale and result sheets */
+.dish.gift-tile { background: #1F4A3A center / cover; color: #FFFFFF; }
+.dish.gift-tile.ink-dark { color: var(--ink); }
+.gift-tile-amount { font-family: var(--heading); font-size: 30px; line-height: 1; font-weight: 600; }
+.gift-tile .dish-name { font-size: 15px; opacity: .9; }
+.gift-lines { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+.gift-lines:empty { display: none; }
+.gift-line { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; background: var(--surface); }
+.gift-line-swatch { width: 44px; height: 28px; flex: none; border-radius: 6px; background: #1F4A3A center / cover; box-shadow: 0 1px 4px rgba(20, 38, 31, .2); }
+.gift-line-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gift-line-title { font-weight: 800; }
+.gs-card { position: relative; aspect-ratio: 1.6; max-height: 190px; border-radius: 18px; background: #1F4A3A center / cover; color: #FFFFFF;
+    display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 18px; box-sizing: border-box; }
+.gs-card.ink-dark { color: var(--ink); }
+.gs-store { font-family: var(--heading); font-size: 18px; font-weight: 600; }
+.gs-amount { font-family: var(--heading); font-size: 34px; font-weight: 600; align-self: flex-end; }
+.gd-cards { display: flex; flex-direction: column; gap: 14px; }
+.gd-item { display: flex; flex-direction: column; gap: 6px; }
+.gd-card { aspect-ratio: 1.75; border-radius: 18px; background: #1F4A3A center / cover; color: #FFFFFF; padding: 16px 18px; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.gd-card.ink-dark { color: var(--ink); }
+.gd-card-top { display: flex; justify-content: space-between; font-family: var(--heading); font-size: 18px; font-weight: 600; }
+.gd-card-amt { font-size: 30px; }
+.gd-card-num { font-family: ui-monospace, Menlo, monospace; font-size: 24px; font-weight: 700; letter-spacing: .08em; }
+.gd-warn { padding: 12px 14px; border-radius: 14px; background: #FFF3DD; color: #8A4B00; font-size: 13px; font-weight: 700; line-height: 1.45; }
+@media print {
+    body * { visibility: hidden; }
+    [data-print-cards], [data-print-cards] * { visibility: visible; }
+    [data-print-cards] { position: fixed; left: 0; top: 0; width: 85.6mm; }
+    [data-print-cards] .gd-card-num { font-size: 15px; }
+    [data-print-cards] .sub { display: none; }
+}
+
 /* Portrait (last, so it wins over the width rules above): the menu on top, the order underneath */
 @media (orientation: portrait) {
     .app { height: 100dvh; min-height: 0; overflow: hidden; }  /* the menu scrolls, the order and rail stay put */

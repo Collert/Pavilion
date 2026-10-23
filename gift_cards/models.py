@@ -16,9 +16,11 @@ def hash_number(number) -> str:
 
 class GiftCardDesign(models.Model):
     """
-    A gift card's look (design: AdminGiftDesigns): its picture, whether the store name and amount are printed on it
-    in light or dark ink, the amounts it's sold in (plus any amount between `min_amount` and `max_amount` when
-    `custom`), the message it starts with, where it's sold and, for seasonal ones, when.
+    A gift card's look (design: AdminGiftDesigns; edited on the admin's Gift card designs page): its picture,
+    whether the store name and amount are printed on it in light or dark ink, the amounts it's sold in (plus any
+    amount between `min_amount` and `max_amount` when `custom`), the message it starts with, where it's sold
+    (`online`, `on_register`) and, for seasonal ones, when: `show_from`/`show_until` repeat every year (only the
+    month and day count). `archived`: deleted on the page, kept for the cards sold with it.
     """
     INKS = (("light", "Light"), ("dark", "Dark"))
     name = models.CharField(max_length=40)
@@ -36,7 +38,7 @@ class GiftCardDesign(models.Model):
     seasonal = models.BooleanField(default=False)
     show_from = models.DateField(null=True, blank=True)
     show_until = models.DateField(null=True, blank=True)
-    hidden = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)
     position = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -44,6 +46,26 @@ class GiftCardDesign(models.Model):
 
     def __str__(self):
         return self.name
+
+    def in_season(self, today=None) -> bool:
+        if not self.seasonal or not self.show_from or not self.show_until:
+            return True
+        day = (today or timezone.localdate()).strftime("%m-%d")
+        start, end = self.show_from.strftime("%m-%d"), self.show_until.strftime("%m-%d")
+        return start <= day <= end if start <= end else (day >= start or day <= end)  # a season over New Year
+
+    def sold(self, where, today=None) -> bool:
+        """On sale `where` ("online" or "register") today."""
+        return not self.archived and (self.online if where == "online" else self.on_register) and self.in_season(today)
+
+    def takes(self, amount) -> bool:
+        """Whether a card of `amount` (whole dollars) can be sold in this design."""
+        return amount == amount.to_integral_value() and 0 < amount <= 1000 and (
+            int(amount) in [int(a) for a in self.amounts] or self.custom and self.min_amount <= amount <= self.max_amount)
+
+    @classmethod
+    def on_sale(cls, where, today=None):
+        return [d for d in cls.objects.filter(archived=False) if d.sold(where, today)]
 
 
 class GiftCard(models.Model):
@@ -74,6 +96,8 @@ class GiftCard(models.Model):
     issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     frozen = models.BooleanField(default=False)
     empty_since = models.DateField(null=True, blank=True)
+    sold_on = models.ForeignKey("pos_server.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="gift_cards_sold",
+                                help_text="The order that paid for it (online store or register)")
 
     number = ""  # the full number, only on the instance that made it (save)
 

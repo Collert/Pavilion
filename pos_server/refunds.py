@@ -41,12 +41,23 @@ def refunded_counts(order) -> dict:
     return {row["item"]: row["n"] for row in rows}
 
 
+def gift_part(order) -> Decimal:
+    """What the order paid for gift cards it bought (no tax or discounts on them). They aren't refunded with the
+    order: the cards still work, so staff freeze or adjust them on the admin's Gift cards page."""
+    rest = order.subtotal - order.discount + order.tax + (order.fees or ZERO) + (order.tip or ZERO)
+    return max(order.total - rest, ZERO)
+
+
+def refundable(order) -> Decimal:
+    return order.total - gift_part(order)
+
+
 def status(order) -> str:
     """'voided', 'refunded', 'partial' or 'paid'."""
     if order.voided_at:
         return "voided"
     refunded = refunded_total(order)
-    if refunded and refunded >= order.total:
+    if refunded and refunded >= refundable(order):
         return "refunded"
     return "partial" if refunded else "paid"
 
@@ -71,7 +82,7 @@ def quote(order, picks=None, whole=False):
     """
     if order.voided_at:
         raise RefundError(_("This order was voided, so there's nothing to refund."))
-    left_total = order.total - refunded_total(order)
+    left_total = refundable(order) - refunded_total(order)
     if left_total <= 0:
         raise RefundError(_("This order has already been refunded in full."))
     done = refunded_counts(order)

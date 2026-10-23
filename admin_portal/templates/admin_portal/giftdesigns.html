@@ -1,0 +1,179 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Gift card designs (design: AdminGiftDesigns; admin_portal/giftdesigns.py). One form with Save: every field and button
+posts the draft back (editor.js) and the regions that changed are swapped in; Save writes it. A picked picture is
+kept straight away (data-upload) and goes in the draft.
+{% endcomment %}
+{% block title %}{% trans "Gift card designs" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/coupons.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/giftcards.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/giftdesigns.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="gd-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Customers" %}</div>
+        <h1 class="disp page-title">{% trans "Gift card designs" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New design" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card gd-list" id="gd-list" data-region aria-label="{% trans 'Designs' %}">
+        <div class="gd-list-top small muted strong">{% trans "Shown in this order in the online store and on the register." %}</div>
+        <div class="gd-rows" role="listbox" aria-label="{% trans 'Designs' %}">
+            {% for r in x.rows %}
+            <div class="gd-row-wrap">
+                <button class="gd-row{% if r.on %} on{% endif %}{% if r.st_key != 'on' %} dim{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.r.id }}">
+                    <span class="gd-thumb ink-{{ r.r.ink }}" style="background-color: {{ r.r.color }};{% if r.pic %} background-image: url('{{ r.pic }}');{% endif %}"><span>{{ r.first }}</span></span>
+                    <span class="grow two-line">
+                        <span class="gd-row-top"><span class="gd-name ellipsis">{{ r.r.name|default:_("Untitled") }}</span><span class="gd-st {{ r.st_key }}">{{ r.st }}</span></span>
+                        <span class="small muted num ellipsis">{{ r.amounts }}</span>
+                    </span>
+                </button>
+                <span class="gd-move">
+                    <button class="ico" name="op" value="up:{{ r.r.id }}" aria-label="{% blocktrans with name=r.r.name %}Move {{ name }} up{% endblocktrans %}"{% if r.top %} disabled{% endif %}>{% icon "m6 15 6-6 6 6" 14 2.6 %}</button>
+                    <button class="ico" name="op" value="down:{{ r.r.id }}" aria-label="{% blocktrans with name=r.r.name %}Move {{ name }} down{% endblocktrans %}"{% if r.bottom %} disabled{% endif %}>{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                </span>
+            </div>
+            {% empty %}
+            <div class="tm-none">{% trans "No designs yet. Add one with New design." %}</div>
+            {% endfor %}
+        </div>
+        <div class="gd-foot"><span>{{ x.foot_left }}</span><span>{{ x.foot_right }}</span></div>
+    </section>
+
+    <section class="tm-edit" aria-label="{% trans 'Design settings' %}">
+    {% with d=x.d %}{% if d %}
+    <div class="sc-grid gd-grid">
+        <div class="sc-col">
+            <div class="card tm-card" id="gd-look" data-region>
+                <input type="hidden" name="editing" value="{{ d.key }}">
+                <div class="gd-card ink-{{ d.e.ink }}{% if not d.e.show_text %} no-text{% endif %}" style="background-color: {{ d.e.color }};{% if d.pic %} background-image: url('{{ d.pic }}');{% endif %}">
+                    <div class="gd-card-in">
+                        <div class="gd-card-row"><span class="gd-brand">{{ x.store }}</span><span class="gd-tag">{% trans "Gift card" %}</span></div>
+                        <div class="gd-card-row end"><span class="gd-card-name">{{ d.e.name }}</span><span class="disp num gd-card-amt">{{ d.amount_text }}</span></div>
+                    </div>
+                </div>
+                <div class="gd-tools">
+                    <label class="gd-upload">{% icon "M12 16V4 M7 9l5-5 5 5 M5 20h14" 14 2.6 %}{% if d.e.image %}{% trans "Replace image" %}{% else %}{% trans "Upload image" %}{% endif %}
+                        <input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-upload class="visually-hidden"></label>
+                    <button class="gd-soft" name="op" value="text" aria-pressed="{{ d.e.show_text|yesno:'true,false' }}">{% if d.e.show_text %}{% trans "Hide store name" %}{% else %}{% trans "Show store name" %}{% endif %}</button>
+                    <span class="grow"></span>
+                    <div class="gc-dirs gd-inks" role="radiogroup" aria-label="{% trans 'Text color' %}">
+                        <button role="radio" aria-checked="{% if d.e.ink == 'light' %}true{% else %}false{% endif %}" name="op" value="ink:light">{% trans "Light text" %}</button>
+                        <button role="radio" aria-checked="{% if d.e.ink == 'dark' %}true{% else %}false{% endif %}" name="op" value="ink:dark">{% trans "Dark text" %}</button>
+                    </div>
+                </div>
+                <div class="small muted top8">{{ d.image_hint }}</div>
+                <div class="cp-two gd-two">
+                    <label><span class="lbl">{% trans "Design name" %}</span><input class="field{% if d.err.name %} bad{% endif %}" name="name" value="{{ d.e.name }}" maxlength="30" placeholder="{% trans 'e.g. Birthday' %}" data-type-preview autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Default message" %} <span class="faint">· {% trans "buyer can change it" %}</span></span><input class="field" name="message" value="{{ d.e.message }}" maxlength="80" placeholder="{% trans 'e.g. Happy birthday! Treat yourself.' %}" data-type-preview autocomplete="off"></label>
+                </div>
+                {% if d.err.name %}<div class="tm-err tight sc-err">{{ d.err.name }}</div>{% endif %}
+            </div>
+
+            <div class="card tm-card" id="gd-amounts" data-region>
+                <h2 class="disp tm-h2">{% trans "Amounts" %}</h2>
+                <div class="small muted strong">{% trans "The buttons buyers pick from. Click one to preview it on the card." %}</div>
+                <div class="gd-amts">
+                    {% for a in d.e.amounts %}
+                    <span class="gd-amt"><button aria-pressed="{% if a == d.picked %}true{% else %}false{% endif %}" name="op" value="amt:{{ a }}">${{ a }}</button>
+                        <button class="gd-x" name="op" value="amt_rm:{{ a }}" aria-label="{% blocktrans %}Remove ${{ a }}{% endblocktrans %}">{% icon "M6 6l12 12M18 6 6 18" 10 3.4 %}</button></span>
+                    {% endfor %}
+                    <span class="gd-add"><span>$</span><input class="num" name="new_amt" value="{{ x.st.new_amt }}" inputmode="numeric" placeholder="{% trans 'Add' %}" aria-label="{% trans 'New amount' %}" data-type-preview autocomplete="off">
+                        <button name="op" value="amt_add"{% if d.add_off %} disabled{% endif %}>{% trans "Add" %}</button></span>
+                </div>
+                {% if d.new_err or d.err.amt %}<div class="tm-err tight sc-err">{{ d.new_err|default:d.err.amt }}</div>{% endif %}
+                <button class="tm-switch-row sc-switch" role="switch" aria-checked="{{ d.e.custom|yesno:'true,false' }}" name="op" value="flip:custom">
+                    <span class="grow two-line"><span class="strong">{% trans "Let buyers enter their own amount" %}</span><span class="small muted">{{ d.custom_hint }}</span></span>
+                    <span class="sc-sw"><span></span></span>
+                </button>
+                {% if d.e.custom %}
+                <div class="cp-two gd-two">
+                    <label><span class="lbl">{% trans "Lowest" %}</span><span class="sc-money"><span>$</span><input class="num" name="min" value="{{ d.e.min }}" inputmode="numeric" aria-label="{% trans 'Lowest custom amount' %}" data-type-preview></span></label>
+                    <label><span class="lbl">{% trans "Highest" %}</span><span class="sc-money"><span>$</span><input class="num" name="max" value="{{ d.e.max }}" inputmode="numeric" aria-label="{% trans 'Highest custom amount' %}" data-type-preview></span></label>
+                </div>
+                {% if d.err.range %}<div class="tm-err tight sc-err">{{ d.err.range }}</div>{% endif %}
+                {% endif %}
+            </div>
+
+            <div class="card tm-card" id="gd-where" data-region>
+                <h2 class="disp tm-h2">{% trans "Where and when it’s sold" %}</h2>
+                <div class="gd-wheres">
+                    {% for k, label, desc, icon, on in d.where %}
+                    <button class="tm-switch-row sc-switch gd-where" role="switch" aria-checked="{{ on|yesno:'true,false' }}" name="op" value="flip:{{ k }}">
+                        <span class="gd-where-ic">{% icon icon 18 2.2 %}</span>
+                        <span class="grow two-line"><span class="strong">{{ label }}</span><span class="small muted">{{ desc }}</span></span>
+                        <span class="sc-sw"><span></span></span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="sc-seg gd-season" role="radiogroup" aria-label="{% trans 'Season' %}">
+                    <button role="radio" aria-checked="{{ d.e.seasonal|yesno:'false,true' }}" name="op" value="season:all">{% trans "All year" %}</button>
+                    <button role="radio" aria-checked="{{ d.e.seasonal|yesno:'true,false' }}" name="op" value="season:seasonal">{% trans "Seasonal" %}</button>
+                </div>
+                {% if d.e.seasonal %}
+                <div class="cp-two gd-two">
+                    <label><span class="lbl">{% trans "Show from" %}</span><input class="field num" type="date" name="from" value="{{ d.e.from }}"></label>
+                    <label><span class="lbl">{% trans "Until" %}</span><input class="field num" type="date" name="to" value="{{ d.e.to }}"></label>
+                </div>
+                {% endif %}
+                <div class="gd-when{% if d.err.when %} bad{% endif %}">{{ d.when }}</div>
+                <div class="cp-acct">{% trans "Cards sold from any design never expire, and buyers can’t get the balance back as cash." %}</div>
+            </div>
+        </div>
+
+        <div class="sc-side">
+            <div class="sc-dark" id="gd-preview" data-region>
+                {% with pv=d.pv %}
+                <div class="cp-pv-head"><div class="ov sc-ov grow">{% trans "How it shows" %}</div>
+                    <div class="cp-modes" role="radiogroup" aria-label="{% trans 'Preview' %}">
+                        <button role="radio" aria-checked="{% if pv.mode == 'online' %}true{% else %}false{% endif %}" name="op" value="pv:online">{% trans "Online" %}</button>
+                        <button role="radio" aria-checked="{% if pv.mode == 'pos' %}true{% else %}false{% endif %}" name="op" value="pv:pos">{% trans "Register" %}</button>
+                    </div></div>
+                {% if pv.mode == "online" %}
+                <div class="gd-pv-store">
+                    <div class="gd-pv-card" style="background-color: {{ d.e.color }};{% if d.pic %} background-image: url('{{ d.pic }}');{% endif %}"></div>
+                    <div class="strong gd-pv-title">{% blocktrans with name=d.e.name|default:_("Gift") %}{{ name }} gift card{% endblocktrans %}</div>
+                    <div class="gd-pv-chips">{% for a in d.e.amounts %}<span class="{% if a == d.picked %}on{% endif %}">${{ a }}</span>{% endfor %}{% if d.e.custom %}<span class="muted">{% trans "Other" %}</span>{% endif %}</div>
+                    <div class="gd-pv-msg">{% trans "To: Sam · sam@email.com" %}<br>“{{ pv.msg }}”</div>
+                    <div class="gd-pv-buy">{{ pv.buy }}</div>
+                </div>
+                {% else %}
+                <div class="gd-pv-pos">
+                    <div class="tiny strong muted">{% trans "Register · Gift cards" %}</div>
+                    <div class="gd-pv-tiles">
+                        {% for t in pv.tiles %}<div class="ink-{{ t.r.ink }}{% if t.me %} me{% endif %}" style="background-color: {{ t.r.color }};{% if t.pic %} background-image: url('{{ t.pic }}');{% endif %}"><span class="disp">{{ t.amount }}</span><span class="tiny strong">{{ t.r.name }}</span></div>{% empty %}<div class="small muted">{% trans "No amounts to show." %}</div>{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="sc-note{% if pv.off %} warn{% endif %}">{{ pv.note }}</div>
+                {% endwith %}
+            </div>
+            <div class="card tm-card" id="gd-stats" data-region>
+                <div class="ov muted">{% trans "Sales" %}</div>
+                <div class="sc-stats">{% for k, v in d.stats %}<div><div class="disp num">{{ v }}</div><div class="tiny muted strong">{{ k }}</div></div>{% endfor %}</div>
+            </div>
+            <div class="card tm-card" id="gd-delete" data-region>
+                <div class="ov muted">{% trans "Remove" %}</div>
+                <div class="small muted strong rl-note top8">{{ d.del_hint }}</div>
+                <div class="cp-del-row"><button class="cu-soft grow" name="op" value="dup">{% trans "Duplicate" %}</button><button class="rl-archive cp-del" name="op" value="delete"{% if not d.can_delete %} disabled{% endif %}>{% trans "Delete" %}</button></div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        <div class="card tm-card tm-none" id="gd-none" data-region>{% trans "No designs yet. Add one with New design." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

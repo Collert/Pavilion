@@ -197,7 +197,8 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   `GiftCard.find` hashes what's typed), `GiftCardEvent` (its history: issue, use, refund, adjust, note),
   `GiftCardAuthorization` (charge per order, refunded on rejection; kept when the card is deleted), `GiftCardDesign`
   (picture or colour, ink, amounts, custom range, message, online/register, seasonal dates, hidden), `CardPreset`,
-  `SpecialCard(CardPreset)` (the store's buy-a-card page still uses presets).
+  `SpecialCard(CardPreset)` (no longer used: the old `/gift-cards/get-card` page sends people to the store's
+  `/gift-cards`). `GiftCard.sold_on`: the order that bought it. Carts take `gift_sales` (pricing "Gift cards sold").
 - `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
 - `events.StoreHours` (one row: `week` = Monday-first `{open, r: [[from, to]]}` in minutes, `to` past 1440 = after midnight;
   `pickup_after/before`, `delivery_after/before`, `last_call`, `around_breaks`, `ahead`, `ahead_days`, `lead`, `paused_until`),
@@ -678,6 +679,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   order only; those need a signed-in customer, so not the register), a checkout preview of a sample order (pickup or
   delivery) and its performance (uses, discount given, orders total). One form with Save (session draft). The
   delivery fee it needs is set on Store hours, by the delivery cutoffs.
+- **Gift card designs** (`admin_gift_designs`, `giftdesigns.py`, 2026-10-23): the designs in the order buyers see
+  them (up and down), each one's picture (kept as soon as it's picked), store name on or off, light or dark text, name,
+  default message, amounts and the buyer's own range, where it's sold (online store, register) and when (all year or a
+  season repeating every year), how it shows online and on the register, and its sales. One form with Save. Deleting
+  one that sold cards archives it. They're sold on the register's Gift cards tab (tiles per amount, "Other amount";
+  `register.with_gift_cards`) and the store's `/gift-cards` page (`online_store/pages.py: gift_cards_page`).
 - **Gift cards** (`admin_gift_cards`, `giftcards.py`, 2026-10-23): stats (outstanding balance, active and frozen
   cards, sold or issued in 30 days, empty ones waiting to be deleted), the list (With balance, Empty, All; searched by
   last 4, name or email) and the picked card (its look, facts, message, Resend email: last 4 and a signed balance link,

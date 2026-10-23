@@ -23,13 +23,13 @@ const pad = (n) => String(n).padStart(4, "0");
 // ---------- state ----------
 
 function freshCart() {
-    return { lines: [], orderDiscount: null, staffCards: [], name: "", toGo: false, note: "", noteKitchen: true, payments: [], nextKey: 1 };
+    return { lines: [], giftSales: [], orderDiscount: null, staffCards: [], name: "", toGo: false, note: "", noteKitchen: true, payments: [], nextKey: 1 };
 }
 
 function loadCart() {
     try {
         const saved = JSON.parse(sessionStorage.getItem(STORE_KEY));
-        if (saved && Array.isArray(saved.lines)) return { ...freshCart(), ...saved };
+        if (saved && Array.isArray(saved.lines)) return { ...freshCart(), ...saved, giftSales: Array.isArray(saved.giftSales) ? saved.giftSales : [] };
     } catch { /* storage unavailable or corrupt */ }
     return freshCart();
 }
@@ -283,9 +283,13 @@ function serverLine(line) {
     return out;
 }
 
+// Anything to sell: dishes and combos, or gift cards (the Gift cards tab)
+const hasItems = () => state.lines.length > 0 || state.giftSales.length > 0;
+
 function cartBody(extra = {}) {
     return {
         lines: state.lines.map(serverLine),
+        giftSales: state.giftSales.map(({ design, amount, to, email, message }) => ({ design, amount, to, email, message })),
         orderDiscount: state.orderDiscount ? state.orderDiscount.spec : null,
         staffCards: state.staffCards || [],  // numbers (gift_cards/staff_cards.py)
         toGo: state.toGo,  // to go or for here decides the packaging fees
@@ -301,7 +305,7 @@ function requestQuote() {
     ui.quoteFresh = false;
     clearTimeout(quoteTimer);
     renderTotals();
-    if (!state.lines.length) {
+    if (!hasItems()) {
         ui.quote = null;
         ui.quoteError = "";
         ui.quoteFresh = true;
@@ -433,6 +437,7 @@ function clearCart() {
 
 function tapItem(item) {
     if (!item.available) return;
+    if (item.type === "gift") return openGiftSale(item);
     if (item.type === "dish") return addLine({ type: "dish", id: item.id });
     const combo = comboOf(item.id);
     if (stepSlots(combo).length) return openChoice(item, combo);
@@ -524,13 +529,34 @@ function dishCard(item) {
     return card;
 }
 
+// A gift card tile: the design's colour or picture, its amount (or "Other amount")
+function giftTile(item) {
+    const sig = JSON.stringify([item.title, item.price, item.color, item.image, item.ink]);
+    const cached = cards.get(item.key);
+    if (cached && cached.sig === sig) return cached;
+    const badge = el("span", { className: "dish-qty", attrs: { hidden: true } });
+    const node = el("button", { className: `dish gift-tile ink-${item.ink}`, on: { click: () => tapItem(item) } }, [
+        el("span", { className: "dish-top" }, [badge]),
+        el("span", { className: "gift-tile-amount", text: item.price === null ? t("Other amount") : fmt(item.price).replace(".00", "") }),
+        el("span", { className: "dish-name", text: item.title }),
+    ]);
+    node.style.backgroundColor = item.color;
+    if (item.image) node.style.backgroundImage = `url("${encodeURI(item.image)}")`;
+    const card = { sig, node, badge, qty: 0 };
+    if (cached) cached.node.replaceWith(node);
+    cards.set(item.key, card);
+    return card;
+}
+
 function renderGrid() {
     const query = ui.search.trim().toLowerCase();
     const items = catalog.items.filter((item) => (query ? item.title.toLowerCase().includes(query) : item.section === ui.section));
     const grid = $("#grid");
     const nodes = items.map((item) => {
-        const card = dishCard(item);
-        const qty = state.lines.reduce((sum, l) => (l.type === item.type && l.id === item.id ? sum + l.qty : sum), 0);
+        const card = item.type === "gift" ? giftTile(item) : dishCard(item);
+        const qty = item.type === "gift"
+            ? state.giftSales.filter((s) => s.design === item.id && (item.price === null ? s.other : s.amount === item.price && !s.other)).length
+            : state.lines.reduce((sum, l) => (l.type === item.type && l.id === item.id ? sum + l.qty : sum), 0);
         if (qty !== card.qty) {
             card.badge.textContent = qty;
             card.badge.hidden = !qty;
@@ -562,9 +588,30 @@ function renderLines() {
             return node;
         },
     })), { before: $("#empty-cart") });
-    $("#empty-cart").hidden = state.lines.length > 0;
+    $("#empty-cart").hidden = hasItems();
     ui.newKeys.clear();
     $("#swipe-hint").hidden = !state.lines.length;
+    renderGiftLines();
+}
+
+// Gift cards being sold: one row each, removed with its button
+function renderGiftLines() {
+    $("#gift-lines").replaceChildren(...state.giftSales.map((sale) => {
+        const who = [sale.to, sale.email].filter(Boolean).join(" · ") || t("Printed or read out");
+        const swatch = el("span", { className: "gift-line-swatch" });
+        swatch.style.backgroundColor = sale.color;
+        if (sale.image) swatch.style.backgroundImage = `url("${encodeURI(sale.image)}")`;
+        return el("div", { className: "gift-line" }, [
+            swatch,
+            el("span", { className: "gift-line-text" }, [
+                el("span", { className: "gift-line-title", text: interpolate(t("%s gift card"), [sale.name]) }),
+                el("span", { className: "sub", text: who }),
+            ]),
+            el("span", { className: "money", text: fmt(sale.amount) }),
+            el("button", { className: "icon-btn", attrs: { "aria-label": t("Remove gift card") }, icon: "close",
+                on: { click: () => { state.giftSales = state.giftSales.filter((s) => s.key !== sale.key); changed(); } } }),
+        ]);
+    }));
 }
 
 // Everything a line shows; when it doesn't change, the line isn't touched.
@@ -717,10 +764,13 @@ function renderTotals() {
     // Disposables charged to the customer (a paper bag), after tax
     $("#fee-rows").replaceChildren(...(quote?.fees || []).map((fee) => el("div", { className: "total-row" }, [
         el("span", { text: fee.quantity > 1 ? `${fee.label} × ${fee.quantity}` : fee.label }), el("span", { className: "ink", text: fmt(fee.amount) })])));
-    $("#pay-total").textContent = fmt(quote?.total ?? subtotal);
+    const giftTotal = state.giftSales.reduce((sum, s) => sum + s.amount, 0);
+    $("#gift-row").hidden = !giftTotal;
+    $("#gift-total").textContent = fmt(quote?.giftTotal ?? giftTotal);
+    $("#pay-total").textContent = fmt(quote?.total ?? subtotal + giftTotal);
     $("#quote-error").hidden = !ui.quoteError;
     $("#quote-error").replaceChildren(...(ui.quoteError ? [el("span", { icon: "alert" }), ui.quoteError] : []));
-    $("#pay-btn").disabled = !state.lines.length || !ui.quoteFresh || !!ui.quoteError || !quote;
+    $("#pay-btn").disabled = !hasItems() || !ui.quoteFresh || !!ui.quoteError || !quote;
 
     const noteBtn = $("#note-btn");
     noteBtn.setAttribute("aria-pressed", String(!!state.note));
@@ -782,7 +832,7 @@ function sendSummary(body) {
 
 function summaryBody() {
     const quote = ui.quote;
-    if (ui.mode !== "pay" || !state.lines.length) return { paying: false };
+    if (ui.mode !== "pay" || !hasItems()) return { paying: false };
     return {
         paying: true, name: state.name, number: pad(ui.orderNumber), toGo: state.toGo,
         lines: state.lines.map((line) => ({
@@ -1715,7 +1765,88 @@ async function submitOrder() {
     cartChannel.postMessage({ message: "paid", name });
     clearCart();
     toast(interpolate(t("Order #%s paid"), [number]));
+    if (result.data.giftCards?.length) showGiftCards(result.data.giftCards);
 }
+
+// ---------- gift cards ----------
+
+// Selling one: the Gift cards tab's tile opens this sheet (an "Other amount" tile asks for the amount too)
+let giftDraft = null;
+
+function openGiftSale(item) {
+    giftDraft = item;
+    $("#gs-title").textContent = interpolate(t("%s gift card"), [item.title]);
+    const card = $("#gs-card");
+    card.className = `gs-card ink-${item.ink}`;
+    card.style.backgroundColor = item.color;
+    card.style.backgroundImage = item.image ? `url("${encodeURI(item.image)}")` : "";
+    $("#gs-amount-field").hidden = item.price !== null;
+    $("#gs-amount").value = "";
+    $("#gs-range").textContent = item.price === null ? interpolate(t("Between %s and %s"), [fmt(item.min), fmt(item.max)]) : "";
+    $("#gs-to").value = "";
+    $("#gs-email").value = "";
+    $("#gs-message").value = item.message || "";
+    $("#gs-error").hidden = true;
+    renderGiftSale();
+    $("#giftsale-sheet").showModal();
+}
+
+function giftAmount() {
+    if (giftDraft.price !== null) return giftDraft.price;
+    const dollarsTyped = $("#gs-amount").value.replace(/[^0-9]/g, "");
+    return dollarsTyped ? parseInt(dollarsTyped, 10) * 100 : 0;
+}
+
+function renderGiftSale() {
+    const amount = giftAmount();
+    $("#gs-card-amount").textContent = amount ? fmt(amount).replace(".00", "") : "";
+    const ok = amount > 0 && (giftDraft.price !== null || (amount >= giftDraft.min && amount <= giftDraft.max));
+    $("#gs-add").disabled = !ok;
+    $("#gs-add").textContent = ok ? interpolate(t("Add %s gift card"), [fmt(amount).replace(".00", "")]) : t("Add to order");
+}
+
+$("#gs-amount").addEventListener("input", renderGiftSale);
+$("#gs-add").addEventListener("click", () => {
+    const amount = giftAmount();
+    const email = $("#gs-email").value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        $("#gs-error").replaceChildren(el("span", { icon: "alert" }), t("Check the email address."));
+        $("#gs-error").hidden = false;
+        return;
+    }
+    state.giftSales.push({
+        key: "G" + state.nextKey++, design: giftDraft.id, name: giftDraft.title, color: giftDraft.color, image: giftDraft.image,
+        amount, other: giftDraft.price === null, to: $("#gs-to").value.trim(), email, message: $("#gs-message").value.trim(),
+    });
+    $("#giftsale-sheet").close();
+    changed();
+});
+
+// After paying: the new cards' numbers, shown this once
+function showGiftCards(list) {
+    $("#gd-title").textContent = list.length === 1 ? t("Gift card ready") : interpolate(t("%s gift cards ready"), [list.length]);
+    $("#gd-cards").replaceChildren(...list.map((c) => {
+        const art = el("div", { className: `gd-card ink-${c.ink}` }, [
+            el("span", { className: "gd-card-top" }, [el("span", { text: boot.storeName || "" }), el("span", { className: "gd-card-amt", text: fmt(c.amount).replace(".00", "") })]),
+            el("span", { className: "gd-card-num", text: c.number }),
+        ]);
+        art.style.backgroundColor = c.color;
+        if (c.image) art.style.backgroundImage = `url("${encodeURI(c.image)}")`;
+        return el("div", { className: "gd-item" }, [
+            art,
+            el("div", { className: "sub", text: c.sent ? interpolate(t("Emailed to %s."), [c.email])
+                : c.email ? interpolate(t("The email to %s didn't go out. Give them the number."), [c.email])
+                : (c.to ? interpolate(t("For %s. Print it or read it out."), [c.to]) : t("Print it or read it out.")) }),
+        ]);
+    }));
+    $("#giftdone-sheet").showModal();
+}
+
+$("#gd-print").addEventListener("click", () => window.print());
+$("#gd-done").addEventListener("click", () => {
+    $("#gd-cards").replaceChildren();  // the numbers leave the page
+    $("#giftdone-sheet").close();
+});
 
 // Card: start a Terminal checkout, then wait for Square's webhook to report the result
 let stopCardWatch = null;

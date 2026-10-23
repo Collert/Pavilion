@@ -9,6 +9,7 @@ when the store lets customers order ahead, scheduled up to StoreHours.ahead_days
 after the pickup or delivery cutoffs (events/hours.py) and while a menu with everything in the cart is live.
 """
 import datetime
+import logging
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.contrib import messages
@@ -30,6 +31,8 @@ from pos_server.orders import OrderError, create_order
 from pos_server.pricing import badge_for, badges, price_cart
 
 from . import cart as store_cart, storefront, themes
+
+logger = logging.getLogger(__name__)
 from .views import menu_sections, theme_page
 
 CENT = Decimal("0.01")
@@ -572,6 +575,145 @@ def _authorize_saved(card, amount):
     transaction.successful = True
     transaction.save(update_fields=["successful"])
     return transaction
+
+
+# ---------- gift cards ----------
+
+def _gift_state(request):
+    user = request.user
+    st = request.session.get("giftbuy") or {"design": None, "amt": None, "other": "", "to": "", "email": "", "from": "", "msg": "",
+                                            "self": False}
+    if not st["from"] and user.is_authenticated:
+        st["from"] = user.get_full_name()
+    return st
+
+
+def _gift_sale(st, design):
+    amount = st["other"] if st["amt"] == "other" else st["amt"]
+    return {"design": design.id if design else None, "amount": str(amount or 0), "to": st["to"], "email": st["email"],
+            "message": st["msg"], "from": "" if st["self"] else st["from"]}
+
+
+def gift_cards_page(request):
+    """
+    Buy a gift card (the designs sold online: gift_cards.GiftCardDesign): pick a design and amount, who it's for and a
+    message, and pay. It's an order of its own (pricing's gift_sales, no food), charged straight away, and the card is
+    emailed to the recipient with its number; the buyer sees the card's link once, on the page after paying.
+    """
+    from gift_cards.giftcards import email_sold
+    from gift_cards.models import GiftCardDesign
+    designs = GiftCardDesign.on_sale("online")
+    st = _gift_state(request)
+    design = next((d for d in designs if d.id == st["design"]), designs[0] if designs else None)
+    if design and st["amt"] not in [int(a) for a in design.amounts] + ["other"]:
+        st["amt"] = int(design.amounts[min(1, len(design.amounts) - 1)]) if design.amounts else "other"
+    pay, done = None, None
+    if request.method == "POST":
+        post = request.POST
+        for f, size in (("to", 60), ("email", 64), ("from", 60), ("msg", 120)):
+            if f in post:
+                st[f] = post.get(f, "").strip()[:size]
+        if "other" in post:
+            other = "".join(c for c in post.get("other", "") if c.isdigit())[:4]
+            if other and other != st["other"]:
+                st["amt"] = "other"
+            st["other"] = other
+        op = post.get("op", "")
+        name, _sep, arg = op.partition(":")
+        if name == "design" and arg.isdigit():
+            picked = next((d for d in designs if d.id == int(arg)), None)
+            if picked:
+                st["design"], design = picked.id, picked
+                st["amt"] = int(picked.amounts[min(1, len(picked.amounts) - 1)]) if picked.amounts else "other"
+                st["msg"] = st["msg"] or picked.message
+        elif name == "amt" and (arg.isdigit() or arg == "other"):
+            st["amt"] = int(arg) if arg.isdigit() else "other"
+        elif name == "for" and arg in ("gift", "self"):
+            st["self"] = arg == "self"
+            if st["self"] and request.user.is_authenticated:
+                st["email"], st["to"] = request.user.email, request.user.get_full_name()
+        elif name == "place" and design:
+            result = _buy_gift(request, st, design)
+            if isinstance(result, dict) and "amount" in result:
+                pay = result
+            elif result:
+                order, card, number = result
+                sent = email_sold(request, card, number, sender=_gift_sale(st, design)["from"])
+                request.session.pop("giftbuy", None)
+                done = {"card": card, "link": reverse("card_display", args=[number]), "sent": sent, "order": order}
+        if not done:
+            request.session["giftbuy"] = {**st, "design": design.id if design else None}
+    if design and not st["msg"]:
+        st["msg"] = design.message
+    amount = st["other"] if st["amt"] == "other" else st["amt"]
+    return theme_page(request, "gift_cards.html", {
+        "designs": designs, "design": design, "st": st, "amount": amount, "pay": pay, "done": done,
+        "can_buy": bool(design and amount and st["email"]), "signed_in": request.user.is_authenticated,
+    }, active="giftcards")
+
+
+def _buy_gift(request, st, design):
+    """Pay for the card: the order with its card and number, {"amount", "url"} for the card form, or None (a message says why)."""
+    sale = _gift_sale(st, design)
+    try:
+        priced = price_cart([], channel="web", gift_sales=[sale])
+    except OrderError as e:
+        messages.error(request, str(e))
+        return None
+    total = priced.total
+    uuid_ = request.POST.get("transaction_uuid", "")
+    user = request.user if request.user.is_authenticated else None
+    if not uuid_ and user and user.saved_cards.exists():
+        card = user.saved_cards.first()
+        try:
+            uuid_ = str(_authorize_saved(card, total).uuid)
+        except Exception:
+            messages.error(request, _("That card was declined. Try another one."))
+            return None
+    if not uuid_:
+        return {"amount": total, "url": reverse("web-payment-window") + f"?amount={total}"}  # charged straight away
+    payment = {}
+
+    def verify_payment(left):
+        if left > 0:
+            try:
+                transaction = Transaction.consume(uuid_, left)
+            except PaymentError as e:
+                raise OrderError(str(e))
+            payment["authorization"] = transaction.authorization.first()
+
+    try:
+        with db_transaction.atomic():
+            order = create_order(lines=[], channel="web", initial_status=OrderStation.STATUS_APPROVED, gift_sales=[sale],
+                                 verify_payment=verify_payment, name=(st["from"] or st["to"] or "")[:140], customer=user,
+                                 email=(user.email if user else st["email"]).strip())
+            authorization = payment.get("authorization")
+            if authorization:
+                order.authorization = authorization
+                order.save(update_fields=["authorization"])
+                order.payments.filter(method=OrderPayment.CARD).update(
+                    square_payment_id=authorization.payment_id, card_brand=authorization.card_brand, card_last4=authorization.card_last4)
+    except OrderError as e:
+        messages.error(request, str(e))
+        return None
+    if payment.get("authorization"):  # nothing waits on a kitchen: take the money now
+        _capture_now(payment["authorization"])
+    card, number = order.new_gift_cards[0]
+    request.session["orders"] = (request.session.get("orders", []) + [order.id])[-20:]
+    return order, card, number
+
+
+def _capture_now(authorization):
+    from payments import square
+    from payments.models import PaymentAuthorization
+    if authorization.payment_id.startswith("demo:"):
+        authorization.status = PaymentAuthorization.CAPTURED
+        authorization.save(update_fields=["status"])
+        return
+    try:
+        square.capture_authorization(authorization)
+    except Exception:
+        logger.exception("Capturing gift card payment %s failed", authorization.payment_id)
 
 
 # ---------- the placed order ----------

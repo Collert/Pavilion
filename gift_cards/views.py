@@ -106,26 +106,9 @@ def get_card(request):
     Returns:
         HttpResponse: The rendered HTML response.
     """
-    if request.method == "GET":
-        templates = CardPreset.objects.all()
-        subfolders = ['presets', 'personal']
-        image_urls = []
-        for subfolder in subfolders:
-            folder = f"files/gift-cards/{subfolder}"
-            try:
-                _dirs, file_names = default_storage.listdir(folder)
-            except FileNotFoundError:
-                continue
-            for file_name in file_names:
-                if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                    name = f"{folder}/{file_name}"
-                    # "name" is what gets stored on the GiftCard, "url" is what the browser loads
-                    image_urls.append({"name": name, "url": default_storage.url(name)})
-        return render(request, "gift_cards/get-card.html", {
-            "route":"get_card",
-            "cards": templates,
-            "card_images":image_urls
-        })
+    if request.method == "GET":  # gift cards are bought on the store's gift card page now
+        from django.shortcuts import redirect
+        return redirect("store_gift_cards")
     elif request.method == "POST":
         uuid = request.POST.get("transaction_uuid")
         image_path = request.POST.get("image", "")

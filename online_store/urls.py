@@ -8,6 +8,7 @@ urlpatterns = [
     path("dish/<int:id>", pages.dish_redirect, name="dish"),
     path("cart", pages.checkout, name="store_cart"),
     path("services", pages.services_page, name="store_services"),
+    path("gift-cards", pages.gift_cards_page, name="store_gift_cards"),
     path("order-status/<int:id>", pages.order_page, name="order_status"),
     path("order-status/<int:id>/<str:from_placing>", pages.order_page, name="order_status"),
     path("account", account.orders, name="account"),

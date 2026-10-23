@@ -68,6 +68,24 @@ def _send(kind, email, data) -> bool:
         return False
 
 
+def email_sold(request, card, number, sender="") -> bool:
+    """Email a card someone just bought (the register or the store) to its recipient, with its number."""
+    from admin_portal.models import StoreSettings
+    data = {"name": card.recipient or _("there"), "card_url": request.build_absolute_uri(reverse("card_display", args=[number])),
+            "amount": f"${card.original:,.2f}", "last4": card.last4, "message": card.message, "store": StoreSettings.load().name}
+    if sender:
+        data["sender"] = sender
+    return _send("gift_card_gifted" if sender else "gift_card", card.email, data)
+
+
+def card_json(card, number, sent=False) -> dict:
+    """A card just made, for the screen that shows its number once. Money in cents."""
+    design = card.design
+    return {"number": pretty(number), "last4": card.last4, "amount": int(card.original * 100), "design": design.name if design else "",
+            "color": design.color if design else "#1F4A3A", "ink": design.ink if design else "light",
+            "image": design.image.url if design and design.image else "", "to": card.recipient, "email": card.email, "sent": sent}
+
+
 def resend(card, request) -> bool:
     """Email the card again: its last 4, balance and a balance link (the full number is gone)."""
     from admin_portal.models import StoreSettings
@@ -112,4 +130,5 @@ def cleanup(today=None) -> int:
 
 
 def designs_on_sale():
-    return GiftCardDesign.objects.filter(hidden=False)
+    """What staff can issue a card in: every design that isn't deleted."""
+    return GiftCardDesign.objects.filter(archived=False)

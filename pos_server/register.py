@@ -119,7 +119,7 @@ def money_text(amount) -> str:
 def register_catalog(menu):
     """Everything the register needs to show and customize the active menu. Money is in cents."""
     if menu is None:
-        return {"sections": [], "items": [], "dishes": {}, "combos": {}}
+        return with_gift_cards({"sections": [], "items": [], "dishes": {}, "combos": {}})
     stations = list(Station.objects.filter(archived=False))
     dishes = list(dish_queryset().filter(menu=menu, visible_in_menu=True).order_by("station__position", "id"))
     combos = list(combo_queryset().filter(menu=menu, active=True, archived=False).order_by("id"))
@@ -148,7 +148,7 @@ def register_catalog(menu):
         return [{"id": e.id, "title": e.label, "price": to_cents(e.price), "max": e.max_count, "available": e.available}
                 for e in combo.extras.all()]
 
-    return {
+    return with_gift_cards({
         "sections": [{"code": s.code, "name": s.heading} for s in stations if s.code in used],
         "items": items,
         "dishes": {dish_id: dish_json(dish) for dish_id, dish in all_dishes.items()},
@@ -161,7 +161,26 @@ def register_catalog(menu):
             } for slot in combo.slots.all()],
             "condiments": condiments(combo),
         } for combo in combos},
-    }
+    })
+
+
+def with_gift_cards(catalog):
+    """Add the Gift cards tab: a tile per amount of each design sold on the register (gift_cards.GiftCardDesign),
+    and "Other amount" for designs that take one. Tiles are items of type "gift"."""
+    from gift_cards.models import GiftCardDesign
+    designs = GiftCardDesign.on_sale("register")
+    if not designs:
+        return catalog
+    catalog["sections"].append({"code": "giftcards", "name": _("Gift cards")})
+    for d in designs:
+        look = {"design": d.id, "color": d.color, "ink": d.ink, "image": d.image.url if d.image else "", "message": d.message}
+        for amount in sorted(int(a) for a in d.amounts):
+            catalog["items"].append({"key": f"g{d.id}-{amount}", "type": "gift", "id": d.id, "section": "giftcards", "title": d.name,
+                                     "price": amount * 100, "available": True, **look})
+        if d.custom:
+            catalog["items"].append({"key": f"g{d.id}-other", "type": "gift", "id": d.id, "section": "giftcards", "title": d.name,
+                                     "price": None, "available": True, "min": d.min_amount * 100, "max": d.max_amount * 100, **look})
+    return catalog
 
 
 def drawer_line(device, user, drawer):
@@ -184,8 +203,10 @@ def register(request):
     RegisterSignIn.record(device, request.user)  # puts them on this register's lock screen
     drawer = open_drawer(device)
     next_number = (Order.objects.aggregate(last=Max("id"))["last"] or 0) + 1
+    from admin_portal.models import StoreSettings
     return render(request, "pos_server/register.html", {
         "nav": "register",
+        "store_name": StoreSettings.load().name,
         "menu": menu,
         "menus": live,
         "can_switch_menu": len(live) > 1,
@@ -197,6 +218,7 @@ def register(request):
             "taxRate": str(tax_rate()),
             "canManual": can_manual_discount(request.user),
             "approvers": [{"id": s.id, "name": s.display_name} for s in approvals.approvers()],
+            "storeName": StoreSettings.load().name,
             "cashier": staff_name(request.user),
             "drawerOpen": drawer is not None,
             "orderNumber": next_number,
@@ -238,6 +260,21 @@ def _read_cart(request):
     return body, body.get("lines"), body.get("orderDiscount") or None
 
 
+def _gift_sales(body):
+    """The gift cards being bought, as pricing takes them (amounts come in cents)."""
+    out = []
+    for sale in body.get("giftSales") or []:
+        if not isinstance(sale, dict):
+            raise TypeError
+        out.append({"design": sale.get("design"), "amount": dollars_of(sale.get("amount")), "to": sale.get("to", ""),
+                    "email": sale.get("email", ""), "message": sale.get("message", ""), "from": sale.get("from", "")})
+    return out
+
+
+def dollars_of(cents):
+    return str(Decimal(int(cents)) / 100)
+
+
 @register_staff_required
 @device_required
 def quote(request):
@@ -250,6 +287,7 @@ def quote(request):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     try:
         cards, unknown = staff_cards_in(_body)
+        _gift_sales(_body)
     except (ValueError, TypeError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     from gift_cards import staff_cards
@@ -258,7 +296,7 @@ def quote(request):
     try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(_body.get("toGo")),
                           can_manual=can_manual_discount(request.user), approve=discount_approvals(request), strict=False,
-                          staff_cards=usable)
+                          staff_cards=usable, gift_sales=_gift_sales(_body))
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     data = cart.as_json()
@@ -298,7 +336,8 @@ def place_order(request):
     """
     Body: {"lines": [...], "orderDiscount": spec, "payments": [{"method": "cash"|"card"|"gift", "amount": "12.50",
     "tendered": "20.00", "number": "<gift card>"}], "total": "<what the cashier saw>", "name": ..., "toGo": bool,
-    "note": ..., "noteForKitchen": bool}
+    "note": ..., "noteForKitchen": bool, "giftSales": [{"design", "amount" (cents), "to", "email", "message", "from"}]}
+    Answers the order, and `giftCards`: the cards it bought with their numbers, shown once on the register.
     """
     try:
         body, lines, order_discount = _read_cart(request)
@@ -307,6 +346,7 @@ def place_order(request):
         tenders = [p for p in payments if p.get("method") not in ("gift", "staff")]
         staff_paid = sum((to_money(p["amount"]) for p in payments if p.get("method") == "staff"), Decimal("0"))
         cards, unknown = staff_cards_in(body)
+        gift_sales = _gift_sales(body)
     except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     if not payments:
@@ -325,7 +365,7 @@ def place_order(request):
             gift_card_payments=gift,
             can_manual_discount=can_manual_discount(request.user),
             approve_discount=discount_approvals(request),
-            staff_cards=cards, staff_card_amount=staff_paid,
+            staff_cards=cards, staff_card_amount=staff_paid, gift_sales=gift_sales,
             expected_total=body.get("total"),
             drawer=open_drawer(device),
             cashier=request.user,
@@ -343,8 +383,11 @@ def place_order(request):
         except Exception:
             logger.warning("Couldn't get the card details of checkout %s", payment.square_checkout_id, exc_info=True)
     change = sum((p.change for p in order.payments.filter(method=OrderPayment.CASH)), Decimal("0"))
+    from gift_cards import giftcards
+    sold = [giftcards.card_json(card, number, sent=bool(card.email) and giftcards.email_sold(request, card, number, sender=sale.get("from", "")))
+            for (card, number), sale in zip(order.new_gift_cards, gift_sales)]
     return JsonResponse({"orderId": order.id, "total": to_cents(order.total), "change": to_cents(change),
-                         "nextNumber": order.id + 1})
+                         "nextNumber": order.id + 1, "giftCards": sold})
 
 
 @register_staff_required
@@ -363,11 +406,13 @@ def card_checkout(request):
         paid = sum((to_money(p["amount"]) for p in body.get("payments", [])), Decimal("0"))
         gift = [(p["number"], to_money(p["amount"])) for p in body.get("payments", []) if p.get("method") == "gift"]
         cards, _unknown = staff_cards_in(body)
+        gift_sales = _gift_sales(body)
     except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The amount is invalid.")}, status=400)
     try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(body.get("toGo")),
-                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), staff_cards=cards)
+                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), staff_cards=cards,
+                          gift_sales=gift_sales)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     if body.get("total") is not None and to_money(body["total"]) != cart.total:

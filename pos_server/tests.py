@@ -844,7 +844,7 @@ class RegisterTests(MenuFixture, TestCase):
         response = self.client.get(reverse("pos"))
         self.assertEqual(response.status_code, 200)
         catalog = self.client.get(reverse("register_catalog")).json()
-        self.assertEqual({i["title"] for i in catalog["items"]}, {"Burger", "Coffee", "Tea", "Lunch combo"})
+        self.assertEqual({i["title"] for i in catalog["items"] if i["type"] != "gift"}, {"Burger", "Coffee", "Tea", "Lunch combo"})
         self.assertEqual(next(i for i in catalog["items"] if i["type"] == "combo")["ask"], "Choose a drink")
         kit = catalog["dishes"][str(self.burger.id)]["kit"]
         self.assertEqual([p["title"] for p in kit["parts"]], ["Bun", "Patty", "Onion"])
@@ -1148,3 +1148,65 @@ class RealtimeTests(MenuFixture, TestCase):
                        lambda: self.avocado_addon.delete(),
                        lambda: ComboSlotOption.objects.filter(dish=self.tea).delete()):
             self.assertIn("inventory", self.published(change))
+
+class GiftCardSaleTests(MenuFixture, TestCase):
+    """Gift cards bought on the register or online (pricing's gift_sales, orders.issue_gift_cards)."""
+    @classmethod
+    def setUpTestData(cls):
+        from gift_cards.models import GiftCardDesign
+        cls.build_menu()
+        cls.staff = crew(User.objects.create_user("cashier", password="x", is_staff=True, first_name="Dana"))
+        GiftCardDesign.objects.all().delete()  # the starter design gift_cards 0005 makes
+        cls.design = GiftCardDesign.objects.create(name="Birthday", amounts=[25, 50], custom=True, min_amount=10, max_amount=200)
+
+    def sale(self, amount="50", **fields):
+        return {"design": self.design.id, "amount": amount, **fields}
+
+    @override_settings(TAX_RATE=Decimal("0.05"))
+    def test_priced_without_tax_and_issued_once_paid(self):
+        from gift_cards.models import GiftCard
+        cart = price_cart([self.dish(self.burger)], gift_sales=[self.sale(to="Maya")])
+        self.assertEqual((cart.tax, cart.gift_total, cart.total), (Decimal("0.73"), Decimal("50"), Decimal("65.23")))
+        for bad, message in [(self.sale("5"), "can't be $5"), (self.sale("500"), "can't be $500"),
+                             ({"design": 0, "amount": "25"}, "isn't on sale"), (self.sale(email="nope"), "email address")]:
+            with self.assertRaisesMessage(OrderError, message):
+                price_cart([], gift_sales=[bad])
+        with self.assertRaisesMessage(OrderError, "Add the email"):
+            price_cart([], channel="web", gift_sales=[self.sale()])
+        self.design.on_register = False
+        self.design.save()
+        with self.assertRaisesMessage(OrderError, "isn't on sale"):
+            price_cart([], gift_sales=[self.sale()])
+        self.design.on_register = True
+        self.design.save()
+        order = create_order(lines=[], channel="store", initial_status=OrderStation.STATUS_APPROVED, gift_sales=[self.sale("120", to="Maya")],
+                             payments=[{"method": "card", "amount": "120.00"}])
+        card, number = order.new_gift_cards[0]
+        self.assertEqual(GiftCard.find(number), card)
+        self.assertEqual((card.original, card.source, card.recipient, card.sold_on, order.picked_up), (Decimal("120"), "pos", "Maya", order, True))
+        from pos_server.refunds import RefundError, quote
+        with self.assertRaisesMessage(RefundError, "already been refunded"):
+            quote(order, whole=True)  # nothing to refund: the card still works
+
+    def test_gift_cards_dont_buy_gift_cards(self):
+        from gift_cards.models import GiftCard
+        old = GiftCard.objects.create(available_balance=Decimal("100"))
+        with self.assertRaisesMessage(OrderError, "can’t pay for new gift cards"):
+            create_order(lines=[self.dish(self.coffee)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                         gift_sales=[self.sale("25")], gift_card_payments=[(old.number, "27.50")], payments=[])
+
+    def test_the_register_sells_them(self):
+        from unittest import mock
+        self.client.force_login(self.staff)
+        catalog = self.client.get(reverse("register_catalog")).json()
+        tiles = [i for i in catalog["items"] if i["type"] == "gift"]
+        self.assertEqual([(t["price"], t["section"]) for t in tiles], [(2500, "giftcards"), (5000, "giftcards"), (None, "giftcards")])
+        body = {"lines": [], "giftSales": [{"design": self.design.id, "amount": 5000, "to": "Maya", "email": "maya@example.com"}]}
+        quote_ = self.client.post(reverse("register_quote"), json.dumps(body), content_type="application/json").json()
+        self.assertEqual((quote_["total"], quote_["giftTotal"]), (5000, 5000))
+        with mock.patch("gift_cards.giftcards.send_email") as sent:
+            answer = self.client.post(reverse("pos"), json.dumps({**body, "total": "50.00", "payments": [{"method": "card", "amount": "50.00"}]}),
+                                      content_type="application/json").json()
+        card = answer["giftCards"][0]
+        self.assertEqual((card["amount"], card["sent"], len(card["number"])), (5000, True, 19))
+        self.assertEqual(sent.call_args.args[:2], ("gift_card", "maya@example.com"))

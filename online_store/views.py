@@ -16,6 +16,7 @@ def store_links(request) -> dict:
     signed_in = request.user.is_authenticated
     return {"home": storefront.link("store_home"), "menu": storefront.link("menu"), "catering": storefront.link("store_catering"),
             "services": storefront.link("store_services"), "cart": storefront.link("store_cart") or storefront.link("menu"),
+            "giftcards": storefront.link("store_gift_cards"),
             "account": storefront.link("account") if signed_in else "", "login": storefront.link("store_signin")}
 
 

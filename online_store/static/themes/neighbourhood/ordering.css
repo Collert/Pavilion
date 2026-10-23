@@ -312,3 +312,36 @@
     .nb-login-side { padding: 32px 16px 48px; }
     .nb-login-back { top: -150px; right: 24px; color: var(--paper); }
 }
+
+/* Gift cards (gift_cards.html): the card, the designs, the form and what's shown once it's bought */
+.nb-gift { padding: 24px var(--pad) 60px; }
+.nb-gift-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.nb-gift-art { position: relative; aspect-ratio: 1.6; border-radius: 20px; background: var(--deep) center / cover; color: #FFFFFF;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, .18); display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 24px; box-sizing: border-box; font-size: 22px; }
+.nb-gift-art.ink-dark { color: #14261F; }
+.nb-gift-amt { align-self: flex-end; font-size: 56px; line-height: 1; }
+.nb-gift-art.big { max-width: 520px; }
+.nb-gift-designs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-top: 16px; }
+.nb-gift-designs button { position: relative; aspect-ratio: 1.6; border: none; border-radius: 10px; padding: 0; background: var(--deep) center / cover; color: #FFFFFF; cursor: pointer; }
+.nb-gift-designs button.ink-dark { color: #14261F; }
+.nb-gift-designs button span { position: absolute; left: 7px; bottom: 5px; font-size: 11px; font-weight: 800; }
+.nb-gift-designs button[aria-checked="true"] { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink); }
+.nb-gift-form { background: var(--card); border-radius: 24px; padding: 24px; }
+.nb-gift-form .nb-h2 { margin: 0 0 14px; }
+.nb-gift-amounts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 6px; }
+.nb-gift-amounts .nb-chip { height: 42px; padding: 0 16px; border-radius: 21px; border: none; font: inherit; font-size: 15px; font-weight: 800; background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--dash); cursor: pointer; }
+.nb-gift-amounts .nb-chip.on { background: var(--ink); color: var(--paper); box-shadow: none; }
+.nb-gift-other { display: inline-flex; align-items: center; gap: 4px; height: 42px; padding: 0 14px; border-radius: 21px; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--dash); font-weight: 800; }
+.nb-gift-other.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.nb-gift-other input { width: 64px; border: none; background: transparent; font: inherit; color: var(--ink); }
+.nb-gift-other input:focus { outline: none; }
+.nb-gift-for { display: inline-flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--paper); margin-top: 16px; }
+.nb-gift-for button { height: 36px; padding: 0 14px; border: none; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 800; background: transparent; color: inherit; opacity: .7; cursor: pointer; }
+.nb-gift-for button[aria-checked="true"] { background: var(--card); opacity: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.nb-gift-buy { width: 100%; margin-top: 18px; }
+.nb-gift-buy:disabled { opacity: .5; cursor: not-allowed; }
+.nb-gift-done { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; padding: 24px var(--pad) 60px; }
+@media (max-width: 860px) {
+    .nb-gift-grid, .nb-gift-done { grid-template-columns: 1fr; }
+    .nb-gift-amt { font-size: 40px; }
+}

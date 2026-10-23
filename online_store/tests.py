@@ -391,3 +391,36 @@ class SignUpVerificationTests(TestCase):
         with mock.patch("users.accounts.send", return_value=True) as sent:
             self.client.post(reverse("store_join"), {"first": "Ada", "last": "Ng", "email": "ada@example.com", "password": "long-enough-1"})
         self.assertEqual((sent.call_args.args[0], sent.call_args.args[1]), ("verify_email", "ada@example.com"))
+
+
+class GiftCardPageTests(TestCase):
+    """Buying a gift card in the store (online_store/pages.py: gift_cards_page)."""
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth.models import User
+        from gift_cards.models import GiftCardDesign
+        from users.models import SavedCard
+        GiftCardDesign.objects.all().delete()  # the starter design gift_cards 0005 makes
+        cls.design = GiftCardDesign.objects.create(name="Thank you", amounts=[15, 25], message="Thanks for everything.", on_register=False)
+        cls.user = User.objects.create_user("ana", email="ana@example.com", password="x", first_name="Ana")
+        SavedCard.objects.create(user=cls.user, square_customer_id="demo:c", square_card_id="demo:card", brand="VISA", last4="4242", is_default=True)
+
+    def test_buy_one_with_a_saved_card(self):
+        from unittest import mock
+        from gift_cards.models import GiftCard
+        from payments.models import PaymentAuthorization
+        url = reverse("store_gift_cards")
+        page = self.client.get(url)
+        self.assertEqual((page.context["st"]["amt"], page.context["amount"]), (25, 25))
+        self.assertFalse(page.context["can_buy"])  # no email yet
+        fields = {"op": "place", "to": "Sam", "email": "sam@example.com", "from": "Ana", "msg": "Thanks!", "other": ""}
+        page = self.client.post(url, fields)
+        self.assertIsNotNone(page.context["pay"])  # signed out: the card form
+        self.client.force_login(self.user)
+        with mock.patch("gift_cards.giftcards.send_email") as sent:
+            page = self.client.post(url, fields)
+        done = page.context["done"]
+        self.assertEqual((done["card"].original, done["card"].email, done["sent"]), (Decimal("25"), "sam@example.com", True))
+        self.assertEqual(sent.call_args.args[:2], ("gift_card_gifted", "sam@example.com"))
+        self.assertEqual(GiftCard.find(done["link"].rsplit("/", 1)[-1]), done["card"])
+        self.assertEqual(done["order"].authorization.status, PaymentAuthorization.CAPTURED)

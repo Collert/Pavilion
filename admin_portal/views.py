@@ -50,6 +50,7 @@ from . import customers as customers_data
 from . import coupons as coupons_data
 from . import discounts as discounts_data
 from . import giftcards as giftcards_data
+from . import giftdesigns as giftdesigns_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1584,6 +1585,37 @@ def gift_cards(request):
                 messages.success(request, toast)
         request.session[giftcards_data.KEY] = st
     return page(request, "admin_portal/giftcards.html", "giftcards", {"x": giftcards_data.page(st, reveal)})
+
+
+@admin_page("giftdesigns", edit={"save"}, delete={"delete"})
+def gift_designs(request):
+    """Gift card designs: how cards look and where they're sold, one form with Save (admin_portal/giftdesigns.py)."""
+    st = giftdesigns_data.state(request.session)
+    if request.method == "POST":
+        giftdesigns_data.take_post(st, request.POST)
+        if request.FILES.get("image") and can(request.user, "admin.giftdesigns.edit"):
+            problem = giftdesigns_data.take_image(st, request.FILES["image"])
+            if problem:
+                messages.error(request, problem)
+        op = request.POST.get("op", "preview")
+        toast = ""
+        if op == "save":
+            errs = giftdesigns_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(next(iter(errs.values())).values())))
+            else:
+                giftdesigns_data.save(st)
+                request.session.pop(giftdesigns_data.KEY, None)
+                publish("inventory")  # the register refetches its catalog (and its gift card designs) on this
+                messages.success(request, _("Designs saved. The online store and register show them right away."))
+                return redirect("admin_gift_designs")
+        elif op != "preview":
+            toast = giftdesigns_data.apply_op(st, op)
+        if toast:
+            messages.success(request, toast)
+        request.session[giftdesigns_data.KEY] = st
+    from .models import StoreSettings
+    return page(request, "admin_portal/giftdesigns.html", "giftdesigns", {"x": giftdesigns_data.page(st, StoreSettings.load().name)})
 
 
 # ---------- branding ----------

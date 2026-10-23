@@ -349,6 +349,7 @@ def order_card(order, full=False) -> dict:
             totals.append((_("Tax"), order.tax))
         if order.tip:
             totals.append((_("Tip"), order.tip))
+        totals += [(_("Gift card •• %(last4)s") % {"last4": c.last4}, c.original) for c in order.gift_cards_sold.all()]
         out["totals"] = [(label, ("−" if value < 0 else "") + money(abs(value))) for label, value in totals]
         dest = order.delivery.first() if delivery else None
         out["where"] = dest.destination if dest else ""

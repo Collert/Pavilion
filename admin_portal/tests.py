@@ -2942,3 +2942,57 @@ class GiftCardsPageTests(AdminFixture, TestCase):
         x = self.post(q="zzz").context["x"]
         self.assertEqual(x["rows"], [])
         self.assertEqual(self.post(q=card.last4).context["x"]["rows"][0]["c"], card)
+
+class GiftDesignsPageTests(AdminFixture, TestCase):
+    """Gift card designs (admin_portal/giftdesigns.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        from gift_cards.models import GiftCardDesign
+        cls.build_admin()
+        GiftCardDesign.objects.all().delete()  # the starter design gift_cards 0005 makes
+        cls.classic = GiftCardDesign.objects.create(name="Classic", amounts=[25, 50])
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_gift_designs")
+
+    def post(self, x, op="preview", **fields):
+        e = x["d"]["e"]
+        data = {"editing": x["d"]["key"], "name": e["name"], "message": e["message"], "min": e["min"], "max": e["max"],
+                "from": e["from"], "to": e["to"], "new_amt": "", "op": op}
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_a_design_from_new_to_saved(self):
+        import datetime
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from gift_cards.models import GiftCard, GiftCardDesign
+        x = self.client.post(self.url, {"op": "new"}).context["x"]
+        self.assertEqual((x["rows"][-1]["st"], x["d"]["e"]["amounts"]), ("Hidden", [25, 50]))
+        x = self.post(x, name="classic")
+        self.assertEqual(x["d"]["err"]["name"], "Another design already has this name.")
+        x = self.post(x, "amt_add", name="Holiday", new_amt="100")
+        self.assertEqual((x["d"]["e"]["amounts"], x["d"]["picked"]), ([25, 50, 100], 100))
+        x = self.post(x, "amt_rm:25")
+        x = self.post(x, "flip:online")
+        x = self.post(x, "season:seasonal", **{"from": "2026-11-15", "to": "2026-12-31"})
+        png = SimpleUploadedFile("card.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, content_type="image/png")
+        x = self.client.post(self.url, {"editing": x["d"]["key"], "name": "Holiday", "image": png, "op": "preview"}).context["x"]
+        self.assertTrue(x["d"]["e"]["image"].startswith("files/gift-cards/designs/"))
+        x = self.post(x, f"up:{x['d']['e']['id']}")
+        self.assertEqual(x["rows"][0]["r"]["name"], "Holiday")
+        self.client.post(self.url, {"op": "save"})
+        holiday = GiftCardDesign.objects.get(name="Holiday")
+        self.assertEqual((holiday.amounts, holiday.online, holiday.on_register, holiday.position, holiday.show_from),
+                         ([50, 100], True, False, 0, datetime.date(2026, 11, 15)))
+        self.assertTrue(holiday.in_season(datetime.date(2030, 12, 1)))
+        self.assertFalse(holiday.in_season(datetime.date(2030, 6, 1)))
+        holiday.image.storage.delete(holiday.image.name)
+        # a design that sold cards is kept for them
+        GiftCard.objects.create(design=self.classic, available_balance=Decimal("25"))
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, f"pick:{self.classic.id}")
+        x = self.post(x, "delete")
+        self.client.post(self.url, {"op": "save"})
+        self.classic.refresh_from_db()
+        self.assertTrue(self.classic.archived)

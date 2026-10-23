@@ -38,6 +38,10 @@ lines in cart order; a line with a quantity above 1 gets the same count charged 
 customer's favour, so unit prices stay whole cents. The charged count per unit is kept in the line's selection
 ("charged": {component id: n}). Other extras (napkins) cost their own `Extra.price` each.
 
+Gift cards sold (`gift_sales`, the register's Gift cards tab and the store's gift card page) are their own list
+next to the lines: {"design": <GiftCardDesign id>, "amount": "50", "to": "Sam", "email": "...", "message": "...",
+"from": "Ana"}. Each adds its amount to the total, with no tax or discounts, and create_order issues the cards.
+
 Disposables: for the order's type (dine-in, pickup, delivery: pass `to_go`), each Disposable counted per dish or
 per order goes out with it (`PricedCart.disposables`, counted off stock by create_order). Those with a fee add a
 fee line (`PricedCart.fees`) after tax: total = subtotal - discount + tax + fees.
@@ -658,6 +662,53 @@ def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, it
                            on_delivery=bool(discount and discount.target == "delivery" and scope == Discount.ORDER))
 
 
+# ---------- gift cards sold ----------
+
+GIFT_SALES_MAX = 10
+
+
+@dataclass
+class GiftSale:
+    """A gift card being bought: what create_order issues once the order is paid."""
+    design: object  # gift_cards.GiftCardDesign
+    amount: Decimal
+    to: str = ""
+    email: str = ""
+    message: str = ""
+    sender: str = ""
+
+    def as_json(self):
+        return {"design": self.design.id, "name": self.design.name, "amount": to_cents(self.amount), "to": self.to, "email": self.email}
+
+
+def _gift_sales(raw, channel, now) -> list:
+    """Check the gift cards being bought: a design on sale here, an amount it takes, a good email."""
+    from gift_cards.models import GiftCardDesign  # gift_cards imports pos_server
+    if not raw:
+        return []
+    if not isinstance(raw, list) or len(raw) > GIFT_SALES_MAX or not all(isinstance(r, dict) for r in raw):
+        raise OrderError(_("The cart is malformed."))
+    where = "register" if channel == "store" else "online"
+    designs = GiftCardDesign.objects.in_bulk([r.get("design") for r in raw if str(r.get("design", "")).isdigit()])
+    today = timezone.localdate(now)
+    out = []
+    for r in raw:
+        design = designs.get(int(r["design"])) if str(r.get("design", "")).isdigit() else None
+        if design is None or not design.sold(where, today):
+            raise OrderError(_("That gift card design isn't on sale right now."))
+        amount = to_money(r.get("amount"))
+        if not design.takes(amount):
+            raise OrderError(_("A %(design)s gift card can't be $%(amount)s.") % {"design": design.name, "amount": amount})
+        email = str(r.get("email") or "").strip()[:64]
+        if email and ("@" not in email or "." not in email.split("@")[-1] or " " in email):
+            raise OrderError(_("Check the gift card’s email address."))
+        if where == "online" and not email:
+            raise OrderError(_("Add the email the gift card goes to."))
+        out.append(GiftSale(design, amount, str(r.get("to") or "").strip()[:60], email, str(r.get("message") or "").strip()[:120],
+                            str(r.get("from") or "").strip()[:60]))
+    return out
+
+
 # ---------- the whole cart ----------
 
 @dataclass
@@ -702,6 +753,11 @@ class PricedCart:
     staff_error: str = ""                             # why a staff card can't be used (strict=False)
     disposables: list = field(default_factory=list)  # [(Disposable, count)] that go out with it
     fees: list = field(default_factory=list)          # [Fee]
+    gift_sales: list = field(default_factory=list)    # [GiftSale]: gift cards being bought
+
+    @property
+    def gift_total(self) -> Decimal:
+        return sum((sale.amount for sale in self.gift_sales), ZERO)
 
     @property
     def fee_total(self) -> Decimal:
@@ -724,7 +780,7 @@ class PricedCart:
 
     @property
     def total(self) -> Decimal:
-        return self.subtotal - self.discount + self.tax + self.fee_total
+        return self.subtotal - self.discount + self.tax + self.fee_total + self.gift_total
 
     @property
     def item_count(self) -> int:
@@ -757,12 +813,13 @@ class PricedCart:
             "subtotal": to_cents(self.subtotal), "discount": to_cents(self.discount),
             "tax": to_cents(self.tax), "taxRate": str(tax_rate()), "total": to_cents(self.total),
             "fees": [fee.as_json() for fee in self.fees],
+            "giftSales": [sale.as_json() for sale in self.gift_sales], "giftTotal": to_cents(self.gift_total),
             "count": self.item_count,
         }
 
 
 def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, approve=None, strict=True,
-               now=None, staff_cards=(), customer=None) -> PricedCart:
+               now=None, staff_cards=(), customer=None, gift_sales=()) -> PricedCart:
     """
     Validate and price a cart. Raises OrderError for anything wrong with the lines. `to_go` (packed to take away)
     and the channel decide the order type, which decides the disposables and their fees.
@@ -778,7 +835,7 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     worked out after the others (gift_cards/staff_cards.py: apply_to); any staff card also lets staff-only discounts
     apply. `customer` (the signed-in one) is for coupons limited per customer or to a first order and discounts for
     signed-in customers. Delivery orders carry the store's delivery fee (events.StoreHours), which a coupon or an
-    automatic discount can take off.
+    automatic discount can take off. `gift_sales` are gift cards being bought (see "Gift cards sold" above).
     """
     if not isinstance(lines, list):
         raise OrderError(_("The cart is malformed."))
@@ -787,7 +844,7 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     priced = [_price_line(line, kits, combos) for line in lines]
     _charge_condiments(priced)
     subtotal = sum((line.gross for line in priced), ZERO)
-    cart = PricedCart(lines=priced, subtotal=subtotal)
+    cart = PricedCart(lines=priced, subtotal=subtotal, gift_sales=_gift_sales(gift_sales, channel, now))
     context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual,
                "approve": approve, "customer": customer, "lines": priced, "delivery_fee": _delivery_fee(channel),
                "staff": bool(staff_cards)}

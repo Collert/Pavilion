@@ -57,7 +57,7 @@ def _count_discount_uses(cart):
 @transaction.atomic
 def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
                  verify_payment=None, can_manual_discount=False, approve_discount=None, expected_total=None, drawer=None,
-                 tip=ZERO, staff_cards=(), staff_card_amount=None, **fields):
+                 tip=ZERO, staff_cards=(), staff_card_amount=None, gift_sales=(), **fields):
     """
     Create an order from a cart.
 
@@ -71,6 +71,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
             Terminal checkout, card only>}]. When given
             (the register), they plus the gift cards must add up to exactly the total.
         gift_card_payments: iterable of (card number or GiftCard, amount) to charge to gift cards.
+        gift_sales: gift cards being bought (pricing: "Gift cards sold"). They're issued once the order is made:
+            `order.new_gift_cards` is [(GiftCard, its full number)], the only time the numbers are known.
         verify_payment: optional callable(remaining: Decimal) that raises OrderError if the part of the
             total not covered by gift cards hasn't been paid (online). Called inside the transaction.
         can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
@@ -92,8 +94,9 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         from gift_cards.models import StaffCard
         staff_cards = list(StaffCard.objects.select_for_update().select_related("type", "user").filter(pk__in=[c.pk for c in staff_cards]))
     cart = price_cart(lines, order_discount=order_discount, channel=channel, to_go=bool(fields.get("to_go_order")),
-                      can_manual=can_manual_discount, approve=approve_discount, staff_cards=staff_cards, customer=fields.get("customer"))
-    if not cart.lines:
+                      can_manual=can_manual_discount, approve=approve_discount, staff_cards=staff_cards, customer=fields.get("customer"),
+                      gift_sales=gift_sales)
+    if not cart.lines and not cart.gift_sales:
         raise OrderError(_("The cart is empty."))
     tip = to_money(tip or 0)
     total = cart.total + tip
@@ -119,13 +122,15 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         gift_total += amount
     if gift_total > total:
         raise OrderError(_("Gift card payments are more than the order total."))
+    if gift_total > total - cart.gift_total:
+        raise OrderError(_("Gift cards can’t pay for new gift cards."))
     staff_pay = None  # (balance card, amount)
     for card in staff_cards:
         from gift_cards import staff_cards as staff
         if card.type.own_only:
             fields["name"] = staff.holder(card)[:140]
         if card.type.kind == card.type.BALANCE:
-            can_pay = staff.payable(card, cart, total - gift_total)
+            can_pay = staff.payable(card, cart, total - gift_total - cart.gift_total)  # not new gift cards
             amount = can_pay if staff_card_amount is None else to_money(staff_card_amount)
             if amount < 0 or amount > can_pay:
                 raise OrderError(_("%(card)s can pay at most $%(amount)s of this order.") % {"card": card.type.name, "amount": can_pay})
@@ -204,6 +209,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         card.charge_card(amount, order=order, by=fields.get("cashier"))
         GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=amount)
         OrderPayment.objects.create(order=order, method=OrderPayment.GIFT, amount=amount, gift_card=card, drawer=drawer)
+    order.new_gift_cards = issue_gift_cards(order, cart.gift_sales, channel, fields.get("cashier"))
     for method, amount, tendered, checkout in tenders:
         OrderPayment.objects.create(order=order, method=method, amount=amount, tendered=tendered, drawer=drawer,
                                     square_checkout_id=checkout)
@@ -212,6 +218,21 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
     order.picked_up = not station_ids
     order.save()
     return order
+
+
+def issue_gift_cards(order, sales, channel, cashier=None):
+    """Make the gift cards an order bought: [(GiftCard, full number)]. The numbers are only known here."""
+    from gift_cards.models import GiftCardEvent
+    out = []
+    for sale in sales:
+        card = GiftCard.objects.create(
+            design=sale.design, available_balance=sale.amount, original=sale.amount, recipient=sale.to, email=sale.email,
+            message=sale.message, source=GiftCard.REGISTER if channel == "store" else GiftCard.ONLINE,
+            buyer=(sale.sender or order.name or "")[:80], issued_by=cashier, sold_on=order)
+        GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.ISSUE, amount=sale.amount, balance=sale.amount, order=order, by=cashier,
+                                     note=_("Sold at the register") if channel == "store" else _("Bought online"))
+        out.append((card, card.number))
+    return out
 
 
 def refund_gift_cards(order):

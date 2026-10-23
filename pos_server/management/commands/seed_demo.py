@@ -110,6 +110,7 @@ class Command(BaseCommand):
             Packaging.objects.get_or_create(name="Takeout container", defaults={"quantity": 200, "cost": Decimal("0.35")})
             self.seed_orders()
             self.seed_staff_cards()
+            self.seed_gift_card_sales()
             self.seed_account()
             # Availability overrides, as in the mockup (after the orders, which need these to sell):
             # a component turned off (its dish becomes unavailable) and a sold-out dish kept selling past zero
@@ -1523,6 +1524,17 @@ class Command(BaseCommand):
             if left <= 0:  # ran out a while ago: deleted in a couple of weeks
                 GiftCard.objects.filter(pk=card.pk).update(empty_since=timezone.localdate() - datetime.timedelta(days=12))
             self.gift_cards.append(card)
+
+    def seed_gift_card_sales(self):
+        """Gift cards sold on the register's Gift cards tab: a birthday card with a latte, and a $25 one on its own."""
+        birthday, classic = GiftCardDesign.objects.get(name="Birthday"), GiftCardDesign.objects.get(name="Classic")
+        latte = Dish.objects.filter(title="Iced latte").first()
+        for lines, sales in [([{"type": "dish", "id": latte.id, "qty": 1, "cust": {}}] if latte else [],
+                              [{"design": birthday.id, "amount": "50", "to": "Maya", "message": "Happy birthday! Treat yourself."}]),
+                             ([], [{"design": classic.id, "amount": "25", "to": "", "message": ""}])]:
+            total = price_cart(lines, gift_sales=sales).total
+            create_order(lines=lines, channel="store", initial_status=OrderStation.STATUS_APPROVED, gift_sales=sales,
+                         payments=[{"method": "card", "amount": str(total)}], cashier=self.cashier, device=self.device)
 
     # ---------- orders ----------
 
