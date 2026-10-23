@@ -141,6 +141,23 @@ class Command(BaseCommand):
         user("courier", "Courier", is_staff=True)
         # The courier is clocked in, so delivery ETAs and the courier app have someone to work with
         CourierShift.objects.get_or_create(user=User.objects.get(username="courier"), defaults={"mode": "bicycling"})
+        # The team: last names, phones, emergency contacts, roles and groups (users/migrations/0004 made the usual
+        # groups and roles); the admin is the owner
+        from django.contrib.auth.models import Group
+        from users.models import Role
+        team = [("admin", "Rivera", "(604) 555-0142", "Sam Rivera", "(604) 555-0188", ["Manager"], ["Owners"]),
+                ("cashier", "Kim", "(604) 555-0170", "Min Kim", "(604) 555-0129", ["Cashier", "Barista"], ["Front of house"]),
+                ("priya", "Shah", "(604) 555-0119", "Raj Shah", "(604) 555-0173", ["Manager", "Cashier"], ["Managers", "Front of house"]),
+                ("courier", "Ramos", "(778) 555-0137", "", "", ["Delivery"], ["Delivery"])]
+        for username, last, phone, em_name, em_phone, roles, groups in team:
+            person = User.objects.get(username=username)
+            person.last_name = last
+            person.save(update_fields=["last_name"])
+            profile = person.staff_profile
+            profile.phone, profile.emergency_name, profile.emergency_phone = phone, em_name, em_phone
+            profile.save()
+            profile.roles.set(Role.objects.filter(name__in=roles))
+            person.groups.set(Group.objects.filter(name__in=groups))
         customer = user("customer", "Customer")
         customer.customer_profile.phone = 6045550100
         customer.customer_profile.home_address = "123 Main St, Springfield"

@@ -914,6 +914,7 @@ class SeedDemoTests(TestCase):
         self.assertTrue(Staff.objects.get(user__username="cashier").check_pin("1234"))
         from audio.models import Playlist
         self.assertEqual(Playlist.objects.get(name="Lunch rush").entries.count(), 3)  # a library to play
+        self.assertEqual(list(Staff.objects.get(user__username="cashier").roles.values_list("name", flat=True)), ["Cashier", "Barista"])
 
 
 class RealtimeTests(MenuFixture, TestCase):

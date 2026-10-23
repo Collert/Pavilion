@@ -21,10 +21,47 @@ class PinHasher(PBKDF2PasswordHasher):
 
 PIN_HASHER = PinHasher()
 
-# Create your models here.
+class Role(models.Model):
+    """A job people do here (Cook, Cashier...): shown on their profile, filtered on in the admin's Staff page.
+    Roles don't grant anything; groups do."""
+    name = models.CharField(max_length=40, unique=True)
+    description = models.CharField(max_length=160, blank=True)
+    color = models.CharField(max_length=7, default="#12875A")
+    icon = models.CharField(max_length=20, default="knife", help_text="A key of admin_portal/team.py: ROLE_ICONS")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class GroupInfo(models.Model):
+    """What the admin shows about a group (django.contrib.auth Group: the permissions). The Owners group is the one
+    with `owners` set: its members are superusers (everything, including the admin)."""
+    group = models.OneToOneField("auth.Group", on_delete=models.CASCADE, related_name="info")
+    description = models.CharField(max_length=160, blank=True)
+    color = models.CharField(max_length=7, default="#5B6A62")
+    position = models.PositiveIntegerField(default=0)
+    owners = models.BooleanField(default=False, help_text="Members get everything (they're made superusers)")
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return self.group.name
+
 
 class Staff(models.Model):
+    """A staff member's profile (the account is the User: is_staff, name, email, is_active = can sign in)."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="staff_profile")
+    phone = models.CharField(max_length=20, blank=True)
+    photo = models.ImageField(upload_to="files/staff/", blank=True, max_length=300)
+    emergency_name = models.CharField(max_length=60, blank=True)
+    emergency_phone = models.CharField(max_length=20, blank=True)
+    since = models.DateField(default=timezone.localdate, help_text="Staff since")
+    roles = models.ManyToManyField(Role, blank=True, related_name="staff")
     minutes_worked = models.PositiveIntegerField(null=True, blank=True, default=0)
     last_worked = models.DateTimeField(default=timezone.now)
     allowance = models.FloatField(default=30)

@@ -2153,3 +2153,112 @@ class LibraryPageTests(AdminFixture, TestCase):
         self.assertEqual(Track.objects.count(), 2)  # songs stay in the library
         response = self.client.post(self.url, {**back, "op": "uploaded", "n": "3"}, follow=True)
         self.assertContains(response, "3 songs added to the library.")
+
+
+
+class StaffPageTests(AdminFixture, TestCase):
+    """The Staff page (admin_portal/staff.py): a draft until Save, owners kept, adding staff, invites."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        from users.models import GroupInfo, Role
+        from django.contrib.auth.models import Group
+        self.owners = Group.objects.get_or_create(name="Owners")[0]
+        GroupInfo.objects.get_or_create(group=self.owners, defaults={"owners": True})
+        self.front = Group.objects.get_or_create(name="Front of house")[0]
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.owner.groups.add(self.owners)
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_staff")
+
+    def fields(self, s, **changes):
+        p = s["p"]
+        data = {"sel": str(p["id"]), "profile": "1", "q": s["st"]["q"], "first": p["r"]["first"], "last": p["r"]["last"],
+                "email": p["r"]["email"], "phone": p["r"]["phone"], "em_name": p["r"]["em_name"], "em_phone": p["r"]["em_phone"],
+                "roles": [str(i) for i in p["r"]["roles"]], "groups": [str(i) for i in p["r"]["groups"]]}
+        if p["r"]["active"]:
+            data["active"] = "1"
+        data.update(changes)
+        return data
+
+    def post(self, s, op="preview", **changes):
+        return self.client.post(self.url, self.fields(s, op=op, **changes)).context["s"]
+
+    def test_edits_are_a_draft_until_save(self):
+        self.staff.first_name, self.staff.email = "Marco", "marco@example.com"
+        self.staff.save()
+        s = self.client.get(self.url).context["s"]
+        self.assertEqual([x["name"] for x in s["items"]], ["Marco", "Priya Shah (you)"])
+        s = self.post(s, f"pick:{self.staff.id}")
+        self.assertEqual(s["p"]["id"], self.staff.id)
+        s = self.post(s, roles=[str(self.cook.id)], groups=[str(self.front.id)], em_name="Giulia", em_phone="604 555 0173", phone="604 555 0119")
+        self.assertEqual((s["status"], s["items"][0]["roles"]), ("Unsaved changes", "Cook"))
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.groups.exists())  # not yet
+        s = self.post(s, email="priya@example.com")  # the owner's email? no: someone else's
+        self.owner.email = "priya@example.com"
+        self.owner.save()
+        s = self.post(s, email="priya@example.com")
+        self.assertEqual(s["p"]["err"], "Priya Shah already uses this email.")
+        self.assertFalse(s["can_save"])
+        s = self.post(s, email="marco@example.com")
+        response = self.client.post(self.url, self.fields(s, op="save"))
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+        self.staff.refresh_from_db()
+        p = self.staff.staff_profile
+        self.assertEqual(([g.name for g in self.staff.groups.all()], [r.name for r in p.roles.all()], p.emergency_name, p.phone),
+                         (["Front of house"], ["Cook"], "Giulia", "604 555 0119"))
+        self.assertFalse(self.staff.is_superuser)
+
+    def test_owners_are_superusers_and_one_always_stays(self):
+        s = self.client.get(self.url).context["s"]
+        s = self.post(s, f"pick:{self.owner.id}")
+        s = self.post(s, groups=[], active="")  # can't drop the last owner, or turn off your own sign-in
+        self.assertEqual((s["p"]["r"]["groups"], s["p"]["r"]["active"]), ([self.owners.id], True))
+        self.assertTrue(s["p"]["remove_off"])
+        s = self.post(s, f"pick:{self.staff.id}")
+        s = self.post(s, groups=[str(self.owners.id)], first="Marco", email="marco@example.com")  # a second owner
+        self.client.post(self.url, self.fields(s, op="save"))
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.is_superuser)
+        s = self.client.get(self.url).context["s"]
+        s = self.post(s, f"pick:{self.staff.id}")
+        s = self.post(s, "remove")
+        self.assertTrue(s["p"]["confirm"])
+        s = self.post(s, "remove")
+        self.assertEqual(s["status"], "Unsaved changes")
+        self.client.post(self.url, {"op": "save", "sel": str(self.owner.id), "q": ""})
+        self.staff.refresh_from_db()
+        self.assertEqual((self.staff.is_staff, self.staff.is_superuser, self.staff.groups.count()), (False, False, 0))
+
+    def test_adding_staff_promotes_or_creates_with_an_invite(self):
+        from django.contrib.auth.models import User
+        from unittest import mock
+        s = self.client.post(self.url, {"op": "add"}).context["s"]
+        self.assertEqual([x["u"].username for x in s["add"]["accts"]], ["customer"])
+        s = self.client.post(self.url, {"op": f"acct:{self.customer.id}"}).context["s"]
+        self.client.post(self.url, {"op": "promote"})
+        self.customer.refresh_from_db()
+        self.assertTrue(self.customer.is_staff)
+        self.client.post(self.url, {"op": "add"})
+        self.client.post(self.url, {"op": "addtab:new"})
+        with mock.patch("misc_tools.email.send") as sent:
+            response = self.client.post(self.url, {"op": "create", "new_present": "1", "new_first": "Lena", "new_last": "Fischer",
+                                                   "new_email": "lena@example.com", "new_phone": "604 555 0164", "new_invite": "1"}, follow=True)
+        self.assertContains(response, "invite sent to lena@example.com")
+        lena = User.objects.get(email="lena@example.com")
+        self.assertTrue(lena.is_staff and not lena.has_usable_password())
+        kind, to, data = sent.call_args[0]
+        self.assertEqual((kind, to), ("staff_invite", "lena@example.com"))
+        # the invite link: set a password, signed in, and the link stops working
+        self.client.logout()
+        link = data["link"].split("testserver", 1)[1]
+        self.assertContains(self.client.get(link), "Hi Lena")
+        self.assertEqual(self.client.post(link, {"password1": "a", "password2": "b"}).status_code, 200)
+        response = self.client.post(link, {"password1": "plum-ladder-91", "password2": "plum-ladder-91"})
+        self.assertRedirects(response, reverse("app_switcher_index"), fetch_redirect_response=False)
+        lena.refresh_from_db()
+        self.assertTrue(lena.check_password("plum-ladder-91"))
+        self.assertEqual(self.client.get(link).status_code, 400)

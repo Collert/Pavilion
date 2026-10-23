@@ -25,6 +25,7 @@ urlpatterns = [
     path("screens", views.screens, name="admin_screens"),
     path("audio", views.audio_channels, name="admin_audio"),
     path("library", views.library, name="admin_library"),
+    path("staff", views.staff, name="admin_staff"),
     path("library/upload", views.library_upload, name="admin_library_upload"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),
     path("screens/<int:id>/preview", views.screen_preview, name="admin_screen_preview"),

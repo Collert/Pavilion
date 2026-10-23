@@ -10,6 +10,7 @@ from urllib.parse import quote, urlencode
 
 from django import forms
 from django.contrib import messages
+from django.contrib.auth.models import User
 from django.db.models import Max
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -38,6 +39,7 @@ from . import combos as combos_data
 from . import audio as audio_data
 from . import events as events_data
 from . import hours as hours_data
+from . import staff as staff_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1168,6 +1170,88 @@ def library_upload(request):
     """One song from the Add music dialog: the file as is, plus the tags the browser read."""
     status, body = library_data.upload(request.POST, request.FILES)
     return JsonResponse(body, status=status)
+
+
+# ---------- team ----------
+
+@superuser_required
+def staff(request):
+    """Staff: the list and the selected profile, one form with Save (admin_portal/staff.py). Adding someone and their
+    photo take effect straight away."""
+    users = staff_data.staff_users()
+    st = staff_data.state(request.session)
+    if request.method == "POST":
+        op = request.POST.get("op", "preview")
+        staff_data.take_post(st, request.POST, users, request.user)
+        if request.POST.get("profile") == "1" and st.get("sel") is not None:
+            person = next((u for u in users if u.id == st["sel"]), None)
+            if person and request.FILES.get("photo"):
+                upload = request.FILES["photo"]
+                if upload.content_type in ("image/jpeg", "image/png", "image/webp") and upload.size <= 10 * 1024 * 1024:
+                    p = staff_data.profile(person)
+                    old = p.photo.name if p.photo else ""
+                    p.photo.save(f"{person.id}.{upload.content_type.split('/')[1].replace('jpeg', 'jpg')}", upload)
+                    if old:
+                        p.photo.storage.delete(old)
+            elif person and op == "photoclear":
+                p = staff_data.profile(person)
+                if p.photo:
+                    p.photo.storage.delete(p.photo.name)
+                    p.photo = ""
+                    p.save(update_fields=["photo"])
+        msg = st.pop("msg", "")
+        if op == "save":
+            current = staff_data.rows(st, users)
+            errs = staff_data.problems(current, users, staff_data.edited(st))
+            if errs:
+                messages.error(request, next(iter(errs.values())))
+            else:
+                staff_data.save(st, users)
+                st = {**staff_data.state({}), "sel": st["sel"], "q": st["q"], "role": st["role"]}
+                staff_data.store(request.session, st)
+                messages.success(request, _("Staff saved."))
+                return redirect("admin_staff")
+        elif op == "add":
+            st["add"] = {"tab": "find", "aq": "", "pick": None, "first": "", "last": "", "email": "", "phone": "", "invite": True}
+        elif op.startswith("addtab:") and st.get("add") is not None:
+            st["add"]["tab"] = "new" if op == "addtab:new" else "find"
+        elif op.startswith("acct:") and st.get("add") is not None:
+            uid = int(op.partition(":")[2] or 0)
+            st["add"]["pick"] = None if st["add"].get("pick") == uid else uid
+        elif op == "closeadd":
+            st["add"] = None
+        elif op == "promote" and st.get("add"):
+            person = User.objects.filter(pk=st["add"].get("pick"), is_staff=False).first()
+            if person:
+                staff_data.promote(person)
+                st.update(add=None, sel=person.id, q="", role="all")
+                messages.success(request, _("%(name)s added to staff. Pick their roles and groups.") % {"name": person.first_name or person.username})
+        elif op == "create" and st.get("add"):
+            person, problem = staff_data.create(st["add"])
+            if problem:
+                messages.error(request, problem)
+            else:
+                sent = st["add"].get("invite", True)
+                if sent:
+                    try:
+                        staff_data.invite(request, person)
+                    except EmailError:
+                        sent = False
+                        messages.error(request, _("The invite email couldn’t be sent. Check listmonk, then try again from their profile."))
+                st.update(add=None, sel=person.id, q="", role="all")
+                messages.success(request, (_("%(name)s added to staff, invite sent to %(email)s. Pick their roles and groups.") if sent
+                                           else _("%(name)s added to staff. Pick their roles and groups.")) % {"name": person.first_name, "email": person.email})
+        else:
+            toast = staff_data.apply_op(st, op, users, request.user)
+            msg = msg or toast
+        if msg:
+            messages.success(request, msg)
+        staff_data.store(request.session, st)
+        users = staff_data.staff_users()
+    else:
+        st["add"] = st["confirm"] = None  # a fresh visit: the draft stays, the dialog and the "are you sure" don't
+        staff_data.store(request.session, st)
+    return page(request, "admin_portal/staff.html", "staff", {"s": staff_data.page(st, users, request.user)})
 
 
 # ---------- branding ----------

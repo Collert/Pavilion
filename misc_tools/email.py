@@ -85,6 +85,12 @@ KINDS = {
         "A message about your catering order · {{ .Tx.Data.number }}",
         _wrap('<p>{{ .Tx.Data.message }}</p><p><a href="{{ .Tx.Data.order_url }}">Reply on your order page</a></p>'),
     ),
+    "staff_invite": (
+        "You're on the team at {{ .Tx.Data.store }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.store }} added you to its staff in Pavilion. '
+              'Set your password to sign in.</p><p><a href="{{ .Tx.Data.link }}">Set your password</a></p>'
+              '<p style="color:#5B6A62">The link works for a few days. Ask a manager for a new one if it runs out.</p>'),
+    ),
     "catering_reminder": (
         "Your catering order is waiting on you · {{ .Tx.Data.number }}",
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>We suggested a few changes to {{ .Tx.Data.title }}. '

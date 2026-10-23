@@ -53,7 +53,7 @@ without asking.
 | `catering` | `/catering/` | Catering orders (CateringOrder/Line/Message, CateringSettings): `flow.py` does every step (accept charges the card on file, propose changes, the customer's counter-proposals and cancelling, reject/cancel refunds, deposit holds; each version kept as a CateringVersion), `pricing.py` the money, `store.py` the store's quote builder; answered in the admin's Catering page; `/catering/` builds a quote, `<token>` is the customer's request page. Daily cron: `manage.py catering_deposits`. Never on the register or KDS. |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage, menu boards): `Screen.layout` is a JSON tree rendered on the server, `Screen.popups` the pop-ups over it, `ScreenSession` one display of a screen with sessions (a register pairs with it). See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
-| `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile; Staff/Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). |
+| `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile, `welcome/<uid>/<token>` (a new staff member sets their password from the invite); Staff profiles (phone, photo, emergency contact, `Role`s), `GroupInfo` (a Django `Group`'s description and colour; members of the `owners` one are superusers), Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). Staff are edited on the admin's Staff page (`admin_portal/staff.py`). |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
@@ -210,7 +210,7 @@ while Branding is open); Publish makes it live. Only "neighbourhood" (the canvas
 
 ## Access control
 
-Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`
+Being in the **Owners** group (`users.GroupInfo.owners`) is what makes someone a superuser (the admin's Staff page keeps them in step and the store always keeps one active owner). Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`
 from `pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen),
 never bare `login_required`.** On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set in
 `/advanced-admin/` → Users), rate-limited per device; the lock screen lists the device's last 3 users

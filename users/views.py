@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.shortcuts import render
+from django.utils.translation import gettext as _
 from pos_server.devices import safe_next_url
 
 # Create your views here.
@@ -69,3 +70,34 @@ def profile(request):
         "route":"profile",
         "user":user
     })
+
+def welcome(request, uidb64, token):
+    """The invite link from the admin's Staff page: a new staff member sets their password, then is signed in."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.contrib.auth.tokens import default_token_generator
+    from django.core.exceptions import ValidationError
+    from django.utils.encoding import force_str
+    from django.utils.http import urlsafe_base64_decode
+
+    from admin_portal.models import StoreSettings
+    try:
+        person = User.objects.get(pk=int(force_str(urlsafe_base64_decode(uidb64))), is_staff=True, is_active=True)
+    except (ValueError, TypeError, OverflowError, User.DoesNotExist):
+        person = None
+    valid = person is not None and default_token_generator.check_token(person, token)
+    context = {"valid": valid, "person": person, "store": StoreSettings.load().name, "error": []}
+    if valid and request.method == "POST":
+        password = request.POST.get("password1", "")
+        if password != request.POST.get("password2", ""):
+            context["error"] = [_("The two passwords don’t match.")]
+        else:
+            try:
+                validate_password(password, person)
+            except ValidationError as error:
+                context["error"] = list(error.messages)
+        if not context["error"]:
+            person.set_password(password)
+            person.save(update_fields=["password"])  # the link stops working: the token depends on the password
+            login(request, person, backend="django.contrib.auth.backends.ModelBackend")
+            return redirect("app_switcher_index")
+    return render(request, "users/welcome.html", context, status=200 if valid else 400)

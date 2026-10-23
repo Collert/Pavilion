@@ -1,0 +1,62 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+A new staff member sets their password from the invite link (users.views.welcome; sent by the admin's Staff page).
+Drawn like the sign-in page.
+{% endcomment %}
+{% block title %}{% trans "Set your password" %} · Pavilion{% endblock %}
+{% block head %}
+<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'users/login.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block body %}
+<section class="lock-status" aria-label="Pavilion">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">Pavilion</div>
+    </div>
+    <div class="lock-center">
+        <h2 class="tagline">{% trans "Welcome to" %}<br><span>{{ store }}</span></h2>
+    </div>
+</section>
+
+<aside class="lock-panel" aria-label="{% trans 'Set your password' %}">
+    {% if valid %}
+    <form method="post" class="lock-view rise sign-in" novalidate>
+        {% csrf_token %}
+        <div class="overline">{% trans "Your account" %}</div>
+        <h1 class="h1 lock-title">{% blocktrans with name=person.first_name %}Hi {{ name }}{% endblocktrans %}</h1>
+        <div class="sign-in-sub">{% blocktrans with email=person.email %}Set a password for {{ email }}. You’ll sign in with it.{% endblocktrans %}</div>
+        <div class="fields">
+            <div>
+                <label for="wl-pass" class="field-label">{% trans "New password" %}</label>
+                <div class="si-field{% if error %} bad{% endif %}">
+                    <input id="wl-pass" name="password1" type="password" autocomplete="new-password" autofocus>
+                </div>
+            </div>
+            <div>
+                <label for="wl-pass2" class="field-label">{% trans "Type it again" %}</label>
+                <div class="si-field{% if error %} bad{% endif %}">
+                    <input id="wl-pass2" name="password2" type="password" autocomplete="new-password">
+                </div>
+            </div>
+        </div>
+        <div class="form-error" role="alert">{% for e in error %}{{ e }} {% endfor %}</div>
+        <button class="btn btn-primary submit"><span>{% trans "Set password and sign in" %}</span></button>
+    </form>
+    {% else %}
+    <div class="lock-view rise sign-in">
+        <div class="overline">{% trans "Your account" %}</div>
+        <h1 class="h1 lock-title">{% trans "This link has run out" %}</h1>
+        <div class="sign-in-sub">{% trans "Invite links work once, for a few days. Ask a manager to send you a new one." %}</div>
+        <a class="btn btn-primary submit" href="{% url 'login_view' %}"><span>{% trans "Go to sign in" %}</span></a>
+    </div>
+    {% endif %}
+</aside>
+{% endblock %}
