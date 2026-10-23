@@ -783,8 +783,10 @@ class Discount(models.Model):
     """
     A percent or amount off one item or the whole order.
 
-    Without a `code` it is an *offer*, listed on the register. With a code it is a *coupon*: staff or online
-    customers type the code. The conditions below must all hold; blank means "no condition".
+    Without a `code` it is set on the admin's Discounts page: an *offer* the cashier picks on the register, or
+    `automatic`, applied by itself to every order it fits (pricing.price_cart: the best one; with a coupon too only
+    if it `stacks`, else the bigger saving wins). With a code it is a *coupon*: staff or online customers type the
+    code. The conditions below must all hold; blank means "no condition".
     Manual (typed-in) discounts on the register don't use this model and need the "Give discounts" action
     (`act.discount`, given by a group: users/access.py).
     """
@@ -794,6 +796,7 @@ class Discount(models.Model):
     scopes = ((ITEM, "One item"), (ORDER, "Whole order"), (ANY, "Item or order"))
     TARGETS = (("order", "Entire order"), ("items", "Specific items"), ("menus", "Specific menus"), ("delivery", "Delivery fee"))
     CHANNELS = (("store", "In store"), ("pickup", "Pickup"), ("delivery", "Delivery"))
+    AUDIENCES = (("everyone", "Everyone"), ("members", "Signed-in customers"), ("staff", "Staff (a staff card on the order)"))
 
     name = models.CharField(max_length=80)
     note = models.CharField(max_length=120, blank=True, help_text="Shown under the name, e.g. 'Weekdays, 2 to 5 pm'")
@@ -826,6 +829,11 @@ class Discount(models.Model):
     max_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Percent off: at most this")
     per_customer = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Uses per signed-in customer")
     first_order = models.BooleanField(default=False, help_text="Only for a signed-in customer's first order")
+    # Discounts (the admin's Discounts page): offers without a code
+    automatic = models.BooleanField(default=False, help_text="Applies by itself to every order it fits (else the cashier picks it)")
+    audience = models.CharField(max_length=8, choices=AUDIENCES, default="everyone", help_text="Who gets it")
+    stacks = models.BooleanField(default=False, help_text="Automatic: also applies with a coupon (else the bigger saving wins)")
+    badge = models.BooleanField(default=False, help_text="Automatic: “10% off” on its dishes online and on menu boards while it runs")
 
     class Meta:
         ordering = ["position", "id"]

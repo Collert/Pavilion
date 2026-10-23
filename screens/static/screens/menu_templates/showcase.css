@@ -55,6 +55,7 @@
 .sc-item-name { font-size: calc(var(--u) * 25); line-height: 1.2; font-weight: 700; min-width: 0; }
 .sc-fill { flex: 1; }
 .sc-price { font-family: var(--heading); font-size: calc(var(--u) * 30); white-space: nowrap; color: var(--accent); }
+.sc-deal { display: inline-block; padding: calc(var(--u) * 2) calc(var(--u) * 8); border-radius: calc(var(--u) * 6); font-size: calc(var(--u) * 14); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; background: var(--accent); color: var(--bg); vertical-align: middle; }
 .sc-out { font-size: calc(var(--u) * 16); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #F08A73; white-space: nowrap; }
 .sc-item.out .sc-item-name { color: color-mix(in srgb, var(--fg) 40%, transparent); text-decoration: line-through; }
 .sc-item.out .sc-price { color: color-mix(in srgb, var(--fg) 30%, transparent); }

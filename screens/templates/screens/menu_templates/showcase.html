@@ -30,7 +30,7 @@ Sizes are design pixels: calc(var(--u) * N).
                     {% for item in b.loved %}
                     <div class="sc-card">
                         <div class="sc-card-art">{% if item.image %}<img src="{{ item.image }}" alt="">{% else %}<span class="sc-letter small">{{ item.letter }}</span>{% endif %}</div>
-                        <div class="sc-card-text"><span>{{ item.title }}</span><span class="sc-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span></div>
+                        <div class="sc-card-text"><span>{{ item.title }}{% if item.deal %} <span class="sc-deal">{{ item.deal }}</span>{% endif %}</span><span class="sc-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span></div>
                     </div>
                     {% endfor %}
                 </div>
@@ -48,7 +48,7 @@ Sizes are design pixels: calc(var(--u) * N).
                             {% for item in screen %}
                             <div class="sc-item{% if item.out %} out{% endif %}">
                                 <span class="sc-item-name">{{ item.title }}</span>
-                                {% if item.out %}<span class="sc-out">{{ b.look.sold_text }}</span>{% endif %}
+                                {% if item.out %}<span class="sc-out">{{ b.look.sold_text }}</span>{% elif item.deal %}<span class="sc-deal">{{ item.deal }}</span>{% endif %}
                                 <span class="sc-fill"></span>
                                 <span class="sc-price">{{ item.price }}</span>
                             </div>

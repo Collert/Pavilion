@@ -20,6 +20,7 @@
 .nb-mods { font-size: 13px; color: var(--soft-ink); margin-top: 2px; }
 .nb-tag { height: 22px; padding: 0 9px; border-radius: 11px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; }
 .nb-tag.diet { background: var(--sage); color: color-mix(in srgb, var(--deep) 80%, var(--ink)); }
+.nb-tag.deal { background: var(--highlight); color: var(--ink); }
 .nb-tag.sold { background: color-mix(in srgb, var(--accent) 22%, var(--card)); color: color-mix(in srgb, var(--accent) 60%, var(--ink)); }
 .nb-stepper { display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 26px; box-shadow: inset 0 0 0 var(--outline) var(--ink); flex: none; }
 .nb-stepper button { width: 42px; height: 42px; border-radius: 21px; border: none; background: var(--paper); color: var(--ink); font: inherit; font-size: 20px; font-weight: 700; cursor: pointer; }

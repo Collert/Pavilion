@@ -44,7 +44,7 @@ they change (data-search; the default op is "preview") so its price follows, and
                         {% if it.obj.description %}<p>{{ it.obj.description }}</p>{% endif %}
                         <div class="nb-dish-meta">
                             <span class="nb-dish-price">{{ it.price }}</span>
-                            {% if it.sold_out %}<span class="nb-tag sold">{% trans "Sold out today" %}</span>{% endif %}
+                            {% if it.sold_out %}<span class="nb-tag sold">{% trans "Sold out today" %}</span>{% elif it.deal %}<span class="nb-tag deal">{{ it.deal }}</span>{% endif %}
                             {% for d in it.diets %}<span class="nb-tag diet">{{ d }}</span>{% endfor %}
                         </div>
                     </div>

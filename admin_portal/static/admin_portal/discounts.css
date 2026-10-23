@@ -1,0 +1,35 @@
+/* Discounts (design: AdminDiscounts). Builds on team.css and coupons.css (the list, targets, pickers, preview). */
+.dc-tile { width: 52px; height: 44px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-size: 15px; font-weight: 700; color: #FFFFFF; }
+.dc-tile.small { font-size: 12px; }
+.dc-name { font-size: 14px; font-weight: 800; min-width: 0; }
+.cp-st.now { background: var(--green); color: #FFFFFF; }
+.tm-main .field.dc-name-in { font-size: 16px; }
+.dc-how { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.dc-how .lbl { margin: 0; }
+.dc-switches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.dc-switches .sc-switch { margin-top: 0; }
+.dc-switches .sc-switch:disabled { opacity: .55; cursor: not-allowed; }
+.dc-when-head { display: flex; align-items: baseline; gap: 10px; }
+.dc-now { font-size: 12px; font-weight: 800; color: var(--muted); }
+.dc-now.on { color: var(--green); }
+.dc-days { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dc-day { width: 44px; height: 38px; border: none; border-radius: 12px; font-size: 12px; font-weight: 800; background: var(--soft); color: var(--muted); }
+.dc-day[aria-pressed="true"] { background: var(--brand); color: #FFFFFF; }
+.dc-day.today { box-shadow: inset 0 -3px 0 var(--amber, #F4A93B); }
+.dc-gap { width: 6px; }
+.dc-preset { height: 30px; padding: 0 10px; border: none; border-radius: 15px; background: transparent; color: var(--brand); font-size: 12px; font-weight: 800; }
+.dc-hours { display: flex; gap: 10px; align-items: flex-end; margin-top: 14px; }
+.dc-hours label { min-width: 0; }
+.dc-sched { margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.dc-who { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dc-who button { display: block; padding: 10px 12px; border: none; border-radius: 14px; text-align: left; color: var(--ink); background: var(--softer); }
+.dc-who button .strong { font-size: 13px; }
+.dc-who button .tiny { margin-top: 2px; line-height: 1.35; }
+.dc-who button[aria-checked="true"] { background: var(--soft); box-shadow: inset 0 0 0 2px var(--brand); }
+#dc-preview .cp-modes button { padding: 0 7px; white-space: nowrap; }
+.cp-target:disabled { opacity: .5; cursor: not-allowed; }
+.sc-money.bad { box-shadow: inset 0 0 0 2px #E7A694; }
+@media (max-width: 860px) {
+    .dc-switches, .dc-who { grid-template-columns: 1fr; }
+    .dc-hours { flex-wrap: wrap; }
+}

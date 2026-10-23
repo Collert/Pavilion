@@ -111,8 +111,11 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   fees (`OrderFee`, after tax: total = subtotal − discount + tax + fees + tip; `tip` is the store's "Tip the team"), records `OrderItem`/`OrderDiscount`/`OrderPayment` rows, charges gift cards
   with a `GiftCardAuthorization`, and rolls back on `OrderError`. `collect_order()` is the order → dict serializer for
   screens (`dishes` = what stations make, `lines` = what was sold).
-- **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*
-  (edited on the admin's Coupons page). `channels` (store, pickup, delivery) says where it works (`on_register`/`online`
+- **Discounts:** `Discount` without a code is edited on the admin's Discounts page: an *offer* the cashier picks on
+  the register, or `automatic`, applied by itself to every order it fits (`PricedCart.auto_discount`: the one saving the
+  most; next to a coupon or other order discount only if it `stacks`, else the bigger saving wins; `audience` everyone,
+  signed-in customers, or staff = a staff card on the order; a `badge` shows "20% off" on its dishes in the store and on
+  menu boards while it runs, `pricing.badges`). With a code it's a *coupon* (edited on the admin's Coupons page). `channels` (store, pickup, delivery) says where it works (`on_register`/`online`
   follow it). Conditions (dates, weekdays, time window, min subtotal/items, eligible dishes/combos, max uses, a
   percent's `max_amount`, `per_customer` and `first_order` for signed-in customers) are checked in `pricing.py`. An
   order-wide coupon's `target` decides what it comes off: the order, the picked dishes/combos, the dishes on `menus`,

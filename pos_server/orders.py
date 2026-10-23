@@ -174,11 +174,11 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
             station_ids.add(picked.dish.station_id)
             for component_id, amount in picked.use.items():
                 use[component_id] += amount * line.quantity
-    if cart.order_discount:
-        applied = cart.order_discount
-        OrderDiscount.objects.create(order=order, discount=applied.discount, label=applied.label, kind=applied.kind,
-                                     value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"),
-                                     approved_by_id=applied.approved_by)
+    for applied in (cart.auto_discount, cart.order_discount):
+        if applied:
+            OrderDiscount.objects.create(order=order, discount=applied.discount, label=applied.label, kind=applied.kind,
+                                         value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"),
+                                         approved_by_id=applied.approved_by)
     consume_stock(use)
     use_disposables(order, cart)
 

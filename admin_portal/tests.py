@@ -2814,3 +2814,67 @@ class CouponsPageTests(AdminFixture, TestCase):
         x = self.post(x, "delete")
         self.client.post(self.url, {"op": "save"})
         self.assertFalse(Discount.objects.filter(code="DRINKS10").exists())
+
+
+class DiscountsPageTests(AdminFixture, TestCase):
+    """Discounts (admin_portal/discounts.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_discounts")
+
+    def post(self, x, op="preview", **fields):
+        e = x["d"]["e"]
+        data = {"editing": x["d"]["key"], "title": e["title"], "value": e["value"], "cap": e["cap"], "min": e["min"],
+                "start": e["start"], "op": op}
+        if e["end"]:
+            data["end"] = e["end"]
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_a_discount_from_new_to_saved(self):
+        import datetime
+        from pos_server.models import Discount
+        x = self.client.get(self.url).context["x"]
+        self.assertIsNone(x["d"])
+        x = self.client.post(self.url, {"op": "new"}).context["x"]
+        self.assertEqual((x["d"]["e"]["auto"], x["d"]["e"]["paused"], x["rows"][0]["st"]), (True, True, "Off"))
+        x = self.post(x, title=" ")
+        self.assertEqual(x["d"]["err"]["name"], "Give it a name. Customers see it on their receipt.")
+        x = self.post(x, title="Happy hour", value="20")
+        x = self.post(x, "days:week")
+        x = self.post(x, "day:1")
+        x = self.post(x, "hours:set")
+        x = self.post(x, **{"from": "19:00"})
+        self.assertEqual((x["d"]["e"]["from"], x["d"]["e"]["to"]), ("19:00", "21:00"))
+        x = self.post(x, to="23:59")
+        self.assertIn("Tue–Fri, 7 PM–Close", x["rows"][0]["desc"])
+        x = self.post(x, "target:items")
+        self.assertEqual(x["d"]["err"]["value"], "Pick at least one dish.")
+        x = self.post(x, f"item:d{self.coffee.id}")
+        x = self.post(x, "flip:badge")
+        x = self.post(x, "flip:paused")
+        x = self.post(x, "who:members")
+        self.assertTrue(x["d"]["who_note"])
+        self.client.post(self.url, {"op": "save"})
+        d = Discount.objects.get(name="Happy hour")
+        self.assertEqual((d.code, d.automatic, d.weekdays, d.start_time, d.end_time, d.target, list(d.dishes.all()), d.badge, d.active, d.audience),
+                         (None, True, "2345", datetime.time(19), None, "items", [self.coffee], True, True, "members"))
+        # picked by the cashier: the register only, never off the delivery fee
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, "target:delivery")
+        self.assertEqual(x["d"]["e"]["chans"], ["delivery"])
+        x = self.post(x, "how:pick")
+        self.assertEqual((x["d"]["e"]["chans"], x["d"]["e"]["target"], x["d"]["badge_lock"]), (["store"], "order", True))
+        x = self.post(x, "target:delivery")
+        self.assertEqual(x["d"]["e"]["target"], "order")
+        self.client.post(self.url, {"op": "save"})
+        d.refresh_from_db()
+        self.assertEqual((d.automatic, d.channels, d.scope), (False, ["store"], "any"))
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, "delete")
+        self.client.post(self.url, {"op": "save"})
+        self.assertFalse(Discount.objects.filter(name="Happy hour").exists())

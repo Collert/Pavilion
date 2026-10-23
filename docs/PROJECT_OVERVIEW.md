@@ -245,8 +245,11 @@ one discount per line and one on the order (after line discounts), then tax (`TA
   total exactly, cash needs an open drawer, and `expected_total` refuses the order if the price changed under the
   cashier. Any `OrderError` rolls everything back.
 
-`Discount`: an *offer* (no code, listed on the register) or a *coupon* (code; `online=True` to accept it in the
-store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`end_time`, `min_subtotal`,
+`Discount`: an *offer* (no code, picked by the cashier on the register), an *automatic* discount (no code,
+`automatic`: `price_cart` applies the one saving the most by itself, as `auto_discount`; with an order discount too
+only if it `stacks`, else the bigger saving wins and the other gets `order_discount_error`; `audience` everyone,
+signed-in customers or staff, which needs a staff card on the order) or a *coupon* (code; `channels` says where it
+works). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`end_time`, `min_subtotal`,
 `min_items`, eligible `dishes`/`combos` (item discounts), `max_uses`. Typed-in ("manual") discounts need the
 "Give discounts" action (`act.discount`: Managers have it by default, so `seed_demo`'s Priya does; Front of house
 doesn't). The old `pos_server.apply_manual_discount` permission was dropped on 2026-10-22. Cashiers without it can
@@ -671,6 +674,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   order only; those need a signed-in customer, so not the register), a checkout preview of a sample order (pickup or
   delivery) and its performance (uses, discount given, orders total). One form with Save (session draft). The
   delivery fee it needs is set on Store hours, by the delivery cutoffs.
+- **Discounts** (`admin_discounts`, `discounts.py`, 2026-10-23): discounts without a code. Same list as Coupons
+  (status Off, Scheduled, On now, Active, Ended) and the same discount, applies-to and preview parts (imported from
+  `coupons.py`), plus how it's given (applies by itself, or the cashier picks it: then in store only and never off the
+  delivery fee), a badge ("20% off" on its dishes in the store's menu and the Showcase menu board while it runs:
+  `pricing.badges`/`badge_for`; boards only refresh on their usual nudges, not when a happy hour starts), when it runs
+  (days with presets, all day or set hours, dates), who gets it (everyone, signed-in customers, staff with a staff
+  card) and working with coupons. Performance is the last 90 days. One form with Save (session draft). Offers the
+  register already used keep their item/order scope.
 - **Customers** (`admin_customers`, `customers.py`, 2026-10-23): store accounts (users who aren't staff). The list
   (search name, email or phone; sort by last order, name, most orders, top spend, newest; filters Ordered this month,
   No orders, Gets emails, Signed out) and the picked customer: name, email, phone, staff notes, their stats (orders,

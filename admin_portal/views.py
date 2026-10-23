@@ -48,6 +48,7 @@ from . import groups as groups_data
 from . import staffcards as staffcards_data
 from . import customers as customers_data
 from . import coupons as coupons_data
+from . import discounts as discounts_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1539,6 +1540,32 @@ def coupons(request):
             messages.success(request, toast)
         request.session[coupons_data.KEY] = st
     return page(request, "admin_portal/coupons.html", "coupons", {"x": coupons_data.page(st)})
+
+
+@admin_page("discounts", edit={"save"}, delete={"delete"})
+def discounts(request):
+    """Discounts: ones without a code, applied by themselves or picked on the register (admin_portal/discounts.py)."""
+    st = discounts_data.state(request.session)
+    if request.method == "POST":
+        discounts_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        toast = ""
+        if op == "save":
+            errs = discounts_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(next(iter(errs.values())).values())))
+            else:
+                discounts_data.save(st)
+                request.session.pop(discounts_data.KEY, None)
+                publish("inventory")  # the register refetches its catalog (and offers) on this
+                messages.success(request, _("Discounts saved. The register and online store pick them up right away."))
+                return redirect("admin_discounts")
+        elif op != "preview":
+            toast = discounts_data.apply_op(st, op)
+        if toast:
+            messages.success(request, toast)
+        request.session[discounts_data.KEY] = st
+    return page(request, "admin_portal/discounts.html", "discounts", {"x": discounts_data.page(st)})
 
 
 # ---------- branding ----------

@@ -385,6 +385,81 @@ class CouponTests(MenuFixture, TestCase):
             price_cart([self.dish(self.burger)], channel="web", order_discount={"code": "WELCOME"}, customer=ana)
 
 
+class AutomaticDiscountTests(MenuFixture, TestCase):
+    """Automatic discounts (the admin's Discounts page): they apply by themselves, the best one wins."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def auto(self, name, **fields):
+        return Discount.objects.create(name=name, kind=fields.pop("kind", "pct"), value=Decimal(fields.pop("value", "10")), automatic=True,
+                                       scope="order", channels=fields.pop("channels", ["store", "pickup", "delivery"]), **fields)
+
+    def test_the_best_one_applies_by_itself(self):
+        from pos_server.pricing import offers_for_register
+        self.auto("Ten percent")
+        five = self.auto("Five dollars", kind="amt", value="5")
+        cart = price_cart([self.dish(self.burger, 2)])
+        self.assertEqual((cart.auto_discount.label, cart.discount), ("Five dollars", Decimal("5.00")))  # 10% of 29.00 is less
+        self.assertEqual(offers_for_register(), [])
+        order = create_order(lines=[self.dish(self.burger, 2)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                             verify_payment=lambda left: None)
+        self.assertEqual((order.discounts.get().discount, order.total), (five, Decimal("24.00")))
+        five.refresh_from_db()
+        self.assertEqual(five.times_used, 1)
+
+    def test_with_a_coupon_the_bigger_saving_wins_unless_it_stacks(self):
+        happy = self.auto("Happy hour", value="10")
+        Discount.objects.create(name="Big", code="BIG20", kind="pct", value=Decimal("20"), scope="order", channels=["store"])
+        Discount.objects.create(name="Small", code="SMALL5", kind="pct", value=Decimal("5"), scope="order", channels=["store"])
+        cart = price_cart([self.dish(self.burger, 2)], order_discount={"code": "BIG20"})
+        self.assertEqual((cart.auto_discount, cart.order_discount.amount), (None, Decimal("5.80")))
+        cart = price_cart([self.dish(self.burger, 2)], order_discount={"code": "SMALL5"})
+        self.assertEqual((cart.order_discount, cart.auto_discount.amount), (None, Decimal("2.90")))
+        self.assertEqual(cart.order_discount_error, "Happy hour saves more, so SMALL5 isn’t used.")
+        happy.stacks = True
+        happy.save()
+        cart = price_cart([self.dish(self.burger, 2)], order_discount={"code": "SMALL5"})
+        self.assertEqual((cart.auto_discount.amount, cart.order_discount.amount, cart.discount), (Decimal("2.90"), Decimal("1.31"), Decimal("4.21")))
+
+    def test_hours_who_and_free_delivery(self):
+        import datetime
+        from django.utils import timezone
+        from events.models import StoreHours
+        from pos_server.pricing import badge_for, badges
+        monday_8am = timezone.make_aware(datetime.datetime(2026, 10, 19, 8, 0))
+        early = self.auto("Early bird", value="20", target="items", weekdays="12345", start_time=datetime.time(7), end_time=datetime.time(9), badge=True)
+        early.dishes.add(self.coffee)
+        self.assertEqual(price_cart([self.dish(self.coffee)], now=monday_8am).auto_discount.amount, Decimal("0.50"))
+        self.assertIsNone(price_cart([self.dish(self.coffee)], now=monday_8am + datetime.timedelta(hours=2)).auto_discount)
+        self.assertIsNone(price_cart([self.dish(self.coffee)], now=monday_8am + datetime.timedelta(days=5)).auto_discount)  # Saturday
+        found = badges("online", now=monday_8am)
+        self.assertEqual((badge_for(found, self.coffee), badge_for(found, self.burger)), ("20% off", ""))
+        self.assertEqual(badges("online", now=monday_8am + datetime.timedelta(hours=2)), {})
+        early.delete()
+        self.auto("Members", audience="members")
+        self.assertIsNone(price_cart([self.dish(self.burger)], channel="web").auto_discount)
+        ana = User.objects.create_user("ana", password="x")
+        self.assertEqual(price_cart([self.dish(self.burger)], channel="web", customer=ana).auto_discount.label, "Members")
+        Discount.objects.all().delete()
+        hours = StoreHours.load()
+        hours.delivery_fee = Decimal("4.99")
+        hours.save()
+        self.auto("Free delivery", value="100", target="delivery", channels=["delivery"], min_subtotal=Decimal("10"))
+        cart = price_cart([self.dish(self.burger)], channel="delivery")
+        self.assertEqual((cart.discount, cart.fee_total, cart.total), (Decimal("0"), Decimal("0.00"), Decimal("14.50")))
+
+    def test_staff_only_needs_a_staff_card(self):
+        from gift_cards.models import StaffCard, StaffCardType
+        self.auto("Staff meal", value="50", audience="staff")
+        self.assertIsNone(price_cart([self.dish(self.burger)]).auto_discount)
+        dana = User.objects.create_user("dana", is_staff=True)
+        kind = StaffCardType.objects.create(name="Shift meal", kind=StaffCardType.BALANCE, amount=Decimal("10"), channels=["store"])
+        card = StaffCard.objects.create(type=kind, user=dana, number=StaffCard.new_number(), balance=Decimal("10"))
+        self.assertEqual(price_cart([self.dish(self.burger)], staff_cards=[card]).auto_discount.amount, Decimal("7.25"))
+
+
+
 class CreateOrderTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):

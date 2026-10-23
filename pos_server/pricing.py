@@ -23,7 +23,10 @@ out = its default picks), an optional one up to `picks` (left out = none). A com
 "condiments".
 
 A discount spec is {"offer": <Discount id>}, {"code": "WELCOME10"} or {"manual": {"kind": "pct"|"amt",
-"value": "10"}}. Lines take item discounts; the order takes one more on what is left after them.
+"value": "10"}}. Lines take item discounts; the order takes one more on what is left after them. Automatic
+discounts (Discount.automatic, the admin's Discounts page) need no spec: the one saving the most on the order
+applies by itself (`PricedCart.auto_discount`), next to the order's discount only if it `stacks`, else whichever
+saves more.
 
 Line prices: dish price (or Combo.unit_price of the picks: set price + upcharges, or percent off) + customizations. An adjustable part
 costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (settings.TAX_RATE) is charged on the
@@ -534,18 +537,22 @@ def _charge_condiments(priced):
 
 # ---------- discounts ----------
 
-def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count, scope, item=None, customer=None):
-    """Why `discount` can't be used here, or None if it can."""
+def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count, scope, item=None, customer=None, staff=False):
+    """Why `discount` can't be used here, or None if it can. `staff`: a staff card is on the order."""
     local = timezone.localtime(now)
+    signed_in = customer is not None and getattr(customer, "is_authenticated", False)
     if not discount.active:
         return _("%(name)s isn't active.") % {"name": discount.name}
+    if discount.audience == "staff" and not staff:
+        return _("%(name)s is for staff: add a staff card.") % {"name": discount.name}
+    if discount.audience == "members" and not signed_in:
+        return _("Sign in to use %(name)s.") % {"name": discount.name}
     if not discount.works_on(channel):
         return (_("%(name)s can't be used on the register.") if channel == "store" else
                 _("%(name)s can't be used on delivery orders.") if channel == "delivery" and discount.channels else
                 _("%(name)s can't be used on pickup orders.") if channel == "web" and discount.channels else
                 _("%(name)s can't be used online.")) % {"name": discount.name}
     if discount.per_customer or discount.first_order:
-        signed_in = customer is not None and getattr(customer, "is_authenticated", False)
         if not signed_in:
             return _("Sign in to use %(name)s.") % {"name": discount.name}
         if discount.first_order and customer.orders.exists():
@@ -594,7 +601,7 @@ def eligible_base(discount, lines) -> Decimal:
 
 
 def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, item, can_manual, approve=None, customer=None,
-           lines=(), delivery_fee=ZERO):
+           lines=(), delivery_fee=ZERO, staff=False):
     """Turn a discount spec into an AppliedDiscount on `base`. Raises OrderError if it can't be used."""
     if not isinstance(discount_spec, dict):
         raise OrderError(_("The cart is malformed."))
@@ -621,13 +628,15 @@ def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, it
                 raise OrderError(_("That code isn't valid."))
         elif "offer" in discount_spec:
             discount = Discount.objects.prefetch_related("dishes", "combos").filter(
-                pk=discount_spec.get("offer") if str(discount_spec.get("offer")).isdigit() else None, code__isnull=True).first()
+                pk=discount_spec.get("offer") if str(discount_spec.get("offer")).isdigit() else None, code__isnull=True, automatic=False).first()
             if discount is None:
                 raise OrderError(_("That offer no longer exists."))
+        elif isinstance(discount_spec.get("auto"), Discount):  # price_cart's own: never from the browser
+            discount = discount_spec["auto"]
         else:
             raise OrderError(_("The cart is malformed."))
         problem = _discount_problem(discount, channel=channel, now=now, subtotal=subtotal,
-                                    item_count=item_count, scope=scope, item=item, customer=customer)
+                                    item_count=item_count, scope=scope, item=item, customer=customer, staff=staff)
         if problem:
             raise OrderError(problem)
         label, kind, value = discount.code or discount.name, discount.kind, discount.value
@@ -687,6 +696,7 @@ class PricedCart:
     subtotal: Decimal
     order_discount: AppliedDiscount = None
     order_discount_error: str = ""
+    auto_discount: AppliedDiscount = None             # the automatic discount that applied by itself
     staff_discount: AppliedDiscount = None            # a discount staff card's (gift_cards/staff_cards.py)
     staff_note: str = ""                              # why a staff card took nothing off
     staff_error: str = ""                             # why a staff card can't be used (strict=False)
@@ -695,8 +705,8 @@ class PricedCart:
 
     @property
     def fee_total(self) -> Decimal:
-        """Fees after tax (packaging, the delivery fee), less a coupon off the delivery fee."""
-        off = self.order_discount.amount if self.order_discount and self.order_discount.on_delivery else ZERO
+        """Fees after tax (packaging, the delivery fee), less discounts off the delivery fee."""
+        off = sum((d.amount for d in (self.order_discount, self.auto_discount) if d and d.on_delivery), ZERO)
         return sum((fee.amount for fee in self.fees), ZERO) - off
 
     @property
@@ -705,7 +715,7 @@ class PricedCart:
 
     @property
     def discount(self) -> Decimal:
-        return (self.line_discounts + (self.order_discount.amount if self.order_discount and not self.order_discount.on_delivery else ZERO)
+        return (self.line_discounts + sum((d.amount for d in (self.order_discount, self.auto_discount) if d and not d.on_delivery), ZERO)
                 + (self.staff_discount.amount if self.staff_discount else ZERO))
 
     @property
@@ -723,6 +733,8 @@ class PricedCart:
     def applied_discounts(self):
         """[(PricedLine or None, AppliedDiscount)] in the order they apply."""
         found = [(line, line.discount) for line in self.lines if line.discount]
+        if self.auto_discount:
+            found.append((None, self.auto_discount))
         if self.order_discount:
             found.append((None, self.order_discount))
         if self.staff_discount:
@@ -739,6 +751,7 @@ class PricedCart:
             } for line in self.lines],
             "orderDiscount": self.order_discount.as_json() if self.order_discount else None,
             "orderDiscountError": self.order_discount_error,
+            "autoDiscount": self.auto_discount.as_json() if self.auto_discount else None,
             "staffDiscount": self.staff_discount.as_json() if self.staff_discount else None,
             "staffNote": self.staff_note, "staffError": self.staff_error,
             "subtotal": to_cents(self.subtotal), "discount": to_cents(self.discount),
@@ -762,9 +775,10 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     of the manager who signed it off (pos_server/approvals.py: check).
 
     `staff_cards` (gift_cards.models.StaffCard, one of each kind) are checked, and a discount card's discount is
-    worked out after the others (gift_cards/staff_cards.py: apply_to). `customer` (the signed-in one) is for coupons
-    limited per customer or to a first order. Delivery orders carry the store's delivery fee (events.StoreHours),
-    which a coupon can take off.
+    worked out after the others (gift_cards/staff_cards.py: apply_to); any staff card also lets staff-only discounts
+    apply. `customer` (the signed-in one) is for coupons limited per customer or to a first order and discounts for
+    signed-in customers. Delivery orders carry the store's delivery fee (events.StoreHours), which a coupon or an
+    automatic discount can take off.
     """
     if not isinstance(lines, list):
         raise OrderError(_("The cart is malformed."))
@@ -775,7 +789,8 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     subtotal = sum((line.gross for line in priced), ZERO)
     cart = PricedCart(lines=priced, subtotal=subtotal)
     context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual,
-               "approve": approve, "customer": customer, "lines": priced, "delivery_fee": _delivery_fee(channel)}
+               "approve": approve, "customer": customer, "lines": priced, "delivery_fee": _delivery_fee(channel),
+               "staff": bool(staff_cards)}
 
     for line in priced:
         if line.raw_discount:
@@ -785,14 +800,21 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
                 if strict:
                     raise
                 line.discount_error = str(e)
+    auto = cart.auto_discount = _best_automatic(subtotal - cart.line_discounts, context)
     if order_discount:
         try:
-            base = subtotal - cart.line_discounts
+            base = subtotal - cart.line_discounts - (auto.amount if auto and auto.discount.stacks and not auto.on_delivery else ZERO)
             cart.order_discount = _apply(order_discount, base, scope=Discount.ORDER, item=None, **context)
         except OrderError as e:
             if strict:
                 raise
             cart.order_discount_error = str(e)
+    if auto and cart.order_discount and not auto.discount.stacks:
+        if cart.order_discount.amount >= auto.amount:
+            cart.auto_discount = None
+        else:
+            cart.order_discount_error = _("%(auto)s saves more, so %(name)s isn’t used.") % {"auto": auto.label, "name": cart.order_discount.label}
+            cart.order_discount = None
     if staff_cards:
         from gift_cards import staff_cards as staff  # gift_cards imports pos_server
         try:
@@ -809,6 +831,70 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     return cart
 
 
+def automatic_discounts():
+    return Discount.objects.filter(automatic=True, active=True, code__isnull=True).prefetch_related("dishes", "combos", "menus")
+
+
+def _best_automatic(base, context):
+    """The automatic discount that takes the most off this order, or None."""
+    best = None
+    for discount in automatic_discounts():
+        try:
+            applied = _apply({"auto": discount}, base, scope=Discount.ORDER, item=None, **context)
+        except OrderError:
+            continue
+        if applied.amount > 0 and (best is None or applied.amount > best.amount):
+            best = applied
+    return best
+
+
+def running(discount, now=None) -> bool:
+    """Whether `now` is inside a discount's dates, days and hours."""
+    local = timezone.localtime(now or timezone.now())
+    return not (discount.starts_on and local.date() < discount.starts_on or discount.ends_on and local.date() > discount.ends_on
+                or discount.weekdays and str(local.isoweekday()) not in discount.weekdays
+                or discount.start_time and local.time() < discount.start_time or discount.end_time and local.time() >= discount.end_time)
+
+
+def badge_text(discount) -> str:
+    if discount.kind == Discount.PERCENT:
+        return _("%(n)s%% off") % {"n": format(discount.value.normalize(), "f")}
+    return _("$%(n)s off") % {"n": f"{discount.value:.2f}".replace(".00", "")}
+
+
+def badges(where, now=None) -> dict:
+    """
+    What to badge on dishes (`("d", id)`), combos (`("c", id)`) or everything (`None`) where customers look
+    (`where`: "store" for menu boards, "online" for the store): {key: "20% off"}, from automatic discounts for
+    everyone with a badge that run now. Look things up with `badge_for`.
+    """
+    out = {}
+    for discount in automatic_discounts().filter(badge=True, audience="everyone"):
+        if discount.target == "delivery" or not running(discount, now):
+            continue
+        if discount.max_uses is not None and discount.times_used >= discount.max_uses:
+            continue
+        if not set(discount.channels or []) & ({"store"} if where == "store" else {"pickup", "delivery"}):
+            continue
+        text = badge_text(discount)
+        if discount.target == "order":
+            out.setdefault(None, text)
+        elif discount.target == "menus":
+            for dish_id in Dish.objects.filter(menu__in=discount.menus.all()).values_list("id", flat=True):
+                out.setdefault(("d", dish_id), text)
+        else:
+            for dish in discount.dishes.all():
+                out.setdefault(("d", dish.id), text)
+            for combo in discount.combos.all():
+                out.setdefault(("c", combo.id), text)
+    return out
+
+
+def badge_for(found: dict, obj) -> str:
+    """A dish's or combo's badge from `badges()`, or ""."""
+    return found.get(("c" if isinstance(obj, Combo) else "d", obj.id)) or found.get(None) or ""
+
+
 def _delivery_fee(channel) -> Decimal:
     if channel != "delivery":
         return ZERO
@@ -820,7 +906,7 @@ def offers_for_register(now=None):
     """Offers (discounts without a code) to list on the register, with whether they apply right now."""
     now = now or timezone.now()
     offers = []
-    for discount in Discount.objects.filter(active=True, on_register=True, code__isnull=True).prefetch_related("dishes", "combos"):
+    for discount in Discount.objects.filter(active=True, on_register=True, code__isnull=True, automatic=False).prefetch_related("dishes", "combos"):
         if discount.max_uses is not None and discount.times_used >= discount.max_uses:
             continue
         local = timezone.localtime(now).date()

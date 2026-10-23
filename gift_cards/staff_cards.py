@@ -229,6 +229,7 @@ def apply_to(cart, cards, channel, now):
                 line.discount, line.discount_error = None, why
         if cart.order_discount:
             cart.order_discount, cart.order_discount_error = None, why
+        cart.auto_discount = None
     cart.staff_discount = applied
 
 

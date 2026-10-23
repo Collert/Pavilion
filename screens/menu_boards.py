@@ -23,6 +23,8 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from pos_server.pricing import badge_for, badges
+
 from . import registry
 from .layout import clean_params
 
@@ -89,26 +91,28 @@ def _money(value):
     return f"${Decimal(value).quantize(Decimal('0.01'))}"
 
 
-def _dish(dish):
+def _dish(dish, deals=None):
     return {"key": f"d:{dish.id}", "title": dish.title, "description": dish.description, "price": _money(dish.price),
-            "out": not dish.available, "image": dish.image.url if dish.image else "", "letter": dish.title[:1]}
+            "out": not dish.available, "image": dish.image.url if dish.image else "", "letter": dish.title[:1],
+            "deal": badge_for(deals or {}, dish)}
 
 
-def _combo(combo):
+def _combo(combo, deals=None):
     return {"key": f"c:{combo.id}", "title": combo.title, "description": combo.description,
             "price": _money(combo.standard_price()), "out": not combo.available,
-            "image": combo.image.url if combo.image else "", "letter": combo.title[:1]}
+            "image": combo.image.url if combo.image else "", "letter": combo.title[:1], "deal": badge_for(deals or {}, combo)}
 
 
 def items(menu):
     """{group key: [item]} for every group of the menu, and {item key: item} for every item."""
     by_group, by_key = {}, {}
+    deals = badges("store")  # automatic discounts running now (the admin's Discounts page)
     for dish in menu.dishes.filter(archived=False).select_related("station").order_by("station__position", "id"):
-        item = _dish(dish)
+        item = _dish(dish, deals)
         by_group.setdefault(f"s:{dish.station_id}", []).append(item)
         by_key[item["key"]] = item
     for combo in menu.combos.filter(archived=False, active=True).prefetch_related("slots__options__dish").order_by("id"):
-        item = _combo(combo)
+        item = _combo(combo, deals)
         by_group.setdefault("combos", []).append(item)
         by_key[item["key"]] = item
     return by_group, by_key
@@ -123,7 +127,8 @@ def best_sellers(menu, count, days=30):
     top = (OrderItem.objects.filter(dish__in=menu.dishes.filter(archived=False), order__timestamp__gte=since)
            .values("dish").annotate(n=Sum("quantity")).order_by("-n")[:count])
     dishes = Dish.objects.in_bulk([row["dish"] for row in top])
-    return [_dish(dishes[row["dish"]]) for row in top if row["dish"] in dishes]
+    deals = badges("store")
+    return [_dish(dishes[row["dish"]], deals) for row in top if row["dish"] in dishes]
 
 
 def screens_of(count, per):

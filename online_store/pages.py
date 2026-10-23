@@ -27,7 +27,7 @@ from pos_server import dish_info
 from pos_server.menu_schedule import Schedule
 from pos_server.models import Combo, Dish, Menu, Order, OrderPayment, OrderStation
 from pos_server.orders import OrderError, create_order
-from pos_server.pricing import price_cart
+from pos_server.pricing import badge_for, badges, price_cart
 
 from . import cart as store_cart, storefront, themes
 from .views import menu_sections, theme_page
@@ -53,13 +53,13 @@ def _menu_tabs(selected_id):
     return menus, selected
 
 
-def _item(obj, pictures, index):
+def _item(obj, pictures, index, deals=None):
     is_combo = isinstance(obj, Combo)
     diets = [] if is_combo else [d["short"] for d in dish_info.dish_diets(obj)]
     available = obj.available
     return {"obj": obj, "is_combo": is_combo, "price": store_cart.money(obj.standard_price() if is_combo else obj.price),
             "diets": [d for d in diets if d in ("V", "VG", "GF")], "sold_out": not available,
-            "picture": storefront.picture(obj, pictures), "tone": index % 4,
+            "picture": storefront.picture(obj, pictures), "tone": index % 4, "deal": badge_for(deals or {}, obj),
             "url": f"?{'combo' if is_combo else 'dish'}={obj.id}"}
 
 
@@ -72,11 +72,12 @@ def menu_page(request, sheet_post=None):
     tabs, selected = _menu_tabs(actual)
     menu = selected["menu"] if selected else None
     sections = []
+    deals = badges("online")  # automatic discounts running now (the admin's Discounts page)
     for n, (station, items) in enumerate(menu_sections(menu)):
         visible = [obj for obj in items if getattr(obj, "visible_in_menu", True) and not getattr(obj, "archived", False)]
         if visible:
             sections.append({"id": f"s{station.id}", "title": station.menu_heading or station.name,
-                             "items": [_item(obj, pictures, i + n) for i, obj in enumerate(visible)]})
+                             "items": [_item(obj, pictures, i + n, deals) for i, obj in enumerate(visible)]})
     notice, notice_kind = "", "good"
     if selected and selected["state"] == "now":
         notice = _("%(menu)s is being served now. Choose pickup or delivery, and when, at checkout.") % {"menu": menu.title}
@@ -244,9 +245,13 @@ def _apply_op(request, state, op, post):
         else:
             priced, _p = store_cart.priced(request)
             try:
-                price_cart(store_cart.plain(cart["lines"]), order_discount={"code": code}, channel="web", to_go=True, strict=True)
+                tried = price_cart(store_cart.plain(cart["lines"]), order_discount={"code": code}, channel="web", to_go=True, strict=True,
+                                   customer=request.user if request.user.is_authenticated else None)
                 cart["coupon"] = code.upper()
-                messages.success(request, _("%(code)s applied.") % {"code": code.upper()})
+                if tried.order_discount:
+                    messages.success(request, _("%(code)s applied.") % {"code": code.upper()})
+                else:  # an automatic discount saves more
+                    messages.info(request, tried.order_discount_error)
             except OrderError as e:
                 messages.error(request, str(e))
         store_cart.save(request, cart)

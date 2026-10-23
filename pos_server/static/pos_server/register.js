@@ -700,6 +700,9 @@ function renderTotals() {
             const pick = lineAskedPick(line);
             entries.push(discEntry(`${titleOf(line)}${pick ? " · " + pick : ""} × ${line.qty}`, `${d.label} · ${d.short}`, d.amount));
         }
+        if (quote.autoDiscount?.amount) {
+            entries.push(discEntry(t("Applied by itself"), `${quote.autoDiscount.label} · ${quote.autoDiscount.short}`, quote.autoDiscount.amount));
+        }
         if (quote.orderDiscount?.amount) {
             entries.push(discEntry(t("Whole order"), `${quote.orderDiscount.label} · ${quote.orderDiscount.short}`, quote.orderDiscount.amount));
         }

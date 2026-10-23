@@ -1090,6 +1090,19 @@ class Command(BaseCommand):
                  ends_on=datetime.date.today() - datetime.timedelta(days=50)),
             dict(name="$3 off patio orders", kind="amt", value="3.00", scope="any", code="PATIO3", min_subtotal="15.00",
                  channels=["store"], active=False),
+            # Automatic discounts (the admin's Discounts page): they apply by themselves to every order they fit
+            dict(name="Early bird pastries", kind="pct", value="15", scope="order", automatic=True, target="items", badge=True,
+                 start_time=datetime.time(7), end_time=datetime.time(9), channels=["store", "pickup", "delivery"],
+                 starts_on=datetime.date.today() - datetime.timedelta(days=50)),
+            dict(name="Free delivery over $40", kind="pct", value="100", scope="order", automatic=True, target="delivery",
+                 min_subtotal="40.00", channels=["delivery"], starts_on=datetime.date.today() - datetime.timedelta(days=200)),
+            dict(name="Staff meal", kind="pct", value="50", max_amount="15.00", scope="order", automatic=True, audience="staff",
+                 channels=["store", "pickup"]),
+            dict(name="Members save 5%", kind="pct", value="5", scope="order", automatic=True, audience="members", stacks=True,
+                 channels=["pickup", "delivery"]),
+            dict(name="Winter warmers", kind="pct", value="10", scope="order", automatic=True, target="items", badge=True,
+                 channels=["store", "pickup", "delivery"], starts_on=datetime.date.today() + datetime.timedelta(days=40),
+                 ends_on=datetime.date.today() + datetime.timedelta(days=130)),
         ]
         for position, spec in enumerate(specs):
             spec = {**spec, "value": Decimal(spec["value"]), "position": position}
@@ -1101,6 +1114,10 @@ class Command(BaseCommand):
                 discount.combos.set([self.combos["Lunch combo"]])
             if created and discount.code == "DRINKS10":
                 discount.dishes.set(Dish.objects.filter(station__code="bar"))
+            if created and discount.name == "Early bird pastries":
+                discount.dishes.set(Dish.objects.filter(station__code="bakery"))
+            if created and discount.name == "Winter warmers":
+                discount.dishes.set(Dish.objects.filter(station__code="bar", title__iregex=r"latte|chocolate|tea|cocoa|cider"))
 
     # ---------- store ----------
 
