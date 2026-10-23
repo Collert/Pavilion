@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `shifts[/pars]`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -618,6 +618,18 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   promotes an existing account or makes a new one (username = email, no password) and can email an invite
   (`staff_invite`) to `users/welcome/<uid>/<token>`, where they set a password (Django's reset token: one use, a few
   days).
+- **Shifts** (`admin_shifts`, `shifts.py`, 2026-10-22): a week strip (shifts, hours and conflicts or open shifts
+  per day) and one day's timeline, by staff or by role: open shifts on top, each person's shifts as blocks (dashed:
+  open; ringed amber: unpublished; striped red: a conflict), their unavailability and time off hatched, hours this
+  week (red over 40), the store's open hours and a now line. Coverage compares each hour with the pars (short hours
+  link to a new shift). The drawer (`?shift=<id>` or `?new=1&u&role&start`) edits who, role, times, unpaid break,
+  note and copies on other days, with the problems (time off, unavailable, overlaps, not their role, no meal break)
+  worked out as you change it (op=preview). Shifts are saved as they're made, dragged (`shifts.js`: op=move) or
+  deleted (a published one is kept as `deleted` until Publish); **Publish** makes them what staff see and emails
+  everyone whose schedule changed.
+- **Shift pars** (`admin_shift_pars`, `pars.py`): the weekly pars and seasonal ones (dates, weekdays, add on top or
+  replace), each day's roles as an hour strip and time windows with a people stepper, copy a day to others. One form
+  with Save (session draft).
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
   artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
   the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add

@@ -2262,3 +2262,78 @@ class StaffPageTests(AdminFixture, TestCase):
         lena.refresh_from_db()
         self.assertTrue(lena.check_password("plum-ladder-91"))
         self.assertEqual(self.client.get(link).status_code, 400)
+
+
+
+class ShiftPagesTests(AdminFixture, TestCase):
+    """Shifts and Shift pars (admin_portal/shifts.py, pars.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        from users.models import Role, Staff
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.staff.first_name = "Marco"
+        self.staff.save()
+        Staff.objects.get_or_create(user=self.staff)[0].roles.add(self.cook)
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_shifts")
+        self.week = {"week": "2026-10-19", "day": "1", "group": "staff", "cov": "1"}
+
+    def test_making_moving_deleting_and_publishing_shifts(self):
+        from team.models import Shift
+        response = self.client.post(self.url, {**self.week, "op": "save", "user": self.staff.id, "role": self.cook.id,
+                                               "start": "420", "end": "900", "brk": "30", "note": "Prep", "also": ["3", "1"]}, follow=True)
+        self.assertContains(response, "Shift added on 2 days.")
+        self.assertEqual(sorted(str(s.date) for s in Shift.objects.all()), ["2026-10-20", "2026-10-22"])
+        h = self.client.get(self.url, self.week).context["h"]
+        row = next(r for r in h["rows"] if r.get("uid") == self.staff.id)
+        self.assertEqual((row["hrs"], row["blocks"][0]["label"], h["unpub"]), ("15h", "Cook", 2))
+        shift = Shift.objects.get(date="2026-10-20")
+        self.client.post(self.url, {**self.week, "op": "move", "id": shift.id, "user": "", "role": "", "start": "615"})
+        shift.refresh_from_db()
+        self.assertEqual((shift.user, shift.start, shift.end), (None, 600, 1080))  # open now, on the half hour, same length
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.url, {**self.week, "op": "publish"}, follow=True)
+        self.assertContains(response, "Schedule published. 1 staff member told about their changes.")
+        self.assertFalse(Shift.objects.filter(published=False).exists())
+        self.client.post(self.url, {**self.week, "op": "delete", "id": shift.id})
+        shift.refresh_from_db()
+        self.assertTrue(shift.deleted)  # kept until published, so staff can be told
+        self.assertEqual(self.client.post(self.url, {**self.week, "op": "save", "start": "600", "end": "540"}).status_code, 302)
+        self.assertEqual(Shift.objects.count(), 2)  # an end before the start isn't saved
+
+    def test_drawer_preview_and_coverage(self):
+        from team import schedule
+        weekly = schedule.weekly()
+        weekly.pars = {"1": {str(self.cook.id): [[600, 840, 2]]}}
+        weekly.save()
+        h = self.client.get(self.url, {**self.week, "new": "1", "u": self.staff.id, "start": "660"}).context["h"]
+        self.assertEqual((h["drawer"]["d"]["start"], h["drawer"]["d"]["role"], h["drawer"]["title"]), (660, self.cook.id, "New shift"))
+        h = self.client.post(self.url, {**self.week, "op": "preview", "user": self.staff.id, "role": self.cook.id, "start": "600",
+                                        "end": "960", "brk": "0"}).context["h"]
+        self.assertIn("Shifts over 5 hours usually need a 30 minute meal break.", h["drawer"]["issues"])
+        cook = next(c for c in h["cov"] if c["r"] == self.cook)
+        self.assertEqual((cook["cells"][10]["t"], cook["cells"][10]["tone"], cook["short"]), ("0/2", "short", 4))
+
+    def test_pars_editor(self):
+        from team.models import ParSet
+        url = reverse("admin_shift_pars")
+        x = self.client.get(url).context["x"]
+        self.assertEqual(x["e"]["kind"], "weekly")
+        self.client.post(url, {"op": "day:4"})
+        x = self.client.post(url, {"op": f"add:{self.cook.id}"}).context["x"]
+        self.assertEqual(x["status"], "Unsaved changes")
+        self.client.post(url, {"op": f"more:{self.cook.id}:0", f"w-{self.cook.id}-0-a": "1020", f"w-{self.cook.id}-0-b": "1200"})
+        x = self.client.post(url, {"op": "copy", "copy": ["5", "6"]}).context["x"]
+        self.assertEqual([d["sub"] for d in x["days"]][4:], ["6h", "6h", "6h"])
+        self.client.post(url, {"op": "season"})
+        x = self.client.post(url, {"op": "preview", "name": "", "start": "2026-12-01", "end": "2026-12-31", "mode": "replace"}).context["x"]
+        self.assertFalse(x["can_save"])
+        self.client.post(url, {"op": "preview", "name": "Holiday rush", "start": "2026-12-01", "end": "2026-12-31", "mode": "replace"})
+        self.assertRedirects(self.client.post(url, {"op": "save", "name": "Holiday rush", "start": "2026-12-01", "end": "2026-12-31", "mode": "replace"}),
+                             url, fetch_redirect_response=False)
+        weekly = ParSet.objects.get(kind="weekly")
+        self.assertEqual(weekly.pars["4"], {str(self.cook.id): [[1020, 1200, 2]]})
+        self.assertEqual(ParSet.objects.get(kind="season").mode, "replace")

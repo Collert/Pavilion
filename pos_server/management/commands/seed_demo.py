@@ -98,6 +98,7 @@ class Command(BaseCommand):
             self.seed_services()
             self.seed_catering()
             self.seed_audio()
+            self.seed_team()
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
@@ -1194,6 +1195,52 @@ class Command(BaseCommand):
         # One that was declined, so the counts skip it
         Booking.objects.create(service=services[0], name="Late request", date=today + datetime.timedelta(days=1), amount=4,
                                status=Booking.DECLINED, total=Decimal("152.00"), created_at=now - datetime.timedelta(days=2))
+
+    def seed_team(self):
+        """The schedule: weekly pars (and a holiday-rush seasonal par), this week's shifts (mostly published, a couple
+        of changes waiting, open shifts to fill), Dana's availability and Priya's approved day off."""
+        from team.models import Availability, ParSet, Shift, TimeOff
+        from team.schedule import snapshot, weekly
+        from users.models import Role
+        roles = {r.name: str(r.id) for r in Role.objects.all()}
+        T = lambda h, m=0: h * 60 + m  # noqa: E731
+        usual = {"Manager": [[T(8), T(16, 30), 1]], "Cook": [[T(7), T(21), 1], [T(17), T(19), 2]], "Barista": [[T(7), T(14, 30), 1]],
+                 "Cashier": [[T(15), T(21), 1]], "Server": [[T(11), T(14), 1]], "Dishwasher": [[T(17), T(21, 30), 1]],
+                 "Delivery": [[T(11), T(14), 1], [T(17), T(21), 1]]}
+        busy = {**usual, "Cook": [[T(7), T(21), 1], [T(11), T(14), 2], [T(17), T(20), 2]], "Server": [[T(11), T(14), 1], [T(17), T(21), 2]]}
+        pars = weekly()
+        pars.pars = {str(d): {roles[name]: wins for name, wins in (busy if d >= 4 else usual).items() if name in roles} for d in range(7)}
+        pars.save()
+        year = timezone.localdate().year
+        ParSet.objects.get_or_create(name="Holiday rush", defaults={
+            "kind": ParSet.SEASON, "mode": ParSet.ADD, "start": datetime.date(year, 12, 1), "end": datetime.date(year, 12, 31), "days": [4, 5, 6],
+            "pars": {str(d): {roles["Cook"]: [[T(17), T(20), 1]], roles["Cashier"]: [[T(11), T(15), 1]]} for d in (4, 5, 6)}})
+        people = {u.username: u for u in User.objects.filter(username__in=["admin", "cashier", "priya", "courier"])}
+        role = {name: Role.objects.get(name=name) for name in roles}
+        today = timezone.localdate()
+        monday = today - datetime.timedelta(days=today.weekday())
+        plan = [("admin", "Manager", T(8), T(16, 30)), ("cashier", "Barista", T(6, 30), T(14, 30)), ("priya", "Cashier", T(15), T(21)),
+                ("courier", "Delivery", T(11), T(14)), ("courier", "Delivery", T(17), T(21)), (None, "Cook", T(7), T(15))]
+        off = {"admin": [5, 6], "cashier": [2, 3], "priya": [0], "courier": [1]}
+        for d in range(7):
+            day = monday + datetime.timedelta(days=d)
+            for who, rname, a, b in plan:
+                if who and d in off.get(who, []):
+                    continue
+                shift = Shift(user=people.get(who), role=role[rname], date=day, start=a, end=b, break_minutes=30 if b - a >= 360 else 0)
+                shift.published, shift.published_as = True, snapshot(shift)
+                shift.save()
+            if d == 4:
+                Shift.objects.create(user=None, role=role["Server"], date=day, start=T(17), end=T(21))
+        tuesday = monday + datetime.timedelta(days=1)
+        Shift.objects.create(user=people["cashier"], role=role["Cashier"], date=tuesday, start=T(15), end=T(17),
+                             note="Covering the register until the evening cashier is in")  # not published yet
+        Availability.objects.create(user=people["cashier"], status=Availability.APPROVED, effective=monday - datetime.timedelta(days=30),
+                                    reason="Classes in the evenings.", decided_at=timezone.now(), decided_by=people["admin"],
+                                    windows={str(d): [[T(6), T(16)]] for d in range(7)})
+        saturday = monday + datetime.timedelta(days=5)
+        TimeOff.objects.create(user=people["priya"], first_day=saturday, last_day=saturday, category="Personal", status=TimeOff.APPROVED,
+                               reason="Family birthday.", decided_at=timezone.now(), decided_by=people["admin"])
 
     def seed_audio(self):
         """Audio channels for the screens, and a small library to play on them: short generated tones standing in for

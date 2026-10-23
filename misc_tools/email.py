@@ -85,6 +85,11 @@ KINDS = {
         "A message about your catering order · {{ .Tx.Data.number }}",
         _wrap('<p>{{ .Tx.Data.message }}</p><p><a href="{{ .Tx.Data.order_url }}">Reply on your order page</a></p>'),
     ),
+    "schedule_changed": (
+        "Your schedule changed",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your schedule for the next two weeks:</p>'
+              '<ul>{{ range .Tx.Data.shifts }}<li>{{ . }}</li>{{ else }}<li>No shifts.</li>{{ end }}</ul>'),
+    ),
     "staff_invite": (
         "You're on the team at {{ .Tx.Data.store }}",
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.store }} added you to its staff in Pavilion. '

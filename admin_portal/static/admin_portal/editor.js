@@ -7,7 +7,7 @@ const SAVES = ["save", "duplicate", "archive", "restore"];
 
 document.addEventListener("change", (event) => {
     const form = event.target.closest("form[data-editor]");
-    if (!form) return;
+    if (!form || event.target.matches("[data-no-preview]")) return;  // e.g. picking days in a menu sent by its own button
     // Files kept as soon as they're picked (a restock's receipt): send it now, then clear the field
     if (event.target.matches("[data-upload]")) {
         form.requestSubmit(form.querySelector("[data-preview]"));

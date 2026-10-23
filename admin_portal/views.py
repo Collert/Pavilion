@@ -40,6 +40,8 @@ from . import audio as audio_data
 from . import events as events_data
 from . import hours as hours_data
 from . import staff as staff_data
+from . import shifts as shifts_data
+from . import pars as pars_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1252,6 +1254,66 @@ def staff(request):
         st["add"] = st["confirm"] = None  # a fresh visit: the draft stays, the dialog and the "are you sure" don't
         staff_data.store(request.session, st)
     return page(request, "admin_portal/staff.html", "staff", {"s": staff_data.page(st, users, request.user)})
+
+
+@superuser_required
+def shifts(request):
+    """Shifts: the week's schedule (admin_portal/shifts.py). Shifts save as they're made, moved or deleted; Publish
+    tells staff."""
+    from team import schedule
+    from team.models import Shift
+    if request.method == "POST":
+        st = shifts_data.state(request.POST)
+        op = request.POST.get("op", "")
+        shift = Shift.objects.filter(pk=shifts_data._int(request.POST.get("id"))).select_related("user").first()
+        if op == "preview":  # the drawer, worked out again from what's been picked (nothing saved)
+            draft = shifts_data.from_post(request.POST)
+            data = shifts_data.page(st, open_shift=shift, new={} if not shift else None, draft=draft)
+            return page(request, "admin_portal/shifts.html", "shifts", {"h": data})
+        if op == "save":
+            draft = shifts_data.from_post(request.POST)
+            if draft["end"] <= draft["start"]:
+                messages.error(request, _("The shift ends before it starts."))
+                return redirect(reverse("admin_shifts") + shifts_data.url(st, shift=draft["id"], new=None if draft["id"] else 1))
+            messages.success(request, shifts_data.save(st, draft))
+        elif op == "delete" and shift:
+            messages.success(request, shifts_data.delete(shift))
+        elif op == "move" and shift:
+            messages.success(request, shifts_data.move(shift, shifts_data._int(request.POST.get("user")), shifts_data._int(request.POST.get("start"), shift.start),
+                                                       shifts_data._int(request.POST.get("role"))))
+        elif op == "publish":
+            n = schedule.publish(request)
+            messages.success(request, ngettext("Schedule published. %(n)d staff member told about their changes.",
+                                               "Schedule published. %(n)d staff told about their changes.", n) % {"n": n})
+        return redirect(reverse("admin_shifts") + shifts_data.url(st))
+    st = shifts_data.state(request.GET)
+    shift = Shift.objects.filter(pk=shifts_data._int(request.GET.get("shift")), deleted=False).first() if request.GET.get("shift") else None
+    new = request.GET if request.GET.get("new") == "1" else None
+    return page(request, "admin_portal/shifts.html", "shifts", {"h": shifts_data.page(st, open_shift=shift, new=new)})
+
+
+@superuser_required
+def shift_pars(request):
+    """Shift pars: how many people each role needs (admin_portal/pars.py), one form with Save."""
+    st = pars_data.state(request.session)
+    if request.method == "POST":
+        pars_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        if op == "save":
+            bad = [pars_data.problem(x) for x in st["sets"] if pars_data.problem(x)]
+            if bad:
+                messages.error(request, bad[0])
+            else:
+                pars_data.save(st)
+                request.session.pop(pars_data.KEY, None)
+                messages.success(request, _("Pars saved. The coverage strip on Shifts uses them now."))
+                return redirect("admin_shift_pars")
+        elif op != "preview":
+            toast = pars_data.apply_op(st, op, request.POST)
+            if toast:
+                messages.success(request, toast)
+        request.session[pars_data.KEY] = st
+    return page(request, "admin_portal/pars.html", "shifts", {"x": pars_data.page(st)})
 
 
 # ---------- branding ----------
