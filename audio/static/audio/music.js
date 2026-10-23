@@ -21,7 +21,7 @@ function tick() {
     const pos = Math.min(length, Math.max(0, playing ? (Date.now() + skew - Number(clock.dataset.started)) / 1000 : Number(clock.dataset.offset)));
     const range = clock.querySelector("[data-seek]");
     if (range && range !== holding) {
-        range.value = String(Math.floor(pos));
+        range.value = String(pos);
         range.style.setProperty("--pct", `${(pos / length) * 100}%`);
         put(clock.querySelector("[data-pos]"), fmt(pos));
         put(clock.querySelector("[data-left]"), `-${fmt(length - pos)}`);

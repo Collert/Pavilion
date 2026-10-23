@@ -2,7 +2,8 @@
 {% load static i18n admin_tags %}
 {% comment %}
 The Audio app (audio/views.py, pages.py). The rail is the design's AudioRail: three music and three voice channels
-(the open one always in view) and "See all". Pages are server-rendered and kept current by static/js/live-page.js:
+(the open one always in view) and "See all". In portrait (phones) it's the staff screens' bottom bar instead: Music
+and Voice (the channel lists, where you pick one), then Apps and the clock. Pages are server-rendered and kept current by static/js/live-page.js:
 buttons post and come back, "audio" nudges (a song changing, someone talking) refetch and swap what changed.
 {% endcomment %}
 {% block title %}{% block page_title %}{% trans "Audio" %}{% endblock %} · Pavilion{% endblock %}
@@ -35,6 +36,16 @@ buttons post and come back, "audio" nudges (a song changing, someone talking) re
     <span class="au-rail-spacer"></span>
     <a class="au-apps" href="{% url 'app_switcher_index' %}">{% icon "M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z" 16 2.4 %}{% trans "Apps" %}</a>
 </aside>
+<nav class="rail au-bar" aria-label="{% trans 'Audio' %}">
+    <div class="rail-logo" role="img" aria-label="{% trans 'Audio' %}">{% icon "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6 M18.5 6.5a7.5 7.5 0 0 1 0 11" 24 2.2 %}</div>
+    <div class="rail-rule" aria-hidden="true"></div>
+    <div class="au-bar-modes" id="au-bar" data-region>
+    <a class="rail-item" href="{% url 'audio_index' %}?type=music"{% if section == "music" %} aria-current="page"{% endif %}>{% icon "M9 18V5l11-2v13 M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3z M20 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z" 22 2 %}{% trans "Music" %}</a>
+    <a class="rail-item" href="{% url 'audio_index' %}?type=voice"{% if section == "voice" %} aria-current="page"{% endif %}>{% icon "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5 11a7 7 0 0 0 14 0 M12 18v3" 22 2 %}{% trans "Voice" %}</a>
+    </div>
+    <div class="rail-spacer"></div>
+    {% include "pos_server/rail_foot.html" %}
+</nav>
 {% endblock %}
 
 {% block body %}

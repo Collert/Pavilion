@@ -40,7 +40,7 @@ long press.
             <div class="au-np-artist">{{ m.artist_line }}</div>
             <div class="au-seek" data-clock data-started="{{ m.started_ms }}" data-offset="{{ m.offset }}" data-length="{{ m.length }}"{% if m.playing %} data-playing{% endif %}>
                 <span class="num au-time" data-pos>{{ m.pos }}</span>
-                <input class="au-range" type="range" name="value" form="au-seek" min="0" max="{{ m.length }}" step="1" value="{{ m.offset }}"
+                <input class="au-range" type="range" name="value" form="au-seek" min="0" max="{{ m.length }}" step="any" value="{{ m.offset }}"
                        aria-label="{% trans 'Position' %}" data-seek data-submit-on-change style="--pct: {{ m.pct }}%"{% if not m.track %} disabled{% endif %}>
                 <span class="num au-time right" data-left>-{{ m.left }}</span>
             </div>

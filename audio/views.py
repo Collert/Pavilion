@@ -58,7 +58,7 @@ def index(request):
     kind = request.GET.get("type", "all")
     kind = kind if kind in ("all", "music", "voice") else "all"
     data = pages.channels_page(kind, request.GET.get("q", "")[:60])
-    return _page(request, "audio/channels.html", {"p": data, "rail": data["rail"]})
+    return _page(request, "audio/channels.html", {"p": data, "rail": data["rail"], "section": kind})
 
 
 def _int(value):
@@ -84,7 +84,7 @@ def music_channel(request, id):
     query = request.GET.copy()
     query.pop("sheet", None)  # after an action from the sheet, come back without it
     back = request.path + ("?" + query.urlencode() if query else "")
-    return _page(request, "audio/music.html", {"m": data, "rail": pages.rail(channel.id), "back": back,
+    return _page(request, "audio/music.html", {"m": data, "rail": pages.rail(channel.id), "back": back, "section": "music",
                                                 "close_sheet": back})
 
 
@@ -140,7 +140,7 @@ def voice_channel(request, id):
         if request.POST.get("op") == "chime" and not voice.talking(channel.id):
             voice.broadcast(channel.id, {"type": "clip", "url": static(CHIME), "text": "", "chime": True})
         return redirect("audio_voice", id=channel.id)
-    return _page(request, "audio/voice.html", {"v": pages.voice_page(channel), "rail": pages.rail(channel.id),
+    return _page(request, "audio/voice.html", {"v": pages.voice_page(channel), "rail": pages.rail(channel.id), "section": "voice",
                                                 "chime": static(CHIME)})
 
 

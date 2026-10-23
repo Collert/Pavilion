@@ -303,22 +303,100 @@
     .au-vinyl { width: 140px; height: 140px; right: -24px; }
     .au-np-title { font-size: 32px; line-height: 38px; }
 }
+/* The bottom bar (portrait): staff.css's rail, as on the other staff screens */
+.au-bar { display: none; }
+.au-bar-modes { display: contents; }
+
 @media (orientation: portrait) {
-    .au-rail { order: 0; width: auto; flex: none; flex-direction: row; align-items: center; padding: 12px 14px; border-radius: 24px; gap: 10px; }
-    .au-rail-blob, .au-brand-sub, .au-rail-title, .au-ch-sub, .au-all, .au-rail-spacer { display: none; }
-    .au-brand { padding: 0; }
-    .au-brand-name { display: none; }
-    .au-rail-groups { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; }
-    .au-rail-nav { flex-direction: row; gap: 6px; }
-    .au-ch { padding: 6px 12px 6px 6px; white-space: nowrap; }
-    .au-ch-name { font-size: 14px; }
-    .au-apps { margin: 0; padding: 0 16px; height: 44px; }
-    .au-cards { grid-template-columns: 1fr; }
+    .au-rail { display: none; }
+    .au-bar { display: flex; height: 76px; padding: 0 8px 0 10px; gap: 2px; border-radius: 26px; bottom: 8px; }
+    .au-bar .rail-logo { margin: 0; }
+    .au-bar .rail-rule { height: 36px; margin: 0 4px; }
+    .au-bar .rail-item { width: 60px; height: 60px; border-radius: 18px; flex: none; }
+    .au-bar .rail-clock { width: 52px; flex: none; padding: 0; }
+    .au-bar .rail-time { font-size: 16px; line-height: 1.1; }
+
+    /* the page scrolls as one, the bar stays put */
+    .au-main { overflow-y: auto; scrollbar-width: none; }
+    .au-now-wrap, .au-voice { flex: none; }
+    .au-scroll { flex: none; overflow: visible; }
+    .au-queue, .au-stage, .au-recent { flex: none; overflow: visible; }
+    .au-q-rows, .au-recent-rows { overflow: visible; }
+    #au-mini:has(.au-mini) { position: sticky; bottom: 0; z-index: 5; flex: none; }
+    .au-mini { position: relative; }
+    .au-scroll.pad { padding-bottom: 8px; }
+    .au-scrim { z-index: 40; }
+    .au-sheet { position: fixed; left: 0; right: 0; bottom: 100px; width: auto; max-width: 460px; margin: 0 auto; z-index: 41; }
+    .au-toasts { bottom: 104px; }
+    .au-toast { white-space: normal; height: auto; min-height: 52px; padding: 10px 20px; border-radius: 26px; }
+
+    .au-head { flex-wrap: wrap; }
+    .au-cards { grid-template-columns: minmax(0, 1fr); }
     .au-pl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .au-now { flex-direction: column; align-items: stretch; }
+    .au-voice { flex-direction: column; }
+    .au-main > * { min-width: 0; }
+    .au-now { flex-direction: column; align-items: stretch; gap: 18px; }
     .au-disc { margin: 0 auto; }
     .au-now-text { padding-left: 0; }
-    .au-voice { flex-direction: column; }
-    .au-recent { width: auto; flex: 1; min-height: 200px; }
-    .au-stage { flex: none; }
+    .au-recent { width: auto; }
+    .au-recent-rows { padding-bottom: 16px; }
+}
+@media (orientation: portrait) and (max-width: 600px) {
+    .au-main { gap: 12px; }
+    .au-head { padding: 0 2px; gap: 10px; }
+    .au-head > .grow { flex-basis: 100%; }
+    .au-kicker { font-size: 13px; }
+    .au-title { font-size: 28px; line-height: 34px; }
+    .au-tabs { width: 100%; }
+    .au-tab { flex: 1; justify-content: center; padding: 0 10px; }
+    .au-speaker { width: 100%; }
+    .au-speaker span { justify-content: center; }
+
+    .au-now { padding: 18px; border-radius: 24px; }
+    .au-disc, .au-cover { width: 200px; height: 200px; }
+    .au-disc { margin-right: auto; margin-left: calc(50% - 125px); }
+    .au-vinyl { width: 150px; height: 150px; right: -50px; top: 25px; }
+    .au-np-title { font-size: 28px; line-height: 34px; white-space: normal; }
+    .au-np-artist { font-size: 15px; }
+    .au-controls { flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+    .au-controls > .au-grow { display: none; }
+    .au-controls::before { content: ""; order: 1; flex-basis: 100%; height: 0; }  /* the volume on its own row */
+    .au-controls > svg { margin-left: 6px; }
+    .au-controls > svg, .au-controls .au-vol, .au-controls .au-vol-n { order: 1; margin-top: 10px; }
+    .au-controls .au-vol { flex: 1; width: auto; }
+    .au-play { width: 64px; height: 64px; }
+
+    .au-queue { border-radius: 24px; }
+    .au-q-head { flex-wrap: wrap; padding: 16px 16px 10px; row-gap: 8px; }
+    .au-q-head h2 { flex: none; }
+    .au-q-meta { flex: 1 1 auto; }
+    .au-chip { order: 1; }
+    .au-q-head .au-soft-btn { order: 1; margin-left: auto; }
+    .au-clear { order: 1; }
+    .au-q-rows { padding: 0 8px 10px; }
+    .au-q-row { gap: 8px; padding: 0 4px; }
+    .au-grip { display: none; }
+    .au-q-title { font-size: 14px; }
+    .au-tag { display: none; }
+
+    .au-pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .au-song-album { display: none; }
+    .au-songs-head { flex-wrap: wrap; }
+    .au-pl-hero { flex-direction: column; align-items: flex-start; }
+    .au-pl-title { font-size: 30px; line-height: 36px; }
+    .au-mini { height: 72px; gap: 8px; padding: 0 10px; }
+    .au-mini .au-ctl.light, .au-mini-q { display: none; }
+
+    .au-stage { padding: 16px; border-radius: 24px; }
+    .au-status { padding: 12px 14px; }
+    .au-ptt-wrap, .au-ptt { width: min(260px, 64vw); height: min(260px, 64vw); }
+    .au-ptt svg { width: 64px; height: 64px; }
+    .au-ptt-text { font-size: 20px; }
+    .au-wave { gap: 4px; margin-top: 16px; }
+    .au-wave span { width: 5px; }
+    .au-stage-bar { flex-wrap: wrap; padding: 12px; }
+    .au-stage-bar > .au-grow { flex-basis: 100%; height: 0; }
+    .au-stage-bar .au-vol.wide { flex: 1; width: auto; }
+    .au-soft-pill { height: 42px; padding: 0 14px; }
+    .au-recent { border-radius: 24px; }
 }
