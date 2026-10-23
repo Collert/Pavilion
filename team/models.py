@@ -8,6 +8,9 @@ needs, and when people can't work. Times of day are minutes since midnight (0-14
   them between two dates (team/schedule.py works out a day's needs).
 - Availability: when someone can work, by weekday, from a date (until a date or for good).
 - TimeOff: days (or part of a day) someone is off. Both are asked for and approved on Availability requests.
+- TimeEntry and TimeBreak: when someone actually worked, punched at the time clock (team/clock.py): a Shift is the
+  plan, a TimeEntry what happened. Clocking in early or off the schedule needs a manager; off the schedule it adds a
+  Shift (`added_shift`) whose times follow the entry.
 """
 from django.conf import settings
 from django.db import models
@@ -99,3 +102,40 @@ class TimeOff(models.Model):
 
     class Meta:
         ordering = ["-first_day", "-id"]
+
+
+class TimeEntry(models.Model):
+    """One stretch of work from clocking in to clocking out (team/clock.py), with its unpaid breaks."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="time_entries")
+    shift = models.ForeignKey(Shift, null=True, blank=True, on_delete=models.SET_NULL, related_name="time_entries",
+                              help_text="The scheduled shift it's for")
+    clock_in = models.DateTimeField(default=timezone.now)
+    clock_out = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+                                    help_text="The manager who let them clock in early or off the schedule")
+    added_shift = models.BooleanField(default=False, help_text="Its shift was added at the time clock")
+
+    class Meta:
+        ordering = ["-clock_in", "-id"]
+
+    def __str__(self):
+        return f"{self.user} {self.clock_in:%Y-%m-%d %H:%M}"
+
+    def break_seconds(self, now=None) -> float:
+        now = now or timezone.now()
+        return sum(((b.end or now) - b.start).total_seconds() for b in self.breaks.all())
+
+    def worked_seconds(self, now=None) -> float:
+        """Time clocked in, less unpaid breaks."""
+        now = now or timezone.now()
+        return max(0.0, ((self.clock_out or now) - self.clock_in).total_seconds() - self.break_seconds(now))
+
+
+class TimeBreak(models.Model):
+    """An unpaid break within a TimeEntry."""
+    entry = models.ForeignKey(TimeEntry, on_delete=models.CASCADE, related_name="breaks")
+    start = models.DateTimeField(default=timezone.now)
+    end = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["start", "id"]

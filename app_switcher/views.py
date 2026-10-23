@@ -9,7 +9,7 @@ from pos_server.models import EligibleDevice
 from users.access import can
 
 # Tiles on the app switcher: (url name, title, description, icon path, icon background, icon colour, the
-# users/access.py app code a group must give)
+# users/access.py app code a group must give, or None: everyone)
 APPS = [
     ("pos", _("Register"), _("Ring up orders and take payment"),
      "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z", "#F4A93B", "#14261F", "app.register"),
@@ -28,6 +28,8 @@ APPS = [
      "M4 5h16 M4 10h16 M4 15h10 M4 20h7", "#FBE9E5", "#8E2914", "app.screens"),
     ("audio_index", _("Audio"), _("Play music and talk on the speakers"),
      "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6 M18.5 6.5a7.5 7.5 0 0 1 0 11", "#EDE7F8", "#7A5AC8", "app.audio"),
+    ("time_clock", _("Time clock"), _("Clock in, take a break, clock out"),
+     "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2", "#FFF3DD", "#8A4B00", None),
     ("admin_home", _("Admin"), _("Menus, staff, stations and reports"),
      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1",
      "#F1F4F2", "#14261F", "app.admin"),
@@ -52,7 +54,7 @@ def index(request):
     """
     user = request.user
     apps = [{"url": reverse(name), "title": title, "desc": desc, "path": path, "bg": bg, "fg": fg}
-            for name, title, desc, path, bg, fg, code in APPS if can(user, code)]
+            for name, title, desc, path, bg, fg, code in APPS if code is None or can(user, code)]
     return render(request, "app_switcher/index.html", {
         "apps": apps,
         "device_name": device_name(request),

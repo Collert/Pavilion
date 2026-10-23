@@ -663,6 +663,18 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
   starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes
   off every profile; groups stay; archived roles stay on old shifts). One form with Save (session draft).
+- **Time clock** (`/team/clock`, `team/clock.py`, `team/clock_views.py`, 2026-10-22; no mockup, designed after the
+  register's lock screen). The dark side shows the time, who's on the clock (on break dimmed) and who's due in the next
+  three hours (late in red). The panel: who's clocking in (staff with a register PIN, those on the clock and on today's
+  schedule first; or email and password), which lasts one visit (`session["clock"]`, two idle minutes, never a
+  sign-in); then their clock (today's shifts, status, Clock in / Start unpaid break / End break / Clock out, today's
+  punches and time worked), and a done screen that goes back by itself. Rules (`clock.check_in`): from an hour before a
+  published shift until it ends is fine; earlier, or with no shift, a manager approves with their PIN (someone with
+  "Approve clock-ins", `act.clock`; Managers have it). Off the schedule, a published Shift is added (their first
+  role, from when they clock in, ending when they clock out; `TimeEntry.added_shift`). Early, the entry is tied to
+  the upcoming shift. Clocking out adds the minutes to `Staff.minutes_worked`. Punches publish "clock" (registered
+  devices may listen) so every clock's board updates. Clocking in refills "every shift" staff cards, and a card type
+  can work "only while clocked in". The admin doesn't show actual hours yet.
 - **Staff cards** (`admin_staff_cards`, `staffcards.py`, 2026-10-22): card types (`gift_cards.StaffCardType`) with the
   cards issued (`StaffCard`). A type is a *balance* card (an amount that refills every day, week or month at midnight,
   resetting or carrying over up to a limit, or never) or a *discount* card (percent with a per-order cap, or an
@@ -674,8 +686,8 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   cards. The side shows the card and what it does to a sample order, and this month's use. How cards work on orders
   is `gift_cards/staff_cards.py` (refills are worked out when a card is read; `price_cart(staff_cards=…)` takes a
   discount card's discount, `create_order(staff_cards=…, staff_card_amount=…)` takes a balance card's payment as an
-  `OrderPayment` "staff" and records `StaffCardUse`s; rejected orders and refunds put money back). The "every shift"
-  refill and an "only while clocked in" rule wait for a time clock.
+  `OrderPayment` "staff" and records `StaffCardUse`s; rejected orders and refunds put money back). "Every shift"
+  balances refill when they clock in, and "Only while clocked in" needs an open time clock entry.
 - **Groups** (`admin_groups`, `groups.py`, 2026-10-22): what people can open and change. The list (members and how
   much each grants), and the picked group's name, description, members (added on the Staff page), Duplicate and
   Delete, its **Apps** and **Actions** (switches) and **Admin pages**: a grid of the rail's pages by section with View,

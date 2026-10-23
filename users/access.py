@@ -2,7 +2,7 @@
 What each group lets its members do (design: AdminGroups; edited on the admin's Groups page). A permission is a code:
 
 - an app they can open: `app.register`, `app.marking`... (APPS; checked by pos_server.devices.app_required);
-- an action that moves money: `act.discount`, `act.refund`... (ACTIONS; checked where it happens);
+- an action: `act.discount`, `act.refund`, `act.clock`... (ACTIONS; checked where it happens);
 - an admin page and what they can do there: `admin.<page>.view`, `.edit` (add and change) or `.delete` (delete
   and archive). The pages are the admin's rail (admin_portal/nav.py), so a new page shows up here by itself;
   PAGE_LEVELS says which levels a page has. Edit and delete need view. Admin pages also need `app.admin`.
@@ -29,6 +29,7 @@ ACTIONS = [
     ("act.cash", _("Pay cash in and out"), _("Take cash from or add it to the drawer"), "M3 8h18v12H3z M3 12h18 M10 16h4"),
     ("act.reject", _("Reject orders"), _("On order marking; the payment is refunded"), "M6 6l12 12M18 6 6 18"),
     ("act.refund", _("Issue refunds"), _("Refund paid orders in the admin"), "M4 10h11a5 5 0 0 1 0 10h-3 M8 6l-4 4 4 4"),
+    ("act.clock", _("Approve clock-ins"), _("Early or off the schedule, at the time clock"), "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2"),
 ]
 LEVELS = [("view", _("View"), _("See the page")), ("edit", _("Edit"), _("Add and change")),
           ("delete", _("Delete"), _("Delete and archive"))]

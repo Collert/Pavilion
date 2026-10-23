@@ -59,8 +59,9 @@ def _refills_on(t: StaffCardType, day: datetime.date) -> bool:
 
 
 def refills_between(t, since, now) -> int:
-    """How many refill moments (local midnight on a refill day) fall in (since, now]."""
-    if t.kind != StaffCardType.BALANCE or t.refill == "never":
+    """How many refill moments (local midnight on a refill day) fall in (since, now]. "Every shift" cards refill
+    when they clock in instead (clocked_in)."""
+    if t.kind != StaffCardType.BALANCE or t.refill in ("never", "shift"):
         return 0
     first, last = timezone.localdate(since) + datetime.timedelta(days=1), timezone.localdate(now)
     if (last - first).days > 400:
@@ -84,9 +85,25 @@ def refill(card, now=None):
     return card
 
 
+def clocked_in(user, now=None):
+    """Clocking in (team/clock.py) tops up the holder's "every shift" balance cards."""
+    now = now or timezone.now()
+    for card in StaffCard.objects.select_related("type").filter(user=user, revoked_at__isnull=True, type__archived=False,
+                                                                 type__kind=StaffCardType.BALANCE, type__refill="shift"):
+        t = card.type
+        card.balance = t.amount if t.leftover == "reset" else min(card.balance + t.amount, max(t.cap, t.amount))
+        card.refilled_at = now
+        card.save(update_fields=["balance", "refilled_at"])
+
+
+def on_the_clock(user) -> bool:
+    from team.models import TimeEntry
+    return TimeEntry.objects.filter(user=user, clock_out__isnull=True).exists()
+
+
 def next_refill(t, now=None):
     """The date of the next refill, or None."""
-    if t.kind != StaffCardType.BALANCE or t.refill == "never":
+    if t.kind != StaffCardType.BALANCE or t.refill in ("never", "shift"):
         return None
     day = timezone.localdate(now or timezone.now())
     for _i in range(62):
@@ -102,6 +119,8 @@ def ordinal(n) -> str:
 
 def refill_text(t) -> str:
     """'every day', 'every Monday', 'on the 1st of each month', 'on the last day of each month' or ''."""
+    if t.refill == "shift":
+        return _("every shift")
     if t.refill == "day":
         return _("every day")
     if t.refill == "week":
@@ -132,6 +151,8 @@ def problem(card, channel, now=None) -> str:
         return _("%(name)s can’t sign in any more, so their card doesn’t work.") % {"name": holder(card)}
     if not t.live:
         return _("%(card)s cards are turned off.") % {"card": t.name}
+    if t.on_shift and not on_the_clock(card.user):
+        return _("%(card)s works only while %(name)s is clocked in.") % {"card": t.name, "name": card.user.first_name or holder(card)}
     if CHANNEL.get(channel, channel) not in (t.channels or []):
         return _("%(card)s doesn’t work on %(where)s orders.") % {
             "card": t.name, "where": dict(StaffCardType.CHANNELS).get(CHANNEL.get(channel, channel), channel).lower()}

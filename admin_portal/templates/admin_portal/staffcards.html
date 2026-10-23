@@ -109,7 +109,7 @@ the card types (every change posts the draft back, editor.js); Issue and Revoke 
                 <h2 class="disp tm-h2">{% trans "Rules" %}</h2>
                 <div class="sc-rules">
                     {% for k, label, desc in d.rules %}
-                    <button class="tm-switch-row sc-switch" role="switch" aria-checked="{% if k == 'own' and d.e.own or k == 'no_alcohol' and d.e.no_alcohol or k == 'stack' and d.e.stack %}true{% else %}false{% endif %}"{% if k == "stack" and d.is_bal %} hidden{% endif %} name="op" value="flip:{{ k }}">
+                    <button class="tm-switch-row sc-switch" role="switch" aria-checked="{% if k == 'own' and d.e.own or k == 'no_alcohol' and d.e.no_alcohol or k == 'stack' and d.e.stack or k == 'on_shift' and d.e.on_shift %}true{% else %}false{% endif %}"{% if k == "stack" and d.is_bal %} hidden{% endif %} name="op" value="flip:{{ k }}">
                         <span class="grow two-line"><span class="strong">{{ label }}</span><span class="small muted">{{ desc }}</span></span>
                         <span class="sc-sw"><span></span></span>
                     </button>

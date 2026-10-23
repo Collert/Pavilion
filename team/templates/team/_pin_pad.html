@@ -1,0 +1,6 @@
+{% load i18n %}<div class="keypad lock-keys" data-pin-pad>
+    {% for n in "123456789" %}<button type="button" class="key" data-pin-key="{{ n }}" aria-label="{{ n }}">{{ n }}</button>{% endfor %}
+    <button type="button" class="key text" data-pin-key="clear">{% trans "Clear" %}</button>
+    <button type="button" class="key" data-pin-key="0" aria-label="0">0</button>
+    <button type="button" class="key plain" data-pin-key="back" aria-label="{% trans 'Delete last digit' %}"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z M17 9l-6 6 M11 9l6 6"></path></svg></button>
+</div>

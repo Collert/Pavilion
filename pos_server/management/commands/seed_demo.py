@@ -99,6 +99,7 @@ class Command(BaseCommand):
             self.seed_catering()
             self.seed_audio()
             self.seed_team()
+            self.seed_time_clock()
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
@@ -1350,6 +1351,23 @@ class Command(BaseCommand):
             "popups": [{"widget": "order_summary", "params": {}}],
         })
         ScreenSession.objects.get_or_create(screen=board, name="Register 1 display")
+
+    def seed_time_clock(self):
+        """Time clock punches for the published shifts so far: a few minutes either side, a half-hour break on long
+        ones; whoever's shift is on now is still clocked in."""
+        from team.models import Shift, TimeBreak, TimeEntry
+        now = timezone.now()
+        today = timezone.localdate()
+        for shift in Shift.objects.filter(published=True, deleted=False, user__isnull=False, date__lte=today,
+                                          date__gte=today - datetime.timedelta(days=6)):
+            start = timezone.make_aware(datetime.datetime.combine(shift.date, datetime.time())) + datetime.timedelta(minutes=shift.start - random.randint(1, 6))
+            end = timezone.make_aware(datetime.datetime.combine(shift.date, datetime.time())) + datetime.timedelta(minutes=shift.end + random.randint(0, 8))
+            if start > now:
+                continue
+            entry = TimeEntry.objects.create(user=shift.user, shift=shift, clock_in=start, clock_out=end if end <= now else None)
+            if shift.end - shift.start >= 360 and start + datetime.timedelta(hours=4) < now:
+                lunch = start + datetime.timedelta(hours=4)
+                TimeBreak.objects.create(entry=entry, start=lunch, end=lunch + datetime.timedelta(minutes=30) if lunch + datetime.timedelta(minutes=30) < now else None)
 
     def seed_staff_cards(self):
         """The admin's Staff cards: a daily meal balance, a staff discount and a manager's monthly comp, issued to the

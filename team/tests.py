@@ -2,7 +2,8 @@ import datetime
 from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.utils import timezone
 from django.urls import reverse
 
 from users.models import Role, Staff
@@ -103,3 +104,132 @@ class RequestTests(TestCase):
         reqs.decide(req, False, self.boss)
         sat.refresh_from_db()
         self.assertEqual((sat.user, Availability.objects.get(pk=req.pk).status), (self.marco, "declined"))
+
+
+
+class TimeClockTests(TestCase):
+    """team/clock.py: clocking in on time, early or off the schedule, breaks and clocking out."""
+
+    def setUp(self):
+        from users.testing import crew
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.marco = User.objects.create_user("marco", first_name="Marco", is_staff=True)
+        Staff.objects.create(user=self.marco).roles.add(self.cook)
+        self.boss = crew(User.objects.create_user("boss", first_name="Priya", is_staff=True), "act.clock")
+        self.day = timezone.localdate()
+
+    def at(self, hour, minute=0):
+        return timezone.make_aware(datetime.datetime.combine(self.day, datetime.time(hour, minute)))
+
+    def test_on_time_breaks_and_out(self):
+        from . import clock
+        from .models import TimeEntry
+        shift = Shift.objects.create(user=self.marco, role=self.cook, date=self.day, start=T(9), end=T(17), published=True)
+        self.assertTrue(clock.check_in(self.marco, self.at(8, 15))["ok"])  # within the hour before
+        entry = clock.clock_in(self.marco, self.at(8, 15))
+        self.assertEqual((entry.shift, entry.added_shift, clock.state(self.marco)), (shift, False, "in"))
+        clock.start_break(self.marco, self.at(12))
+        self.assertEqual(clock.state(self.marco), "break")
+        with self.assertRaises(clock.ClockError):
+            clock.start_break(self.marco, self.at(12, 5))
+        clock.end_break(self.marco, self.at(12, 30))
+        entry = clock.clock_out(self.marco, self.at(17))
+        self.assertEqual(entry.worked_seconds() // 60, 8 * 60 + 45 - 30)  # 8:15 to 5:00, less the break
+        self.assertEqual(Staff.objects.get(user=self.marco).minutes_worked, 495)
+        self.assertEqual(clock.state(self.marco), "out")
+        self.assertEqual([p["kind"] for p in clock.today(self.marco, self.at(18))], ["in", "break", "out"])
+        self.assertEqual(TimeEntry.objects.count(), 1)
+
+    def test_early_and_off_the_schedule_need_a_manager(self):
+        from . import clock
+        Shift.objects.create(user=self.marco, role=self.cook, date=self.day, start=T(14), end=T(20), published=True)
+        plan = clock.check_in(self.marco, self.at(11))
+        self.assertFalse(plan["ok"])
+        self.assertIn("more than an hour early", plan["reason"])
+        with self.assertRaises(clock.ClockError):
+            clock.clock_in(self.marco, self.at(11))
+        entry = clock.clock_in(self.marco, self.at(11), approver=self.boss)
+        self.assertEqual((entry.approved_by, entry.added_shift, entry.shift.start), (self.boss, False, T(14)))
+        clock.clock_out(self.marco, self.at(20))
+        # Not on the schedule: approved, and a shift is added that follows what happened
+        other = User.objects.create_user("ana", first_name="Ana", is_staff=True)
+        Staff.objects.create(user=other).roles.add(self.cook)
+        self.assertIn("not on the schedule", clock.check_in(other, self.at(10, 3))["reason"])
+        entry = clock.clock_in(other, self.at(10, 3), approver=self.boss)
+        self.assertTrue(entry.added_shift)
+        self.assertEqual((entry.shift.start, entry.shift.role, entry.shift.published), (T(10), self.cook, True))
+        clock.clock_out(other, self.at(13, 40))
+        entry.shift.refresh_from_db()
+        self.assertEqual(entry.shift.end, T(13, 40))
+
+    def test_staff_cards_refill_each_shift_and_can_need_the_clock(self):
+        from decimal import Decimal
+        from gift_cards import staff_cards
+        from gift_cards.models import StaffCard, StaffCardType
+        from . import clock
+        t = StaffCardType.objects.create(name="Shift meal", amount=Decimal("12"), refill="shift", on_shift=True, channels=["store"])
+        card = StaffCard.objects.create(type=t, user=self.marco, number="1234123412341234", balance=Decimal("3"))
+        self.assertIn("only while Marco is clocked in", staff_cards.problem(card, "store"))
+        Shift.objects.create(user=self.marco, role=self.cook, date=self.day, start=0, end=1440, published=True)
+        clock.clock_in(self.marco)
+        card.refresh_from_db()
+        self.assertEqual(card.balance, Decimal("12.00"))
+        self.assertEqual(staff_cards.problem(card, "store"), "")
+
+
+@override_settings(ENFORCE_DEVICE_CHECK=False)
+class TimeClockScreenTests(TestCase):
+    """The time clock screen (team/clock_views.py): who's clocking in, their clock, a manager's approval."""
+
+    def setUp(self):
+        from users.testing import crew
+        self.url = reverse("time_clock")
+        self.marco = User.objects.create_user("marco", first_name="Marco", email="marco@example.com", password="secret-pass", is_staff=True)
+        self.staff = Staff.objects.create(user=self.marco)
+        self.staff.set_pin("1234")
+        self.staff.save()
+        boss = crew(User.objects.create_user("boss", first_name="Priya", is_staff=True), "act.clock")
+        self.manager = Staff.objects.create(user=boss)
+        self.manager.set_pin("2468")
+        self.manager.save()
+
+    def test_pin_off_the_schedule_with_a_managers_ok(self):
+        from .models import TimeEntry
+        page = self.client.get(self.url)
+        self.assertEqual(page.context["view"], "who")
+        self.assertEqual({p["name"] for p in page.context["people"]}, {"Marco", "Priya"})
+        self.client.post(self.url, {"op": "pin", "staff": self.staff.id, "pin": "0000"})
+        self.assertEqual(self.client.get(self.url).context["error"], "That PIN didn’t match. Try again.")
+        self.client.post(self.url, {"op": "pin", "staff": self.staff.id, "pin": "1234"})
+        page = self.client.get(self.url)
+        self.assertEqual((page.context["view"], page.context["me"]["state"]), ("me", "out"))
+        self.client.post(self.url, {"op": "in"})
+        page = self.client.get(self.url)
+        self.assertEqual(page.context["view"], "approve")
+        self.assertEqual([a["name"] for a in page.context["approvers"]], ["Priya"])
+        self.client.post(self.url, {"op": "approve", "staff": self.manager.id, "pin": "2468"})
+        page = self.client.get(self.url)
+        self.assertEqual(page.context["view"], "done")
+        self.assertContains(page, "approved by Priya")
+        entry = TimeEntry.objects.get()
+        self.assertEqual((entry.user, entry.approved_by.first_name, entry.added_shift), (self.marco, "Priya", True))
+        self.client.post(self.url, {"op": "done"})
+        self.assertEqual(self.client.get(self.url).context["board"]["on"][0]["name"], "Marco")
+
+    def test_email_and_password_then_break_and_out(self):
+        Shift.objects.create(user=self.marco, date=timezone.localdate(), start=0, end=1440, published=True)
+        self.client.post(self.url, {"op": "tab:email"})
+        self.client.post(self.url, {"op": "password", "email": "marco@example.com", "password": "wrong"})
+        self.assertIn("didn’t match", self.client.get(self.url).context["error"])
+        self.client.post(self.url, {"op": "password", "email": "MARCO@example.com", "password": "secret-pass"})
+        self.client.post(self.url, {"op": "in"})
+        self.assertContains(self.client.get(self.url), "You’re clocked in, Marco")
+        self.client.post(self.url, {"op": "done"})
+        self.client.post(self.url, {"op": "pin", "staff": self.staff.id, "pin": "1234"})
+        self.client.post(self.url, {"op": "break"})
+        self.client.post(self.url, {"op": "done"})
+        self.client.post(self.url, {"op": "pin", "staff": self.staff.id, "pin": "1234"})
+        self.assertEqual(self.client.get(self.url).context["me"]["state"], "break")
+        self.client.post(self.url, {"op": "out"})
+        self.assertContains(self.client.get(self.url), "You’re clocked out, Marco")
+        self.assertFalse("_auth_user_id" in self.client.session)  # never signed in

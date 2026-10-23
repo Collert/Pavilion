@@ -125,11 +125,13 @@ class StaffCardType(models.Model):
     resets or carries over, up to `cap`). A *discount* card takes a percent or an amount off (`discount_cap` per
     order for percents) as often as `uses` allows. Rules: `own_only` puts the order under the holder's name,
     `no_alcohol` leaves out dishes made with alcohol (Ingredient.alcohol), `stack` lets a discount card add to other
-    discounts (else the better one wins), `channels` where it works. Worked out in gift_cards/staff_cards.py.
+    discounts (else the better one wins), `on_shift` only while they're clocked in, `channels` where it works. An
+    "every shift" balance refills when they clock in. Worked out in gift_cards/staff_cards.py.
     """
     BALANCE, DISCOUNT = "balance", "discount"
     KINDS = ((BALANCE, "Balance card"), (DISCOUNT, "Discount card"))
-    REFILLS = (("day", "Every day"), ("week", "Every week"), ("month", "Every month"), ("never", "Never, one-time balance"))
+    REFILLS = (("shift", "Every shift, when they clock in"), ("day", "Every day"), ("week", "Every week"), ("month", "Every month"),
+               ("never", "Never, one-time balance"))
     LEFTOVER = (("reset", "Resets"), ("carry", "Carries over"))
     USES = (("any", "Every order"), ("day", "Once a day"), ("week", "Once a week"))
     CHANNELS = (("store", "In store"), ("pickup", "Pickup"), ("delivery", "Delivery"))
@@ -152,6 +154,7 @@ class StaffCardType(models.Model):
     own_only = models.BooleanField(default=True, help_text="The order goes under the holder's name")
     no_alcohol = models.BooleanField(default=True)
     stack = models.BooleanField(default=False, help_text="Adds to other discounts (else the better one wins)")
+    on_shift = models.BooleanField(default=False, help_text="Works only while the holder is clocked in (team/clock.py)")
     channels = models.JSONField(default=list, blank=True, help_text="Where it works: store, pickup, delivery")
     archived = models.BooleanField(default=False, help_text="Deleted on the Staff cards page; kept for past orders")
 

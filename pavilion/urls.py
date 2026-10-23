@@ -45,6 +45,7 @@ urlpatterns += i18n_patterns(
     path('users/', include("users.urls")),
     path("screens/", include("screens.urls")),
     path("audio/", include("audio.urls")),
+    path("team/", include("team.urls")),
 )
 
 if settings.DEBUG:

@@ -49,7 +49,7 @@ def row_of(t: StaffCardType) -> dict:
     return {"id": t.id, "name": t.name, "color": t.color, "kind": t.kind, "live": t.live, "amount": _text(t.amount), "refill": t.refill,
             "dow": t.refill_weekday, "dom": t.refill_day, "roll": t.leftover, "cap": _text(t.cap), "dkind": t.discount_kind,
             "dval": _text(t.discount_value), "dcap": _text(t.discount_cap), "uses": t.uses, "own": t.own_only,
-            "no_alcohol": t.no_alcohol, "stack": t.stack, "chans": [c for c, _l in CHANNELS if c in (t.channels or [])]}
+            "no_alcohol": t.no_alcohol, "stack": t.stack, "on_shift": t.on_shift, "chans": [c for c, _l in CHANNELS if c in (t.channels or [])]}
 
 
 def saved() -> list:
@@ -78,7 +78,7 @@ def take_post(st, post):
     for f, size in (("name", 30), ("amount", 8), ("cap", 8), ("dval", 8), ("dcap", 8)):
         if f in post:
             e[f] = post.get(f, "").strip()[:size]
-    for f, choices in (("refill", ("day", "week", "month", "never")), ("dom", ("1", "15", "last")), ("uses", ("any", "day", "week"))):
+    for f, choices in (("refill", ("shift", "day", "week", "month", "never")), ("dom", ("1", "15", "last")), ("uses", ("any", "day", "week"))):
         if post.get(f) in choices:
             e[f] = post[f]
     if post.get("dow", "").isdigit() and int(post["dow"]) < 7:
@@ -96,7 +96,8 @@ def apply_op(st, op) -> str:
         used = {r["color"] for r in st["rows"]}
         row = {"id": f"n{timezone.now().strftime('%H%M%S%f')}", "name": _("New card"), "color": next((c for c, _l in COLORS if c not in used), "#7A5AC8"),
                "kind": "balance", "live": False, "amount": "10", "refill": "day", "dow": 0, "dom": "1", "roll": "reset", "cap": "50",
-               "dkind": "pct", "dval": "20", "dcap": "", "uses": "any", "own": True, "no_alcohol": True, "stack": False, "chans": ["store", "pickup"]}
+               "dkind": "pct", "dval": "20", "dcap": "", "uses": "any", "own": True, "no_alcohol": True, "stack": False, "on_shift": False,
+               "chans": ["store", "pickup"]}
         st["rows"].append(row)
         st["sel"], st["issue_to"] = row["id"], None
     elif not e:
@@ -109,7 +110,7 @@ def apply_op(st, op) -> str:
         e["roll"] = arg
     elif name == "dkind" and arg in ("pct", "amt"):
         e["dkind"] = arg
-    elif name == "flip" and arg in ("live", "own", "no_alcohol", "stack"):
+    elif name == "flip" and arg in ("live", "own", "no_alcohol", "stack", "on_shift"):
         e[arg] = not e[arg]
     elif name == "chan" and arg in dict(CHANNELS):
         chans = [c for c in e["chans"] if c != arg] if arg in e["chans"] else e["chans"] + [arg]
@@ -183,6 +184,7 @@ def save(st):
         t.discount_kind, t.discount_value = r["dkind"], _num(r["dval"]) or t.discount_value
         t.discount_cap = _num(r["dcap"]) if r["dcap"] else None
         t.uses, t.own_only, t.no_alcohol, t.stack, t.channels = r["uses"], r["own"], r["no_alcohol"], r["stack"], list(r["chans"])
+        t.on_shift = r.get("on_shift", False)
         t.save()
 
 
@@ -296,7 +298,9 @@ def editor(st, e, err, cards) -> dict:
         u = card.user
         nxt = ""
         if is_bal:
-            if e["refill"] == "never":
+            if e["refill"] == "shift":
+                nxt = _("Refills next clock-in")
+            elif e["refill"] == "never":
                 nxt = _("Used up") if card.balance <= 0 else _("of %(amount)s") % {"amount": _money(amount)}
             else:
                 day = staff_cards.next_refill(_type_of(e), now)
@@ -316,13 +320,14 @@ def editor(st, e, err, cards) -> dict:
         "kinds": [("balance", _("Balance card"), _("Holds money to spend, like a gift card. Can top back up on a schedule."), KIND_ICONS["balance"]),
                   ("discount", _("Discount card"), _("Takes a percent or amount off their order, like a coupon."), KIND_ICONS["discount"])],
         "live_hint": _("On. Scanning a card applies it.") if e["live"] else _("Off. Cards are declined at the register and online."),
-        "refills": [("day", _("Every day")), ("week", _("Every week")), ("month", _("Every month")), ("never", _("Never, one-time balance"))],
+        "refills": [("shift", _("Every shift, when they clock in")), ("day", _("Every day")), ("week", _("Every week")), ("month", _("Every month")), ("never", _("Never, one-time balance"))],
         "weekdays": list(enumerate(WEEKDAYS)), "doms": [("1", _("1st")), ("15", _("15th")), ("last", _("Last day"))],
         "rolls": [("reset", _("Resets to %(amount)s") % {"amount": _short(amount)}, _("Unused money doesn’t carry over.")),
                   ("carry", _("Carries over"), _("Adds %(amount)s on top, up to a limit.") % {"amount": _short(amount)})],
         "bal_text": balance_text(e, amount),
         "uses": [("any", _("Every order")), ("day", _("Once a day")), ("week", _("Once a week"))],
-        "rules": [("own", _("Only for their own order"), _("The order goes under their name.") if e["own"] else _("Can be used on any order they ring up.")),
+        "rules": [("on_shift", _("Only while clocked in"), _("Works during their shift only.") if e.get("on_shift") else _("Works any time, days off included.")),
+                  ("own", _("Only for their own order"), _("The order goes under their name.") if e["own"] else _("Can be used on any order they ring up.")),
                   ("no_alcohol", _("No alcohol"), _("Dishes made with alcohol aren’t covered.") if e["no_alcohol"] else _("Covers everything, alcohol included.")),
                   ("stack", _("Works with other discounts"), _("Adds to coupons and discounts.") if e["stack"] else _("If another discount applies, the better one wins."))],
         "chans": [(c, label, c in e["chans"]) for c, label in CHANNELS],
@@ -341,6 +346,9 @@ def balance_text(e, amount) -> str:
     if e["refill"] == "never":
         return _("Starts at %(amount)s and never refills. Once it’s spent, the card stops working.") % {"amount": _money(amount)}
     keep = (_("Leftover money stays, up to %(cap)s.") % {"cap": _money(cap)}) if e["roll"] == "carry" else _("Leftover money doesn’t carry over.")
+    if e["refill"] == "shift":
+        return _("Each time they clock in, the card goes back to %(amount)s%(carry)s.") % {
+            "amount": _money(amount), "carry": (" " + _("plus anything left, up to %(cap)s") % {"cap": _money(cap)}) if e["roll"] == "carry" else ""}
     return _("Refills %(when)s at midnight. %(keep)s") % {"when": _refill_text(e), "keep": keep}
 
 

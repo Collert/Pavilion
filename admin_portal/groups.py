@@ -243,7 +243,7 @@ def page(st) -> dict:
              "can_delete": not lock,
              "special": [{"title": _("Apps"), "sub": _("Which Pavilion apps they can open."), "items": apps,
                           "count": f"{sum(i['on'] for i in apps)}/{len(apps)}"},
-                         {"title": _("Actions"), "sub": _("Things that move money, wherever they happen."), "items": actions,
+                         {"title": _("Actions"), "sub": _("Things that need trust, wherever they happen."), "items": actions,
                           "count": f"{sum(i['on'] for i in actions)}/{len(actions)}"}],
              "cols": cols, "sections": sections, "no_match": not shown_any,
              "admin_off": not lock and "app.admin" not in has and any(c.startswith("admin.") for c in has),

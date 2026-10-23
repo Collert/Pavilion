@@ -34,11 +34,12 @@ class AppSwitcherTests(TestCase):
         from users.testing import crew
         nobody = User.objects.create_user("new", password="x", is_staff=True)
         self.client.force_login(nobody)
-        self.assertEqual(self.client.get(reverse("app_switcher_index")).context["apps"], [])
+        titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
+        self.assertEqual(titles, ["Time clock"])  # everyone clocks in
         self.assertContains(self.client.get(reverse("crafting")), "Ask a manager", status_code=403)
         crew(nobody, "app.cookery")
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
-        self.assertEqual(titles, ["Cookery"])
+        self.assertEqual(titles, ["Cookery", "Time clock"])
         self.assertEqual(self.client.get(reverse("crafting")).status_code, 200)
         self.client.force_login(self.boss)
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]

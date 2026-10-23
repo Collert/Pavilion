@@ -31,7 +31,7 @@ from django.http import Http404, HttpResponseForbidden, StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
 
-TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus", "catering", "popups", "audio")
+TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus", "catering", "popups", "audio", "clock")
 HEARTBEAT_SECONDS = 15
 CHANNEL_PREFIX = "pavilion:"
 
@@ -175,6 +175,8 @@ def _can_listen(request, topic):
     if topic in ("orders", "screens", "catering", "menus", "inventory", "popups", "audio"):
         return True  # public screens (menu boards, pop-ups, music) and customers' catering pages listen too; a nudge carries no data, the page they refetch decides what to show
     user = request.user
+    if topic == "clock":  # the time clock runs on a registered device with nobody signed in
+        return is_registered_device(request) or (user.is_authenticated and user.is_staff)
     if not user.is_authenticated:
         return False
     if topic == "checkout":
