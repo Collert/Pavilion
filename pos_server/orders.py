@@ -56,7 +56,8 @@ def _count_discount_uses(cart):
 
 @transaction.atomic
 def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
-                 verify_payment=None, can_manual_discount=False, expected_total=None, drawer=None, tip=ZERO, **fields):
+                 verify_payment=None, can_manual_discount=False, approve_discount=None, expected_total=None, drawer=None,
+                 tip=ZERO, **fields):
     """
     Create an order from a cart.
 
@@ -73,6 +74,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         verify_payment: optional callable(remaining: Decimal) that raises OrderError if the part of the
             total not covered by gift cards hasn't been paid (online). Called inside the transaction.
         can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
+        approve_discount: otherwise, callable(manual spec) -> the approving manager's user id or None
+            (pos_server/approvals.py: check).
         expected_total: the total the cashier saw. If the server's total differs, the order is refused.
         drawer: the register's open CashDrawerSession. Cash needs one; every register payment is linked to it.
         tip: added on top of the total (the online store's "Tip the team"); paid with the rest.
@@ -82,7 +85,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """
     cart = price_cart(lines, order_discount=order_discount, channel=channel, to_go=bool(fields.get("to_go_order")),
-                      can_manual=can_manual_discount)
+                      can_manual=can_manual_discount, approve=approve_discount)
     if not cart.lines:
         raise OrderError(_("The cart is empty."))
     tip = to_money(tip or 0)
@@ -142,7 +145,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         if line.discount:
             OrderDiscount.objects.create(order=order, item=parent, discount=line.discount.discount, label=line.discount.label,
                                          kind=line.discount.kind, value=line.discount.value, amount=line.discount.amount,
-                                         applied_by=fields.get("cashier"))
+                                         applied_by=fields.get("cashier"), approved_by_id=line.discount.approved_by)
         for picked in line.picks:
             if line.kind == "combo":
                 OrderItem.objects.create(order=order, parent=parent, dish=picked.dish, station=picked.dish.station,
@@ -154,7 +157,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
     if cart.order_discount:
         applied = cart.order_discount
         OrderDiscount.objects.create(order=order, discount=applied.discount, label=applied.label, kind=applied.kind,
-                                     value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"))
+                                     value=applied.value, amount=applied.amount, applied_by=fields.get("cashier"),
+                                     approved_by_id=applied.approved_by)
     consume_stock(use)
     use_disposables(order, cart)
 

@@ -8,6 +8,7 @@ urlpatterns = [
     path("register/quote", register.quote, name="register_quote"),
     path("register/catalog", register.catalog, name="register_catalog"),
     path("register/card", register.card_checkout, name="register_card"),
+    path("register/approve", register.approve_discount, name="register_approve"),
     path("lock", register.lock, name="register_lock"),
     path("drawer", register.cash_drawer, name="cash_drawer"),
     path("pos-output", views.pos_out_display, name="pos_output"),

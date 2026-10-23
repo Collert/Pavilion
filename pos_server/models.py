@@ -688,6 +688,8 @@ class OrderDiscount(models.Model):
     value = models.DecimalField(max_digits=8, decimal_places=2)
     amount = models.DecimalField(max_digits=8, decimal_places=2)
     applied_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                    help_text="The manager who signed off a typed-in discount (pos_server/approvals.py)")
 
     def __str__(self):
         return f"{self.label} -{self.amount} on order {self.order_id}"

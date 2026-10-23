@@ -249,7 +249,12 @@ one discount per line and one on the order (after line discounts), then tax (`TA
 store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`end_time`, `min_subtotal`,
 `min_items`, eligible `dishes`/`combos` (item discounts), `max_uses`. Typed-in ("manual") discounts need the
 "Give discounts" action (`act.discount`: Managers have it by default, so `seed_demo`'s Priya does; Front of house
-doesn't). The old `pos_server.apply_manual_discount` permission was dropped on 2026-10-22.
+doesn't). The old `pos_server.apply_manual_discount` permission was dropped on 2026-10-22. Cashiers without it can
+still type one in and press **Ask a manager**: anyone with the action and a register PIN picks their name and types
+it (`register/approve`, `pos_server/approvals.py`, rate-limited like the lock screen). The server signs an approval
+for that discount (kind and value), for that cashier, good for 3 hours; the register sends it inside the manual spec
+(`{"manual": {kind, value, approval}}`), pricing accepts it (`price_cart(approve=…)`), and the order records the
+approver on `OrderDiscount.approved_by` (shown on the admin's order page).
 
 ### 6.2 Register, lock screen and cash drawer (`pos_server/register.py`)
 

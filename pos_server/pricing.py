@@ -386,6 +386,7 @@ class AppliedDiscount:
     value: Decimal
     amount: Decimal
     discount: Discount = None   # None for a manual discount
+    approved_by: int = None     # a manual discount a manager signed off (pos_server/approvals.py): their user id
 
     @property
     def short(self):
@@ -569,14 +570,17 @@ def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count,
     return None
 
 
-def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, item, can_manual):
+def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, item, can_manual, approve=None):
     """Turn a discount spec into an AppliedDiscount on `base`. Raises OrderError if it can't be used."""
     if not isinstance(discount_spec, dict):
         raise OrderError(_("The cart is malformed."))
+    approved_by = None
     if "manual" in discount_spec:
-        if not can_manual:
-            raise OrderError(_("Only a manager can type in a discount."))
         manual = discount_spec["manual"]
+        if not can_manual:
+            approved_by = approve(manual) if approve else None
+            if not approved_by:
+                raise OrderError(_("A manager has to approve a typed-in discount."))
         if not isinstance(manual, dict) or manual.get("kind") not in (Discount.PERCENT, Discount.AMOUNT):
             raise OrderError(_("The cart is malformed."))
         value = to_money(manual.get("value"))
@@ -607,7 +611,7 @@ def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, it
         amount = money(base * value / 100)
     else:
         amount = min(value, base)
-    return AppliedDiscount(label=label, kind=kind, value=value, amount=max(amount, ZERO), discount=discount)
+    return AppliedDiscount(label=label, kind=kind, value=value, amount=max(amount, ZERO), discount=discount, approved_by=approved_by)
 
 
 # ---------- the whole cart ----------
@@ -699,7 +703,8 @@ class PricedCart:
         }
 
 
-def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, strict=True, now=None) -> PricedCart:
+def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, approve=None, strict=True,
+               now=None) -> PricedCart:
     """
     Validate and price a cart. Raises OrderError for anything wrong with the lines. `to_go` (packed to take away)
     and the channel decide the order type, which decides the disposables and their fees.
@@ -707,6 +712,9 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     strict=False (the register's live quote) drops discounts that can't be used and says why in
     `discount_error` / `order_discount_error`, and lets combo slots that must be asked for fall back to their
     standard pick.
+
+    Typed-in discounts need `can_manual` (the cashier's "Give discounts"), or `approve(manual)` returning the user id
+    of the manager who signed it off (pos_server/approvals.py: check).
     """
     if not isinstance(lines, list):
         raise OrderError(_("The cart is malformed."))
@@ -716,7 +724,8 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     _charge_condiments(priced)
     subtotal = sum((line.gross for line in priced), ZERO)
     cart = PricedCart(lines=priced, subtotal=subtotal)
-    context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual}
+    context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual,
+               "approve": approve}
 
     for line in priced:
         if line.raw_discount:

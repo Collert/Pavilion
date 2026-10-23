@@ -31,6 +31,8 @@ from gift_cards.models import GiftCard
 from payments import square
 from users.access import can
 
+from . import approvals
+
 from .devices import DEVICE_COOKIE, device_required, no_access, safe_next_url, token_is_registered
 from .models import (CashDrawerSession, CashMovement, EligibleDevice, Menu, Order, OrderPayment, OrderStation,
                      RegisterSignIn, Station)
@@ -75,6 +77,11 @@ def register_staff_required(view=None, *, app="app.register"):
 
 def can_manual_discount(user) -> bool:
     return can(user, "act.discount")
+
+
+def discount_approvals(request):
+    """For pricing: a typed-in discount a manager signed off for this cashier (pos_server/approvals.py)."""
+    return lambda manual: approvals.check(manual, request.user)
 
 
 def staff_name(user) -> str:
@@ -167,10 +174,13 @@ def register(request):
             "allergens": ALLERGENS,
             "taxRate": str(tax_rate()),
             "canManual": can_manual_discount(request.user),
+            "approvers": [{"id": s.id, "name": s.display_name} for s in approvals.approvers()],
+            "cashier": staff_name(request.user),
             "drawerOpen": drawer is not None,
             "orderNumber": next_number,
             "urls": {
                 "quote": reverse("register_quote"),
+                "approve": reverse("register_approve"),
                 "register": reverse("pos"),
                 "card": reverse("register_card"),
                 "catalog": reverse("register_catalog"),
@@ -218,10 +228,34 @@ def quote(request):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(_body.get("toGo")),
-                          can_manual=can_manual_discount(request.user), strict=False)
+                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), strict=False)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     return JsonResponse(cart.as_json())
+
+
+@register_staff_required
+@device_required
+def approve_discount(request):
+    """
+    A manager signs off a typed-in discount for the cashier (pos_server/approvals.py).
+    Body: {"staff": <approver's Staff id>, "pin": "1234", "kind": "pct"|"amt", "value": "10"}.
+    Answers {"approval": <token to send with the discount>, "by": "Priya"}.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    try:
+        body = json.loads(request.body)
+        staff_id = int(body["staff"])
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({"message": _("Pick who's approving and type their PIN.")}, status=400)
+    device = current_device(request)
+    try:
+        token, staff = approvals.grant(device.id if device else None, staff_id, body.get("pin", ""), body.get("kind"),
+                                       body.get("value"), request.user)
+    except approvals.ApprovalError as e:
+        return JsonResponse({"message": str(e)}, status=e.status)
+    return JsonResponse({"approval": token, "by": staff.display_name})
 
 
 def place_order(request):
@@ -250,6 +284,7 @@ def place_order(request):
             payments=tenders,
             gift_card_payments=gift,
             can_manual_discount=can_manual_discount(request.user),
+            approve_discount=discount_approvals(request),
             expected_total=body.get("total"),
             drawer=open_drawer(device),
             cashier=request.user,
@@ -290,7 +325,7 @@ def card_checkout(request):
         return JsonResponse({"message": _("The amount is invalid.")}, status=400)
     try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(body.get("toGo")),
-                          can_manual=can_manual_discount(request.user))
+                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request))
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     if body.get("total") is not None and to_money(body["total"]) != cart.total:

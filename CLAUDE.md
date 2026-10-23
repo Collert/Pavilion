@@ -113,7 +113,7 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   screens (`dishes` = what stations make, `lines` = what was sold).
 - **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*
   (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
-  dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need the `act.discount` action (a group gives it).
+  dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need the `act.discount` action (a group gives it) or a manager's sign-off on the register (`pos_server/approvals.py`: someone with it types their PIN; the signed approval travels with the discount spec and `OrderDiscount.approved_by` keeps who).
   Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
 - **Costs come from ingredients**, the things the restaurant buys: `Ingredient.cost` = `pack_price / pack_size`
   (set on save). A component's cost and ingredients (`pos_server/dish_info.py`) come from its prep recipe's

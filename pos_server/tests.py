@@ -759,6 +759,32 @@ class RegisterTests(MenuFixture, TestCase):
         crew(self.staff, "app.register", "act.discount")  # a group with "Give discounts"
         self.assertEqual(self.post("pos", body).status_code, 200)
 
+    def test_a_manager_can_approve_a_typed_in_discount(self):
+        boss = crew(User.objects.create_user("priya", password="x", is_staff=True, first_name="Priya"), "act.discount")
+        manager = Staff.objects.create(user=boss)
+        manager.set_pin("2468")
+        manager.save()
+        boot = self.client.get(reverse("pos")).context["boot"]
+        self.assertFalse(boot["canManual"])
+        self.assertEqual(boot["approvers"], [{"id": manager.id, "name": "Priya"}])
+        ask = {"staff": manager.id, "kind": "amt", "value": "1.00"}
+        self.assertEqual(self.post("register_approve", {**ask, "pin": "0000"}).status_code, 403)
+        approval = self.post("register_approve", {**ask, "pin": "2468"}).json()
+        self.assertEqual(approval["by"], "Priya")
+
+        def cart(manual):
+            return {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": manual}, "total": "1.00",
+                    "payments": [{"method": "card", "amount": "1.00"}]}
+        # the approval is for $1.00 off, for this cashier
+        self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.50", "approval": approval["approval"]})).status_code, 400)
+        self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": "forged"})).status_code, 400)
+        self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": approval["approval"]})).status_code, 200)
+        discount = Order.objects.get().discounts.get()
+        self.assertEqual((discount.applied_by, discount.approved_by), (self.staff, boss))
+        other = crew(User.objects.create_user("lee", password="x", is_staff=True), "app.register")
+        self.client.force_login(other)
+        self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": approval["approval"]})).status_code, 400)
+
     @mock.patch("payments.square.gather_terminal_checkout")
     def test_card_checkout_checks_the_cart_first(self, checkout):
         checkout.return_value = mock.Mock(is_success=lambda: True, body={"checkout": {"id": "c1", "status": "PENDING"}})

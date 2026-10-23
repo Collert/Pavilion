@@ -146,7 +146,7 @@ def neighbours(order):
 
 def order_page(order):
     order = (Order.objects.select_related("device", "cashier", "customer", "authorization", "voided_by")
-             .prefetch_related("items__station", "items__children", "payments__gift_card", "discounts", "refunds__items",
+             .prefetch_related("items__station", "items__children", "payments__gift_card", "discounts__approved_by", "refunds__items",
                                "refunds__by", "receipts__by", "station_statuses__station").get(pk=order.pk))
     st = refunds.status(order)
     refunded = refunds.refunded_total(order)
@@ -165,7 +165,8 @@ def order_page(order):
 
     totals = [{"label": _("Subtotal"), "value": order.subtotal}]
     for d in order.discounts.all():
-        totals.append({"label": d.label, "value": -d.amount})
+        by = d.approved_by.first_name or d.approved_by.username if d.approved_by else ""
+        totals.append({"label": _("%(label)s · approved by %(name)s") % {"label": d.label, "name": by} if by else d.label, "value": -d.amount})
     if order.tax:
         totals.append({"label": _("Tax"), "value": order.tax})
     for fee in order.fee_lines.all():

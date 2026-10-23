@@ -1472,8 +1472,10 @@ class Command(BaseCommand):
               "store", OrderStation.STATUS_APPROVED, 6, name="Olena", cashier=self.cashier)
         order([lunch("Flat white")], "store", OrderStation.STATUS_APPROVED, 4, name="Sam", special_instructions="Birthday",
               order_discount={"offer": Discount.objects.get(name="Student").id}, cashier=self.cashier)
-        order([dish("Iced latte"), dish("Almond croissant")], "store", OrderStation.STATUS_APPROVED, 2, to_go_order=True,
-              cashier=self.cashier)
+        comped = order([dish("Iced latte"), dish("Almond croissant")], "store", OrderStation.STATUS_APPROVED, 2, to_go_order=True,
+                       order_discount={"manual": {"kind": "pct", "value": "10"}}, cashier=self.cashier)
+        # Dana can't type in discounts herself (Front of house): Priya signed this one off with her PIN
+        comped.discounts.update(approved_by=User.objects.get(username="priya"))
         ready = order([dish("Halloumi grain bowl"), dish("Fresh lemonade")], "store", OrderStation.STATUS_APPROVED, 9, name="Mark")
         ready.set_station_status(["kitchen", "bar"], OrderStation.STATUS_DONE)
         ready.station_statuses.update(ready_at=now - datetime.timedelta(minutes=3))

@@ -5,7 +5,7 @@
 // the server's quote (pos_server/pricing.py), and the server prices the order again when it is placed.
 // Money is in integer cents throughout.
 import { onLiveUpdate } from "/static/js/live.js";
-import { $, csrftoken, dollars, el, fmt, fmtSigned, post, toCents, toast, wireSheets } from "./staff-ui.js";
+import { $, csrftoken, dollars, el, fmt, fmtSigned, keypad, post, toCents, toast, wireSheets } from "./staff-ui.js";
 import { bumpStats } from "./device-stats.js";
 
 const boot = JSON.parse(document.getElementById("register-boot").textContent);
@@ -1195,7 +1195,8 @@ $("#note-remove").addEventListener("click", () => {
     changed({ quote: false });
 });
 
-// Discount sheet: an offer, a coupon code or (managers) a typed-in discount, for one line or the order
+// Discount sheet: an offer, a coupon code or a typed-in discount (people whose groups give "Give discounts", or
+// anyone with a manager's sign-off: the approval sheet below), for one line or the order
 let dc = null; // {scope: line key or null, pick, mode, manual, couponText, couponError, coupon}
 
 function openDiscount(lineKey) {
@@ -1203,8 +1204,12 @@ function openDiscount(lineKey) {
     $("#dc-coupon").value = "";
     $("#dc-manual-value").value = "";
     const manual = $("#dc-manual");
-    manual.classList.toggle("locked", !boot.canManual);
+    const nobody = !boot.canManual && !boot.approvers.length;
+    manual.classList.toggle("locked", nobody);
     $("#dc-manual-locked").hidden = boot.canManual;
+    $("#dc-manual-locked").textContent = nobody
+        ? t("Typed-in discounts need a manager, and nobody who can approve them has a register PIN yet.")
+        : t("A manager approves typed-in discounts with their PIN.");
     renderDiscount();
     $("#disc-sheet").showModal();
 }
@@ -1290,6 +1295,7 @@ function renderDiscount() {
     $("#dc-saves-spacer").hidden = !!draft;
     $("#dc-saves-amount").textContent = fmt(draftSavings(draft, base));
     $("#dc-apply").disabled = !draft;
+    $("#dc-apply").textContent = draft?.spec.manual && !boot.canManual ? t("Ask a manager") : t("Apply discount");
     $("#dc-remove").hidden = !existing;
 }
 
@@ -1332,15 +1338,86 @@ async function applyCoupon() {
     renderDiscount();
 }
 
-$("#dc-apply").addEventListener("click", () => {
-    const draft = dcDraft();
-    if (!draft) return;
+function applyDiscount(draft) {
     const applied = { spec: draft.spec, label: draft.label, short: draft.short };
     const line = dcLine();
     if (line) line.discount = applied;
     else state.orderDiscount = applied;
     $("#disc-sheet").close();
     changed();
+}
+$("#dc-apply").addEventListener("click", () => {
+    const draft = dcDraft();
+    if (!draft) return;
+    if (draft.spec.manual && !boot.canManual) openApproval(draft);
+    else applyDiscount(draft);
+});
+
+// Manager approval: someone whose groups give "Give discounts" picks their name and types their PIN; the server
+// signs this discount for this cashier (pos_server/approvals.py) and the approval travels with the discount
+const ap = { draft: null, who: null, pin: "", error: "", shaking: false, busy: false };
+let apKeys = null;
+
+function openApproval(draft) {
+    Object.assign(ap, { draft, who: boot.approvers.length === 1 ? boot.approvers[0].id : null, pin: "", error: "", shaking: false, busy: false });
+    $("#ap-title").textContent = interpolate(t("Approve %s"), [draft.short]);
+    const line = dcLine();
+    $("#ap-scope").textContent = (line ? interpolate(t("On %s"), [titleOf(line)]) : t("On the whole order"))
+        + " · " + interpolate(t("rung up by %s"), [boot.cashier]);
+    if (!apKeys) {
+        apKeys = keypad($("#ap-keys"), {
+            onDigit: (digit) => approvalDigit(String(digit)),
+            onClear: () => { if (!ap.shaking) { ap.pin = ""; ap.error = ""; renderApproval(); } },
+            onBack: () => { if (!ap.shaking) { ap.pin = ap.pin.slice(0, -1); renderApproval(); } },
+        });
+    }
+    renderApproval();
+    $("#approve-sheet").showModal();
+}
+
+function renderApproval() {
+    $("#ap-staff").replaceChildren(...boot.approvers.map((person) => el("button", {
+        attrs: { "aria-pressed": String(person.id === ap.who) },
+        on: { click: () => { Object.assign(ap, { who: person.id, pin: "", error: "" }); renderApproval(); } },
+    }, [el("span", { className: "ap-avatar", text: person.name.charAt(0).toUpperCase() }), el("span", { text: person.name })])));
+    const who = boot.approvers.find((p) => p.id === ap.who);
+    $("#ap-prompt").textContent = who ? interpolate(t("Enter your 4-digit PIN, %s"), [who.name]) : t("Who's approving? Pick your name.");
+    const dots = $("#ap-dots");
+    dots.className = "ap-dots" + (ap.shaking ? " shake bad" : "");
+    dots.setAttribute("aria-label", interpolate(t("%s of 4 digits entered"), [ap.pin.length]));
+    dots.replaceChildren(...[0, 1, 2, 3].map((i) => el("span", { className: i < ap.pin.length ? "on" : "" })));
+    $("#ap-error").replaceChildren(...(ap.error ? [el("span", { icon: "alert" }), ap.error] : []));
+    apKeys.clear.disabled = !ap.pin;
+    apKeys.back.disabled = !ap.pin;
+}
+
+async function approvalDigit(digit) {
+    if (!ap.who || ap.busy || ap.shaking || ap.pin.length >= 4) return;
+    ap.pin += digit;
+    ap.error = "";
+    renderApproval();
+    if (ap.pin.length < 4) return;
+    ap.busy = true;
+    const manual = ap.draft.spec.manual;
+    const result = await post(urls.approve, { staff: ap.who, pin: ap.pin, kind: manual.kind, value: manual.value })
+        .catch(() => ({ ok: false, data: { message: t("The register is offline. Check the connection.") } }));
+    ap.busy = false;
+    if (result.ok) {
+        ap.draft.spec.manual.approval = result.data.approval;
+        $("#approve-sheet").close();
+        applyDiscount(ap.draft);
+        toast(interpolate(t("%s approved by %s"), [ap.draft.short, result.data.by]));
+        return;
+    }
+    ap.error = result.data.message || t("That PIN didn't match. Try again.");
+    ap.shaking = true;
+    renderApproval();
+    setTimeout(() => { ap.shaking = false; ap.pin = ""; renderApproval(); }, 600);
+}
+
+$("#approve-sheet").addEventListener("keydown", (e) => {
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); approvalDigit(e.key); }
+    else if (e.key === "Backspace") { e.preventDefault(); ap.pin = ap.pin.slice(0, -1); renderApproval(); }
 });
 $("#dc-remove").addEventListener("click", () => {
     const line = dcLine();

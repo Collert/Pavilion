@@ -321,7 +321,7 @@
                         <input type="text" inputmode="decimal" id="dc-manual-value" aria-label="{% trans 'Discount value' %}" placeholder="0" autocomplete="off">
                     </label>
                     <div class="row-8" id="dc-quick"></div>
-                    <div class="sub" id="dc-manual-locked" hidden>{% trans "Only a manager can type in a discount." %}</div>
+                    <div class="sub" id="dc-manual-locked" hidden></div>
                 </div>
             </section>
         </div>
@@ -335,6 +335,25 @@
         <button class="btn btn-danger-text" id="dc-remove" hidden>{% trans "Remove discount" %}</button>
         <button class="btn" data-close>{% trans "Cancel" %}</button>
         <button class="btn btn-primary dc-apply" id="dc-apply" disabled>{% trans "Apply discount" %}</button>
+    </div>
+</dialog>
+
+<!-- A manager signs off a typed-in discount (pos_server/approvals.py) -->
+<dialog class="sheet w-sm" id="approve-sheet" aria-labelledby="ap-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Manager approval" %}</div>
+            <h2 class="h2" id="ap-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body ap-body">
+        <div class="sub" id="ap-scope"></div>
+        <div role="group" aria-label="{% trans 'Who is approving' %}" class="ap-staff" id="ap-staff"></div>
+        <div class="ap-prompt" id="ap-prompt"></div>
+        <div class="ap-dots" role="img" id="ap-dots"></div>
+        <div class="ap-error" role="alert" id="ap-error"></div>
+        <div class="keypad ap-keys" id="ap-keys"></div>
     </div>
 </dialog>
 
