@@ -93,7 +93,8 @@ def priced(request, channel="web", to_go=True, now=None):
     coupon = cart.get("coupon", "")
     from gift_cards import staff_cards
     priced_cart = price_cart(plain(good), order_discount={"code": coupon} if coupon else None, channel=channel,
-                             to_go=to_go, strict=False, now=now, staff_cards=staff_cards.cards_for(request.user, channel))
+                             to_go=to_go, strict=False, now=now, staff_cards=staff_cards.cards_for(request.user, channel),
+                             customer=request.user if request.user.is_authenticated else None)
     return priced_cart, problems
 
 

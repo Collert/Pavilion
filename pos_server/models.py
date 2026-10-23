@@ -792,6 +792,8 @@ class Discount(models.Model):
     kinds = ((PERCENT, "Percent off"), (AMOUNT, "Amount off"))
     ITEM, ORDER, ANY = "item", "order", "any"
     scopes = ((ITEM, "One item"), (ORDER, "Whole order"), (ANY, "Item or order"))
+    TARGETS = (("order", "Entire order"), ("items", "Specific items"), ("menus", "Specific menus"), ("delivery", "Delivery fee"))
+    CHANNELS = (("store", "In store"), ("pickup", "Pickup"), ("delivery", "Delivery"))
 
     name = models.CharField(max_length=80)
     note = models.CharField(max_length=120, blank=True, help_text="Shown under the name, e.g. 'Weekdays, 2 to 5 pm'")
@@ -816,6 +818,14 @@ class Discount(models.Model):
     max_uses = models.PositiveIntegerField(null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
     position = models.PositiveSmallIntegerField(default=0)
+    # Coupons (the admin's Coupons page): what it comes off, where it works and who can use it
+    target = models.CharField(max_length=8, choices=TARGETS, default="order",
+                              help_text="Order-wide coupons: off everything, off the picked dishes/combos, off the dishes on `menus`, or off the delivery fee")
+    menus = models.ManyToManyField("Menu", blank=True, related_name="coupons", help_text="Target menus: anything on them")
+    channels = models.JSONField(default=list, blank=True, help_text="Where it works: store, pickup, delivery (on_register and online follow it)")
+    max_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Percent off: at most this")
+    per_customer = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Uses per signed-in customer")
+    first_order = models.BooleanField(default=False, help_text="Only for a signed-in customer's first order")
 
     class Meta:
         ordering = ["position", "id"]
@@ -825,7 +835,17 @@ class Discount(models.Model):
 
     def save(self, *args, **kwargs):
         self.code = self.code.strip().upper() if self.code else None
+        if self.channels:
+            self.on_register = "store" in self.channels
+            self.online = bool({"pickup", "delivery"} & set(self.channels))
         super().save(*args, **kwargs)
+
+    def works_on(self, channel) -> bool:
+        """Order channel (store, web, delivery) -> whether this discount can be used there."""
+        where = {"store": "store", "web": "pickup", "delivery": "delivery"}.get(channel, channel)
+        if self.channels:
+            return where in self.channels
+        return self.on_register if where == "store" else bool(self.online and self.code)
 
     @property
     def is_coupon(self) -> bool:

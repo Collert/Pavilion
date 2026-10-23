@@ -72,6 +72,7 @@ class StoreHours(models.Model):
     ahead_days = models.PositiveSmallIntegerField(default=3, validators=[MaxValueValidator(14)], help_text="How many days ahead (0 = today only)")
     lead = models.PositiveSmallIntegerField(default=20, help_text="Soonest a scheduled pickup can be ready, in minutes")
     paused_until = models.DateTimeField(null=True, blank=True, help_text="Online orders are paused until then")
+    delivery_fee = models.DecimalField(max_digits=6, decimal_places=2, default=0, help_text="Charged on delivery orders (coupons can take it off)")
 
     class Meta:
         verbose_name = _("store hours")

@@ -1077,18 +1077,30 @@ class Command(BaseCommand):
             dict(name="Student", note="With student ID", kind="pct", value="15"),
             dict(name="Loyalty reward", note="From saved points", kind="amt", value="3.00"),
             dict(name="Family pack", note="Orders of four or more", kind="amt", value="5.00", scope="order", min_items=4),
-            dict(name="Welcome", note="10% off a first order", kind="pct", value="10", scope="order", code="WELCOME10",
-                 online=True, max_uses=500),
-            dict(name="Lunch deal", note="$5 off a lunch combo", kind="amt", value="5.00", scope="item", code="LUNCH5",
-                 min_subtotal="15.00"),
+            dict(name="10% off your first order", note="10% off a first order", kind="pct", value="10", scope="order", code="WELCOME10",
+                 online=True, max_uses=500, channels=["pickup", "delivery"], first_order=True, per_customer=1),
+            dict(name="Lunch deal", note="$5 off a lunch combo", kind="amt", value="5.00", scope="any", code="LUNCH5",
+                 min_subtotal="15.00", target="items", channels=["store", "pickup"]),
+            dict(name="Free delivery over $25", kind="pct", value="100", scope="order", code="FREEDEL", target="delivery",
+                 min_subtotal="25.00", channels=["delivery"]),
+            dict(name="10% off drinks", kind="pct", value="10", scope="any", code="DRINKS10", target="items",
+                 channels=["store", "pickup", "delivery"], ends_on=datetime.date.today() + datetime.timedelta(days=40)),
+            dict(name="15% off all summer", kind="pct", value="15", scope="any", code="SUMMER15", max_amount="10.00", max_uses=500,
+                 channels=["store", "pickup", "delivery"], starts_on=datetime.date.today() - datetime.timedelta(days=120),
+                 ends_on=datetime.date.today() - datetime.timedelta(days=50)),
+            dict(name="$3 off patio orders", kind="amt", value="3.00", scope="any", code="PATIO3", min_subtotal="15.00",
+                 channels=["store"], active=False),
         ]
         for position, spec in enumerate(specs):
             spec = {**spec, "value": Decimal(spec["value"]), "position": position}
-            if "min_subtotal" in spec:
-                spec["min_subtotal"] = Decimal(spec["min_subtotal"])
+            for money_field in ("min_subtotal", "max_amount"):
+                if money_field in spec:
+                    spec[money_field] = Decimal(spec[money_field])
             discount, created = Discount.objects.get_or_create(name=spec.pop("name"), defaults=spec)
             if created and discount.code == "LUNCH5":
                 discount.combos.set([self.combos["Lunch combo"]])
+            if created and discount.code == "DRINKS10":
+                discount.dishes.set(Dish.objects.filter(station__code="bar"))
 
     # ---------- store ----------
 
@@ -1103,6 +1115,7 @@ class Command(BaseCommand):
                     {"open": True, "r": [[420, 1140]]}, {"open": True, "r": [[420, 840], [900, 1320]]},
                     {"open": True, "r": [[480, 1500]]}, {"open": True, "r": [[540, 900]]}]
         cfg.pickup_after, cfg.pickup_before, cfg.delivery_after, cfg.delivery_before, cfg.last_call = 15, 20, 30, 45, 15
+        cfg.delivery_fee = Decimal("4.99")
         cfg.save()
         now = timezone.localtime()
         today = now.date()

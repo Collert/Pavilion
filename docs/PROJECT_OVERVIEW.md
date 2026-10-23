@@ -663,6 +663,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
   starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes
   off every profile; groups stay; archived roles stay on old shifts). One form with Save (session draft).
+- **Coupons** (`admin_coupons`, `coupons.py`, 2026-10-23): discounts with a code. Tabs All, Active (paused too),
+  Upcoming, Ended (used up too); each coupon's code (Generate makes an 8-letter one), what customers see, accepting it
+  (paused), the discount (percent with an optional cap, or an amount), what it applies to (entire order, specific
+  items from the stations' dishes and combos, specific menus, or the delivery fee, which locks it to delivery
+  orders), conditions (minimum subtotal, order types, start and end dates), limits (total uses, per customer, first
+  order only; those need a signed-in customer, so not the register), a checkout preview of a sample order (pickup or
+  delivery) and its performance (uses, discount given, orders total). One form with Save (session draft). The
+  delivery fee it needs is set on Store hours, by the delivery cutoffs.
 - **Customers** (`admin_customers`, `customers.py`, 2026-10-23): store accounts (users who aren't staff). The list
   (search name, email or phone; sort by last order, name, most orders, top spend, newest; filters Ordered this month,
   No orders, Gets emails, Signed out) and the picked customer: name, email, phone, staff notes, their stats (orders,

@@ -120,6 +120,10 @@ the draft, the week chart and "Right now". The pause buttons act right away.
             <div class="hr-cut">
                 <div class="hr-cut-head"><span class="hr-sw {{ c.kind }}"></span><span class="grow strong">{{ c.name }}</span><span class="hr-example">{{ c.example }}</span></div>
                 {% for r in c.rows %}{% include "admin_portal/_hours_step.html" with r=r %}{% endfor %}
+                {% if c.kind == "deliv" %}
+                <label class="hr-fee"><span class="grow two-line"><span class="strong">{% trans "Delivery fee" %}</span><span class="small muted">{% trans "On every delivery order. Coupons can take it off." %}</span></span>
+                    <span class="hr-fee-in"><span>$</span><input class="num" name="delivery_fee" value="{{ d.delivery_fee }}" inputmode="decimal" aria-label="{% trans 'Delivery fee' %}"></span></label>
+                {% endif %}
             </div>
             {% endfor %}
             <button class="hr-toggle" name="op" value="toggle:around_breaks" role="switch" aria-checked="{% if d.around_breaks %}true{% else %}false{% endif %}">

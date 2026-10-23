@@ -33,7 +33,17 @@ def _int(value, default=0):
 def draft_of(cfg=None) -> dict:
     cfg = cfg or StoreHours.load()
     return {"week": [{"open": bool(d.get("open")), "r": sorted([int(a), int(b)] for a, b in d.get("r", []))} for d in cfg.week],
-            **{k: getattr(cfg, k) for k in STEPS}, **{k: getattr(cfg, k) for k in SWITCHES}}
+            **{k: getattr(cfg, k) for k in STEPS}, **{k: getattr(cfg, k) for k in SWITCHES}, "delivery_fee": f"{cfg.delivery_fee:.2f}"}
+
+
+def _fee(text) -> str:
+    """The delivery fee field, as "4.99" (0 to 100)."""
+    from decimal import Decimal, InvalidOperation
+    try:
+        value = Decimal(str(text or "0").replace("$", "").strip() or "0")
+    except InvalidOperation:
+        value = Decimal(0)
+    return f"{min(max(value, Decimal(0)), Decimal(100)):.2f}"
 
 
 def from_post(post) -> dict:
@@ -45,6 +55,7 @@ def from_post(post) -> dict:
     out = {"week": week, **{k: post.get(k) == "1" for k in SWITCHES}}
     for key, (lo, hi, _step) in STEPS.items():
         out[key] = min(max(_int(post.get(key), lo), lo), hi)
+    out["delivery_fee"] = _fee(post.get("delivery_fee"))
     return out
 
 
@@ -125,6 +136,8 @@ def save(draft):
     cfg.week = [{"open": d["open"], "r": [list(r) for r in sorted(d["r"])]} for d in draft["week"]]
     for key in (*STEPS, *SWITCHES):
         setattr(cfg, key, draft[key])
+    from decimal import Decimal
+    cfg.delivery_fee = Decimal(draft.get("delivery_fee", "0"))
     cfg.save()
 
 

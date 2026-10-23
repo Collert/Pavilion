@@ -387,6 +387,7 @@ class AppliedDiscount:
     amount: Decimal
     discount: Discount = None   # None for a manual discount
     approved_by: int = None     # a manual discount a manager signed off (pos_server/approvals.py): their user id
+    on_delivery: bool = False   # a coupon off the delivery fee: it lowers the fees, not the taxed subtotal
 
     @property
     def short(self):
@@ -533,15 +534,24 @@ def _charge_condiments(priced):
 
 # ---------- discounts ----------
 
-def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count, scope, item=None):
+def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count, scope, item=None, customer=None):
     """Why `discount` can't be used here, or None if it can."""
     local = timezone.localtime(now)
     if not discount.active:
         return _("%(name)s isn't active.") % {"name": discount.name}
-    if channel == "store" and not discount.on_register:
-        return _("%(name)s can't be used on the register.") % {"name": discount.name}
-    if channel != "store" and not (discount.online and discount.code):
-        return _("%(name)s can't be used online.") % {"name": discount.name}
+    if not discount.works_on(channel):
+        return (_("%(name)s can't be used on the register.") if channel == "store" else
+                _("%(name)s can't be used on delivery orders.") if channel == "delivery" and discount.channels else
+                _("%(name)s can't be used on pickup orders.") if channel == "web" and discount.channels else
+                _("%(name)s can't be used online.")) % {"name": discount.name}
+    if discount.per_customer or discount.first_order:
+        signed_in = customer is not None and getattr(customer, "is_authenticated", False)
+        if not signed_in:
+            return _("Sign in to use %(name)s.") % {"name": discount.name}
+        if discount.first_order and customer.orders.exists():
+            return _("%(name)s is for a first order.") % {"name": discount.name}
+        if discount.per_customer and discount.uses.filter(order__customer=customer).count() >= discount.per_customer:
+            return _("You’ve already used %(name)s.") % {"name": discount.name}
     if discount.starts_on and local.date() < discount.starts_on:
         return _("%(name)s starts on %(date)s.") % {"name": discount.name, "date": discount.starts_on}
     if discount.ends_on and local.date() > discount.ends_on:
@@ -558,8 +568,10 @@ def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count,
         return _("%(name)s has been used up.") % {"name": discount.name}
     if scope == Discount.ITEM and discount.scope == Discount.ORDER:
         return _("%(name)s is for the whole order.") % {"name": discount.name}
-    if scope == Discount.ORDER and discount.scope == Discount.ITEM:
+    if scope == Discount.ORDER and discount.scope == Discount.ITEM and discount.target not in ("items", "menus"):
         return _("%(name)s is for one item.") % {"name": discount.name}
+    if scope == Discount.ITEM and discount.target in ("menus", "delivery"):
+        return _("%(name)s is for the whole order.") % {"name": discount.name}
     if item is not None:
         dish_ids = {d.id for d in discount.dishes.all()}
         combo_ids = {c.id for c in discount.combos.all()}
@@ -570,7 +582,19 @@ def _discount_problem(discount: Discount, *, channel, now, subtotal, item_count,
     return None
 
 
-def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, item, can_manual, approve=None):
+def eligible_base(discount, lines) -> Decimal:
+    """What an order-wide coupon for specific items or menus comes off: those lines, after their own discounts."""
+    if discount.target == "menus":
+        menu_ids = {m.id for m in discount.menus.all()}
+        ok = lambda line: bool(menu_ids & {m.id for m in line.item.menu.all()})  # noqa: E731
+    else:
+        dish_ids, combo_ids = {d.id for d in discount.dishes.all()}, {c.id for c in discount.combos.all()}
+        ok = lambda line: line.item.id in (combo_ids if line.kind == "combo" else dish_ids)  # noqa: E731
+    return sum((line.gross - (line.discount.amount if line.discount else ZERO) for line in lines if ok(line)), ZERO)
+
+
+def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, item, can_manual, approve=None, customer=None,
+           lines=(), delivery_fee=ZERO):
     """Turn a discount spec into an AppliedDiscount on `base`. Raises OrderError if it can't be used."""
     if not isinstance(discount_spec, dict):
         raise OrderError(_("The cart is malformed."))
@@ -603,22 +627,33 @@ def _apply(discount_spec, base, *, channel, now, subtotal, item_count, scope, it
         else:
             raise OrderError(_("The cart is malformed."))
         problem = _discount_problem(discount, channel=channel, now=now, subtotal=subtotal,
-                                    item_count=item_count, scope=scope, item=item)
+                                    item_count=item_count, scope=scope, item=item, customer=customer)
         if problem:
             raise OrderError(problem)
         label, kind, value = discount.code or discount.name, discount.kind, discount.value
+        if scope == Discount.ORDER and discount.target in ("items", "menus"):
+            base = eligible_base(discount, lines)
+            if base <= 0:
+                raise OrderError(_("Nothing in this order is covered by %(name)s.") % {"name": label})
+        elif discount.target == "delivery" and scope == Discount.ORDER:
+            if delivery_fee <= 0:
+                raise OrderError(_("%(name)s comes off the delivery fee, and this order has none.") % {"name": label})
+            base = delivery_fee
     if kind == Discount.PERCENT:
         amount = money(base * value / 100)
+        if discount is not None and discount.max_amount:
+            amount = min(amount, discount.max_amount)
     else:
         amount = min(value, base)
-    return AppliedDiscount(label=label, kind=kind, value=value, amount=max(amount, ZERO), discount=discount, approved_by=approved_by)
+    return AppliedDiscount(label=label, kind=kind, value=value, amount=max(amount, ZERO), discount=discount, approved_by=approved_by,
+                           on_delivery=bool(discount and discount.target == "delivery" and scope == Discount.ORDER))
 
 
 # ---------- the whole cart ----------
 
 @dataclass
 class Fee:
-    """A disposable charged to the customer (a paper bag), its own line after tax."""
+    """A charge after tax, its own line: a disposable (a paper bag), or the delivery fee (`disposable` None)."""
     disposable: Disposable
     label: str
     quantity: int
@@ -660,7 +695,9 @@ class PricedCart:
 
     @property
     def fee_total(self) -> Decimal:
-        return sum((fee.amount for fee in self.fees), ZERO)
+        """Fees after tax (packaging, the delivery fee), less a coupon off the delivery fee."""
+        off = self.order_discount.amount if self.order_discount and self.order_discount.on_delivery else ZERO
+        return sum((fee.amount for fee in self.fees), ZERO) - off
 
     @property
     def line_discounts(self) -> Decimal:
@@ -668,7 +705,7 @@ class PricedCart:
 
     @property
     def discount(self) -> Decimal:
-        return (self.line_discounts + (self.order_discount.amount if self.order_discount else ZERO)
+        return (self.line_discounts + (self.order_discount.amount if self.order_discount and not self.order_discount.on_delivery else ZERO)
                 + (self.staff_discount.amount if self.staff_discount else ZERO))
 
     @property
@@ -712,7 +749,7 @@ class PricedCart:
 
 
 def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, approve=None, strict=True,
-               now=None, staff_cards=()) -> PricedCart:
+               now=None, staff_cards=(), customer=None) -> PricedCart:
     """
     Validate and price a cart. Raises OrderError for anything wrong with the lines. `to_go` (packed to take away)
     and the channel decide the order type, which decides the disposables and their fees.
@@ -725,7 +762,9 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     of the manager who signed it off (pos_server/approvals.py: check).
 
     `staff_cards` (gift_cards.models.StaffCard, one of each kind) are checked, and a discount card's discount is
-    worked out after the others (gift_cards/staff_cards.py: apply_to).
+    worked out after the others (gift_cards/staff_cards.py: apply_to). `customer` (the signed-in one) is for coupons
+    limited per customer or to a first order. Delivery orders carry the store's delivery fee (events.StoreHours),
+    which a coupon can take off.
     """
     if not isinstance(lines, list):
         raise OrderError(_("The cart is malformed."))
@@ -736,7 +775,7 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     subtotal = sum((line.gross for line in priced), ZERO)
     cart = PricedCart(lines=priced, subtotal=subtotal)
     context = {"channel": channel, "now": now, "subtotal": subtotal, "item_count": cart.item_count, "can_manual": can_manual,
-               "approve": approve}
+               "approve": approve, "customer": customer, "lines": priced, "delivery_fee": _delivery_fee(channel)}
 
     for line in priced:
         if line.raw_discount:
@@ -765,7 +804,16 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
     cart.disposables = disposables_for(priced, order_type(channel, to_go))
     cart.fees = [Fee(disposable, disposable.fee_label or disposable.title, count, money(disposable.fee_price * count))
                  for disposable, count in cart.disposables if disposable.fee and disposable.fee_price > 0]
+    if context["delivery_fee"] > 0:
+        cart.fees.append(Fee(None, str(_("Delivery")), 1, context["delivery_fee"]))
     return cart
+
+
+def _delivery_fee(channel) -> Decimal:
+    if channel != "delivery":
+        return ZERO
+    from events.models import StoreHours  # events imports pos_server
+    return money(StoreHours.load().delivery_fee or 0)
 
 
 def offers_for_register(now=None):

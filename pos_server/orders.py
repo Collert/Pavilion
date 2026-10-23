@@ -92,7 +92,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         from gift_cards.models import StaffCard
         staff_cards = list(StaffCard.objects.select_for_update().select_related("type", "user").filter(pk__in=[c.pk for c in staff_cards]))
     cart = price_cart(lines, order_discount=order_discount, channel=channel, to_go=bool(fields.get("to_go_order")),
-                      can_manual=can_manual_discount, approve=approve_discount, staff_cards=staff_cards)
+                      can_manual=can_manual_discount, approve=approve_discount, staff_cards=staff_cards, customer=fields.get("customer"))
     if not cart.lines:
         raise OrderError(_("The cart is empty."))
     tip = to_money(tip or 0)

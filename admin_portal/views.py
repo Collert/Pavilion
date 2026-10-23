@@ -47,6 +47,7 @@ from . import roles as roles_data
 from . import groups as groups_data
 from . import staffcards as staffcards_data
 from . import customers as customers_data
+from . import coupons as coupons_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1512,6 +1513,32 @@ def customers(request):
             messages.success(request, toast)
         customers_data.store(request.session, st)
     return page(request, "admin_portal/customers.html", "customers", {"x": customers_data.page(st, request)})
+
+
+@admin_page("coupons", edit={"save"}, delete={"delete"})
+def coupons(request):
+    """Coupons: discounts with a code, one form with Save (admin_portal/coupons.py)."""
+    st = coupons_data.state(request.session)
+    if request.method == "POST":
+        coupons_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        toast = ""
+        if op == "save":
+            errs = coupons_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(next(iter(errs.values())).values())))
+            else:
+                coupons_data.save(st)
+                request.session.pop(coupons_data.KEY, None)
+                publish("inventory")  # the register refetches its catalog (and offers) on this
+                messages.success(request, _("Coupons saved. Codes work at checkout right away."))
+                return redirect("admin_coupons")
+        elif op != "preview":
+            toast = coupons_data.apply_op(st, op)
+        if toast:
+            messages.success(request, toast)
+        request.session[coupons_data.KEY] = st
+    return page(request, "admin_portal/coupons.html", "coupons", {"x": coupons_data.page(st)})
 
 
 # ---------- branding ----------

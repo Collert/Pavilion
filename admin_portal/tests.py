@@ -2760,3 +2760,57 @@ class CustomersPageTests(AdminFixture, TestCase):
         self.assertRedirects(self.post("make_staff"), reverse("admin_staff"), fetch_redirect_response=False)
         self.customer.refresh_from_db()
         self.assertTrue(self.customer.is_staff)
+
+
+class CouponsPageTests(AdminFixture, TestCase):
+    """Coupons (admin_portal/coupons.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_coupons")
+
+    def post(self, x, op="preview", **fields):
+        e = x["d"]["e"]
+        data = {"editing": x["d"]["key"], "code": e["code"], "title": e["title"], "value": e["value"], "cap": e["cap"], "min": e["min"],
+                "start": e["start"], "limit": e["limit"], "op": op}
+        if e["end"]:
+            data["end"] = e["end"]
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_a_coupon_from_new_to_saved(self):
+        from pos_server.models import Discount, Menu
+        x = self.client.get(self.url).context["x"]
+        self.assertIsNone(x["d"])
+        x = self.client.post(self.url, {"op": "new"}).context["x"]
+        self.assertEqual(len(x["d"]["e"]["code"]), 8)
+        x = self.post(x, code="ab")
+        self.assertEqual(x["d"]["err"]["code"], "Codes need at least 3 characters.")
+        x = self.post(x, code="drinks-10", title="10% off drinks")
+        self.assertEqual(x["d"]["e"]["code"], "DRINKS10")
+        x = self.post(x, "target:items")
+        self.assertEqual(x["d"]["err"]["value"], "Pick at least one dish.")
+        x = self.post(x, f"item:d{self.coffee.id}")
+        x = self.post(x, "flip:first")
+        self.assertTrue(x["d"]["acct"])
+        x = self.post(x, "end")
+        x = self.post(x, cap="3")
+        self.client.post(self.url, {"op": "save"})
+        d = Discount.objects.get(code="DRINKS10")
+        self.assertEqual((d.name, d.target, list(d.dishes.all()), d.max_amount, d.first_order, d.channels),
+                         ("10% off drinks", "items", [self.coffee], Decimal("3"), True, ["pickup", "delivery", "store"]))
+        self.assertTrue(d.on_register and d.online)
+        # free delivery locks it to delivery orders; menus need a pick
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, "target:delivery")
+        x = self.post(x, "free")
+        self.assertEqual((x["d"]["e"]["chans"], x["d"]["free"], x["rows"][0]["big"]), (["delivery"], True, "FREE"))
+        x = self.post(x, "target:menus")
+        self.assertEqual(x["d"]["e"]["chans"], ["pickup", "delivery", "store"])
+        x = self.post(x, f"menu:{Menu.objects.create(title='Brunch').id}")
+        x = self.post(x, "delete")
+        self.client.post(self.url, {"op": "save"})
+        self.assertFalse(Discount.objects.filter(code="DRINKS10").exists())

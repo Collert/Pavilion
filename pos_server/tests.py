@@ -334,6 +334,57 @@ class DiscountTests(MenuFixture, TestCase):
             price_cart([self.dish(self.burger)], order_discount={"code": "STAFF"}, channel="web")
 
 
+class CouponTests(MenuFixture, TestCase):
+    """Coupons (the admin's Coupons page): what they come off, where they work and who can use them."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def coupon(self, code, **fields):
+        return Discount.objects.create(name=code, code=code, kind=fields.pop("kind", "pct"), value=Decimal(fields.pop("value", "10")),
+                                       channels=fields.pop("channels", ["store", "pickup", "delivery"]), **fields)
+
+    def test_menus_items_and_the_cap(self):
+        breakfast = Menu.objects.create(title="Breakfast")
+        self.coffee.menu.add(breakfast)
+        self.coupon("MORNING", value="50", target="menus", scope="order").menus.add(breakfast)
+        cart = price_cart([self.dish(self.burger), self.dish(self.coffee, 2)], order_discount={"code": "MORNING"})
+        self.assertEqual(cart.order_discount.amount, Decimal("2.50"))  # half the coffees only
+        self.coupon("BURGER", value="20", target="items", max_amount=Decimal("2.00")).dishes.add(self.burger)
+        cart = price_cart([self.dish(self.burger, 2), self.dish(self.coffee)], order_discount={"code": "BURGER"})
+        self.assertEqual(cart.order_discount.amount, Decimal("2.00"))  # 20% of 29.00, capped
+        with self.assertRaisesMessage(OrderError, "Nothing in this order is covered by BURGER."):
+            price_cart([self.dish(self.coffee)], order_discount={"code": "BURGER"})
+
+    def test_free_delivery(self):
+        from events.models import StoreHours
+        hours = StoreHours.load()
+        hours.delivery_fee = Decimal("4.99")
+        hours.save()
+        self.coupon("FREEDEL", value="100", target="delivery", scope="order", channels=["delivery"], min_subtotal=Decimal("10"))
+        plain = price_cart([self.dish(self.burger)], channel="delivery")
+        self.assertEqual((plain.fee_total, plain.total), (Decimal("4.99"), Decimal("19.49")))
+        free = price_cart([self.dish(self.burger)], channel="delivery", order_discount={"code": "FREEDEL"})
+        self.assertEqual((free.discount, free.fee_total, free.total), (Decimal("0"), Decimal("0.00"), Decimal("14.50")))
+        with self.assertRaisesMessage(OrderError, "can't be used on pickup orders"):
+            price_cart([self.dish(self.burger)], channel="web", order_discount={"code": "FREEDEL"})
+        order = create_order(lines=[self.dish(self.burger)], channel="delivery", order_discount={"code": "FREEDEL"},
+                             initial_status=OrderStation.STATUS_PENDING, verify_payment=lambda left: None)
+        self.assertEqual((order.fees, order.total, order.fee_lines.get().amount), (Decimal("0.00"), Decimal("14.50"), Decimal("4.99")))
+        self.assertEqual(order.discounts.get().amount, Decimal("4.99"))
+
+    def test_signed_in_customers_first_order_and_per_customer(self):
+        ana = User.objects.create_user("ana", password="x")
+        self.coupon("WELCOME", first_order=True, per_customer=1, channels=["pickup"])
+        with self.assertRaisesMessage(OrderError, "Sign in to use WELCOME."):
+            price_cart([self.dish(self.burger)], channel="web", order_discount={"code": "WELCOME"})
+        self.assertTrue(price_cart([self.dish(self.burger)], channel="web", order_discount={"code": "WELCOME"}, customer=ana).order_discount)
+        create_order(lines=[self.dish(self.burger)], channel="web", order_discount={"code": "WELCOME"}, customer=ana,
+                     initial_status=OrderStation.STATUS_PENDING, verify_payment=lambda left: None)
+        with self.assertRaisesMessage(OrderError, "WELCOME is for a first order."):
+            price_cart([self.dish(self.burger)], channel="web", order_discount={"code": "WELCOME"}, customer=ana)
+
+
 class CreateOrderTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
