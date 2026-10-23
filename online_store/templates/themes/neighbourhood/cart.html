@@ -173,7 +173,7 @@ order, or first opens Square's card form for what gift cards don't cover (checko
         </div>
         <div class="nb-sum-total"><span class="nb-serif nb-grow">{% trans "Total" %}</span><span class="nb-serif">${{ total|floatformat:2 }}</span></div>
         <button class="nb-btn nb-btn-accent nb-place" name="op" value="place" {% if not ready %}disabled{% endif %}>{% blocktrans with t=total|floatformat:2 %}Place order · ${{ t }}{% endblocktrans %}</button>
-        <div class="nb-sum-note">{% if not when.ok %}{% trans "Pick a time we’re open to place this order." %}{% elif contact_problem %}{{ contact_problem }}{% elif to_pay > 0 %}{% blocktrans with a=to_pay|floatformat:2 %}${{ a }} goes on your card. It’s only charged once the kitchen accepts the order.{% endblocktrans %}{% else %}{% trans "Gift cards cover it all." %}{% endif %}</div>
+        <div class="nb-sum-note">{% if not when.ok %}{% trans "Pick a time we’re open to place this order." %}{% elif contact_problem %}{{ contact_problem }}{% elif to_pay > 0 %}{% blocktrans with a=to_pay|floatformat:2 %}${{ a }} goes on your card. It’s only charged once the kitchen accepts the order.{% endblocktrans %}{% else %}{% trans "Your cards cover it all." %}{% endif %}</div>
     </aside>
 </div>
 </form>

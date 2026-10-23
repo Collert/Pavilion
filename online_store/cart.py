@@ -74,7 +74,8 @@ def clear(request):
 
 
 def priced(request, channel="web", to_go=True, now=None):
-    """(PricedCart or None, [problem messages]). Lines that can't be sold any more are taken out of the cart."""
+    """(PricedCart or None, [problem messages]). Lines that can't be sold any more are taken out of the cart. A
+    signed-in staff member's staff cards that work for this channel are on it (gift_cards/staff_cards.py)."""
     cart = load(request)
     problems = []
     good = []
@@ -90,8 +91,9 @@ def priced(request, channel="web", to_go=True, now=None):
     if not good:
         return None, problems
     coupon = cart.get("coupon", "")
+    from gift_cards import staff_cards
     priced_cart = price_cart(plain(good), order_discount={"code": coupon} if coupon else None, channel=channel,
-                             to_go=to_go, strict=False, now=now)
+                             to_go=to_go, strict=False, now=now, staff_cards=staff_cards.cards_for(request.user, channel))
     return priced_cart, problems
 
 

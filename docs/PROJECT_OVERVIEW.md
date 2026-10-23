@@ -261,7 +261,9 @@ a card's number. The register sends `staffCards: [numbers]` with every quote; th
 holder, balance and what a balance card can pay, or why it can't be used, and then it's taken off) and the discount
 card's `staffDiscount`. A card with "own order" puts the holder's name on the order. A balance card is a pay method
 ("Staff", picked first when there is one) paying up to what it covers; place_order passes its payments as
-`staff_card_amount`.
+`staff_card_amount`. **Online**, a signed-in staff member's cards that work for the channel apply by themselves
+(`staff_cards.cards_for`, used by `online_store/cart.py: priced` and `pages._staff_cover`): the discount card's
+discount, then the balance card paying after any gift cards, each shown as a line at checkout.
 
 ### 6.2 Register, lock screen and cash drawer (`pos_server/register.py`)
 

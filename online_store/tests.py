@@ -87,6 +87,24 @@ class PlaceOrderTests(MenuFixture, TestCase):
         card.refresh_from_db()
         self.assertEqual(card.available_balance, Decimal("4.00"))
 
+    def test_a_signed_in_staff_members_cards_apply_at_checkout(self):
+        from django.contrib.auth.models import User
+        from gift_cards.models import StaffCard, StaffCardType
+        marco = User.objects.create_user("marco", first_name="Marco", last_name="Bellini", email="marco@example.com", is_staff=True)
+        meal = StaffCardType.objects.create(name="Shift meal", amount=Decimal("12"), channels=["store", "pickup"])
+        off = StaffCardType.objects.create(name="Staff discount", kind="discount", discount_value=Decimal("25"), channels=["pickup"])
+        balance = StaffCard.objects.create(type=meal, user=marco, number="1111222233334444", balance=Decimal("12"))
+        StaffCard.objects.create(type=off, user=marco, number="5555666677778888")
+        self.client.force_login(marco)  # the burger from setUp stays in the cart
+        page = self.client.get(self.url).context
+        self.assertEqual([label for label, _v, kind in page["lines"] if kind == "deal"], ["Staff discount", "Shift meal •• 4444"])
+        self.assertEqual(page["to_pay"], Decimal("0.00"))  # 16.00 less 25% is 12.00, all on the meal card
+        self.place()
+        order = Order.objects.get()
+        self.assertEqual((order.name, order.discount, order.total), ("Marco Bellini", Decimal("4.00"), Decimal("12.00")))
+        balance.refresh_from_db()
+        self.assertEqual(balance.balance, Decimal("0.00"))
+
     def test_coupon(self):
         from pos_server.models import Discount
         Discount.objects.create(name="Welcome", kind="pct", value=Decimal("10"), scope="order", code="WELCOME10", online=True)

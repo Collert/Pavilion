@@ -362,6 +362,15 @@ def _gift_cover(request, total):
     return out
 
 
+def _staff_cover(request, priced, left, channel):
+    """(StaffCard, amount) a signed-in staff member's balance card pays of what's `left`, or (None, 0)."""
+    from gift_cards import staff_cards
+    card = next((c for c in staff_cards.cards_for(request.user, channel) if c.type.kind == c.type.BALANCE), None)
+    if card is None or priced is None or left <= 0:
+        return None, Decimal("0")
+    return card, staff_cards.payable(card, priced, left)
+
+
 def checkout(request):
     state = _state(request)
     t = themes.current(request).values
@@ -393,8 +402,9 @@ def checkout(request):
     total = priced.total + tip
     gifts = _gift_cover(request, total)
     gift_total = sum((a for _c, a in gifts), Decimal("0"))
+    staff_card, staff_amount = _staff_cover(request, priced, total - gift_total, "delivery" if delivery else "web")
     lines = [(_("Subtotal"), priced.subtotal, "")]
-    for applied in priced.applied_discounts():
+    for _line, applied in priced.applied_discounts():
         lines.append((applied.label, -applied.amount, "deal"))
     lines += [(f.label, f.amount, "") for f in priced.fees]
     if priced.tax:
@@ -402,10 +412,12 @@ def checkout(request):
     lines.append((_("Tip"), tip, ""))
     for card, amount in gifts:
         lines.append((_("Gift card •• %(last4)s") % {"last4": card.number[-4:]}, -amount, "deal"))
+    if staff_amount > 0:
+        lines.append((f"{staff_card.type.name} •• {staff_card.number[-4:]}", -staff_amount, "deal"))
     lines = [(label, ("−" if value < 0 else "") + store_cart.money(abs(value)), kind) for label, value, kind in lines]
     upsell = _upsell(cart_dishes, pictures)
     delivery_open = any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
-    to_pay = total - gift_total
+    to_pay = total - gift_total - staff_amount
     user = request.user
     saved_cards = list(user.saved_cards.all()) if user.is_authenticated else []
     for card in saved_cards:
@@ -470,6 +482,12 @@ def _place(request, state):
     total = priced.total + tip
     gifts = _gift_cover(request, total)
     remaining = total - sum((a for _c, a in gifts), Decimal("0"))
+    from gift_cards import staff_cards
+    cards = staff_cards.cards_for(request.user, "delivery" if delivery else "web")
+    if priced.staff_error:  # e.g. a discount card with nothing on the order to cover
+        cards = [c for c in cards if c.type.kind == c.type.BALANCE]
+    _card, staff_amount = _staff_cover(request, priced, remaining, "delivery" if delivery else "web")
+    remaining -= staff_amount
     uuid_ = request.POST.get("transaction_uuid", "")
     if not state.get("pay") and request.user.is_authenticated:
         default = request.user.saved_cards.first()
@@ -505,6 +523,7 @@ def _place(request, state):
                 lines=store_cart.plain(cart["lines"]), order_discount={"code": cart["coupon"]} if cart["coupon"] else None,
                 channel="delivery" if delivery else "web", initial_status=OrderStation.STATUS_PENDING,
                 gift_card_payments=[(c.number, a) for c, a in gifts], verify_payment=verify_payment, tip=tip,
+                staff_cards=cards, staff_card_amount=staff_amount,
                 special_instructions=state["note"] or None, to_go_order=True, phone=int(phone) if phone else None,
                 start_time=when["start"], name=state["name"].strip()[:140], customer=user,
                 email=(user.email if user else state["email"]).strip(),
