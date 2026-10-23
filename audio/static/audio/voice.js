@@ -118,7 +118,8 @@ requestAnimationFrame(frame);
 
 // ---------- listening ----------
 
-let decoder = null, playAt = 0, stamp = 0, release = null;
+const START_LEAD = 0.3, MAX_LEAD = 0.8;  // seconds of slack against network jitter
+let decoder = null, playAt = 0, lead = START_LEAD, stamp = 0, release = null;
 function playPcm(audioData) {
     const frames = audioData.numberOfFrames;
     const buffer = ctx.createBuffer(1, frames, audioData.sampleRate);
@@ -129,7 +130,12 @@ function playPcm(audioData) {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(out);
-    playAt = Math.max(playAt, ctx.currentTime + 0.15);  // a little buffer against network jitter
+    // A jitter buffer: packets arrive in bursts (the talker's browser, Wi-Fi power saving), so play them a little
+    // behind. When it runs dry anyway, wait a bit longer before starting again, and keep that extra slack.
+    if (playAt < ctx.currentTime + 0.02) {
+        if (playAt) lead = Math.min(lead + 0.1, MAX_LEAD);
+        playAt = ctx.currentTime + lead;
+    }
     source.start(playAt);
     playAt += buffer.duration;
 }
@@ -171,6 +177,8 @@ function connect() {
         try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === "start") {
             clearTimeout(release);
+            playAt = 0;  // a new talker: start with fresh slack
+            lead = START_LEAD;
             decoder = decoder || startDecoder();
             set("incoming", { who: message.first || message.who || gettext("Someone") });
         } else if (message.type === "stop") {

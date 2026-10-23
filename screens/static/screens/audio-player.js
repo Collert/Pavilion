@@ -100,7 +100,8 @@ function music(lane) {
 
 function voice(lane) {
     let decoder = null;
-    let playAt = 0;
+    const START_LEAD = 0.3, MAX_LEAD = 0.8;  // seconds of slack against network jitter
+    let playAt = 0, lead = START_LEAD;
     let stamp = 0;
 
     function play(audioData) {
@@ -113,7 +114,12 @@ function voice(lane) {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.connect(lane.gain);
-        playAt = Math.max(playAt, ctx.currentTime + 0.15);  // a little buffer against network jitter
+        // A jitter buffer: packets arrive in bursts (the talker's browser, Wi-Fi power saving), so play them a little
+        // behind. When it runs dry anyway, wait a bit longer before starting again, and keep that extra slack.
+        if (playAt < ctx.currentTime + 0.02) {
+            if (playAt) lead = Math.min(lead + 0.1, MAX_LEAD);
+            playAt = ctx.currentTime + lead;
+        }
         source.start(playAt);
         playAt += buffer.duration;
     }
@@ -146,6 +152,8 @@ function voice(lane) {
                 let message;
                 try { message = JSON.parse(event.data); } catch { return; }
                 if (message.type === "start") {
+                    playAt = 0;  // a new talker: start with fresh slack
+                    lead = START_LEAD;
                     decoder = decoder || startDecoder();
                     speaking(lane, true);
                 } else if (message.type === "stop") {

@@ -120,6 +120,7 @@ async def voice_socket(scope, receive, send, channel_id):
     me = uuid.uuid4().hex[:12]
     broker = get_broker()
     holding = False
+    kept_at = 0.0  # when the floor was last refreshed
 
     async def relay():
         async for message in broker.subscribe(topic(channel_id), raw=True):
@@ -183,7 +184,10 @@ async def voice_socket(scope, receive, send, channel_id):
                     broker.publish(topic(channel_id), _frame(me, b"T", json.dumps({"type": "stop"}).encode()))
             elif event.get("bytes") and holding and len(event["bytes"]) <= MAX_FRAME:
                 broker.publish(topic(channel_id), _frame(me, b"B", event["bytes"]))
-                await sync_to_async(keep_floor)()
+                now = asyncio.get_running_loop().time()
+                if now - kept_at > 2:  # not on every packet: a wait here holds up the voice
+                    kept_at = now
+                    await sync_to_async(keep_floor, thread_sensitive=False)()
     finally:
         if holding:
             await sync_to_async(let_go)()
