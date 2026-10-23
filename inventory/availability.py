@@ -39,7 +39,7 @@ def _dish_rows(menu):
                    _("%(station)s station") % {"station": dish.station.name},
         })
     return [{"name": station.name, "items": by_station[station.id]}
-            for station in Station.objects.all() if station.id in by_station]
+            for station in Station.objects.filter(archived=False) if station.id in by_station]
 
 
 def _component_rows():
