@@ -23,7 +23,7 @@ const pad = (n) => String(n).padStart(4, "0");
 // ---------- state ----------
 
 function freshCart() {
-    return { lines: [], orderDiscount: null, name: "", toGo: false, note: "", noteKitchen: true, payments: [], nextKey: 1 };
+    return { lines: [], orderDiscount: null, staffCards: [], name: "", toGo: false, note: "", noteKitchen: true, payments: [], nextKey: 1 };
 }
 
 function loadCart() {
@@ -287,6 +287,7 @@ function cartBody(extra = {}) {
     return {
         lines: state.lines.map(serverLine),
         orderDiscount: state.orderDiscount ? state.orderDiscount.spec : null,
+        staffCards: state.staffCards || [],  // numbers (gift_cards/staff_cards.py)
         toGo: state.toGo,  // to go or for here decides the packaging fees
         ...extra,
     };
@@ -342,6 +343,26 @@ async function runQuote() {
         toast(result.data.orderDiscountError, { error: true });
         state.orderDiscount = null;
         dropped = true;
+    }
+    // Staff cards that can't be used come off, with the reason; one just added puts the order under its holder
+    const bad = (result.data.staffCards || []).filter((c) => c.error).map((c) => c.number);
+    for (const message of [...(result.data.staffUnknown || []), ...(result.data.staffCards || []).filter((c) => c.error).map((c) => c.error)]) {
+        if (ui.staffAdding) { $("#staff-error").replaceChildren(el("span", { icon: "alert" }), message); $("#staff-error").hidden = false; }
+        else toast(message, { error: true });
+    }
+    if (bad.length || (result.data.staffUnknown || []).length) {
+        const known = new Set((result.data.staffCards || []).filter((c) => !c.error).map((c) => c.number));
+        state.staffCards = (state.staffCards || []).filter((n) => known.has(n));
+        ui.staffAdding = null;
+        dropped = true;
+    } else if (ui.staffAdding) {
+        const card = (result.data.staffCards || []).find((c) => c.number === ui.staffAdding);
+        ui.staffAdding = null;
+        if (card) {
+            if (card.ownOnly) { state.name = card.holder; $("#customer-name").value = card.holder; }
+            $("#staff-sheet").close();
+            toast(interpolate(t("%s · %s"), [card.type, card.holder]));
+        }
     }
     if (dropped) {
         save();
@@ -682,6 +703,10 @@ function renderTotals() {
         if (quote.orderDiscount?.amount) {
             entries.push(discEntry(t("Whole order"), `${quote.orderDiscount.label} · ${quote.orderDiscount.short}`, quote.orderDiscount.amount));
         }
+        if (quote.staffDiscount?.amount) {
+            const card = (quote.staffCards || []).find((c) => c.kind === "discount");
+            entries.push(discEntry(card ? card.holder : t("Staff card"), `${quote.staffDiscount.label} · ${quote.staffDiscount.short}`, quote.staffDiscount.amount));
+        }
         $("#disc-list").replaceChildren(...entries);
     }
     $("#tax").textContent = fmt(quote?.tax || 0);
@@ -701,6 +726,10 @@ function renderTotals() {
     discBtn.setAttribute("aria-pressed", String(!!state.orderDiscount));
     const orderShort = quote?.orderDiscount?.short || state.orderDiscount?.short;
     discBtn.querySelector(".js-label").textContent = state.orderDiscount ? `${t("Discount")} · ${orderShort}` : t("Discount");
+    const cards = (quote?.staffCards || []).filter((c) => !c.error);
+    $("#staff-btn").setAttribute("aria-pressed", String(!!(state.staffCards || []).length));
+    $("#staff-btn").querySelector(".js-label").textContent = cards.length
+        ? interpolate(t("Staff · %s"), [cards[0].holder.split(" ")[0]]) : t("Staff card");
 }
 
 function discEntry(title, desc, amount) {
@@ -1475,6 +1504,9 @@ function renderPay() {
     $("#cash-ready").hidden = !(cash && !blocked);
     $("#card-panel").hidden = ui.method !== "card";
     $("#gift-panel").hidden = ui.method !== "gift";
+    const staffCard = balanceCard();
+    $("#staff-method").hidden = !staffCard;
+    $("#staff-panel").hidden = ui.method !== "staff";
 
     let label = "";
     let disabled = ui.submitting || now <= 0;
@@ -1507,6 +1539,16 @@ function renderPay() {
         $("#card-cancel").hidden = ui.card !== "waiting";
         label = waiting ? t("Waiting for terminal…") : interpolate(t("Charge %s"), [fmt(now)]);
         disabled = disabled || waiting;
+    } else if (ui.method === "staff") {
+        const used = state.payments.filter((p) => p.method === "staff").reduce((sum, p) => sum + p.amount, 0);
+        const can = staffCard ? Math.max(0, Math.min(staffCard.payable - used, now)) : 0;
+        $("#staff-found").replaceChildren(...(staffCard ? [
+            el("span", { text: interpolate(t("%s · %s x%s"), [staffCard.type, staffCard.holder, staffCard.last4]) }),
+            el("span", { className: "money", text: fmt(staffCard.balance - used) })] : []));
+        $("#staff-pay-note").textContent = staffCard && staffCard.payable < staffCard.balance
+            ? t("It can't pay for everything on this order (alcohol isn't covered).") : "";
+        label = can > 0 ? interpolate(t("Take %s from %s"), [fmt(can), staffCard.type]) : t("Nothing left on the card");
+        disabled = disabled || can <= 0;
     } else {
         const card = ui.gift;
         $("#gift-found").hidden = !card;
@@ -1526,6 +1568,8 @@ $("#pay-btn").addEventListener("click", () => {
     if ($("#pay-btn").disabled) return;
     ui.mode = "pay";
     ui.tendered = null;
+    if (balanceCard()?.payable) ui.method = "staff";  // their balance card pays first
+    else if (ui.method === "staff") ui.method = "cash";
     renderAll();
 });
 
@@ -1541,6 +1585,50 @@ $("#back-to-cart").addEventListener("click", () => {
     save();
     renderAll();
 });
+
+// ---------- staff cards ----------
+
+const staffCardsQuoted = () => (ui.quote?.staffCards || []).filter((c) => !c.error);
+const balanceCard = () => staffCardsQuoted().find((c) => c.kind === "balance");
+
+function renderStaffSheet() {
+    $("#staff-list").replaceChildren(...staffCardsQuoted().map((card) => el("div", { className: "offer staff-on", attrs: { "aria-pressed": "true" } }, [
+        el("span", { className: "offer-text" }, [
+            el("span", { className: "offer-name", text: `${card.type} · ${card.holder}` }),
+            el("span", { className: "offer-note", text: card.kind === "balance"
+                ? interpolate(t("Card x%s · %s left"), [card.last4, fmt(card.balance)]) : interpolate(t("Card x%s"), [card.last4]) }),
+        ]),
+        el("button", { className: "icon-btn", icon: "close", attrs: { "aria-label": t("Take this card off the order") },
+            on: { click: () => { state.staffCards = state.staffCards.filter((n) => n !== card.number); changed(); renderStaffSheet(); } } }),
+    ])));
+}
+
+function addStaffCard(number) {
+    number = String(number || "").trim();
+    $("#staff-error").hidden = true;
+    if (!number) return;
+    if (!state.lines.length) {
+        $("#staff-error").replaceChildren(el("span", { icon: "alert" }), t("Ring up the order first, then scan the card."));
+        $("#staff-error").hidden = false;
+        return;
+    }
+    if ((state.staffCards || []).includes(number)) { $("#staff-sheet").close(); return; }
+    state.staffCards = [...(state.staffCards || []), number];
+    ui.staffAdding = number;
+    $("#staff-number").value = "";
+    changed();
+}
+
+$("#staff-btn").addEventListener("click", () => {
+    $("#staff-error").hidden = true;
+    $("#staff-number").value = "";
+    renderStaffSheet();
+    $("#staff-sheet").showModal();
+    $("#staff-number").focus();
+});
+$("#staff-add").addEventListener("click", () => addStaffCard($("#staff-number").value));
+$("#staff-number").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addStaffCard(e.target.value); } });
+$("#staff-scan").addEventListener("click", () => { ui.scanFor = "staff"; $("#scan-btn").click(); });
 
 $("#methods").addEventListener("click", (e) => {
     const button = e.target.closest("button");
@@ -1565,6 +1653,11 @@ $("#pay-cta").addEventListener("click", async () => {
         if (tendered > now) toast(interpolate(t("Give %s change"), [fmt(tendered - now)]));
     } else if (ui.method === "card") {
         await chargeCard(now);
+    } else if (ui.method === "staff") {
+        const card = balanceCard();
+        const used = state.payments.filter((p) => p.method === "staff").reduce((sum, p) => sum + p.amount, 0);
+        const amount = card ? Math.min(card.payable - used, now) : 0;
+        if (amount > 0) addPayment({ method: "staff", number: card.number, amount, label: interpolate(t("%s x%s"), [card.type, card.last4]) });
     } else if (ui.gift) {
         const amount = Math.min(ui.gift.balance, now);
         addPayment({ method: "gift", number: ui.gift.number, amount, label: interpolate(t("Gift card x%s"), [ui.gift.number.slice(-4)]) });
@@ -1728,6 +1821,7 @@ $("#scan-btn").addEventListener("click", async () => {
             if (!code) return;
             Quagga.stop();
             $("#scan-sheet").close();
+            if (ui.scanFor === "staff") { ui.scanFor = null; addStaffCard(code); return; }
             $("#gift-number").value = code;
             lookupGiftCard(code);
         });

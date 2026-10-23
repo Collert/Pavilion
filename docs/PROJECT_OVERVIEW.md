@@ -256,6 +256,13 @@ for that discount (kind and value), for that cashier, good for 3 hours; the regi
 (`{"manual": {kind, value, approval}}`), pricing accepts it (`price_cart(approve=…)`), and the order records the
 approver on `OrderDiscount.approved_by` (shown on the admin's order page).
 
+**Staff cards** at the register: the order panel's Staff card button opens a sheet to scan (camera or reader) or type
+a card's number. The register sends `staffCards: [numbers]` with every quote; the quote answers with each card (type,
+holder, balance and what a balance card can pay, or why it can't be used, and then it's taken off) and the discount
+card's `staffDiscount`. A card with "own order" puts the holder's name on the order. A balance card is a pay method
+("Staff", picked first when there is one) paying up to what it covers; place_order passes its payments as
+`staff_card_amount`.
+
 ### 6.2 Register, lock screen and cash drawer (`pos_server/register.py`)
 
 Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one

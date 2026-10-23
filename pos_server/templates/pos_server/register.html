@@ -69,6 +69,10 @@
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>
                 <span class="js-label">{% trans "Discount" %}</span>
             </button>
+            <button class="pill" id="staff-btn" aria-pressed="false">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3z M3 11h18 M7 15h4"></path></svg>
+                <span class="js-label">{% trans "Staff card" %}</span>
+            </button>
         </div>
 
         <div class="totals">
@@ -116,6 +120,7 @@
             <button aria-pressed="true" data-method="cash">{% trans "Cash" %}</button>
             <button aria-pressed="false" data-method="card">{% trans "Card" %}</button>
             <button aria-pressed="false" data-method="gift">{% trans "Gift card" %}</button>
+            <button aria-pressed="false" data-method="staff" id="staff-method" hidden>{% trans "Staff" %}</button>
         </div>
 
         <div class="method-area">
@@ -165,6 +170,11 @@
                 </label>
                 <div class="gift-found" id="gift-found" hidden></div>
                 <div class="error-line" id="gift-error" hidden></div>
+            </div>
+
+            <div class="gift" id="staff-panel" hidden>
+                <div class="gift-found" id="staff-found"></div>
+                <div class="sub" id="staff-pay-note"></div>
             </div>
         </div>
 
@@ -335,6 +345,32 @@
         <button class="btn btn-danger-text" id="dc-remove" hidden>{% trans "Remove discount" %}</button>
         <button class="btn" data-close>{% trans "Cancel" %}</button>
         <button class="btn btn-primary dc-apply" id="dc-apply" disabled>{% trans "Apply discount" %}</button>
+    </div>
+</dialog>
+
+<!-- Staff cards on the order (gift_cards/staff_cards.py): a discount card takes its discount, a balance card pays -->
+<dialog class="sheet w-sm" id="staff-sheet" aria-labelledby="staff-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Staff card" %}</div>
+            <h2 class="h2" id="staff-title">{% trans "Scan a staff card" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body stack-10">
+        <div class="stack-10" id="staff-list"></div>
+        <button class="scan-btn" id="staff-scan">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>
+            {% trans "Scan with the camera" %}
+        </button>
+        <label class="field overline">
+            {% trans "Or scan with the reader, or type the number" %}
+            <span class="row-8">
+                <input class="input coupon-input" type="text" id="staff-number" placeholder="{% trans 'Card number' %}" maxlength="32" autocomplete="off">
+                <button class="btn btn-md btn-dark" id="staff-add">{% trans "Add" %}</button>
+            </span>
+        </label>
+        <div class="error-line" id="staff-error" hidden></div>
     </div>
 </dialog>
 

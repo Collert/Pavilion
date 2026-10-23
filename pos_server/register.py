@@ -79,6 +79,28 @@ def can_manual_discount(user) -> bool:
     return can(user, "act.discount")
 
 
+def staff_cards_in(body):
+    """The staff cards the register put on the order ({"staffCards": [numbers]}), and the numbers that aren't one."""
+    from gift_cards import staff_cards
+    numbers = body.get("staffCards") or []
+    if not isinstance(numbers, list):
+        raise ValueError
+    cards = [(str(n), staff_cards.find(n)) for n in numbers[:4]]
+    return [c for _n, c in cards if c], [n for n, c in cards if not c]
+
+
+def staff_card_json(card, cart, problem):
+    """What the register shows about a staff card on the order (money in cents)."""
+    from gift_cards import staff_cards
+    t = card.type
+    out = {"number": card.number, "last4": card.number[-4:], "type": t.name, "kind": t.kind, "color": t.color,
+           "holder": staff_cards.holder(card), "ownOnly": t.own_only, "error": problem}
+    if t.kind == t.BALANCE:
+        out["balance"] = to_cents(staff_cards.refill(card).balance)
+        out["payable"] = to_cents(staff_cards.payable(card, cart, cart.total)) if cart and not problem else 0
+    return out
+
+
 def discount_approvals(request):
     """For pricing: a typed-in discount a manager signed off for this cashier (pos_server/approvals.py)."""
     return lambda manual: approvals.check(manual, request.user)
@@ -227,11 +249,25 @@ def quote(request):
     except (ValueError, TypeError, AttributeError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     try:
+        cards, unknown = staff_cards_in(_body)
+    except (ValueError, TypeError):
+        return JsonResponse({"message": _("The cart is malformed.")}, status=400)
+    from gift_cards import staff_cards
+    problems = {c.pk: staff_cards.problem(c, "store") for c in cards}
+    usable = [c for c in cards if not problems[c.pk]]
+    try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(_body.get("toGo")),
-                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), strict=False)
+                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), strict=False,
+                          staff_cards=usable)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
-    return JsonResponse(cart.as_json())
+    data = cart.as_json()
+    if cart.staff_error:  # the cards together, or a discount card with nothing to cover
+        for c in usable:
+            problems[c.pk] = problems[c.pk] or cart.staff_error
+    data["staffCards"] = [staff_card_json(c, cart, problems[c.pk]) for c in cards]
+    data["staffUnknown"] = [_("Card %(number)s isn’t a staff card, or it was revoked.") % {"number": n[-4:]} for n in unknown]
+    return JsonResponse(data)
 
 
 @register_staff_required
@@ -268,11 +304,15 @@ def place_order(request):
         body, lines, order_discount = _read_cart(request)
         payments = body.get("payments") or []
         gift = [(p["number"], p["amount"]) for p in payments if p.get("method") == "gift"]
-        tenders = [p for p in payments if p.get("method") != "gift"]
-    except (ValueError, KeyError, TypeError, AttributeError):
+        tenders = [p for p in payments if p.get("method") not in ("gift", "staff")]
+        staff_paid = sum((to_money(p["amount"]) for p in payments if p.get("method") == "staff"), Decimal("0"))
+        cards, unknown = staff_cards_in(body)
+    except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     if not payments:
         return JsonResponse({"message": _("Take a payment first.")}, status=400)
+    if unknown:
+        return JsonResponse({"message": _("A staff card on this order isn’t valid any more.")}, status=400)
     device = current_device(request)
     note = (body.get("note") or "").strip()[:140]
     try:
@@ -285,6 +325,7 @@ def place_order(request):
             gift_card_payments=gift,
             can_manual_discount=can_manual_discount(request.user),
             approve_discount=discount_approvals(request),
+            staff_cards=cards, staff_card_amount=staff_paid,
             expected_total=body.get("total"),
             drawer=open_drawer(device),
             cashier=request.user,
@@ -321,11 +362,12 @@ def card_checkout(request):
         amount = to_money(body["amount"])
         paid = sum((to_money(p["amount"]) for p in body.get("payments", [])), Decimal("0"))
         gift = [(p["number"], to_money(p["amount"])) for p in body.get("payments", []) if p.get("method") == "gift"]
+        cards, _unknown = staff_cards_in(body)
     except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The amount is invalid.")}, status=400)
     try:
         cart = price_cart(lines or [], order_discount=order_discount, channel="store", to_go=bool(body.get("toGo")),
-                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request))
+                          can_manual=can_manual_discount(request.user), approve=discount_approvals(request), staff_cards=cards)
     except OrderError as e:
         return JsonResponse({"message": str(e)}, status=400)
     if body.get("total") is not None and to_money(body["total"]) != cart.total:

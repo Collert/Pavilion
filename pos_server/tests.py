@@ -759,6 +759,30 @@ class RegisterTests(MenuFixture, TestCase):
         crew(self.staff, "app.register", "act.discount")  # a group with "Give discounts"
         self.assertEqual(self.post("pos", body).status_code, 200)
 
+    def test_staff_cards_at_the_register(self):
+        from gift_cards.models import StaffCard, StaffCardType
+        marco = User.objects.create_user("marco", first_name="Marco", last_name="Bellini", is_staff=True)
+        meal = StaffCardType.objects.create(name="Shift meal", amount=Decimal("12"), channels=["store"])
+        off = StaffCardType.objects.create(name="Staff discount", kind="discount", discount_value=Decimal("50"), channels=["store"])
+        balance = StaffCard.objects.create(type=meal, user=marco, number="1111222233334444", balance=Decimal("12"))
+        discount = StaffCard.objects.create(type=off, user=marco, number="5555666677778888")
+        cart = {"lines": [self.dish(self.burger)], "staffCards": [balance.number, discount.number, "0000"]}
+        quote = self.post("register_quote", cart).json()
+        self.assertEqual(quote["staffDiscount"]["amount"], 725)  # half the burger
+        self.assertEqual([(c["type"], c.get("payable"), c["error"]) for c in quote["staffCards"]],
+                         [("Shift meal", 725, ""), ("Staff discount", None, "")])
+        self.assertEqual(len(quote["staffUnknown"]), 1)
+        cart["staffCards"] = cart["staffCards"][:2]
+        response = self.post("pos", {**cart, "total": "7.25", "payments": [{"method": "staff", "number": balance.number, "amount": "7.25"}]})
+        self.assertEqual(response.status_code, 200, response.content)
+        order = Order.objects.get()
+        self.assertEqual((order.name, order.discount), ("Marco Bellini", Decimal("7.25")))
+        balance.refresh_from_db()
+        self.assertEqual(balance.balance, Decimal("4.75"))
+        too_much = self.post("pos", {"lines": [self.dish(self.burger)], "staffCards": [balance.number], "total": "14.50",
+                                     "payments": [{"method": "staff", "amount": "10.00"}, {"method": "card", "amount": "4.50"}]})
+        self.assertEqual(too_much.status_code, 400)
+
     def test_a_manager_can_approve_a_typed_in_discount(self):
         boss = crew(User.objects.create_user("priya", password="x", is_staff=True, first_name="Priya"), "act.discount")
         manager = Staff.objects.create(user=boss)
