@@ -43,13 +43,12 @@ def card_display(request, card_number):
     6. Passes the base64-encoded image data and the gift card object to the template context.
     7. Renders the 'gift_cards/card.html' template with the provided context.
     """
-    try:
-        card = GiftCard.objects.get(number=card_number)
-    except:
+    card = GiftCard.find(card_number)
+    if card is None:
         return render(request, 'gift_cards/card.html',)
-    # Create barcode
+    # Create barcode (of the number in the link: only its hash is stored)
     CODE = barcode.get_barcode_class('code128')
-    barcode_instance = CODE(card.number, writer=ImageWriter())
+    barcode_instance = CODE("".join(c for c in card_number if c.isdigit()), writer=ImageWriter())
 
     # Configure the writer with desired options
     options = {
@@ -78,6 +77,14 @@ def card_display(request, card_number):
         "card":card
     }
     return render(request, 'gift_cards/card.html', context)
+
+def balance(request, token):
+    """A gift card's balance from the signed link in a resent email (gift_cards/giftcards.py: balance_link)."""
+    from admin_portal.models import StoreSettings
+    from .giftcards import from_token
+    card = from_token(token)
+    return render(request, "gift_cards/balance.html", {"card": card, "store": StoreSettings.load().name}, status=200 if card else 404)
+
 
 def get_card(request):
     """
@@ -130,7 +137,10 @@ def get_card(request):
             with db_transaction.atomic():
                 # The card is worth what was actually paid, not what the form says
                 transaction = Transaction.consume(uuid, Decimal("0.01"))
-                card = GiftCard.objects.create(email=email, image=image_path, available_balance=transaction.amount)
+                card = GiftCard.objects.create(email=email, image=image_path, available_balance=transaction.amount, recipient=name[:60],
+                                               buyer=(sender or name)[:80], source=GiftCard.ONLINE)
+                GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.ISSUE, amount=card.original, balance=card.original,
+                                             note=str(_("Bought online")))
         except PaymentError as e:
             return render(request, "gift_cards/card-confirm.html", {"error": str(e)}, status=402)
         send_card_email(request, card, email, name, sender, gifted)
@@ -152,7 +162,7 @@ def send_card_email(request, card, email, name, sender, gifted):
     try:
         send_email("gift_card_gifted" if gifted else "gift_card", email, data)
     except Exception:
-        logger.exception("Failed to send gift card email for card %s", card.number)
+        logger.exception("Failed to send gift card email for card •• %s", card.last4)
 
 def special(request):
     return render(request, "gift_cards/special.html", {
@@ -214,11 +224,14 @@ def card_api(request, card_number):
         return HttpResponseForbidden()
     try:
         if request.method == "GET":
-            card = GiftCard.objects.get(number=card_number)
+            card = GiftCard.find(card_number)
+            if card is None:
+                raise GiftCard.DoesNotExist
             data = {
-                "image":card.image.url if card.image else None,
-                "available_balance":card.available_balance,
-                "number":card.number
+                "image": card.picture_url() or None,
+                "available_balance": card.available_balance,
+                "last4": card.last4,
+                "frozen": card.frozen,
             }
             if request.user.is_authenticated and request.user.is_staff:
                 data["email"] = card.email
@@ -231,8 +244,10 @@ def card_api(request, card_number):
         if amount <= 0:
             return JsonResponse({"message":"Invalid amount."}, status=400)
         with db_transaction.atomic():
-            card = GiftCard.objects.select_for_update().get(number=card_number)
-            response = card.charge_card(amount)
+            card = GiftCard.find(card_number, lock=True)
+            if card is None:
+                raise GiftCard.DoesNotExist
+            response = card.charge_card(amount, by=request.user)
         if response == 200:
             return JsonResponse({"message":f"Card charged ${amount}"}, status=200)
         return JsonResponse({"message":"Insufficient card balance."}, status=402)

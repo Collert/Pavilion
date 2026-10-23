@@ -140,8 +140,10 @@ def refund_order(order, *, picks=None, whole=False, reason, to, user) -> Refund:
             if part <= 0:
                 continue
             if payment.method == OrderPayment.GIFT:
-                payment.gift_card.load_card(part)
-                parts.append({"method": "gift", "amount": str(part), "payment": payment.id, "ref": payment.gift_card.number[-4:]})
+                if payment.gift_card is None:
+                    raise RefundError(_("That gift card is gone, so refund it in cash."))
+                payment.gift_card.load_card(part, order=order, by=user)
+                parts.append({"method": "gift", "amount": str(part), "payment": payment.id, "ref": payment.gift_card.last4})
             elif payment.method == OrderPayment.STAFF:
                 if payment.staff_card is None:
                     raise RefundError(_("That staff card is gone, so refund it in cash."))

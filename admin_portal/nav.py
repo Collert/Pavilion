@@ -51,7 +51,7 @@ MENU = [
         ("customers", _("Customers"), "admin_customers"),
         ("coupons", _("Coupons"), "admin_coupons"),
         ("discounts", _("Discounts"), "admin_discounts"),
-        ("giftcards", _("Gift cards"), None),
+        ("giftcards", _("Gift cards"), "admin_gift_cards"),
         ("giftdesigns", _("Gift card designs"), None),
     ]),
 ]

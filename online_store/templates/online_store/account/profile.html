@@ -59,7 +59,7 @@ added through Square's form (payments/save-card in an iframe, ?card=1) and addre
         {% for g in gift_cards %}
         <section class="acct-card acct-gift">
             <span class="acct-gift-art"><span></span></span>
-            <span class="grow acct-two"><span class="strong">{% blocktrans with last4=g.number|slice:"-4:" %}Gift card •• {{ last4 }}{% endblocktrans %}</span><span class="acct-meta">{% trans "Used automatically at checkout" %}</span></span>
+            <span class="grow acct-two"><span class="strong">{% blocktrans with last4=g.last4 %}Gift card •• {{ last4 }}{% endblocktrans %}</span><span class="acct-meta">{% trans "Used automatically at checkout" %}</span></span>
             <span class="disp num acct-gift-amt">${{ g.available_balance|floatformat:2 }}</span>
         </section>
         {% endfor %}

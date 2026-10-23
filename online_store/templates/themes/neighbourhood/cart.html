@@ -159,7 +159,7 @@ order, or first opens Square's card form for what gift cards don't cover (checko
                 <button class="nb-btn nb-btn-line" name="op" value="code">{% trans "Apply" %}</button>
             </div>
             {% if coupon %}<div class="nb-applied">{% blocktrans %}{{ coupon }} applied{% endblocktrans %} <button class="nb-link-btn" name="op" value="drop_code">{% trans "Remove" %}</button></div>{% endif %}
-            {% for c, amount in gifts %}<div class="nb-applied">{% blocktrans with last4=c.number|slice:"-4:" a=amount|floatformat:2 %}Gift card •• {{ last4 }} pays ${{ a }}{% endblocktrans %} <button class="nb-link-btn" name="op" value="drop_gift:{{ c.number }}">{% trans "Remove" %}</button></div>{% endfor %}
+            {% for c, amount in gifts %}<div class="nb-applied">{% blocktrans with last4=c.last4 a=amount|floatformat:2 %}Gift card •• {{ last4 }} pays ${{ a }}{% endblocktrans %} <button class="nb-link-btn" name="op" value="drop_gift:{{ c.id }}">{% trans "Remove" %}</button></div>{% endfor %}
         </section>
     </div>
 

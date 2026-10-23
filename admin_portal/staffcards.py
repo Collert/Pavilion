@@ -205,7 +205,7 @@ def issue(st, me) -> tuple[str, str]:
     if st.get("how") == "scan":
         if not re.fullmatch(r"[A-Za-z0-9-]{6,32}", number):
             return "", _("Scan the blank card, or type its number (letters, digits and dashes).")
-        if StaffCard.objects.filter(number=number).exists() or GiftCard.objects.filter(number=number).exists():
+        if StaffCard.objects.filter(number=number).exists() or GiftCard.find(number):
             return "", _("That card number is already in use.")
     StaffCard.objects.create(type=t, user=person, number=number, balance=t.amount if t.kind == t.BALANCE else 0, issued_by=me)
     st["issue_to"], st["blank"] = None, ""

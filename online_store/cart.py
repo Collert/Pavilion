@@ -4,7 +4,7 @@ The online store's cart, kept in the session (no browser storage): lines in pos_
 price_cart on every page; the browser never sends prices.
 
     request.session["cart"] = {"lines": [{"key": "a1b2c3", "type": "dish", "id": 5, "qty": 1, "cust": {...},
-                                          "note": ""}], "coupon": "", "gifts": ["1234..."]}
+                                          "note": ""}], "coupon": "", "gifts": [<GiftCard id>]}
 
 The dish sheet (`sheet()` / `line_from_post()`) turns a dish's customization kit (pricing.DishKit) into form
 fields and back: g-<group key> (option ids), swap-<part> (a substitute component), out-<part> / extra-<part>

@@ -1,0 +1,169 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Gift cards (design: AdminGiftCards; admin_portal/giftcards.py). Every button acts straight away; fields post back
+(editor.js) so the list, the adjust button and the Issue dialog follow what's typed. The reveal step shows a new
+card's full number once: it's only in the response to Issue (giftcards.js copies it and prints the card).
+{% endcomment %}
+{% block title %}{% trans "Gift cards" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/giftcards.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/giftcards.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Customers" %}</div>
+        <h1 class="disp page-title">{% trans "Gift cards" %}</h1>
+    </div>
+    <button class="btn-amber" name="op" value="issue">{% icon "M3 9h18v4H3z M5 13v8h14v-8 M12 9v12 M12 9c-2-4-6-4-6-1.5S10 9 12 9z M12 9c2-4 6-4 6-1.5S14 9 12 9z" 18 2.2 %}{% trans "Issue gift card" %}</button>
+</header>
+
+<div class="gc-stats" id="gc-stats" data-region>
+    {% for k, v, sub in x.stats %}<div class="card gc-stat"><div class="small muted strong">{{ k }}</div><div class="disp num gc-stat-v">{{ v }}</div><div class="tiny muted strong">{{ sub }}</div></div>{% endfor %}
+</div>
+
+<div class="tm-body">
+    <section class="card gc-table" aria-label="{% trans 'Gift cards' %}" id="gc-list" data-region>
+        <div class="gc-top">
+            <div class="cp-tabs gc-tabs" role="tablist" aria-label="{% trans 'Filter' %}">
+                {% for k, label, n, on in x.tabs %}<button role="tab" aria-selected="{{ on|yesno:'true,false' }}" name="op" value="tab:{{ k }}">{{ label }}<span>{{ n }}</span></button>{% endfor %}
+            </div>
+            <label class="tm-search grow">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
+                <input class="field" name="q" value="{{ x.st.q }}" placeholder="{% trans 'Last 4 digits, name or email' %}" aria-label="{% trans 'Search gift cards' %}" data-type-preview autocomplete="off"></label>
+        </div>
+        <div class="gc-cols" aria-hidden="true"><span class="gc-c-card">{% trans "Card" %}</span><span class="grow">{% trans "Recipient" %}</span><span class="gc-c-bal">{% trans "Balance" %}</span><span class="gc-c-src">{% trans "From" %}</span><span class="gc-c-last">{% trans "Last used" %}</span></div>
+        <div class="gc-rows" role="listbox" aria-label="{% trans 'Gift cards' %}">
+            {% for r in x.rows %}
+            <button class="gc-row{% if r.on %} on{% endif %}{% if r.empty %} empty{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.c.id }}">
+                <span class="gc-c-card"><span class="gc-thumb{% if r.c.frozen %} frozen{% endif %}" style="background-color: {% if r.c.design %}{{ r.c.design.color }}{% else %}#1F4A3A{% endif %};{% if r.c.picture_url %} background-image: url('{{ r.c.picture_url }}');{% endif %}"></span><span class="num gc-last4">•• {{ r.c.last4 }}</span></span>
+                <span class="grow two-line"><span class="strong ellipsis">{{ r.c.recipient|default:_("Unregistered") }}</span><span class="small muted ellipsis">{{ r.c.email|default:_("No email, code given in person") }}</span></span>
+                <span class="gc-c-bal"><span class="gc-bal-top"><span class="num gc-bal">{{ r.bal }}</span><span class="num tiny muted strong">{{ r.of }}</span></span>
+                    <span class="gc-bar"><span class="{% if r.c.frozen %}frozen{% elif r.low %}low{% endif %}" style="width: {{ r.pct }}%"></span></span></span>
+                <span class="gc-c-src gc-src {{ r.src_key }}">{{ r.src }}</span>
+                <span class="gc-c-last{% if r.c.last_use %} used{% endif %}">{{ r.last }}</span>
+            </button>
+            {% empty %}
+            <div class="tm-none">{{ x.no_rows }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="gc-side" aria-label="{% trans 'Card details' %}" id="gc-detail" data-region>
+    {% with d=x.d %}{% if d %}
+        <div class="card tm-card">
+            <div class="gc-art ink-{{ d.ink }}{% if d.c.frozen or d.empty %} grey{% endif %}" style="background-color: {{ d.color }};{% if d.picture %} background-image: url('{{ d.picture }}');{% endif %}">
+                <div class="gc-art-in"><div class="gc-art-row"><span class="gc-brand">{{ x.store }}</span><span class="gc-tag">{{ d.design }}</span></div>
+                    <div class="gc-art-row end"><span class="num gc-num">•••• •••• •••• {{ d.c.last4 }}</span><span class="disp num gc-art-bal">${{ d.c.available_balance|floatformat:2 }}</span></div></div>
+                {% if d.c.frozen %}<div class="gc-frozen">{% icon "M12 2v20 M3.3 7l17.4 10 M20.7 7 3.3 17" 18 2.4 %}{% trans "Frozen" %}</div>{% endif %}
+            </div>
+            {% if d.banner %}<div class="gc-banner{% if d.empty %} red{% endif %}">{{ d.banner }}</div>{% endif %}
+            <div class="gc-facts">{% for k, v in d.facts %}<div><div class="tiny muted strong">{{ k }}</div><div class="num strong ellipsis" title="{{ v }}">{{ v }}</div></div>{% endfor %}</div>
+            {% if d.c.message %}<div class="gc-msg">“{{ d.c.message }}”</div>{% endif %}
+            {% if d.note %}<div class="small muted strong top8">{{ d.note }}</div>{% endif %}
+            <div class="gc-btns">
+                <button class="gc-soft" name="op" value="resend"{% if d.resend_off %} disabled{% endif %}>{% trans "Resend email" %}</button>
+                <button class="gc-soft {% if d.c.frozen %}green{% else %}red{% endif %}" name="op" value="freeze"{% if d.freeze_off %} disabled{% endif %}>{% if d.c.frozen %}{% trans "Unfreeze" %}{% else %}{% trans "Freeze card" %}{% endif %}</button>
+            </div>
+        </div>
+
+        <div class="card tm-card">
+            <div class="gc-adj-head"><h2 class="disp gc-h2 grow">{% trans "Adjust balance" %}</h2>
+                <div class="gc-dirs" role="radiogroup" aria-label="{% trans 'Direction' %}">
+                    <button role="radio" aria-checked="{% if d.adj.dir == 'add' %}true{% else %}false{% endif %}" name="op" value="dir:add">{% trans "Add" %}</button>
+                    <button role="radio" aria-checked="{% if d.adj.dir == 'remove' %}true{% else %}false{% endif %}" name="op" value="dir:remove">{% trans "Remove" %}</button>
+                </div></div>
+            <div class="gc-adj">
+                <span class="sc-money"><span>$</span><input class="num" name="adj_amt" value="{{ d.adj.amt }}" inputmode="decimal" placeholder="0.00" aria-label="{% trans 'Amount' %}" data-type-preview></span>
+                <input class="field" name="adj_why" value="{{ d.adj.why }}" maxlength="60" placeholder="{% trans 'Reason, shown in history' %}" aria-label="{% trans 'Reason' %}" data-type-preview autocomplete="off">
+            </div>
+            {% if d.adj_err %}<div class="tm-err tight sc-err">{{ d.adj_err }}</div>{% endif %}
+            <button class="gc-adj-go" name="op" value="adjust"{% if d.adj_off %} disabled{% endif %}>{{ d.adj_text }}</button>
+        </div>
+
+        <div class="card tm-card">
+            <h2 class="disp gc-h2">{% trans "History" %}</h2>
+            <div class="gc-hist">
+                {% for h in d.hist %}
+                <div class="gc-h"><span class="gc-dot {{ h.kind }}"></span>
+                    <span class="grow two-line"><span class="strong">{{ h.what }}</span><span class="tiny muted strong">{{ h.when }}</span></span>
+                    <span class="gc-h-amt"><span class="num strong{% if h.plus %} plus{% endif %}">{{ h.amt }}</span><span class="num tiny muted strong">{{ h.after }}</span></span></div>
+                {% empty %}<div class="small muted">{% trans "Nothing yet." %}</div>{% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="card tm-card tm-none">{% trans "No gift card picked." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+
+<div id="gc-modal" data-region{% if x.reveal %} data-keep{% endif %}>
+{% if x.m %}{% with m=x.m %}
+<div class="overlay">
+    <button class="scrim" name="op" value="close" aria-label="{% trans 'Close' %}"></button>
+    <div class="sheet wide gc-issue" role="dialog" aria-modal="true" aria-labelledby="iss-title">
+        <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="iss-title">{% trans "Issue a gift card" %}</h2>
+            <div class="small muted strong">{% trans "A gift from the store. It isn’t charged to anyone." %}</div></div>
+            <button class="close-btn" name="op" value="close" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
+        <div class="sheet-scroll">
+            <div class="lbl">{% trans "Design" %}</div>
+            <div class="gc-designs" role="radiogroup" aria-label="{% trans 'Design' %}">
+                {% for g, on in m.designs %}<button role="radio" aria-checked="{{ on|yesno:'true,false' }}" title="{{ g.name }}" name="op" value="design:{{ g.id }}" class="ink-{{ g.ink }}" style="background-color: {{ g.color }};{% if g.image %} background-image: url('{{ g.image.url }}');{% endif %}"><span>{{ g.name }}</span></button>{% empty %}<div class="small muted">{% trans "No designs on sale. Add one on Gift card designs." %}</div>{% endfor %}
+            </div>
+            <div class="lbl top16">{% trans "Amount" %}</div>
+            <div class="gc-amounts">
+                {% for a, on in m.amounts %}<button aria-pressed="{{ on|yesno:'true,false' }}" name="op" value="amt:{{ a }}">${{ a }}</button>{% endfor %}
+                <span class="gc-other{% if m.other_on %} on{% endif %}"><span>$</span><input class="num" name="iss_other" value="{{ m.m.other }}" inputmode="numeric" placeholder="{% trans 'Other' %}" aria-label="{% trans 'Other amount' %}" data-type-preview></span>
+            </div>
+            <div class="cp-two">
+                <label><span class="lbl">{% trans "Recipient name" %}</span><input class="field" name="iss_name" value="{{ m.m.name }}" maxlength="60" placeholder="{% trans 'Who it’s for' %}" data-type-preview autocomplete="off"></label>
+                <label><span class="lbl">{% trans "Recipient email" %}{% if m.m.send != "email" %} <span class="faint">· {% trans "optional" %}</span>{% endif %}</span>
+                    <input class="field{% if m.errs.email and m.m.email %} bad{% endif %}" type="email" name="iss_email" value="{{ m.m.email }}" maxlength="80" placeholder="name@email.com" data-type-preview autocomplete="off"></label>
+            </div>
+            {% if m.errs.email %}<div class="tm-err tight sc-err">{{ m.errs.email }}</div>{% endif %}
+            {% if m.match %}<div class="gc-match">{% icon "check" 14 2.6 %}{{ m.match }}</div>{% endif %}
+            <label class="block top12"><span class="lbl">{% trans "Message" %} <span class="faint">· {% trans "optional, they’ll see it" %}</span></span>
+                <input class="field" name="iss_msg" value="{{ m.m.msg }}" maxlength="120" placeholder="{% trans 'e.g. Sorry about the wait on Saturday. Next one’s on us.' %}" data-type-preview autocomplete="off"></label>
+            <label class="block top12"><span class="lbl">{% trans "Internal note" %} <span class="faint">· {% trans "only staff see this" %}</span></span>
+                <select class="field" name="iss_why">{% for v, on in m.whys %}<option value="{{ v }}"{% if on %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+            <div class="lbl top16">{% trans "How they get it" %}</div>
+            <div class="gc-sends" role="radiogroup" aria-label="{% trans 'How they get it' %}">
+                <button role="radio" aria-checked="{% if m.m.send == 'email' %}true{% else %}false{% endif %}" name="op" value="send:email"><span class="strong block">{% trans "Email it to them" %}</span><span class="small muted block">{% trans "We send the card and full number to their inbox." %}</span></button>
+                <button role="radio" aria-checked="{% if m.m.send == 'show' %}true{% else %}false{% endif %}" name="op" value="send:show"><span class="strong block">{% trans "Show me the code" %}</span><span class="small muted block">{% trans "You see the number once to write down, print or read out." %}</span></button>
+            </div>
+        </div>
+        <div class="sheet-foot gc-foot">
+            <span class="grow strong gc-summary">{{ m.summary }}</span>
+            <button class="gc-cancel" name="op" value="close">{% trans "Cancel" %}</button>
+            <button class="btn-amber" name="op" value="go"{% if m.off %} disabled{% endif %}>{{ m.go_text }}</button>
+        </div>
+    </div>
+</div>
+{% endwith %}{% elif x.reveal %}{% with r=x.reveal %}
+<div class="overlay gc-reveal-wrap">
+    <div class="scrim"></div>
+    <div class="sheet gc-reveal" role="dialog" aria-modal="true" aria-labelledby="rev-title">
+        <div class="gc-rev-head"><span class="gc-ok">{% icon "check" 18 2.8 %}</span>
+            <h2 class="disp sheet-title" id="rev-title">{% if r.send == "email" %}{% blocktrans with name=r.name %}Sent to {{ name }}{% endblocktrans %}{% else %}{% trans "Gift card ready" %}{% endif %}</h2></div>
+        <div class="gc-art big ink-{% if r.design %}{{ r.design.ink }}{% else %}light{% endif %}" data-print-card style="background-color: {% if r.design %}{{ r.design.color }}{% else %}#1F4A3A{% endif %};{% if r.design.image %} background-image: url('{{ r.design.image.url }}');{% endif %}">
+            <div class="gc-art-in"><div class="gc-art-row"><span class="gc-brand">{{ x.store }}</span><span class="disp num gc-art-bal">{{ r.amount }}</span></div>
+                <div class="num gc-rev-num" data-number>{{ r.number }}</div></div>
+        </div>
+        <div class="gc-btns">
+            <button type="button" class="gc-dark" data-copy="{{ r.number }}" data-done="{% trans 'Copied' %}">{% trans "Copy number" %}</button>
+            <button type="button" class="gc-soft" data-print>{% trans "Print it" %}</button>
+        </div>
+        <div class="gc-warn">{% icon "M6 11h12v9H6z M8 11V8a4 4 0 0 1 8 0v3" 18 2.2 %}<span>{% trans "This is the only time the full number is shown. Pavilion stores just the last four digits, so nobody can look it up again, including you. If it’s lost, freeze this card and issue a new one." %}</span></div>
+        {% if r.send == "email" %}<div class="small strong gc-sent">{% blocktrans with email=r.email %}An email with the card and full number is on its way to {{ email }}.{% endblocktrans %}</div>{% endif %}
+        <label class="gc-ack"><input type="checkbox" data-ack data-no-preview> <span>{% if r.send == "email" %}{% trans "I don’t need the number, it’s in their email" %}{% else %}{% trans "I’ve given or saved the number" %}{% endif %}</span></label>
+        <div class="gc-rev-foot"><button class="btn-amber" name="op" value="done" disabled data-ack-done>{% trans "Done, hide the number" %}</button></div>
+    </div>
+</div>
+{% endwith %}{% endif %}
+</div>
+</form>
+{% endblock %}

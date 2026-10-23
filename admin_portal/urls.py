@@ -35,6 +35,7 @@ urlpatterns = [
     path("customers", views.customers, name="admin_customers"),
     path("coupons", views.coupons, name="admin_coupons"),
     path("discounts", views.discounts, name="admin_discounts"),
+    path("gift-cards", views.gift_cards, name="admin_gift_cards"),
     path("staff-cards/<int:card_id>/print", views.staff_card_print, name="admin_staff_card_print"),
     path("library/upload", views.library_upload, name="admin_library_upload"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),

@@ -23,7 +23,7 @@
     Only send it to people who you trust this card to. You will also get a copy of this card sent to the email mentioned in the previous step.
     The card is not refundable, cannot be exchanged for cash or cannot be used for cashback.</p>
     {% endblocktrans %}
-    <a href="{% url 'card_display' card_number=card.number %}" class="button">{% trans "View card" %}</a>
+    {% if card.number %}<a href="{% url 'card_display' card_number=card.number %}" class="button">{% trans "View card" %}</a>{% endif %}
 {% else %}
     <h1>{% trans "No card" %}</h1>
     {% if error %}<p>{{ error }}</p>{% endif %}

@@ -1775,9 +1775,17 @@ async function lookupGiftCard(number) {
         return;
     }
     const data = await response.json();
-    // Count what this order already put on the same card
-    const used = state.payments.filter((p) => p.number === data.number).reduce((sum, p) => sum + p.amount, 0);
-    ui.gift = { number: data.number, balance: Math.max(0, toCents(data.available_balance) - used) };
+    if (data.frozen) {
+        error.replaceChildren(el("span", { icon: "alert" }), t("This gift card is frozen."));
+        error.hidden = false;
+        ui.gift = null;
+        renderPay();
+        return;
+    }
+    // Count what this order already put on the same card (the server keeps only its last 4, so use what was typed)
+    const typed = number.replace(/\D/g, "");
+    const used = state.payments.filter((p) => p.number === typed).reduce((sum, p) => sum + p.amount, 0);
+    ui.gift = { number: typed, balance: Math.max(0, toCents(data.available_balance) - used) };
     renderPay();
 }
 

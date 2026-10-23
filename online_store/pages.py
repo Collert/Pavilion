@@ -237,11 +237,13 @@ def _apply_op(request, state, op, post):
         code = post.get("code", "").strip()
         if not code:
             pass
-        elif GiftCard.objects.filter(number=code.replace(" ", "")).exists():
-            number = code.replace(" ", "")
-            if number not in cart["gifts"]:
-                cart["gifts"].append(number)
-            messages.success(request, _("Gift card added."))
+        elif (gift := GiftCard.find(code)) is not None:
+            if gift.frozen:
+                messages.error(request, _("That gift card is frozen. Ask the store about it."))
+            else:
+                if gift.id not in cart["gifts"]:
+                    cart["gifts"].append(gift.id)
+                messages.success(request, _("Gift card added."))
         else:
             priced, _p = store_cart.priced(request)
             try:
@@ -259,7 +261,7 @@ def _apply_op(request, state, op, post):
         cart["coupon"] = ""
         store_cart.save(request, cart)
     elif name == "drop_gift":
-        cart["gifts"] = [g for g in cart["gifts"] if g != arg]
+        cart["gifts"] = [g for g in cart["gifts"] if str(g) != arg]
         store_cart.save(request, cart)
     elif name in ("inc", "dec", "remove"):
         store_cart.change(request, arg, delta=1 if name == "inc" else -1, remove=name == "remove")
@@ -353,13 +355,14 @@ def _gift_cover(request, total):
     """[(GiftCard, amount)] the cart's gift cards pay, in order, up to `total`; a signed-in customer's own gift
     cards (sent to their email) are used too."""
     out, left = [], total
-    numbers = list(store_cart.load(request)["gifts"])
+    ids = [g for g in store_cart.load(request)["gifts"] if isinstance(g, int)]
     user = request.user
     if user.is_authenticated and user.email:
-        numbers += [n for n in GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0).values_list("number", flat=True) if n not in numbers]
-    for number in numbers:
-        card = GiftCard.objects.filter(number=number).first()
-        if card is None or card.available_balance <= 0 or left <= 0:
+        ids += [n for n in GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0).values_list("id", flat=True) if n not in ids]
+    cards = GiftCard.objects.in_bulk(ids)
+    for card_id in ids:
+        card = cards.get(card_id)
+        if card is None or card.frozen or card.available_balance <= 0 or left <= 0:
             continue
         amount = min(card.available_balance, left)
         out.append((card, amount))
@@ -416,7 +419,7 @@ def checkout(request):
         lines.append((_("Tax"), priced.tax, ""))
     lines.append((_("Tip"), tip, ""))
     for card, amount in gifts:
-        lines.append((_("Gift card •• %(last4)s") % {"last4": card.number[-4:]}, -amount, "deal"))
+        lines.append((_("Gift card •• %(last4)s") % {"last4": card.last4}, -amount, "deal"))
     if staff_amount > 0:
         lines.append((f"{staff_card.type.name} •• {staff_card.number[-4:]}", -staff_amount, "deal"))
     lines = [(label, ("−" if value < 0 else "") + store_cart.money(abs(value)), kind) for label, value, kind in lines]
@@ -527,7 +530,7 @@ def _place(request, state):
             order = create_order(
                 lines=store_cart.plain(cart["lines"]), order_discount={"code": cart["coupon"]} if cart["coupon"] else None,
                 channel="delivery" if delivery else "web", initial_status=OrderStation.STATUS_PENDING,
-                gift_card_payments=[(c.number, a) for c, a in gifts], verify_payment=verify_payment, tip=tip,
+                gift_card_payments=[(c, a) for c, a in gifts], verify_payment=verify_payment, tip=tip,
                 staff_cards=cards, staff_card_amount=staff_amount,
                 special_instructions=state["note"] or None, to_go_order=True, phone=int(phone) if phone else None,
                 start_time=when["start"], name=state["name"].strip()[:140], customer=user,

@@ -32,7 +32,7 @@ from django.utils import timezone
 from admin_portal.models import StoreSettings, StoreTheme
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
-from gift_cards.models import CardPreset, GiftCard, StaffCard, StaffCardType, StaffCardUse
+from gift_cards.models import CardPreset, GiftCard, GiftCardDesign, GiftCardEvent, StaffCard, StaffCardType, StaffCardUse
 from inventory.models import (Restock, RestockLine, CookingSession, IngredientReservation, Packaging, Recipe, RecipeIngredient, RecipeStep,
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
@@ -1475,12 +1475,54 @@ class Command(BaseCommand):
             preset, created = CardPreset.objects.get_or_create(name=f"${amount} card", defaults={"amount": Decimal(amount)})
             if created:
                 preset.image.save(f"{amount}.png", placeholder_image(f"${amount}", color, (856, 540)), save=True)
-        image = CardPreset.objects.first().image
-        self.gift_cards = [
-            GiftCard.objects.create(email="customer@example.com", image=image.name, available_balance=Decimal("50.00")),
-            GiftCard.objects.create(email="friend@example.com", image=image.name, available_balance=Decimal("7.25")),
-            GiftCard.objects.create(email="empty@example.com", image=image.name, available_balance=Decimal("0.00")),
-        ]
+        # Designs (the admin's Gift card designs page): colours stand in for pictures until one is uploaded
+        designs = {}
+        for position, (name, color, ink, amounts, message, extra) in enumerate([
+                ("Classic", "#1F4A3A", "light", [25, 50, 100], "Enjoy something good on us.", {"custom": True, "max_amount": 300}),
+                ("Birthday", "#E87BA4", "light", [25, 50, 75], "Happy birthday! Treat yourself.", {}),
+                ("Thank you", "#E0A458", "dark", [15, 25, 50], "Thanks for everything.", {}),
+                ("Coffee lover", "#6B4A1E", "light", [10, 20, 40], "Your next few coffees are covered.", {}),
+                ("Holiday", "#B3361F", "light", [25, 50, 100, 150], "Happy holidays from all of us.",
+                 {"seasonal": True, "show_from": datetime.date(datetime.date.today().year, 11, 15),
+                  "show_until": datetime.date(datetime.date.today().year, 12, 31), "custom": True, "min_amount": 20, "max_amount": 500}),
+                ("Spring", "#2BA3A0", "dark", [20, 40], "", {"seasonal": True, "show_from": datetime.date(datetime.date.today().year, 3, 20),
+                                                              "show_until": datetime.date(datetime.date.today().year, 5, 31)})]):
+            designs[name], _ = GiftCardDesign.objects.get_or_create(name=name, defaults={
+                "color": color, "ink": ink, "amounts": amounts, "message": message, "position": position, **extra})
+        # Cards with a history: bought online, sold at the register, issued by staff; one frozen, two emptied
+        now = timezone.now()
+        priya = User.objects.filter(username="priya").first()
+        self.gift_cards = []
+        for design, original, uses, source, buyer, recipient, email, days, extra in [
+                ("Classic", "50", ["5.00"], "online", "Sam Customer", "Sam Customer", "customer@example.com", 40, {}),
+                ("Birthday", "50", ["14.85", "9.40"], "online", "Maya Singh", "Priyanka Rao", "priyanka.rao@example.com", 25,
+                 {"message": "Happy birthday! Treat yourself."}),
+                ("Classic", "100", ["23.10", "31.65"], "pos", "", "", "", 70, {}),
+                ("Coffee lover", "40", ["6.50", "5.00", "6.75", "5.50"], "online", "Ben Carter", "Ben Carter", "ben.carter@example.com", 110, {}),
+                ("Classic", "25", [], "staff", "Priya Shah", "Noor Haddad", "noor.h@example.com", 5,
+                 {"message": "Sorry about the wait on Saturday. Next one’s on us.", "note": "Make up for a problem"}),
+                ("Thank you", "50", ["18.20"], "online", "Sofia Moreau", "Dana Whitfield", "dana.w@example.com", 130,
+                 {"message": "Thanks for everything."}),
+                ("Classic", "150", ["42.10", "37.80"], "online", "Kenji Watanabe", "Kenji Watanabe", "kenji.w@example.com", 140,
+                 {"frozen": True, "note": "Customer reported the email was forwarded by mistake."}),
+                ("Coffee lover", "20", ["6.50", "13.50"], "online", "Noor Haddad", "Sam Okoro", "sam.okoro@example.com", 50, {}),
+                ("Thank you", "15", ["15.00"], "staff", "Priya Shah", "Tom Nguyen", "tom.nguyen@example.com", 40, {"note": "Staff thank-you"})]:
+            issued = now - datetime.timedelta(days=days)
+            left = Decimal(original)
+            card = GiftCard.objects.create(design=designs[design], available_balance=left, original=left, source=source, buyer=buyer,
+                                           recipient=recipient, email=email, issued_at=issued,
+                                           issued_by=priya if source == "staff" else None, **extra)
+            GiftCardEvent.objects.create(card=card, at=issued, kind=GiftCardEvent.ISSUE, amount=left, balance=left,
+                                         note={"online": "Bought online", "pos": "Sold at the register"}.get(source, f"Issued by {buyer}"))
+            for n, used in enumerate(uses):
+                left -= Decimal(used)
+                GiftCardEvent.objects.create(card=card, at=issued + datetime.timedelta(days=3 + n * days // (len(uses) + 1)),
+                                             kind=GiftCardEvent.USE, amount=-Decimal(used), balance=left)
+            card.available_balance = left
+            card.save()
+            if left <= 0:  # ran out a while ago: deleted in a couple of weeks
+                GiftCard.objects.filter(pk=card.pk).update(empty_since=timezone.localdate() - datetime.timedelta(days=12))
+            self.gift_cards.append(card)
 
     # ---------- orders ----------
 

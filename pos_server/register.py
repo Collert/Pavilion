@@ -375,8 +375,8 @@ def card_checkout(request):
     if amount <= 0 or amount > cart.total - paid:
         return JsonResponse({"message": _("The amount is invalid.")}, status=400)
     for number, part in gift:
-        card = GiftCard.objects.filter(number=number).first()
-        if card is None or card.available_balance < part:
+        card = GiftCard.find(number)
+        if card is None or card.frozen or card.available_balance < part:
             return JsonResponse({"message": _("Card x%(last4)s no longer has enough balance for $%(amount)s.") % {
                 "last4": str(number)[-4:], "amount": part}}, status=402)
     try:

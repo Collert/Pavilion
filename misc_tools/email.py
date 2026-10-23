@@ -45,6 +45,20 @@ KINDS = {
               '<p>Hi {{ .Tx.Data.name }}, show it at the counter or use it online.</p>'
               '<p><a href="{{ .Tx.Data.card_url }}">Open your gift card</a></p>'),
     ),
+    "gift_card_issued": (
+        "{{ .Tx.Data.store }} sent you a {{ .Tx.Data.amount }} gift card",
+        _wrap('<h2>A gift card for you, {{ .Tx.Data.name }}</h2>'
+              '<p>{{ .Tx.Data.message }}</p>'
+              '<p>{{ .Tx.Data.amount }} to spend at {{ .Tx.Data.store }}, at the counter or online.</p>'
+              '<p><a href="{{ .Tx.Data.card_url }}">Open your gift card</a></p>'
+              '<p style="color:#5B6A62">Keep this email: it’s the only place the full card number is written down.</p>'),
+    ),
+    "gift_card_balance": (
+        "Your {{ .Tx.Data.store }} gift card •• {{ .Tx.Data.last4 }}",
+        _wrap('<h2>Your gift card, {{ .Tx.Data.name }}</h2>'
+              '<p>Gift card •• {{ .Tx.Data.last4 }} has {{ .Tx.Data.balance }} left.</p>'
+              '<p><a href="{{ .Tx.Data.balance_url }}">See its balance</a></p>'),
+    ),
     "receipt": (
         "Your receipt from {{ .Tx.Data.store }} · order #{{ .Tx.Data.number }}",
         _wrap('<h2>Thanks for your order</h2>'

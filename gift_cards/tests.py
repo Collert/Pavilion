@@ -66,6 +66,70 @@ class CardApiTests(TestCase):
         self.assertEqual(response.status_code, 402)
 
 
+class GiftCardNumberTests(TestCase):
+    """Only a gift card's last 4 and a hash of its number are kept (models.GiftCard, giftcards.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        from pos_server.tests import MenuFixture
+        MenuFixture.build_menu.__func__(cls)
+
+    def test_the_number_is_shown_once_and_found_by_hash(self):
+        card = GiftCard.objects.create(available_balance=Decimal("20.00"))
+        number = card.number
+        self.assertEqual((len(number), card.last4, card.original), (16, number[-4:], Decimal("20.00")))
+        stored = GiftCard.objects.get(pk=card.pk)
+        self.assertEqual(stored.number, "")
+        self.assertNotIn(number, stored.number_hash)
+        spaced = " ".join(number[i:i + 4] for i in range(0, 16, 4))
+        self.assertEqual(GiftCard.find(spaced), stored)
+        self.assertIsNone(GiftCard.find("1234 5678 9012 3456"))
+        self.assertEqual(self.client.get(reverse("card_api", args=[number])).json()["last4"], number[-4:])
+
+    def test_frozen_cards_cant_pay_and_history_is_kept(self):
+        from pos_server.models import OrderStation
+        from pos_server.orders import OrderError, create_order, refund_gift_cards
+        from .giftcards import set_frozen
+        from .models import GiftCardEvent
+        card = GiftCard.objects.create(available_balance=Decimal("20.00"))
+        number = card.number
+        line = {"type": "dish", "id": self.coffee.id, "qty": 1, "cust": {}}
+        set_frozen(card, True, None)
+        with self.assertRaisesMessage(OrderError, "is frozen"):
+            create_order(lines=[line], channel="store", initial_status=OrderStation.STATUS_APPROVED, gift_card_payments=[(number, "2.50")])
+        set_frozen(card, False, None)
+        order = create_order(lines=[line], channel="store", initial_status=OrderStation.STATUS_APPROVED, gift_card_payments=[(number, "2.50")])
+        refund_gift_cards(order)
+        self.assertEqual([(e.kind, e.amount) for e in card.events.exclude(kind=GiftCardEvent.NOTE)],
+                         [("use", Decimal("-2.50")), ("refund", Decimal("2.50"))])
+
+    def test_empty_cards_go_after_30_days_and_orders_keep_their_payment(self):
+        import datetime
+        from django.utils import timezone
+        from pos_server.models import OrderStation
+        from pos_server.orders import create_order
+        from .giftcards import cleanup
+        card = GiftCard.objects.create(available_balance=Decimal("2.50"))
+        line = {"type": "dish", "id": self.coffee.id, "qty": 1, "cust": {}}
+        order = create_order(lines=[line], channel="store", initial_status=OrderStation.STATUS_APPROVED, gift_card_payments=[(card.number, "2.50")])
+        card.refresh_from_db()
+        self.assertEqual(card.empty_since, timezone.localdate())
+        self.assertEqual(cleanup(timezone.localdate() + datetime.timedelta(days=29)), 0)
+        self.assertEqual(cleanup(timezone.localdate() + datetime.timedelta(days=30)), 1)
+        auth = order.gift_card_auth.get()
+        self.assertEqual((auth.card, auth.charged_balance), (None, Decimal("2.50")))
+
+    def test_the_balance_link_has_no_number(self):
+        from django.test import RequestFactory
+        from .giftcards import balance_link
+        card = GiftCard.objects.create(available_balance=Decimal("12.00"))
+        link = balance_link(RequestFactory().get("/"), card)
+        self.assertNotIn(card.number, link)
+        page = self.client.get(link[link.index("/", 8):])
+        self.assertContains(page, "$12.00")
+        self.assertEqual(self.client.get(reverse("gift_balance", args=["nope"])).status_code, 404)
+
+
+
 
 class StaffCardTests(TestCase):
     """gift_cards/staff_cards.py: refills, rules, discounts and balances on orders."""

@@ -70,7 +70,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         payments: register payments, [{"method": "cash"|"card", "amount": ..., "tendered": ..., "checkoutId": <Square
             Terminal checkout, card only>}]. When given
             (the register), they plus the gift cards must add up to exactly the total.
-        gift_card_payments: iterable of (card number, amount) to charge to gift cards.
+        gift_card_payments: iterable of (card number or GiftCard, amount) to charge to gift cards.
         verify_payment: optional callable(remaining: Decimal) that raises OrderError if the part of the
             total not covered by gift cards hasn't been paid (online). Called inside the transaction.
         can_manual_discount: whether typed-in discounts are allowed (the register user's permission).
@@ -106,11 +106,15 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         amount = to_money(amount)
         if amount == 0:
             continue
-        card = GiftCard.objects.select_for_update().filter(number=number).first()
+        card = (GiftCard.objects.select_for_update().filter(pk=number.pk).first() if isinstance(number, GiftCard)
+                else GiftCard.find(number, lock=True))
+        last4 = card.last4 if card else str(number)[-4:]
         if card is None:
-            raise OrderError(_("Gift card x%(last4)s was not found.") % {"last4": str(number)[-4:]})
+            raise OrderError(_("Gift card x%(last4)s was not found.") % {"last4": last4})
+        if card.frozen:
+            raise OrderError(_("Gift card x%(last4)s is frozen. Ask the store about it.") % {"last4": last4})
         if card.available_balance < amount:
-            raise OrderError(_("Gift card x%(last4)s no longer has $%(amount)s available.") % {"last4": str(number)[-4:], "amount": amount})
+            raise OrderError(_("Gift card x%(last4)s no longer has $%(amount)s available.") % {"last4": last4, "amount": amount})
         charges.append((card, amount))
         gift_total += amount
     if gift_total > total:
@@ -197,7 +201,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
     if staff_pay:
         OrderPayment.objects.create(order=order, method=OrderPayment.STAFF, amount=staff_pay[1], staff_card=staff_pay[0], drawer=drawer)
     for card, amount in charges:
-        card.charge_card(amount)
+        card.charge_card(amount, order=order, by=fields.get("cashier"))
         GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=amount)
         OrderPayment.objects.create(order=order, method=OrderPayment.GIFT, amount=amount, gift_card=card, drawer=drawer)
     for method, amount, tendered, checkout in tenders:
@@ -213,7 +217,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
 def refund_gift_cards(order):
     """Put every gift card charge for `order` back on its card, and staff card money back on theirs."""
     for auth in order.gift_card_auth.select_related("card"):
-        auth.card.load_card(auth.charged_balance)
+        if auth.card:  # an emptied card that was deleted has nothing to go back on
+            auth.card.load_card(auth.charged_balance, order=order)
     from gift_cards import staff_cards
     staff_cards.put_back(order)
 

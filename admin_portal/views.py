@@ -49,6 +49,7 @@ from . import staffcards as staffcards_data
 from . import customers as customers_data
 from . import coupons as coupons_data
 from . import discounts as discounts_data
+from . import giftcards as giftcards_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1566,6 +1567,23 @@ def discounts(request):
             messages.success(request, toast)
         request.session[discounts_data.KEY] = st
     return page(request, "admin_portal/discounts.html", "discounts", {"x": discounts_data.page(st)})
+
+
+@admin_page("giftcards", edit={"adjust", "freeze", "resend", "go"})
+def gift_cards(request):
+    """Gift cards: the list, a card's details and history, and issuing one (admin_portal/giftcards.py). Each action
+    happens straight away; a new card's number is shown once, in the response to issuing it."""
+    st = giftcards_data.state(request.session)
+    reveal = None
+    if request.method == "POST":
+        giftcards_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        if op != "preview":
+            toast, reveal = giftcards_data.apply_op(st, op, request)
+            if toast:
+                messages.success(request, toast)
+        request.session[giftcards_data.KEY] = st
+    return page(request, "admin_portal/giftcards.html", "giftcards", {"x": giftcards_data.page(st, reveal)})
 
 
 # ---------- branding ----------

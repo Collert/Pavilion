@@ -192,8 +192,12 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `payments.Transaction(uuid, amount, successful, used)`: one online card payment. Only the server marks it `successful`;
   `Transaction.consume()` spends it once. `PaymentAuthorization(payment_id, amount cents, currency, status)`: `""`
   authorized, `cap` captured, `del` voided/refunded. `SquareTerminal`: paired Terminal devices.
-- `gift_cards.GiftCard(number 16 random digits, available_balance, email, image)`, `GiftCardAuthorization` (charge per
-  order, refunded on rejection), `CardPreset`, `SpecialCard(CardPreset)`.
+- `gift_cards.GiftCard(number_hash, last4, design, available_balance, original, email, recipient, message, note, source
+  online/pos/staff, buyer, issued_at/by, frozen, empty_since)`: the 16-digit number is never stored (since 2026-10-23;
+  `GiftCard.find` hashes what's typed), `GiftCardEvent` (its history: issue, use, refund, adjust, note),
+  `GiftCardAuthorization` (charge per order, refunded on rejection; kept when the card is deleted), `GiftCardDesign`
+  (picture or colour, ink, amounts, custom range, message, online/register, seasonal dates, hidden), `CardPreset`,
+  `SpecialCard(CardPreset)` (the store's buy-a-card page still uses presets).
 - `online_store.PromoContent` (home-page banners), `online_store.RejectedOrder(order_id, reason)`.
 - `events.StoreHours` (one row: `week` = Monday-first `{open, r: [[from, to]]}` in minutes, `to` past 1440 = after midnight;
   `pickup_after/before`, `delivery_after/before`, `last_call`, `around_breaks`, `ahead`, `ahead_days`, `lead`, `paused_until`),
@@ -674,6 +678,14 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   order only; those need a signed-in customer, so not the register), a checkout preview of a sample order (pickup or
   delivery) and its performance (uses, discount given, orders total). One form with Save (session draft). The
   delivery fee it needs is set on Store hours, by the delivery cutoffs.
+- **Gift cards** (`admin_gift_cards`, `giftcards.py`, 2026-10-23): stats (outstanding balance, active and frozen
+  cards, sold or issued in 30 days, empty ones waiting to be deleted), the list (With balance, Empty, All; searched by
+  last 4, name or email) and the picked card (its look, facts, message, Resend email: last 4 and a signed balance link,
+  Freeze, Adjust balance with a reason, History). Issue gift card: design, amount (the design's or another whole
+  amount up to $1,000), recipient, email (a matching customer account is named), message, internal note, and email it
+  or show the code; the last step shows the number once (only in that response; `giftcards.js` copies and prints it,
+  #gc-modal is data-keep until Done). Actions happen straight away (no Save); the page has view and edit levels.
+  New email kinds: `gift_card_issued`, `gift_card_balance`.
 - **Discounts** (`admin_discounts`, `discounts.py`, 2026-10-23): discounts without a code. Same list as Coupons
   (status Off, Scheduled, On now, Active, Ended) and the same discount, applies-to and preview parts (imported from
   `coupons.py`), plus how it's given (applies by itself, or the cashier picks it: then in store only and never off the
@@ -903,6 +915,7 @@ The Copilot WebSockets branch is superseded by this.
 ### Scheduled jobs
 
 - `manage.py catering_deposits`, once a day: holds catering deposits that are due and completes past catering orders.
+- `manage.py gift_cards_cleanup`, once a day: deletes gift cards that have been empty for 30 days.
 
 ### Local dev (Windows)
 

@@ -2878,3 +2878,67 @@ class DiscountsPageTests(AdminFixture, TestCase):
         x = self.post(x, "delete")
         self.client.post(self.url, {"op": "save"})
         self.assertFalse(Discount.objects.filter(name="Happy hour").exists())
+
+
+class GiftCardsPageTests(AdminFixture, TestCase):
+    """Gift cards (admin_portal/giftcards.py, gift_cards/giftcards.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        from gift_cards.models import GiftCardDesign
+        cls.build_admin()
+        cls.design = GiftCardDesign.objects.create(name="Birthday", amounts=[25, 50, 75], color="#E87BA4")
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_gift_cards")
+
+    def post(self, op="preview", **fields):
+        return self.client.post(self.url, {"op": op, **fields})
+
+    def test_issue_and_show_the_number_once(self):
+        from gift_cards.models import GiftCard
+        self.assertIsNone(self.client.get(self.url).context["x"]["d"])
+        self.post("issue")
+        self.post(f"design:{self.design.id}")
+        x = self.post("send:show").context["x"]
+        self.assertEqual((x["m"]["m"]["amt"], x["m"]["off"]), (50, True))  # the middle amount; no name yet
+        x = self.post(iss_name="Noor Haddad", iss_email="", iss_msg="Next one’s on us.", iss_other="", iss_why="Birthday treat").context["x"]
+        self.assertEqual(x["m"]["summary"], "$50 Birthday card for Noor")
+        x = self.post(iss_name="Noor Haddad", iss_email="", iss_msg="Next one’s on us.", iss_other="120", iss_why="Birthday treat").context["x"]
+        self.assertEqual(x["m"]["m"]["amt"], "other")
+        page = self.post("go", iss_name="Noor Haddad", iss_email="", iss_msg="Next one’s on us.", iss_other="120", iss_why="Birthday treat")
+        reveal = page.context["x"]["reveal"]
+        card = GiftCard.find(reveal["number"])
+        self.assertEqual((card.original, card.source, card.recipient, card.note, card.design), (Decimal("120"), "staff", "Noor Haddad", "Birthday treat", self.design))
+        self.assertContains(page, reveal["number"])
+        again = self.client.get(self.url)
+        self.assertIsNone(again.context["x"]["reveal"])
+        self.assertNotContains(again, reveal["number"])
+        self.assertEqual(again.context["x"]["d"]["c"], card)
+
+    def test_emailing_freezing_and_adjusting(self):
+        from unittest import mock
+        from gift_cards.models import GiftCard
+        self.post("issue")
+        with mock.patch("gift_cards.giftcards.send_email") as sent, self.captureOnCommitCallbacks(execute=True):
+            self.post("go", iss_name="Ben", iss_email="ben@example.com", iss_msg="", iss_other="", iss_why="Other")
+        self.assertEqual(sent.call_args.args[:2], ("gift_card_issued", "ben@example.com"))
+        card = GiftCard.objects.get()
+        self.assertIn("/gift-cards/card/", sent.call_args.args[2]["card_url"])
+        with mock.patch("gift_cards.giftcards.send_email") as sent:
+            self.post("resend")
+        self.assertEqual(sent.call_args.args[0], "gift_card_balance")
+        self.assertNotIn("card_url", sent.call_args.args[2])
+        self.post("freeze")
+        card.refresh_from_db()
+        self.assertTrue(card.frozen)
+        x = self.post("dir:remove", adj_amt="80", adj_why="Typo").context["x"]
+        self.assertEqual(x["d"]["adj_err"], "Can’t remove more than the $25.00 left.")
+        self.post("adjust", adj_amt="10", adj_why="Typo")
+        card.refresh_from_db()
+        self.assertEqual(card.available_balance, Decimal("15.00"))
+        hist = self.client.get(self.url).context["x"]["d"]["hist"]
+        self.assertEqual([h["kind"] for h in hist], ["adjust", "note", "issue"])
+        x = self.post(q="zzz").context["x"]
+        self.assertEqual(x["rows"], [])
+        self.assertEqual(self.post(q=card.last4).context["x"]["rows"][0]["c"], card)

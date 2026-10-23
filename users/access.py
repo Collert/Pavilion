@@ -35,7 +35,8 @@ LEVELS = [("view", _("View"), _("See the page")), ("edit", _("Edit"), _("Add and
           ("delete", _("Delete"), _("Delete and archive"))]
 # Pages without every level (the rest have view, edit and delete)
 PAGE_LEVELS = {"home": ("view",), "reports": ("view",), "retail": ("view", "edit"), "catering": ("view", "edit"),
-               "branding": ("view", "edit"), "hours": ("view", "edit"), "requests": ("view", "edit")}
+               "branding": ("view", "edit"), "hours": ("view", "edit"), "requests": ("view", "edit"),
+               "giftcards": ("view", "edit")}
 
 
 def page_levels(page) -> tuple:
