@@ -32,7 +32,7 @@ from django.utils import timezone
 from admin_portal.models import StoreSettings, StoreTheme
 from deliveries.models import CourierShift, Delivery
 from events.models import Event
-from gift_cards.models import CardPreset, GiftCard
+from gift_cards.models import CardPreset, GiftCard, StaffCard, StaffCardType, StaffCardUse
 from inventory.models import (Restock, RestockLine, CookingSession, IngredientReservation, Packaging, Recipe, RecipeIngredient, RecipeStep,
                               Transformation, YieldEntry)
 from online_store.models import PromoContent, RejectedOrder
@@ -108,6 +108,7 @@ class Command(BaseCommand):
                     RegisterSignIn.record(device, User.objects.get(username=username))
             Packaging.objects.get_or_create(name="Takeout container", defaults={"quantity": 200, "cost": Decimal("0.35")})
             self.seed_orders()
+            self.seed_staff_cards()
             self.seed_account()
             # Availability overrides, as in the mockup (after the orders, which need these to sell):
             # a component turned off (its dish becomes unavailable) and a sold-out dish kept selling past zero
@@ -1349,6 +1350,41 @@ class Command(BaseCommand):
             "popups": [{"widget": "order_summary", "params": {}}],
         })
         ScreenSession.objects.get_or_create(screen=board, name="Register 1 display")
+
+    def seed_staff_cards(self):
+        """The admin's Staff cards: a daily meal balance, a staff discount and a manager's monthly comp, issued to the
+        team, with Dana's lunch paid from her meal card and Priya's coffee at the staff discount."""
+        meal = StaffCardType.objects.create(name="Shift meal", color="#12875A", kind=StaffCardType.BALANCE, amount=Decimal("12.00"),
+                                            refill="day", leftover="reset", channels=["store", "pickup"], position=0)
+        discount = StaffCardType.objects.create(name="Staff discount", color="#4E79B5", kind=StaffCardType.DISCOUNT, discount_kind="pct",
+                                                discount_value=Decimal("30"), discount_cap=Decimal("20.00"), uses="any",
+                                                channels=["store", "pickup", "delivery"], position=1)
+        comp = StaffCardType.objects.create(name="Manager comp", color="#C2453B", kind=StaffCardType.BALANCE, amount=Decimal("75.00"),
+                                            refill="month", refill_day="1", leftover="carry", cap=Decimal("150.00"), own_only=False,
+                                            no_alcohol=False, channels=["store"], position=2)
+        people = {u.username: u for u in User.objects.filter(username__in=["admin", "cashier", "priya", "courier"])}
+        admin = people["admin"]
+        cards = {}
+        for t, usernames in ((meal, ["cashier", "priya", "courier"]), (discount, ["cashier", "priya", "courier"]), (comp, ["admin", "priya"])):
+            for username in usernames:
+                cards[(t.name, username)] = StaffCard.objects.create(type=t, user=people[username], number=StaffCard.new_number(),
+                                                                    balance=t.amount if t.kind == t.BALANCE else 0, issued_by=admin)
+        d = {dish.title: dish for dish in Dish.objects.filter(title__in=["Iced latte", "Almond croissant", "Flat white"])}
+
+        def line(title):
+            return {"type": "dish", "id": d[title].id, "qty": 1, "cust": {}}
+        # Dana's lunch from her meal card (it covers the lot), and Priya's coffee at the staff discount
+        create_order(lines=[line("Iced latte"), line("Almond croissant")], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                     staff_cards=[cards[("Shift meal", "cashier")]], cashier=self.cashier, device=self.device)
+        priya = cards[("Staff discount", "priya")]
+        total = price_cart([line("Flat white")], staff_cards=[priya]).total
+        create_order(lines=[line("Flat white")], channel="store", initial_status=OrderStation.STATUS_APPROVED, staff_cards=[priya],
+                     payments=[{"method": "card", "amount": str(total)}], cashier=self.cashier, device=self.device)
+        # Priya's comp went on a supplier lunch earlier this month
+        spent = cards[("Manager comp", "priya")]
+        StaffCardUse.objects.create(card=spent, kind=StaffCardUse.SPEND, amount=Decimal("42.60"), by=people["priya"],
+                                    at=timezone.now() - datetime.timedelta(days=3))
+        StaffCard.objects.filter(pk=spent.pk).update(balance=spent.balance - Decimal("42.60"), last_used=timezone.now() - datetime.timedelta(days=3))
 
     def seed_gift_cards(self):
         for amount, color in [(10, "#2c7a7b"), (25, "#6b46c1"), (50, "#c05621")]:

@@ -20,7 +20,8 @@ UNIT_NAMES = {"g": _("Grams (g)"), "ml": _("Millilitres (ml)"), "ea": _("Pieces 
 FLAGS = [("meat", _("Meat or poultry"), _("Beef, pork, chicken, game")),
          ("fish", _("Fish or seafood"), _("Fish, shellfish, fish sauce")),
          ("animal", _("Animal byproduct"), _("Dairy, eggs, honey, gelatin")),
-         ("gluten", _("Contains gluten"), _("Wheat, barley, rye, spelt"))]
+         ("gluten", _("Contains gluten"), _("Wheat, barley, rye, spelt")),
+         ("alcohol", _("Alcohol"), _("Beer, wine, spirits. Staff cards can leave these out"))]
 
 
 def _dec(value):
@@ -121,7 +122,7 @@ def draft_from_ingredient(ingredient):
     return {
         "title": ingredient.title, "unit": ingredient.unit_of_measurement, "category": ingredient.category,
         "allergens": [a for a in ALLERGENS if a in (ingredient.allergens or [])],
-        "meat": ingredient.meat, "fish": ingredient.fish, "animal": ingredient.animal,
+        "meat": ingredient.meat, "fish": ingredient.fish, "animal": ingredient.animal, "alcohol": ingredient.alcohol,
         "supplier": ingredient.supplier.name if ingredient.supplier_id else "",
         "pack_size": _num(ingredient.pack_size), "pack_price": _num(ingredient.pack_price) if ingredient.pack_price is not None else "",
         "inventory": _num(ingredient.inventory or 0), "inventory_was": _num(ingredient.inventory or 0),
@@ -140,7 +141,7 @@ def draft_from_post(post):
         "title": post.get("title", ""), "unit": post.get("unit") if post.get("unit") in UNIT_NAMES else "g",
         "category": post.get("category") if post.get("category") in dict(Ingredient.CATEGORIES) else "other",
         "allergens": allergens, "meat": bool(post.get("meat")), "fish": bool(post.get("fish")), "animal": bool(post.get("animal")),
-        "supplier": post.get("supplier", "").strip()[:80], "pack_size": post.get("pack_size", ""), "pack_price": post.get("pack_price", ""),
+        "alcohol": bool(post.get("alcohol")), "supplier": post.get("supplier", "").strip()[:80], "pack_size": post.get("pack_size", ""), "pack_price": post.get("pack_price", ""),
         "inventory": post.get("inventory", "0"), "inventory_was": post.get("inventory_was", "0"), "par": post.get("par", "0"),
         "storage": post.get("storage", "").strip()[:60],
     }
@@ -168,7 +169,7 @@ def problems(draft, ingredient):
 
 def _canonical(draft):
     return (draft["title"].strip(), draft["unit"], draft["category"], tuple(draft["allergens"]), draft["meat"], draft["fish"],
-            draft["animal"], draft["supplier"].strip().lower(), _dec(draft["pack_size"]), _dec(draft["pack_price"]) if draft["pack_price"] else None,
+            draft["animal"], draft["alcohol"], draft["supplier"].strip().lower(), _dec(draft["pack_size"]), _dec(draft["pack_price"]) if draft["pack_price"] else None,
             _dec(draft["inventory"]), _dec(draft["par"]), draft["storage"].lower())
 
 
@@ -184,6 +185,7 @@ def save_draft(draft, ingredient):
     ingredient.storage = StorageLocation.named(draft["storage"])
     ingredient.allergens = list(draft["allergens"])
     ingredient.meat, ingredient.fish, ingredient.animal = draft["meat"], draft["fish"], draft["animal"]
+    ingredient.alcohol = draft["alcohol"]
     name = draft["supplier"].strip()
     ingredient.supplier = (Supplier.objects.filter(name__iexact=name).first() or Supplier.objects.create(name=name)) if name else None
     ingredient.pack_size = float(_dec(draft["pack_size"]) or 1)

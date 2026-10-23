@@ -1,0 +1,191 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Staff cards (design: AdminStaffCards; admin_portal/staffcards.py, gift_cards/staff_cards.py). One form with Save for
+the card types (every change posts the draft back, editor.js); Issue and Revoke act straight away.
+{% endcomment %}
+{% block title %}{% trans "Staff cards" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="sc-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Staff cards" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New card type" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card tm-list gp-list" id="sc-list" data-region aria-label="{% trans 'Card types' %}">
+        <div class="rl-intro">{% trans "Each card type has its own rules. Staff scan their card at the register, or it applies when they order online." %}</div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Card types' %}">
+            {% for r in x.rows %}
+            <button class="tm-row gp-row{% if r.on %} on{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.r.id }}">
+                <span class="sc-chip" style="--c: {{ r.r.color }}">{{ r.big }}</span>
+                <span class="grow two-line">
+                    <span class="sc-row-top"><span class="strong ellipsis">{{ r.name }}</span>{% if not r.r.live %}<span class="tm-off">{% trans "Off" %}</span>{% endif %}</span>
+                    <span class="small muted ellipsis">{{ r.sub }}</span>
+                    <span class="sc-holders">{{ r.holders }}</span>
+                </span>
+            </button>
+            {% empty %}
+            <div class="tm-none">{% trans "No card types yet. Add one with New card type." %}</div>
+            {% endfor %}
+        </div>
+        <div class="tm-foot"><span>{{ x.foot_left }}</span><span>{{ x.foot_right }}</span></div>
+    </section>
+
+    <section class="tm-edit" aria-label="{% trans 'Card settings' %}">
+    {% with d=x.d %}{% if d %}
+    <div class="sc-grid">
+        <div class="sc-col">
+            <div class="card tm-card" id="sc-basics" data-region>
+                <input type="hidden" name="editing" value="{{ d.key }}">
+                <div class="sc-name-row">
+                    <label class="grow"><span class="lbl">{% trans "Card name" %}</span><input class="field{% if d.err.name %} bad{% endif %}" name="name" value="{{ d.e.name }}" maxlength="30" placeholder="{% trans 'e.g. Shift meal' %}" autocomplete="off"></label>
+                    <div class="sc-colors" role="radiogroup" aria-label="{% trans 'Card color' %}">
+                        {% for c, label, on in d.colors %}<button role="radio" aria-checked="{{ on|yesno:'true,false' }}" aria-label="{{ label }}" title="{{ label }}" name="op" value="color:{{ c }}" style="--c: {{ c }}"></button>{% endfor %}
+                    </div>
+                </div>
+                {% if d.err.name %}<div class="tm-err tight sc-err">{{ d.err.name }}</div>{% endif %}
+                <div class="lbl top16">{% trans "What the card does" %}</div>
+                <div class="sc-kinds" role="radiogroup" aria-label="{% trans 'Card kind' %}">
+                    {% for k, label, desc, path in d.kinds %}
+                    <button class="sc-kind" role="radio" aria-checked="{% if d.e.kind == k %}true{% else %}false{% endif %}" name="op" value="kind:{{ k }}">
+                        <span class="sc-kind-ic">{% icon path 20 2.2 %}</span>
+                        <span class="grow"><span class="strong block">{{ label }}</span><span class="small muted block">{{ desc }}</span></span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <button class="tm-switch-row sc-switch" role="switch" aria-checked="{{ d.e.live|yesno:'true,false' }}" name="op" value="flip:live">
+                    <span class="grow two-line"><span class="strong">{% trans "Cards work" %}</span><span class="small muted">{{ d.live_hint }}</span></span>
+                    <span class="sc-sw"><span></span></span>
+                </button>
+            </div>
+
+            {% if d.is_bal %}
+            <div class="card tm-card" id="sc-balance" data-region>
+                <h2 class="disp tm-h2">{% trans "Balance and refills" %}</h2>
+                <div class="sc-fields">
+                    <label class="sc-w140"><span class="lbl">{% trans "Balance" %}</span><span class="sc-money"><span>$</span><input class="num" name="amount" value="{{ d.e.amount }}" inputmode="decimal" aria-label="{% trans 'Balance' %}" data-type-preview></span></label>
+                    <label class="grow sc-w180"><span class="lbl">{% trans "Refills" %}</span><select class="field" name="refill">{% for v, t in d.refills %}<option value="{{ v }}"{% if d.e.refill == v %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                    {% if d.e.refill == "week" %}<label class="sc-w150"><span class="lbl">{% trans "On" %}</span><select class="field" name="dow">{% for v, t in d.weekdays %}<option value="{{ v }}"{% if d.e.dow == v %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>{% endif %}
+                    {% if d.e.refill == "month" %}<label class="sc-w150"><span class="lbl">{% trans "On the" %}</span><select class="field" name="dom">{% for v, t in d.doms %}<option value="{{ v }}"{% if d.e.dom == v %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>{% endif %}
+                </div>
+                {% if d.e.refill != "never" %}
+                <div class="lbl top14">{% trans "Money left over at refill" %}</div>
+                <div class="sc-two" role="radiogroup" aria-label="{% trans 'Leftover' %}">
+                    {% for k, label, desc in d.rolls %}<button class="sc-opt" role="radio" aria-checked="{% if d.e.roll == k %}true{% else %}false{% endif %}" name="op" value="roll:{{ k }}"><span class="strong block">{{ label }}</span><span class="small muted block">{{ desc }}</span></button>{% endfor %}
+                </div>
+                {% if d.e.roll == "carry" %}<label class="sc-w180 sc-cap"><span class="lbl">{% trans "Never more than" %}</span><span class="sc-money"><span>$</span><input class="num" name="cap" value="{{ d.e.cap }}" inputmode="decimal" aria-label="{% trans 'Maximum balance' %}" data-type-preview></span></label>{% endif %}
+                {% endif %}
+                <div class="sc-info">{{ d.bal_text }}</div>
+                {% if d.err.balance %}<div class="tm-err tight sc-err">{{ d.err.balance }}</div>{% endif %}
+            </div>
+            {% else %}
+            <div class="card tm-card" id="sc-discount" data-region>
+                <h2 class="disp tm-h2">{% trans "Discount" %}</h2>
+                <div class="sc-fields">
+                    <div class="sc-seg" role="radiogroup" aria-label="{% trans 'Discount type' %}">
+                        <button role="radio" aria-checked="{% if d.e.dkind == 'pct' %}true{% else %}false{% endif %}" name="op" value="dkind:pct">{% trans "Percent off" %}</button>
+                        <button role="radio" aria-checked="{% if d.e.dkind == 'amt' %}true{% else %}false{% endif %}" name="op" value="dkind:amt">{% trans "Amount off" %}</button>
+                    </div>
+                    <label class="sc-w130"><span class="lbl">{% if d.e.dkind == "pct" %}{% trans "Percent off" %}{% else %}{% trans "Amount off" %}{% endif %}</span><span class="sc-money">{% if d.e.dkind == "amt" %}<span>$</span>{% endif %}<input class="num" name="dval" value="{{ d.e.dval }}" inputmode="decimal" data-type-preview>{% if d.e.dkind == "pct" %}<span>%</span>{% endif %}</span></label>
+                    {% if d.e.dkind == "pct" %}<label class="sc-w150"><span class="lbl">{% trans "Max per order" %}</span><span class="sc-money"><span>$</span><input class="num" name="dcap" value="{{ d.e.dcap }}" inputmode="decimal" placeholder="{% trans 'No cap' %}" data-type-preview></span></label>{% endif %}
+                    <label class="grow sc-w150"><span class="lbl">{% trans "How often" %}</span><select class="field" name="uses">{% for v, t in d.uses %}<option value="{{ v }}"{% if d.e.uses == v %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                </div>
+                {% if d.err.discount %}<div class="tm-err tight sc-err">{{ d.err.discount }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <div class="card tm-card" id="sc-rules" data-region>
+                <h2 class="disp tm-h2">{% trans "Rules" %}</h2>
+                <div class="sc-rules">
+                    {% for k, label, desc in d.rules %}
+                    <button class="tm-switch-row sc-switch" role="switch" aria-checked="{% if k == 'own' and d.e.own or k == 'no_alcohol' and d.e.no_alcohol or k == 'stack' and d.e.stack %}true{% else %}false{% endif %}"{% if k == "stack" and d.is_bal %} hidden{% endif %} name="op" value="flip:{{ k }}">
+                        <span class="grow two-line"><span class="strong">{{ label }}</span><span class="small muted">{{ desc }}</span></span>
+                        <span class="sc-sw"><span></span></span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="lbl top14">{% trans "Works on" %}</div>
+                <div class="sc-chans">{% for c, label, on in d.chans %}<button aria-pressed="{{ on|yesno:'true,false' }}" name="op" value="chan:{{ c }}">{{ label }}</button>{% endfor %}</div>
+            </div>
+
+            <div class="card tm-card" id="sc-holders" data-region>
+                <h2 class="disp tm-h2">{{ d.hold_head }}</h2>
+                <div class="small muted strong">{{ d.hold_sub }}</div>
+                <div class="sc-people">
+                    {% for h in d.holders %}
+                    <div class="rl-person{% if h.off %} off{% endif %}">
+                        <span class="tm-face" style="--c: {{ h.face }}; width: 36px; height: 36px; font-size: 13px">{{ h.ini }}</span>
+                        <span class="grow two-line"><span class="strong">{{ h.name }}</span><span class="small muted num">{{ h.sub }}</span></span>
+                        <span class="sc-bal"><span class="num strong{% if h.empty %} red{% endif %}">{{ h.bal }}</span><span class="tiny muted">{{ h.next }}</span></span>
+                        <a class="sc-print" href="{% url 'admin_staff_card_print' h.card.id %}" target="_blank" rel="noopener">{% trans "Print" %}</a>
+                        <button class="sc-revoke" name="op" value="revoke:{{ h.card.id }}">{% trans "Revoke" %}</button>
+                    </div>
+                    {% empty %}
+                    <div class="rl-nobody">{% trans "Nobody has this card yet." %}</div>
+                    {% endfor %}
+                </div>
+                {% if not d.saved %}
+                <div class="tm-note">{% trans "Save the card type, then issue cards." %}</div>
+                {% elif d.avail %}
+                <div class="sc-issue">
+                    <select class="field grow" name="issue_to" aria-label="{% trans 'Give a card to' %}">
+                        <option value="">{% trans "Give a card to…" %}</option>
+                        {% for id, name in d.avail %}<option value="{{ id }}"{% if x.st.issue_to == id %} selected{% endif %}>{{ name }}</option>{% endfor %}
+                    </select>
+                    <div class="sc-seg" role="radiogroup" aria-label="{% trans 'How' %}">
+                        <button role="radio" aria-checked="{% if x.st.how == 'print' %}true{% else %}false{% endif %}" name="op" value="how:print">{% trans "Print card" %}</button>
+                        <button role="radio" aria-checked="{% if x.st.how == 'scan' %}true{% else %}false{% endif %}" name="op" value="how:scan">{% trans "Scan blank" %}</button>
+                    </div>
+                    <button class="sc-issue-btn" name="op" value="issue"{% if d.issue_off %} disabled{% endif %}>{% trans "Issue" %}</button>
+                </div>
+                {% if x.st.how == "scan" %}<input class="field sc-blank" name="blank" value="{{ x.st.blank }}" maxlength="32" placeholder="{% trans 'Scan the blank card, or type its number' %}" autocomplete="off" data-no-preview>{% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="sc-side">
+            <div class="sc-dark" id="sc-preview" data-region>
+                <div class="ov sc-ov">{% trans "The card" %}</div>
+                {% with pv=d.pv %}
+                <div class="sc-card{% if not pv.live %} off{% endif %}" style="--c: {{ d.e.color }}">
+                    <div class="sc-card-top"><span><span class="sc-store">{{ store.name }}</span><span class="sc-staff">{% trans "Staff" %}</span></span><span class="disp num sc-big">{{ pv.big }}</span></div>
+                    <div class="sc-card-bottom"><span class="grow"><span class="strong block">{{ pv.name }}</span><span class="sc-rule">{{ pv.rule }}</span></span><span class="sc-bars" aria-hidden="true"></span></div>
+                </div>
+                <div class="ov sc-ov top16">{% trans "At the register" %}</div>
+                <div class="sc-receipt">
+                    <div class="sc-scanned">{% icon "M4 7V4h3 M17 4h3v3 M20 17v3h-3 M7 20H4v-3 M8 8v8 M11 8v8 M14 8v8 M17 8v8" 14 2.4 %}{{ pv.scanned }}</div>
+                    <hr>
+                    {% for l in pv.lines %}<div class="sc-line{% if l.out %} out{% endif %}"><span class="grow">{{ l.name }}</span><span class="num">{{ l.price }}</span></div>{% endfor %}
+                    <hr>
+                    <div class="sc-line"><span class="grow">{% trans "Subtotal" %}</span><span class="num">{{ pv.sub }}</span></div>
+                    <div class="sc-line green"><span class="grow">{{ pv.name }}</span><span class="num">{{ pv.off }}</span></div>
+                    <div class="sc-line big"><span class="grow">{{ pv.rest_label }}</span><span class="num">{{ pv.rest }}</span></div>
+                </div>
+                <div class="sc-note{% if not pv.live %} warn{% endif %}">{{ pv.note }}</div>
+                {% endwith %}
+            </div>
+            <div class="card tm-card" id="sc-stats" data-region>
+                <div class="ov muted">{% trans "This month" %}</div>
+                <div class="sc-stats">{% for k, v in d.stats %}<div><div class="disp num">{{ v }}</div><div class="tiny muted strong">{{ k }}</div></div>{% endfor %}</div>
+                <button class="rl-archive" name="op" value="delete">{{ d.del_text }}</button>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        <div class="card tm-card tm-none" id="sc-none" data-region>{% trans "No card types yet. Add one with New card type." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

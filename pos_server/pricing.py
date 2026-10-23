@@ -652,6 +652,9 @@ class PricedCart:
     subtotal: Decimal
     order_discount: AppliedDiscount = None
     order_discount_error: str = ""
+    staff_discount: AppliedDiscount = None            # a discount staff card's (gift_cards/staff_cards.py)
+    staff_note: str = ""                              # why a staff card took nothing off
+    staff_error: str = ""                             # why a staff card can't be used (strict=False)
     disposables: list = field(default_factory=list)  # [(Disposable, count)] that go out with it
     fees: list = field(default_factory=list)          # [Fee]
 
@@ -665,7 +668,8 @@ class PricedCart:
 
     @property
     def discount(self) -> Decimal:
-        return self.line_discounts + (self.order_discount.amount if self.order_discount else ZERO)
+        return (self.line_discounts + (self.order_discount.amount if self.order_discount else ZERO)
+                + (self.staff_discount.amount if self.staff_discount else ZERO))
 
     @property
     def tax(self) -> Decimal:
@@ -684,6 +688,8 @@ class PricedCart:
         found = [(line, line.discount) for line in self.lines if line.discount]
         if self.order_discount:
             found.append((None, self.order_discount))
+        if self.staff_discount:
+            found.append((None, self.staff_discount))
         return found
 
     def as_json(self):
@@ -696,6 +702,8 @@ class PricedCart:
             } for line in self.lines],
             "orderDiscount": self.order_discount.as_json() if self.order_discount else None,
             "orderDiscountError": self.order_discount_error,
+            "staffDiscount": self.staff_discount.as_json() if self.staff_discount else None,
+            "staffNote": self.staff_note, "staffError": self.staff_error,
             "subtotal": to_cents(self.subtotal), "discount": to_cents(self.discount),
             "tax": to_cents(self.tax), "taxRate": str(tax_rate()), "total": to_cents(self.total),
             "fees": [fee.as_json() for fee in self.fees],
@@ -704,7 +712,7 @@ class PricedCart:
 
 
 def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_manual=False, approve=None, strict=True,
-               now=None) -> PricedCart:
+               now=None, staff_cards=()) -> PricedCart:
     """
     Validate and price a cart. Raises OrderError for anything wrong with the lines. `to_go` (packed to take away)
     and the channel decide the order type, which decides the disposables and their fees.
@@ -715,6 +723,9 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
 
     Typed-in discounts need `can_manual` (the cashier's "Give discounts"), or `approve(manual)` returning the user id
     of the manager who signed it off (pos_server/approvals.py: check).
+
+    `staff_cards` (gift_cards.models.StaffCard, one of each kind) are checked, and a discount card's discount is
+    worked out after the others (gift_cards/staff_cards.py: apply_to).
     """
     if not isinstance(lines, list):
         raise OrderError(_("The cart is malformed."))
@@ -743,6 +754,14 @@ def price_cart(lines, *, order_discount=None, channel="store", to_go=False, can_
             if strict:
                 raise
             cart.order_discount_error = str(e)
+    if staff_cards:
+        from gift_cards import staff_cards as staff  # gift_cards imports pos_server
+        try:
+            staff.apply_to(cart, list(staff_cards), channel, now)
+        except OrderError as e:
+            if strict:
+                raise
+            cart.staff_error = str(e)
     cart.disposables = disposables_for(priced, order_type(channel, to_go))
     cart.fees = [Fee(disposable, disposable.fee_label or disposable.title, count, money(disposable.fee_price * count))
                  for disposable, count in cart.disposables if disposable.fee and disposable.fee_price > 0]

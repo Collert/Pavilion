@@ -45,6 +45,7 @@ from . import pars as pars_data
 from . import requests as requests_data
 from . import roles as roles_data
 from . import groups as groups_data
+from . import staffcards as staffcards_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1399,6 +1400,55 @@ def groups(request):
             messages.success(request, toast)
         request.session[groups_data.KEY] = st
     return page(request, "admin_portal/groups.html", "groups", {"x": groups_data.page(st)})
+
+
+@admin_page("staffcards", edit={"save", "issue"}, delete={"delete", "revoke"})
+def staff_cards(request):
+    """Staff cards: card types, one form with Save; issuing and revoking cards happen straight away
+    (admin_portal/staffcards.py)."""
+    st = staffcards_data.state(request.session)
+    if request.method == "POST":
+        staffcards_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        toast = ""
+        if op == "save":
+            errs = staffcards_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(next(iter(errs.values())).values())))
+            else:
+                staffcards_data.save(st)
+                request.session.pop(staffcards_data.KEY, None)
+                messages.success(request, _("Staff cards saved. Registers use the new rules on the next scan."))
+                return redirect("admin_staff_cards")
+        elif op == "issue":
+            toast, problem = staffcards_data.issue(st, request.user)
+            if problem:
+                messages.error(request, problem)
+        elif op.startswith("revoke:"):
+            toast = staffcards_data.revoke(op.partition(":")[2])
+        elif op != "preview":
+            toast = staffcards_data.apply_op(st, op)
+        if toast:
+            messages.success(request, toast)
+        request.session[staffcards_data.KEY] = st
+    return page(request, "admin_portal/staffcards.html", "staffcards", {"x": staffcards_data.page(st, request.user)})
+
+
+@admin_page("staffcards")
+def staff_card_print(request, card_id):
+    """One staff card to print (the card's look and its number as a barcode)."""
+    import barcode
+    from barcode.writer import SVGWriter
+    from io import BytesIO
+    from gift_cards.models import StaffCard
+    card = get_object_or_404(StaffCard.objects.select_related("type", "user"), pk=card_id)
+    svg = BytesIO()
+    barcode.get_barcode_class("code128")(card.number, writer=SVGWriter()).write(
+        svg, options={"module_width": 0.25, "module_height": 9, "quiet_zone": 2, "write_text": False, "background": "#FFFFFF"})
+    markup = svg.getvalue().decode()
+    markup = markup[markup.index("<svg"):]
+    return render(request, "admin_portal/staff_card_print.html", {"card": card, "barcode": markup, "store": StoreSettings.load(),
+                                                                  "name": card.user.get_full_name() or card.user.username})
 
 
 # ---------- branding ----------

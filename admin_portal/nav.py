@@ -45,7 +45,7 @@ MENU = [
         ("requests", _("Availability requests"), "admin_requests"),
         ("roles", _("Roles"), "admin_roles"),
         ("groups", _("Groups"), "admin_groups"),
-        ("staffcards", _("Staff cards"), None),
+        ("staffcards", _("Staff cards"), "admin_staff_cards"),
     ]),
     ("customers", _("Customers"), "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", [
         ("customers", _("Customers"), None),

@@ -57,7 +57,7 @@ def _count_discount_uses(cart):
 @transaction.atomic
 def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
                  verify_payment=None, can_manual_discount=False, approve_discount=None, expected_total=None, drawer=None,
-                 tip=ZERO, **fields):
+                 tip=ZERO, staff_cards=(), staff_card_amount=None, **fields):
     """
     Create an order from a cart.
 
@@ -79,13 +79,20 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         expected_total: the total the cashier saw. If the server's total differs, the order is refused.
         drawer: the register's open CashDrawerSession. Cash needs one; every register payment is linked to it.
         tip: added on top of the total (the online store's "Tip the team"); paid with the rest.
+        staff_cards: gift_cards StaffCards on the order (one of each kind; gift_cards/staff_cards.py). A discount card
+            takes its discount; a balance card pays `staff_card_amount` (None: as much as it can), counted with the
+            gift cards; with "own order" the order goes under the holder's name.
         **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier,
             device, customer, email).
 
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """
+    staff_cards = list(staff_cards or [])
+    if staff_cards:
+        from gift_cards.models import StaffCard
+        staff_cards = list(StaffCard.objects.select_for_update().select_related("type", "user").filter(pk__in=[c.pk for c in staff_cards]))
     cart = price_cart(lines, order_discount=order_discount, channel=channel, to_go=bool(fields.get("to_go_order")),
-                      can_manual=can_manual_discount, approve=approve_discount)
+                      can_manual=can_manual_discount, approve=approve_discount, staff_cards=staff_cards)
     if not cart.lines:
         raise OrderError(_("The cart is empty."))
     tip = to_money(tip or 0)
@@ -108,6 +115,19 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         gift_total += amount
     if gift_total > total:
         raise OrderError(_("Gift card payments are more than the order total."))
+    staff_pay = None  # (balance card, amount)
+    for card in staff_cards:
+        from gift_cards import staff_cards as staff
+        if card.type.own_only:
+            fields["name"] = staff.holder(card)[:140]
+        if card.type.kind == card.type.BALANCE:
+            can_pay = staff.payable(card, cart, total - gift_total)
+            amount = can_pay if staff_card_amount is None else to_money(staff_card_amount)
+            if amount < 0 or amount > can_pay:
+                raise OrderError(_("%(card)s can pay at most $%(amount)s of this order.") % {"card": card.type.name, "amount": can_pay})
+            if amount > 0:
+                staff_pay = (card, amount)
+                gift_total += amount
 
     tenders = []
     for payment in payments:
@@ -167,6 +187,15 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
                      confirmed_at=order.timestamp if initial_status == OrderStation.STATUS_APPROVED else None)
         for station_id in station_ids
     )
+    if staff_cards:
+        from gift_cards import staff_cards as staff
+        staff.record(order, staff_cards, cart, staff_pay[1] if staff_pay else ZERO, by=fields.get("cashier") or fields.get("customer"))
+    if cart.staff_discount:
+        applied = cart.staff_discount
+        OrderDiscount.objects.create(order=order, label=applied.label, kind=applied.kind, value=applied.value, amount=applied.amount,
+                                     applied_by=fields.get("cashier"))
+    if staff_pay:
+        OrderPayment.objects.create(order=order, method=OrderPayment.STAFF, amount=staff_pay[1], staff_card=staff_pay[0], drawer=drawer)
     for card, amount in charges:
         card.charge_card(amount)
         GiftCardAuthorization.objects.create(card=card, order=order, charged_balance=amount)
@@ -182,9 +211,11 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
 
 
 def refund_gift_cards(order):
-    """Put every gift card charge for `order` back on its card."""
+    """Put every gift card charge for `order` back on its card, and staff card money back on theirs."""
     for auth in order.gift_card_auth.select_related("card"):
         auth.card.load_card(auth.charged_balance)
+    from gift_cards import staff_cards
+    staff_cards.put_back(order)
 
 
 def orders_for_screens(queryset):

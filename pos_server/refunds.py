@@ -142,6 +142,12 @@ def refund_order(order, *, picks=None, whole=False, reason, to, user) -> Refund:
             if payment.method == OrderPayment.GIFT:
                 payment.gift_card.load_card(part)
                 parts.append({"method": "gift", "amount": str(part), "payment": payment.id, "ref": payment.gift_card.number[-4:]})
+            elif payment.method == OrderPayment.STAFF:
+                if payment.staff_card is None:
+                    raise RefundError(_("That staff card is gone, so refund it in cash."))
+                from gift_cards import staff_cards
+                staff_cards.put_back(order, part, payment.staff_card)
+                parts.append({"method": "staff", "amount": str(part), "payment": payment.id, "ref": payment.staff_card.number[-4:]})
             else:
                 payment_id = payment.square_payment_id or (order.authorization.payment_id if order.authorization else "")
                 if not payment_id:

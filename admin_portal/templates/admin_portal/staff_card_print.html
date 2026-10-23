@@ -1,0 +1,54 @@
+{% load i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+{% comment %}
+One staff card to print, at bank-card size (admin_portal/views.py: staff_card_print). The barcode is the card's number
+(Code 128), what the register's scanner reads.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ card.type.name }} · {{ name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 32px 16px; background: #E8EDE9; font-family: 'Manrope', system-ui, sans-serif; color: #14261F;
+               display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        .card { width: 85.6mm; height: 54mm; border-radius: 3.2mm; overflow: hidden; color: #FFFFFF; position: relative; padding: 4mm 4.5mm;
+                display: flex; flex-direction: column; justify-content: space-between;
+                background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.22) 0, rgba(255,255,255,0) 40%), linear-gradient(140deg, var(--c), #14261F 135%);
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .store { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 13pt; }
+        .staff { display: block; font-size: 6.5pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+        .type { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 11pt; text-align: right; }
+        .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 3mm; }
+        .who { font-size: 10pt; font-weight: 800; }
+        .num { font-size: 7pt; font-weight: 700; opacity: .85; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+        .code { background: #FFFFFF; border-radius: 1.2mm; padding: 1.2mm 1.6mm; width: 40mm; }
+        .code svg { display: block; width: 100%; height: 9mm; }
+        .print { height: 44px; padding: 0 20px; border-radius: 22px; border: none; background: #F4A93B; color: #14261F; font: 800 14px 'Manrope', sans-serif; cursor: pointer; }
+        .hint { font-size: 13px; font-weight: 600; color: #5B6A62; max-width: 340px; text-align: center; }
+        @media print {
+            body { background: #FFFFFF; padding: 0; }
+            .print, .hint { display: none; }
+            @page { size: 85.6mm 54mm; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card" style="--c: {{ card.type.color }}">
+        <div class="top">
+            <span><span class="store">{{ store.name }}</span><span class="staff">{% trans "Staff" %}</span></span>
+            <span class="type">{{ card.type.name }}</span>
+        </div>
+        <div class="bottom">
+            <span><span class="who">{{ name }}</span><br><span class="num">{{ card.number }}</span></span>
+            <span class="code">{{ barcode|safe }}</span>
+        </div>
+    </div>
+    <button class="print" type="button" onclick="window.print()">{% trans "Print" %}</button>
+    <p class="hint">{% trans "Print on card stock or a card printer at actual size. The register scans the barcode." %}</p>
+</body>
+</html>

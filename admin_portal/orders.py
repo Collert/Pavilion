@@ -58,6 +58,9 @@ def pay_label(payments):
         kind, text = "cash", _("Cash")
     elif main.method == OrderPayment.GIFT:
         kind, text = "gift", _("Gift card ··%(last4)s") % {"last4": main.gift_card.number[-4:]} if main.gift_card else _("Gift card")
+    elif main.method == OrderPayment.STAFF:
+        kind, text = "gift", (_("%(card)s ··%(last4)s") % {"card": main.staff_card.type.name, "last4": main.staff_card.number[-4:]}
+                              if main.staff_card else _("Staff card"))
     else:
         kind = "tap" if main.entry_method == "tap" else "card"
         text = main.card_label.replace(" •••• ", " ") if main.card_last4 else (_("Online card") if main.entry_method == "online" else _("Card"))
@@ -71,7 +74,7 @@ def pay_label(payments):
 def base_queryset():
     return (Order.objects.annotate(refunded=Sum("refunds__amount"))
             .select_related("device", "cashier", "customer")
-            .prefetch_related("items", "payments__gift_card"))
+            .prefetch_related("items", "payments__gift_card", "payments__staff_card__type"))
 
 
 def status_of(order) -> str:
@@ -146,7 +149,7 @@ def neighbours(order):
 
 def order_page(order):
     order = (Order.objects.select_related("device", "cashier", "customer", "authorization", "voided_by")
-             .prefetch_related("items__station", "items__children", "payments__gift_card", "discounts__approved_by", "refunds__items",
+             .prefetch_related("items__station", "items__children", "payments__gift_card", "payments__staff_card__type", "discounts__approved_by", "refunds__items",
                                "refunds__by", "receipts__by", "station_statuses__station").get(pk=order.pk))
     st = refunds.status(order)
     refunded = refunds.refunded_total(order)
@@ -217,14 +220,14 @@ def order_page(order):
         kind, text = pay_label([p])
         if p.method == OrderPayment.CASH:
             sub = _("Tendered %(t)s · change %(c)s") % {"t": f"${(p.tendered or p.amount):.2f}", "c": f"${p.change:.2f}"}
-        elif p.method == OrderPayment.GIFT:
+        elif p.method in (OrderPayment.GIFT, OrderPayment.STAFF):
             sub = date_format(timezone.localtime(p.timestamp), "g:i A")
         else:
             how = {"tap": _("Tapped"), "chip": _("Inserted"), "swipe": _("Swiped"), "keyed": _("Keyed in"), "online": _("Paid online")}.get(p.entry_method, _("Card"))
             sub = how + " " + date_format(timezone.localtime(p.timestamp), "g:i A")
         pay_rows.append({"label": p.card_label if p.method == OrderPayment.CARD else text, "sub": sub, "amount": p.amount, "icon": ICONS[kind], "kind": "pay"})
     for r in order.refunds.all():
-        where = ", ".join({"cash": _("cash"), "gift": _("gift card"), "card": _("the card")}.get(part["method"], part["method"]) for part in r.parts) or "—"
+        where = ", ".join({"cash": _("cash"), "gift": _("gift card"), "card": _("the card"), "staff": _("the staff card")}.get(part["method"], part["method"]) for part in r.parts) or "—"
         pay_rows.append({"label": _("Refund · %(reason)s") % {"reason": r.reason},
                          "sub": date_format(timezone.localtime(r.created_at), "g:i A") + " · " + _("to %(where)s") % {"where": where} + " · " + _("by %(who)s") % {"who": (r.by.first_name or r.by.username) if r.by else "—"},
                          "amount": -r.amount, "icon": ICONS["refund"], "kind": "refund"})

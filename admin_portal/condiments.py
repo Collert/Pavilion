@@ -361,7 +361,7 @@ def editor(condiment, draft, leave_ask=False):
     forced = {"fish": bool(allergen_set & {"Fish", "Shellfish"}), "animal": bool(allergen_set & {"Dairy", "Egg"})}
     why = {"fish": _("On because Fish or Shellfish is ticked"), "animal": _("On because Dairy or Egg is ticked")}
     switches = []
-    for key, label, hint in ingredient_page.FLAGS:
+    for key, label, hint in [f for f in ingredient_page.FLAGS if f[0] != "alcohol"]:  # condiments are never alcoholic
         own = "Gluten" in allergen_set if key == "gluten" else flag_draft[key]
         switches.append({"key": key, "label": label, "own": own, "on": own or forced.get(key, False), "locked": forced.get(key, False),
                          "hint": why[key] if forced.get(key) else (_("Wheat, barley, rye, malt") if key == "gluten" else hint)})

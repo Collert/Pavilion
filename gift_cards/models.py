@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.db import models
 from decimal import Decimal
+from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 # Create your models here.
@@ -114,3 +116,89 @@ class CardPreset(models.Model):
 class SpecialCard(CardPreset):
     cost = models.DecimalField(null = False, max_digits=5, decimal_places=2)
 
+
+
+class StaffCardType(models.Model):
+    """
+    A kind of staff card (design: AdminStaffCards; edited on the admin's Staff cards page). A *balance* card holds
+    money to spend like a gift card, topped back up on a schedule (`refill`; `leftover` says whether unspent money
+    resets or carries over, up to `cap`). A *discount* card takes a percent or an amount off (`discount_cap` per
+    order for percents) as often as `uses` allows. Rules: `own_only` puts the order under the holder's name,
+    `no_alcohol` leaves out dishes made with alcohol (Ingredient.alcohol), `stack` lets a discount card add to other
+    discounts (else the better one wins), `channels` where it works. Worked out in gift_cards/staff_cards.py.
+    """
+    BALANCE, DISCOUNT = "balance", "discount"
+    KINDS = ((BALANCE, "Balance card"), (DISCOUNT, "Discount card"))
+    REFILLS = (("day", "Every day"), ("week", "Every week"), ("month", "Every month"), ("never", "Never, one-time balance"))
+    LEFTOVER = (("reset", "Resets"), ("carry", "Carries over"))
+    USES = (("any", "Every order"), ("day", "Once a day"), ("week", "Once a week"))
+    CHANNELS = (("store", "In store"), ("pickup", "Pickup"), ("delivery", "Delivery"))
+
+    name = models.CharField(max_length=30, unique=True)
+    color = models.CharField(max_length=7, default="#12875A")
+    kind = models.CharField(max_length=8, choices=KINDS, default=BALANCE)
+    live = models.BooleanField(default=True, help_text="Off: cards are declined")
+    position = models.PositiveIntegerField(default=0)
+    amount = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("10.00"), help_text="Balance cards: what each refill gives")
+    refill = models.CharField(max_length=5, choices=REFILLS, default="day")
+    refill_weekday = models.PositiveSmallIntegerField(default=0, help_text="Weekly refills: 0 Monday … 6 Sunday")
+    refill_day = models.CharField(max_length=4, default="1", help_text="Monthly refills: 1, 15 or last")
+    leftover = models.CharField(max_length=5, choices=LEFTOVER, default="reset")
+    cap = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("50.00"), help_text="Carrying over: never more than this")
+    discount_kind = models.CharField(max_length=3, choices=(("pct", "Percent off"), ("amt", "Amount off")), default="pct")
+    discount_value = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("20.00"))
+    discount_cap = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Percent off: at most this per order")
+    uses = models.CharField(max_length=4, choices=USES, default="any")
+    own_only = models.BooleanField(default=True, help_text="The order goes under the holder's name")
+    no_alcohol = models.BooleanField(default=True)
+    stack = models.BooleanField(default=False, help_text="Adds to other discounts (else the better one wins)")
+    channels = models.JSONField(default=list, blank=True, help_text="Where it works: store, pickup, delivery")
+    archived = models.BooleanField(default=False, help_text="Deleted on the Staff cards page; kept for past orders")
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return self.name
+
+
+class StaffCard(models.Model):
+    """One staff member's card of a type: a number on a printed (or pre-printed and scanned) card, and the balance
+    of a balance card (refilled when it's next read, gift_cards/staff_cards.py: refill)."""
+    type = models.ForeignKey(StaffCardType, on_delete=models.CASCADE, related_name="cards")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="staff_cards")
+    number = models.CharField(max_length=32, unique=True)
+    balance = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    refilled_at = models.DateTimeField(default=timezone.now, help_text="When the balance was last topped up")
+    issued_at = models.DateTimeField(default=timezone.now)
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["issued_at", "id"]
+
+    def __str__(self):
+        return f"{self.type} •• {self.number[-4:]}"
+
+    @staticmethod
+    def new_number() -> str:
+        """16 digits no gift card or staff card has."""
+        while True:
+            number = get_random_string(length=16, allowed_chars="1234567890")
+            if not StaffCard.objects.filter(number=number).exists() and not GiftCard.objects.filter(number=number).exists():
+                return number
+
+
+class StaffCardUse(models.Model):
+    """What a card did on an order: took a discount, paid from its balance, or got money back (rejected, refunded)."""
+    DISCOUNT, SPEND, BACK = "discount", "spend", "back"
+    card = models.ForeignKey(StaffCard, on_delete=models.CASCADE, related_name="uses")
+    order = models.ForeignKey("pos_server.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="staff_card_uses")
+    kind = models.CharField(max_length=8, choices=((DISCOUNT, "Discount"), (SPEND, "Spent"), (BACK, "Put back")))
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    at = models.DateTimeField(default=timezone.now)
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        ordering = ["-at", "-id"]

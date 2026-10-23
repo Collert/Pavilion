@@ -697,14 +697,16 @@ class OrderDiscount(models.Model):
 
 class OrderPayment(models.Model):
     """How (part of) an order was paid. Cash payments are tied to the drawer that took them."""
-    CASH, CARD, GIFT = "cash", "card", "gift"
-    methods = ((CASH, "Cash"), (CARD, "Card"), (GIFT, "Gift card"))
+    CASH, CARD, GIFT, STAFF = "cash", "card", "gift", "staff"
+    methods = ((CASH, "Cash"), (CARD, "Card"), (GIFT, "Gift card"), (STAFF, "Staff card"))
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="payments")
     method = models.CharField(max_length=5, choices=methods)
     amount = models.DecimalField(max_digits=8, decimal_places=2)
     tendered = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Cash handed over")
     drawer = models.ForeignKey("CashDrawerSession", on_delete=models.SET_NULL, null=True, blank=True, related_name="payments")
     gift_card = models.ForeignKey(GiftCard, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    staff_card = models.ForeignKey("gift_cards.StaffCard", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                   help_text="A balance staff card's payment")
     timestamp = models.DateTimeField(default=timezone.now)
     # Card payments: what Square reported (filled in after the payment, see payments.square.fill_card_details)
     square_checkout_id = models.CharField(max_length=64, blank=True, help_text="The Terminal checkout that took it")
@@ -1067,7 +1069,8 @@ class Ingredient(models.Model):
     bought in packs: `cost`, the price of one unit, is `pack_price / pack_size` (set on save), and every component and
     dish cost is worked out from it (pos_server/dish_info.py). `previous_cost` is what one unit cost before the last
     price change. `allergens` lists entries of ALLERGENS; `meat`, `fish` and `animal` (dairy, eggs, honey, gelatin...)
-    decide which diets it fits (see `flags`). Dishes inherit both from the ingredients of their components. Edited on
+    decide which diets it fits (see `flags`); `alcohol` makes what's made with it alcoholic (staff cards can leave
+    those out). Dishes inherit all of these from the ingredients of their components. Edited on
     the admin's Ingredients page.
     """
     units = UNITS
@@ -1099,6 +1102,7 @@ class Ingredient(models.Model):
     meat = models.BooleanField(default=False, help_text="Meat or poultry")
     fish = models.BooleanField(default=False, help_text="Fish or seafood")
     animal = models.BooleanField(default=False, help_text="Animal byproduct: dairy, eggs, honey, gelatin")
+    alcohol = models.BooleanField(default=False, help_text="Beer, wine, spirits: dishes made with it are alcoholic")
     unlimited = models.BooleanField(default=False, help_text="Not counted (tap water)")
     cost = models.DecimalField(max_digits=14, decimal_places=6, blank=True, null=True,
                                help_text="Cost of one unit (a gram, a millilitre or a piece): pack price / pack size")

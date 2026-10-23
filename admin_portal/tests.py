@@ -2573,3 +2573,69 @@ class GroupsPageTests(AdminFixture, TestCase):
         self.client.post(url, {"op": "save"})
         self.owner.refresh_from_db()
         self.assertEqual(self.owner.email, "priya@example.com")
+
+
+
+class StaffCardsPageTests(AdminFixture, TestCase):
+    """Staff cards (admin_portal/staffcards.py): card types until Save; issuing and revoking straight away."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_staff_cards")
+        self.staff.first_name = "Marco"
+        self.staff.save()
+
+    def post(self, x, op="preview", **fields):
+        e = x["d"]["e"]
+        data = {"editing": x["d"]["key"], "name": e["name"], "amount": e["amount"], "cap": e["cap"], "dval": e["dval"], "dcap": e["dcap"],
+                "refill": e["refill"], "dow": str(e["dow"]), "dom": e["dom"], "uses": e["uses"], "op": op}
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_a_card_type_issued_and_revoked(self):
+        from gift_cards.models import StaffCard, StaffCardType
+        x = self.client.get(self.url).context["x"]
+        self.assertIsNone(x["d"])
+        x = self.client.post(self.url, {"op": "new"}).context["x"]
+        self.assertEqual((x["d"]["e"]["name"], x["status"]), ("New card", "Unsaved changes"))
+        x = self.post(x, name="Shift meal", amount="12")
+        x = self.post(x, "roll:carry", cap="5")
+        self.assertEqual(x["d"]["err"]["balance"], "The limit has to be at least $12.")
+        x = self.post(x, cap="30")
+        x = self.post(x, "flip:live")
+        x = self.post(x, "chan:delivery")
+        self.assertIn("Refills every day at midnight", x["d"]["bal_text"])
+        self.client.post(self.url, {"op": "save"})
+        t = StaffCardType.objects.get(name="Shift meal")
+        self.assertEqual((t.amount, t.leftover, t.cap, t.live, t.channels), (Decimal("12"), "carry", Decimal("30"), True, ["store", "pickup", "delivery"]))
+
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, issue_to=str(self.staff.id))
+        x = self.post(x, "issue", issue_to=str(self.staff.id))
+        card = StaffCard.objects.get(type=t, user=self.staff)
+        self.assertEqual((card.balance, len(card.number)), (Decimal("12.00"), 16))
+        self.assertEqual(x["d"]["holders"][0]["bal"], "$12.00")
+        self.assertContains(self.client.get(reverse("admin_staff_card_print", args=[card.id])), "<svg")
+        x = self.post(x, "how:scan")
+        x = self.post(x, "issue", issue_to=str(self.owner.id), blank=card.number)
+        self.assertEqual(StaffCard.objects.filter(user=self.owner).count(), 0)  # that number's taken
+        x = self.post(x, "issue", issue_to=str(self.owner.id), blank="BLANK-0042")
+        self.assertEqual(StaffCard.objects.get(user=self.owner).number, "BLANK-0042")
+        self.client.post(self.url, {"op": f"revoke:{card.id}"})
+        self.assertIsNotNone(StaffCard.objects.get(pk=card.pk).revoked_at)
+
+        x = self.client.get(self.url).context["x"]
+        self.post(x, "delete")
+        self.client.post(self.url, {"op": "save"})
+        self.assertTrue(StaffCardType.objects.get(pk=t.pk).archived)
+        self.assertIsNotNone(StaffCard.objects.get(number="BLANK-0042").revoked_at)
+
+    def test_ingredients_can_be_marked_alcoholic(self):
+        from pos_server.models import Ingredient
+        ingredient = Ingredient.objects.create(title="Red wine", unit_of_measurement="ml")
+        url = reverse("admin_ingredient", args=[ingredient.id])
+        page = self.client.get(url)
+        self.assertIn("alcohol", [s["key"] for s in page.context["e"]["switches"]])
