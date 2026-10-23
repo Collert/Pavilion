@@ -1,6 +1,7 @@
 """
 The admin rail (design: AdminRail). Groups open when one of their pages is current. Pages whose url name is None
-aren't built yet and stay hidden; a group with no built pages is hidden too.
+aren't built yet and stay hidden, as do pages the user's groups don't let them view; a group with no pages left is
+hidden too. These pages are also the rows of the Groups page's permissions (users/access.py).
 """
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -43,7 +44,7 @@ MENU = [
         ("shifts", _("Shifts"), "admin_shifts"),
         ("requests", _("Availability requests"), "admin_requests"),
         ("roles", _("Roles"), "admin_roles"),
-        ("groups", _("Groups"), None),
+        ("groups", _("Groups"), "admin_groups"),
         ("staffcards", _("Staff cards"), None),
     ]),
     ("customers", _("Customers"), "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", [
@@ -64,13 +65,15 @@ def badges() -> dict:
             "requests": TimeOff.objects.filter(status=TimeOff.PENDING).count() + Availability.objects.filter(status=Availability.PENDING).count()}
 
 
-def rail(active: str) -> list[dict]:
+def rail(active: str, user=None) -> list[dict]:
+    """The rail's groups and pages: only built pages the user's groups let them view (users/access.py)."""
+    from users.access import can_page
     counts = badges()
     groups = []
     for group_id, label, path, pages in MENU:
         items = [{"id": page_id, "label": page_label, "url": reverse(url_name), "current": page_id == active,
                   "badge": counts.get(page_id, 0)}
-                 for page_id, page_label, url_name in pages if url_name]
+                 for page_id, page_label, url_name in pages if url_name and (user is None or can_page(user, page_id))]
         if not items:
             continue
         groups.append({"id": group_id, "label": label, "path": path, "url": items[0]["url"], "items": items,

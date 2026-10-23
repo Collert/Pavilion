@@ -103,7 +103,8 @@ def _who(scope, channel_id):
     store: SessionBase = import_module(settings.SESSION_ENGINE).SessionStore(morsel.value)
     user_id = store.get("_auth_user_id")
     user = get_user_model().objects.filter(pk=user_id, is_active=True, is_staff=True).first() if user_id else None
-    return True, person(user) if user else None
+    from users.access import can
+    return True, person(user) if user and can(user, "app.audio") else None
 
 
 async def voice_socket(scope, receive, send, channel_id):

@@ -10,7 +10,7 @@ import time
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 
-from pos_server.devices import api_staff_required, staff_required
+from pos_server.devices import api_app_required, api_staff_required, app_required, staff_required
 from .availability import apply_changes, catalog
 
 # Create your views here.
@@ -86,13 +86,13 @@ def day_display(request, day_id):
         "day":day
     })
 
-@staff_required
+@app_required("app.availability")
 def component_availability(request):
     """The Availability screen (docs/mockups/Availability-html). The panel itself is availability_panel.html."""
     return render(request, "inventory/availability.html", {"nav": "inventory"})
 
 
-@api_staff_required
+@api_app_required("app.availability")
 def availability_data(request):
     """
     The Availability panel's data. GET: inventory.availability.catalog(). POST {"changes": [{kind, id, mode}]}:

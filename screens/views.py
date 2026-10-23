@@ -10,20 +10,20 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from pavilion.realtime import publish
-from pos_server.devices import api_staff_required, staff_required
+from pos_server.devices import api_app_required, app_required
 
 from . import registry
 from .layout import render_screen
 from .models import Screen, ScreenSession
 
 
-@staff_required
+@app_required("app.screens")
 def index(request):
     """Apps → Screens: every screen. One with sessions opens its session picker; the rest open straight away."""
     return render(request, "screens/index.html", {"screens": Screen.objects.all(), "nav": "screens"})
 
 
-@staff_required
+@app_required("app.screens")
 def sessions(request, slug):
     """A screen's sessions: open one on this display, or start a new one (POST name)."""
     screen = get_object_or_404(Screen, slug=slug)
@@ -98,7 +98,7 @@ def _json(request):
 
 
 @require_POST
-@api_staff_required
+@api_app_required("app.register")
 def pair(request):
     """A register pairs with a session by its code ({"code"}), or lets it go ({"code", "unpair": true})."""
     code = str(_json(request).get("code", "")).strip().upper().replace(" ", "")
@@ -129,7 +129,7 @@ def _cents(value):
 
 
 @require_POST
-@api_staff_required
+@api_app_required("app.register")
 def summary(request, code):
     """The paired register's order while it's taking payment ({"paying": true, "lines", totals in cents...}); anything
     else clears it. Only this session's order-summary pop-up shows it."""
@@ -149,7 +149,7 @@ def summary(request, code):
 
 
 @require_POST
-@api_staff_required
+@api_app_required("app.register")
 def announce(request):
     """A staff announcement from the register ({"text"}): screens with the announcement pop-up show it."""
     from .popups import record

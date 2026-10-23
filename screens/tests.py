@@ -20,6 +20,7 @@ from .layout import layout_errors, render_screen
 from .models import Screen
 from .providers import public_name
 from .templatetags.screens import tracks
+from users.testing import crew
 
 
 def node(widget, children=None, **params):
@@ -240,7 +241,7 @@ class AccessTests(TestCase):
         self.client.force_login(customer)
         self.assertEqual(self.client.get(reverse("screen", kwargs={"slug": "back"})).status_code, 302)
         self.assertEqual(self.client.get(reverse("screens")).status_code, 302)
-        staff = User.objects.create_user("staff", password="x", is_staff=True)
+        staff = crew(User.objects.create_user("staff", password="x", is_staff=True))
         self.client.force_login(staff)
         self.assertEqual(self.client.get(reverse("screen", kwargs={"slug": "back"})).status_code, 200)
         index = self.client.get(reverse("screens"))
@@ -387,7 +388,7 @@ class PopupTests(TestCase):
         order_ready.send(sender=Order, order=SimpleNamespace(channel="web", name="Iryna Koval", id=57))
         self.assertIn("Iryna K.", self.render().html)
         self.assertIn("Order #0057", self.render().html)
-        staff = User.objects.create_user("staff", password="x", is_staff=True)
+        staff = crew(User.objects.create_user("staff", password="x", is_staff=True))
         self.client.force_login(staff)
         response = self.client.post(reverse("screens_announce"), json.dumps({"text": "Buns are out"}), content_type="application/json")
         self.assertEqual(response.status_code, 200)
@@ -413,7 +414,7 @@ class SessionTests(TestCase):
 
     def setUp(self):
         cache.clear()
-        self.staff = User.objects.create_user("staff", password="x", is_staff=True, first_name="Dana")
+        self.staff = crew(User.objects.create_user("staff", password="x", is_staff=True, first_name="Dana"))
         self.client.force_login(self.staff)
         self.screen = Screen.objects.create(name="Counter menu", slug="counter-menu", sessions=True, public=True,
                                             layout={"widget": "clock"}, popups=[{"widget": "order_summary", "params": {}}])

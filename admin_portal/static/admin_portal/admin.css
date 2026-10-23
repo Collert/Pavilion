@@ -58,6 +58,7 @@ button:disabled { cursor: not-allowed; }
     overflow: hidden;
 }
 .admin-main {
+    position: relative;
     flex: 1;
     min-width: 0;
     display: flex;
@@ -383,3 +384,20 @@ button.back-link { border: none; background: none; font-family: inherit; cursor:
     .rail-items { margin-left: 12px; }
     .rail-blob { display: none; }
 }
+
+/* ---------- what someone's groups don't allow (layout.html: perm; admin_portal/access.py refuses it anyway) ---------- */
+
+.ro-tag {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%); z-index: 5;
+    display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: 15px;
+    background: var(--ink); color: #FFFFFF; font-size: 12px; font-weight: 800; letter-spacing: .02em; pointer-events: none;
+}
+.ro form[action$="/new"],
+.ro button[name="op"]:is([value="save"], [value="duplicate"], [value="publish"], [value="new"], [value="create"],
+    [value="newpl"], [value="send"], [value="reply"], [value="accept"], [value="reject"], [value="remind"], [value="finish"],
+    [value="approve"], [value="decline"], [value="reopen"], [value="promote"], [value="photoclear"], [value="add"],
+    [value="remove_receipt"], [value="resume"], [value="reset"], [value="addsongs"], [value="plsave"], [value="plremove"],
+    [value="copy"], [value="fill"], [value^="pause:"], [value^="newkind:"], [value^="new:"]),
+.ro [data-upload], .ro [data-upload-open],
+.nodel button[name="op"]:is([value="archive"], [value="restore"], [value="delete"], [value="trackdel"], [value="pldelete"], [value^="sdel:"]),
+.nodel .tm-remove { display: none !important; }

@@ -10,7 +10,7 @@ import json
 from decimal import Decimal
 from unittest import mock
 
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -24,6 +24,7 @@ from .models import (CashDrawerSession, RegisterSignIn, Combo, Condiment, Dispos
                      Extra, Menu, MenuRule, Option, OptionGroup, Order, OrderPayment, OrderStation, Station)
 from .orders import OrderError, create_order
 from .pricing import DishKit, dish_queryset, price_cart
+from users.testing import crew
 
 
 class MenuFixture:
@@ -547,7 +548,7 @@ class KitchenDisplayTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
-        cls.staff = User.objects.create_user("cook", password="x", is_staff=True)
+        cls.staff = crew(User.objects.create_user("cook", password="x", is_staff=True))
 
     def setUp(self):
         self.client.force_login(self.staff)
@@ -674,6 +675,14 @@ class KitchenDisplayTests(MenuFixture, TestCase):
         card.refresh_from_db()
         self.assertEqual(card.available_balance, Decimal("20.00"))
 
+    def test_rejecting_comes_from_a_group(self):
+        marker = crew(User.objects.create_user("ash", password="x", is_staff=True), "app.marking")
+        self.client.force_login(marker)
+        self.assertFalse(self.client.get(self.url).context["can_reject"])
+        order = self.online_order()
+        self.assertEqual(self.send(order, "reject", text="Fryer is down").status_code, 403)
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+
     def test_reject_needs_a_known_reason(self):
         order = self.online_order()
         self.assertEqual(self.send(order, "reject", reasons=[], text=" ").status_code, 400)
@@ -696,7 +705,7 @@ class RegisterTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
-        cls.staff = User.objects.create_user("cashier", password="x", is_staff=True, first_name="Dana")
+        cls.staff = crew(User.objects.create_user("cashier", password="x", is_staff=True, first_name="Dana"))
         cls.offer = Discount.objects.create(name="Student", kind="pct", value=Decimal("10"))
 
     def setUp(self):
@@ -747,7 +756,7 @@ class RegisterTests(MenuFixture, TestCase):
         body = {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": {"kind": "amt", "value": "1.00"}},
                 "total": "1.00", "payments": [{"method": "card", "amount": "1.00"}]}
         self.assertEqual(self.post("pos", body).status_code, 400)
-        self.staff.user_permissions.add(Permission.objects.get(codename="apply_manual_discount"))
+        crew(self.staff, "app.register", "act.discount")  # a group with "Give discounts"
         self.assertEqual(self.post("pos", body).status_code, 200)
 
     @mock.patch("payments.square.gather_terminal_checkout")
@@ -771,11 +780,20 @@ class RegisterTests(MenuFixture, TestCase):
         self.assertEqual(drawer.difference, Decimal("-4.50"))
         self.assertFalse(drawer.is_open)
 
+    def test_the_drawer_and_paying_cash_out_come_from_groups(self):
+        cashier = crew(User.objects.create_user("lee", password="x", is_staff=True), "app.register")
+        self.client.force_login(cashier)
+        self.assertContains(self.client.get(reverse("cash_drawer")), "Ask a manager", status_code=403)
+        crew(cashier, "app.drawer")
+        self.post("cash_drawer", {"action": "open", "amount": "100.00"})
+        self.assertEqual(self.post("cash_drawer", {"action": "move", "amount": "-10.00", "reason": "Ice"}).status_code, 403)
+        self.assertNotContains(self.client.get(reverse("cash_drawer")), 'id="open-move">')
+
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class LockScreenTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana")
+        self.user = crew(User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana"))
         self.staff = Staff.objects.create(user=self.user)
         self.staff.set_pin("1234")
         self.staff.save()
@@ -814,7 +832,7 @@ class LockScreenTests(TestCase):
         self.assertTrue(self.staff.check_pin("4321"))
 
     def make_staff(self, name, pin="1111"):
-        user = User.objects.create_user(name.lower(), password="x", is_staff=True, first_name=name)
+        user = crew(User.objects.create_user(name.lower(), password="x", is_staff=True, first_name=name))
         staff = Staff.objects.create(user=user)
         if pin:
             staff.set_pin(pin)
@@ -827,6 +845,16 @@ class LockScreenTests(TestCase):
         RegisterSignIn.record(None, self.make_staff("Nopin", pin="").user)
         names = [s["name"] for s in self.client.get(reverse("register_lock")).context["staff"]]
         self.assertEqual(names, ["Dee", "Cal", "Ben"])  # most recent first; Dana and Ana fell off
+
+    def test_a_pin_only_opens_the_register_for_its_groups(self):
+        cook = self.make_staff("Kai", pin="2222")
+        cook.user.groups.clear()
+        crew(cook.user, "app.cookery")
+        RegisterSignIn.record(None, cook.user)
+        response = self.client.post(reverse("register_lock"), json.dumps({"staff": cook.id, "pin": "2222"}),
+                                    content_type="application/json")
+        self.assertEqual((response.status_code, response.json()["message"]), (403, "Your groups don’t include the register. Ask a manager."))
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_only_listed_staff_can_use_a_pin(self):
         other = self.make_staff("Eve", pin="5555")  # has a PIN, never used this register

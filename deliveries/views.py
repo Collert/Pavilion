@@ -29,7 +29,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
-from pos_server.devices import staff_required
+from pos_server.devices import app_required
 from pos_server.models import Order
 from . import routes
 from .models import CourierShift, Delivery, active_delivery
@@ -101,7 +101,7 @@ def _shift_of(user):
 
 # ---------- screens ----------
 
-@staff_required
+@app_required("app.courier")
 def home(request):
     """Start a shift, or (on shift) the delivery orders looking for a courier. ?end=1 opens the end-shift sheet."""
     shift = _shift_of(request.user)
@@ -147,7 +147,7 @@ def home(request):
     return _page(request, "list.html", context)
 
 
-@staff_required
+@app_required("app.courier")
 def shift(request):
     """POST action=start (mode) or action=end."""
     if request.method != "POST":
@@ -178,7 +178,7 @@ def shift(request):
     return HttpResponseBadRequest("Unknown action")
 
 
-@staff_required
+@app_required("app.courier")
 def order(request, id):
     """One delivery order. POST action=accept takes it (one delivery at a time), action=pass leaves it to others."""
     delivery = Delivery.objects.filter(pk=id).select_related("order", "courier").prefetch_related("order__items").first()
@@ -232,7 +232,7 @@ def order(request, id):
     })
 
 
-@staff_required
+@app_required("app.courier")
 def current(request):
     """Your delivery, step by step. POST action = pickup | arrive | complete (handoff, photo) | dismiss (declined)."""
     shift = _shift_of(request.user)
@@ -331,7 +331,7 @@ def _proof_photo(upload):
     return ContentFile(out.getvalue())
 
 
-@staff_required
+@app_required("app.courier")
 def done(request, id):
     """Delivered: how it went, and the way back."""
     delivery = Delivery.objects.filter(pk=id, courier=request.user).exclude(delivered_at=None).first()
@@ -378,7 +378,7 @@ def vapid_public_key(request):
     return JsonResponse({"vapidPublicKey": settings.VAPID_PUBLIC_KEY})
 
 
-@staff_required
+@app_required("app.courier")
 def save_subscription(request):
     """POST a PushSubscription (JSON, as the browser gives it) for the signed-in courier."""
     if request.method != "POST":

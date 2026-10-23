@@ -42,11 +42,14 @@ class Role(models.Model):
 
 
 class GroupInfo(models.Model):
-    """What the admin shows about a group (django.contrib.auth Group: the permissions). The Owners group is the one
-    with `owners` set: its members are superusers (everything, including the admin)."""
+    """A Django auth Group's look and what it grants (edited on the admin's Groups page). `perms` are users/access.py
+    codes (apps, actions, admin pages). The Owners group is the one with `owners` set: its members are superusers
+    (everything, including the admin), whatever `perms` says."""
     group = models.OneToOneField("auth.Group", on_delete=models.CASCADE, related_name="info")
     description = models.CharField(max_length=160, blank=True)
     color = models.CharField(max_length=7, default="#5B6A62")
+    icon = models.CharField(max_length=20, default="people", help_text="A key of admin_portal/team.py: GROUP_ICONS")
+    perms = models.JSONField(default=list, blank=True, help_text="users/access.py codes, e.g. app.register, admin.dishes.edit")
     position = models.PositiveIntegerField(default=0)
     owners = models.BooleanField(default=False, help_text="Members get everything (they're made superusers)")
 

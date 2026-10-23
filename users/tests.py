@@ -41,3 +41,38 @@ class LoginTests(TestCase):
         self.client.logout()
         self.sign_in("dana")
         self.assertFalse(self.client.session.get_expire_at_browser_close())
+
+
+
+class AccessTests(TestCase):
+    """users/access.py: codes from groups, superusers have them all."""
+
+    def test_codes_come_from_groups(self):
+        from django.contrib.auth.models import Group
+        from . import access
+        from .models import GroupInfo
+        self.assertEqual(access.tidy(["admin.dishes.delete", "nonsense", "app.register"]),
+                         ["app.register", "admin.dishes.view", "admin.dishes.delete"])  # view comes with delete
+        self.assertEqual(access.page_levels("reports"), ("view",))
+        dana = User.objects.create_user("dana2", is_staff=True)
+        self.assertFalse(access.can(dana, "app.register"))
+        bar = Group.objects.create(name="Bar")
+        GroupInfo.objects.create(group=bar, perms=["app.register", "admin.dishes.view"])
+        dana.groups.add(bar)
+        dana = User.objects.get(pk=dana.pk)
+        self.assertTrue(access.can(dana, "app.register"))
+        self.assertFalse(access.can_page(dana, "dishes"))  # pages need the Admin app too
+        boss = User.objects.create_superuser("boss2", password="x")
+        self.assertTrue(access.can_page(boss, "groups", "delete"))
+        self.assertFalse(access.can_page(boss, "reports", "edit"))  # reports have no edit
+        dana.is_active = False
+        self.assertFalse(access.can(dana, "app.register"))  # turned off: nothing
+
+    def test_the_usual_groups_start_with_sensible_permissions(self):
+        from .models import GroupInfo
+        perms = {i.group.name: set(i.perms) for i in GroupInfo.objects.select_related("group")}
+        self.assertIn("app.admin", perms["Managers"])
+        self.assertNotIn("admin.groups.edit", perms["Managers"])
+        self.assertIn("app.register", perms["Front of house"])
+        self.assertNotIn("act.discount", perms["Front of house"])
+        self.assertEqual(perms["Delivery"], {"app.courier", "app.audio"})

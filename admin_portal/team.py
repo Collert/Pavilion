@@ -17,6 +17,14 @@ ROLE_ICONS = {
     "spark": (_("Cleaning"), "M12 3v4 M12 17v4 M3 12h4 M17 12h4 M6 6l2.5 2.5 M15.5 15.5 18 18 M6 18l2.5-2.5 M15.5 8.5 18 6"),
     "box": (_("Stock"), "M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z M3 7.5l9 4.5 9-4.5 M12 12v9"),
 }
+GROUP_ICONS = {  # GroupInfo.icon: the tile on the Groups page
+    "people": "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0 M16 4.3a3.5 3.5 0 0 1 0 6.4 M18 14.2a6.5 6.5 0 0 1 3.5 5.8",
+    "star": ROLE_ICONS["star"][1],
+    "shield": "M9 12l2 2 4-4 M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z",
+    "register": ROLE_ICONS["register"][1],
+    "pan": ROLE_ICONS["pan"][1],
+    "bike": ROLE_ICONS["bike"][1],
+}
 PALETTE = [("#12875A", _("Green")), ("#C9821A", _("Amber")), ("#4E79B5", _("Blue")), ("#2BA3A0", _("Teal")), ("#E87BA4", _("Pink")),
            ("#6B7A2E", _("Olive")), ("#7A5AC8", _("Violet")), ("#C2453B", _("Red")), ("#14261F", _("Ink")), ("#5B6A62", _("Slate"))]
 FACES = ["#1F4A3A", "#C9821A", "#4E79B5", "#7A5AC8", "#2BA3A0", "#C2453B", "#6B7A2E", "#E87BA4"]

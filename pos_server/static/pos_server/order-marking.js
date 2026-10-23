@@ -26,6 +26,7 @@ const data = (id) => JSON.parse(document.getElementById(id).textContent);
 
 const STATIONS = data("kds-stations");
 const REASONS = data("kds-reasons");
+const CAN_REJECT = data("kds-can-reject");  // a group of theirs gives "Reject orders"
 const FEED_URL = data("kds-feed");
 const stationBy = Object.fromEntries(STATIONS.map((s) => [s.code, s]));
 
@@ -331,7 +332,7 @@ function actions(order, key) {
 
     const buttons = [];
     if (key === "new") {
-        buttons.push(el("button", { className: "act reject", on: { click: () => openReject(order.order_id) } },
+        if (CAN_REJECT) buttons.push(el("button", { className: "act reject", on: { click: () => openReject(order.order_id) } },
             [icon(P.cross, 18, 2.6), t("Reject"), kbd("Esc")]));
         buttons.push(el("button", { className: "act confirm", on: { click: () => act(order.order_id, "confirm") } },
             [icon(P.check, 20, 2.6), t("Confirm"), kbd("Enter")]));
@@ -842,7 +843,7 @@ window.addEventListener("keydown", (e) => {
             break;
         }
         case "Escape":
-            if (order && statusKey(order) === "new") {
+            if (order && statusKey(order) === "new" && CAN_REJECT) {
                 e.preventDefault();
                 openReject(order.order_id);
             }

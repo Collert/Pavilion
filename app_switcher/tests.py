@@ -7,13 +7,14 @@ from django.urls import reverse
 
 from pos_server.devices import DEVICE_COOKIE, set_device_cookie
 from pos_server.models import EligibleDevice
+from users.testing import crew
 
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class AppSwitcherTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana")
+        cls.staff = crew(User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana"))
         cls.boss = User.objects.create_user("boss", password="x", is_staff=True, is_superuser=True)
         cls.customer = User.objects.create_user("cust", password="x")
 
@@ -28,13 +29,24 @@ class AppSwitcherTests(TestCase):
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
         self.assertIn("Order marking", titles)
         self.assertNotIn("Admin", titles)
+
+    def test_apps_come_from_groups(self):
+        from users.testing import crew
+        nobody = User.objects.create_user("new", password="x", is_staff=True)
+        self.client.force_login(nobody)
+        self.assertEqual(self.client.get(reverse("app_switcher_index")).context["apps"], [])
+        self.assertContains(self.client.get(reverse("crafting")), "Ask a manager", status_code=403)
+        crew(nobody, "app.cookery")
+        titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
+        self.assertEqual(titles, ["Cookery"])
+        self.assertEqual(self.client.get(reverse("crafting")).status_code, 200)
         self.client.force_login(self.boss)
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
         self.assertIn("Admin", titles)
 
     def test_barely_touches_the_database(self):
         self.client.force_login(self.staff)
-        with self.assertNumQueries(2):  # the session and the user
+        with self.assertNumQueries(3):  # the session, the user and their groups' permissions
             response = self.client.get(reverse("app_switcher_index"))
         self.assertContains(response, "Dana")
         self.assertContains(response, "This device")
@@ -42,7 +54,7 @@ class AppSwitcherTests(TestCase):
         device = EligibleDevice.objects.create(name="Front counter", token=uuid.uuid4())
         signed = set_device_cookie(HttpResponse(), device.token).cookies[DEVICE_COOKIE].value
         self.client.cookies[DEVICE_COOKIE] = signed
-        with self.assertNumQueries(3):  # plus the device's name
+        with self.assertNumQueries(4):  # plus the device's name
             response = self.client.get(reverse("app_switcher_index"))
         self.assertContains(response, "Front counter")
 
@@ -53,7 +65,7 @@ class RailFooterTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.staff = User.objects.create_user("dana", password="x", is_staff=True)
+        cls.staff = crew(User.objects.create_user("dana", password="x", is_staff=True))
 
     def positions(self, name):
         self.client.force_login(self.staff)

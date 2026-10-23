@@ -18,22 +18,30 @@
         {% block rail %}
         <nav class="rail" aria-label="Pavilion">
             <div class="rail-logo">{% include "pos_server/icons/logo.svg" %}</div>
+            {% if can.app_register %}
             <a class="rail-item" href="{% url 'pos' %}" {% if nav == "register" %}aria-current="page"{% endif %}>
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect></svg>
                 {% trans "Register" %}
             </a>
+            {% endif %}
+            {% if can.app_marking %}
             <a class="rail-item" href="{% kds_url %}">
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
                 {% trans "Orders" %}
             </a>
+            {% endif %}
+            {% if can.app_availability %}
             <a class="rail-item" href="{% url 'component_availability' %}" {% if nav == "inventory" %}aria-current="page"{% endif %}>
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>
                 {% trans "Inventory" %}
             </a>
+            {% endif %}
+            {% if can.app_drawer %}
             <a class="rail-item" href="{% url 'cash_drawer' %}" aria-label="{% trans 'Cash drawer' %}" {% if nav == "drawer" %}aria-current="page"{% endif %}>
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"></rect><circle cx="12" cy="12" r="2.6"></circle></svg>
                 {% trans "Drawer" %}
             </a>
+            {% endif %}
             <div class="rail-spacer"></div>
             {% include "pos_server/rail_foot.html" with lock=True %}
         </nav>

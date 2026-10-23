@@ -1,0 +1,130 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Groups (design: AdminGroups; admin_portal/groups.py, codes in users/access.py). One form with Save: picking a group,
+ticking apps, actions and page permissions, the quick buttons and the search all post the draft back (editor.js);
+Save writes it. Every permission's checkbox stays in the form while hidden by the search, so nothing is lost.
+{% endcomment %}
+{% block title %}{% trans "Groups" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="groups-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Groups" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New group" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card tm-list gp-list" id="groups-list" data-region aria-label="{% trans 'Groups' %}">
+        <div class="rl-intro">{% trans "Groups decide what people can open and change. Someone in two groups gets both sets." %}</div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Groups' %}">
+            {% for r in x.rows %}
+            <button class="tm-row gp-row{% if r.on %} on{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.r.id }}">
+                <span class="rl-tile gp-tile" style="background: {{ r.r.color }}">{% icon r.icon 20 2.2 %}</span>
+                <span class="grow two-line">
+                    <span class="strong ellipsis">{{ r.name }}</span>
+                    <span class="small muted">{{ r.sub }}</span>
+                    <span class="gp-bar"><span style="width: {{ r.pct }}%; background: {{ r.r.color }}"></span></span>
+                </span>
+            </button>
+            {% endfor %}
+        </div>
+        <div class="tm-foot"><span>{{ x.foot }}</span></div>
+    </section>
+
+    <section class="tm-edit" id="groups-edit" aria-label="{% trans 'Group permissions' %}">
+    {% with d=x.d %}{% if d %}
+        <div class="card tm-card" id="gp-ident" data-region>
+            <input type="hidden" name="editing" value="{{ d.key }}">
+            {% if not d.lock %}<input type="hidden" name="perms_shown" value="1">{% endif %}
+            <div class="gp-ident">
+                <label><span class="lbl">{% trans "Group name" %}</span><input class="field{% if d.err %} bad{% endif %}" name="name" value="{{ d.e.name }}" maxlength="30" autocomplete="off"{% if d.lock %} disabled{% endif %}></label>
+                <label><span class="lbl">{% trans "Description" %}</span><input class="field" name="desc" value="{{ d.e.desc }}" maxlength="90" placeholder="{% trans 'What this group is for' %}" autocomplete="off"></label>
+            </div>
+            {% if d.err %}<div class="tm-err tight gp-err">{{ d.err }}</div>{% endif %}
+            <div class="gp-who">
+                <span class="rl-faces gp-faces">{% for f in d.faces %}<span style="background: {{ f.face }}" title="{{ f.name }}">{{ f.ini }}</span>{% endfor %}</span>
+                <span class="grow gp-members">{{ d.members }}</span>
+                <span class="num gp-total">{{ d.total }}</span>
+                <button class="gp-soft" name="op" value="dup">{% trans "Duplicate" %}</button>
+                <button class="gp-del" name="op" value="delete"{% if not d.can_delete %} disabled{% endif %}>{% if d.can_delete %}{% trans "Delete group" %}{% else %}{% trans "Can’t delete" %}{% endif %}</button>
+            </div>
+            {% if d.lock %}
+            <div class="gp-lock">{% icon "M6 11h12v9H6z M8 11V8a4 4 0 0 1 8 0v3" 16 2.4 %}{% trans "Owners always have every permission so nobody can lock the store out. You can only change the description." %}</div>
+            {% elif d.admin_off %}
+            <div class="tm-note">{% trans "These pages only open with the Admin app turned on." %}</div>
+            {% endif %}
+        </div>
+
+        <div class="card tm-card gp-special" id="gp-special" data-region>
+            {% for sp in d.special %}
+            <div>
+                <div class="gp-sp-head"><h2 class="disp gp-h2">{{ sp.title }}</h2><span class="num gp-count">{{ sp.count }}</span></div>
+                <div class="small muted strong">{{ sp.sub }}</div>
+                <div class="gp-tiles">
+                    {% for t in sp.items %}
+                    <label class="gp-toggle{% if t.on %} on{% endif %}" title="{{ t.code }}">
+                        <span class="gp-ic">{% icon t.icon 16 2.2 %}</span>
+                        <span class="grow two-line"><span class="gp-t-name">{{ t.name }}</span><span class="gp-t-desc">{{ t.desc }}</span></span>
+                        <input class="tm-switch gp-switch" type="checkbox" role="switch" name="perm" value="{{ t.code }}"{% if t.on %} checked{% endif %}{% if d.lock %} disabled{% endif %}>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="card gp-data">
+            <div class="gp-data-head" id="gp-data-head" data-region>
+                <div class="grow">
+                    <h2 class="disp gp-h2 big">{% trans "Admin pages" %}</h2>
+                    <div class="small muted strong">{% trans "What they can see and change on each page of the admin. Edit and delete come with view." %}</div>
+                </div>
+                <label class="tm-search gp-find">{% icon "M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M16 16l4 4" 15 2.4 %}<input class="field" name="q" value="{{ x.st.q }}" placeholder="{% trans 'Find' %}" aria-label="{% trans 'Find a page' %}" autocomplete="off" data-type-preview></label>
+                <button class="gp-only" name="op" value="only" aria-pressed="{{ x.st.only|yesno:'true,false' }}">{% trans "Granted only" %}</button>
+            </div>
+            <div id="gp-matrix" data-region>
+            <div class="gp-cols">
+                <span class="ov muted grow">{% trans "Page" %}</span>
+                {% for c in d.cols %}<button class="gp-col{% if c.lit %} lit{% endif %}" name="op" value="col:{{ c.level }}" title="{{ c.title }}"{% if d.lock %} disabled{% endif %}>{{ c.label }}</button>{% endfor %}
+            </div>
+            {% for s in d.sections %}
+            <div class="gp-sec"{% if s.hidden %} hidden{% endif %}>
+                <div class="gp-sec-head">
+                    <span class="gp-sec-tile{% if s.lit %} lit{% endif %}">{% icon s.icon 16 2.2 %}</span>
+                    <span class="strong">{{ s.name }}</span>
+                    <span class="num gp-sec-n">{{ s.count }}</span>
+                    <span class="grow"></span>
+                    <span class="gp-quick">{% for k, label, on in s.quick %}<button name="op" value="sec:{{ s.id }}:{{ k }}" aria-pressed="{{ on|yesno:'true,false' }}"{% if d.lock %} disabled{% endif %}>{{ label }}</button>{% endfor %}</span>
+                </div>
+                {% for p in s.pages %}
+                <div class="gp-page"{% if p.hidden %} hidden{% endif %}>
+                    <button class="gp-page-name" name="op" value="row:{{ p.id }}" title="{% if p.full %}{% blocktrans with page=p.name %}Clear all for {{ page }}{% endblocktrans %}{% else %}{% blocktrans with page=p.name %}Give all for {{ page }}{% endblocktrans %}{% endif %}"{% if d.lock %} disabled{% endif %}>
+                        <span class="strong">{{ p.name }}</span><span class="gp-code">admin.{{ p.id }}</span>
+                    </button>
+                    {% for c in p.cells %}
+                    <span class="gp-cell">{% if c.has %}<span class="tm-box gp-box"><input type="checkbox" name="perm" value="{{ c.code }}" aria-label="{{ c.level|capfirst }} · {{ p.name }}" title="{{ c.code }}"{% if c.on %} checked{% endif %}{% if d.lock %} disabled{% endif %}><span></span></span>{% else %}<span class="gp-na" title="{% trans 'Not used on this page' %}">–</span>{% endif %}</span>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            {% if d.no_match %}<div class="tm-none">{% trans "Nothing matches." %}</div>{% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="card tm-card tm-none" id="gp-none" data-region>{% trans "No groups yet. Add one with New group." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from . import library, music, voice
 from .models import AudioChannel, Playlist, PlaylistTrack, Track
+from users.testing import crew
 
 
 def tone(seconds=2.0, rate=8000):
@@ -160,7 +161,7 @@ class MusicQueueTests(TestCase):
         self.assertEqual(([t.title for _e, t in state["entries"]], state["track"]), (["A", "C"], self.c))
 
     def test_endpoints(self):
-        staff = User.objects.create_user("staff", password="x", is_staff=True)
+        staff = crew(User.objects.create_user("staff", password="x", is_staff=True))
         self.do("playnow", ids=[self.a.id, self.b.id])
         response = self.client.get(reverse("audio_now", args=[self.channel.id]))
         data = response.json()
@@ -181,7 +182,7 @@ class AudioAppTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
         cache.clear()
-        self.staff = User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana", last_name="Wu")
+        self.staff = crew(User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana", last_name="Wu"))
         self.lobby = AudioChannel.objects.create(name="Lobby music", kind="music", notes="Dining room")
         self.calls = AudioChannel.objects.create(name="Order calls", kind="voice")
         self.songs = [Track.objects.create(file=f"files/music/{n}.mp3", title=n, artist="Juno Hale", duration=200) for n in ("Velvet Hour", "Ember")]

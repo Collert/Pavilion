@@ -141,6 +141,7 @@
 {{ stations|json_script:"kds-stations" }}
 {{ filters|json_script:"kds-filters" }}
 {{ reasons|json_script:"kds-reasons" }}
+{{ can_reject|json_script:"kds-can-reject" }}
 {{ server_now|json_script:"kds-now" }}
 {% url 'active_orders' as feed_url %}{{ feed_url|json_script:"kds-feed" }}
 {% endblock %}

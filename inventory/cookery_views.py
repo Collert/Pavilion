@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _, gettext_lazy
 
-from pos_server.devices import staff_required
+from pos_server.devices import app_required
 from pos_server.models import Component
 from . import cookery
 from .models import CookingSession, IngredientReservation, Transformation, WasteIngredient
@@ -113,7 +113,7 @@ def _ongoing_card(session, user, now):
 
 # ---------- home ----------
 
-@staff_required
+@app_required("app.cookery")
 def home(request, mode="make"):
     """Craft (components to make) or Transform (transforms), with the batches in progress on top."""
     q = request.GET.get("q", "").strip()
@@ -144,7 +144,7 @@ def home(request, mode="make"):
     return _page(request, "home.html", context, mode=mode)
 
 
-@staff_required
+@app_required("app.cookery")
 def start(request, component_id):
     """POST: start making a component. With a recipe (batch, phase from the form) or one at a time."""
     if request.method != "POST":
@@ -157,7 +157,7 @@ def start(request, component_id):
     return redirect("cookery_batch", result["session"])
 
 
-@staff_required
+@app_required("app.cookery")
 def take(request, session_id):
     """POST: pick up a batch (yours or someone else's) and open it."""
     session = get_object_or_404(CookingSession, pk=session_id)
@@ -171,7 +171,7 @@ def take(request, session_id):
 
 # ---------- recipe ----------
 
-@staff_required
+@app_required("app.cookery")
 def recipe(request, component_id):
     """A component's recipe: batch size, ingredients (with what's on hand and held by other batches), steps."""
     c = get_object_or_404(Component.objects.select_related("recipe"), pk=component_id, crafting_option="craft")
@@ -205,7 +205,7 @@ def recipe(request, component_id):
 
 # ---------- a batch: guided cooking, then counting ----------
 
-@staff_required
+@app_required("app.cookery")
 def batch(request, session_id):
     """GET: the batch (guided steps, or counting the yield). POST: step, timer, phase, count, uncount, finish."""
     session = get_object_or_404(CookingSession.objects.select_related("component", "recipe", "holder", "started_by"),
@@ -298,7 +298,7 @@ def _yield_context(request, session):
             "who": _who(session, request.user), "mine": session.holder_id == request.user.id}
 
 
-@staff_required
+@app_required("app.cookery")
 def done(request, session_id):
     """What a finished batch made, against the recipe, with the waste it logged and what to do next."""
     session = get_object_or_404(CookingSession.objects.select_related("component", "recipe"), pk=session_id,
@@ -332,7 +332,7 @@ def done(request, session_id):
 
 # ---------- transforms ----------
 
-@staff_required
+@app_required("app.cookery")
 def transform(request, transform_id):
     """GET: how many to move (?qty in the friendly unit). POST: start it."""
     tf = get_object_or_404(Transformation.objects.select_related("from_component", "to_component", "recipe"), pk=transform_id)
@@ -366,7 +366,7 @@ def transform(request, transform_id):
     }, mode="transform")
 
 
-@staff_required
+@app_required("app.cookery")
 def transforming(request, session_id):
     """GET: a transform under way. POST action=done (it lands in the target) or cancel (it goes back)."""
     session = get_object_or_404(CookingSession.objects.select_related("transformation__from_component", "transformation__to_component", "holder", "started_by"),

@@ -1,5 +1,6 @@
 """
-The admin portal (/admin/): the store's back office. Superuser only for now. Pages follow CLAUDE.md: Django
+The admin portal (/admin/): the store's back office. Each view says which page it is and which ops need edit or
+delete (admin_portal/access.py; groups grant them, users/access.py). Pages follow CLAUDE.md: Django
 templates, forms that POST and redirect, static/js/live-page.js to keep them current.
 """
 import datetime
@@ -27,7 +28,6 @@ from catering.models import CateringMessage, CateringOrder
 from catering.payments import PaymentFailed
 from inventory.models import Recipe, RecipeStep, Restock
 from misc_tools.email import EmailError, send as send_email
-from pos_server.devices import superuser_required
 from pavilion.realtime import publish
 from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station, Supplier
 from pos_server.refunds import RefundError, refund_order
@@ -44,6 +44,7 @@ from . import shifts as shifts_data
 from . import pars as pars_data
 from . import requests as requests_data
 from . import roles as roles_data
+from . import groups as groups_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -59,6 +60,9 @@ from . import recipes as recipes_data
 from . import reports as reports_data
 from . import restocks as restocks_data
 from . import services as services_data
+from users.access import can
+
+from .access import admin_page, page_perms
 from .models import StoreSettings
 from .nav import rail
 
@@ -68,14 +72,14 @@ def page(request, template, active, context=None):
     user = request.user
     full_name = user.get_full_name() or user.username
     return render(request, template, {
-        "rail": rail(active), "active": active, "store": StoreSettings.load(),
+        "rail": rail(active, user), "active": active, "store": StoreSettings.load(), "perm": page_perms(user, active),
         "me": {"name": full_name, "initial": full_name[:1].upper(), "role": _("Owner") if user.is_superuser else _("Staff")},
         "now_ms": int(time.time() * 1000),
         **(context or {}),
     })
 
 
-@superuser_required
+@admin_page("home")
 def home(request):
     data = dashboard_data.dashboard(request.GET.get("range", "today"), request.GET.get("open") == "1")
     now = timezone.localtime()
@@ -84,7 +88,7 @@ def home(request):
         "d": data, "greeting": greeting, "first_name": request.user.first_name or request.user.username})
 
 
-@superuser_required
+@admin_page("reports")
 def reports(request):
     today = timezone.localdate()
     try:
@@ -97,7 +101,7 @@ def reports(request):
         "r": reports_data.month_report(year, month), "view": view})
 
 
-@superuser_required
+@admin_page("reports")
 def report_day(request, day):
     day = _parse_day(day)
     if not day:
@@ -110,7 +114,7 @@ def report_day(request, day):
         "r": reports_data.day_report(day), "earlier": earlier, "later": later})
 
 
-@superuser_required
+@admin_page("reports")
 def report_day_csv(request, day):
     day = _parse_day(day)
     if not day:
@@ -130,7 +134,7 @@ def _parse_day(text):
 
 # ---------- retail orders ----------
 
-@superuser_required
+@admin_page("retail")
 def orders(request):
     try:
         page_number = int(request.GET.get("page", 1))
@@ -141,10 +145,11 @@ def orders(request):
     return page(request, "admin_portal/orders.html", "retail", {"o": data})
 
 
-@superuser_required
+@admin_page("retail")
 def order_detail(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
     context = {"d": orders_data.order_page(order), "sheet": request.GET.get("sheet", "")}
+    context["d"]["can_refund"] = context["d"]["can_refund"] and can(request.user, "act.refund")
     if context["sheet"] == "send":
         channel = request.GET.get("svc", ReceiptLog.EMAIL)
         context["send"] = {"svc": channel if channel in {key for key, _label, on in SEND_CHANNELS if on} else ReceiptLog.EMAIL,
@@ -167,7 +172,7 @@ SEND_CHANNELS = [(ReceiptLog.EMAIL, _lazy("Email"), True), (ReceiptLog.SMS, _laz
                  (ReceiptLog.MESSENGER, _lazy("Messenger"), False)]
 
 
-@superuser_required
+@admin_page("retail", edit="*")
 @require_POST
 def order_note(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
@@ -177,7 +182,7 @@ def order_note(request, order_id):
     return redirect("admin_order", order_id=order.id)
 
 
-@superuser_required
+@admin_page("retail", edit="*")
 @require_POST
 def order_send(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
@@ -204,7 +209,7 @@ def order_send(request, order_id):
     return redirect("admin_order", order_id=order.id)
 
 
-@superuser_required
+@admin_page("retail", action="act.refund")
 @require_POST
 def order_refund(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
@@ -222,7 +227,7 @@ def order_refund(request, order_id):
     return redirect("admin_order", order_id=order.id)
 
 
-@superuser_required
+@admin_page("retail", edit="*")
 @require_POST
 def order_print(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
@@ -230,7 +235,7 @@ def order_print(request, order_id):
     return redirect("admin_order_receipt", order_id=order.id)
 
 
-@superuser_required
+@admin_page("retail")
 def order_receipt(request, order_id):
     order = get_object_or_404(Order, pk=order_id)
     return render(request, "admin_portal/receipt.html", {"d": orders_data.order_page(order), "store": StoreSettings.load()})
@@ -238,12 +243,12 @@ def order_receipt(request, order_id):
 
 # ---------- menus ----------
 
-@superuser_required
+@admin_page("menus")
 def menus(request):
     return page(request, "admin_portal/menus.html", "menus", {"m": menus_data.menu_list()})
 
 
-@superuser_required
+@admin_page("menus", edit="*")
 @require_POST
 def menu_new(request):
     position = (Menu.objects.aggregate(last=Max("position"))["last"] or 0) + 1
@@ -251,7 +256,7 @@ def menu_new(request):
     return redirect("admin_menu", menu_id=menu.id)
 
 
-@superuser_required
+@admin_page("menus", edit={"save"}, delete={"delete"})
 def menu_edit(request, menu_id):
     """
     The menu editor: one form (items, schedule and display tabs) with Save. Its state travels in a hidden `state`
@@ -302,7 +307,7 @@ def menu_edit(request, menu_id):
     return show(menus_data.apply_op(draft, op, request.POST, menu))
 
 
-@superuser_required
+@admin_page("menus", edit="*")
 @require_POST
 def menu_action(request, menu_id):
     """The list's priority arrows (POST `action` up or down)."""
@@ -323,13 +328,13 @@ def menu_action(request, menu_id):
 
 # ---------- dishes ----------
 
-@superuser_required
+@admin_page("dishes")
 def dishes(request):
     data = dishes_data.dish_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/dishes.html", "dishes", {"l": data, "has_stations": Station.objects.filter(archived=False).exists()})
 
 
-@superuser_required
+@admin_page("dishes", edit="*")
 @require_POST
 def dish_new(request):
     station = Station.objects.filter(archived=False).first()
@@ -340,7 +345,7 @@ def dish_new(request):
     return redirect("admin_dish", dish_id=dish.id)
 
 
-@superuser_required
+@admin_page("dishes", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def dish_edit(request, dish_id):
     """
     The dish editor: one form. GET shows the saved dish. POST sends the whole form back with `op`: Save writes
@@ -409,13 +414,13 @@ def _dishes_changed():
 
 # ---------- combos ----------
 
-@superuser_required
+@admin_page("combos")
 def combos(request):
     data = combos_data.combo_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/combos.html", "combos", {"l": data})
 
 
-@superuser_required
+@admin_page("combos", edit="*")
 @require_POST
 def combo_new(request):
     combo = Combo.objects.create(title=_("New combo"), ticket_name=_("NEW CMB")[:12], active=False)
@@ -424,7 +429,7 @@ def combo_new(request):
     return redirect("admin_combo", combo_id=combo.id)
 
 
-@superuser_required
+@admin_page("combos", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def combo_edit(request, combo_id):
     """The combo editor, one form like the dish editor (see dish_edit for the `op`s)."""
     combo = get_object_or_404(Combo.objects.prefetch_related("menu", "slots__options__dish"), pk=combo_id)
@@ -472,13 +477,13 @@ def combo_edit(request, combo_id):
 
 # ---------- recipes ----------
 
-@superuser_required
+@admin_page("recipes")
 def recipes(request):
     data = recipes_data.recipe_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/recipes.html", "recipes", {"l": data})
 
 
-@superuser_required
+@admin_page("recipes", edit="*")
 @require_POST
 def recipe_new(request):
     recipe = Recipe.objects.create(title=_("New recipe"), yield_quantity=10)
@@ -486,7 +491,7 @@ def recipe_new(request):
     return redirect("admin_recipe", recipe_id=recipe.id)
 
 
-@superuser_required
+@admin_page("recipes", edit={"save"}, delete={"delete"})
 def recipe_edit(request, recipe_id):
     """The recipe editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     recipe = get_object_or_404(Recipe, pk=recipe_id)
@@ -517,13 +522,13 @@ def recipe_edit(request, recipe_id):
 
 # ---------- services ----------
 
-@superuser_required
+@admin_page("services")
 def services(request):
     data = services_data.service_list(request.GET.get("q", ""), request.GET.get("cat", "all"), request.GET.get("show", ""))
     return page(request, "admin_portal/services.html", "services", {"l": data})
 
 
-@superuser_required
+@admin_page("services", edit="*")
 @require_POST
 def service_new(request):
     service = Service.objects.create(title=_("New service"), category=Service.STAFF, pricing=Service.HOUR,
@@ -531,7 +536,7 @@ def service_new(request):
     return redirect("admin_service", service_id=service.id)
 
 
-@superuser_required
+@admin_page("services", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def service_edit(request, service_id):
     """The service editor, one form like the combo editor (Save; other buttons post an `op` and show the draft)."""
     service = get_object_or_404(Service, pk=service_id)
@@ -571,20 +576,20 @@ def service_edit(request, service_id):
 
 # ---------- components ----------
 
-@superuser_required
+@admin_page("components")
 def components(request):
     data = components_data.component_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/components.html", "components", {"l": data})
 
 
-@superuser_required
+@admin_page("components", edit="*")
 @require_POST
 def component_new(request):
     component = Component.objects.create(title=_("New component"), unit_of_measurement="ea", category="other", crafting_option="craft")
     return redirect("admin_component", component_id=component.id)
 
 
-@superuser_required
+@admin_page("components", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def component_edit(request, component_id):
     """The component editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     component = get_object_or_404(Component, pk=component_id)
@@ -632,20 +637,20 @@ def component_edit(request, component_id):
 
 # ---------- ingredients ----------
 
-@superuser_required
+@admin_page("ingredients")
 def ingredients(request):
     data = ingredients_data.ingredient_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/ingredients.html", "ingredients", {"l": data})
 
 
-@superuser_required
+@admin_page("ingredients", edit="*")
 @require_POST
 def ingredient_new(request):
     ingredient = Ingredient.objects.create(title=_("New ingredient"), unit_of_measurement="g", category="produce", pack_size=1000)
     return redirect("admin_ingredient", ingredient_id=ingredient.id)
 
 
-@superuser_required
+@admin_page("ingredients", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def ingredient_edit(request, ingredient_id):
     """The ingredient editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     ingredient = get_object_or_404(Ingredient.objects.select_related("supplier"), pk=ingredient_id)
@@ -695,13 +700,13 @@ def ingredient_edit(request, ingredient_id):
 
 # ---------- condiments ----------
 
-@superuser_required
+@admin_page("condiments")
 def condiments(request):
     data = condiments_data.condiment_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/condiments.html", "condiments", {"l": data})
 
 
-@superuser_required
+@admin_page("condiments", edit="*")
 @require_POST
 def condiment_new(request):
     component = Component.objects.create(title=_("New condiment"), unit_of_measurement="ea", category="sauce", crafting_option="craft")
@@ -709,7 +714,7 @@ def condiment_new(request):
     return redirect("admin_condiment", condiment_id=condiment.id)
 
 
-@superuser_required
+@admin_page("condiments", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def condiment_edit(request, condiment_id):
     """The condiment editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     condiment = get_object_or_404(Condiment.objects.select_related("component__storage", "component__recipe"), pk=condiment_id)
@@ -752,13 +757,13 @@ def condiment_edit(request, condiment_id):
 
 # ---------- disposables ----------
 
-@superuser_required
+@admin_page("disposables")
 def disposables(request):
     data = disposables_data.disposable_list(request.GET.get("q", ""), request.GET.get("show", "all"))
     return page(request, "admin_portal/disposables.html", "disposables", {"l": data})
 
 
-@superuser_required
+@admin_page("disposables", edit="*")
 @require_POST
 def disposable_new(request):
     ingredient = Ingredient.objects.create(title=_("New item"), unit_of_measurement="ea", category="other", pack_size=100)
@@ -766,7 +771,7 @@ def disposable_new(request):
     return redirect("admin_disposable", disposable_id=disposable.id)
 
 
-@superuser_required
+@admin_page("disposables", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def disposable_edit(request, disposable_id):
     """The disposable editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     disposable = get_object_or_404(Disposable.objects.select_related("ingredient__supplier", "ingredient__storage"), pk=disposable_id)
@@ -804,7 +809,7 @@ def disposable_edit(request, disposable_id):
 
 # ---------- restocks ----------
 
-@superuser_required
+@admin_page("restocks", edit="*")
 def restocks(request):
     if request.method == "POST":  # "Draft order" for a supplier with items under par
         supplier = get_object_or_404(Supplier, pk=request.POST.get("supplier"))
@@ -815,7 +820,7 @@ def restocks(request):
     return page(request, "admin_portal/restocks.html", "restocks", {"l": data})
 
 
-@superuser_required
+@admin_page("restocks", edit="*")
 @require_POST
 def restock_new(request):
     supplier = Supplier.objects.order_by("name").first()
@@ -827,7 +832,7 @@ def restock_new(request):
     return redirect("admin_restock", restock_id=restock.id)
 
 
-@superuser_required
+@admin_page("restocks", edit={"duplicate", "remove_receipt", "save"}, delete={"delete"})
 def restock_edit(request, restock_id):
     """The restock editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
     restock = get_object_or_404(Restock.objects.select_related("supplier"), pk=restock_id)
@@ -889,12 +894,12 @@ def _catering_tab(request, default="new"):
     return tab if tab in dict((key, 1) for key, *_rest in catering_data.TABS) else default
 
 
-@superuser_required
+@admin_page("catering")
 def catering(request):
     return _catering_page(request, _catering_tab(request), None)
 
 
-@superuser_required
+@admin_page("catering", edit={"accept", "finish", "keep", "reject", "remind", "reply", "send"})
 def catering_order(request, order_id):
     """One catering order. POST ops: reply, accept, reject, remind, finish, keep, send (the proposed changes), and
     the editing draft's buttons (anything else), which come back as the page with the draft."""
@@ -943,7 +948,7 @@ def catering_order(request, order_id):
     return redirect(reverse("admin_catering_order", args=[order.id]) + f"?tab={tab}")
 
 
-@superuser_required
+@admin_page("catering", edit={"save"})
 def catering_settings(request):
     """Catering settings: one form with Save; switches and day buttons post an `op` and come back as the draft."""
     from catering.models import CateringSettings
@@ -968,7 +973,7 @@ def catering_settings(request):
 
 # ---------- store hours ----------
 
-@superuser_required
+@admin_page("hours", edit={"pause", "resume", "save"})
 def store_hours(request):
     """Store hours: one form with Save; every change posts the draft back (admin_portal/hours.py). Pausing and resuming
     online orders happen right away."""
@@ -999,7 +1004,7 @@ def store_hours(request):
 
 # ---------- stations ----------
 
-@superuser_required
+@admin_page("stations", edit={"save"}, delete={"archive"})
 def stations(request):
     """Stations: the list and the selected station's settings, one form with Save (admin_portal/stations.py)."""
     move_to = ""
@@ -1026,7 +1031,7 @@ def stations(request):
 
 # ---------- events ----------
 
-@superuser_required
+@admin_page("events", edit={"save"}, delete={"delete"})
 def events(request):
     """Events: the calendar, what's coming up and the selected event, one form with Save (admin_portal/events.py)."""
     if request.method == "POST":
@@ -1049,7 +1054,7 @@ def events(request):
 
 # ---------- screens ----------
 
-@superuser_required
+@admin_page("screens", edit={"create"})
 def screens(request):
     """The screens, each with a thumbnail of its layout; ?new=1 opens "New screen" (name and orientation)."""
     from screens.models import Screen
@@ -1067,7 +1072,7 @@ def screens(request):
     return page(request, "admin_portal/screens.html", "screens", {"l": screens_data.list_page(), "new": new})
 
 
-@superuser_required
+@admin_page("screens", edit={"save"}, delete={"sdel"})
 def screen_edit(request, id):
     """The screen editor: the draft (in the session, with undo) is changed by each button's op and saved with Save."""
     from screens.models import Screen
@@ -1107,7 +1112,7 @@ def screen_edit(request, id):
     return page(request, "admin_portal/screen.html", "screens", {"e": screens_data.editor_page(screen, state)})
 
 
-@superuser_required
+@admin_page("screens")
 def screen_preview(request, id):
     """The editor's preview: the draft rendered like the real screen, with each node marked so it can be picked."""
     import time as time_
@@ -1126,7 +1131,7 @@ def screen_preview(request, id):
 
 # ---------- audio channels ----------
 
-@superuser_required
+@admin_page("audio", edit={"save"}, delete={"archive"})
 def audio_channels(request):
     """Audio channels: the list and the selected channel, one form with Save (admin_portal/audio.py)."""
     new = None
@@ -1153,7 +1158,7 @@ def audio_channels(request):
     return page(request, "admin_portal/audio.html", "audio", {"a": audio_data.page(draft, new)})
 
 
-@superuser_required
+@admin_page("library", edit="*", delete={"delete", "pldelete", "trackdel"})
 def library(request):
     """Library: songs and playlists (admin_portal/library.py). The view lives in the address; buttons post an op
     and come back to it."""
@@ -1168,7 +1173,7 @@ def library(request):
     return page(request, "admin_portal/library.html", "library", {"l": data})
 
 
-@superuser_required
+@admin_page("library", edit="*", json=True)
 @require_POST
 def library_upload(request):
     """One song from the Add music dialog: the file as is, plus the tags the browser read."""
@@ -1178,7 +1183,7 @@ def library_upload(request):
 
 # ---------- team ----------
 
-@superuser_required
+@admin_page("staff", edit={"create", "photoclear", "promote", "save"}, delete={"remove"})
 def staff(request):
     """Staff: the list and the selected profile, one form with Save (admin_portal/staff.py). Adding someone and their
     photo take effect straight away."""
@@ -1189,6 +1194,8 @@ def staff(request):
         staff_data.take_post(st, request.POST, users, request.user)
         if request.POST.get("profile") == "1" and st.get("sel") is not None:
             person = next((u for u in users if u.id == st["sel"]), None)
+            if person and staff_data.guarded(request.user, person):
+                person = None  # an owner's profile: only owners change it
             if person and request.FILES.get("photo"):
                 upload = request.FILES["photo"]
                 if upload.content_type in ("image/jpeg", "image/png", "image/webp") and upload.size <= 10 * 1024 * 1024:
@@ -1258,7 +1265,7 @@ def staff(request):
     return page(request, "admin_portal/staff.html", "staff", {"s": staff_data.page(st, users, request.user)})
 
 
-@superuser_required
+@admin_page("shifts", edit={"move", "publish", "save"}, delete={"delete"})
 def shifts(request):
     """Shifts: the week's schedule (admin_portal/shifts.py). Shifts save as they're made, moved or deleted; Publish
     tells staff."""
@@ -1294,7 +1301,7 @@ def shifts(request):
     return page(request, "admin_portal/shifts.html", "shifts", {"h": shifts_data.page(st, open_shift=shift, new=new)})
 
 
-@superuser_required
+@admin_page("shifts", edit={"save"}, delete={"delete"})
 def shift_pars(request):
     """Shift pars: how many people each role needs (admin_portal/pars.py), one form with Save."""
     st = pars_data.state(request.session)
@@ -1318,7 +1325,7 @@ def shift_pars(request):
     return page(request, "admin_portal/pars.html", "shifts", {"x": pars_data.page(st)})
 
 
-@superuser_required
+@admin_page("requests", edit="*")
 def availability_requests(request):
     """Availability requests: time off and availability changes to approve or decline (admin_portal/requests.py)."""
     from team import requests as team_requests
@@ -1344,7 +1351,7 @@ def availability_requests(request):
     return page(request, "admin_portal/requests.html", "requests", {"q": requests_data.page(requests_data.state(request.GET), request.user)})
 
 
-@superuser_required
+@admin_page("roles", edit={"save"}, delete={"archive"})
 def roles(request):
     """Roles: the jobs people do (admin_portal/roles.py), one form with Save."""
     st = roles_data.state(request.session)
@@ -1369,9 +1376,34 @@ def roles(request):
     return page(request, "admin_portal/roles.html", "roles", {"x": roles_data.page(st)})
 
 
+@admin_page("groups", edit={"save"}, delete={"delete"})
+def groups(request):
+    """Groups: what people can open and change (admin_portal/groups.py), one form with Save."""
+    st = groups_data.state(request.session)
+    if request.method == "POST":
+        groups_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        toast = ""
+        if op == "save":
+            errs = groups_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(errs.values())))
+            else:
+                groups_data.save(st)
+                request.session.pop(groups_data.KEY, None)
+                messages.success(request, _("Groups saved. Everyone in them has the new permissions straight away."))
+                return redirect("admin_groups")
+        elif op != "preview":
+            toast = groups_data.apply_op(st, op)
+        if toast:
+            messages.success(request, toast)
+        request.session[groups_data.KEY] = st
+    return page(request, "admin_portal/groups.html", "groups", {"x": groups_data.page(st)})
+
+
 # ---------- branding ----------
 
-@superuser_required
+@admin_page("branding", edit="*")
 def branding(request):
     """Branding: the theme's settings form (every change is kept as a draft, see branding.py) and its preview."""
     from online_store import themes as store_themes

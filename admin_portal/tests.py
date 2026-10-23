@@ -50,12 +50,51 @@ class AccessTests(AdminFixture, TestCase):
     def setUpTestData(cls):
         cls.build_admin()
 
-    def test_only_superusers_get_in(self):
-        for user in (self.customer, self.staff):
-            self.client.force_login(user)
-            self.assertEqual(self.client.get(reverse("admin_home")).status_code, 302, user.username)
+    def test_owners_and_groups_with_admin_get_in(self):
+        self.client.force_login(self.customer)
+        self.assertEqual(self.client.get(reverse("admin_home")).status_code, 302)
+        self.client.force_login(self.staff)  # staff in no group: told to ask a manager
+        self.assertContains(self.client.get(reverse("admin_home")), "Ask a manager", status_code=403)
         self.client.force_login(self.owner)
         self.assertEqual(self.client.get(reverse("admin_home")).status_code, 200)
+
+    def test_a_group_gives_pages_and_what_can_be_done_on_them(self):
+        from users.testing import crew
+        dish = Dish.objects.filter(archived=False).first()
+        crew(self.staff, "app.admin", "admin.dishes.view")
+        self.client.force_login(self.staff)
+        self.assertRedirects(self.client.get(reverse("admin_home")), reverse("admin_dishes"))  # the first page they can see
+        page = self.client.get(reverse("admin_dish", args=[dish.id]))
+        self.assertEqual([i["id"] for g in page.context["rail"] for i in g["items"]], ["dishes"])
+        self.assertContains(page, '<body class="admin ro nodel">')
+        self.assertContains(page, "View only")
+        self.assertEqual(self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "preview", "title": "Changed"}).status_code, 200)
+        refused = self.client.post(reverse("admin_dish_new"), follow=True)
+        self.assertContains(refused, "your groups don’t let you change it")
+        self.assertEqual(Dish.objects.filter(title="New dish").count(), 0)
+        self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "archive"})
+        self.assertFalse(Dish.objects.get(pk=dish.pk).archived)
+        self.assertRedirects(self.client.get(reverse("admin_reports")), reverse("admin_dishes"))  # not theirs
+
+        crew(self.staff, "admin.dishes.edit")
+        self.client.post(reverse("admin_dish_new"))
+        self.assertEqual(Dish.objects.filter(title="New dish").count(), 1)
+        self.assertContains(self.client.get(reverse("admin_dishes")), '<body class="admin nodel">')
+        self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "archive"})
+        self.assertFalse(Dish.objects.get(pk=dish.pk).archived)
+        crew(self.staff, "admin.dishes.delete")
+        self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "archive"})
+        self.assertTrue(Dish.objects.get(pk=dish.pk).archived)
+
+    def test_refunds_need_the_action(self):
+        from users.testing import crew
+        order = self.place([self.dish(self.burger)], timezone.now())
+        crew(self.staff, "app.admin", "admin.retail.view", "admin.retail.edit")
+        self.client.force_login(self.staff)
+        self.assertFalse(self.client.get(reverse("admin_order", args=[order.id])).context["d"]["can_refund"])
+        response = self.client.post(reverse("admin_order_refund", args=[order.id]), {"mode": "whole"}, follow=True)
+        self.assertContains(response, "Your groups don’t let you do that.")
+        self.assertFalse(order.refunds.exists())
 
     def test_rail_shows_the_store_name_with_pavilion_under_it(self):
         settings = StoreSettings.load()
@@ -2426,3 +2465,111 @@ class RolesPageTests(AdminFixture, TestCase):
         s = self.client.post(reverse("admin_staff"), {"op": "preview", "sel": str(self.staff.id), "profile": "1", "first": "Marco",
                                                      "email": "marco@example.com", "roles": [str(cook.id)], "active": "1"}).context["s"]
         self.assertEqual(s["p"]["r"]["groups"], [self.kitchen.id])
+
+
+
+class GroupsPageTests(AdminFixture, TestCase):
+    """Groups (admin_portal/groups.py): a draft until Save; apps, actions and page permissions."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_groups")
+
+    def post(self, x, op="preview", perms=None, **fields):
+        d = x["d"]
+        data = {"editing": d["key"], "name": d["e"]["name"], "desc": d["e"]["desc"], "perms_shown": "1",
+                "perm": d["e"]["perms"] if perms is None else perms, "op": op}
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_a_new_group_with_apps_and_pages(self):
+        from users.models import GroupInfo
+        x = self.client.get(self.url).context["x"]
+        self.assertEqual(x["d"]["e"]["name"], "Managers")  # the first group that isn't Owners
+        x = self.post(x, "new")
+        self.assertEqual((x["d"]["e"]["name"], x["status"]), ("New group", "Unsaved changes"))
+        x = self.post(x, name="Managers")
+        self.assertEqual(x["d"]["err"], "Another group already has this name.")
+        # edit brings view with it; taking view away takes the rest of the page
+        x = self.post(x, name="Bar", perms=["app.register", "act.discount", "admin.dishes.edit", "admin.menus.view", "admin.menus.delete"])
+        self.assertEqual(x["d"]["e"]["perms"], ["app.register", "act.discount", "admin.menus.view", "admin.menus.delete",
+                                                "admin.dishes.view", "admin.dishes.edit"])
+        x = self.post(x, perms=["app.register", "act.discount", "admin.menus.delete", "admin.dishes.view", "admin.dishes.edit"])
+        self.assertNotIn("admin.menus.delete", x["d"]["e"]["perms"])
+        x = self.post(x, "sec:inventory:view")
+        self.assertIn("admin.restocks.view", x["d"]["e"]["perms"])
+        self.assertNotIn("admin.restocks.edit", x["d"]["e"]["perms"])
+        x = self.post(x, "row:restocks")
+        self.assertIn("admin.restocks.delete", x["d"]["e"]["perms"])
+        x = self.post(x, "col:edit")
+        self.assertIn("admin.staff.edit", x["d"]["e"]["perms"])
+        self.assertIn("admin.staff.view", x["d"]["e"]["perms"])
+        x = self.post(x, "col:edit")
+        self.assertNotIn("admin.staff.edit", x["d"]["e"]["perms"])
+        x = self.post(x, q="ingred")
+        shown = [p["id"] for s in x["d"]["sections"] for p in s["pages"] if not p["hidden"]]
+        self.assertEqual(shown, ["ingredients"])
+        self.client.post(self.url, {"op": "save"})
+        info = GroupInfo.objects.get(group__name="Bar")
+        self.assertNotIn("admin.dishes.edit", info.perms)  # cleared with the whole column
+        self.assertIn("admin.restocks.delete", info.perms)
+        self.assertIn("act.discount", info.perms)
+        # Its members have it straight away
+        self.staff.groups.add(info.group)
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(reverse("admin_dishes")).status_code, 403)  # no Admin app yet
+        self.assertEqual(self.client.get(reverse("crafting")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("app_switcher_index")).context["apps"][0]["title"], "Register")
+
+    def test_owners_are_locked_and_groups_can_be_duplicated_and_deleted(self):
+        from django.contrib.auth.models import Group
+        from users.models import GroupInfo
+        owners = GroupInfo.objects.get(owners=True)
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, f"pick:{owners.group_id}")
+        self.assertTrue(x["d"]["lock"])
+        x = self.post(x, desc="The people who run it", name="Bosses", perms=[])
+        x = self.post(x, "row:dishes")
+        self.assertEqual((x["d"]["e"]["name"], x["d"]["e"]["perms"]), ("Owners", []))
+        x = self.post(x, "delete")
+        x = self.post(x, "dup")
+        self.assertEqual(x["d"]["e"]["name"], "Owners copy")
+        self.assertIn("admin.groups.delete", x["d"]["e"]["perms"])  # a copy of everything, unlocked
+        kitchen = Group.objects.get(name="Kitchen")
+        x = self.post(x, f"pick:{kitchen.id}")
+        x = self.post(x, "delete")
+        self.assertTrue(x["status"].startswith("Unsaved"))
+        self.client.post(self.url, {"op": "save"})
+        self.assertFalse(Group.objects.filter(name="Kitchen").exists())
+        self.assertTrue(Group.objects.filter(name="Owners copy").exists())
+        self.assertEqual(GroupInfo.objects.get(pk=owners.pk).description, "The people who run it")
+
+    def test_managers_cant_make_themselves_owners(self):
+        from users.models import GroupInfo
+        managers = GroupInfo.objects.get(group__name="Managers").group
+        owners = GroupInfo.objects.get(owners=True).group
+        self.staff.first_name, self.staff.email = "Sam", "sam@example.com"
+        self.staff.save()
+        self.staff.groups.add(managers)
+        self.owner.email = "priya@example.com"
+        self.owner.save()
+        self.client.force_login(self.staff)
+        url = reverse("admin_staff")
+        self.client.post(url, {"op": f"pick:{self.staff.id}"})
+        self.client.post(url, {"op": "preview", "sel": str(self.staff.id), "profile": "1", "first": "Sam", "email": "sam@example.com",
+                               "groups": [str(managers.id), str(owners.id)], "active": "1"})
+        self.client.post(url, {"op": "save"})
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.is_superuser)
+        self.assertFalse(self.staff.groups.filter(pk=owners.pk).exists())
+        # nor change an owner's email (where a password reset would go)
+        self.client.post(url, {"op": f"pick:{self.owner.id}"})
+        page = self.client.post(url, {"op": "preview", "sel": str(self.owner.id), "profile": "1", "first": "Priya",
+                                      "email": "me@evil.example", "groups": [str(owners.id)], "active": "1"})
+        self.assertTrue(page.context["s"]["p"]["guarded"])
+        self.client.post(url, {"op": "save"})
+        self.owner.refresh_from_db()
+        self.assertEqual(self.owner.email, "priya@example.com")

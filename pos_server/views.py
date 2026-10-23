@@ -12,7 +12,9 @@ from django.views.decorators.http import require_POST
 from .models import *
 import json
 from functools import wraps
-from .devices import api_staff_required, staff_required, superuser_required, device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
+from users.access import can
+
+from .devices import api_app_required, app_required, superuser_required, device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
 from .orders import OrderError, collect_order, create_order, orders_for_screens, refund_gift_cards, station_list
 from django.utils import timezone
 
@@ -62,7 +64,7 @@ def station_filters(values, codes):
     return [code for code in codes if code in picked] or list(codes)
 
 
-@staff_required
+@app_required("app.marking")
 @device_required
 def order_marking(request):
     """
@@ -85,6 +87,7 @@ def order_marking(request):
             "filters": station_filters(request.GET.getlist("filter"), codes),
             "stations": stations,
             "reasons": [{"code": code, "label": str(label)} for code, label in REJECT_REASONS],
+            "can_reject": can(request.user, "act.reject"),  # users/access.py: a group gives it
             "server_now": now().isoformat(),  # the screen corrects its clock with this for the auto timers
         })
     if request.method != "POST":
@@ -131,6 +134,8 @@ def order_marking(request):
         return JsonResponse({"picked_up": True})
 
     if action == "reject":
+        if not can(request.user, "act.reject"):
+            return JsonResponse({"error": _("Rejecting orders isn’t in your groups. Ask a manager.")}, status=403)
         labels = dict(REJECT_REASONS)
         codes = body.get("reasons") or []
         text = str(body.get("text") or "").strip()[:REJECT_TEXT_LIMIT]
@@ -154,7 +159,7 @@ def order_marking(request):
 
     return HttpResponseBadRequest("Unknown action")
 
-@staff_required
+@app_required("app.register")
 def menu_select(request):
     """POST: ring up from another live menu on this register (kept in the session). Back to the register."""
     if request.method == "POST":
@@ -230,7 +235,7 @@ def group_by_station(dishes):
         sections.setdefault(dish.station, []).append(dish)
     return sorted(sections.items(), key=lambda pair: (pair[0].position, pair[0].id))
 
-@staff_required
+@app_required("app.register")
 def pos_out_display(request):
     """
     The customer-facing display: the active menu, and the cart while the cashier rings it up. The cart
@@ -508,7 +513,7 @@ def square_webhook(request):
         # Invalid signature, return forbidden
         return HttpResponseForbidden('Invalid signature')
     
-@api_staff_required
+@api_app_required("app.register")
 @device_required
 def check_card_status(request):
     """

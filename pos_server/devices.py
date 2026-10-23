@@ -11,9 +11,12 @@ from functools import wraps
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django.utils.http import urlencode, url_has_allowed_host_and_scheme
+
+from users.access import APPS, can
 
 from .models import EligibleDevice
 
@@ -72,6 +75,48 @@ def staff_required(view):
 
 def superuser_required(view):
     return login_required(user_passes_test(lambda u: u.is_superuser)(view))
+
+
+def no_access(request, code):
+    """What staff see when no group of theirs gives them this app (or action): a page back to the apps, or a 403 for
+    fetch() calls."""
+    name = next((str(label) for c, label, *_rest in APPS if c == code), "")
+    message = (_("You can’t open %(app)s. Ask a manager to add you to a group that can.") % {"app": name} if name
+               else _("You can’t do that. Ask a manager to add you to a group that can."))
+    if request.method == "GET" and "text/html" in request.headers.get("Accept", "text/html"):
+        return render(request, "pos_server/no_access.html", {"message": message, "app": name}, status=403)
+    return JsonResponse({"error": message, "message": message}, status=403)
+
+
+def app_required(code):
+    """Staff in a group that gives them this app (users/access.py, e.g. "app.cookery"); everyone else is told they
+    can't open it. Sign-in works like staff_required."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if can(request.user, code):
+                return view(request, *args, **kwargs)
+            if request.user.is_authenticated and request.user.is_staff:
+                return no_access(request, code)
+            return staff_required(view)(request, *args, **kwargs)  # off to sign in (or refused, for customers)
+        return wrapper
+    return decorator
+
+
+def api_app_required(code):
+    """app_required for fetch() endpoints: 401/403 JSON, never a redirect."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if can(request.user, code):
+                return view(request, *args, **kwargs)
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "Authentication required"}, status=401)
+            if not request.user.is_staff:
+                return JsonResponse({"error": "Staff only"}, status=403)
+            return no_access(request, code)
+        return wrapper
+    return decorator
 
 
 def api_staff_required(view):

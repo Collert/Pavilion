@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
-from pos_server.devices import api_staff_required, safe_next_url, staff_required
+from pos_server.devices import api_app_required, app_required, safe_next_url
 
 from . import music, pages, voice
 from .models import AudioChannel
@@ -31,7 +31,7 @@ def now(request, id):
 
 
 @require_POST
-@api_staff_required
+@api_app_required("app.audio")
 def control(request, id):
     """{"op": one of music.OPS, "ids": [track ids], "key": queue entry, "value": ..., "source": "..."}"""
     channel = get_object_or_404(AudioChannel, pk=id, archived=False, kind=AudioChannel.MUSIC)
@@ -52,7 +52,7 @@ def _page(request, template, context):
     return render(request, template, {"now_ms": int(time.time() * 1000), "store": StoreSettings.load(), **context})
 
 
-@staff_required
+@app_required("app.audio")
 def index(request):
     """All channels, or one type, with a search."""
     kind = request.GET.get("type", "all")
@@ -68,7 +68,7 @@ def _int(value):
         return None
 
 
-@staff_required
+@app_required("app.audio")
 def music_channel(request, id):
     """A music channel: now playing and the queue, browsing the Library, a playlist. Buttons post an op and come back."""
     channel = get_object_or_404(AudioChannel, pk=id, archived=False, kind=AudioChannel.MUSIC)
@@ -132,7 +132,7 @@ def _music_op(request, channel) -> str:
     return ""
 
 
-@staff_required
+@app_required("app.audio")
 def voice_channel(request, id):
     """A voice channel: push-to-talk, a chime, and the last hour."""
     channel = get_object_or_404(AudioChannel, pk=id, archived=False, kind=AudioChannel.VOICE)
@@ -144,7 +144,7 @@ def voice_channel(request, id):
                                                 "chime": static(CHIME)})
 
 
-@staff_required
+@app_required("app.audio")
 def talk(request, id):
     """The old push-to-talk address: the voice channel's page."""
     return redirect("audio_voice", id=id)

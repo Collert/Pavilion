@@ -21,7 +21,7 @@ import random
 from decimal import Decimal
 
 from django.conf import settings
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -136,9 +136,9 @@ class Command(BaseCommand):
             return obj
         user("admin", "Alex", pin="0000", is_staff=True, is_superuser=True)
         self.cashier = user("cashier", "Dana", pin="1234", is_staff=True)
-        shift_lead = user("priya", "Priya", pin="2468", is_staff=True)
-        # A shift lead can type in manual discounts on the register; cashiers can't
-        shift_lead.user_permissions.add(Permission.objects.get(codename="apply_manual_discount"))
+        user("priya", "Priya", pin="2468", is_staff=True)
+        # Priya, the shift lead, is in Managers below, which gives "Give discounts" (typed-in discounts on the
+        # register); Dana, a cashier in Front of house, can't
         user("courier", "Courier", is_staff=True)
         # The courier is clocked in, so delivery ETAs and the courier app have someone to work with
         CourierShift.objects.get_or_create(user=User.objects.get(username="courier"), defaults={"mode": "bicycling"})

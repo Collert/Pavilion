@@ -75,12 +75,17 @@ def rows(st, users) -> dict:
     return {u.id: st["rows"].get(str(u.id)) or saved_row(u) for u in users if u.id not in st["removed"]}
 
 
+def guarded(me, user) -> bool:
+    """Only owners change an owner's profile (their email, say, which a password reset goes to)."""
+    return not me.is_superuser and user.is_superuser
+
+
 def take_post(st, post, users, me):
     """Merge the posted fields (the selected person's profile, the list's search, the add dialog) into the draft."""
     st["q"] = post.get("q", st["q"]).strip()[:60]
     sel = _int(post.get("sel"))
     by_id = {u.id: u for u in users}
-    if sel in by_id and sel not in st["removed"] and post.get("profile") == "1":
+    if sel in by_id and sel not in st["removed"] and post.get("profile") == "1" and not guarded(me, by_id[sel]):
         row = dict(st["rows"].get(str(sel)) or saved_row(by_id[sel]))
         for f in FIELDS:
             if f in post:
@@ -94,6 +99,8 @@ def take_post(st, post, users, me):
         if gained:  # a new role ticks its starting groups
             groups = sorted(set(groups) | set(Role.groups.through.objects.filter(role_id__in=gained).values_list("group_id", flat=True)))
         owners = owners_group()
+        if owners and not me.is_superuser:  # only owners make (or unmake) owners
+            groups = sorted((set(groups) - {owners.id}) | ({owners.id} & set(row["groups"])))
         current = rows(st, users)
         if owners and owners.id in row["groups"] and owners.id not in groups and sole_owner(current, sel, owners):
             groups = sorted(groups + [owners.id])  # a store always keeps an owner
@@ -192,7 +199,8 @@ def apply_op(st, op, users, me) -> str:
         st["role"] = arg if arg == "all" or _int(arg) else "all"
     elif name == "remove" and st["sel"] in current:
         uid = st["sel"]
-        if uid == me.id or (owners and owners.id in current[uid]["groups"] and sole_owner(current, uid, owners)):
+        person = next((u for u in users if u.id == uid), None)
+        if uid == me.id or (person and guarded(me, person)) or (owners and owners.id in current[uid]["groups"] and sole_owner(current, uid, owners)):
             return ""
         if st["confirm"] != uid:
             st["confirm"] = uid
@@ -330,14 +338,15 @@ def page(st, users, me) -> dict:
              "err": errs.get(sel, ""), "first_bad": not r["first"], "email_bad": sel in errs and bool(r["first"]),
              "roles": [{"r": x, "on": x.id in r["roles"]} for x in roles],
              "groups": [{"g": g, "desc": getattr(getattr(g, "info", None), "description", ""), "on": g.id in r["groups"],
-                         "locked": is_owner_sole and owners and g.id == owners.id} for g in groups],
+                         "locked": bool(owners and g.id == owners.id and (is_owner_sole or not me.is_superuser))} for g in groups],
+             "guarded": guarded(me, user),
              "group_warn": (_("No groups yet, so they can’t open any part of Pavilion.") if not r["groups"]
                             else _("Only owner. Someone else needs Owners before this can be removed.") if is_owner_sole else ""),
              "em_warn": em_warn,
              "active_hint": _("This is you.") if you else _("Off for seasonal staff or leave. Their profile stays.") if r["active"]
              else _("Off. They can’t sign in to the register or admin."),
              "since": date_format(prof.since, "M j, Y"), "seen": when(seen),
-             "confirm": st["confirm"] == sel, "remove_off": you or is_owner_sole,
+             "confirm": st["confirm"] == sel, "remove_off": you or is_owner_sole or guarded(me, user),
              "remove_text": _("You can’t remove yourself") if you else _("Only owner, can’t remove") if is_owner_sole
              else _("Yes, remove from staff") if st["confirm"] == sel else _("Remove from staff")}
 

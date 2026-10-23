@@ -17,6 +17,7 @@ from pos_server.orders import create_order
 from pos_server.tests import MenuFixture
 from .models import CourierShift, Delivery, hidden_order_ids
 from . import routes
+from users.testing import crew
 
 MEDIA = tempfile.mkdtemp()
 
@@ -33,9 +34,9 @@ class CourierTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
-        cls.sam = User.objects.create_user("sam", first_name="Sam", password="x", is_staff=True)
-        cls.kai = User.objects.create_user("kai", first_name="Kai", password="x", is_staff=True)
-        cls.cook = User.objects.create_user("cook", password="x", is_staff=True)
+        cls.sam = crew(User.objects.create_user("sam", first_name="Sam", password="x", is_staff=True))
+        cls.kai = crew(User.objects.create_user("kai", first_name="Kai", password="x", is_staff=True))
+        cls.cook = crew(User.objects.create_user("cook", password="x", is_staff=True))
 
     @classmethod
     def tearDownClass(cls):

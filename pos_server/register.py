@@ -29,7 +29,9 @@ from django.utils.translation import gettext as _
 
 from gift_cards.models import GiftCard
 from payments import square
-from .devices import DEVICE_COOKIE, device_required, safe_next_url, token_is_registered
+from users.access import can
+
+from .devices import DEVICE_COOKIE, device_required, no_access, safe_next_url, token_is_registered
 from .models import (CashDrawerSession, CashMovement, EligibleDevice, Menu, Order, OrderPayment, OrderStation,
                      RegisterSignIn, Station)
 from .orders import OrderError, create_order
@@ -55,12 +57,16 @@ def open_drawer(device):
     return CashDrawerSession.objects.filter(device=device, closed_at__isnull=True).first()
 
 
-def register_staff_required(view):
-    """Staff only. On the register, signing in happens on the lock screen, so send people there."""
+def register_staff_required(view=None, *, app="app.register"):
+    """Staff whose groups give them this app (the register, or the cash drawer). On the register, signing in happens
+    on the lock screen, so send people there."""
+    if view is None:
+        return lambda v: register_staff_required(v, app=app)
+
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         if request.user.is_authenticated and request.user.is_staff:
-            return view(request, *args, **kwargs)
+            return view(request, *args, **kwargs) if can(request.user, app) else no_access(request, app)
         if request.method == "GET" and "text/html" in request.headers.get("Accept", "text/html"):
             return redirect(f'{reverse("register_lock")}?{urlencode({"next": request.get_full_path()})}')
         return JsonResponse({"message": _("Sign in on the register first.")}, status=401)
@@ -68,7 +74,7 @@ def register_staff_required(view):
 
 
 def can_manual_discount(user) -> bool:
-    return user.has_perm("pos_server.apply_manual_discount")
+    return can(user, "act.discount")
 
 
 def staff_name(user) -> str:
@@ -364,13 +370,18 @@ def lock(request):
         cache.set(key, cache.get(key, 0) + 1, timeout=PIN_LOCKOUT_SECONDS)
         return JsonResponse({"message": _("That PIN didn't match. Try again.")}, status=403)
     cache.delete(key)
+    next_url = safe_next_url(request, body.get("next")) or reverse("pos")
+    app = "app.drawer" if next_url.startswith(reverse("cash_drawer")) else "app.register"
+    if not can(staff.user, app):
+        return JsonResponse({"message": _("Your groups don’t include the cash drawer. Ask a manager.") if app == "app.drawer"
+                             else _("Your groups don’t include the register. Ask a manager.")}, status=403)
     login(request, staff.user, backend="django.contrib.auth.backends.ModelBackend")
     RegisterSignIn.record(device, staff.user)
     drawer = open_drawer(device)
     return JsonResponse({
         "name": staff.display_name,
         "drawer": money_text(drawer.opening_amount) if drawer else None,
-        "next": safe_next_url(request, body.get("next")) or reverse("pos"),
+        "next": next_url,
     })
 
 
@@ -400,7 +411,7 @@ def drawer_summary(drawer):
     }
 
 
-@register_staff_required
+@register_staff_required(app="app.drawer")
 @device_required
 def cash_drawer(request):
     """
@@ -442,6 +453,8 @@ def cash_drawer(request):
             if drawer is None:
                 return JsonResponse({"message": _("The drawer isn't open.")}, status=409)
             if action == "move":
+                if not can(request.user, "act.cash"):
+                    return JsonResponse({"message": _("Paying cash in or out isn’t in your groups. Ask a manager.")}, status=403)
                 raw = Decimal(str(body.get("amount")))
                 amount = to_money(abs(raw)) * (1 if raw > 0 else -1)
                 if amount == 0:

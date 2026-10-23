@@ -781,8 +781,8 @@ class Discount(models.Model):
 
     Without a `code` it is an *offer*, listed on the register. With a code it is a *coupon*: staff or online
     customers type the code. The conditions below must all hold; blank means "no condition".
-    Manual (typed-in) discounts on the register don't use this model and need the
-    `pos_server.apply_manual_discount` permission.
+    Manual (typed-in) discounts on the register don't use this model and need the "Give discounts" action
+    (`act.discount`, given by a group: users/access.py).
     """
     PERCENT, AMOUNT = "pct", "amt"
     kinds = ((PERCENT, "Percent off"), (AMOUNT, "Amount off"))
@@ -815,7 +815,6 @@ class Discount(models.Model):
 
     class Meta:
         ordering = ["position", "id"]
-        permissions = [("apply_manual_discount", "Can type in a manual discount on the register")]
 
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name

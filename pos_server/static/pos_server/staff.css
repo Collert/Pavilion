@@ -242,6 +242,18 @@ dialog.sheet.w-lg { width: min(820px, calc(100vw - 32px)); }
 .error-line { display: flex; align-items: center; gap: 8px; color: var(--danger); font-size: 14px; font-weight: 700; }
 .ok-line { display: flex; align-items: center; gap: 8px; color: var(--brand); font-size: 14px; font-weight: 700; }
 
+/* ---------- no access (pos_server/no_access.html) ---------- */
+
+.no-access { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.no-access-card {
+    width: min(480px, 100%); padding: 36px 32px; border-radius: 32px; background: var(--surface); text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: var(--shadow-panel);
+}
+.no-access-icon { width: 72px; height: 72px; border-radius: 24px; background: var(--mint); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+.no-access .sub { margin: 0; font-size: 15px; line-height: 1.45; }
+.no-access-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+.no-access-actions .btn { text-decoration: none; }
+
 /* ---------- motion ---------- */
 
 @keyframes pulse { 0% { transform: scale(.8); opacity: .9 } 100% { transform: scale(2.4); opacity: 0 } }

@@ -53,8 +53,8 @@ without asking.
 | `team` | — | The schedule: `Shift` (who works which role when; minutes since midnight; unpublished until Publish, which emails staff `schedule_changed`), `ParSet` (how many people each role needs by hour: the weekly pars and seasonal ones that add or replace), `Availability` and `TimeOff` (decided on the admin's Availability requests: `requests.py`; approving can move the shifts they clash with to open shifts, and emails `request_decided`). `schedule.py` works out a day's needs and what's wrong with a shift. Edited on the admin's Shifts and Shift pars pages. Staff can't submit requests yet (no staff-side page). |
 | `catering` | `/catering/` | Catering orders (CateringOrder/Line/Message, CateringSettings): `flow.py` does every step (accept charges the card on file, propose changes, the customer's counter-proposals and cancelling, reject/cancel refunds, deposit holds; each version kept as a CateringVersion), `pricing.py` the money, `store.py` the store's quote builder; answered in the admin's Catering page; `/catering/` builds a quote, `<token>` is the customer's request page. Daily cron: `manage.py catering_deposits`. Never on the register or KDS. |
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage, menu boards): `Screen.layout` is a JSON tree rendered on the server, `Screen.popups` the pop-ups over it, `ScreenSession` one display of a screen with sessions (a register pairs with it). See "Screens and widgets" below. |
-| `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
-| `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile, `welcome/<uid>/<token>` (a new staff member sets their password from the invite); Staff profiles (phone, photo, emergency contact, `Role`s: the jobs people do, with starting groups given to whoever gets them; edited on the admin's Roles page), `GroupInfo` (a Django `Group`'s description and colour; members of the `owners` one are superusers), Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). Staff are edited on the admin's Staff page (`admin_portal/staff.py`). |
+| `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). Who sees which page and what they can do there comes from their groups (`access.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
+| `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile, `welcome/<uid>/<token>` (a new staff member sets their password from the invite); Staff profiles (phone, photo, emergency contact, `Role`s: the jobs people do, with starting groups given to whoever gets them; edited on the admin's Roles page), `GroupInfo` (a Django `Group`'s description, colour, icon and `perms`, the `access.py` codes it grants; edited on the admin's Groups page; members of the `owners` one are superusers), Customer profiles, a customer's SavedCard and SavedAddress (the store's account pages edit them). Staff are edited on the admin's Staff page (`admin_portal/staff.py`). |
 | `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
@@ -113,7 +113,7 @@ the artboards as a visual spec and rebuild them as Django templates; their marku
   screens (`dishes` = what stations make, `lines` = what was sold).
 - **Discounts:** `Discount` without a code is an *offer* listed on the register; with a code it's a *coupon*
   (`online=True` to allow it in the store). Conditions (dates, weekdays, time window, min subtotal/items, eligible
-  dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need `pos_server.apply_manual_discount`.
+  dishes/combos, max uses) are checked in `pricing.py`. Typed-in discounts need the `act.discount` action (a group gives it).
   Tax is `settings.TAX_RATE` (env, default 0), charged after discounts.
 - **Costs come from ingredients**, the things the restaurant buys: `Ingredient.cost` = `pack_price / pack_size`
   (set on save). A component's cost and ingredients (`pos_server/dish_info.py`) come from its prep recipe's
@@ -211,9 +211,20 @@ while Branding is open); Publish makes it live. Only "neighbourhood" (the canvas
 
 ## Access control
 
-Being in the **Owners** group (`users.GroupInfo.owners`) is what makes someone a superuser (the admin's Staff page keeps them in step and the store always keeps one active owner). Customers can register accounts, so **staff pages need `staff_required` / `superuser_required` / `api_staff_required`
-from `pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen),
-never bare `login_required`.** On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set in
+**Groups grant everything** (`users/access.py`, edited on the admin's Groups page): each `GroupInfo.perms` lists codes:
+apps (`app.register`, `app.marking`, `app.drawer`, `app.cookery`, `app.availability`, `app.courier`, `app.screens`,
+`app.audio`, `app.admin`), actions (`act.discount` typed-in discounts, `act.cash` paying cash in and out, `act.reject`
+rejecting orders on order marking, `act.refund` admin refunds) and admin pages (`admin.<page id>.view|edit|delete`, the
+pages being `admin_portal/nav.py`'s rail; `PAGE_LEVELS` lists pages without every level). Check with
+`access.can(user, code)` (templates: `{% if can.app_register %}`). Staff in no group open nothing. Being in the
+**Owners** group (`users.GroupInfo.owners`) is what makes someone a superuser, who has every code (the admin's Staff
+page keeps them in step, only owners make owners or change an owner's profile, and the store always keeps one active
+owner). Customers can register accounts, so **staff pages need `app_required("app.…")` / `api_app_required` (or
+`staff_required` / `superuser_required` / `api_staff_required` for the few that aren't an app) from
+`pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen), never
+bare `login_required`. Admin views use `admin_portal/access.py: admin_page(page, edit={ops}, delete={ops})`**: GET
+needs view, posted ops listed in `edit`/`delete` need those (everything else only changes a draft); a new view must
+list every op that writes. The layout hides Save/Delete-like buttons people can't use (`ro`/`nodel` body classes). On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set in
 `/advanced-admin/` → Users), rate-limited per device; the lock screen lists the device's last 3 users
 (`RegisterSignIn`), and anyone else signs in with their password first. POS/KDS views also use `device_required` (signed cookie
 for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default on in production). Redirects to a

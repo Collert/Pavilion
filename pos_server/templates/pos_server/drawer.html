@@ -61,7 +61,7 @@
                 <div class="side-body" id="opened-text"></div>
                 <div class="grow"></div>
                 <button class="btn btn-primary" id="start-close">{% trans "Close the drawer" %}</button>
-                <button class="btn btn-md ghost-dark" id="open-move">{% trans "Add or remove cash" %}</button>
+                <button class="btn btn-md ghost-dark" id="open-move"{% if not can.act_cash %} hidden{% endif %}>{% trans "Add or remove cash" %}</button>
             </div>
         </section>
     </div>

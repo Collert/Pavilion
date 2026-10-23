@@ -53,6 +53,8 @@ and the photo take effect straight away.
     <section class="tm-edit" aria-label="{% trans 'Staff profile' %}" id="staff-profile" data-region>
     {% with p=s.p %}{% if p %}
         <input type="hidden" name="profile" value="1">
+        {% if p.guarded %}<div class="tm-note tm-guard">{% trans "Only owners can change an owner’s profile." %}</div>{% endif %}
+        <fieldset class="tm-fieldset"{% if p.guarded %} disabled{% endif %}>
         <div class="card tm-card">
             <div class="tm-ident">
                 <div class="tm-photo-col">
@@ -84,7 +86,7 @@ and the photo take effect straight away.
                 <div class="small muted">{% trans "What parts of Pavilion they can open." %}</div>
                 <div class="tm-groups">
                     {% for x in p.groups %}
-                    <label class="tm-group{% if x.locked %} locked{% endif %}"><span class="tm-box"><input type="checkbox" name="groups" value="{{ x.g.id }}"{% if x.on %} checked{% endif %}><span></span></span>
+                    <label class="tm-group{% if x.locked %} locked{% endif %}"><span class="tm-box"><input type="checkbox" name="groups" value="{{ x.g.id }}"{% if x.on %} checked{% endif %}{% if x.locked %} disabled{% endif %}><span></span></span>{% if x.locked and x.on %}<input type="hidden" name="groups" value="{{ x.g.id }}">{% endif %}
                         <span class="grow two-line"><span class="strong">{{ x.g.name }}</span><span class="tm-desc">{{ x.desc }}</span></span></label>
                     {% endfor %}
                 </div>
@@ -118,6 +120,7 @@ and the photo take effect straight away.
                 </div>
             </div>
         </div>
+        </fieldset>
     {% else %}
         <div class="card tm-card tm-none">{% trans "Pick someone on the left, or add staff." %}</div>
     {% endif %}{% endwith %}

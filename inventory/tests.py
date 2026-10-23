@@ -9,6 +9,8 @@ from django.urls import reverse
 from pos_server.models import Component, ComponentIngredient, Dish, DishComponent, Extra, Ingredient, Menu, Station
 from pos_server.orders import OrderError, create_order
 
+from users.testing import crew
+
 from .models import (CookingSession, IngredientReservation, Recipe, RecipeIngredient, RecipeStep, Transformation,
                      WasteIngredient)
 
@@ -19,7 +21,7 @@ class AvailabilityTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.staff = User.objects.create_user("cook", password="x", is_staff=True)
+        cls.staff = crew(User.objects.create_user("cook", password="x", is_staff=True))
         kitchen = Station.objects.get(code="kitchen")
 
         def component(title, inventory):
@@ -122,8 +124,8 @@ class CookeryTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.cook = User.objects.create_user("cook", password="x", is_staff=True, first_name="Priya")
-        cls.other = User.objects.create_user("other", password="x", is_staff=True, first_name="Dana")
+        cls.cook = crew(User.objects.create_user("cook", password="x", is_staff=True, first_name="Priya"))
+        cls.other = crew(User.objects.create_user("other", password="x", is_staff=True, first_name="Dana"))
         cls.flour = Ingredient.objects.create(title="Flour", unit_of_measurement="g", inventory=1000)
         cls.water = Ingredient.objects.create(title="Water", unit_of_measurement="ml", inventory=0, unlimited=True)
         cls.beef = Ingredient.objects.create(title="Beef", unit_of_measurement="g", inventory=1000)
@@ -288,7 +290,7 @@ class SeedRecipesTests(TestCase):
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class CookeryInPageTests(TestCase):
     def test_background_posts_get_the_page_back_without_a_redirect(self):
-        cook = User.objects.create_user("cook", password="x", is_staff=True)
+        cook = crew(User.objects.create_user("cook", password="x", is_staff=True))
         patty = Component.objects.create(title="Patty", unit_of_measurement="ea", crafting_option="craft")
         session = CookingSession.objects.create(kind="cook", component=patty, holder=cook, phase="yield")
         self.client.force_login(cook)

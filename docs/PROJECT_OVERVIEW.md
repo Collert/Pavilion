@@ -91,8 +91,12 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
 | `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders`, `screens` and `catering` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
 
-**Access rules.** Customers can register accounts, so staff pages use `staff_required` / `superuser_required` /
-`api_staff_required` (`pos_server/devices.py`), never bare `login_required`. POS/KDS views also use `device_required`.
+**Access rules.** Customers can register accounts, so staff pages use `app_required("app.…")` / `api_app_required`
+(or `staff_required` / `superuser_required` / `api_staff_required`; all in `pos_server/devices.py`), never bare
+`login_required`. POS/KDS views also use `device_required`. What staff may open and do comes from their groups
+(`users/access.py`, §6.9 Groups): apps, actions (typed-in discounts, cash in and out, rejecting orders, refunds) and
+admin pages with view / edit / delete. Staff in no group open nothing; Owners (superusers) everything. Without an
+app, staff get `pos_server/no_access.html` (a 403) and the app switcher and staff rail leave it out.
 
 ---
 
@@ -244,7 +248,8 @@ one discount per line and one on the order (after line discounts), then tax (`TA
 `Discount`: an *offer* (no code, listed on the register) or a *coupon* (code; `online=True` to accept it in the
 store). Conditions: `starts_on`/`ends_on`, `weekdays` ("12345"), `start_time`/`end_time`, `min_subtotal`,
 `min_items`, eligible `dishes`/`combos` (item discounts), `max_uses`. Typed-in ("manual") discounts need the
-`pos_server.apply_manual_discount` permission (superusers have it; `seed_demo` gives it to Priya).
+"Give discounts" action (`act.discount`: Managers have it by default, so `seed_demo`'s Priya does; Front of house
+doesn't). The old `pos_server.apply_manual_discount` permission was dropped on 2026-10-22.
 
 ### 6.2 Register, lock screen and cash drawer (`pos_server/register.py`)
 
@@ -425,7 +430,11 @@ automatically and gets the cookie back. `seed_demo` creates a demo device; open 
 
 ### 6.9 Admin
 
-`admin_portal` (`/admin/`, superuser only for now) replaced `new_admin` on 2026-10-20. It's rebuilt from the Claude
+`admin_portal` (`/admin/`) replaced `new_admin` on 2026-10-20. Each view is wrapped in
+`admin_portal/access.py: admin_page(page, edit=…, delete=…)`: people need the Admin app and the page's view to open
+it (otherwise they're sent to the first page they can see), and the ops that write need edit or delete (refused ones
+come back with a message). The rail only lists pages they can view; the layout tags view-only pages and hides the
+buttons they can't use. It's rebuilt from the Claude
 Design canvas's `Admin*` artboards, one page at a time, in the rail's order (`AdminRail`; groups and pages in
 `admin_portal/nav.py`: a page shows on the rail once its url name is filled in). Pages are Django templates on
 `admin_portal/layout.html` (the rail, `<main id="page">`, Django-message toasts) kept current by `live-page.js`;
@@ -640,6 +649,17 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
   starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes
   off every profile; groups stay; archived roles stay on old shifts). One form with Save (session draft).
+- **Groups** (`admin_groups`, `groups.py`, 2026-10-22): what people can open and change. The list (members and how
+  much each grants), and the picked group's name, description, members (added on the Staff page), Duplicate and
+  Delete, its **Apps** and **Actions** (switches) and **Admin pages**: a grid of the rail's pages by section with View,
+  Edit (add and change) and Delete where the page has them (`users/access.py: PAGE_LEVELS`); edit and delete bring
+  view, taking view takes the rest; column, row and section buttons (None, View only, Everything); Find and Granted
+  only filter it (the boxes stay in the form). Owners are locked (every permission; only the description changes).
+  One form with Save (session draft); members get the change on their next request. `users` migration 0006 gave the
+  usual groups defaults (Managers: everything but deleting staff and changing roles and groups; Front of house:
+  register, order marking, drawer, availability, screens, audio, cash in and out, rejecting; Kitchen: order marking,
+  Cookery, availability, screens, audio, rejecting; Delivery: courier and audio) and put staff who were in no group in
+  Front of house, Kitchen and Delivery, so nobody lost an app they had.
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
   artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
   the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
