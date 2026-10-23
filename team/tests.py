@@ -64,3 +64,42 @@ class ScheduleTests(TestCase):
         self.assertTrue(kept.published)
         self.assertFalse(Shift.objects.filter(pk=gone.pk).exists())
         self.assertEqual(sent.call_args[0][:2], ("schedule_changed", "marco@example.com"))
+
+
+
+class RequestTests(TestCase):
+    """team/requests.py: what a request clashes with, and deciding it."""
+
+    def setUp(self):
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.marco = User.objects.create_user("marco", first_name="Marco", email="marco@example.com", is_staff=True)
+        Staff.objects.create(user=self.marco).roles.add(self.cook)
+        self.boss = User.objects.create_user("boss", first_name="Priya", is_staff=True)
+        self.day = datetime.date.today() + datetime.timedelta(days=20)
+
+    def test_approving_time_off_can_open_their_shifts(self):
+        from . import requests as reqs
+        clash = Shift.objects.create(user=self.marco, role=self.cook, date=self.day, start=T(13), end=T(21), published=True)
+        Shift.objects.create(user=self.marco, role=self.cook, date=self.day, start=T(7), end=T(12), published=True)
+        off = TimeOff.objects.create(user=self.marco, first_day=self.day, last_day=self.day, all_day=False, start=T(16), end=T(21))
+        self.assertEqual(reqs.affected_shifts(off), [clash])  # the morning shift is fine
+        with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(reqs.decide(off, True, self.boss, "Good luck!", "open"), 1)
+        clash.refresh_from_db()
+        off.refresh_from_db()
+        self.assertEqual((clash.user, clash.published, off.status, off.handle, off.affected[0]["role"]), (None, False, "approved", "open", "Cook"))
+        self.assertEqual(sent.call_args[0][2]["decision"], "approved")
+        reqs.reopen(off)
+        self.assertEqual(TimeOff.objects.get(pk=off.pk).status, "pending")
+
+    def test_availability_changes_and_who_else_covers_the_role(self):
+        from . import requests as reqs
+        weekend = self.day + datetime.timedelta(days=(5 - self.day.weekday()) % 7)
+        sat = Shift.objects.create(user=self.marco, role=self.cook, date=weekend, start=T(9), end=T(15))
+        req = Availability.objects.create(user=self.marco, effective=self.day - datetime.timedelta(days=1),
+                                          windows={str(d): ([[T(6), T(22)]] if d < 5 else []) for d in range(7)})
+        self.assertEqual(reqs.affected_shifts(req), [sat])
+        self.assertEqual(reqs.notes(req), [("bad", "Saturdays, Sundays would have no Cook. Nobody else has the Cook role.")])
+        reqs.decide(req, False, self.boss)
+        sat.refresh_from_db()
+        self.assertEqual((sat.user, Availability.objects.get(pk=req.pk).status), (self.marco, "declined"))

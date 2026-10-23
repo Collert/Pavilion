@@ -41,7 +41,7 @@ MENU = [
     ("team", _("Team"), "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0 M16 4.3a3.5 3.5 0 0 1 0 6.4 M18 14.2a6.5 6.5 0 0 1 3.5 5.8", [
         ("staff", _("Staff"), "admin_staff"),
         ("shifts", _("Shifts"), "admin_shifts"),
-        ("requests", _("Availability requests"), None),
+        ("requests", _("Availability requests"), "admin_requests"),
         ("roles", _("Roles"), None),
         ("groups", _("Groups"), None),
         ("staffcards", _("Staff cards"), None),
@@ -57,9 +57,11 @@ MENU = [
 
 
 def badges() -> dict:
-    """{page id: count} shown as a pill on the rail: new catering orders."""
+    """{page id: count} shown as a pill on the rail: new catering orders, availability requests waiting."""
     from catering.models import CateringOrder
-    return {"catering": CateringOrder.objects.filter(status=CateringOrder.NEW).count()}
+    from team.models import Availability, TimeOff
+    return {"catering": CateringOrder.objects.filter(status=CateringOrder.NEW).count(),
+            "requests": TimeOff.objects.filter(status=TimeOff.PENDING).count() + Availability.objects.filter(status=Availability.PENDING).count()}
 
 
 def rail(active: str) -> list[dict]:

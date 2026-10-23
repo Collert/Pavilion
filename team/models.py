@@ -72,6 +72,8 @@ class Availability(models.Model):
     decided_at = models.DateTimeField(null=True, blank=True)
     decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     message = models.CharField(max_length=300, blank=True, help_text="The manager's reply")
+    handle = models.CharField(max_length=4, blank=True, help_text="On approval, their affected shifts: open (moved to open shifts) or keep")
+    affected = models.JSONField(default=list, blank=True, help_text="The shifts it touched when it was decided: [{date, role, color, start, end}]")
 
     class Meta:
         ordering = ["-effective", "-id"]
@@ -91,7 +93,9 @@ class TimeOff(models.Model):
     submitted_at = models.DateTimeField(default=timezone.now)
     decided_at = models.DateTimeField(null=True, blank=True)
     decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
-    message = models.CharField(max_length=300, blank=True)
+    message = models.CharField(max_length=300, blank=True, help_text="The manager's reply")
+    handle = models.CharField(max_length=4, blank=True, help_text="On approval, their affected shifts: open (moved to open shifts) or keep")
+    affected = models.JSONField(default=list, blank=True, help_text="The shifts it touched when it was decided: [{date, role, color, start, end}]")
 
     class Meta:
         ordering = ["-first_day", "-id"]

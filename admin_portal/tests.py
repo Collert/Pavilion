@@ -2337,3 +2337,33 @@ class ShiftPagesTests(AdminFixture, TestCase):
         weekly = ParSet.objects.get(kind="weekly")
         self.assertEqual(weekly.pars["4"], {str(self.cook.id): [[1020, 1200, 2]]})
         self.assertEqual(ParSet.objects.get(kind="season").mode, "replace")
+
+
+
+class AvailabilityRequestsPageTests(AdminFixture, TestCase):
+    """Availability requests (admin_portal/requests.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def test_inbox_and_deciding(self):
+        from unittest import mock
+        from team.models import Availability, TimeOff
+        self.client.force_login(self.owner)
+        url = reverse("admin_requests")
+        day = timezone.localdate() + datetime.timedelta(days=3)
+        off = TimeOff.objects.create(user=self.staff, first_day=day, last_day=day, category="Vacation", reason="Wedding")
+        Availability.objects.create(user=self.staff, effective=day, windows={"0": [[600, 1320]]}, status="approved")
+        q = self.client.get(url).context["q"]
+        self.assertEqual(([t[2] for t in q["tabs"]], q["rows"][0]["flag"], q["d"]["notes"][0][0]), ([1, 1, 0, 2], "Starts soon", "warn"))
+        from .nav import badges
+        self.assertEqual(badges()["requests"], 1)  # the rail's pill
+        with mock.patch("misc_tools.email.send"), self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(url, {"op": "decline", "key": f"t{off.id}", "message": "Busy weekend", "tab": "pending", "kind": "all"}, follow=True)
+        self.assertContains(response, "gets a notification with your message.")
+        off.refresh_from_db()
+        self.assertEqual((off.status, off.message, off.decided_by), ("declined", "Busy weekend", self.owner))
+        q = self.client.get(url, {"tab": "declined", "sel": f"t{off.id}"}).context["q"]
+        self.assertTrue(q["d"]["dec_text"].startswith("Declined by Priya"))
+        self.client.post(url, {"op": "reopen", "key": f"t{off.id}"})
+        self.assertEqual(TimeOff.objects.get(pk=off.pk).status, "pending")

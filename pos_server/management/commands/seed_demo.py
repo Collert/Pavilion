@@ -1241,6 +1241,26 @@ class Command(BaseCommand):
         saturday = monday + datetime.timedelta(days=5)
         TimeOff.objects.create(user=people["priya"], first_day=saturday, last_day=saturday, category="Personal", status=TimeOff.APPROVED,
                                reason="Family birthday.", decided_at=timezone.now(), decided_by=people["admin"])
+        # Requests waiting on the manager (Availability requests): time off over shifts Dana already has, an evening
+        # appointment, the courier dropping weekends; and one declined last week
+        ago = lambda days: timezone.now() - datetime.timedelta(days=days)  # noqa: E731
+        next_week = monday + datetime.timedelta(days=7)
+        TimeOff.objects.create(user=people["cashier"], first_day=next_week + datetime.timedelta(days=4), last_day=next_week + datetime.timedelta(days=6),
+                               category="Vacation", reason="My sister’s wedding in Calgary. Flying out Friday morning.", submitted_at=ago(2))
+        for d in range(4, 7):
+            day = next_week + datetime.timedelta(days=d)
+            shift = Shift(user=people["cashier"], role=role["Barista"], date=day, start=T(6, 30), end=T(14, 30), break_minutes=30)
+            shift.published, shift.published_as = True, snapshot(shift)
+            shift.save()
+        TimeOff.objects.create(user=people["priya"], first_day=today + datetime.timedelta(days=1), last_day=today + datetime.timedelta(days=1),
+                               all_day=False, start=T(16), end=T(21, 30), category="Appointment",
+                               reason="Appointment at 5, should be back for close if it runs short.", submitted_at=ago(1))
+        Availability.objects.create(user=people["courier"], effective=next_week,
+                                    reason="Starting a weekend course, so I can only do weekdays for a while.", submitted_at=ago(3),
+                                    windows={str(d): ([[T(10), T(22)]] if d < 5 else []) for d in range(7)})
+        TimeOff.objects.create(user=people["admin"], first_day=saturday, last_day=saturday, category="Personal", status=TimeOff.DECLINED,
+                               reason="Would love the Saturday off.", submitted_at=ago(9), decided_at=ago(8), decided_by=people["priya"],
+                               message="Sorry, it’s our busiest Saturday. Happy to give you Sunday instead.")
 
     def seed_audio(self):
         """Audio channels for the screens, and a small library to play on them: short generated tones standing in for

@@ -28,6 +28,7 @@ urlpatterns = [
     path("staff", views.staff, name="admin_staff"),
     path("shifts", views.shifts, name="admin_shifts"),
     path("shifts/pars", views.shift_pars, name="admin_shift_pars"),
+    path("requests", views.availability_requests, name="admin_requests"),
     path("library/upload", views.library_upload, name="admin_library_upload"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),
     path("screens/<int:id>/preview", views.screen_preview, name="admin_screen_preview"),

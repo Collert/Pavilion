@@ -1,0 +1,137 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Availability requests (design: AdminRequests; admin_portal/requests.py, team/requests.py). The inbox and the picked
+request are in the address (tab, kind, sel); Approve, Decline and Change decision post and come back.
+{% endcomment %}
+{% block title %}{% trans "Availability requests" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/requests.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+{% with st=q.st %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Availability requests" %}</h1>
+    </div>
+    <a class="btn-light" href="{% url 'admin_shifts' %}">{% icon "M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4" 18 2.2 %}{% trans "Open schedule" %}</a>
+</header>
+
+<div class="tm-body">
+    <section class="card tm-list rq-list" id="rq-list" data-region aria-label="{% trans 'Requests' %}">
+        <div class="tm-list-top">
+            <nav class="rq-tabs" aria-label="{% trans 'Status' %}">
+                {% for key, label, n, on, href in q.tabs %}<a href="{{ href }}" data-live{% if on %} aria-current="true"{% endif %}>{{ label }}<span class="{% if key == 'pending' and n %}due{% endif %}">{{ n }}</span></a>{% endfor %}
+            </nav>
+            <nav class="tm-filters" aria-label="{% trans 'Kind' %}">
+                {% for key, label, on, href in q.kinds %}<a href="{{ href }}" data-live class="tm-filter{% if on %} on{% endif %}">{{ label }}</a>{% endfor %}
+            </nav>
+        </div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Requests' %}">
+            {% for r in q.rows %}
+            <a class="rq-row{% if r.on %} on{% endif %}{% if r.status != 'pending' %} done{% endif %}" href="{{ r.href }}" data-live role="option" aria-selected="{{ r.on|yesno:'true,false' }}">
+                <span class="tm-face rq-face" style="--c: {{ r.face }}">{{ r.ini }}</span>
+                <span class="grow">
+                    <span class="rq-top"><span class="strong">{{ r.name }}</span><span class="rq-kind {{ r.kind }}">{% if r.kind == 'timeoff' %}{% trans "Time off" %}{% else %}{% trans "Availability" %}{% endif %}</span></span>
+                    <span class="num rq-what ellipsis">{{ r.what }}</span>
+                    <span class="rq-meta"><span>{{ r.when }}</span>{% if r.flag %}<span class="rq-pill {{ r.flag_tone }}">{{ r.flag }}</span>{% endif %}</span>
+                </span>
+                {% if r.status != 'pending' %}<span class="rq-pill {{ r.status }}">{% if r.status == 'approved' %}{% trans "Approved" %}{% else %}{% trans "Declined" %}{% endif %}</span>{% endif %}
+            </a>
+            {% empty %}
+            <div class="tm-none">{{ q.empty }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="tm-edit" id="rq-detail" data-region aria-label="{% trans 'Request' %}">
+    {% with d=q.d %}{% if d %}
+        <div class="card tm-card rq-card">
+            <div class="rq-who">
+                <span class="tm-face" style="--c: {{ d.face }}; width: 52px; height: 52px; border-radius: 26px; font-size: 19px">{{ d.ini }}</span>
+                <div class="grow">
+                    <div class="rq-top"><span class="disp rq-name">{{ d.name }}</span><span class="rq-kind {{ d.kind }}">{% if d.is_t %}{% trans "Time off" %}{% else %}{% trans "Availability" %}{% endif %}</span></div>
+                    <div class="small muted strong">{{ d.meta }}</div>
+                </div>
+                <span class="rq-pill big {{ d.r.status }}">{{ d.r.get_status_display }}</span>
+            </div>
+            <div class="rq-big {{ d.kind }}">
+                <div class="disp num rq-big-text">{{ d.big }}</div>
+                <div class="num small strong rq-big-sub">{{ d.big_sub }}</div>
+            </div>
+            {% if d.r.reason %}<div class="rq-reason"><div class="ov faint">{% trans "Their note" %}</div><div class="rq-reason-text">“{{ d.r.reason }}”</div></div>{% endif %}
+            {% if not d.is_t %}
+            <div class="rq-week">
+                <div class="rq-week-head"><span class="ov muted grow">{% trans "Weekly availability" %}</span>
+                    <span class="rq-key"><i class="now"></i>{% trans "Now" %}</span><span class="rq-key"><i class="req"></i>{% trans "Requested" %}</span></div>
+                <div class="rq-scale"><div>{% for h in d.hours %}<span{% if h.first %} class="first"{% endif %} style="left: {{ h.left }}">{{ h.label }}</span>{% endfor %}</div></div>
+                {% for w in d.week %}
+                <div class="rq-day">
+                    <span class="rq-day-name{% if w.same %} same{% endif %}">{{ w.day }}</span>
+                    <div class="rq-bars">
+                        <div class="rq-bar now">{% for b in w.now %}<span style="left: {{ b.left }}; width: {{ b.width }}"></span>{% endfor %}</div>
+                        <div class="rq-bar req{% if w.same %} same{% endif %}{% if w.none %} none{% endif %}">{% for b in w.req %}<span style="left: {{ b.left }}; width: {{ b.width }}"></span>{% endfor %}</div>
+                    </div>
+                    <span class="rq-ch {{ w.tone }}">{{ w.ch }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card tm-card">
+            <div class="rq-impact-head"><h2 class="disp tm-h2 grow">{{ d.impact }}</h2><a class="st-link" href="{{ d.schedule_href }}">{% trans "See on schedule" %}</a></div>
+            <div class="small muted strong">{{ d.impact_sub }}</div>
+            <div class="rq-shifts">
+                {% for s in d.shifts %}
+                <div class="rq-shift"><span class="rq-shift-bar" style="background: {{ s.color }}"></span><span class="num strong rq-shift-date">{{ s.date }}</span>
+                    <span class="grow small strong rq-shift-what">{{ s.what }}</span>
+                    {% if d.pending %}<span class="rq-pill rq-if-open warn">{% trans "Becomes open" %}</span><span class="rq-pill rq-if-keep bad">{% trans "Stays, conflict" %}</span>
+                    {% else %}<span class="rq-pill">{{ s.tag }}</span>{% endif %}</div>
+                {% empty %}
+                <div class="rq-clear">{{ d.no_shifts }}</div>
+                {% endfor %}
+            </div>
+            {% for tone, text in d.notes %}<div class="rq-note {{ tone }}">{{ text }}</div>{% endfor %}
+        </div>
+
+        {% if d.pending %}
+        <form method="post" class="card tm-card rq-decide">{% csrf_token %}
+            <input type="hidden" name="tab" value="{{ st.tab }}"><input type="hidden" name="kind" value="{{ st.kind }}"><input type="hidden" name="key" value="{{ d.key }}">
+            <h2 class="disp tm-h2">{% trans "Decision" %}</h2>
+            {% if d.shifts %}
+            <div class="lbl top12">{% trans "If you approve, their affected shifts" %}</div>
+            <div class="rq-handle" role="radiogroup" aria-label="{% trans 'Affected shifts' %}">
+                <label class="rq-mode"><input type="radio" name="handle" value="open" checked><span class="strong">{% trans "Move them to open shifts" %}</span>
+                    <span class="small muted">{% trans "They show up in Open shifts so you can fill them." %}</span></label>
+                <label class="rq-mode"><input type="radio" name="handle" value="keep"><span class="strong">{% trans "Leave them for now" %}</span>
+                    <span class="small muted">{% trans "They stay assigned and show as conflicts until you sort them." %}</span></label>
+            </div>
+            {% endif %}
+            <label class="rq-msg"><span class="lbl">{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %} <span class="faint">· {% trans "optional, they’ll see it" %}</span></span>
+                <textarea class="field" name="message" rows="2" maxlength="200" placeholder="{{ d.msg_ph }}"></textarea></label>
+            <div class="rq-buttons">
+                <button class="rq-decline" name="op" value="decline">{% trans "Decline" %}</button>
+                <button class="btn-amber rq-approve" name="op" value="approve"><span class="rq-if-open">{{ d.approve }}</span><span class="rq-if-keep">{{ d.approve_keep }}</span></button>
+            </div>
+        </form>
+        {% else %}
+        <form method="post" class="card tm-card">{% csrf_token %}
+            <input type="hidden" name="tab" value="{{ st.tab }}"><input type="hidden" name="kind" value="{{ st.kind }}"><input type="hidden" name="key" value="{{ d.key }}">
+            <div class="rq-done">
+                <span class="rq-done-icon {{ d.r.status }}">{% if d.r.status == 'approved' %}{% icon "check" 16 2.8 %}{% else %}{% icon "close" 16 2.8 %}{% endif %}</span>
+                <span class="grow strong">{{ d.dec_text }}</span>
+                <button class="btn-soft rq-reopen" name="op" value="reopen"{% if d.past %} disabled{% endif %}>{% if d.past %}{% trans "In the past" %}{% else %}{% trans "Change decision" %}{% endif %}</button>
+            </div>
+            {% if d.r.message %}<div class="rq-reply">“{{ d.r.message }}”</div>{% endif %}
+        </form>
+        {% endif %}
+    {% else %}
+        <div class="card tm-card tm-none">{% trans "No requests yet. When staff ask for time off or change when they can work, it shows up here." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+{% endwith %}
+{% endblock %}

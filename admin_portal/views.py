@@ -42,6 +42,7 @@ from . import hours as hours_data
 from . import staff as staff_data
 from . import shifts as shifts_data
 from . import pars as pars_data
+from . import requests as requests_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1314,6 +1315,32 @@ def shift_pars(request):
                 messages.success(request, toast)
         request.session[pars_data.KEY] = st
     return page(request, "admin_portal/pars.html", "shifts", {"x": pars_data.page(st)})
+
+
+@superuser_required
+def availability_requests(request):
+    """Availability requests: time off and availability changes to approve or decline (admin_portal/requests.py)."""
+    from team import requests as team_requests
+    if request.method == "POST":
+        st = requests_data.state(request.POST)
+        req = requests_data.find(request.POST.get("key", ""))
+        op = request.POST.get("op")
+        if req and op in ("approve", "decline") and req.status == "pending":
+            approve = op == "approve"
+            opened = team_requests.decide(req, approve, request.user, request.POST.get("message", ""), request.POST.get("handle", "open"))
+            first = req.user.first_name or req.user.username
+            if approve:
+                messages.success(request, (ngettext("Approved. %(name)s gets a notification and %(n)d shift moved to open shifts.",
+                                                    "Approved. %(name)s gets a notification and %(n)d shifts moved to open shifts.", opened)
+                                           if opened else _("Approved. %(name)s gets a notification.")) % {"name": first, "n": opened})
+            else:
+                messages.success(request, (_("Declined. %(name)s gets a notification with your message.") if req.message
+                                           else _("Declined. %(name)s gets a notification.")) % {"name": first})
+        elif req and op == "reopen":
+            team_requests.reopen(req)
+            st["tab"] = "pending"
+        return redirect(reverse("admin_requests") + requests_data.url(st, sel=req and requests_data.key_of(req)))
+    return page(request, "admin_portal/requests.html", "requests", {"q": requests_data.page(requests_data.state(request.GET), request.user)})
 
 
 # ---------- branding ----------

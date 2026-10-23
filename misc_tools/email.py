@@ -90,6 +90,11 @@ KINDS = {
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your schedule for the next two weeks:</p>'
               '<ul>{{ range .Tx.Data.shifts }}<li>{{ . }}</li>{{ else }}<li>No shifts.</li>{{ end }}</ul>'),
     ),
+    "request_decided": (
+        "Your request was {{ .Tx.Data.decision }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.what }} was <strong>{{ .Tx.Data.decision }}</strong>.</p>'
+              '{{ if .Tx.Data.message }}<p>“{{ .Tx.Data.message }}”</p>{{ end }}'),
+    ),
     "staff_invite": (
         "You're on the team at {{ .Tx.Data.store }}",
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.store }} added you to its staff in Pavilion. '
