@@ -327,7 +327,9 @@ class OrderPageTests(AdminFixture, TestCase):
 
     def setUp(self):
         self.client.force_login(self.owner)
-        self.order = self.place([self.dish(self.burger), self.dish(self.coffee)], timezone.now() - datetime.timedelta(minutes=5))
+        midnight = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        # five minutes ago, but still today when the tests run just after midnight
+        self.order = self.place([self.dish(self.burger), self.dish(self.coffee)], max(timezone.now() - datetime.timedelta(minutes=5), midnight))
 
     def test_list_filters_and_search(self):
         older = self.place([self.dish(self.tea)], timezone.now() - datetime.timedelta(days=3))
