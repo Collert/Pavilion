@@ -2320,6 +2320,26 @@ class ShiftPagesTests(AdminFixture, TestCase):
         self.url = reverse("admin_shifts")
         self.week = {"week": "2026-10-19", "day": "1", "group": "staff", "cov": "1"}
 
+    def test_what_happened_shows_with_the_plan(self):
+        from team.models import Shift, TimeBreak, TimeEntry
+        day = timezone.localdate() - datetime.timedelta(days=2)
+        week = {"week": (day - datetime.timedelta(days=day.weekday())).isoformat(), "day": str(day.weekday()), "group": "staff", "cov": "1"}
+        worked = Shift.objects.create(user=self.staff, role=self.cook, date=day, start=540, end=1020, break_minutes=30, published=True)
+        Shift.objects.create(user=self.owner, role=self.cook, date=day, start=600, end=900, published=True)  # nobody came
+        at = lambda h, m=0: timezone.make_aware(datetime.datetime.combine(day, datetime.time(h, m)))  # noqa: E731
+        entry = TimeEntry.objects.create(user=self.staff, shift=worked, clock_in=at(9, 12), clock_out=at(17))
+        TimeBreak.objects.create(entry=entry, start=at(12), end=at(12, 30))
+        h = self.client.get(self.url, week).context["h"]
+        mine = next(r for r in h["rows"] if r.get("uid") == self.staff.id)
+        theirs = next(r for r in h["rows"] if r.get("uid") == self.owner.id)
+        self.assertEqual((mine["blocks"][0]["did"], theirs["blocks"][0]["did"]), ("Late 12m", "No-show"))
+        self.assertEqual(len(mine["actual"]), 1)
+        self.assertEqual(len(mine["actual"][0]["gaps"]), 1)
+        self.assertIn(("7.3h worked", "ink"), h["foot"])
+        drawer = self.client.get(self.url, {**week, "shift": worked.id}).context["h"]["drawer"]
+        self.assertEqual([what for what, _when in drawer["punches"]["rows"]], ["Clocked in", "Unpaid break", "Clocked out"])
+        self.assertEqual(drawer["punches"]["sum"], "7.3h worked of 7.5h planned")
+
     def test_making_moving_deleting_and_publishing_shifts(self):
         from team.models import Shift
         response = self.client.post(self.url, {**self.week, "op": "save", "user": self.staff.id, "role": self.cook.id,

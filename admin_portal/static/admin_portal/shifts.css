@@ -226,3 +226,21 @@
     .sp-list { width: auto; }
 }
 .sp-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+
+/* What happened (team.TimeEntry): a thin bar under the lane, a tag on the shift, the drawer's punches */
+.sh-actual { position: absolute; bottom: 1px; height: 4px; border-radius: 2px; background: var(--ink); z-index: 1; overflow: hidden; pointer-events: auto; }
+.sh-actual span { position: absolute; top: 0; bottom: 0; background: #FFFFFF; opacity: .85; }
+.sh-actual.live { background: var(--green); }
+.sh-actual.live::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 6px; background: #FFFFFF; opacity: .6; animation: shPulse 1.4s ease-in-out infinite; }
+@keyframes shPulse { 50% { opacity: 0; } }
+.sh-did { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); height: 18px; padding: 0 6px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; background: rgba(255, 255, 255, .92); color: var(--brand); white-space: nowrap; }
+.sh-did.late { color: #8A4B00; }
+.sh-did.bad { background: var(--red); color: #FFFFFF; }
+.sh-block.narrow .sh-did { position: relative; right: auto; top: auto; transform: none; align-self: flex-start; height: 15px; margin-top: 1px; }
+.sh-punches .sh-did { position: static; transform: none; background: var(--soft); }
+.sh-punches .sh-did.bad { background: var(--red); color: #FFFFFF; }
+.sh-punches { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 16px; background: var(--softer); }
+.sh-punch-head { display: flex; align-items: center; justify-content: space-between; }
+.sh-punch-head .lbl { margin: 0; }
+.sh-punch { display: flex; gap: 8px; font-size: 13px; font-weight: 700; }
+.sh-punch .num { color: var(--muted); }

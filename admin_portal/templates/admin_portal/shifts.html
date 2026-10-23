@@ -91,14 +91,16 @@ Publish. Clicking an empty spot on a row starts a new shift there (shifts.js); a
             <div class="sh-lane" data-lane data-user="{{ r.uid }}" data-role="{{ r.role }}" data-new-role="{{ r.new_role }}" style="background-image: {{ h.shade }}, linear-gradient(90deg, #EEF2EF 1px, transparent 1px); background-size: 100% 100%, calc(100% / 24) 100%">
                 {% for u in r.unavail %}<div class="sh-unavail{% if u.full %} full{% endif %}" style="left: {{ u.left }}; width: {{ u.width }}" title="{{ u.title|default:u.label }}"><span>{{ u.label }}</span></div>{% endfor %}
                 {% for b in r.blocks %}
-                <a class="sh-block{% if b.open %} is-open{% endif %}{% if b.warn %} warn{% endif %}{% if not b.pub %} unpub{% endif %}" href="{{ b.href }}" data-live draggable="true"
+                <a class="sh-block{% if b.narrow or b.tight %} narrow{% endif %}{% if b.open %} is-open{% endif %}{% if b.warn %} warn{% endif %}{% if not b.pub %} unpub{% endif %}" href="{{ b.href }}" data-live draggable="true"
                    data-shift="{{ b.s.id }}" data-start="{{ b.s.start }}" data-end="{{ b.s.end }}"
                    style="--c: {{ b.color }}; left: {{ b.left }}; width: calc({{ b.width }} - 2px)" title="{{ b.title }}">
                     {% if b.brk %}<span class="sh-brk" style="left: {{ b.brk.left }}; width: {{ b.brk.width }}"></span>{% endif %}
                     <span class="sh-block-name">{% if b.warn %}{% icon "M12 4 2.5 20h19z M12 10v4 M12 17h.01" 12 3 %}{% endif %}<span class="ellipsis">{{ b.label }}</span></span>
-                    {% if not b.narrow %}<span class="num sh-block-time">{{ b.time }}</span>{% endif %}
+                    {% if not b.narrow and not b.tight %}<span class="num sh-block-time">{{ b.time }}</span>{% endif %}
+                    {% if b.did %}<span class="sh-did {{ b.did_tone }}">{{ b.did }}</span>{% endif %}
                 </a>
                 {% endfor %}
+                {% for a in r.actual %}<div class="sh-actual{% if a.live %} live{% endif %}" style="left: {{ a.left }}; width: {{ a.width }}" title="{{ a.title }}">{% for g in a.gaps %}<span style="left: {{ g.left }}; width: {{ g.width }}"></span>{% endfor %}</div>{% endfor %}
                 {% if h.now_line %}<div class="sh-now" style="left: {{ h.now_line }}"></div>{% endif %}
             </div>
         </div>
@@ -138,6 +140,13 @@ Publish. Clicking an empty spot on a row starts a new shift there (shifts.js); a
             </div>
             <div class="num sh-len">{{ x.len }}</div>
             {% for i in x.issues %}<div class="sh-issue">{{ i }}</div>{% endfor %}
+            {% if x.punches %}
+            <div class="sh-punches">
+                <div class="sh-punch-head"><span class="lbl">{% trans "Time clock" %}</span><span class="sh-did {{ x.punches.tone }}">{{ x.punches.did }}</span></div>
+                {% for what, when in x.punches.rows %}<div class="sh-punch"><span class="grow">{{ what }}</span><span class="num">{{ when }}</span></div>{% endfor %}
+                <div class="small muted strong">{{ x.punches.sum }}</div>
+            </div>
+            {% endif %}
             <label><span class="lbl">{% trans "Note" %} <span class="faint">· {% trans "shows on their schedule" %}</span></span>
                 <input class="field" name="note" value="{{ x.d.note }}" maxlength="80" placeholder="{% trans 'e.g. Prep for the Friday event' %}" autocomplete="off"></label>
             {% if not x.d.id %}

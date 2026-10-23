@@ -3,6 +3,10 @@ Shifts (design: AdminShifts): a week of the schedule, one day's timeline at a ti
 coverage against the pars (team/schedule.py) above it. Shifts are saved as they're made, moved or deleted, and wait
 for Publish (staff are emailed their changes then).
 
+What happened shows with the plan: each person's time clock punches (team.TimeEntry) are a thin bar under their
+lane (breaks as gaps, still going while they're on the clock), a shift gets "In 8:57", "Late 12m" or "No-show", and
+the drawer lists the shift's punches.
+
 The view lives in the address: ?week=<monday>&day=0-6&group=staff|role&cov=0|1, plus shift=<id> or new=1 (with
 u, role, start) for the drawer.
 """
@@ -16,7 +20,7 @@ from django.utils.translation import gettext as _, ngettext
 
 from events.hours import Hours
 from team import schedule
-from team.models import ParSet, Shift
+from team.models import ParSet, Shift, TimeEntry
 from users.models import Role
 
 from .team import face, full_name, initials
@@ -81,6 +85,67 @@ def context_for(day, shifts, people, roles):
             "role_names": {r.id: r.name for r in roles}}
 
 
+LATE = 5       # minutes after the start before "Late"
+NO_SHOW = 15   # minutes after the start with no clock-in before "No-show"
+
+
+def day_entries(day):
+    """{user id: [TimeEntry]} clocked in on `day` (local)."""
+    start = timezone.make_aware(datetime.datetime.combine(day, datetime.time()))
+    out = {}
+    for e in (TimeEntry.objects.filter(clock_in__gte=start, clock_in__lt=start + datetime.timedelta(days=1))
+              .select_related("approved_by").prefetch_related("breaks").order_by("clock_in")):
+        out.setdefault(e.user_id, []).append(e)
+    return out
+
+
+def _minute(dt, day) -> int:
+    """Minutes since `day`'s midnight, kept to the day."""
+    local = timezone.localtime(dt)
+    return min(1440, max(0, (local.date() - day).days * 1440 + local.hour * 60 + local.minute))
+
+
+def _clock(dt) -> str:
+    return schedule.clock(timezone.localtime(dt).hour * 60 + timezone.localtime(dt).minute)
+
+
+def actual_bars(entries, day, now):
+    """The thin bars under a lane: [{left, width, live, gaps: [{left, width}], title}]."""
+    bars = []
+    for e in entries:
+        a, b = _minute(e.clock_in, day), _minute(e.clock_out or now, day)
+        if b <= a:
+            b = a + 1
+        gaps = []
+        for br in e.breaks.all():
+            x, y = _minute(br.start, day), _minute(br.end or now, day)
+            if y > x:
+                gaps.append({"left": f"{(x - a) / (b - a) * 100:.2f}%", "width": f"{(y - x) / (b - a) * 100:.2f}%"})
+        title = (_("Clocked in %(from)s – %(to)s") % {"from": _clock(e.clock_in), "to": _clock(e.clock_out) if e.clock_out else _("now")}
+                 + " · " + _("%(h)s worked") % {"h": hours_text(int(e.worked_seconds(now) // 60))}
+                 + (" · " + _("approved by %(name)s") % {"name": e.approved_by.first_name or e.approved_by.username} if e.approved_by else ""))
+        bars.append({"left": pct(a), "width": pct(b - a), "live": e.clock_out is None, "gaps": gaps, "title": title})
+    return bars
+
+
+def shift_actual(s, entries, day, now, today):
+    """What happened with a staffed, published shift: ("In 8:57" | "Late 12m" | "No-show" | "", tone, the entry)."""
+    if not s.user_id:
+        return "", "", None
+    mine = [e for e in entries if e.shift_id == s.id] or [e for e in entries if e.shift_id is None
+                                                           and _minute(e.clock_in, day) < s.end and _minute(e.clock_out or now, day) > s.start]
+    if mine:
+        e = mine[0]
+        late = _minute(e.clock_in, day) - s.start
+        if late > LATE:
+            return _("Late %(n)dm") % {"n": late}, "late", e
+        return _("In %(time)s") % {"time": _clock(e.clock_in)}, "in", e
+    started = day < today or (day == today and now.hour * 60 + now.minute > s.start + NO_SHOW)
+    if s.published and started:
+        return _("No-show"), "bad", None
+    return "", "", None
+
+
 def page(st, open_shift=None, new=None, draft=None) -> dict:
     """Everything the page shows. `draft`: the drawer's posted values (op=preview), shown without saving."""
     today = timezone.localdate()
@@ -117,6 +182,7 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
 
     # the day
     day_shifts = [s for s in live if s.date == day]
+    entries = day_entries(day) if day <= today else {}
     ctx = context_for(day, day_shifts, people, all_roles)
     open_ranges = Hours().ranges(day)
     lane_open = [(max(0, a), min(1440, b)) for a, b in open_ranges if b > 0 and a < 1440]
@@ -144,7 +210,11 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
                  + (", " + _("%(n)d min break") % {"n": s.break_minutes} if s.break_minutes else "")
                  + (f"\n{s.note}" if s.note else "") + ("\n⚠ " + " ".join(problems) if problems else "")
                  + ("" if s.published else "\n" + _("Not published yet")))
+        did, tone, _entry = shift_actual(s, entries.get(s.user_id, []), day, now, today)
+        if did:
+            title += "\n" + did
         return {"s": s, "color": color, "label": label, "time": f"{schedule.clock(s.start)}–{schedule.clock(s.end)}", "narrow": s.end - s.start < 150,
+                "did": did, "did_tone": tone, "tight": bool(did) and s.end - s.start < 270,  # the tag takes the time's line
                 "left": pct(s.start), "width": pct(s.end - s.start), "open": not s.user_id, "warn": bool(problems), "pub": s.published,
                 "brk": brk, "title": title, "href": url(st, shift=s.id)}
 
@@ -169,6 +239,7 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
                 "roles": person_roles(u), "hrs": "—" if off and off.all_day else hours_text(paid), "over": paid > 40 * 60,
                 "hrs_title": _("This week: %(h)s") % {"h": hours_text(paid)} + (", " + _("over 40 hours") if paid > 40 * 60 else ""),
                 "blocks": [block(s) for s in shifts], "unavail": unavail_blocks(u.id),
+                "actual": actual_bars(entries.get(u.id, []), day, now),
                 "new_role": (only_role.id if only_role else (person_roles(u)[0].id if person_roles(u) else ""))}
 
     def open_row(shifts, only_role=None):
@@ -217,9 +288,13 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
         cov.append({"r": r, "cells": cells, "short": short})
 
     staffed = [s for s in day_shifts if s.user_id]
+    worked = int(sum(e.worked_seconds(now) for es in entries.values() for e in es) // 60)
     conflicts = sum(bool(schedule.issues(s, ctx)) for s in day_shifts)
     open_n = len(day_shifts) - len(staffed)
-    foot = [(_("%(n)d shifts · %(h)s scheduled") % {"n": len(staffed), "h": hours_text(sum(s.paid_minutes for s in staffed))}, "ink"),
+    foot = [(_("%(n)d shifts · %(h)s scheduled") % {"n": len(staffed), "h": hours_text(sum(s.paid_minutes for s in staffed))}, "ink")]
+    if entries:
+        foot.append((_("%(h)s worked") % {"h": hours_text(worked)}, "ink"))
+    foot += [
             (_("%(n)d open") % {"n": open_n}, "warn" if open_n else ""),
             (ngettext("%(n)d conflict", "%(n)d conflicts", conflicts) % {"n": conflicts}, "bad" if conflicts else ""),
             ((ngettext("%(n)d role-hour short", "%(n)d role-hours short", short_total) % {"n": short_total}) if short_total else _("Fully covered"),
@@ -233,6 +308,8 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
     drawer = None
     if open_shift is not None or new is not None:
         drawer = drawer_context(st, day, open_shift, new, draft, people, roles, ctx, week_paid)
+        if open_shift is not None:
+            drawer["punches"] = punches(open_shift, entries.get(open_shift.user_id, []), day, now, today)
 
     prev_week, next_week = st["week"] - datetime.timedelta(days=7), st["week"] + datetime.timedelta(days=7)
     return {"st": st, "days": days, "day_title": date_format(day, "l, M j"), "hours": hours, "band": band, "shade": shade,
@@ -241,6 +318,26 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
             "prev": url({**st, "week": prev_week}), "next": url({**st, "week": next_week}),
             "groups": [("staff", _("By staff"), url({**st, "group": "staff"})), ("role", _("By role"), url({**st, "group": "role"}))],
             "cov_href": url({**st, "cov": not st["cov"]}), "close": url(st), "back": url(st), "date": day.isoformat()}
+
+
+def punches(shift, entries, day, now, today) -> dict | None:
+    """The drawer's time clock section for a saved shift: {"rows": [(what, when)], "sum", "tone"} or None."""
+    did, tone, entry = shift_actual(shift, entries, day, now, today)
+    if not did:
+        return None
+    rows = []
+    if entry:
+        rows.append((_("Clocked in"), _clock(entry.clock_in)))
+        for br in entry.breaks.all():
+            rows.append((_("Unpaid break"), f"{_clock(br.start)} – {_clock(br.end) if br.end else _('now')}"))
+        rows.append((_("Clocked out"), _clock(entry.clock_out)) if entry.clock_out else (_("Still on the clock"), ""))
+        if entry.approved_by:
+            rows.append((_("Approved by"), entry.approved_by.first_name or entry.approved_by.username))
+        if entry.added_shift:
+            rows.append((_("Added at the time clock"), ""))
+    summary = (_("%(h)s worked of %(p)s planned") % {"h": hours_text(int(entry.worked_seconds(now) // 60)), "p": hours_text(shift.paid_minutes)}
+               if entry else _("Nobody clocked in for this shift."))
+    return {"did": did, "tone": tone, "rows": rows, "sum": summary}
 
 
 def drawer_context(st, day, shift, new, draft, people, roles, ctx, week_paid):

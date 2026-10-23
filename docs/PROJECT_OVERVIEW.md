@@ -675,7 +675,10 @@ recorded as approving their own. Off the schedule, a published Shift is added (t
   role, from when they clock in, ending when they clock out; `TimeEntry.added_shift`). Early, the entry is tied to
   the upcoming shift. Clocking out adds the minutes to `Staff.minutes_worked`. Punches publish "clock" (registered
   devices may listen) so every clock's board updates. Clocking in refills "every shift" staff cards, and a card type
-  can work "only while clocked in". The admin doesn't show actual hours yet.
+  can work "only while clocked in". The admin's Shifts page shows what happened next to the plan: a thin bar
+  under each person's lane for their punches (breaks as gaps), "In 8:57" / "Late 12m" / "No-show" on the shift
+  (no-show from 15 minutes after a published shift starts), the punches in the shift's drawer, and hours worked in
+  the footer.
 - **Staff cards** (`admin_staff_cards`, `staffcards.py`, 2026-10-22): card types (`gift_cards.StaffCardType`) with the
   cards issued (`StaffCard`). A type is a *balance* card (an amount that refills every day, week or month at midnight,
   resetting or carrying over up to a limit, or never) or a *discount* card (percent with a per-order cap, or an
