@@ -97,6 +97,10 @@ def _me(user, now):
     entry = clock.open_entry(user)
     shifts = clock.shifts_today(user, now)
     plan = clock.check_in(user, now) if st == "out" else None
+    if plan and not plan["ok"] and can(user, "act.clock"):  # they can approve it themselves
+        plan = {**plan, "self": True, "reason": plan["reason"].split(". ")[0] + ". " + (
+            _("You can approve clock-ins, so you can go ahead; a shift is added for you.") if plan["shift"] is None
+            else _("You can approve clock-ins, so you can go ahead."))}
     if st == "in":
         status = _("Clocked in since %(time)s · %(span)s") % {"time": _when(entry.clock_in), "span": _span(entry.worked_seconds(now))}
     elif st == "break":
@@ -169,6 +173,11 @@ def time_clock(request):
             try:
                 if op == "in":
                     plan = clock.check_in(user, now)
+                    if not plan["ok"] and can(user, "act.clock"):  # approving clock-ins covers their own
+                        entry = clock.clock_in(user, now, approver=user)
+                        _done(request, v, _("You’re clocked in, %(name)s") % {"name": first},
+                              _("At %(time)s. Have a good shift.") % {"time": _when(now)} + (" " + _("A shift was added for you.") if entry.added_shift else ""))
+                        return redirect("time_clock")
                     if not plan["ok"]:
                         v["view"] = "approve"
                         request.session[KEY] = v

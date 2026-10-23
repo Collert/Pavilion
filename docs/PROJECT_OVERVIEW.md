@@ -670,7 +670,8 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   sign-in); then their clock (today's shifts, status, Clock in / Start unpaid break / End break / Clock out, today's
   punches and time worked), and a done screen that goes back by itself. Rules (`clock.check_in`): from an hour before a
   published shift until it ends is fine; earlier, or with no shift, a manager approves with their PIN (someone with
-  "Approve clock-ins", `act.clock`; Managers have it). Off the schedule, a published Shift is added (their first
+  "Approve clock-ins", `act.clock`; Managers have it). People who have it themselves (owners too) clock straight in,
+recorded as approving their own. Off the schedule, a published Shift is added (their first
   role, from when they clock in, ending when they clock out; `TimeEntry.added_shift`). Early, the entry is tied to
   the upcoming shift. Clocking out adds the minutes to `Staff.minutes_worked`. Punches publish "clock" (registered
   devices may listen) so every clock's board updates. Clocking in refills "every shift" staff cards, and a card type

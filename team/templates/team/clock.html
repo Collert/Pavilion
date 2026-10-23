@@ -100,7 +100,7 @@ forms (live-page.js swaps the two regions); the PIN pads are clock.js.
         {% if error %}<div class="error-line tc-err" role="alert">{{ error }}</div>{% endif %}
         <form method="post" class="tc-actions">{% csrf_token %}
             {% if me.state == "out" %}
-            <button class="btn btn-primary tc-big" name="op" value="in">{% if me.plan.ok %}{% trans "Clock in" %}{% else %}{% trans "Clock in · ask a manager" %}{% endif %}</button>
+            <button class="btn btn-primary tc-big" name="op" value="in">{% if me.plan.ok or me.plan.self %}{% trans "Clock in" %}{% else %}{% trans "Clock in · ask a manager" %}{% endif %}</button>
             {% elif me.state == "in" %}
             <button class="btn tc-big" name="op" value="break">{% trans "Start unpaid break" %}</button>
             <button class="btn btn-dark tc-big" name="op" value="out">{% trans "Clock out" %}</button>

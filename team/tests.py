@@ -216,6 +216,21 @@ class TimeClockScreenTests(TestCase):
         self.client.post(self.url, {"op": "done"})
         self.assertEqual(self.client.get(self.url).context["board"]["on"][0]["name"], "Marco")
 
+    def test_people_who_approve_clock_ins_approve_their_own(self):
+        from .models import TimeEntry
+        owner = User.objects.create_superuser("alex", password="x", first_name="Alex")
+        profile = Staff.objects.create(user=owner)
+        profile.set_pin("0000")
+        profile.save()
+        self.client.post(self.url, {"op": "pin", "staff": profile.id, "pin": "0000"})
+        page = self.client.get(self.url)
+        self.assertTrue(page.context["me"]["plan"]["self"])
+        self.assertContains(page, "You can approve clock-ins, so you can go ahead")
+        self.client.post(self.url, {"op": "in"})
+        self.assertEqual(self.client.get(self.url).context["view"], "done")
+        entry = TimeEntry.objects.get(user=owner)
+        self.assertEqual((entry.approved_by, entry.added_shift), (owner, True))
+
     def test_email_and_password_then_break_and_out(self):
         Shift.objects.create(user=self.marco, date=timezone.localdate(), start=0, end=1440, published=True)
         self.client.post(self.url, {"op": "tab:email"})

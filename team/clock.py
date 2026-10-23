@@ -3,7 +3,7 @@ The time clock (team/clock_views.py, the screen at /team/clock): staff clock in,
 Each stretch of work is a TimeEntry (with TimeBreaks); the Shift it's for is the plan.
 
 Clocking in is fine from EARLY minutes before a published shift until it ends. Earlier than that, or with no shift
-today, a manager has to approve (someone whose groups give "Approve clock-ins", `act.clock`, types their PIN), and
+today, a manager has to approve (people who can approve clock-ins approve their own; the time clock screen does that) (someone whose groups give "Approve clock-ins", `act.clock`, types their PIN), and
 with no shift a Shift is added for them (`TimeEntry.added_shift`; it starts when they clock in and ends when they
 clock out). Clocking out adds the time worked to their Staff profile.
 """
