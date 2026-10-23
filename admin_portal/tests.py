@@ -2209,7 +2209,7 @@ class StaffPageTests(AdminFixture, TestCase):
         self.staff.refresh_from_db()
         p = self.staff.staff_profile
         self.assertEqual(([g.name for g in self.staff.groups.all()], [r.name for r in p.roles.all()], p.emergency_name, p.phone),
-                         (["Front of house"], ["Cook"], "Giulia", "604 555 0119"))
+                         (["Front of house", "Kitchen"], ["Cook"], "Giulia", "604 555 0119"))  # Kitchen: Cook's starting group
         self.assertFalse(self.staff.is_superuser)
 
     def test_owners_are_superusers_and_one_always_stays(self):
@@ -2367,3 +2367,62 @@ class AvailabilityRequestsPageTests(AdminFixture, TestCase):
         self.assertTrue(q["d"]["dec_text"].startswith("Declined by Priya"))
         self.client.post(url, {"op": "reopen", "key": f"t{off.id}"})
         self.assertEqual(TimeOff.objects.get(pk=off.pk).status, "pending")
+
+
+
+class RolesPageTests(AdminFixture, TestCase):
+    """Roles (admin_portal/roles.py): a draft until Save; people, starting groups, archiving."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        from django.contrib.auth.models import Group
+        from users.models import Staff
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_roles")
+        self.kitchen = Group.objects.get_or_create(name="Kitchen")[0]
+        self.staff.first_name = "Marco"
+        self.staff.save()
+        Staff.objects.get_or_create(user=self.staff)
+
+    def post(self, x, op="preview", **fields):
+        d = x["d"]
+        data = {"editing": d["key"], "name": d["e"]["name"], "desc": d["e"]["desc"], "groups": [str(g) for g in d["e"]["groups"]], "op": op}
+        data.update(fields)
+        return self.client.post(self.url, data).context["x"]
+
+    def test_new_role_people_starting_groups_and_archive(self):
+        from users.models import Role
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, "new")
+        self.assertEqual((x["d"]["e"]["name"], x["status"]), ("New role", "Unsaved changes"))
+        x = self.post(x, name="Cook")
+        self.assertEqual(x["d"]["err"], "Another role already has this name.")  # the usual Cook role exists
+        x = self.post(x, name="Line cook", desc="Grill and fryer", groups=[str(self.kitchen.id)], add_person=str(self.staff.id))
+        x = self.post(x, "icon:pan")
+        x = self.post(x, "color:#C2453B")
+        self.assertEqual([p["name"] for p in x["d"]["people"]], ["Marco"])
+        self.assertRedirects(self.client.post(self.url, {"op": "save", "editing": x["d"]["key"], "name": "Line cook", "desc": "Grill and fryer",
+                                                         "groups": [str(self.kitchen.id)]}), self.url, fetch_redirect_response=False)
+        role = Role.objects.get(name="Line cook")
+        self.assertEqual((role.icon, role.color, list(role.groups.all())), ("pan", "#C2453B", [self.kitchen]))
+        self.assertEqual(list(self.staff.staff_profile.roles.all()), [role])
+        self.assertTrue(self.staff.groups.filter(pk=self.kitchen.pk).exists())  # its starting group came with it
+        x = self.client.get(self.url).context["x"]
+        x = self.post(x, f"pick:{role.id}")
+        x = self.post(x, "archive")
+        self.client.post(self.url, {"op": "save"})
+        role.refresh_from_db()
+        self.assertTrue(role.archived)
+        self.assertFalse(self.staff.staff_profile.roles.exists())
+        self.assertTrue(self.staff.groups.filter(pk=self.kitchen.pk).exists())  # groups stay
+
+    def test_staff_page_ticks_a_new_roles_starting_groups(self):
+        from users.models import Role
+        cook = Role.objects.get_or_create(name="Cook")[0]
+        cook.groups.set([self.kitchen])
+        self.client.post(reverse("admin_staff"), {"op": f"pick:{self.staff.id}"})
+        s = self.client.post(reverse("admin_staff"), {"op": "preview", "sel": str(self.staff.id), "profile": "1", "first": "Marco",
+                                                     "email": "marco@example.com", "roles": [str(cook.id)], "active": "1"}).context["s"]
+        self.assertEqual(s["p"]["r"]["groups"], [self.kitchen.id])

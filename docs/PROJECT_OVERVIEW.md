@@ -77,7 +77,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
-| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `shifts[/pars]`, `requests`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
+| `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `shifts[/pars]`, `requests`, `roles`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
@@ -636,6 +636,10 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   with, things to weigh (others off then, a seasonal par, short notice, a role nobody else covers), and Approve
   (moving the clashing shifts to open shifts, or leaving them as conflicts) or Decline, with a message they're
   emailed. Decided ones can be reopened unless they're in the past. Staff have no page to ask from yet.
+- **Roles** (`admin_roles`, `roles.py`): the jobs people do (`users.Role`) with who has each, and the picked one's
+  name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
+  starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes
+  off every profile; groups stay; archived roles stay on old shifts). One form with Save (session draft).
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
   artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
   the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add

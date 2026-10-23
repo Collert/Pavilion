@@ -22,13 +22,17 @@ class PinHasher(PBKDF2PasswordHasher):
 PIN_HASHER = PinHasher()
 
 class Role(models.Model):
-    """A job people do here (Cook, Cashier...): shown on their profile, filtered on in the admin's Staff page.
-    Roles don't grant anything; groups do."""
+    """A job people do here (Cook, Cashier...): shown on their profile, what a shift is for, filtered on in the
+    admin's Staff page. Roles don't grant anything themselves; their starting groups are ticked for whoever gets
+    them (admin's Roles and Staff pages), and groups grant."""
     name = models.CharField(max_length=40, unique=True)
     description = models.CharField(max_length=160, blank=True)
     color = models.CharField(max_length=7, default="#12875A")
     icon = models.CharField(max_length=20, default="knife", help_text="A key of admin_portal/team.py: ROLE_ICONS")
     position = models.PositiveIntegerField(default=0)
+    groups = models.ManyToManyField("auth.Group", blank=True, related_name="starting_roles",
+                                    help_text="Starting groups: ticked when someone gets this role")
+    archived = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["position", "name"]

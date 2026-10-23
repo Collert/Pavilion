@@ -85,10 +85,14 @@ def take_post(st, post, users, me):
         for f in FIELDS:
             if f in post:
                 row[f] = post.get(f, "").strip()[:80]
-        valid_roles = set(Role.objects.values_list("id", flat=True))
+        valid_roles = set(Role.objects.filter(archived=False).values_list("id", flat=True))
         valid_groups = set(Group.objects.values_list("id", flat=True))
+        before_roles = set(row["roles"])
         row["roles"] = sorted(i for i in (_int(x) for x in post.getlist("roles")) if i in valid_roles)
         groups = sorted(i for i in (_int(x) for x in post.getlist("groups")) if i in valid_groups)
+        gained = set(row["roles"]) - before_roles
+        if gained:  # a new role ticks its starting groups
+            groups = sorted(set(groups) | set(Role.groups.through.objects.filter(role_id__in=gained).values_list("group_id", flat=True)))
         owners = owners_group()
         current = rows(st, users)
         if owners and owners.id in row["groups"] and owners.id not in groups and sole_owner(current, sel, owners):
@@ -272,7 +276,7 @@ def page(st, users, me) -> dict:
         status, kind = _("Unsaved changes"), "dirty"
     else:
         status, kind = _("All changes saved"), ""
-    roles = list(Role.objects.all())
+    roles = list(Role.objects.filter(archived=False))
     role_by_id = {r.id: r for r in roles}
     groups = list(Group.objects.select_related("info").order_by("info__position", "id"))
     owners = owners_group()

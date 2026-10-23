@@ -87,8 +87,9 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
     now = timezone.localtime()
     week = [st["week"] + datetime.timedelta(days=i) for i in range(7)]
     day = week[st["day"]]
-    roles = list(Role.objects.all())
-    role_by_id = {r.id: r for r in roles}
+    all_roles = list(Role.objects.all())
+    role_by_id = {r.id: r for r in all_roles}  # archived ones too, for the shifts that still have them
+    roles = [r for r in all_roles if not r.archived]
     people = team_members()
     by_uid = {u.id: u for u in people}
     week_shifts = list(Shift.objects.filter(date__in=week).select_related("user", "role"))
@@ -103,7 +104,7 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
     days = []
     for i, d in enumerate(week):
         ds = [s for s in live if s.date == d]
-        ctx = context_for(d, ds, people, roles)
+        ctx = context_for(d, ds, people, all_roles)
         conflicts = sum(bool(schedule.issues(s, ctx)) for s in ds)
         open_n = sum(not s.user_id for s in ds)
         unpub = any(not s.published for s in week_shifts if s.date == d)
@@ -116,7 +117,7 @@ def page(st, open_shift=None, new=None, draft=None) -> dict:
 
     # the day
     day_shifts = [s for s in live if s.date == day]
-    ctx = context_for(day, day_shifts, people, roles)
+    ctx = context_for(day, day_shifts, people, all_roles)
     open_ranges = Hours().ranges(day)
     lane_open = [(max(0, a), min(1440, b)) for a, b in open_ranges if b > 0 and a < 1440]
     band = None

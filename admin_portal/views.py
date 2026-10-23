@@ -43,6 +43,7 @@ from . import staff as staff_data
 from . import shifts as shifts_data
 from . import pars as pars_data
 from . import requests as requests_data
+from . import roles as roles_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1341,6 +1342,31 @@ def availability_requests(request):
             st["tab"] = "pending"
         return redirect(reverse("admin_requests") + requests_data.url(st, sel=req and requests_data.key_of(req)))
     return page(request, "admin_portal/requests.html", "requests", {"q": requests_data.page(requests_data.state(request.GET), request.user)})
+
+
+@superuser_required
+def roles(request):
+    """Roles: the jobs people do (admin_portal/roles.py), one form with Save."""
+    st = roles_data.state(request.session)
+    if request.method == "POST":
+        roles_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        toast = st.pop("msg", "")
+        if op == "save":
+            errs = roles_data.problems(st)
+            if errs:
+                messages.error(request, next(iter(errs.values())))
+            else:
+                roles_data.save(st)
+                request.session.pop(roles_data.KEY, None)
+                messages.success(request, _("Roles saved. Staff profiles show the changes."))
+                return redirect("admin_roles")
+        elif op != "preview":
+            toast = roles_data.apply_op(st, op) or toast
+        if toast:
+            messages.success(request, toast)
+        request.session[roles_data.KEY] = st
+    return page(request, "admin_portal/roles.html", "roles", {"x": roles_data.page(st)})
 
 
 # ---------- branding ----------

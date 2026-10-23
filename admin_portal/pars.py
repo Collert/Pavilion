@@ -183,7 +183,7 @@ def hours_text(minutes):
 
 def page(st) -> dict:
     today = timezone.localdate().isoformat()
-    roles = list(Role.objects.all())
+    roles = list(Role.objects.filter(archived=False))
     sets = st["sets"]
     weekly = sets[0]
     e = selected(st)

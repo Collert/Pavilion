@@ -42,7 +42,7 @@ MENU = [
         ("staff", _("Staff"), "admin_staff"),
         ("shifts", _("Shifts"), "admin_shifts"),
         ("requests", _("Availability requests"), "admin_requests"),
-        ("roles", _("Roles"), None),
+        ("roles", _("Roles"), "admin_roles"),
         ("groups", _("Groups"), None),
         ("staffcards", _("Staff cards"), None),
     ]),

@@ -121,3 +121,42 @@
     .tm-fields { grid-template-columns: 1fr; }
     .tm-err { padding-left: 0; }
 }
+
+/* Roles (design: AdminRoles) */
+.rl-intro { padding: 16px 20px 6px; flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.rl-row { padding: 9px 10px; }
+.rl-tile { width: 44px; height: 44px; flex: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; }
+.rl-faces { display: flex; flex: none; }
+.rl-faces span { width: 26px; height: 26px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #FFFFFF; box-shadow: 0 0 0 2px #FFFFFF; }
+.rl-faces span + span { margin-left: -6px; }
+.rl-faces .more { background: #ECEFED; color: var(--ink-2); }
+.rl-faces .nobody { width: auto; box-shadow: none; font-size: 11px; font-weight: 700; color: #9AA8A1; }
+.rl-card { padding: 20px 22px; }
+.rl-ident { display: flex; align-items: flex-start; gap: 18px; }
+.rl-big { width: 96px; height: 96px; flex: none; border-radius: 28px; display: flex; align-items: center; justify-content: center; color: #FFFFFF;
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--c) 35%, transparent); }
+.rl-names { display: flex; flex-direction: column; gap: 12px; }
+.rl-lbl { display: flex; justify-content: space-between; }
+.tm-main .field.rl-desc { height: auto; padding: 10px 12px; resize: none; font-weight: 600; line-height: 1.45; }
+.rl-looks { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; margin-top: 18px; }
+.rl-icons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.rl-icons button { height: 44px; border: none; border-radius: 13px; display: flex; align-items: center; justify-content: center; background: var(--soft); color: var(--ink-2); }
+.rl-colors { display: grid; grid-template-columns: repeat(5, 36px); gap: 8px; }
+.rl-colors button { width: 36px; height: 36px; border-radius: 18px; border: none; padding: 0; background: var(--c); }
+.rl-colors button[aria-checked="true"] { box-shadow: 0 0 0 3px #FFFFFF, 0 0 0 5px var(--c); }
+.top14 { margin-top: 14px; }
+.tm-role.rl-chip { cursor: default; background: color-mix(in srgb, var(--c) 12%, #FFFFFF); color: var(--ink); box-shadow: inset 0 0 0 2px var(--c); }
+.rl-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.rl-side { display: flex; flex-direction: column; gap: 14px; }
+.rl-people { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.rl-person { display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 8px; border-radius: 14px; background: var(--softer); }
+.rl-person.off { opacity: .65; }
+.rl-person .strong { font-size: 14px; }
+.rl-x { width: 30px; height: 30px; border-radius: 9px; border: none; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.rl-x:hover { background: #ECEFED; color: var(--ink); }
+.rl-nobody { padding: 14px; border-radius: 14px; border: 2px dashed var(--border); font-size: 13px; font-weight: 600; color: var(--muted); }
+.tm-main .field.rl-add { margin-top: 10px; }
+.rl-note { margin-top: 2px; line-height: 1.4; }
+.rl-archive { margin-top: 12px; width: 100%; height: 40px; border-radius: 20px; border: none; font-size: 13px; font-weight: 800; background: var(--red-soft); color: var(--red-ink); }
+.rl-archive:disabled { background: var(--soft); color: #9AA8A1; }
+@media (max-width: 1180px) { .rl-grid, .rl-looks { grid-template-columns: 1fr; } }
