@@ -382,3 +382,12 @@ class ServicesPageTests(TestCase):
         quote = self.client.get(reverse("store_catering")).context
         self.assertEqual(quote["q"]["services"], {str(room.id): {"q": 1, "h": 2}})
         self.assertIn(room, [x["s"] for g in quote["svc_groups"] for x in g["items"]])
+
+
+
+class SignUpVerificationTests(TestCase):
+    def test_joining_sends_a_confirmation_link(self):
+        from unittest import mock
+        with mock.patch("users.accounts.send", return_value=True) as sent:
+            self.client.post(reverse("store_join"), {"first": "Ada", "last": "Ng", "email": "ada@example.com", "password": "long-enough-1"})
+        self.assertEqual((sent.call_args.args[0], sent.call_args.args[1]), ("verify_email", "ada@example.com"))

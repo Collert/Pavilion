@@ -348,3 +348,69 @@
     .sc-name-row, .sc-issue { flex-wrap: wrap; }
 }
 .sc-kind .block, .sc-opt .block { display: block; }
+
+/* Customers (design: AdminCustomers) */
+.cu-search-row { display: flex; gap: 8px; }
+.tm-main .field.cu-sort { width: 140px; flex: none; }
+.cu-count { display: flex; flex-direction: column; align-items: flex-end; flex: none; text-align: right; }
+.cu-count .strong { font-size: 13px; }
+.cu-photo { width: 96px; }
+.cu-wide { grid-column: span 2; }
+.tm-main .field.cu-notes { height: auto; padding: 10px 12px; resize: none; font-weight: 600; line-height: 1.45; }
+.cu-email-note { display: flex; gap: 10px; align-items: flex-start; }
+.cu-email-note svg { flex: none; margin-top: 1px; }
+.cu-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; flex: none; }
+.cu-stats .card { padding: 14px 16px; border-radius: 20px; }
+.cu-stat { font-size: 24px; line-height: 30px; margin-top: 2px; }
+.cu-head-row { display: flex; align-items: flex-end; gap: 12px; }
+.cu-link { font-size: 13px; font-weight: 800; color: var(--brand); white-space: nowrap; }
+.cu-orders { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.cu-order { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 10px; border-radius: 12px; color: var(--ink); text-decoration: none; }
+.cu-order:hover { background: var(--softer); }
+.cu-no { width: 58px; flex: none; font-size: 13px; }
+.cu-date { width: 96px; flex: none; }
+.cu-ch { width: 72px; flex: none; font-size: 11px; font-weight: 800; }
+.cu-items { min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.cu-state { height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; flex: none; background: #ECEFED; color: var(--muted); }
+.cu-state.bad { background: var(--red-soft); color: var(--red-ink); }
+.cu-state.warn { background: #FFF3DD; color: #8A4B00; }
+.cu-total { width: 70px; flex: none; text-align: right; font-size: 13px; }
+.cu-ico { width: 34px; height: 34px; border-radius: 17px; border: none; background: var(--soft); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.cu-ico.small { width: 28px; height: 28px; background: transparent; color: var(--muted); }
+.cu-ico:hover { background: #E3E9E5; }
+.cu-cards, .cu-addrs { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.cu-card { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border-radius: 14px; background: var(--softer); }
+.cu-brand { width: 46px; height: 30px; flex: none; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; letter-spacing: .04em; color: #FFFFFF; }
+.cu-card-top { display: flex; align-items: center; gap: 6px; }
+.cu-card-top .strong { font-size: 14px; }
+.cu-def { height: 18px; padding: 0 6px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; background: var(--mint); color: var(--brand); }
+.cu-exp { display: block; margin-top: 2px; color: var(--muted); }
+.cu-exp.bad { color: var(--red); }
+.cu-exp.warn { color: #8A4B00; }
+.cu-keep, .cu-rm { height: 30px; padding: 0 10px; border-radius: 15px; border: none; font-size: 12px; font-weight: 800; flex: none; }
+.cu-keep { background: #FFFFFF; color: var(--ink); }
+.cu-rm { background: transparent; color: var(--red-ink); }
+.cu-rm.sure { background: var(--red); color: #FFFFFF; }
+.cu-fine { margin-top: 10px; line-height: 1.45; }
+.cu-addr { padding: 10px 10px 10px 12px; border-radius: 14px; background: var(--softer); }
+.cu-addr-top { display: flex; align-items: center; gap: 8px; }
+.tm-main .field.cu-addr-label { height: 32px; width: 110px; background: #FFFFFF; font-size: 13px; }
+.cu-def-btn { height: 26px; padding: 0 10px; border-radius: 13px; border: none; font-size: 11px; font-weight: 800; background: #FFFFFF; color: var(--muted); }
+.cu-def-btn.on { background: var(--mint); color: var(--brand); }
+.tm-main .field.cu-addr-in { height: 38px; margin-top: 6px; background: #FFFFFF; font-size: 13px; }
+.tm-main .field.cu-addr-in.light { font-weight: 600; }
+.cu-add { height: 38px; border-radius: 19px; border: 2px dashed #C9D3CD; background: transparent; color: var(--brand); font-size: 13px; font-weight: 800; }
+.cu-switches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.cu-switches .sc-switch { margin-top: 0; }
+.cu-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.cu-facts > div { padding: 10px 12px; border-radius: 14px; background: var(--softer); }
+.cu-warn { color: #8A4B00; }
+.cu-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.cu-soft { height: 38px; padding: 0 14px; border-radius: 19px; border: none; background: var(--soft); color: var(--ink); font-size: 13px; font-weight: 800; }
+.cu-soft:hover { background: #E3E9E5; }
+@media (max-width: 1180px) { .cu-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 860px) {
+    .cu-switches, .cu-facts { grid-template-columns: 1fr; }
+    .cu-wide { grid-column: auto; }
+    .cu-date, .cu-ch { display: none; }
+}

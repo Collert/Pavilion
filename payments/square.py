@@ -252,6 +252,15 @@ def disable_card(card_id):
         raise SquareError(result.errors)
 
 
+def list_cards(customer_id):
+    """A customer's cards on file that can still be charged: [{id, brand, last4, exp_month, exp_year}]."""
+    result = square_client.cards.list_cards(customer_id=customer_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return [{"id": c["id"], "brand": c.get("card_brand", ""), "last4": c.get("last_4", ""), "exp_month": c.get("exp_month"),
+             "exp_year": c.get("exp_year")} for c in result.body.get("cards", []) if c.get("enabled", True)]
+
+
 def complete_payment(payment_id):
     result = square_client.payments.complete_payment(payment_id, body={})
     if not result.is_success():

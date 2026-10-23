@@ -32,6 +32,7 @@ urlpatterns = [
     path("roles", views.roles, name="admin_roles"),
     path("groups", views.groups, name="admin_groups"),
     path("staff-cards", views.staff_cards, name="admin_staff_cards"),
+    path("customers", views.customers, name="admin_customers"),
     path("staff-cards/<int:card_id>/print", views.staff_card_print, name="admin_staff_card_print"),
     path("library/upload", views.library_upload, name="admin_library_upload"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),

@@ -663,6 +663,15 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
   starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes
   off every profile; groups stay; archived roles stay on old shifts). One form with Save (session draft).
+- **Customers** (`admin_customers`, `customers.py`, 2026-10-23): store accounts (users who aren't staff). The list
+  (search name, email or phone; sort by last order, name, most orders, top spend, newest; filters Ordered this month,
+  No orders, Gets emails, Signed out) and the picked customer: name, email, phone, staff notes, their stats (orders,
+  lifetime spend after refunds, average, last order) and five recent orders (with what they usually get), cards from
+  Square (refresh with `square.list_cards`, remove with a second press: `square.disable_card`), delivery addresses
+  (label, street, note, default), can sign in and marketing emails, and account facts. One form with Save (session
+  draft); a changed email isn't switched on Save: `users/accounts.py` sends the new address a confirmation link and
+  the old one a heads-up. Password reset and verification emails, card changes and Make staff act straight away.
+  Store sign-up now sends a confirmation link; the Orders search matches an order's or customer's email.
 - **Time clock** (`/team/clock`, `team/clock.py`, `team/clock_views.py`, 2026-10-22; no mockup, designed after the
   register's lock screen). The dark side shows the time, who's on the clock (on break dimmed) and who's due in the next
   three hours (late in red). The panel: who's clocking in (staff with a register PIN, those on the clock and on today's

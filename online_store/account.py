@@ -6,6 +6,7 @@ come from the store settings. Password sign-in only for now (email codes and App
 """
 import datetime
 
+import logging
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -27,6 +28,8 @@ from users.models import Customer, SavedAddress, SavedCard
 
 from . import cart as store_cart, storefront
 from .views import theme_page
+
+logger = logging.getLogger(__name__)
 
 
 def _next(request):
@@ -89,6 +92,11 @@ def join(request):
                 profile.newsletter = form["news"]
                 profile.save()
                 login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+                from users.accounts import send_verification
+                try:
+                    send_verification(request, user)
+                except Exception:  # the account works either way; the admin's Customers page can resend it
+                    logger.warning("Couldn't send the verification email to %s", user.email, exc_info=True)
                 messages.success(request, _("Welcome! Your account is ready."))
                 return redirect(nxt or "account")
     return theme_page(request, "login.html", {"mode": "join", "form": form, "next": nxt, "problem": problem})

@@ -48,7 +48,7 @@ MENU = [
         ("staffcards", _("Staff cards"), "admin_staff_cards"),
     ]),
     ("customers", _("Customers"), "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", [
-        ("customers", _("Customers"), None),
+        ("customers", _("Customers"), "admin_customers"),
         ("coupons", _("Coupons"), None),
         ("discounts", _("Discounts"), None),
         ("giftcards", _("Gift cards"), None),

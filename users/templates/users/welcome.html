@@ -1,8 +1,8 @@
 {% extends "pos_server/staff_layout.html" %}
 {% load static i18n %}
 {% comment %}
-A new staff member sets their password from the invite link (users.views.welcome; sent by the admin's Staff page).
-Drawn like the sign-in page.
+Setting a password from a link (users.views.welcome): a new staff member's invite (the admin's Staff page) or a
+password reset (`reset`: the admin's Customers page). Drawn like the sign-in page.
 {% endcomment %}
 {% block title %}{% trans "Set your password" %} · Pavilion{% endblock %}
 {% block head %}
@@ -22,7 +22,7 @@ Drawn like the sign-in page.
         <div class="brand-name">Pavilion</div>
     </div>
     <div class="lock-center">
-        <h2 class="tagline">{% trans "Welcome to" %}<br><span>{{ store }}</span></h2>
+        <h2 class="tagline">{% if reset %}{% trans "A new password for" %}{% else %}{% trans "Welcome to" %}{% endif %}<br><span>{{ store }}</span></h2>
     </div>
 </section>
 
@@ -32,7 +32,7 @@ Drawn like the sign-in page.
         {% csrf_token %}
         <div class="overline">{% trans "Your account" %}</div>
         <h1 class="h1 lock-title">{% blocktrans with name=person.first_name %}Hi {{ name }}{% endblocktrans %}</h1>
-        <div class="sign-in-sub">{% blocktrans with email=person.email %}Set a password for {{ email }}. You’ll sign in with it.{% endblocktrans %}</div>
+        <div class="sign-in-sub">{% if reset %}{% blocktrans with email=person.email %}Choose a new password for {{ email }}.{% endblocktrans %}{% else %}{% blocktrans with email=person.email %}Set a password for {{ email }}. You’ll sign in with it.{% endblocktrans %}{% endif %}</div>
         <div class="fields">
             <div>
                 <label for="wl-pass" class="field-label">{% trans "New password" %}</label>
@@ -54,7 +54,7 @@ Drawn like the sign-in page.
     <div class="lock-view rise sign-in">
         <div class="overline">{% trans "Your account" %}</div>
         <h1 class="h1 lock-title">{% trans "This link has run out" %}</h1>
-        <div class="sign-in-sub">{% trans "Invite links work once, for a few days. Ask a manager to send you a new one." %}</div>
+        <div class="sign-in-sub">{% trans "These links work once, for a few days. Ask the store to send you a new one." %}</div>
         <a class="btn btn-primary submit" href="{% url 'login_view' %}"><span>{% trans "Go to sign in" %}</span></a>
     </div>
     {% endif %}

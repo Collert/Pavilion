@@ -95,6 +95,27 @@ KINDS = {
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.what }} was <strong>{{ .Tx.Data.decision }}</strong>.</p>'
               '{{ if .Tx.Data.message }}<p>“{{ .Tx.Data.message }}”</p>{{ end }}'),
     ),
+    "verify_email": (
+        "Confirm your email for {{ .Tx.Data.store }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Confirm this is your email so {{ .Tx.Data.store }} can send your receipts '
+              'and order updates.</p><p><a href="{{ .Tx.Data.link }}">Confirm my email</a></p>'),
+    ),
+    "email_change_confirm": (
+        "Confirm your new email for {{ .Tx.Data.store }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your {{ .Tx.Data.store }} account is moving to this email. '
+              'Confirm it, then sign in with it.</p><p><a href="{{ .Tx.Data.link }}">Confirm my new email</a></p>'),
+    ),
+    "email_change_notice": (
+        "Your {{ .Tx.Data.store }} email is changing",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your {{ .Tx.Data.store }} account is moving to {{ .Tx.Data.new }}. '
+              'Once that address confirms, you’ll sign in with it. If you didn’t ask for this, call the store.</p>'),
+    ),
+    "password_reset": (
+        "Set a new password for {{ .Tx.Data.store }}",
+        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Here’s a link to set a new password for your {{ .Tx.Data.store }} account.</p>'
+              '<p><a href="{{ .Tx.Data.link }}">Set a new password</a></p>'
+              '<p style="color:#5B6A62">If you didn’t ask for this, you can ignore it.</p>'),
+    ),
     "staff_invite": (
         "You're on the team at {{ .Tx.Data.store }}",
         _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.store }} added you to its staff in Pavilion. '

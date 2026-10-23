@@ -102,7 +102,8 @@ def order_list(date="today", status="all", query="", page=1):
         orders = orders.filter(timestamp__gte=day_start(today - datetime.timedelta(days=6)))
     q = (query or "").strip().lstrip("#")
     if q:
-        match = Q(name__icontains=q) | Q(cashier__first_name__icontains=q) | Q(cashier__username__icontains=q) | Q(payments__card_last4=q)
+        match = (Q(name__icontains=q) | Q(cashier__first_name__icontains=q) | Q(cashier__username__icontains=q) | Q(payments__card_last4=q)
+                 | Q(email__iexact=q) | Q(customer__email__iexact=q))  # the Customers page links here by email
         if q.isdigit():
             match |= Q(id=int(q))
         orders = orders.filter(match).distinct()

@@ -46,6 +46,7 @@ from . import requests as requests_data
 from . import roles as roles_data
 from . import groups as groups_data
 from . import staffcards as staffcards_data
+from . import customers as customers_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1449,6 +1450,68 @@ def staff_card_print(request, card_id):
     markup = markup[markup.index("<svg"):]
     return render(request, "admin_portal/staff_card_print.html", {"card": card, "barcode": markup, "store": StoreSettings.load(),
                                                                   "name": card.user.get_full_name() or card.user.username})
+
+
+# ---------- customers ----------
+
+@admin_page("customers", edit={"save", "reset", "verify", "refresh", "make_staff"}, delete={"card_rm"})
+def customers(request):
+    """Customers: store accounts, one form with Save (admin_portal/customers.py). Cards, password resets and
+    verification emails act straight away."""
+    from users import accounts
+    from users.access import can_page
+    st = customers_data.state(request.session)
+    if request.method == "POST":
+        customers_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        person = User.objects.filter(pk=st.get("sel"), is_staff=False).first()
+        toast = ""
+        try:
+            if op == "save":
+                errs = customers_data.problems(st)
+                if errs:
+                    messages.error(request, next(iter(errs.values())))
+                else:
+                    notes = customers_data.save(st, request)
+                    customers_data.store(request.session, st)
+                    messages.success(request, " ".join([_("Customer changes saved.")] + notes))
+                    return redirect("admin_customers")
+            elif person and op == "reset":
+                if accounts.send_password_reset(request, person):
+                    toast = _("Password reset link sent to %(email)s.") % {"email": person.email}
+                else:
+                    messages.error(request, _("Email isn’t set up yet (LISTMONK_URL), so nothing was sent."))
+            elif person and op == "verify":
+                if accounts.send_verification(request, person):
+                    toast = _("Verification email sent to %(email)s.") % {"email": accounts.profile_of(person).pending_email or person.email}
+                else:
+                    messages.error(request, _("Email isn’t set up yet (LISTMONK_URL), so nothing was sent."))
+            elif person and op == "refresh":
+                problem = customers_data.refresh_cards(st, person)
+                if problem:
+                    messages.error(request, problem)
+            elif person and op.startswith("card_rm:"):
+                toast = customers_data.remove_card(st, person, customers_data._int(op[8:]))
+            elif person and op == "card_keep":
+                st["confirm"] = None
+            elif person and op == "make_staff":
+                if not can_page(request.user, "staff", "edit"):
+                    messages.error(request, _("Your groups don’t let you change staff."))
+                else:
+                    staff_data.promote(person)
+                    staff_st = staff_data.state(request.session)
+                    staff_st.update(sel=person.id, q="", role="all")
+                    staff_data.store(request.session, staff_st)
+                    messages.success(request, _("%(name)s added to staff. Pick their roles and groups.") % {"name": person.first_name or person.username})
+                    return redirect("admin_staff")
+            elif op != "preview":
+                toast = customers_data.apply_op(st, op)
+        except EmailError:
+            messages.error(request, _("The email couldn’t be sent. Check listmonk, then try again."))
+        if toast:
+            messages.success(request, toast)
+        customers_data.store(request.session, st)
+    return page(request, "admin_portal/customers.html", "customers", {"x": customers_data.page(st, request)})
 
 
 # ---------- branding ----------

@@ -100,7 +100,9 @@ class Staff(models.Model):
         return False
 
 class Customer(models.Model):
-    """A customer's profile: what the store's account pages edit (online_store/account.py)."""
+    """A customer's profile: what the store's account pages edit (online_store/account.py) and the admin's Customers
+    page (admin_portal/customers.py). `email_verified` is set from the link users/views.verify_email sends; a staff
+    member's change of email waits in `pending_email` until the new address confirms."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="customer_profile")
     profile_picture = models.ImageField(null=True, blank=True, upload_to='files/pfps')
     phone = models.PositiveBigIntegerField(null=True, blank=True)
@@ -110,6 +112,9 @@ class Customer(models.Model):
     catering_emails = models.BooleanField(default=True, help_text="Emails about catering messages and proposed changes")
     newsletter = models.BooleanField(default=False, help_text="The monthly menu email")
     square_customer_id = models.CharField(max_length=64, blank=True, help_text="Where their saved cards live in Square")
+    staff_notes = models.CharField(max_length=200, blank=True, help_text="Only staff see this")
+    email_verified = models.BooleanField(default=False)
+    pending_email = models.EmailField(blank=True, help_text="A new email waiting for its confirmation link")
 
     @property
     def phone_text(self) -> str:
@@ -155,9 +160,10 @@ class SavedAddress(models.Model):
     city = models.CharField(max_length=80, blank=True)
     postal = models.CharField(max_length=12, blank=True)
     note = models.CharField(max_length=160, blank=True, help_text="For the driver: buzzer, where to leave it")
+    is_default = models.BooleanField(default=False, help_text="Picked first at checkout")
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-is_default", "id"]
 
     def __str__(self):
         return f"{self.label}: {self.line}"

@@ -1025,14 +1025,50 @@ class Command(BaseCommand):
         profile, _created = Customer.objects.get_or_create(user=user)
         profile.phone, profile.organization, profile.newsletter = 6045550110, "Lumen Studio", True
         profile.square_customer_id = "demo:cust-sofia"
+        profile.email_verified = True
+        profile.staff_notes = "Books catering for Lumen Studio. Likes a call the day before."
         profile.save()
         SavedCard.objects.create(user=user, square_customer_id="demo:cust-sofia", square_card_id="demo:card-sofia-amex",
                                  brand="AMEX", last4="1007", exp_month=3, exp_year=2029, is_default=True)
         SavedAddress.objects.create(user=user, label="Work", line="355 Railway St", unit="unit 200", city="Vancouver",
-                                    postal="V6A 1A4", note="Loading bay off the lane")
+                                    postal="V6A 1A4", note="Loading bay off the lane", is_default=True)
         SavedAddress.objects.create(user=user, label="Home", line="455 E 8th Ave", unit="apt 3", city="Vancouver",
                                     postal="V5T 1S2", note="Buzz 03")
         CateringOrder.objects.filter(name="Sofia Moreau").update(customer=user)
+        self.seed_customers()
+
+    def seed_customers(self):
+        """More store accounts for the admin's Customers page: regulars, a new one who hasn't confirmed their email,
+        one who never ordered and one whose account is locked. Some of the online orders become theirs."""
+        from users.models import Customer, SavedAddress, SavedCard
+        people = [
+            ("jordan.lee@example.com", "Jordan", "Lee", 6045550181, "Regular. Oat milk in everything.", True, True, True, 400,
+             [("Home", "2150 W 4th Ave", "Unit 302", "Buzz 302", True), ("Work", "555 Burrard St", "Floor 9", "Leave at reception", False)],
+             [("VISA", "4242", 8, 2028, True), ("MASTERCARD", "5100", 11, 2026, False)]),
+            ("noor.h@example.com", "Noor", "Haddad", 7785550144, "", True, False, True, 50,
+             [("Home", "1088 Richards St", "Unit 1704", "", True)], [("AMERICAN_EXPRESS", "0005", 2, 2027, True)]),
+            ("ines.duarte@example.com", "Ines", "Duarte", None, "", False, False, True, 13, [], []),
+            ("ollie.grant@example.com", "Oliver", "Grant", 7785550102, "Asked to close his account in July.", True, False, False, 270, [], []),
+        ]
+        online = list(Order.objects.filter(channel__in=["web", "delivery"], customer__isnull=True).order_by("id"))
+        for n, (email, first, last, phone, notes, verified, news, active, joined_days, addrs, cards) in enumerate(people):
+            user = User.objects.create_user(username=email, email=email, password="customer", first_name=first, last_name=last, is_active=active)
+            user.date_joined = timezone.now() - datetime.timedelta(days=joined_days)
+            user.last_login = timezone.now() - datetime.timedelta(days=n * 3, hours=2) if active else None
+            user.save(update_fields=["date_joined", "last_login"])
+            profile = Customer.objects.get_or_create(user=user)[0]
+            profile.phone, profile.staff_notes, profile.email_verified, profile.newsletter = phone, notes, verified, news
+            profile.square_customer_id = f"demo:cust-{first.lower()}" if cards else ""
+            profile.save()
+            for label, line, unit, note, default in addrs:
+                SavedAddress.objects.create(user=user, label=label, line=line, unit=unit, city="Vancouver", note=note, is_default=default)
+            for brand, last4, month, year, default in cards:
+                SavedCard.objects.create(user=user, square_customer_id=profile.square_customer_id, square_card_id=f"demo:card-{first.lower()}-{last4}",
+                                         brand=brand, last4=last4, exp_month=month, exp_year=year, is_default=default)
+            if first != "Ines":  # she made an account but hasn't checked out
+                for order in online[n::4][:3]:
+                    order.customer, order.email = user, email
+                    order.save(update_fields=["customer", "email"])
 
     def seed_discounts(self):
         specs = [

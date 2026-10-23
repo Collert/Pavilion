@@ -2661,3 +2661,102 @@ class StaffCardsPageTests(AdminFixture, TestCase):
         url = reverse("admin_ingredient", args=[ingredient.id])
         page = self.client.get(url)
         self.assertIn("alcohol", [s["key"] for s in page.context["e"]["switches"]])
+
+
+
+class CustomersPageTests(AdminFixture, TestCase):
+    """Customers (admin_portal/customers.py, users/accounts.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def setUp(self):
+        from users.models import SavedAddress, SavedCard
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_customers")
+        self.customer.first_name, self.customer.last_name, self.customer.email = "Jordan", "Lee", "customer@example.com"
+        self.customer.save()
+        SavedAddress.objects.create(user=self.customer, label="Home", line="2150 W 4th Ave", is_default=True)
+        self.card = SavedCard.objects.create(user=self.customer, square_customer_id="demo:c", square_card_id="demo:card", brand="VISA",
+                                             last4="4242", exp_month=1, exp_year=2020, is_default=True)
+        self.order = self.place([self.dish(self.burger)], timezone.now())
+        Order.objects.filter(pk=self.order.pk).update(customer=self.customer)
+
+    def post(self, op="preview", **fields):
+        x = self.client.get(self.url).context["x"]
+        r = x["p"]["r"]
+        data = {"sel": x["st"]["sel"], "profile": "1", "first": r["first"], "last": r["last"], "email": r["email"], "phone": r["phone"],
+                "notes": r["notes"], "addr_id": [a["id"] for a in r["addrs"]], "addr_label": [a["label"] for a in r["addrs"]],
+                "addr_line": [a["line"] for a in r["addrs"]], "addr_note": [a["note"] for a in r["addrs"]], "op": op}
+        data.update(fields)
+        return self.client.post(self.url, data)
+
+    def test_the_list_and_a_profile(self):
+        x = self.client.get(self.url).context["x"]
+        self.assertEqual([r["name"] for r in x["rows"]], ["Jordan Lee"])  # staff aren't customers
+        p = x["p"]
+        self.assertEqual((p["stats"][0][1], p["recent"][0]["o"], p["cards"][0]["tone"]), ("1", self.order, "bad"))  # the card expired
+        self.assertEqual(dict((k, n) for k, _l, n, _on in x["filters"])["never"], 0)
+        found = self.client.get(reverse("admin_orders"), {"date": "all", "q": "customer@example.com"}).context["o"]
+        self.assertEqual([r["order"] for r in found["rows"]], [self.order])
+        self.post(q="nobody")
+        self.assertEqual(self.client.get(self.url).context["x"]["rows"], [])
+
+    def test_editing_and_saving(self):
+        from users.models import Customer
+        self.post(first="Jordy", phone="604 555 0181", notes="Oat milk", addr_line=["2150 W 4th Ave, Unit 302"], addr_note=["Buzz 302"])
+        self.post("addr_add")
+        x = self.client.get(self.url).context["x"]
+        self.assertEqual(x["status"], "Fix Jordy Lee’s profile to save")  # the new address has no street
+        self.post("addr_rm:1")
+        self.post("flip:marketing")
+        self.post("save")
+        self.customer.refresh_from_db()
+        profile = Customer.objects.get(user=self.customer)
+        self.assertEqual((self.customer.first_name, profile.phone, profile.staff_notes, profile.newsletter), ("Jordy", 6045550181, "Oat milk", True))
+        address = self.customer.saved_addresses.get()
+        self.assertEqual((address.line, address.note, address.is_default), ("2150 W 4th Ave, Unit 302", "Buzz 302", True))
+
+    def test_a_new_email_waits_for_its_confirmation(self):
+        from unittest import mock
+        from users.accounts import email_tokens
+        from users.models import Customer
+        self.post(email=self.staff.username + "@x")  # someone else's? no: just invalid
+        self.assertIn("valid email", self.client.get(self.url).context["x"]["p"]["err"])
+        self.post(email="jordan@example.com")
+        self.assertIn("Saving sends a confirmation", self.client.get(self.url).context["x"]["p"]["email_note"])
+        with mock.patch("users.accounts.send", return_value=True) as sent:
+            self.post("save")
+        self.assertEqual([c.args[0] for c in sent.call_args_list], ["email_change_confirm", "email_change_notice"])
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.email, "customer@example.com")  # not until confirmed
+        link = sent.call_args_list[0].args[2]["link"]
+        self.assertEqual(self.client.get(link).status_code, 200)
+        self.customer.refresh_from_db()
+        profile = Customer.objects.get(user=self.customer)
+        self.assertEqual((self.customer.email, profile.pending_email, profile.email_verified), ("jordan@example.com", "", True))
+        self.assertEqual(self.client.get(link).status_code, 400)  # used up
+
+    def test_cards_resets_and_making_staff(self):
+        from unittest import mock
+        self.post(f"card_rm:{self.card.id}")
+        self.assertTrue(self.client.get(self.url).context["x"]["p"]["cards"][0]["confirm"])
+        self.post(f"card_rm:{self.card.id}")
+        self.assertFalse(self.customer.saved_cards.exists())
+        from users.models import Customer
+        Customer.objects.filter(user=self.customer).update(square_customer_id="sq-1")
+        with mock.patch("payments.square.list_cards", return_value=[{"id": "c9", "brand": "MASTERCARD", "last4": "5100", "exp_month": 11, "exp_year": 2031}]):
+            self.post("refresh")
+        self.assertEqual(self.customer.saved_cards.get().last4, "5100")
+        with mock.patch("users.accounts.send", return_value=True) as sent:
+            self.post("reset")
+        link = sent.call_args.args[2]["link"]
+        self.client.logout()
+        page = self.client.get(link)
+        self.assertTrue(page.context["valid"] and page.context["reset"])
+        self.assertRedirects(self.client.post(link, {"password1": "a-new-pass-123", "password2": "a-new-pass-123"}), reverse("account"),
+                             fetch_redirect_response=False)
+        self.client.force_login(self.owner)
+        self.assertRedirects(self.post("make_staff"), reverse("admin_staff"), fetch_redirect_response=False)
+        self.customer.refresh_from_db()
+        self.assertTrue(self.customer.is_staff)

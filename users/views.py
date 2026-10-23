@@ -72,7 +72,8 @@ def profile(request):
     })
 
 def welcome(request, uidb64, token):
-    """The invite link from the admin's Staff page: a new staff member sets their password, then is signed in."""
+    """Set a password from a link: a new staff member's invite (the admin's Staff page) or a password reset (the
+    admin's Customers page, users/accounts.py). Then they're signed in: staff to the apps, customers to their account."""
     from django.contrib.auth.password_validation import validate_password
     from django.contrib.auth.tokens import default_token_generator
     from django.core.exceptions import ValidationError
@@ -81,11 +82,12 @@ def welcome(request, uidb64, token):
 
     from admin_portal.models import StoreSettings
     try:
-        person = User.objects.get(pk=int(force_str(urlsafe_base64_decode(uidb64))), is_staff=True, is_active=True)
+        person = User.objects.get(pk=int(force_str(urlsafe_base64_decode(uidb64))), is_active=True)
     except (ValueError, TypeError, OverflowError, User.DoesNotExist):
         person = None
     valid = person is not None and default_token_generator.check_token(person, token)
-    context = {"valid": valid, "person": person, "store": StoreSettings.load().name, "error": []}
+    context = {"valid": valid, "person": person, "store": StoreSettings.load().name, "error": [],
+               "reset": bool(person and person.has_usable_password())}
     if valid and request.method == "POST":
         password = request.POST.get("password1", "")
         if password != request.POST.get("password2", ""):
@@ -99,5 +101,23 @@ def welcome(request, uidb64, token):
             person.set_password(password)
             person.save(update_fields=["password"])  # the link stops working: the token depends on the password
             login(request, person, backend="django.contrib.auth.backends.ModelBackend")
-            return redirect("app_switcher_index")
+            return redirect("app_switcher_index" if person.is_staff else "account")
     return render(request, "users/welcome.html", context, status=200 if valid else 400)
+
+
+def verify_email(request, uidb64, token):
+    """The link from users/accounts.py: confirms their email, or switches them to the new one a staff member set."""
+    from django.utils.encoding import force_str
+    from django.utils.http import urlsafe_base64_decode
+
+    from admin_portal.models import StoreSettings
+    from .accounts import confirm, email_tokens
+    try:
+        person = User.objects.get(pk=int(force_str(urlsafe_base64_decode(uidb64))), is_active=True)
+    except (ValueError, TypeError, OverflowError, User.DoesNotExist):
+        person = None
+    valid = person is not None and email_tokens.check_token(person, token)
+    if valid:
+        confirm(person)
+    return render(request, "users/verified.html", {"valid": valid, "person": person, "store": StoreSettings.load().name},
+                  status=200 if valid else 400)
