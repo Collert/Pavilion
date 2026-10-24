@@ -16,8 +16,8 @@ added through Square's form (payments/save-card in an iframe, ?card=1) and addre
             <label><span class="acct-lbl">{% trans "Last name" %}</span><input class="acct-field" name="last" value="{{ request.user.last_name }}" autocomplete="family-name"></label>
         </div>
         <label class="block top10"><span class="acct-lbl">{% trans "Email" %}</span><input class="acct-field" type="email" name="email" value="{{ request.user.email }}" autocomplete="email"></label>
-        <label class="block top10"><span class="acct-lbl">{% trans "Phone" %}</span><input class="acct-field" name="phone" value="{{ prof.phone_text }}" autocomplete="tel"></label>
-        <label class="block top10"><span class="acct-lbl">{% trans "Company" %} <span class="acct-faint">· {% trans "shows on catering invoices" %}</span></span><input class="acct-field" name="org" value="{{ prof.organization }}" autocomplete="organization"></label>
+        <label class="block top10"><span class="acct-lbl">{% trans "Phone" %}</span><input class="acct-field" name="phone" value="{{ phone }}" autocomplete="tel"></label>
+        {% if not work %}<label class="block top10"><span class="acct-lbl">{% trans "Company" %} <span class="acct-faint">· {% trans "shows on catering invoices" %}</span></span><input class="acct-field" name="org" value="{{ prof.organization }}" autocomplete="organization"></label>{% endif %}
         <div class="acct-toggles">
             {% for key, label, desc, on in toggles %}
             <label class="acct-toggle"><span class="grow acct-two"><span class="strong">{{ label }}</span><span class="acct-meta">{{ desc }}</span></span>
@@ -26,6 +26,27 @@ added through Square's form (payments/save-card in an iframe, ?card=1) and addre
         </div>
     </form>
     <div class="acct-stack">
+        {% if work %}
+        <section class="acct-card acct-emergency">
+            <div class="acct-card-head center"><span class="acct-heart"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-9.3-9A5.3 5.3 0 0 1 12 6.4 5.3 5.3 0 0 1 21.3 12C19 16.6 12 21 12 21z"/></svg></span><h2 class="disp acct-h2 grow">{% trans "Emergency contact" %}</h2></div>
+            <div class="acct-meta small top6">{% trans "Only managers can see this. We’ll only call if something happens at work." %}</div>
+            <div class="acct-ec-grid">
+                <label><span class="acct-lbl">{% trans "Name" %}</span><input class="acct-field" form="acct-profile" name="ec_name" maxlength="60" value="{{ work.profile.emergency_name }}"></label>
+                <label><span class="acct-lbl">{% trans "Relationship" %}</span><input class="acct-field" form="acct-profile" name="ec_rel" maxlength="40" value="{{ work.profile.emergency_relation }}"></label>
+            </div>
+            <label class="block top10"><span class="acct-lbl">{% trans "Phone" %}</span><input class="acct-field" form="acct-profile" name="ec_phone" maxlength="20" value="{{ work.profile.emergency_phone }}" autocomplete="off"></label>
+        </section>
+        <section class="acct-card">
+            <h2 class="disp acct-h2">{% trans "Work" %}</h2>
+            {% if work.roles %}<div class="acct-chips">{% for r in work.roles %}<span class="acct-chip"><i style="background: {{ r.color }}"></i>{{ r.name }}</span>{% endfor %}</div>{% endif %}
+            {% for c in work.cards %}
+            <div class="acct-wallet top12"><span class="acct-gift-art staff" style="--c: {{ c.color }}"><span></span></span>
+                <span class="grow acct-two"><span class="strong">{{ c.name }}</span><span class="acct-meta small">{{ c.sub }}</span></span>
+                <span class="disp num acct-staff-amt">{{ c.value }}</span></div>
+            {% endfor %}
+            <div class="acct-meta small faint top10">{% trans "Roles and groups are set by your manager." %}</div>
+        </section>
+        {% endif %}
         {% get_available_languages as langs %}{% if langs|length > 1 %}{% get_current_language as cur %}{% get_language_info_list for langs as infos %}
         <section class="acct-card">
             <h2 class="disp acct-h2">{% trans "Language" %}</h2>

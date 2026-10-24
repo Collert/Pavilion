@@ -386,6 +386,21 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   default, removed with `square.disable_card`; `users.SavedAddress`; gift cards sent to their email, used
   automatically at checkout). Checkout offers saved cards (authorized like the card form's payments, by
   `pages._authorize_saved`) and saved addresses; the catering send sheet offers saved cards.
+- **The staff side of the account** (`online_store/work.py`, StoreAccount's staff views; only `is_staff` people see
+  the "Work" group in the side panel). The profile adds their emergency contact (name, relationship, phone; their
+  phone is `Staff.phone`), and a Work card with their roles and staff cards; the company field is hidden.
+  **Shifts**: the next shift, hours this week, upcoming published shifts with Give away / Swap (a dialog from
+  `?give=` / `?swap=&who=`: give lists who sees it; swap picks a coworker who can work it, then one of their shifts
+  or "just hand it over"), the state of each (up for grabs, swap pending, waiting for a manager, picked up) with Take
+  it back / Cancel swap, pending time off, and the time clock's last two weeks (late over 2 minutes).
+  **Up for grabs**: what coworkers asked of you (Decline / Take it or Swap), open shifts and shifts given away, each
+  with why it may not suit (needs a role, overlaps, outside your availability, back to back); "Only shifts I can
+  work" hides other roles. The side panel's badge counts what you could take plus asks. **Availability and time
+  off**: the week in effect, their requests (withdraw while waiting) and a new request: time off (dates, all day or
+  times, a reason, a note; `account-work.js` shows the shifts it touches) or a new week of availability (one window
+  a day, from a date, optionally until one). The moves are `team/swaps.py`: a given-away shift stays theirs until
+  grabbed; reassigned shifts keep `published_as` in step so they don't wait for Publish; emails `shift_swap`,
+  `shift_taken`, `shift_swap_decided`. Shift, ShiftOffer, TimeOff and Availability saves publish `schedule`.
 
 - **Events and services** (`/services`, `pages.services_page`): every service booked online, the venue first,
   then experiences, staff, equipment and extras, with "Add to a request" starting a catering quote with it
@@ -666,7 +681,9 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   what's asked (dates, part day, or the week before and after for availability), their note, the shifts it clashes
   with, things to weigh (others off then, a seasonal par, short notice, a role nobody else covers), and Approve
   (moving the clashing shifts to open shifts, or leaving them as conflicts) or Decline, with a message they're
-  emailed. Decided ones can be reopened unless they're in the past. Staff have no page to ask from yet.
+  emailed. Decided ones can be reopened unless they're in the past. Staff ask from their account. Swaps and
+  hand-offs a coworker said yes to wait here too (kind "Swaps", keys `s<id>`; not in the mockup): who gives what to
+  whom, any problem since, and Approve (the shifts move) or Decline, with a message to both; they can't be reopened.
 - **Roles** (`admin_roles`, `roles.py`): the jobs people do (`users.Role`) with who has each, and the picked one's
   name, description, icon (`team.py: ROLE_ICONS`), colour, people (the same as ticking it on a Staff profile),
   starting groups (`Role.groups`: given to whoever gets the role, here or on the Staff page) and archiving (it comes

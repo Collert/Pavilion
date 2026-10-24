@@ -1,0 +1,101 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}
+Shifts (StoreAccount, staff-shifts; online_store/work.py): the next shift, what's coming up with Give away / Swap
+(the dialog opens from ?give=<shift> or ?swap=<shift>&who=<coworker>), and the time clock's last two weeks.
+{% endcomment %}
+{% block title %}{% trans "Shifts" %}{% endblock %}
+{% block heading %}{% trans "Shifts" %}{% endblock %}
+{% block live_topics %}"schedule"{% endblock %}
+{% block content %}
+<div class="acct-split" id="work-shifts" data-region>
+    <section class="acct-col acct-scroll">
+        {% if next %}
+        <div class="acct-live">
+            <span class="acct-date big amber"><span>{{ next.box.mon }}</span><b class="disp num">{{ next.box.day }}</b></span>
+            <div class="grow"><div class="ov amber">{% blocktrans with when=next.when %}Next shift · {{ when }}{% endblocktrans %}</div>
+                <div class="disp num acct-live-text">{{ next.time }}</div><div class="acct-muted">{{ next.sub }}</div></div>
+            <div class="acct-week"><div class="disp num">{{ week_hours }}</div><div class="acct-muted small">{% trans "Scheduled this week" %}</div></div>
+        </div>
+        {% endif %}
+        <div class="acct-card acct-ups">
+            <div class="acct-card-head pad"><h2 class="disp acct-h2 grow">{% trans "Upcoming" %}</h2><span class="acct-meta small faint">{% trans "Giving a shift away keeps it yours until someone picks it up." %}</span></div>
+            {% for r in rows %}
+            <div class="acct-shift{% if r.timeoff %} off{% endif %}">
+                <span class="acct-date soft"><span>{{ r.box.dow }}</span><b class="disp num">{{ r.box.day }}</b></span>
+                <span class="acct-bar{% if r.timeoff %} dashed{% endif %}"{% if r.role %} style="background: {{ r.role.color }}"{% endif %}></span>
+                <div class="grow"><div class="acct-shift-top"><span class="num strong">{{ r.time }}</span>{% if r.tag %}<span class="acct-pill {{ r.tone }}">{{ r.tag }}</span>{% endif %}</div>
+                    <div class="num acct-meta small">{{ r.sub }}</div></div>
+                {% if r.can_act %}
+                <a class="acct-sbtn" href="?give={{ r.s.id }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5 M5 12l7-7 7 7"/></svg>{% trans "Give away" %}</a>
+                <a class="acct-sbtn" href="?swap={{ r.s.id }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7"/></svg>{% trans "Swap" %}</a>
+                {% elif r.cancel %}
+                <form method="post">{% csrf_token %}<input type="hidden" name="offer" value="{{ r.offer.id }}"><button class="acct-sbtn red" name="op" value="cancel">{{ r.cancel }}</button></form>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="acct-empty">{% trans "Nothing on your schedule yet." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+    <aside class="acct-card acct-detail acct-scroll">
+        <h2 class="disp acct-h2">{% trans "History" %}</h2>
+        <div class="acct-stats">{% for h in hist_stats %}<div><div class="disp num">{{ h.v }}</div><div class="acct-meta small">{{ h.l }}</div></div>{% endfor %}</div>
+        <div class="acct-hist">
+            {% for h in hist %}
+            <div class="acct-hist-row"><span class="acct-bar short" style="background: {{ h.color }}"></span>
+                <div class="grow"><div class="num strong">{{ h.date }}{% if h.role %} · {{ h.role }}{% endif %}</div><div class="num acct-meta small">{{ h.clock }}</div></div>
+                <div class="acct-hist-end"><div class="num strong">{{ h.hours }}</div><span class="acct-pill {% if h.late %}amber{% else %}green{% endif %}">{{ h.flag }}</span></div></div>
+            {% empty %}
+            <div class="acct-meta top10">{% trans "Nothing at the time clock in the last two weeks." %}</div>
+            {% endfor %}
+        </div>
+    </aside>
+</div>
+{% if modal %}
+<div class="acct-scrim">
+    <form method="post" class="acct-modal" role="dialog" aria-modal="true" aria-labelledby="md-title">{% csrf_token %}
+        <input type="hidden" name="shift" value="{{ modal.s.id }}">
+        <h2 class="disp" id="md-title">{% if modal.kind == "give" %}{% trans "Give this shift away?" %}{% else %}{% trans "Swap this shift" %}{% endif %}</h2>
+        <div class="acct-md-shift"><span class="acct-bar" style="background: {{ modal.role.color }}"></span><div><div class="num strong">{{ modal.shift }}</div><div class="num acct-meta small">{{ modal.sub }}</div></div></div>
+        {% if modal.kind == "give" %}
+        <ul class="acct-md-list">
+            <li>{% blocktrans with who=modal.eligible %}It shows up in <b>Up for grabs</b> for {{ who }}.{% endblocktrans %}</li>
+            <li>{% trans "The first person to grab it takes it. You’ll get a notification." %}</li>
+            <li><b>{% trans "Until someone does, it’s still your shift." %}</b></li>
+        </ul>
+        {% else %}
+        <div class="acct-lbl top14">{% trans "Swap with" %}</div>
+        <div class="acct-picks" role="radiogroup" aria-label="{% trans 'Coworker' %}">
+            {% for p in modal.people %}
+            {% if p.off %}<span class="acct-pick off" role="radio" aria-checked="false" aria-disabled="true">{% else %}<a class="acct-pick" role="radio" aria-checked="{% if p.on %}true{% else %}false{% endif %}" href="?swap={{ modal.s.id }}&amp;who={{ p.id }}">{% endif %}
+                <span class="acct-face" style="background: {{ p.face }}">{{ p.ini }}</span><span class="grow acct-two"><span class="strong">{{ p.name }}</span><span class="acct-meta small">{{ p.sub }}</span></span>
+            {% if p.off %}</span>{% else %}</a>{% endif %}
+            {% empty %}<div class="acct-meta">{% trans "Nobody else works here yet." %}</div>
+            {% endfor %}
+        </div>
+        {% if modal.who %}
+        <input type="hidden" name="who" value="{{ modal.who.id }}">
+        <div class="acct-lbl top14">{% trans "In return, you take" %}</div>
+        <div class="acct-picks" role="radiogroup" aria-label="{% trans 'Their shift' %}">
+            {% for t in modal.theirs %}
+            <label class="acct-pick{% if t.off %} off{% endif %}"><input type="radio" name="theirs" value="{{ t.id }}" class="visually-hidden" {% if t.off %}disabled{% endif %} required><span class="acct-dot"></span>
+                <span class="grow num strong">{{ t.label }}</span><span class="acct-meta small">{{ t.sub }}</span></label>
+            {% endfor %}
+            <label class="acct-pick"><input type="radio" name="theirs" value="none" class="visually-hidden" required><span class="acct-dot"></span>
+                <span class="grow strong">{% trans "Nothing, just hand it over" %}</span><span class="acct-meta small">{% trans "They take yours" %}</span></label>
+        </div>
+        {% endif %}
+        {% endif %}
+        <label class="block top14"><span class="acct-lbl">{% trans "Note" %} <span class="acct-faint">· {% trans "optional" %}</span></span>
+            <textarea class="acct-field area" name="note" rows="2" maxlength="200" placeholder="{% if modal.kind == 'give' %}{% trans 'Let people know why, if you like' %}{% else %}{% trans 'e.g. Can you take my Tuesday? I’ll take your Wednesday.' %}{% endif %}"></textarea></label>
+        <div class="acct-md-btns">
+            <a class="acct-btn grow" href="{% url 'account_shifts' %}">{% trans "Cancel" %}</a>
+            {% if modal.kind == "give" %}<button class="acct-btn amber grow2" name="op" value="give">{% trans "Put it up for grabs" %}</button>
+            {% elif modal.who %}<button class="acct-btn amber grow2" name="op" value="swap">{% blocktrans with name=modal.who.first %}Ask {{ name }}{% endblocktrans %}</button>
+            {% else %}<button class="acct-btn grow2" disabled>{% if modal.any %}{% trans "Pick who to swap with" %}{% else %}{% trans "Nobody else can work this role" %}{% endif %}</button>{% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

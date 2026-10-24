@@ -149,16 +149,16 @@ class Command(BaseCommand):
         # groups and roles); the admin is the owner
         from django.contrib.auth.models import Group
         from users.models import Role
-        team = [("admin", "Rivera", "(604) 555-0142", "Sam Rivera", "(604) 555-0188", ["Manager"], ["Owners"]),
-                ("cashier", "Kim", "(604) 555-0170", "Min Kim", "(604) 555-0129", ["Cashier", "Barista"], ["Front of house"]),
-                ("priya", "Shah", "(604) 555-0119", "Raj Shah", "(604) 555-0173", ["Manager", "Cashier"], ["Managers", "Front of house"]),
-                ("courier", "Ramos", "(778) 555-0137", "", "", ["Delivery"], ["Delivery"])]
-        for username, last, phone, em_name, em_phone, roles, groups in team:
+        team = [("admin", "Rivera", "(604) 555-0142", "Sam Rivera", "Brother", "(604) 555-0188", ["Manager"], ["Owners"]),
+                ("cashier", "Kim", "(604) 555-0170", "Min Kim", "Mother", "(604) 555-0129", ["Cashier", "Barista"], ["Front of house"]),
+                ("priya", "Shah", "(604) 555-0119", "Raj Shah", "Partner", "(604) 555-0173", ["Manager", "Cashier"], ["Managers", "Front of house"]),
+                ("courier", "Ramos", "(778) 555-0137", "", "", "", ["Delivery"], ["Delivery"])]
+        for username, last, phone, em_name, em_rel, em_phone, roles, groups in team:
             person = User.objects.get(username=username)
             person.last_name = last
             person.save(update_fields=["last_name"])
             profile = person.staff_profile
-            profile.phone, profile.emergency_name, profile.emergency_phone = phone, em_name, em_phone
+            profile.phone, profile.emergency_name, profile.emergency_relation, profile.emergency_phone = phone, em_name, em_rel, em_phone
             profile.save()
             profile.roles.set(Role.objects.filter(name__in=roles))
             person.groups.set(Group.objects.filter(name__in=groups))
@@ -1269,8 +1269,9 @@ class Command(BaseCommand):
 
     def seed_team(self):
         """The schedule: weekly pars (and a holiday-rush seasonal par), this week's shifts (mostly published, a couple
-        of changes waiting, open shifts to fill), Dana's availability and Priya's approved day off."""
-        from team.models import Availability, ParSet, Shift, TimeOff
+        of changes waiting, open shifts to fill), Dana's availability and Priya's approved day off, and shifts being
+        passed on from people's accounts (given away, a swap asked of Dana, a hand-off waiting for a manager)."""
+        from team.models import Availability, ParSet, Shift, ShiftOffer, TimeOff
         from team.schedule import snapshot, weekly
         from users.models import Role
         roles = {r.name: str(r.id) for r in Role.objects.all()}
@@ -1332,6 +1333,22 @@ class Command(BaseCommand):
         TimeOff.objects.create(user=people["admin"], first_day=saturday, last_day=saturday, category="Personal", status=TimeOff.DECLINED,
                                reason="Would love the Saturday off.", submitted_at=ago(9), decided_at=ago(8), decided_by=people["priya"],
                                message="Sorry, it’s our busiest Saturday. Happy to give you Sunday instead.")
+        # Next week's shifts being passed on (the staff side of the account; team/swaps.py)
+        def published(who, rname, day, a, b):
+            shift = Shift(user=people.get(who), role=role[rname], date=next_week + datetime.timedelta(days=day), start=a, end=b,
+                          break_minutes=30 if b - a >= 360 else 0)
+            shift.published, shift.published_as = True, snapshot(shift)
+            shift.save()
+            return shift
+        given = published("priya", "Cashier", 1, T(15), T(21))
+        ShiftOffer.objects.create(shift=given, kind=ShiftOffer.GIVE, by=people["priya"], note="Family dinner came up. Anyone?", created_at=ago(1))
+        hers, dana = published("priya", "Cashier", 2, T(15), T(21)), published("cashier", "Cashier", 3, T(15), T(21))
+        ShiftOffer.objects.create(shift=hers, kind=ShiftOffer.SWAP, by=people["priya"], to=people["cashier"], theirs=dana, status=ShiftOffer.ASKED,
+                                  note="Can you take my Wednesday? I’ll take your Thursday.", created_at=ago(1))
+        manager = published("admin", "Manager", 0, T(8), T(16, 30))
+        ShiftOffer.objects.create(shift=manager, kind=ShiftOffer.HANDOFF, by=people["admin"], to=people["priya"], status=ShiftOffer.ACCEPTED,
+                                  note="Dentist that morning, could you open?", created_at=ago(2), answered_at=ago(1))
+        published(None, "Cashier", 4, T(11), T(15))
 
     def seed_audio(self):
         """Audio channels for the screens, and a small library to play on them: short generated tones standing in for

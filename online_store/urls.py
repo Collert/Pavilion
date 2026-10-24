@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import account, pages, views
+from . import account, pages, views, work
 
 urlpatterns = [
     path("", views.index, name="store_home"),
@@ -14,6 +14,9 @@ urlpatterns = [
     path("account", account.orders, name="account"),
     path("account/catering", account.catering, name="account_catering"),
     path("account/profile", account.profile, name="account_profile"),
+    path("account/shifts", work.shifts, name="account_shifts"),
+    path("account/up-for-grabs", work.market, name="account_market"),
+    path("account/time", work.time_page, name="account_time"),
     path("account/orders/<int:order_id>/reorder", account.reorder, name="account_reorder"),
     path("account/orders/<int:order_id>/receipt", account.receipt, name="account_receipt"),
     path("account/sign-in", account.signin, name="store_signin"),

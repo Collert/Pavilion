@@ -122,10 +122,12 @@ def _required(view):
 def _page(request, template, view, context):
     user = request.user
     store = StoreSettings.load()
+    from . import work
     waiting = CateringOrder.objects.filter(_catering_filter(user), status=CateringOrder.WAITING).count()
+    staff = work.side(user) if work.is_worker(user) else None
     return render(request, f"online_store/account/{template}", {
         "store": store, "view": view, "me": {"name": user.get_full_name() or user.username, "email": user.email,
-                                            "initials": storefront.initials(user)},
+                                            "initials": storefront.initials(user)}, "staff": staff,
         "catering_badge": waiting, "links": {"home": reverse("store_home"), "menu": reverse("menu"), "catering": reverse("store_catering")},
         **context})
 
@@ -246,7 +248,15 @@ def profile(request):
             user.save()
             digits = "".join(c for c in post.get("phone", "") if c.isdigit())
             prof.phone = int(digits) if digits else None
-            prof.organization = post.get("org", "").strip()[:120]
+            if not user.is_staff:
+                prof.organization = post.get("org", "").strip()[:120]
+            staff = getattr(user, "staff_profile", None) if user.is_staff else None
+            if staff is not None:
+                staff.emergency_name = post.get("ec_name", "").strip()[:60]
+                staff.emergency_relation = post.get("ec_rel", "").strip()[:40]
+                staff.emergency_phone = post.get("ec_phone", "").strip()[:20]
+                staff.phone = post.get("phone", "").strip()[:20]  # staff keep their phone on the staff profile
+                staff.save(update_fields=["emergency_name", "emergency_relation", "emergency_phone", "phone"])
             for key in ("order_texts", "catering_emails", "newsletter"):
                 setattr(prof, key, post.get(key) == "1")
             prof.save()
@@ -288,12 +298,38 @@ def profile(request):
     edit = request.GET.get("address")
     editing = user.saved_addresses.filter(pk=edit).first() if edit and edit != "new" else (SavedAddress(user=user, label="") if edit == "new" else None)
     gift_cards = list(GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0)) if user.email else []
+    work = _work_card(user)
     return _page(request, "profile.html", "profile", {
+        "phone": work["profile"].phone if work and work["profile"] else prof.phone_text,
         "prof": prof, "cards": list(user.saved_cards.all()), "addresses": list(user.saved_addresses.all()), "editing": editing,
-        "adding_card": request.GET.get("card") == "1", "gift_cards": gift_cards,
+        "adding_card": request.GET.get("card") == "1", "gift_cards": gift_cards, "work": work,
         "toggles": [("order_texts", _("Order texts"), _("When your order is ready or on the way"), prof.order_texts),
                     ("catering_emails", _("Catering updates by email"), _("New messages and proposed changes"), prof.catering_emails),
                     ("newsletter", _("Monthly menu email"), _("New dishes and seasonal menus"), prof.newsletter)]})
+
+
+def _work_card(user):
+    """Staff: their emergency contact, roles and staff cards (StoreAccount, staff profile)."""
+    if not user.is_staff:
+        return None
+    from gift_cards import staff_cards
+    from gift_cards.models import StaffCard, StaffCardType
+    profile = getattr(user, "staff_profile", None)
+    cards = []
+    for c in StaffCard.objects.filter(user=user, revoked_at__isnull=True, type__archived=False).select_related("type"):
+        t = c.type
+        if t.kind == StaffCardType.BALANCE:
+            refill = staff_cards.refill_text(t)
+            sub = (_("%(amount)s %(when)s") % {"amount": storefront.money(t.amount), "when": refill}) if refill else _("One-time balance")
+            if t.refill == "shift":
+                sub += " · " + _("resets when you clock in")
+            value = storefront.money(c.balance)
+        else:
+            value = (f"{t.discount_value.normalize():f}% " + _("off")) if t.discount_kind == "pct" else storefront.money(t.discount_value) + " " + _("off")
+            sub = _("Comes off automatically when you order")
+        cards.append({"name": t.name, "sub": sub, "value": value, "color": t.color})
+    return {"profile": profile, "roles": [{"name": r.name, "color": r.color} for r in profile.roles.filter(archived=False)] if profile else [],
+            "cards": cards}
 
 
 def save_customer_card(user, card) -> SavedCard:

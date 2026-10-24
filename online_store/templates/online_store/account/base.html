@@ -23,12 +23,21 @@ store theme: a dark side panel with the store, the customer and the sections, an
                 <span class="acct-logo">{% if store.logo %}<img src="{{ store.logo.url }}" alt="">{% else %}<svg aria-hidden="true" width="26" height="26" viewBox="0 0 40 40"><path d="M20 33V10 M20 16l-7-6 M20 16l7-6 M20 23l-8-6 M20 23l8-6 M20 29l-6-5 M20 29l6-5" stroke="#14261F" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg>{% endif %}</span>
                 <span class="acct-two"><span class="disp acct-store">{{ store.name }}</span><span class="acct-muted">{% trans "Your account" %}</span></span>
             </a>
-            <div class="acct-me"><span class="acct-avatar">{{ me.initials }}</span><span class="acct-two"><span class="strong">{{ me.name }}</span><span class="acct-muted ellipsis">{{ me.email }}</span></span></div>
-            <nav class="acct-nav" aria-label="{% trans 'Account' %}">
+            <div class="acct-me"><span class="acct-avatar"{% if staff %} style="background: {{ staff.face }}; color: #FFFFFF"{% endif %}>{{ me.initials }}</span><span class="acct-two"><span class="strong">{{ me.name }}</span><span class="acct-muted ellipsis">{% if staff and staff.sub %}{{ staff.sub }}{% else %}{{ me.email }}{% endif %}</span></span></div>
+            {% if staff %}<div class="acct-group">{% trans "You" %}</div>{% endif %}
+            <nav class="acct-nav{% if staff %} grouped{% endif %}" aria-label="{% trans 'Account' %}">
                 <a href="{% url 'account' %}" {% if view == "orders" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="grow">{% trans "Orders" %}</span></a>
                 <a href="{% url 'account_catering' %}" {% if view == "catering" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18 M5 18a7 7 0 0 1 14 0 M12 8V6 M10 6h4"/></svg><span class="grow">{% trans "Catering" %}</span>{% if catering_badge %}<span class="acct-badge">{{ catering_badge }}</span>{% endif %}</a>
                 <a href="{% url 'account_profile' %}" {% if view == "profile" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a3.5 3.5 0 1 0 0-.01 M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"/></svg><span class="grow">{% trans "Profile and wallet" %}</span></a>
             </nav>
+            {% if staff %}
+            <div class="acct-group">{% trans "Work" %}</div>
+            <nav class="acct-nav grouped" aria-label="{% trans 'Work' %}">
+                <a href="{% url 'account_shifts' %}" {% if view == "shifts" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4"/></svg><span class="grow">{% trans "Shifts" %}</span></a>
+                <a href="{% url 'account_market' %}" {% if view == "market" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7"/></svg><span class="grow">{% trans "Up for grabs" %}</span>{% if staff.badge %}<span class="acct-badge">{{ staff.badge }}</span>{% endif %}</a>
+                <a href="{% url 'account_time' %}" {% if view == "time" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2"/></svg><span class="grow">{% trans "Availability and time off" %}</span></a>
+            </nav>
+            {% endif %}
             <span class="grow"></span>
             <a class="acct-again" href="{{ links.menu }}">{% trans "Order again" %}</a>
             <a class="acct-back" href="{{ links.home }}">← {% trans "Back to the restaurant" %}</a>

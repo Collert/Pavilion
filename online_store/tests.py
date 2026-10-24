@@ -2,7 +2,9 @@
 import datetime
 import json
 from decimal import Decimal
+from unittest import mock
 
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -425,3 +427,103 @@ class GiftCardPageTests(TestCase):
                          [("gift_card_gifted", "sam@example.com"), ("gift_card_receipt", "ana@example.com")])  # and the buyer's receipt
         self.assertEqual(GiftCard.find(done["link"].rsplit("/", 1)[-1]), done["card"])
         self.assertEqual(done["order"].authorization.status, PaymentAuthorization.CAPTURED)
+
+
+
+class StaffAccountTests(TestCase):
+    """The staff side of the account (online_store/work.py): Shifts, Up for grabs, Availability and time off."""
+
+    def setUp(self):
+        from team.models import Shift
+        from users.models import Role, Staff
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.aisha = User.objects.create_user("aisha", first_name="Aisha", last_name="Okafor", email="aisha@example.com", is_staff=True)
+        Staff.objects.create(user=self.aisha).roles.add(self.cook)
+        self.marco = User.objects.create_user("marco", first_name="Marco", email="marco@example.com", is_staff=True)
+        Staff.objects.create(user=self.marco).roles.add(self.cook)
+        self.day = timezone.localdate() + datetime.timedelta(days=3)
+        self.mine = Shift.objects.create(user=self.aisha, role=self.cook, date=self.day, start=540, end=1020, break_minutes=30, published=True)
+        self.client.force_login(self.aisha)
+
+    def test_customers_dont_see_work(self):
+        customer = User.objects.create_user("sofia", email="sofia@example.com")
+        self.client.force_login(customer)
+        self.assertRedirects(self.client.get(reverse("account_shifts")), reverse("account"), fetch_redirect_response=False)
+        page = self.client.get(reverse("account_profile"))
+        self.assertNotContains(page, "Up for grabs")
+        self.assertContains(page, "Company")
+
+    def test_profile_staff_section(self):
+        page = self.client.get(reverse("account_profile"))
+        self.assertContains(page, "Emergency contact")
+        self.assertContains(page, "Up for grabs")
+        self.assertNotContains(page, "shows on catering invoices")
+        self.client.post(reverse("account_profile"), {"op": "save", "first": "Aisha", "last": "Okafor", "email": "aisha@example.com",
+                                                      "phone": "604-555-0127", "ec_name": "Grace Okafor", "ec_rel": "Mother", "ec_phone": "604-555-0164"})
+        self.aisha.staff_profile.refresh_from_db()
+        self.assertEqual((self.aisha.staff_profile.emergency_name, self.aisha.staff_profile.emergency_relation, self.aisha.staff_profile.phone),
+                         ("Grace Okafor", "Mother", "604-555-0127"))
+        self.assertEqual(self.client.get(reverse("account_profile")).context["phone"], "604-555-0127")
+
+    def test_shifts_give_away_and_take_back(self):
+        from team.models import ShiftOffer
+        url = reverse("account_shifts")
+        page = self.client.get(url)
+        self.assertEqual(page.context["next"]["time"], "9:00 AM – 5:00 PM")
+        self.assertContains(page, "Give away")
+        self.assertContains(self.client.get(url, {"give": self.mine.id}), "Give this shift away?")
+        self.client.post(url, {"op": "give", "shift": self.mine.id, "note": "Family thing"})
+        offer = ShiftOffer.objects.get()
+        self.assertContains(self.client.get(url), "Take it back")
+        self.client.post(url, {"op": "cancel", "offer": offer.id})
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, ShiftOffer.CANCELLED)
+
+    def test_swap_dialog_and_ask(self):
+        from team.models import Shift, ShiftOffer
+        theirs = Shift.objects.create(user=self.marco, role=self.cook, date=self.day + datetime.timedelta(days=1), start=540, end=1020, published=True)
+        url = reverse("account_shifts")
+        md = self.client.get(url, {"swap": self.mine.id, "who": self.marco.id}).context["modal"]
+        self.assertEqual(([p["first"] for p in md["people"]], [t["id"] for t in md["theirs"]]), (["Marco"], [theirs.id]))
+        with mock.patch("misc_tools.email.send"), self.captureOnCommitCallbacks(execute=True):
+            self.client.post(url, {"op": "swap", "shift": self.mine.id, "who": self.marco.id, "theirs": theirs.id})
+        offer = ShiftOffer.objects.get()
+        self.assertEqual((offer.kind, offer.to, offer.theirs), (ShiftOffer.SWAP, self.marco, theirs))
+        # Marco says yes on Up for grabs
+        self.client.force_login(self.marco)
+        market = self.client.get(reverse("account_market"))
+        self.assertEqual(market.context["staff"]["badge"], 1)
+        self.assertContains(market, "asked to swap shifts with you")
+        self.client.post(reverse("account_market"), {"op": "accept", "offer": offer.id})
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, ShiftOffer.ACCEPTED)
+
+    def test_grab_from_market(self):
+        from team.models import Shift
+        open_shift = Shift.objects.create(role=self.cook, date=self.day + datetime.timedelta(days=2), start=600, end=900, published=True)
+        page = self.client.get(reverse("account_market"))
+        self.assertEqual(page.context["sections"][0]["items"][0]["s"], open_shift)
+        self.client.post(reverse("account_market"), {"op": "grab", "shift": open_shift.id})
+        open_shift.refresh_from_db()
+        self.assertEqual(open_shift.user, self.aisha)
+
+    def test_time_off_and_availability_requests(self):
+        from team.models import Availability, TimeOff
+        url = reverse("account_time")
+        page = self.client.get(url)
+        self.assertEqual(page.context["shift_days"][0]["date"], self.day.isoformat())
+        day = self.day.isoformat()
+        self.client.post(url, {"op": "timeoff", "rq": "off", "first": day, "last": day, "all_day": "1", "category": "Vacation"})
+        off = TimeOff.objects.get()
+        self.assertContains(self.client.get(url), "1 shift would open up")
+        self.client.post(url, {"op": "withdraw", "key": f"t{off.id}"})
+        self.assertFalse(TimeOff.objects.exists())
+        post = {"op": "availability", "rq": "avail", "from": day}
+        for d in range(7):
+            post.update({f"d{d}": "1" if d != 3 else "0", f"d{d}_start": "09:00", f"d{d}_end": "17:00"})
+        self.client.post(url, post)
+        req = Availability.objects.get()
+        self.assertEqual((req.windows["0"], req.windows["3"]), ([[540, 1020]], []))
+        # a bad request keeps what they typed
+        page = self.client.post(url, {**post, "op": "availability", "from": timezone.localdate().isoformat(), "reason": "Classes"})
+        self.assertEqual((page.status_code, page.context["fa"]["note"]), (200, "Classes"))

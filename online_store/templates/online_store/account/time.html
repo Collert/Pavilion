@@ -1,0 +1,93 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n static %}
+{% comment %}
+Availability and time off (StoreAccount, staff-time / staff-avail; online_store/work.py): their week, their
+requests (withdraw while waiting) and a new request: time off or a change of availability (?rq=avail).
+account-work.js keeps the impact line, the times and the send button current while they fill it in.
+{% endcomment %}
+{% block title %}{% trans "Availability and time off" %}{% endblock %}
+{% block heading %}{% trans "Availability and time off" %}{% endblock %}
+{% block live_topics %}"schedule"{% endblock %}
+{% block content %}
+<div class="acct-split">
+    <section class="acct-col acct-scroll" id="work-time" data-region>
+        <div class="acct-card">
+            <div class="acct-card-head"><h2 class="disp acct-h2 grow">{% trans "Your availability" %}</h2><span class="acct-meta small">{{ avail_note }}</span></div>
+            <div class="acct-hours"><div>{% for h in hours_marks %}<span style="left: {{ h.left|stringformat:'.2f' }}%"{% if forloop.first %} class="first"{% endif %}>{{ h.label }}</span>{% endfor %}</div></div>
+            {% for w in chart %}
+            <div class="acct-avail-row"><span class="acct-avail-day">{{ w.day }}</span>
+                <div class="acct-avail-track{% if not w.bars %} none{% endif %}">{% for b in w.bars %}<span style="left: {{ b.left|stringformat:'.2f' }}%; width: {{ b.width|stringformat:'.2f' }}%"></span>{% endfor %}</div>
+                <span class="num acct-avail-txt">{{ w.txt }}</span></div>
+            {% endfor %}
+        </div>
+        <div class="acct-card acct-ups">
+            <h2 class="disp acct-h2 pad">{% trans "Your requests" %}</h2>
+            {% for q in requests %}
+            <div class="acct-req">
+                <span class="acct-pill kind {{ q.kind }}">{{ q.kind_text }}</span>
+                <div class="grow"><div class="num strong">{{ q.what }}</div><div class="acct-meta small top2">{{ q.sub }}</div>{% if q.reply %}<div class="acct-meta small italic acct-ink2 top4">{{ q.reply }}</div>{% endif %}</div>
+                <span class="acct-pill {{ q.status }}">{{ q.status_text }}</span>
+                {% if q.withdraw %}<form method="post">{% csrf_token %}<input type="hidden" name="key" value="{{ q.key }}"><input type="hidden" name="rq" value="{{ tab }}"><button class="acct-sbtn" name="op" value="withdraw">{% trans "Withdraw" %}</button></form>{% endif %}
+            </div>
+            {% empty %}
+            <div class="acct-meta pad">{% trans "You haven’t asked for anything yet." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+    <aside class="acct-card acct-detail wide acct-scroll">
+        <h2 class="disp acct-h2">{% trans "New request" %}</h2>
+        <div class="acct-tabs" role="tablist" aria-label="{% trans 'Request type' %}">
+            <a role="tab" aria-selected="{% if tab == 'off' %}true{% else %}false{% endif %}" href="?">{% trans "Time off" %}</a>
+            <a role="tab" aria-selected="{% if tab == 'avail' %}true{% else %}false{% endif %}" href="?rq=avail">{% trans "Change availability" %}</a>
+        </div>
+        {% if tab == "off" %}
+        <form method="post" id="timeoff-form" data-today="{{ today }}">{% csrf_token %}<input type="hidden" name="rq" value="off">
+            {{ shift_days|json_script:"shift-days" }}
+            <div class="acct-two-col">
+                <label><span class="acct-lbl">{% trans "From" %}</span><input type="date" class="acct-field" name="first" value="{{ fo.from }}" min="{{ today }}" required></label>
+                <label><span class="acct-lbl">{% trans "To" %}</span><input type="date" class="acct-field" name="last" value="{{ fo.to }}" min="{{ today }}" required></label>
+            </div>
+            <label class="acct-toggle plain"><span class="grow strong">{% trans "All day" %}</span>
+                <input type="hidden" name="all_day" value="0"><input type="checkbox" name="all_day" value="1" class="visually-hidden" {% if fo.all_day %}checked{% endif %}><span class="acct-switch"><span></span></span></label>
+            <div class="acct-two-col part-day" {% if fo.all_day %}hidden{% endif %}>
+                <label><span class="acct-lbl">{% trans "Starting" %}</span><input type="time" class="acct-field" name="start" value="{{ fo.start }}"></label>
+                <label><span class="acct-lbl">{% trans "Until" %}</span><input type="time" class="acct-field" name="end" value="{{ fo.end }}"></label>
+            </div>
+            <div class="acct-lbl top14">{% trans "Reason" %}</div>
+            <div class="acct-chips" role="radiogroup" aria-label="{% trans 'Reason' %}">
+                {% for key, label in cats %}<label class="acct-chip-pick"><input type="radio" name="category" value="{{ key }}" class="visually-hidden" {% if fo.cat == key %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <label class="block top12"><span class="acct-lbl">{% trans "Note for your manager" %} <span class="acct-faint">· {% trans "optional" %}</span></span>
+                <textarea class="acct-field area" name="reason" rows="2" maxlength="300" placeholder="{% trans 'Anything they should know' %}">{{ fo.note }}</textarea></label>
+            <div class="acct-impact" id="timeoff-impact" aria-live="polite"></div>
+            <button class="acct-btn amber wide big" name="op" value="timeoff">{% trans "Send time-off request" %}</button>
+        </form>
+        {% else %}
+        <form method="post" id="avail-form" data-today="{{ today }}">{% csrf_token %}<input type="hidden" name="rq" value="avail">
+            <div class="acct-two-col">
+                <label><span class="acct-lbl">{% trans "Starting" %}</span><input type="date" class="acct-field" name="from" value="{{ fa.from }}" min="{{ today }}" required></label>
+                <label><span class="acct-lbl">{% trans "Until" %} <span class="acct-faint">· {% trans "blank if ongoing" %}</span></span><input type="date" class="acct-field" name="until" value="{{ fa.until }}"></label>
+            </div>
+            <div class="acct-days">
+                {% for d in fa.days %}
+                <div class="acct-day" data-was="{% if d.was %}{{ d.was.0 }}-{{ d.was.1 }}{% endif %}">
+                    <label class="acct-toggle bare"><input type="hidden" name="d{{ d.i }}" value="0"><input type="checkbox" name="d{{ d.i }}" value="1" class="visually-hidden" aria-label="{% blocktrans with day=d.day %}Available {{ day }}{% endblocktrans %}" {% if d.on %}checked{% endif %}><span class="acct-switch"><span></span></span></label>
+                    <span class="acct-day-name">{{ d.day }}</span>
+                    <span class="acct-day-times" {% if not d.on %}hidden{% endif %}>
+                        <input type="time" class="acct-field" name="d{{ d.i }}_start" value="{{ d.start }}" aria-label="{% blocktrans with day=d.day %}{{ day }} from{% endblocktrans %}">
+                        <span class="acct-meta small">{% trans "to" %}</span>
+                        <input type="time" class="acct-field" name="d{{ d.i }}_end" value="{{ d.end }}" aria-label="{% blocktrans with day=d.day %}{{ day }} until{% endblocktrans %}"></span>
+                    <span class="acct-day-off" {% if d.on %}hidden{% endif %}>{% trans "Not available" %}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <label class="block top12"><span class="acct-lbl">{% trans "Why the change?" %} <span class="acct-faint">· {% trans "optional" %}</span></span>
+                <textarea class="acct-field area" name="reason" rows="2" maxlength="300" placeholder="{% trans 'e.g. New class schedule' %}">{{ fa.note }}</textarea></label>
+            <button class="acct-btn amber wide big" name="op" value="availability" id="avail-send">{% trans "Send availability change" %}</button>
+        </form>
+        {% endif %}
+    </aside>
+</div>
+<script src="{% url 'javascript-catalog' %}"></script>
+<script type="module" src="{% static 'online_store/account-work.js' %}"></script>
+{% endblock %}
