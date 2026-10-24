@@ -6,8 +6,11 @@ customers list for the newsletter.
 `install` renders every email (misc_tools/emails.py) once per language the store has on, from
 misc_tools/templates/emails/listmonk/<key>.html under that language (misc_tools/email_templates.py), creates them as
 listmonk transactional templates, and remembers which is which (misc_tools.models.EmailTemplate). It also makes a
-campaign template per language for newsletters, and the customers list. It only adds what's missing (or gone from
-listmonk); `overwrite` rewrites the ones Pavilion made (Reset to default).
+campaign template per language for newsletters. It only adds what's missing (or gone from listmonk); `overwrite`
+rewrites the ones Pavilion made (Reset to default).
+
+People (below): everyone with an account is a subscriber in the users list; the customers list is the newsletter's.
+They're synced when listmonk is connected and whenever an account, its menu-email choice or its language changes.
 
 The listmonk API user needs a role that can: get and manage templates, send transactional messages, get and manage
 lists, and get and manage subscribers.
@@ -131,7 +134,7 @@ def install(keys=None, overwrite=False) -> dict:
                 EmailTemplate.objects.update_or_create(kind=key, language=lang, defaults={"template_id": made, "managed": True})
                 done["made"] += 1
     if not keys:
-        ensure_list()
+        ensure_lists()
     return done
 
 
@@ -143,73 +146,147 @@ def missing() -> int:
     return sum(1 for k in KINDS for lang in languages() if (k.key, lang) not in have)
 
 
-# ---------- the newsletter list ----------
+# ---------- people: the users list and the customers list ----------
+#
+# Everyone with an account (staff and customers) is a listmonk subscriber in the "<store> users" list, so
+# transactional email always finds them. That list is private and never gets campaigns, so no unsubscribe link ever
+# reaches it (and listmonk sends transactional email even to someone who blocklisted themselves). People who ticked
+# "Monthly menu email" are also in "<store> customers", the list newsletters go to, which they can leave.
 
-def ensure_list() -> int:
-    """The "<store> customers" list (made once), for newsletters written in listmonk."""
+SYNC = "listmonk-sync"   # cache: {"state": "running"|"done"|"failed", "count", "error"}
+
+LISTS = {
+    "users": ("listmonk_users_list", "{store} users",
+              "Everyone with an account at {store} (Pavilion keeps it up to date). For transactional email only: "
+              "never send it a campaign, so nobody can unsubscribe from receipts and password resets."),
+    "customers": ("listmonk_list", "{store} customers",
+                  "Customers who asked for the menu email in their account (Pavilion keeps it up to date)."),
+}
+
+
+def ensure_lists() -> dict:
+    """{"users": id, "customers": id}: the two lists, made once (or found again by name)."""
     from admin_portal.models import StoreSettings
     store = StoreSettings.load()
-    lists = {row["id"]: row for row in _results(api("GET", "/lists?minimal=true&per_page=all"))}
-    if store.listmonk_list in lists:
-        return store.listmonk_list
-    name = f"{store.name} customers"
-    found = next((i for i, row in lists.items() if row.get("name") == name), None)
-    if found is None:
-        found = api("POST", "/lists", {"name": name, "type": "private", "optin": "single", "tags": ["pavilion"],
-                                       "description": "Customers who asked for the menu email in their account (Pavilion keeps it up to date)."})["id"]
-    StoreSettings.objects.filter(pk=store.pk).update(listmonk_list=found)
-    return found
+    have = {row["id"]: row for row in _results(api("GET", "/lists?minimal=true&per_page=all"))}
+    out = {}
+    for key, (field, name, about) in LISTS.items():
+        current = getattr(store, field)
+        if current in have:
+            out[key] = current
+            continue
+        name = name.format(store=store.name)
+        found = next((i for i, row in have.items() if row.get("name") == name), None)
+        if found is None:
+            found = api("POST", "/lists", {"name": name, "type": "private", "optin": "single", "tags": ["pavilion"],
+                                           "description": about.format(store=store.name)})["id"]
+        StoreSettings.objects.filter(pk=store.pk).update(**{field: found})
+        out[key] = found
+    return out
+
+
+def ensure_list() -> int:
+    return ensure_lists()["customers"]
 
 
 def _subscriber(email):
-    rows = _results(api("GET", "/subscribers?per_page=5&query=" + urllib.request.quote(f"LOWER(subscribers.email)=LOWER('{email.replace(chr(39), '')}')")))
+    query = "LOWER(subscribers.email)=LOWER('%s')" % email.replace("'", "")
+    rows = _results(api("GET", "/subscribers?per_page=5&query=" + urllib.request.quote(query)))
     return rows[0] if rows else None
 
 
-def sync_customer(user):
-    """Put a customer in the newsletter list when they want the menu email (with their language), take them out
-    when they don't."""
-    from admin_portal.models import StoreSettings
+def add_address(email):
+    """A subscriber for an address with no account (a gift card's recipient, a receipt staff typed in), in no list:
+    older listmonk only sends transactional email to subscribers."""
+    if _subscriber(email) is None:
+        api("POST", "/subscribers", {"email": email, "name": email.split("@")[0], "status": "enabled", "lists": [],
+                                     "attribs": {"pavilion": "address"}, "preconfirm_subscriptions": True})
+
+
+def _listed(found, list_id) -> bool:
+    return any(l.get("id") == list_id and l.get("subscription_status") != "unsubscribed" for l in found.get("lists") or [])
+
+
+def sync_user(user, lists=None):
+    """Put one person in listmonk: the users list always, the customers list while they want the menu email (with
+    their language). Someone who left the customers list in listmonk is only put back if they tick it again here."""
     from users.models import language_of
-    list_id = StoreSettings.load().listmonk_list
-    if not list_id or not user.email:
+    if not user.email or not user.is_active:
         return
+    lists = lists or ensure_lists()
     wants = bool(getattr(getattr(user, "customer_profile", None), "newsletter", False))
+    attribs = {"pavilion_id": user.pk, "language": language_of(user), "staff": bool(user.is_staff)}
+    name = user.get_full_name() or user.username
     found = _subscriber(user.email)
-    attribs = {"pavilion_id": user.pk, "language": language_of(user)}
     if found is None:
-        if not wants:
-            return
-        api("POST", "/subscribers", {"email": user.email, "name": user.get_full_name() or user.username, "status": "enabled",
-                                     "lists": [list_id], "attribs": attribs, "preconfirm_subscriptions": True})
+        api("POST", "/subscribers", {"email": user.email, "name": name, "status": "enabled", "attribs": attribs,
+                                     "lists": [lists["users"]] + ([lists["customers"]] if wants else []),
+                                     "preconfirm_subscriptions": True})
         return
-    api("PUT", "/subscribers/lists", {"ids": [found["id"]], "action": "add" if wants else "remove", "target_list_ids": [list_id],
-                                      **({"status": "confirmed"} if wants else {})})
-    if wants:
-        api("PATCH", f"/subscribers/{found['id']}", {"attribs": {**(found.get("attribs") or {}), **attribs}})
+    if not _listed(found, lists["users"]):
+        api("PUT", "/subscribers/lists", {"ids": [found["id"]], "action": "add", "target_list_ids": [lists["users"]], "status": "confirmed"})
+    if wants and not _listed(found, lists["customers"]):
+        api("PUT", "/subscribers/lists", {"ids": [found["id"]], "action": "add", "target_list_ids": [lists["customers"]], "status": "confirmed"})
+    elif not wants and _listed(found, lists["customers"]):
+        api("PUT", "/subscribers/lists", {"ids": [found["id"]], "action": "unsubscribe", "target_list_ids": [lists["customers"]]})
+    merged = {**(found.get("attribs") or {}), **attribs}
+    if found.get("name") != name or merged != (found.get("attribs") or {}):
+        api("PATCH", f"/subscribers/{found['id']}", {"name": name, "attribs": merged})
+
+
+def sync_customer(user):  # the name the newsletter switch used
+    sync_user(user)
+
+
+def people():
+    from django.contrib.auth.models import User
+    return User.objects.filter(is_active=True).exclude(email="").select_related("customer_profile", "preference")
 
 
 def sync_all() -> int:
-    from django.contrib.auth.models import User
+    """Everyone with an email into listmonk. Returns how many."""
+    lists = ensure_lists()
     count = 0
-    for user in User.objects.filter(customer_profile__isnull=False).exclude(email="").select_related("customer_profile"):
-        sync_customer(user)
+    for user in people():
+        sync_user(user, lists)
         count += 1
     return count
 
 
-def sync_later(user):
-    """After this transaction, in the background: sync a customer whose newsletter choice or language changed."""
-    if not is_configured():
-        return
-
+def _background(job):
     def run():
         close_old_connections()
         try:
-            sync_customer(user)
-        except ListmonkError:
-            logger.warning("Couldn't sync %s with listmonk", user.pk, exc_info=True)
+            job()
         finally:
             close_old_connections()
 
-    transaction.on_commit(lambda: threading.Thread(target=run, daemon=True).start())
+    threading.Thread(target=run, daemon=True).start()
+
+
+def sync_all_later():
+    """Sync everyone in the background (after connecting); the Email page shows how it's going (SYNC)."""
+    from django.core.cache import cache
+    cache.set(SYNC, {"state": "running", "count": 0, "error": ""}, 60 * 60)
+
+    def job():
+        try:
+            cache.set(SYNC, {"state": "done", "count": sync_all(), "error": ""}, 60 * 60)
+        except ListmonkError as e:
+            cache.set(SYNC, {"state": "failed", "count": 0, "error": str(e)}, 60 * 60)
+
+    transaction.on_commit(lambda: _background(job))
+
+
+def sync_later(user):
+    """After this transaction, in the background: sync someone whose account, menu-email choice or language changed."""
+    if not is_configured():
+        return
+
+    def job():
+        try:
+            sync_user(user)
+        except ListmonkError:
+            logger.warning("Couldn't sync %s with listmonk", user.pk, exc_info=True)
+
+    transaction.on_commit(lambda: _background(job))

@@ -81,5 +81,11 @@ def send(kind, to, data, language=None, user=None, fallback=None):
     sender = listmonk.config()["from"]
     if sender:
         payload["from_email"] = sender
-    listmonk.api("POST", "/tx", payload)
+    try:
+        listmonk.api("POST", "/tx", payload)
+    except ListmonkError as e:
+        if e.status != 400:
+            raise
+        listmonk.add_address(to)  # older listmonk only sends to subscribers: make one, then try again
+        listmonk.api("POST", "/tx", payload)
     return True

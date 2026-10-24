@@ -18,8 +18,16 @@ LISTMONK = dict(LISTMONK_URL="https://lists.example.com", LISTMONK_API_USER="pav
 class FakeListmonk:
     """listmonk's API in memory: templates, lists, subscribers and the transactional messages sent."""
 
-    def __init__(self):
+    def __init__(self, old=False):
         self.templates, self.lists, self.subscribers, self.sent, self.calls = {}, {}, {}, [], []
+        self.old = old  # an older listmonk: transactional email only to subscribers
+
+    def by_email(self, email_):
+        return next((s for s in self.subscribers.values() if s["email"].lower() == email_.lower()), None)
+
+    def in_list(self, email_, list_id):
+        sub = self.by_email(email_)
+        return bool(sub) and any(l["id"] == list_id and l["subscription_status"] != "unsubscribed" for l in sub["lists"])
 
     def __call__(self, method, path, payload=None, cfg=None):
         self.calls.append((method, path))
@@ -38,13 +46,27 @@ class FakeListmonk:
             self.lists[len(self.lists) + 1] = payload["name"]
             return {"id": len(self.lists)}
         if path.startswith("/subscribers?"):
-            email_ = path.split("LOWER%28%27", 1)[-1].split("%27", 1)[0] if "LOWER%28%27" in path else ""
-            return [s for s in self.subscribers.values() if s["email"].lower() == email_.lower()]
+            from urllib.parse import unquote
+            email_ = unquote(path).split("LOWER('", 1)[-1].split("')", 1)[0]
+            found = self.by_email(email_)
+            return [found] if found else []
         if path == "/subscribers" and method == "POST":
             new = len(self.subscribers) + 1
-            self.subscribers[new] = {"id": new, **payload}
+            self.subscribers[new] = {"id": new, **payload, "lists": [{"id": i, "subscription_status": "confirmed"} for i in payload["lists"]]}
             return {"id": new}
+        if path == "/subscribers/lists":
+            for sid in payload["ids"]:
+                sub = self.subscribers[sid]
+                for list_id in payload["target_list_ids"]:
+                    sub["lists"] = [l for l in sub["lists"] if l["id"] != list_id]
+                    sub["lists"].append({"id": list_id, "subscription_status": "unsubscribed" if payload["action"] == "unsubscribe" else "confirmed"})
+            return True
+        if path.startswith("/subscribers/") and method == "PATCH":
+            self.subscribers[int(path.rsplit("/", 1)[1])].update(payload)
+            return True
         if path == "/tx":
+            if self.old and not all(self.by_email(e) for e in payload["subscriber_emails"]):
+                raise listmonk.ListmonkError("listmonk returned 400: subscriber not found", 400)
             self.sent.append(payload)
             return True
         return True
@@ -71,7 +93,7 @@ class EmailTests(TestCase):
         langs = len(listmonk.languages())
         self.assertEqual(done["made"], (len(KINDS) + 1) * langs)  # every email, and the newsletter template
         self.assertEqual(EmailTemplate.objects.count(), (len(KINDS) + 1) * langs)
-        self.assertEqual(list(self.fake.lists.values()), ["My restaurant customers"])
+        self.assertEqual(list(self.fake.lists.values()), ["My restaurant users", "My restaurant customers"])
         tid = EmailTemplate.objects.get(kind="password_reset", language="uk").template_id
         made = self.fake.templates[tid]
         self.assertEqual(made["type"], "tx")
@@ -107,14 +129,37 @@ class EmailTests(TestCase):
         self.assertEqual(EmailTemplate.objects.filter(kind="test").count(), len(listmonk.languages()))
         self.assertEqual(len(self.fake.sent), 1)
 
-    def test_newsletter_list(self):
+    def test_everyone_in_the_users_list_and_menu_email_people_in_the_customers_list(self):
+        from admin_portal.models import StoreSettings
+        ben = User.objects.create_user("ben", email="ben@example.com", is_staff=True)
+        ben.customer_profile.newsletter = True
+        ben.customer_profile.save()
+        User.objects.create_user("noemail")
+        self.assertEqual(listmonk.sync_all(), 2)
+        store = StoreSettings.load()
+        users, customers = store.listmonk_users_list, store.listmonk_list
+        self.assertEqual(sorted(self.fake.lists.values()), ["My restaurant customers", "My restaurant users"])
+        self.assertTrue(self.fake.in_list("ana@example.com", users) and self.fake.in_list("ben@example.com", users))
+        self.assertEqual((self.fake.in_list("ana@example.com", customers), self.fake.in_list("ben@example.com", customers)), (False, True))
+        self.assertEqual(self.fake.by_email("ben@example.com")["attribs"]["staff"], True)
+        ana = self.ana.customer_profile
+        ana.newsletter = True
+        ana.save()
+        listmonk.sync_user(self.ana)
+        self.assertTrue(self.fake.in_list("ana@example.com", customers))
+        ana.newsletter = False
+        ana.save()
+        listmonk.sync_user(self.ana)
+        self.assertEqual((self.fake.in_list("ana@example.com", customers), self.fake.in_list("ana@example.com", users)), (False, True))
+        self.assertEqual(listmonk.sync_all(), 2)  # again: nothing doubles up
+        self.assertEqual(len(self.fake.subscribers), 2)
+
+    def test_an_older_listmonk_gets_unknown_addresses_added_first(self):
+        self.fake.old = True
         listmonk.install()
-        profile = self.ana.customer_profile
-        profile.newsletter = True
-        profile.save()
-        listmonk.sync_customer(self.ana)
-        sub = next(iter(self.fake.subscribers.values()))
-        self.assertEqual((sub["email"], sub["lists"], sub["attribs"]["language"]), ("ana@example.com", [1], "en"))
+        self.assertTrue(email.send("gift_card", "friend@example.com", {"name": "Friend"}))
+        self.assertEqual(self.fake.by_email("friend@example.com")["lists"], [])  # a subscriber, in no list
+        self.assertEqual(self.fake.sent[-1]["subscriber_emails"], ["friend@example.com"])
 
 
 @override_settings(LISTMONK_URL="", LISTMONK_API_USER="", LISTMONK_API_TOKEN="")
@@ -134,8 +179,11 @@ class EmailPageTests(TestCase):
         from admin_portal.models import StoreSettings
         x = self.client.get(self.url).context["x"]
         self.assertFalse(x["connected"])
-        x = self.client.post(self.url, {"op": "connect", "url": "https://mail.example.com", "user": "pavilion", "token": "k"}).context["x"]
+        with mock.patch("misc_tools.listmonk._background", lambda job: job()), self.captureOnCommitCallbacks(execute=True):
+            x = self.client.post(self.url, {"op": "connect", "url": "https://mail.example.com", "user": "pavilion", "token": "k"}).context["x"]
         self.assertTrue(x["connected"])
+        self.assertTrue(self.fake.in_list("owner@example.com", StoreSettings.load().listmonk_users_list))  # everyone synced on connecting
+        self.assertEqual(self.client.get(self.url).context["x"]["sync"]["state"], "done")
         self.assertEqual(StoreSettings.load().listmonk_token, "k")
         self.assertEqual(x["missing"], len(KINDS) * 3)
         x = self.client.post(self.url, {"op": "install"}).context["x"]

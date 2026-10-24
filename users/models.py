@@ -205,8 +205,18 @@ def create_customer_profile(sender, instance, created, **kwargs):
         Customer.objects.create(user=instance)
 
 @receiver(post_save, sender=Customer)
-def newsletter_list(sender, instance, created, **kwargs):
-    """Keep listmonk's customers list in step with their "Monthly menu email" choice (misc_tools/listmonk.py)."""
-    if not created:
-        from misc_tools.listmonk import sync_later
-        sync_later(instance.user)
+@receiver(post_save, sender=Preference)
+def listmonk_subscriber(sender, instance, created, **kwargs):
+    """Keep someone's listmonk subscriber (the users list, and the customers list for "Monthly menu email") in step
+    with their menu-email choice and language (misc_tools/listmonk.py)."""
+    from misc_tools.listmonk import sync_later
+    sync_later(instance.user)
+
+
+@receiver(post_save, sender=User)
+def listmonk_account(sender, instance, created, update_fields=None, **kwargs):
+    """A new account, or a changed name or email, in listmonk too (not just signing in)."""
+    if update_fields and set(update_fields) <= {"last_login", "password"}:
+        return
+    from misc_tools.listmonk import sync_later
+    sync_later(instance)

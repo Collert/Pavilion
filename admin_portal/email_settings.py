@@ -92,7 +92,12 @@ def apply_op(st, op, request, store) -> tuple[str, str]:
         store.save(update_fields=["listmonk_url", "listmonk_user", "listmonk_token", "listmonk_from"])
         cache.delete(CACHE)
         found, _err = listmonk_templates(force=True)
-        return _("Connected to listmonk. %(n)d templates found.") % {"n": len(found["tx"])}, ""
+        try:
+            listmonk.ensure_lists()
+        except listmonk.ListmonkError as e:
+            return "", str(e)
+        listmonk.sync_all_later()  # everyone with an account becomes a subscriber, in the background
+        return _("Connected to listmonk. %(n)d templates found. Adding everyone’s accounts to listmonk now.") % {"n": len(found["tx"])}, ""
     elif name == "disconnect":
         store.listmonk_token = ""
         store.save(update_fields=["listmonk_token"])
@@ -129,11 +134,8 @@ def apply_op(st, op, request, store) -> tuple[str, str]:
             return "", str(e)
         return _("Test email sent to %(email)s.") % {"email": to}, ""
     elif name == "sync":
-        try:
-            n = listmonk.sync_all()
-        except listmonk.ListmonkError as e:
-            return "", str(e)
-        return _("Newsletter list updated from %(n)d customers.") % {"n": n}, ""
+        listmonk.sync_all_later()
+        return _("Updating everyone in listmonk. This page shows when it’s done."), ""
     return "", ""
 
 
@@ -191,6 +193,7 @@ def page(st, store) -> dict:
         "url_ok": bool(URL.match(st["url"])), "has_token": bool(cfg["token"]),
         "facts": [(_("Server"), cfg["url"].split("://", 1)[-1]), (_("API user"), cfg["user"]),
                   (_("Sends as"), cfg["from"] or _("listmonk’s default")), (_("Templates"), _("%(n)d transactional") % {"n": len(found["tx"])})],
-        "edit_url": cfg["url"] + "/admin/campaigns/templates", "list_id": store.listmonk_list,
+        "edit_url": cfg["url"] + "/admin/campaigns/templates", "list_id": store.listmonk_list, "users_list": store.listmonk_users_list,
+        "sync": cache.get(listmonk.SYNC),
         "teaser": [_("Order receipts"), _("Ready for pickup"), _("Catering updates"), _("Gift cards"), _("Password resets"), _("Schedules")],
     }

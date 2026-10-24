@@ -69,10 +69,13 @@ away; the switches and template picks are a draft (editor.js posts them back) sa
             </button>
             {% endfor %}
         </nav>
-        <section class="card tm-card">
-            <div class="ov muted">{% trans "Newsletter" %}</div>
-            <div class="small muted strong top8">{% if x.list_id %}{% trans "Customers who ticked “Monthly menu email” in their account are kept in the customers list, with their language. Write the newsletter in listmonk with Pavilion’s newsletter template." %}{% else %}{% trans "Adding Pavilion’s templates also makes a customers list for newsletters." %}{% endif %}</div>
-            {% if x.list_id %}<button class="em-soft wide top8" name="op" value="sync">{% trans "Update the list now" %}</button>{% endif %}
+        <section class="card tm-card" id="em-people">
+            <div class="ov muted">{% trans "People in listmonk" %}</div>
+            <div class="small muted strong top8">{% trans "Everyone with an account is in the users list, which only gets transactional email: never send it a campaign, so nobody can unsubscribe from receipts and password resets. Customers who ticked “Monthly menu email” are also in the customers list, for newsletters (they can leave that one)." %}</div>
+            {% if x.sync.state == "running" %}<div class="em-sync">{% trans "Adding everyone’s accounts to listmonk…" %}</div>
+            {% elif x.sync.state == "done" %}<div class="em-sync done">{% blocktrans count n=x.sync.count %}{{ n }} account is in listmonk.{% plural %}{{ n }} accounts are in listmonk.{% endblocktrans %}</div>
+            {% elif x.sync.state == "failed" %}<div class="em-err">{{ x.sync.error }}</div>{% endif %}
+            <button class="em-soft wide top8" name="op" value="sync">{% trans "Update everyone now" %}</button>
         </section>
         {% endif %}
     </aside>
