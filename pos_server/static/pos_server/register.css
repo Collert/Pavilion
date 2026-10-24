@@ -126,6 +126,9 @@
 }
 .qty button.inc { background: var(--surface); box-shadow: 0 1px 2px rgba(20, 38, 31, .15); }
 .qty span { min-width: 22px; text-align: center; font-size: 16px; font-weight: 700; }
+.qty button.qty-num { width: auto; min-width: 30px; padding: 0 4px; border-radius: 12px; background: transparent; box-shadow: none;
+    font: inherit; font-size: 16px; font-weight: 700; color: inherit; }
+.qty button.qty-num:hover { background: var(--surface); }
 .line-price { width: 64px; text-align: right; }
 .line-total { font-size: 16px; font-weight: 700; }
 .line-gross { font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: line-through; }
@@ -354,6 +357,11 @@
 .ap-error { min-height: 22px; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--danger); }
 .ap-keys { gap: 10px; margin-top: 6px; }
 .ap-keys .key { height: 64px; border-radius: 22px; font-size: 26px; }
+.qty-body { display: flex; flex-direction: column; align-items: stretch; }
+.qty-display { margin-top: 4px; text-align: center; font-size: 56px; line-height: 64px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qty-display.placeholder { color: var(--muted); opacity: .45; }
+.qty-hint { text-align: center; margin-bottom: 16px; }
+.qty-keys .key { height: 64px; border-radius: 22px; font-size: 26px; }
 
 /* Gift cards: tiles in the Gift cards tab (a design's colour or picture), rows in the order, the sale and result sheets */
 .dish.gift-tile { background: #1F4A3A center / cover; color: #FFFFFF; }

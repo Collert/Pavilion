@@ -439,6 +439,26 @@
     </div>
 </dialog>
 
+<!-- Type a line's quantity instead of tapping + over and over -->
+<dialog class="sheet w-sm" id="qty-sheet" aria-labelledby="qty-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Quantity" %}</div>
+            <h2 class="h2" id="qty-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body qty-body">
+        <div class="qty-display" id="qty-display" role="status" aria-live="polite"></div>
+        <div class="sub qty-hint" id="qty-hint"></div>
+        <div class="keypad qty-keys" id="qty-keys"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary grow" id="qty-save"></button>
+    </div>
+</dialog>
+
 <!-- Switch the active menu (managers) -->
 <dialog class="sheet w-sm" id="menu-sheet" aria-labelledby="menu-title">
     <div class="sheet-head">
