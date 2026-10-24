@@ -1238,3 +1238,16 @@ class OrderEmailTests(MenuFixture, TestCase):
         with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
             order_emails.ready(store_order)  # only online pickup orders
         sent.assert_not_called()
+
+
+    @override_settings(THROTTLE=True, THROTTLE_REQUESTS=1000)
+    def test_quote_is_rate_limited_per_register(self):
+        from django.core.cache import cache
+        from pos_server import register
+        cache.clear()
+        body = {"lines": [self.dish(self.burger)]}
+        codes = [self.post("register_quote", body).status_code for _ in range(register.QUOTE_LIMIT)]
+        self.assertEqual(codes, [200] * register.QUOTE_LIMIT)
+        last = self.post("register_quote", body)
+        self.assertEqual(last.status_code, 429)
+        self.assertGreaterEqual(last.json()["retryAfter"], 1)

@@ -24,6 +24,7 @@ from deliveries.models import Delivery
 from events.hours import DELIVERY, PICKUP, Hours
 from gift_cards.models import GiftCard
 from payments.models import PaymentError, Transaction
+from pavilion import throttle
 from pos_server import dish_info
 from pos_server.menu_schedule import Schedule
 from pos_server.models import Combo, Dish, Menu, Order, OrderPayment, OrderStation
@@ -66,8 +67,22 @@ def _item(obj, pictures, index, deals=None):
             "url": f"?{'combo' if is_combo else 'dish'}={obj.id}"}
 
 
+STORE_LIMIT, STORE_WINDOW = 20, 10  # menu-sheet and checkout posts per visitor per window (seconds)
+
+
+def too_fast(request, scope) -> bool:
+    """Count a post and say so when this visitor is sending them faster than anyone tapping would
+    (pavilion/throttle.py). The caller skips the action and redirects back with the message."""
+    ok, _wait = throttle.allow(scope, throttle.client_key(request), STORE_LIMIT, STORE_WINDOW)
+    if not ok:
+        messages.error(request, _("That’s a lot of taps. Give it a second and try again."))
+    return not ok
+
+
 def menu_page(request, sheet_post=None):
     if request.method == "POST" and sheet_post is None:
+        if too_fast(request, "store-menu"):
+            return redirect(request.get_full_path())
         return _menu_post(request)
     t = themes.current(request).values
     pictures = t.get("pictures", "photos")
@@ -389,6 +404,8 @@ def checkout(request):
     pay = None
     if request.method == "POST":
         op = request.POST.get("op", "")
+        if op != "place" and too_fast(request, "store-checkout"):  # placing is never skipped
+            return redirect("store_cart")
         state = _apply_op(request, _from_post(state, request.POST), op, request.POST)
         request.session["checkout"] = state
         if op == "place":

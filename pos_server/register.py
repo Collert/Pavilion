@@ -28,6 +28,7 @@ from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 
 from gift_cards.models import GiftCard
+from pavilion import throttle
 from payments import square
 from users.access import can
 
@@ -271,6 +272,9 @@ def _gift_sales(body):
     return out
 
 
+QUOTE_LIMIT, QUOTE_WINDOW = 10, 2  # quotes per register per window (seconds)
+
+
 def dollars_of(cents):
     return str(Decimal(int(cents)) / 100)
 
@@ -278,9 +282,14 @@ def dollars_of(cents):
 @register_staff_required
 @device_required
 def quote(request):
-    """Price the cart being rung up. 400 with a message if a line can't be sold."""
+    """Price the cart being rung up. 400 with a message if a line can't be sold; 429 with `retryAfter` (seconds)
+    when this register asks too often (pavilion/throttle.py; register.js keeps one quote in flight)."""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
+    device = current_device(request)
+    ok, wait = throttle.allow("quote", f"d{device.id}" if device else throttle.client_key(request), QUOTE_LIMIT, QUOTE_WINDOW)
+    if not ok:
+        return throttle.too_many(request, wait)
     try:
         _body, lines, order_discount = _read_cart(request)
     except (ValueError, TypeError, AttributeError):

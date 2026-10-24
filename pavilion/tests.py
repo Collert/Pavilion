@@ -3,7 +3,7 @@ import asyncio
 import json
 from unittest import mock
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from pavilion import realtime
 
@@ -107,3 +107,59 @@ class EventStreamTests(SimpleTestCase):
         self.assertEqual(async_to_sync(realtime.stream_view)(request, "orders,checkout").status_code, 403)  # checkout is private
         with self.assertRaises(Http404):
             async_to_sync(realtime.stream_view)(request, "orders,nope")
+
+
+
+@override_settings(THROTTLE=True, THROTTLE_REQUESTS=5, THROTTLE_WINDOW=10)
+class ThrottleTests(TestCase):
+    """pavilion/throttle.py: one client can't swamp the app."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_allow_counts_per_window(self):
+        from pavilion import throttle
+        results = [throttle.allow("t", "me", 3, 10, now=100.0)[0] for _ in range(4)]
+        self.assertEqual(results, [True, True, True, False])
+        self.assertEqual(throttle.allow("t", "me", 3, 10, now=104.2), (False, 6))  # until the window ends at 110
+        self.assertTrue(throttle.allow("t", "you", 3, 10, now=104.2)[0])  # someone else
+        self.assertTrue(throttle.allow("t", "me", 3, 10, now=110.0)[0])  # next window
+        with self.settings(THROTTLE=False):
+            self.assertTrue(all(throttle.allow("t", "me", 0, 10, now=100.0)[0] for _ in range(5)))
+
+    def test_middleware_limits_each_client(self):
+        from django.contrib.auth.models import User
+        user = User.objects.create_user("dana", is_staff=True)
+        self.client.force_login(user)
+        codes = [self.client.get("/en/apps/").status_code for _ in range(6)]
+        self.assertEqual(codes[-1], 429)
+        self.assertNotIn(429, codes[:5])
+        response = self.client.get("/en/apps/", HTTP_ACCEPT="application/json")
+        self.assertEqual((response.status_code, int(response["Retry-After"]) > 0), (429, True))
+        self.assertIn("retryAfter", response.json())
+        other = self.client_class()  # another browser isn't held up
+        other.force_login(user)
+        self.assertNotEqual(other.get("/en/apps/").status_code, 429)
+
+    def test_a_new_cookie_every_time_still_counts_against_the_address(self):
+        from pavilion import throttle
+        from django.test import RequestFactory
+        codes = []
+        for n in range(5 * throttle.ADDRESS_FACTOR + 1):
+            request = RequestFactory().get("/en/apps/")
+            request.COOKIES["sessionid"] = f"fake{n}"
+            codes.append(throttle.check(request))
+        self.assertTrue(all(c is None for c in codes[:-1]))
+        self.assertEqual(codes[-1].status_code, 429)
+
+    def test_live_streams_and_files_dont_count(self):
+        from pavilion.throttle import SKIP, ThrottleMiddleware
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        middleware = ThrottleMiddleware(lambda request: HttpResponse("ok"))
+        for _ in range(20):
+            request = RequestFactory().get("/events/orders")
+            request.session = None
+            self.assertEqual(middleware(request).status_code, 200)
+        self.assertIn("/events/", SKIP)

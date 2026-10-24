@@ -939,6 +939,18 @@ the in-memory courier set, and the inventory crafting page's SSE.
 
 The Copilot WebSockets branch is superseded by this.
 
+**Rate limits (`pavilion/throttle.py`, October 2026).** Django runs a worker's synchronous views on one shared thread
+under ASGI. On 2026-10-23 one register tapped a cart up to 99 of four dishes (about 400 taps; each pause sent a
+quote and none was cancelled), and the queue of quotes stalled the KDS, the music and every other screen until it
+drained. Since then: the register keeps one quote in flight (changes made meanwhile go in the next one) after a
+250 ms pause and has a quantity pad (tap the number); `ThrottleMiddleware`, first in `MIDDLEWARE`, counts every
+request (not `/events/`, static or media) per browser cookie and per address in the cache and answers a 429 from
+the event loop, so turning a flood away costs no database work or time on the shared thread; `register/quote` (10
+per 2 s per register) and the store's menu-sheet and checkout posts (20 per 10 s per visitor; placing an order is
+never skipped) have their own caps. Measured on the dev server with ten threads flooding quotes from one session:
+the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A proxy in front (Caddy or nginx
+`limit_req`) would turn floods away before Python at all.
+
 ---
 
 ## 8. Config, running, deploying

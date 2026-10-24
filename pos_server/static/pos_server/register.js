@@ -298,11 +298,17 @@ function cartBody(extra = {}) {
 }
 
 // ---------- quote ----------
+// The cart is priced by the server after each change, once it's been still for a moment. Only one quote is ever on
+// its way: changes made meanwhile wait for it and are priced together in the next one, so tapping fast never piles
+// requests up on the server (pavilion/throttle.py caps them too: a 429 waits and tries again).
 
+const QUOTE_WAIT = 250;
 let quoteTimer = null;
+let quoteBusy = false;
 
 function requestQuote() {
     ui.quoteFresh = false;
+    ui.quoteSeq += 1;  // an answer on its way now is for an older cart
     clearTimeout(quoteTimer);
     renderTotals();
     if (!hasItems()) {
@@ -312,11 +318,25 @@ function requestQuote() {
         renderTotals();
         return;
     }
-    quoteTimer = setTimeout(runQuote, 120);
+    quoteTimer = setTimeout(runQuote, QUOTE_WAIT);
 }
 
 async function runQuote() {
-    const seq = ++ui.quoteSeq;
+    if (quoteBusy) return;  // the one on its way sees the newer cart when it answers
+    quoteBusy = true;
+    const seq = ui.quoteSeq;
+    try {
+        await quoteOnce(seq);
+    } finally {
+        quoteBusy = false;
+    }
+    if (seq !== ui.quoteSeq && !ui.quoteFresh && hasItems()) {
+        clearTimeout(quoteTimer);
+        quoteTimer = setTimeout(runQuote, QUOTE_WAIT);  // the cart changed while it was being priced
+    }
+}
+
+async function quoteOnce(seq) {
     const keys = state.lines.map((line) => line.key);
     let result;
     try {
@@ -325,7 +345,12 @@ async function runQuote() {
         if (seq === ui.quoteSeq) { ui.quoteError = t("The register is offline. Check the connection."); renderTotals(); }
         return;
     }
-    if (seq !== ui.quoteSeq) return; // a newer quote is on its way
+    if (seq !== ui.quoteSeq) return; // the cart changed: runQuote prices it again
+    if (result.status === 429) {  // asked too often: the totals stay "updating" until it's allowed again
+        clearTimeout(quoteTimer);
+        quoteTimer = setTimeout(runQuote, Math.max(1, Number(result.data.retryAfter) || 1) * 1000);
+        return;
+    }
     if (!result.ok) {
         ui.quote = null;
         ui.quoteError = result.data.message || t("The order can't be priced.");
@@ -416,6 +441,63 @@ function setQty(key, qty) {
     if (line) line.qty = Math.min(99, qty);
     changed();
 }
+
+// ---------- typing a quantity ----------
+// Tapping a line's number opens a keypad: the first digit starts a new number, up to 99; 0 takes the line off.
+
+const MAX_QTY = 99;
+const qs = { key: null, digits: "" };
+let qtyKeys = null;
+
+function openQty(key) {
+    const line = state.lines.find((l) => l.key === key);
+    if (!line) return;
+    Object.assign(qs, { key, digits: "" });
+    $("#qty-title").textContent = titleOf(line);
+    if (!qtyKeys) {
+        qtyKeys = keypad($("#qty-keys"), {
+            onDigit: (digit) => qtyDigit(String(digit)),
+            onClear: () => { qs.digits = ""; renderQty(); },
+            onBack: () => { qs.digits = qs.digits.slice(0, -1); renderQty(); },
+        });
+    }
+    renderQty();
+    $("#qty-sheet").showModal();
+}
+
+function qtyDigit(digit) {
+    const next = (qs.digits + digit).replace(/^0+(?=\d)/, "");
+    if (Number(next) > MAX_QTY) return;
+    qs.digits = next;
+    renderQty();
+}
+
+function renderQty() {
+    const line = state.lines.find((l) => l.key === qs.key);
+    const typed = qs.digits !== "";
+    const display = $("#qty-display");
+    display.textContent = typed ? qs.digits : String(line?.qty ?? "");
+    display.classList.toggle("placeholder", !typed);
+    $("#qty-hint").textContent = interpolate(t("Up to %s"), [MAX_QTY]);
+    const save = $("#qty-save");
+    save.disabled = !typed;
+    save.textContent = typed && Number(qs.digits) === 0 ? t("Remove from order") : t("Set quantity");
+    qtyKeys.clear.disabled = !typed;
+    qtyKeys.back.disabled = !typed;
+}
+
+function saveQty() {
+    if (qs.digits === "") return;
+    $("#qty-sheet").close();
+    setQty(qs.key, Number(qs.digits));
+}
+
+$("#qty-save").addEventListener("click", saveQty);
+$("#qty-sheet").addEventListener("keydown", (e) => {
+    if (/^\d$/.test(e.key)) { e.preventDefault(); qtyDigit(e.key); }
+    else if (e.key === "Backspace") { e.preventDefault(); qs.digits = qs.digits.slice(0, -1); renderQty(); }
+    else if (e.key === "Enter") { e.preventDefault(); saveQty(); }
+});
 
 function removeLine(key) {
     state.lines = state.lines.filter((l) => l.key !== key);
@@ -645,7 +727,8 @@ function lineNode(line) {
         info,
         el("div", { className: "qty" }, [
             el("button", { attrs: { "aria-label": t("Remove one") }, icon: "minus", on: { click: () => setQty(line.key, line.qty - 1) } }),
-            el("span", { text: line.qty }),
+            el("button", { className: "qty-num", text: line.qty,
+                           attrs: { "aria-label": interpolate(t("Quantity %s. Type a new one"), [line.qty]) }, on: { click: () => openQty(line.key) } }),
             el("button", { className: "inc", attrs: { "aria-label": t("Add one") }, icon: "plus", on: { click: () => setQty(line.key, line.qty + 1) } }),
         ]),
         el("div", { className: "line-price" }, [

@@ -257,6 +257,15 @@ production; without it an in-process broker is used. POS ↔ customer display ta
 **Don't add module-level/global state for cross-request data**: per-process memory is what broke the original SSE.
 Use the DB, the cache, or `publish()`.
 
+**One client must never stall the app.** Under ASGI every synchronous view of a worker shares one thread, so a
+flood from one browser queues in front of every screen (a register tapped into hundreds of quotes once stopped the
+KDS and the music). `pavilion/throttle.py`: `ThrottleMiddleware` sits first and caps every request per browser
+(raw session or device cookie, no database) and per address (`THROTTLE_REQUESTS` per `THROTTLE_WINDOW`), turning
+the rest away with a 429 on the event loop; `throttle.allow(scope, who, limit, window)` gives tighter caps to
+endpoints a page calls on every change (the register's quote; the store's sheet and checkout posts). Pages that
+fetch on every change keep one request in flight and send the latest state when it answers (`register.js`
+`runQuote`); a 429 waits `retryAfter`. The test runner sets `THROTTLE = False`; throttle tests turn it on.
+
 ## Media
 
 Dev serves `./media` at `/media/` (stored names are `files/<kind>/<name>`, so files are at `media/files/...`).

@@ -527,3 +527,22 @@ class StaffAccountTests(TestCase):
         # a bad request keeps what they typed
         page = self.client.post(url, {**post, "op": "availability", "from": timezone.localdate().isoformat(), "reason": "Classes"})
         self.assertEqual((page.status_code, page.context["fa"]["note"]), (200, "Classes"))
+
+
+class StoreThrottleTests(TestCase):
+    """The store's sheet and checkout posts are capped per visitor (online_store/pages.py: too_fast)."""
+
+    def test_checkout_posts_are_rate_limited(self):
+        from django.core.cache import cache
+        from django.test import override_settings
+
+        from online_store import pages
+        url = reverse("store_cart")
+        self.client.post(url, {"op": "tip:0"})  # starts the visitor's session, which is what's counted
+        cache.clear()
+        with override_settings(THROTTLE=True, THROTTLE_REQUESTS=1000):
+            codes = [self.client.post(url, {"op": "tip:0"}).status_code for _ in range(pages.STORE_LIMIT)]
+            self.assertNotIn(429, codes)
+            response = self.client.post(url, {"op": "tip:0"}, follow=True)
+            self.assertContains(response, "a lot of taps")
+            self.client.post(url, {"op": "place"})  # placing is never skipped (it fails here for an empty cart)

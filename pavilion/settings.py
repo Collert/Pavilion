@@ -143,6 +143,7 @@ INSTALLED_APPS = [
 
 # Middleware - Handles request processing, security, and session management
 MIDDLEWARE = [
+    'pavilion.throttle.ThrottleMiddleware',  # first: one client can't swamp the app (pavilion/throttle.py)
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Manages static files efficiently
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -154,6 +155,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Rate limits (pavilion/throttle.py): every request per client per window; the test runner turns them off
+THROTTLE = True
+THROTTLE_REQUESTS = int(os.getenv('THROTTLE_REQUESTS', '60'))
+THROTTLE_WINDOW = int(os.getenv('THROTTLE_WINDOW', '10'))
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Prevents iframe clickjacking attacks
 
