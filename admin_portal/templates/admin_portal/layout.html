@@ -24,7 +24,7 @@ those buttons; the server refuses them either way.
     <div class="admin-app">
         {% include "admin_portal/rail.html" %}
         <main class="admin-main {% block main_class %}{% endblock %}" id="page" data-now="{{ now_ms }}">
-            {% if perm and not perm.edit %}<div class="ro-tag" title="{% trans 'Your groups let you see this page but not change it' %}">{% icon "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" 15 2.2 %}{% trans "View only" %}</div>{% endif %}
+            {% if perm and perm.editable and not perm.edit %}<div class="ro-tag" title="{% trans 'Your groups let you see this page but not change it' %}">{% icon "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" 15 2.2 %}{% trans "View only" %}</div>{% endif %}
             {% block content %}{% endblock %}
         </main>
     </div>

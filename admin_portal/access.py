@@ -85,5 +85,7 @@ def admin_page(page, edit=(), delete=(), action=None, json=False):
 
 
 def page_perms(user, page) -> dict:
-    """What the layout needs to hide the buttons this person can't use: {"edit": bool, "delete": bool}."""
-    return {"edit": can_page(user, page, "edit"), "delete": can_page(user, page, "delete")}
+    """What the layout needs to hide the buttons this person can't use: {"edit": bool, "delete": bool}, and whether the
+    page can be changed at all ("editable"; the Dashboard and Reports only show things, so they never say View only)."""
+    from users.access import page_levels
+    return {"edit": can_page(user, page, "edit"), "delete": can_page(user, page, "delete"), "editable": "edit" in page_levels(page)}

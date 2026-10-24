@@ -58,6 +58,14 @@ class AccessTests(AdminFixture, TestCase):
         self.client.force_login(self.owner)
         self.assertEqual(self.client.get(reverse("admin_home")).status_code, 200)
 
+    def test_pages_that_only_show_things_never_say_view_only(self):
+        from users.testing import crew
+        crew(self.staff, "app.admin", "admin.home.view", "admin.reports.view", "admin.retail.view")
+        self.client.force_login(self.staff)
+        for name in ("admin_home", "admin_reports"):
+            self.assertNotContains(self.client.get(reverse(name)), "View only")
+        self.assertContains(self.client.get(reverse("admin_orders")), "View only")  # orders can be refunded
+
     def test_a_group_gives_pages_and_what_can_be_done_on_them(self):
         from users.testing import crew
         dish = Dish.objects.filter(archived=False).first()
