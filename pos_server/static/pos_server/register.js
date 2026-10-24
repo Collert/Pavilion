@@ -927,6 +927,10 @@ function summaryBody() {
 }
 
 function renderPairing() {
+    // The header pill says whether a screen is paired, so it's easy to find and to check
+    $("#screen-pill-name").textContent = pairing ? pairing.name : t("Not paired");
+    $("#screen-pill-dot").hidden = !pairing;
+    $("#screens-open").setAttribute("aria-label", pairing ? interpolate(t("Screen: paired with %s"), [pairing.name]) : t("Screen: not paired. Pair one"));
     $("#screen-paired").hidden = !pairing;
     $("#screen-pair-form").hidden = !!pairing;
     if (pairing) {
@@ -2111,6 +2115,8 @@ $("#announce-form").addEventListener("submit", async (event) => {
     $("#screens-sheet").close();
     toast(t("Announcement sent to the screens"));
 });
+
+renderPairing();
 
 // Sold-out changes arrive live; the catalog is fetched again and the grid redrawn
 onLiveUpdate("inventory", async () => {

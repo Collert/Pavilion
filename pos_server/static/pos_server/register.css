@@ -406,7 +406,11 @@
 }
 
 /* Screens sheet: announce (and pair) */
-.reg-screens-btn { flex: none; }
+.reg-screens-btn { flex: none; max-width: 200px; }
+.reg-screens-btn .menu-switch-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.reg-screens-btn #screen-pill-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pair-dot { width: 8px; height: 8px; flex: none; border-radius: 4px; background: #12875A; }
+.pair-dot[hidden] { display: none; }
 .screens-form { display: grid; gap: 12px; }
 .screens-form textarea { resize: none; min-height: 96px; }
 .screens-pair { display: grid; gap: 10px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }

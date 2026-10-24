@@ -1326,4 +1326,6 @@ class HistoryTests(MenuFixture, TestCase):
         self.assertEqual((d["can_refund"], d["refund_label"]), (False, "Nothing to refund"))
 
     def test_the_rail_links_here(self):
-        self.assertContains(self.client.get(reverse("pos")), reverse("register_history"))
+        page = self.client.get(reverse("pos"))
+        self.assertContains(page, reverse("register_history"))
+        self.assertContains(page, 'id="screen-pill-name"')  # the header's screen pairing pill
