@@ -540,7 +540,7 @@ class StoreThrottleTests(TestCase):
         url = reverse("store_cart")
         self.client.post(url, {"op": "tip:0"})  # starts the visitor's session, which is what's counted
         cache.clear()
-        with override_settings(THROTTLE=True, THROTTLE_REQUESTS=1000):
+        with override_settings(THROTTLE=True, THROTTLE_REQUESTS=1000), mock.patch("pavilion.throttle.time.time", return_value=1000.0):
             codes = [self.client.post(url, {"op": "tip:0"}).status_code for _ in range(pages.STORE_LIMIT)]
             self.assertNotIn(429, codes)
             response = self.client.post(url, {"op": "tip:0"}, follow=True)

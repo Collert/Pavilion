@@ -128,7 +128,8 @@ class ThrottleTests(TestCase):
         with self.settings(THROTTLE=False):
             self.assertTrue(all(throttle.allow("t", "me", 0, 10, now=100.0)[0] for _ in range(5)))
 
-    def test_middleware_limits_each_client(self):
+    @mock.patch("pavilion.throttle.time.time", return_value=1000.0)  # one window, however slow the run
+    def test_middleware_limits_each_client(self, _clock):
         from django.contrib.auth.models import User
         user = User.objects.create_user("dana", is_staff=True)
         self.client.force_login(user)
@@ -142,7 +143,8 @@ class ThrottleTests(TestCase):
         other.force_login(user)
         self.assertNotEqual(other.get("/en/apps/").status_code, 429)
 
-    def test_a_new_cookie_every_time_still_counts_against_the_address(self):
+    @mock.patch("pavilion.throttle.time.time", return_value=1000.0)
+    def test_a_new_cookie_every_time_still_counts_against_the_address(self, _clock):
         from pavilion import throttle
         from django.test import RequestFactory
         codes = []
