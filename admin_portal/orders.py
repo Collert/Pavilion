@@ -89,7 +89,7 @@ def in_status(order, key):
     return key == "all" or (key == "refunds" and st in ("refunded", "partial")) or (key == "voided" and st == "voided") or (key == "paid" and st == "paid")
 
 
-def order_list(date="today", status="all", query="", page=1):
+def order_list(date="today", status="all", query="", page=1, per_page=PER_PAGE):
     date = date if date in dict(DATES) else "today"
     status = status if status in dict(STATUSES) else "all"
     today = timezone.localdate()
@@ -110,10 +110,10 @@ def order_list(date="today", status="all", query="", page=1):
     found = list(orders)
     counts = {key: sum(1 for o in found if in_status(o, key)) for key, _l in STATUSES}
     shown = [o for o in found if in_status(o, status)]
-    pages = max(1, -(-len(shown) // PER_PAGE))
+    pages = max(1, -(-len(shown) // per_page))
     page = min(max(1, page), pages)
     rows = []
-    for order in shown[(page - 1) * PER_PAGE: page * PER_PAGE]:
+    for order in shown[(page - 1) * per_page: page * per_page]:
         when = timezone.localtime(order.timestamp)
         items = [i for i in order.items.all() if not i.parent_id]
         count = sum(i.quantity for i in items)
@@ -136,8 +136,8 @@ def order_list(date="today", status="all", query="", page=1):
         elif nums[-1] != "…":
             nums.append("…")
     return {"date": date, "status": status, "query": query or "", "rows": rows, "page": page, "pages": pages, "nums": nums,
-            "counts": counts, "total": len(shown), "first": (page - 1) * PER_PAGE + 1 if shown else 0,
-            "last": min(len(shown), page * PER_PAGE), "net": net,
+            "counts": counts, "total": len(shown), "first": (page - 1) * per_page + 1 if shown else 0,
+            "last": min(len(shown), page * per_page), "net": net,
             "dates": DATES, "statuses": [(key, label, counts[key]) for key, label in STATUSES]}
 
 
@@ -242,7 +242,8 @@ def order_page(order):
         phone = f"({phone[:3]}) {phone[3:6]}-{phone[6:]}"
     visits = customer.orders.count() if customer else 0
     newer, older, position, total = neighbours(order)
-    can_refund = st not in ("refunded", "voided")
+    nothing = refunds.refundable(order) <= 0  # e.g. it only sold gift cards, which are changed on the Gift cards page
+    can_refund = st not in ("refunded", "voided") and not nothing
     return {
         "order": order, "status": st, "status_label": STATUS_LABELS[st],
         "meta": date_format(when, "l, F j") + " " + _("at") + " " + date_format(when, "g:i A")
@@ -258,7 +259,7 @@ def order_page(order):
                     (_("Cashier"), (order.cashier.get_full_name() or order.cashier.username) if order.cashier else "—"),
                     (_("Stations"), ", ".join(s.name for s in stations) or "—"), (_("Prep time"), mmss(order.prep_time) if order.prep_time else "—")],
         "receipts": list(order.receipts.all()), "can_refund": can_refund,
-        "refund_label": _("Voided") if st == "voided" else _("Refunded") if st == "refunded" else _("Refund"),
+        "refund_label": _("Voided") if st == "voided" else _("Refunded") if st == "refunded" else _("Nothing to refund") if nothing else _("Refund"),
         "has_cash": any(p.method == OrderPayment.CASH for p in payments),
         "refunded": refunded, "left": order.total - refunded,
     }

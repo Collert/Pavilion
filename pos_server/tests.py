@@ -1250,3 +1250,80 @@ class OrderEmailTests(MenuFixture, TestCase):
         with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
             order_emails.ready(store_order)  # only online pickup orders
         sent.assert_not_called()
+
+
+class HistoryTests(MenuFixture, TestCase):
+    """The register's order history (pos_server/history.py): list, receipt, send, print and refund."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.staff = crew(User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana"))
+        cls.cashier = crew(User.objects.create_user("sam", password="x", is_staff=True), "app.register")  # no refunds
+
+    def setUp(self):
+        from pos_server.orders import create_order
+        self.client.force_login(self.staff)
+        drawer = CashDrawerSession.objects.create(opening_amount=Decimal("100"))
+        self.order = create_order(lines=[self.dish(self.coffee, qty=2), self.dish(self.burger)], channel="store",
+                                  initial_status=OrderStation.STATUS_APPROVED, name="Priya S.", drawer=drawer,
+                                  payments=[{"method": "cash", "amount": "19.50", "tendered": "20.00"}])
+        self.url = reverse("register_history")
+
+    def test_list_and_receipt(self):
+        page = self.client.get(self.url)
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context["d"]["order"], self.order)  # the newest is picked
+        self.assertContains(page, "Priya S.")
+        self.assertContains(page, "Print receipt")
+        self.assertEqual(self.client.get(self.url, {"q": "nobody"}).context["o"]["rows"], [])
+        self.assertEqual(len(self.client.get(self.url, {"q": f"#{self.order.id}"}).context["o"]["rows"]), 1)
+        self.assertEqual(self.client.get(self.url, {"date": "yesterday"}).context["o"]["rows"], [])
+
+    def test_refund_an_item_in_cash(self):
+        from pos_server.models import Refund
+        coffee = self.order.items.get(dish=self.coffee)
+        sheet = self.client.get(self.url, {"sel": self.order.id, "sheet": "refund", "mode": "items", f"q_{coffee.id}": 1,
+                                           "reason": "Quality issue", "to": "cash"}).context["refund"]
+        self.assertEqual((sheet["amount"], sheet["ready"], sheet["only_cash"]), (Decimal("2.50"), True, True))
+        response = self.client.post(self.url, {"op": "refund", "sel": self.order.id, "mode": "items", f"q_{coffee.id}": 1,
+                                               "reason": "Quality issue", "to": "cash"}, follow=True)
+        self.assertContains(response, "$2.50 refunded in cash.")
+        refund = Refund.objects.get()
+        self.assertEqual((refund.amount, refund.by, refund.to), (Decimal("2.50"), self.staff, Refund.CASH))
+        self.assertEqual(response.context["d"]["status"], "partial")
+
+    def test_refunds_need_the_permission(self):
+        from pos_server.models import Refund
+        self.client.force_login(self.cashier)
+        page = self.client.get(self.url, {"sel": self.order.id, "sheet": "refund"})
+        self.assertEqual((page.context["sheet"], page.context["can_refund"]), ("", False))
+        self.assertContains(page, "Refunds need someone whose group allows them.")
+        self.client.post(self.url, {"op": "refund", "sel": self.order.id, "mode": "whole", "reason": "Wrong order", "to": "cash"})
+        self.assertFalse(Refund.objects.exists())
+
+    def test_send_and_print(self):
+        from pos_server.models import ReceiptLog
+        with mock.patch("misc_tools.email.send", return_value=True) as send:
+            response = self.client.post(self.url, {"op": "send", "sel": self.order.id, "to": "priya@example.com"}, follow=True)
+        self.assertContains(response, "Receipt sent to priya@example.com.")
+        self.assertEqual(send.call_args[0][:2], ("receipt", "priya@example.com"))
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.email, "priya@example.com")
+        bad = self.client.post(self.url, {"op": "send", "sel": self.order.id, "to": "nope"}, follow=True)
+        self.assertContains(bad, "Enter an email address.")
+        printed = self.client.post(reverse("register_history_print", args=[self.order.id]))
+        self.assertEqual(printed.status_code, 200)
+        self.assertEqual(list(ReceiptLog.objects.values_list("channel", flat=True).order_by("id")), [ReceiptLog.EMAIL, ReceiptLog.PRINT])
+
+    def test_nothing_to_refund_on_a_gift_card_sale(self):
+        from gift_cards.models import GiftCardDesign
+        from pos_server.orders import create_order
+        design = GiftCardDesign.objects.first() or GiftCardDesign.objects.create(name="Classic", amounts=[25])
+        sale = create_order(lines=[], channel="store", initial_status=OrderStation.STATUS_APPROVED, drawer=CashDrawerSession.objects.get(),
+                            gift_sales=[{"design": design.id, "amount": "25"}], payments=[{"method": "cash", "amount": "25.00"}])
+        d = self.client.get(self.url, {"sel": sale.id}).context["d"]
+        self.assertEqual((d["can_refund"], d["refund_label"]), (False, "Nothing to refund"))
+
+    def test_the_rail_links_here(self):
+        self.assertContains(self.client.get(reverse("pos")), reverse("register_history"))

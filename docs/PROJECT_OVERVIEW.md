@@ -277,6 +277,13 @@ discount, then the balance card paying after any gift cards, each shown as a lin
 
 Templates `register.html`, `drawer.html`, `lock.html` on `staff_layout.html` (nav rail); CSS `staff.css` plus one
 file per screen; JS `register.js`, `drawer.js`, `lock.js` with the shared `staff-ui.js`. Designs: `docs/mockups/`.
+**History** (`/restaurant/history`, `history.py` + `history.html`, design: History; on the rail after Orders): past
+orders by Today / Yesterday / This week and All / Paid / Refunds / Voided, searched by order #, name or card, 8 to a
+page, and the picked order's receipt with Print receipt (`history/<id>/print` logs it and opens the printable receipt),
+Send (email; text messages aren't set up) and Refund (whole order or picked items, a reason, back to the card or cash
+from the drawer). It reuses the admin's Orders data (`admin_portal/orders.py`) and `pos_server/refunds.py`; refunding
+needs `act.refund`, and an order with nothing refundable (only gift cards sold) offers no refund. Server-rendered with
+live-page.js; sheets open from the address.
 Every rail ends with `rail_foot.html`: Apps, Lock (register screens only), a divider and the clock (ticked by
 `staff-page.js`, which every staff screen loads). The **app switcher** (`/apps/`, `app_switcher`, design
 `docs/mockups/App switcher-html`) is staff-only and almost query-free (session, user, and the device's name): its

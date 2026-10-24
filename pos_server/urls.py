@@ -1,11 +1,13 @@
 from django.urls import path
 
-from . import register, views
+from . import history, register, views
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("register", register.register, name="pos"),
     path("register/quote", register.quote, name="register_quote"),
+    path("history", history.history, name="register_history"),
+    path("history/<int:order_id>/print", history.history_print, name="register_history_print"),
     path("register/catalog", register.catalog, name="register_catalog"),
     path("register/card", register.card_checkout, name="register_card"),
     path("register/approve", register.approve_discount, name="register_approve"),
