@@ -30,6 +30,8 @@ APPS = [
      "M4 10v4h4l5 4V6L8 10z M16 9a4 4 0 0 1 0 6 M18.5 6.5a7.5 7.5 0 0 1 0 11", "#EDE7F8", "#7A5AC8", "app.audio"),
     ("time_clock", _("Time clock"), _("Clock in, take a break, clock out"),
      "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2", "#FFF3DD", "#8A4B00", None),
+    ("account_profile", _("My profile"), _("Your name, contact details and language"),
+     "M12 8a3.5 3.5 0 1 0 0-.01 M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5", "#EAF0F8", "#2C4E7C", None),
     ("admin_home", _("Admin"), _("Menus, staff, stations and reports"),
      "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1",
      "#F1F4F2", "#14261F", "app.admin"),
