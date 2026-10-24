@@ -284,6 +284,12 @@ Send (email; text messages aren't set up) and Refund (whole order or picked item
 from the drawer). It reuses the admin's Orders data (`admin_portal/orders.py`) and `pos_server/refunds.py`; refunding
 needs `act.refund`, and an order with nothing refundable (only gift cards sold) offers no refund. Server-rendered with
 live-page.js; sheets open from the address.
+**The Orders dot**: the kitchen screen (`order-marking.js`) keeps, in the device's localStorage
+(`pavilion.ordersWatch`), the stations it shows and the newest order it has shown. On that device, every screen with
+the rail (`staff-page.js`) opens Orders on those stations and, on each `orders` nudge, asks `orders/attention`
+(`views.orders_attention`: newest active order and how many wait for a station to accept them) and shows an amber
+dot when there's an order newer than the last one seen there, or one waiting for approval. No kitchen screen opened
+on the device yet: no dot.
 Every rail ends with `rail_foot.html`: Apps, Lock (register screens only), a divider and the clock (ticked by
 `staff-page.js`, which every staff screen loads). The **app switcher** (`/apps/`, `app_switcher`, design
 `docs/mockups/App switcher-html`) is staff-only and almost query-free (session, user, and the device's name): its

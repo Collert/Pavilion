@@ -411,9 +411,21 @@ function buildCard(order, open) {
 const listNode = $("#list");
 const cards = new Map();   // order id -> { node, sig, open }
 
+// This device's register screens put a dot on their Orders button for new orders at the stations this screen
+// works for (staff-page.js, views.orders_attention): remember those stations and the newest order shown here.
+const WATCH_KEY = "pavilion.ordersWatch";
+function rememberWatch(ids) {
+    try {
+        const before = JSON.parse(localStorage.getItem(WATCH_KEY) || "{}");
+        const seen = Math.max(Number(before.seen) || 0, ...ids);
+        localStorage.setItem(WATCH_KEY, JSON.stringify({ stations: state.filters, seen }));
+    } catch { /* private mode: no dot */ }
+}
+
 function render() {
     const shown = visibleOrders();
     const ids = shown.map((o) => o.order_id);
+    rememberWatch(ids);
 
     // Keep a card open: the one that was, else its neighbour, else (at start) the first
     if (state.openId !== null && !ids.includes(state.openId)) {

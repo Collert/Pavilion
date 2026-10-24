@@ -25,8 +25,8 @@
             </a>
             {% endif %}
             {% if can.app_marking %}
-            <a class="rail-item" href="{% kds_url %}">
-                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg>
+            <a class="rail-item" href="{% kds_url %}" id="rail-orders" data-attention="{% url 'orders_attention' %}" data-kds="{% url 'order_marking' %}">
+                <span class="rail-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg><span class="rail-dot" id="rail-orders-dot" hidden></span></span>
                 {% trans "Orders" %}
             </a>
             {% endif %}

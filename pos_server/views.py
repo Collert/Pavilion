@@ -32,7 +32,7 @@ from django.core.files.base import ContentFile
 from inventory.views import craft_component
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import UserCreationForm
-from django.db.models import Q
+from django.db.models import Max, Q
 from django.utils.timezone import make_aware, now
 from django.core.cache import cache
 from gift_cards.models import GiftCard
@@ -572,3 +572,19 @@ def active_orders(request):
             for order in serialized_orders
         ]
     return JsonResponse(serialized_orders, safe=False)
+
+
+@api_app_required("app.marking")
+def orders_attention(request):
+    """
+    For the rail's Orders dot (staff-page.js): the newest order on the kitchen screens for ?stations=<code>,<code>
+    and how many of those wait for a station to accept them (online orders). The screen keeps which stations it
+    watches and the newest order it has shown in the browser (order-marking.js), so the dot means "new since you
+    last looked" or "waiting for approval". Cheap: two queries, no serializing.
+    """
+    codes = [c for c in request.GET.get("stations", "").split(",") if c][:50]
+    rows = OrderStation.objects.filter(order__in=active_orders_queryset(), station__code__in=codes,
+                                       status__in=[OrderStation.STATUS_PENDING, OrderStation.STATUS_APPROVED])
+    newest = rows.aggregate(newest=Max("order_id"))["newest"] or 0
+    waiting = rows.filter(status=OrderStation.STATUS_PENDING).values("order_id").distinct().count()
+    return JsonResponse({"newest": newest, "waiting": waiting})

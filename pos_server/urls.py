@@ -23,5 +23,6 @@ urlpatterns = [
     # path('register-staff', views.register_staff, name='register_staff'),
     path('orders-progress', views.order_progress, name='order_progress'),
     path('active_orders', views.active_orders, name='active_orders'),
+    path('orders/attention', views.orders_attention, name='orders_attention'),
     path('check-device', views.device_elig, name='device_elig'),
 ]

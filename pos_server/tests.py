@@ -859,9 +859,10 @@ class RegisterTests(MenuFixture, TestCase):
         from pos_server import register
         cache.clear()
         body = {"lines": [self.dish(self.burger)]}
-        codes = [self.post("register_quote", body).status_code for _ in range(register.QUOTE_LIMIT)]
+        with mock.patch("pavilion.throttle.time.time", return_value=1000.0):  # one window, however slow the run
+            codes = [self.post("register_quote", body).status_code for _ in range(register.QUOTE_LIMIT)]
+            last = self.post("register_quote", body)
         self.assertEqual(codes, [200] * register.QUOTE_LIMIT)
-        last = self.post("register_quote", body)
         self.assertEqual(last.status_code, 429)
         self.assertGreaterEqual(last.json()["retryAfter"], 1)
 
@@ -1329,3 +1330,31 @@ class HistoryTests(MenuFixture, TestCase):
         page = self.client.get(reverse("pos"))
         self.assertContains(page, reverse("register_history"))
         self.assertContains(page, 'id="screen-pill-name"')  # the header's screen pairing pill
+
+
+class OrdersAttentionTests(MenuFixture, TestCase):
+    """views.orders_attention: what the rail's Orders dot asks about the stations a device watches."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.staff = crew(User.objects.create_user("dana", password="x", is_staff=True))
+
+    def test_newest_and_waiting_for_the_watched_stations(self):
+        from pos_server.orders import create_order
+        url = reverse("orders_attention")
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(url, {"stations": self.kitchen.code}).json(), {"newest": 0, "waiting": 0})
+        drawer = CashDrawerSession.objects.create(opening_amount=Decimal("100"))
+        bar = create_order(lines=[self.dish(self.coffee)], channel="store", initial_status=OrderStation.STATUS_APPROVED, drawer=drawer,
+                           payments=[{"method": "cash", "amount": "2.50"}])
+        online = create_order(lines=[self.dish(self.burger)], channel="web", initial_status=OrderStation.STATUS_PENDING,
+                              payments=[{"method": "cash", "amount": "14.50"}], drawer=drawer)
+        self.assertEqual(self.client.get(url, {"stations": self.kitchen.code}).json(), {"newest": online.id, "waiting": 1})
+        self.assertEqual(self.client.get(url, {"stations": self.bar.code}).json(), {"newest": bar.id, "waiting": 0})
+        self.client.logout()
+        self.assertIn(self.client.get(url, {"stations": self.kitchen.code}).status_code, (401, 403))
+
+    def test_the_rail_points_the_orders_button_at_it(self):
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(reverse("pos")), 'data-attention="%s"' % reverse("orders_attention"))

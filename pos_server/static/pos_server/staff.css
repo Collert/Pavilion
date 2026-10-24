@@ -83,6 +83,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .rail-item:hover { color: #fff; }
 .rail-item[aria-current=page] { background: rgba(255, 255, 255, .14); color: #fff; }
 .rail-item:focus-visible { outline-color: var(--amber); }
+.rail-icon { position: relative; display: flex; }
+.rail-dot { position: absolute; top: -3px; right: -5px; width: 11px; height: 11px; border-radius: 6px; background: var(--amber); box-shadow: 0 0 0 2px var(--ink); }
+.rail-dot[hidden] { display: none; }
 .rail-spacer { flex: 1; }
 .rail form { margin: 0; }
 
