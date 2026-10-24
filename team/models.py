@@ -8,6 +8,9 @@ needs, and when people can't work. Times of day are minutes since midnight (0-14
   them between two dates (team/schedule.py works out a day's needs).
 - Availability: when someone can work, by weekday, from a date (until a date or for good).
 - TimeOff: days (or part of a day) someone is off. Both are asked for and approved on Availability requests.
+- ShiftOffer: a staff member passing a published shift on, from their account (team/swaps.py): given away (anyone
+  with the role can grab it, and it's theirs straight away), or asked of one coworker as a hand-off or a swap for one
+  of theirs (the coworker says yes, then a manager approves on Availability requests). Until then it's still theirs.
 - TimeEntry and TimeBreak: when someone actually worked, punched at the time clock (team/clock.py): a Shift is the
   plan, a TimeEntry what happened. Clocking in early or off the schedule needs a manager; off the schedule it adds a
   Shift (`added_shift`) whose times follow the entry.
@@ -59,6 +62,38 @@ class ParSet(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ShiftOffer(models.Model):
+    """A shift someone is passing on (team/swaps.py). Only one can be open on a shift at a time."""
+    GIVE, HANDOFF, SWAP = "give", "handoff", "swap"
+    KINDS = [(GIVE, _("Given away")), (HANDOFF, _("Hand-off")), (SWAP, _("Swap"))]
+    OPEN, ASKED, ACCEPTED, DONE, DECLINED, CANCELLED = "open", "asked", "accepted", "done", "declined", "cancelled"
+    STATUSES = [(OPEN, _("Up for grabs")), (ASKED, _("Asked")), (ACCEPTED, _("Waiting for a manager")), (DONE, _("Done")),
+                (DECLINED, _("Declined")), (CANCELLED, _("Cancelled"))]
+    ACTIVE = (OPEN, ASKED, ACCEPTED)
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name="offers")
+    kind = models.CharField(max_length=7, choices=KINDS)
+    by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="shift_offers")
+    to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="shift_asks",
+                           help_text="Hand-offs and swaps: the coworker asked")
+    theirs = models.ForeignKey(Shift, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+                               help_text="Swaps: the coworker's shift they take in return")
+    note = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=9, choices=STATUSES, default=OPEN)
+    created_at = models.DateTimeField(default=timezone.now)
+    answered_at = models.DateTimeField(null=True, blank=True, help_text="When the coworker said yes or no")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    message = models.CharField(max_length=200, blank=True, help_text="The manager's reply")
+    taken_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+                                 help_text="Given away: who grabbed it")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} {self.shift} by {self.by}: {self.status}"
 
 
 class Availability(models.Model):

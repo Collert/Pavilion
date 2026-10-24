@@ -67,6 +67,7 @@ class Staff(models.Model):
     photo = models.ImageField(upload_to="files/staff/", blank=True, max_length=300)
     emergency_name = models.CharField(max_length=60, blank=True)
     emergency_phone = models.CharField(max_length=20, blank=True)
+    emergency_relation = models.CharField(max_length=40, blank=True, help_text="Who the emergency contact is to them")
     since = models.DateField(default=timezone.localdate, help_text="Staff since")
     roles = models.ManyToManyField(Role, blank=True, related_name="staff")
     minutes_worked = models.PositiveIntegerField(null=True, blank=True, default=0)

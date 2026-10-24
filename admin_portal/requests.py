@@ -1,24 +1,28 @@
 """
 Availability requests (design: AdminRequests; team/requests.py does the deciding): an inbox of time off and
 availability changes by status and kind, and the picked request: what's asked, their note, the week before and after
-(availability), the shifts it clashes with, things to weigh, and the decision. The view is in the address:
-?tab=pending|approved|declined|all&kind=all|timeoff|availability&sel=t<id>|a<id>.
+(availability), the shifts it clashes with, things to weigh, and the decision. Shift swaps and hand-offs a coworker
+agreed to (team.models.ShiftOffer, team/swaps.py) wait here for a manager too. The view is in the address:
+?tab=pending|approved|declined|all&kind=all|timeoff|availability|swap&sel=t<id>|a<id>|s<id>.
 """
 import datetime
 from urllib.parse import urlencode
 
+from django.db import models
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, ngettext
 
 from team import requests as reqs
-from team.models import Availability, TimeOff
+from team import swaps
+from team.models import Availability, ShiftOffer, TimeOff
 from team.schedule import clock
 
 from .team import face, full_name, initials
 
 TABS = [("pending", _("Pending")), ("approved", _("Approved")), ("declined", _("Declined")), ("all", _("All"))]
-KINDS = [("all", _("Everything")), ("timeoff", _("Time off")), ("availability", _("Availability changes"))]
+KINDS = [("all", _("Everything")), ("timeoff", _("Time off")), ("availability", _("Availability changes")), ("swap", _("Swaps"))]
+SWAP_STATUS = {ShiftOffer.ACCEPTED: "pending", ShiftOffer.DONE: "approved", ShiftOffer.DECLINED: "declined"}
 
 
 def state(data) -> dict:
@@ -34,8 +38,10 @@ def url(st, **extra) -> str:
 
 
 def find(key):
-    """A request from its key: t<id> (time off) or a<id> (availability)."""
-    model = {"t": TimeOff, "a": Availability}.get(key[:1])
+    """A request from its key: t<id> (time off), a<id> (availability) or s<id> (a swap or hand-off)."""
+    model = {"t": TimeOff, "a": Availability, "s": ShiftOffer}.get(key[:1])
+    if model is ShiftOffer:
+        return swap_requests().filter(pk=key[1:]).first() if key[1:].isdigit() else None
     try:
         return model.objects.select_related("user", "decided_by").get(pk=int(key[1:])) if model else None
     except (ValueError, model.DoesNotExist if model else Exception):
@@ -43,7 +49,26 @@ def find(key):
 
 
 def key_of(r) -> str:
-    return ("t" if isinstance(r, TimeOff) else "a") + str(r.pk)
+    return ("t" if isinstance(r, TimeOff) else "s" if isinstance(r, ShiftOffer) else "a") + str(r.pk)
+
+
+def swap_requests():
+    """Swaps and hand-offs a coworker said yes to: waiting for a manager, or decided by one."""
+    return (ShiftOffer.objects.filter(kind__in=[ShiftOffer.SWAP, ShiftOffer.HANDOFF])
+            .filter(models.Q(status=ShiftOffer.ACCEPTED) | models.Q(decided_by__isnull=False))
+            .select_related("by", "to", "shift__role", "theirs__role", "decided_by"))
+
+
+def status_of(r) -> str:
+    return SWAP_STATUS.get(r.status, "declined") if isinstance(r, ShiftOffer) else r.status
+
+
+def user_of(r):
+    return r.by if isinstance(r, ShiftOffer) else r.user
+
+
+def sent_at(r):
+    return (r.answered_at or r.created_at) if isinstance(r, ShiftOffer) else r.submitted_at
 
 
 def dfmt(d, dow=False, year=False) -> str:
@@ -63,6 +88,8 @@ def rel(dt) -> str:
 
 
 def range_text(r) -> str:
+    if isinstance(r, ShiftOffer):
+        return f"{dfmt(r.shift.date, True)} · {swaps.span(r.shift)} → {r.to.first_name or r.to.username}"
     if isinstance(r, Availability):
         return (_("From %(when)s") % {"when": dfmt(r.effective, True)}) + (" " + _("to %(when)s") % {"when": dfmt(r.until)} if r.until else ", " + _("ongoing"))
     if r.first_day == r.last_day:
@@ -72,35 +99,73 @@ def range_text(r) -> str:
 
 def page(st, me) -> dict:
     today = timezone.localdate()
-    everything = list(TimeOff.objects.select_related("user")) + list(Availability.objects.select_related("user"))
-    counts = {k: (len(everything) if k == "all" else sum(r.status == k for r in everything)) for k, _l in TABS}
+    everything = list(TimeOff.objects.select_related("user")) + list(Availability.objects.select_related("user")) + list(swap_requests())
+    counts = {k: (len(everything) if k == "all" else sum(status_of(r) == k for r in everything)) for k, _l in TABS}
 
     def kind(r):
-        return "timeoff" if isinstance(r, TimeOff) else "availability"
+        return "timeoff" if isinstance(r, TimeOff) else "swap" if isinstance(r, ShiftOffer) else "availability"
 
     def starts(r):
-        return r.first_day if isinstance(r, TimeOff) else r.effective
+        return r.first_day if isinstance(r, TimeOff) else r.shift.date if isinstance(r, ShiftOffer) else r.effective
 
-    shown = [r for r in everything if (st["tab"] == "all" or r.status == st["tab"]) and (st["kind"] == "all" or kind(r) == st["kind"])]
-    pending = sorted([r for r in shown if r.status == "pending"], key=starts)
-    decided = sorted([r for r in shown if r.status != "pending"], key=lambda r: r.decided_at or r.submitted_at, reverse=True)
+    shown = [r for r in everything if (st["tab"] == "all" or status_of(r) == st["tab"]) and (st["kind"] == "all" or kind(r) == st["kind"])]
+    pending = sorted([r for r in shown if status_of(r) == "pending"], key=starts)
+    decided = sorted([r for r in shown if status_of(r) != "pending"], key=lambda r: r.decided_at or sent_at(r), reverse=True)
     shown = pending + decided
     sel = find(st["sel"]) if st["sel"] else None
     if sel is None and shown:
         sel = shown[0]
     rows = []
     for r in shown:
-        n = len(reqs.affected_shifts(r)) if r.status == "pending" else 0
-        soon = r.status == "pending" and (starts(r) - today).days <= 7
-        rows.append({"key": key_of(r), "on": sel is not None and key_of(r) == key_of(sel), "name": full_name(r.user.first_name, r.user.last_name, r.user.username),
-                     "ini": initials(r.user.first_name, r.user.last_name, r.user.username), "face": face(r.user_id), "kind": kind(r),
-                     "what": range_text(r), "when": _("Sent %(when)s") % {"when": rel(r.submitted_at)},
+        status = status_of(r)
+        n = len(reqs.affected_shifts(r)) if status == "pending" and not isinstance(r, ShiftOffer) else 0
+        soon = status == "pending" and (starts(r) - today).days <= 7
+        u = user_of(r)
+        rows.append({"key": key_of(r), "on": sel is not None and key_of(r) == key_of(sel), "name": full_name(u.first_name, u.last_name, u.username),
+                     "ini": initials(u.first_name, u.last_name, u.username), "face": face(u.id), "kind": kind(r),
+                     "what": range_text(r), "when": _("Sent %(when)s") % {"when": rel(sent_at(r))},
                      "flag": (ngettext("%(n)d shift affected", "%(n)d shifts affected", n) % {"n": n}) if n else (_("Starts soon") if soon else ""),
-                     "flag_tone": "bad" if n else "warn", "status": r.status, "href": url({**st, "sel": key_of(r)})})
+                     "flag_tone": "bad" if n else "warn", "status": status, "href": url({**st, "sel": key_of(r)})})
     return {"st": st, "tabs": [(k, label, counts[k], k == st["tab"], url({**st, "tab": k, "sel": ""})) for k, label in TABS],
             "kinds": [(k, label, k == st["kind"], url({**st, "kind": k, "sel": ""})) for k, label in KINDS], "rows": rows,
             "empty": _("Nothing waiting. You’re all caught up.") if st["tab"] == "pending" else _("No requests here."),
-            "d": detail(sel, me) if sel else None}
+            "d": (swap_detail(sel) if isinstance(sel, ShiftOffer) else detail(sel, me)) if sel else None}
+
+
+def swap_detail(o) -> dict:
+    """A swap or hand-off the coworker agreed to: who gives what to whom, and the decision."""
+    u, to = o.by, o.to
+    status = status_of(o)
+
+    def line(shift, who):
+        return {"date": dfmt(shift.date, True), "color": shift.role.color if shift.role else "#5B6A62",
+                "what": f"{shift.role.name if shift.role else ''} · {swaps.span(shift)}".lstrip(" ·"), "who": who}
+
+    d = {"r": o, "key": key_of(o), "is_swap": True, "is_t": False, "name": full_name(u.first_name, u.last_name, u.username),
+         "first": u.first_name or u.username, "ini": initials(u.first_name, u.last_name, u.username), "face": face(u.id), "kind": "swap",
+         "status": status, "status_text": {"pending": _("Waiting for you"), "approved": _("Approved"), "declined": _("Declined")}[status],
+         "meta": _("%(to)s said yes %(when)s") % {"to": to.first_name or to.username, "when": rel(sent_at(o))},
+         "big": (_("Swap with %(name)s") if o.kind == ShiftOffer.SWAP else _("Hand-off to %(name)s")) % {"name": full_name(to.first_name, to.last_name, to.username)},
+         "big_sub": _("Both have the role, and neither ends up with overlapping shifts.") if status == "pending" else "",
+         "lines": [line(o.shift, _("Goes to %(name)s") % {"name": to.first_name or to.username})]
+                  + ([line(o.theirs, _("Goes to %(name)s") % {"name": u.first_name or u.username})] if o.theirs else []),
+         "pending": status == "pending", "msg_ph": _("e.g. All good, thanks for sorting it out."),
+         "approve_text": _("Approve the swap") if o.kind == ShiftOffer.SWAP else _("Approve the hand-off")}
+    problems = []
+    if status == "pending":
+        why = swaps.why_not(to, o.shift, ignore=[o.theirs])
+        if why:
+            problems.append(_("%(name)s: %(why)s") % {"name": to.first_name or to.username, "why": why})
+        if o.theirs:
+            why = swaps.why_not(u, o.theirs, ignore=[o.shift])
+            if why:
+                problems.append(_("%(name)s: %(why)s") % {"name": u.first_name or u.username, "why": why})
+    d["problems"] = problems
+    if status != "pending":
+        who = o.decided_by.first_name or o.decided_by.username if o.decided_by else _("someone")
+        when = dfmt(timezone.localtime(o.decided_at).date(), year=True) if o.decided_at else ""
+        d["dec_text"] = (_("Approved by %(who)s on %(when)s") if status == "approved" else _("Declined by %(who)s on %(when)s")) % {"who": who, "when": when}
+    return d
 
 
 def detail(r, me) -> dict:

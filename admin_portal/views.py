@@ -1406,6 +1406,17 @@ def availability_requests(request):
         st = requests_data.state(request.POST)
         req = requests_data.find(request.POST.get("key", ""))
         op = request.POST.get("op")
+        from team.models import ShiftOffer
+        if isinstance(req, ShiftOffer):
+            from team import swaps
+            if op in ("approve", "decline"):
+                try:
+                    swaps.decide(req, op == "approve", request.user, request.POST.get("message", ""))
+                    messages.success(request, _("Approved. The shifts moved and both of them get a notification.") if op == "approve"
+                                     else _("Declined. Both of them get a notification."))
+                except swaps.SwapError as e:
+                    messages.error(request, str(e))
+            return redirect(reverse("admin_requests") + requests_data.url(st, sel=requests_data.key_of(req)))
         if req and op in ("approve", "decline") and req.status == "pending":
             approve = op == "approve"
             opened = team_requests.decide(req, approve, request.user, request.POST.get("message", ""), request.POST.get("handle", "open"))

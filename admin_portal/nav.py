@@ -64,9 +64,10 @@ MENU = [
 def badges() -> dict:
     """{page id: count} shown as a pill on the rail: new catering orders, availability requests waiting."""
     from catering.models import CateringOrder
-    from team.models import Availability, TimeOff
+    from team.models import Availability, ShiftOffer, TimeOff
     return {"catering": CateringOrder.objects.filter(status=CateringOrder.NEW).count(),
-            "requests": TimeOff.objects.filter(status=TimeOff.PENDING).count() + Availability.objects.filter(status=Availability.PENDING).count()}
+            "requests": TimeOff.objects.filter(status=TimeOff.PENDING).count() + Availability.objects.filter(status=Availability.PENDING).count()
+                        + ShiftOffer.objects.filter(status=ShiftOffer.ACCEPTED).count()}
 
 
 def rail(active: str, user=None) -> list[dict]:

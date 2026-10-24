@@ -41,6 +41,7 @@ ICONS = {
     "gift": "M3 9h18v4H3z M5 13v8h14v-8 M12 9v12 M12 9s-4-6-6-3 6 3 6 3 4-6 6-3-6 3-6 3",
     "cal": "M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4",
     "clock": "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2",
+    "swap": "M7 4 3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7",
 }
 
 GROUPS = [("accounts", _("Accounts"), ICONS["user"]), ("orders", _("Orders"), ICONS["receipt"]), ("catering", _("Catering"), ICONS["cater"]),
@@ -115,6 +116,15 @@ KINDS = [
     Kind("request_decided", "team", ICONS["clock"], _("Time off decision"), _("A manager approves or declines a request."),
          _("The staff member"), _("Your request was %(decision)s"),
          (NAME, ("what", _("What they asked for")), ("decision", _("approved or declined")), ("message", _("The manager’s note")), STORE)),
+    Kind("shift_swap", "team", ICONS["swap"], _("Shift swap request"), _("A coworker asks someone to take or swap a shift."),
+         _("The coworker asked"), _("%(from)s asked you to take a shift"),
+         (NAME, ("from", _("Who’s asking")), ("shift", _("Their shift")), ("theirs", _("Your shift they’d take, for a swap")),
+          ("note", _("Their note")), STORE)),
+    Kind("shift_taken", "team", ICONS["bag"], _("Shift picked up"), _("Someone grabs a shift that was given away."),
+         _("Who gave it away"), _("%(who)s took your shift"), (NAME, ("who", _("Who took it")), ("shift", _("The shift")), STORE)),
+    Kind("shift_swap_decided", "team", ICONS["swap"], _("Swap decision"), _("A coworker says no, or a manager decides a swap or hand-off."),
+         _("Both people"), _("Your shift swap was %(decision)s"),
+         (NAME, ("shift", _("The shift")), ("decision", _("approved or declined")), ("message", _("The manager’s note")), STORE)),
     # The admin's "Send a test email"
     Kind("test", "", ICONS["mail"], _("Test email"), "", "", _("Test email from %(store)s"), (NAME, STORE), always=True, hidden=True),
 ]

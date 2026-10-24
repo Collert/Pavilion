@@ -248,3 +248,145 @@ class TimeClockScreenTests(TestCase):
         self.client.post(self.url, {"op": "out"})
         self.assertContains(self.client.get(self.url), "You’re clocked out, Marco")
         self.assertFalse("_auth_user_id" in self.client.session)  # never signed in
+
+
+
+class SwapTests(TestCase):
+    """team/swaps.py: giving shifts away, grabbing them, hand-offs and swaps a coworker agrees to and a manager decides."""
+
+    def setUp(self):
+        self.cook = Role.objects.get_or_create(name="Cook")[0]
+        self.cashier = Role.objects.get_or_create(name="Cashier")[0]
+        self.aisha = User.objects.create_user("aisha", first_name="Aisha", email="aisha@example.com", is_staff=True)
+        Staff.objects.create(user=self.aisha).roles.add(self.cook, self.cashier)
+        self.marco = User.objects.create_user("marco", first_name="Marco", email="marco@example.com", is_staff=True)
+        Staff.objects.create(user=self.marco).roles.add(self.cook)
+        self.priya = User.objects.create_user("priya", first_name="Priya", is_staff=True)
+        self.day = timezone.localdate() + datetime.timedelta(days=3)
+
+    def shift(self, user, role=None, start=T(9), end=T(17), day=None):
+        return Shift.objects.create(user=user, role=role or self.cook, date=day or self.day, start=start, end=end, published=True)
+
+    def test_give_and_grab(self):
+        from . import swaps
+        from .models import ShiftOffer
+        mine = self.shift(self.aisha)
+        offer = swaps.give(mine, self.aisha, "Family thing")
+        with self.assertRaises(swaps.SwapError):
+            swaps.give(mine, self.aisha)  # already passing it on
+        self.assertEqual([o.pk for o in swaps.market(self.marco)[1]], [offer.pk])
+        self.assertEqual(swaps.market(self.aisha)[1], [])  # not their own
+        with self.assertRaises(swaps.SwapError):
+            swaps.grab(self.priya, mine)  # no Cook role
+        self.shift(self.marco, start=T(12), end=T(20), day=self.day)
+        with self.assertRaises(swaps.SwapError) as e:
+            swaps.grab(self.marco, mine)
+        self.assertIn("Overlaps", str(e.exception))
+        Shift.objects.filter(user=self.marco).delete()
+        with mock.patch("misc_tools.email.send") as send, self.captureOnCommitCallbacks(execute=True):
+            swaps.grab(self.marco, mine)
+        mine.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual((mine.user, offer.status, offer.taken_by), (self.marco, ShiftOffer.DONE, self.marco))
+        self.assertFalse(schedule.changed(mine))  # staff already know: no Publish needed
+        self.assertEqual((send.call_args[0][0], send.call_args[0][1]), ("shift_taken", "aisha@example.com"))
+        with self.assertRaises(swaps.SwapError):
+            swaps.grab(self.priya, mine)  # gone
+
+    def test_open_shift_grab(self):
+        from . import swaps
+        open_shift = self.shift(None, role=self.cashier)
+        self.assertEqual(swaps.market(self.aisha)[0], [open_shift])
+        swaps.grab(self.aisha, open_shift)
+        open_shift.refresh_from_db()
+        self.assertEqual(open_shift.user, self.aisha)
+
+    def test_swap_needs_a_yes_then_a_manager(self):
+        from . import swaps
+        from .models import ShiftOffer
+        mine = self.shift(self.aisha)
+        theirs = self.shift(self.marco, day=self.day + datetime.timedelta(days=1))
+        with self.assertRaises(swaps.SwapError):
+            swaps.ask(mine, self.aisha, self.priya)  # no Cook role
+        with mock.patch("misc_tools.email.send") as send, self.captureOnCommitCallbacks(execute=True):
+            offer = swaps.ask(mine, self.aisha, self.marco, theirs, "Exam on Tuesday")
+        self.assertEqual((offer.kind, offer.status, send.call_args[0][0]), (ShiftOffer.SWAP, ShiftOffer.ASKED, "shift_swap"))
+        self.assertEqual(swaps.asks(self.marco), [offer])
+        with self.assertRaises(swaps.SwapError):
+            swaps.answer(offer, self.aisha, True)  # not theirs to answer
+        with self.assertRaises(swaps.SwapError):
+            swaps.decide(offer, True, self.priya)  # the coworker hasn't said yes
+        swaps.answer(offer, self.marco, True)
+        with mock.patch("misc_tools.email.send") as send, self.captureOnCommitCallbacks(execute=True):
+            swaps.decide(offer, True, self.priya, "Sorted")
+        mine.refresh_from_db()
+        theirs.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual((mine.user, theirs.user, offer.status, offer.decided_by, offer.message), (self.marco, self.aisha, ShiftOffer.DONE, self.priya, "Sorted"))
+        self.assertEqual(sorted(c[0][1] for c in send.call_args_list), ["aisha@example.com", "marco@example.com"])
+
+    def test_handoff_declined_and_cancel(self):
+        from . import swaps
+        from .models import ShiftOffer
+        mine = self.shift(self.aisha)
+        offer = swaps.ask(mine, self.aisha, self.marco)
+        self.assertEqual(offer.kind, ShiftOffer.HANDOFF)
+        with mock.patch("misc_tools.email.send") as send, self.captureOnCommitCallbacks(execute=True):
+            swaps.answer(offer, self.marco, False)
+        self.assertEqual((offer.status, send.call_args[0][0], send.call_args[0][1]), (ShiftOffer.DECLINED, "shift_swap_decided", "aisha@example.com"))
+        offer = swaps.give(mine, self.aisha)  # passing it on again is fine now
+        swaps.cancel(offer, self.aisha)
+        self.assertEqual(offer.status, ShiftOffer.CANCELLED)
+        mine.refresh_from_db()
+        self.assertEqual(mine.user, self.aisha)
+        with self.assertRaises(swaps.SwapError):
+            swaps.cancel(offer, self.aisha)
+
+    def test_a_shift_wanted_in_a_swap_stays_put(self):
+        from . import swaps
+        mine = self.shift(self.aisha)
+        theirs = self.shift(self.marco, day=self.day + datetime.timedelta(days=1))
+        swaps.ask(mine, self.aisha, self.marco, theirs)
+        with self.assertRaises(swaps.SwapError):
+            swaps.give(theirs, self.marco)  # Aisha is waiting on it
+
+    def test_started_shifts_dont_move(self):
+        from . import swaps
+        today = self.shift(self.aisha, start=0, end=T(23, 59), day=timezone.localdate())
+        with self.assertRaises(swaps.SwapError):
+            swaps.give(today, self.aisha)
+
+
+class StaffRequestTests(TestCase):
+    """team/requests.py: what staff ask for from their account."""
+
+    def setUp(self):
+        self.aisha = User.objects.create_user("aisha", first_name="Aisha", is_staff=True)
+        self.today = timezone.localdate()
+
+    def test_time_off_checks(self):
+        from . import requests as reqs
+        later = self.today + datetime.timedelta(days=5)
+        with self.assertRaises(reqs.RequestError):
+            reqs.ask_time_off(self.aisha, self.today, later)  # must start after today
+        with self.assertRaises(reqs.RequestError):
+            reqs.ask_time_off(self.aisha, later, later - datetime.timedelta(days=1))
+        with self.assertRaises(reqs.RequestError):
+            reqs.ask_time_off(self.aisha, later, later, all_day=False, start=T(13), end=T(9))
+        off = reqs.ask_time_off(self.aisha, later, later, all_day=False, start=T(9), end=T(13), category="Appointment", reason="Dentist")
+        self.assertEqual((off.status, off.start, off.category), ("pending", T(9), "Appointment"))
+        reqs.withdraw(off, self.aisha)
+        self.assertFalse(TimeOff.objects.exists())
+
+    def test_availability_change(self):
+        from . import requests as reqs
+        start = self.today + datetime.timedelta(days=7)
+        with self.assertRaises(reqs.RequestError):
+            reqs.ask_availability(self.aisha, {str(d): [[0, 1440]] for d in range(7)}, start)  # nothing changed
+        req = reqs.ask_availability(self.aisha, {"0": [[T(9), T(17)]]}, start, reason="Classes")
+        self.assertEqual((req.windows["0"], req.windows["3"]), ([[T(9), T(17)]], []))
+        req.status = Availability.APPROVED
+        req.save()
+        self.assertEqual(reqs.windows_now(self.aisha, start)["0"], [[T(9), T(17)]])
+        with self.assertRaises(reqs.RequestError):
+            reqs.withdraw(req, self.aisha)  # already decided

@@ -2429,6 +2429,33 @@ class AvailabilityRequestsPageTests(AdminFixture, TestCase):
         self.client.post(url, {"op": "reopen", "key": f"t{off.id}"})
         self.assertEqual(TimeOff.objects.get(pk=off.pk).status, "pending")
 
+    def test_swaps_wait_here_for_a_manager(self):
+        from unittest import mock
+        from team import swaps
+        from team.models import Shift, ShiftOffer
+        from users.models import Role, Staff
+        cook = Role.objects.get_or_create(name="Cook")[0]
+        marco = User.objects.create_user("marco-swap", first_name="Marco", is_staff=True)
+        Staff.objects.get_or_create(user=self.staff)[0].roles.add(cook)
+        Staff.objects.create(user=marco).roles.add(cook)
+        day = timezone.localdate() + datetime.timedelta(days=4)
+        shift = Shift.objects.create(user=self.staff, role=cook, date=day, start=540, end=1020, published=True)
+        offer = swaps.ask(shift, self.staff, marco)
+        url = reverse("admin_requests")
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(url).context["q"]["rows"], [])  # Marco hasn't said yes yet
+        swaps.answer(offer, marco, True)
+        q = self.client.get(url, {"kind": "swap"}).context["q"]
+        self.assertEqual((q["rows"][0]["key"], q["d"]["is_swap"], q["d"]["status"]), (f"s{offer.id}", True, "pending"))
+        with mock.patch("misc_tools.email.send"), self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(url, {"op": "approve", "key": f"s{offer.id}", "message": "OK", "tab": "pending", "kind": "all"}, follow=True)
+        self.assertContains(response, "The shifts moved")
+        shift.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual((shift.user, offer.status, offer.decided_by), (marco, ShiftOffer.DONE, self.owner))
+        q = self.client.get(url, {"tab": "approved", "sel": f"s{offer.id}"}).context["q"]
+        self.assertTrue(q["d"]["dec_text"].startswith("Approved by"))
+
 
 
 class RolesPageTests(AdminFixture, TestCase):

@@ -131,3 +131,62 @@ def _tell(req):
 
 def times_text(windows) -> str:
     return ", ".join(f"{clock(a)}–{clock(b)}" for a, b in windows) if windows else _("Unavailable")
+
+
+# ---------- what staff ask for (the staff side of their account) ----------
+
+class RequestError(Exception):
+    pass
+
+
+def windows_now(user, day=None) -> dict:
+    """Their weekly availability in effect on `day` (today): {"0": [[from, to]], ...}; everyone is free without one."""
+    day = day or timezone.localdate()
+    current = (Availability.objects.filter(user=user, status=Availability.APPROVED, effective__lte=day)
+               .filter(Q(until__isnull=True) | Q(until__gte=day)).order_by("-effective", "-id").first())
+    if current is None:
+        return {str(d): FULL_DAY for d in range(7)}
+    return {str(d): (current.windows or {}).get(str(d), []) for d in range(7)}
+
+
+def availability_now(user, day=None):
+    day = day or timezone.localdate()
+    return (Availability.objects.filter(user=user, status=Availability.APPROVED, effective__lte=day)
+            .filter(Q(until__isnull=True) | Q(until__gte=day)).order_by("-effective", "-id").first())
+
+
+def ask_time_off(user, first_day, last_day, all_day=True, start=None, end=None, category="", reason="") -> TimeOff:
+    today = timezone.localdate()
+    if not first_day or not last_day:
+        raise RequestError(_("Pick the days."))
+    if first_day <= today:
+        raise RequestError(_("Pick a date after today."))
+    if last_day < first_day:
+        raise RequestError(_("The end date is before the start date."))
+    if not all_day and (start is None or end is None or end <= start):
+        raise RequestError(_("Check the times."))
+    return TimeOff.objects.create(user=user, first_day=first_day, last_day=last_day, all_day=all_day,
+                                  start=None if all_day else start, end=None if all_day else end,
+                                  category=category[:20], reason=reason.strip()[:300])
+
+
+def ask_availability(user, windows, effective, until=None, reason="") -> Availability:
+    today = timezone.localdate()
+    if not effective or effective <= today:
+        raise RequestError(_("Pick a start date after today."))
+    if until and until <= effective:
+        raise RequestError(_("The end date has to be after the start date."))
+    clean = {}
+    for d in range(7):
+        day = [[int(a), int(b)] for a, b in (windows.get(str(d)) or []) if 0 <= int(a) < int(b) <= 1440]
+        clean[str(d)] = day
+    if clean == windows_now(user, effective):
+        raise RequestError(_("Change a day to send it."))
+    return Availability.objects.create(user=user, windows=clean, effective=effective, until=until, reason=reason.strip()[:300])
+
+
+def withdraw(req, user):
+    """Take back a request nobody has answered yet."""
+    if req.user_id != user.id or req.status != Availability.PENDING:
+        raise RequestError(_("Only requests still waiting can be withdrawn."))
+    req.delete()

@@ -34,7 +34,7 @@ request are in the address (tab, kind, sel); Approve, Decline and Change decisio
             <a class="rq-row{% if r.on %} on{% endif %}{% if r.status != 'pending' %} done{% endif %}" href="{{ r.href }}" data-live role="option" aria-selected="{{ r.on|yesno:'true,false' }}">
                 <span class="tm-face rq-face" style="--c: {{ r.face }}">{{ r.ini }}</span>
                 <span class="grow">
-                    <span class="rq-top"><span class="strong">{{ r.name }}</span><span class="rq-kind {{ r.kind }}">{% if r.kind == 'timeoff' %}{% trans "Time off" %}{% else %}{% trans "Availability" %}{% endif %}</span></span>
+                    <span class="rq-top"><span class="strong">{{ r.name }}</span><span class="rq-kind {{ r.kind }}">{% if r.kind == 'timeoff' %}{% trans "Time off" %}{% elif r.kind == 'swap' %}{% trans "Swap" %}{% else %}{% trans "Availability" %}{% endif %}</span></span>
                     <span class="num rq-what ellipsis">{{ r.what }}</span>
                     <span class="rq-meta"><span>{{ r.when }}</span>{% if r.flag %}<span class="rq-pill {{ r.flag_tone }}">{{ r.flag }}</span>{% endif %}</span>
                 </span>
@@ -47,7 +47,43 @@ request are in the address (tab, kind, sel); Approve, Decline and Change decisio
     </section>
 
     <section class="tm-edit" id="rq-detail" data-region aria-label="{% trans 'Request' %}">
-    {% with d=q.d %}{% if d %}
+    {% with d=q.d %}{% if d and d.is_swap %}
+        <div class="card tm-card rq-card">
+            <div class="rq-who">
+                <span class="tm-face" style="--c: {{ d.face }}; width: 52px; height: 52px; border-radius: 26px; font-size: 19px">{{ d.ini }}</span>
+                <div class="grow">
+                    <div class="rq-top"><span class="disp rq-name">{{ d.name }}</span><span class="rq-kind swap">{% trans "Swap" %}</span></div>
+                    <div class="small muted strong">{{ d.meta }}</div>
+                </div>
+                <span class="rq-pill big {{ d.status }}">{{ d.status_text }}</span>
+            </div>
+            <div class="rq-big swap">
+                <div class="disp num rq-big-text">{{ d.big }}</div>
+                {% if d.big_sub %}<div class="num small strong rq-big-sub">{{ d.big_sub }}</div>{% endif %}
+            </div>
+            {% if d.r.note %}<div class="rq-reason"><div class="ov faint">{% trans "Their note" %}</div><div class="rq-reason-text">“{{ d.r.note }}”</div></div>{% endif %}
+            <div class="rq-shifts">
+                {% for s in d.lines %}<div class="rq-shift"><span class="rq-shift-bar" style="background: {{ s.color }}"></span><span class="num strong rq-shift-date">{{ s.date }}</span>
+                    <span class="grow small strong rq-shift-what">{{ s.what }}</span><span class="rq-pill">{{ s.who }}</span></div>{% endfor %}
+            </div>
+            {% for p in d.problems %}<div class="rq-note bad">{{ p }}</div>{% endfor %}
+        </div>
+        {% if d.pending %}
+        <form method="post" class="card tm-card rq-decide">{% csrf_token %}
+            <input type="hidden" name="tab" value="{{ st.tab }}"><input type="hidden" name="kind" value="{{ st.kind }}"><input type="hidden" name="key" value="{{ d.key }}">
+            <h2 class="disp tm-h2">{% trans "Decision" %}</h2>
+            <label class="rq-msg"><span class="lbl">{% trans "Message to both of them" %} <span class="faint">· {% trans "optional, they’ll see it" %}</span></span>
+                <textarea class="field" name="message" rows="2" maxlength="200" placeholder="{{ d.msg_ph }}"></textarea></label>
+            <div class="rq-buttons">
+                <button class="rq-decline" name="op" value="decline">{% trans "Decline" %}</button>
+                <button class="btn-amber rq-approve" name="op" value="approve"{% if d.problems %} disabled{% endif %}>{{ d.approve_text }}</button>
+            </div>
+        </form>
+        {% else %}
+        <div class="card tm-card"><div class="rq-done"><span class="rq-done-icon {{ d.status }}">{% if d.status == 'approved' %}{% icon "check" 16 2.8 %}{% else %}{% icon "close" 16 2.8 %}{% endif %}</span>
+            <span class="grow strong">{{ d.dec_text }}</span></div>{% if d.r.message %}<div class="rq-reply">“{{ d.r.message }}”</div>{% endif %}</div>
+        {% endif %}
+    {% elif d %}
         <div class="card tm-card rq-card">
             <div class="rq-who">
                 <span class="tm-face" style="--c: {{ d.face }}; width: 52px; height: 52px; border-radius: 26px; font-size: 19px">{{ d.ini }}</span>
