@@ -26,6 +26,16 @@ added through Square's form (payments/save-card in an iframe, ?card=1) and addre
         </div>
     </form>
     <div class="acct-stack">
+        {% get_available_languages as langs %}{% if langs|length > 1 %}{% get_current_language as cur %}{% get_language_info_list for langs as infos %}
+        <section class="acct-card">
+            <h2 class="disp acct-h2">{% trans "Language" %}</h2>
+            <div class="acct-meta">{% trans "What you see here and in the apps, and what our emails to you are written in." %}</div>
+            <form method="post" action="{% url 'set_language' %}" class="acct-langs">{% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% for l in infos %}<button name="language" value="{{ l.code }}" lang="{{ l.code }}" aria-pressed="{% if l.code|lower == cur %}true{% else %}false{% endif %}">{{ l.name_local }}</button>{% endfor %}
+            </form>
+        </section>
+        {% endif %}
         <section class="acct-card" id="acct-cards" data-region>
             <div class="acct-card-head"><h2 class="disp acct-h2 grow">{% trans "Saved cards" %}</h2><a class="acct-link" href="?card=1">+ {% trans "Add a card" %}</a></div>
             <form method="post" class="acct-list">{% csrf_token %}

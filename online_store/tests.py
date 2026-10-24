@@ -421,6 +421,7 @@ class GiftCardPageTests(TestCase):
             page = self.client.post(url, fields)
         done = page.context["done"]
         self.assertEqual((done["card"].original, done["card"].email, done["sent"]), (Decimal("25"), "sam@example.com", True))
-        self.assertEqual(sent.call_args.args[:2], ("gift_card_gifted", "sam@example.com"))
+        self.assertEqual([c.args[:2] for c in sent.call_args_list],
+                         [("gift_card_gifted", "sam@example.com"), ("gift_card_receipt", "ana@example.com")])  # and the buyer's receipt
         self.assertEqual(GiftCard.find(done["link"].rsplit("/", 1)[-1]), done["card"])
         self.assertEqual(done["order"].authorization.status, PaymentAuthorization.CAPTURED)

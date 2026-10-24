@@ -1,208 +1,85 @@
 """
-Email, sent through listmonk's transactional API (https://listmonk.app/docs/apis/transactional/).
+Sending Pavilion's email through listmonk's transactional API (https://listmonk.app/docs/apis/transactional/).
 
-Pavilion doesn't keep email wording itself: each kind of email (KINDS) is a listmonk "tx" template named
-"Pavilion · <kind>". The first send creates it with a plain default, and the store edits it in listmonk from then on.
-Data is available in the template as {{ .Tx.Data.<key> }}.
+Each email (misc_tools/emails.py) has a listmonk template per language the store has on, put there from the admin's
+Email page (misc_tools/listmonk.py: install) and kept in misc_tools.models.EmailTemplate. `send` picks the template
+in the recipient's language: the one given, else their account's (users.Preference), else the language of the
+page that sent it, falling back to the store's default and then any. Data is available in templates as
+{{ .Tx.Data.<key> }}; "store" (the store's name) is always there.
 
-Settings (env): LISTMONK_URL, LISTMONK_API_USER, LISTMONK_API_TOKEN, and LISTMONK_FROM_EMAIL (optional; listmonk's
-default sender otherwise). Without them nothing is sent: the email is logged, so local development works offline.
+Without listmonk connected nothing is sent and the email is logged, so local development works offline. An email
+turned off on the Email page isn't sent either.
 """
-import json
 import logging
-import urllib.error
-import urllib.request
 
 from django.conf import settings
-from django.core.cache import cache
+from django.utils import translation
+
+from . import listmonk
+from .emails import BY_KEY
+from .listmonk import ListmonkError
 
 logger = logging.getLogger(__name__)
-
-TIMEOUT = 15
-NAME_PREFIX = "Pavilion · "
+EmailError = ListmonkError  # what callers catch
 
 
-class EmailError(Exception):
-    pass
+def enabled(kind) -> bool:
+    from .models import EmailSwitch
+    entry = BY_KEY[kind]
+    if entry.always:
+        return True
+    switch = EmailSwitch.objects.filter(kind=kind).first()
+    return switch.enabled if switch else entry.default_on
 
 
-def _wrap(body):
-    return ('<div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#14261F">'
-            f'{body}</div>')
+def language_for(to, language=None, user=None, fallback=None) -> str:
+    """The language to write to `to` in (see the module docstring). `fallback` instead of the page's language, for
+    emails staff send to someone Pavilion doesn't know (their language isn't the staff member's)."""
+    from django.contrib.auth.models import User
+
+    from users.models import enabled_language, language_of
+    if enabled_language(language):
+        return enabled_language(language)
+    if user is None and to:
+        user = User.objects.filter(email__iexact=to).select_related("preference").first()
+    if user is not None and getattr(getattr(user, "preference", None), "language", ""):
+        return language_of(user)
+    return enabled_language(fallback or translation.get_language()) or settings.LANGUAGE_CODE
 
 
-# kind -> (subject, HTML body). Edited in listmonk after the first send; these are only the starting point.
-KINDS = {
-    "gift_card": (
-        "Your gift card",
-        _wrap('<h2>Here’s your gift card, {{ .Tx.Data.name }}</h2>'
-              '<p>Show it at the counter or use it online.</p>'
-              '<p><a href="{{ .Tx.Data.card_url }}">Open your gift card</a></p>'),
-    ),
-    "gift_card_gifted": (
-        "{{ .Tx.Data.sender }} sent you a gift card",
-        _wrap('<h2>{{ .Tx.Data.sender }} sent you a gift card</h2>'
-              '<p>Hi {{ .Tx.Data.name }}, show it at the counter or use it online.</p>'
-              '<p><a href="{{ .Tx.Data.card_url }}">Open your gift card</a></p>'),
-    ),
-    "gift_card_issued": (
-        "{{ .Tx.Data.store }} sent you a {{ .Tx.Data.amount }} gift card",
-        _wrap('<h2>A gift card for you, {{ .Tx.Data.name }}</h2>'
-              '<p>{{ .Tx.Data.message }}</p>'
-              '<p>{{ .Tx.Data.amount }} to spend at {{ .Tx.Data.store }}, at the counter or online.</p>'
-              '<p><a href="{{ .Tx.Data.card_url }}">Open your gift card</a></p>'
-              '<p style="color:#5B6A62">Keep this email: it’s the only place the full card number is written down.</p>'),
-    ),
-    "gift_card_balance": (
-        "Your {{ .Tx.Data.store }} gift card •• {{ .Tx.Data.last4 }}",
-        _wrap('<h2>Your gift card, {{ .Tx.Data.name }}</h2>'
-              '<p>Gift card •• {{ .Tx.Data.last4 }} has {{ .Tx.Data.balance }} left.</p>'
-              '<p><a href="{{ .Tx.Data.balance_url }}">See its balance</a></p>'),
-    ),
-    "receipt": (
-        "Your receipt from {{ .Tx.Data.store }} · order #{{ .Tx.Data.number }}",
-        _wrap('<h2>Thanks for your order</h2>'
-              '<p>Order #{{ .Tx.Data.number }} · {{ .Tx.Data.when }}</p>'
-              '<table style="width:100%;border-collapse:collapse">'
-              '{{ range .Tx.Data.items }}<tr><td style="padding:4px 0">{{ .qty }}× {{ .name }}</td>'
-              '<td style="text-align:right">{{ .total }}</td></tr>{{ end }}'
-              '{{ range .Tx.Data.totals }}<tr><td style="padding:4px 0;color:#5B6A62">{{ .label }}</td>'
-              '<td style="text-align:right">{{ .value }}</td></tr>{{ end }}</table>'
-              '<p style="color:#5B6A62">{{ .Tx.Data.store }}</p>'),
-    ),
-    "catering_received": (
-        "We got your catering order · {{ .Tx.Data.number }}",
-        _wrap('<h2>Thanks, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
-              '<p>{{ .Tx.Data.title }} · {{ .Tx.Data.when }} · {{ .Tx.Data.total }}</p>'
-              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
-    ),
-    "catering_changes": (
-        "Changes to your catering order · {{ .Tx.Data.number }}",
-        _wrap('<h2>{{ .Tx.Data.store }} suggested some changes</h2><p>{{ .Tx.Data.message }}</p>'
-              '<ul>{{ range .Tx.Data.changes }}<li>{{ . }}</li>{{ end }}</ul>'
-              '<p>New total {{ .Tx.Data.now }} (was {{ .Tx.Data.was }}). Nothing is charged until you accept.</p>'
-              '<p><a href="{{ .Tx.Data.order_url }}">Review the changes</a></p>'),
-    ),
-    "catering_accepted": (
-        "Your catering order is confirmed · {{ .Tx.Data.number }}",
-        _wrap('<h2>You’re all set, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
-              '<p>{{ .Tx.Data.title }} · {{ .Tx.Data.when }}. We charged {{ .Tx.Data.total }} to your card.</p>'
-              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
-    ),
-    "catering_closed": (
-        "About your catering order · {{ .Tx.Data.number }}",
-        _wrap('<h2>We can’t do this one, {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.message }}</p>'
-              '{{ if .Tx.Data.refunded }}<p>{{ .Tx.Data.refunded }} is on its way back to your card.</p>{{ end }}'
-              '<p><a href="{{ .Tx.Data.order_url }}">See your order</a></p>'),
-    ),
-    "catering_message": (
-        "A message about your catering order · {{ .Tx.Data.number }}",
-        _wrap('<p>{{ .Tx.Data.message }}</p><p><a href="{{ .Tx.Data.order_url }}">Reply on your order page</a></p>'),
-    ),
-    "schedule_changed": (
-        "Your schedule changed",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your schedule for the next two weeks:</p>'
-              '<ul>{{ range .Tx.Data.shifts }}<li>{{ . }}</li>{{ else }}<li>No shifts.</li>{{ end }}</ul>'),
-    ),
-    "request_decided": (
-        "Your request was {{ .Tx.Data.decision }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.what }} was <strong>{{ .Tx.Data.decision }}</strong>.</p>'
-              '{{ if .Tx.Data.message }}<p>“{{ .Tx.Data.message }}”</p>{{ end }}'),
-    ),
-    "verify_email": (
-        "Confirm your email for {{ .Tx.Data.store }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Confirm this is your email so {{ .Tx.Data.store }} can send your receipts '
-              'and order updates.</p><p><a href="{{ .Tx.Data.link }}">Confirm my email</a></p>'),
-    ),
-    "email_change_confirm": (
-        "Confirm your new email for {{ .Tx.Data.store }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your {{ .Tx.Data.store }} account is moving to this email. '
-              'Confirm it, then sign in with it.</p><p><a href="{{ .Tx.Data.link }}">Confirm my new email</a></p>'),
-    ),
-    "email_change_notice": (
-        "Your {{ .Tx.Data.store }} email is changing",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Your {{ .Tx.Data.store }} account is moving to {{ .Tx.Data.new }}. '
-              'Once that address confirms, you’ll sign in with it. If you didn’t ask for this, call the store.</p>'),
-    ),
-    "password_reset": (
-        "Set a new password for {{ .Tx.Data.store }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>Here’s a link to set a new password for your {{ .Tx.Data.store }} account.</p>'
-              '<p><a href="{{ .Tx.Data.link }}">Set a new password</a></p>'
-              '<p style="color:#5B6A62">If you didn’t ask for this, you can ignore it.</p>'),
-    ),
-    "staff_invite": (
-        "You're on the team at {{ .Tx.Data.store }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>{{ .Tx.Data.store }} added you to its staff in Pavilion. '
-              'Set your password to sign in.</p><p><a href="{{ .Tx.Data.link }}">Set your password</a></p>'
-              '<p style="color:#5B6A62">The link works for a few days. Ask a manager for a new one if it runs out.</p>'),
-    ),
-    "catering_reminder": (
-        "Your catering order is waiting on you · {{ .Tx.Data.number }}",
-        _wrap('<h2>Hi {{ .Tx.Data.name }}</h2><p>We suggested a few changes to {{ .Tx.Data.title }}. '
-              'Have a look and let us know.</p><p><a href="{{ .Tx.Data.order_url }}">Review the changes</a></p>'),
-    ),
-}
+def template_for(kind, lang):
+    from .models import EmailTemplate
+    rows = dict(EmailTemplate.objects.filter(kind=kind).values_list("language", "template_id"))
+    return rows.get(lang) or rows.get(settings.LANGUAGE_CODE) or next(iter(rows.values()), None)
 
 
-def is_configured():
-    return bool(settings.LISTMONK_URL and settings.LISTMONK_API_USER and settings.LISTMONK_API_TOKEN)
-
-
-def api(method, path, payload=None):
-    """Call the listmonk API and return the response's `data`."""
-    request = urllib.request.Request(
-        f"{settings.LISTMONK_URL.rstrip('/')}/api{path}",
-        data=json.dumps(payload).encode() if payload is not None else None,
-        method=method,
-        headers={"Authorization": f"token {settings.LISTMONK_API_USER}:{settings.LISTMONK_API_TOKEN}",
-                 "Content-Type": "application/json", "Accept": "application/json",
-                 "User-Agent": "Pavilion/1.0 (listmonk)"},  # Cloudflare rejects urllib's default agent
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            body = response.read()
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        try:
-            detail = json.loads(detail).get("message", detail)
-        except (ValueError, AttributeError):
-            pass
-        raise EmailError(f"listmonk returned {exc.code}: {detail}"[:300]) from exc
-    except (urllib.error.URLError, OSError) as exc:
-        raise EmailError(f"listmonk unreachable: {getattr(exc, 'reason', exc)}") from exc
-    return json.loads(body).get("data") if body else None
-
-
-def template_id(kind):
-    """The listmonk template for `kind`, created from KINDS if it's missing. Cached for an hour."""
-    key = f"listmonk-template:{kind}"
-    cached = cache.get(key)
-    if cached:
-        return cached
-    name = NAME_PREFIX + kind
-    rows = api("GET", "/templates?no_body=true")
-    rows = rows.get("results", []) if isinstance(rows, dict) else (rows or [])
-    found = next((row["id"] for row in rows if row.get("name") == name and row.get("type") == "tx"), None)
-    if not found:
-        subject, body = KINDS[kind]
-        found = api("POST", "/templates", {"name": name, "type": "tx", "subject": subject, "body": body})["id"]
-    cache.set(key, found, 60 * 60)
-    return found
-
-
-def send(kind, to, data):
+def send(kind, to, data, language=None, user=None, fallback=None):
     """
-    Send one email of `kind` to the address `to`. Returns True when listmonk accepted it, False when email isn't
-    set up (it's logged instead). Raises EmailError when listmonk refuses or can't be reached.
+    Send one email of `kind` to the address `to`. Returns True when listmonk took it, False when it wasn't sent
+    (listmonk isn't connected, or the email is turned off). Raises EmailError when listmonk refuses or can't be
+    reached. `language` or `user` say who it's for (see language_for).
     """
-    if kind not in KINDS:
+    if kind not in BY_KEY:
         raise ValueError(f"Unknown email kind: {kind}")
-    if not is_configured():
-        logger.info("Email not sent (listmonk isn't configured): %s to %s with %s", kind, to, data)
+    from admin_portal.models import StoreSettings
+    data = {"store": StoreSettings.load().name, **data}
+    if not listmonk.is_configured():
+        logger.info("Email not sent (listmonk isn't connected): %s to %s with %s", kind, to, data)
         return False
+    if not enabled(kind):
+        logger.info("Email not sent (turned off on the Email page): %s to %s", kind, to)
+        return False
+    lang = language_for(to, language, user, fallback)
+    template = template_for(kind, lang)
+    if template is None:
+        listmonk.install(keys=[kind])  # its templates aren't in listmonk yet
+        template = template_for(kind, lang)
+    if template is None:
+        raise EmailError(f"listmonk has no template for {kind}. Install Pavilion’s templates on the Email page.")
     payload = {"subscriber_emails": [to], "subscriber_mode": "fallback",  # also to addresses that aren't subscribers
-               "template_id": template_id(kind), "data": data, "content_type": "html"}
-    if settings.LISTMONK_FROM_EMAIL:
-        payload["from_email"] = settings.LISTMONK_FROM_EMAIL
-    api("POST", "/tx", payload)
+               "template_id": template, "data": data, "content_type": "html"}
+    sender = listmonk.config()["from"]
+    if sender:
+        payload["from_email"] = sender
+    listmonk.api("POST", "/tx", payload)
     return True

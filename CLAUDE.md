@@ -14,7 +14,17 @@ it when you change how something works.
 - Use **`venv\`**, not `.venv\` (incomplete). `venv\Scripts\python manage.py runserver` (ASGI via daphne) →
   `http://127.0.0.1:8000/en/apps/`
 - All page URLs carry a language prefix: `/en/`, `/uk/`, `/zh-hk/` (`i18n_patterns`), including the JS translation
-  catalog (`/en/jsi18n/`, cached by browsers for a day). Only `/events/<topic>` doesn't.
+  catalog (`/en/jsi18n/`, cached by browsers for a day). Only `/events/<topic>` and `/i18n/` (Django's
+  `set_language`, which the language pickers post to) don't.
+- **Languages**: `settings.SUPPORTED_LANGUAGES` is every language with translations; the store turns them on and off
+  and picks the default on the admin's Languages page (`StoreSettings.languages/default_language/match_device`), and
+  `admin_portal/languages.py` applies them to `LANGUAGES`/`LANGUAGE_CODE`/`LANGUAGE_MATCH_DEVICE` when Pavilion starts
+  (`AdminPortalConfig.ready`), so saving asks for a restart (the page does it: SIGHUP to uvicorn's supervisor, or a
+  touch for the reloading dev server). Never read `settings.LANGUAGES` at import time. A person's language is
+  `users.Preference` (`language_of(user)` for emails; `users/middleware.py` starts signed-in people in it and saves the
+  one they browse in). Pickers: the store header (`themes/neighbourhood/_language.html`, only with 2+ languages) and the
+  account profile page (staff use it too; `/users/profile` redirects there). Language codes: compare with
+  `users.models.enabled_language()`, Django lowercases them (`zh-hk` vs `zh-HK`).
 - Fresh DB: `manage.py migrate` then `manage.py seed_demo` (logins admin/admin, cashier/cashier, courier/courier,
   customer/customer; register PINs Alex 0000, Dana 1234, Priya 2468). `seed_demo` refuses to run with DEBUG off or
   on a DB that already has dishes/orders. `manage.py seed_recipes` adds the Cookery mockup's recipes to any DB
@@ -55,7 +65,7 @@ without asking.
 | `screens` | `/screens/` | Screens built from pre-made widgets (status boards, signage, menu boards): `Screen.layout` is a JSON tree rendered on the server, `Screen.popups` the pop-ups over it, `ScreenSession` one display of a screen with sessions (a register pairs with it). See "Screens and widgets" below. |
 | `admin_portal` | `/admin/` | The back office, rebuilt from the canvas's `Admin*` artboards page by page (rail in `nav.py`). Who sees which page and what they can do there comes from their groups (`access.py`). `StoreSettings.load()` = store name. Django admin is at `/advanced-admin/` (everything not rebuilt yet). |
 | `users` | `/users/` | Staff login (`LOGIN_URL`), register, profile, `welcome/<uid>/<token>` (a new staff member sets their password from the invite); Staff profiles (phone, photo, emergency contact, `Role`s: the jobs people do, with starting groups given to whoever gets them; edited on the admin's Roles page), `GroupInfo` (a Django `Group`'s description, colour, icon and `perms`, the `access.py` codes it grants; edited on the admin's Groups page; members of the `owners` one are superusers), Customer profiles (with staff notes, `email_verified` and a `pending_email` waiting for its link), a customer's SavedCard and SavedAddress (`is_default`; the store's account pages and the admin's Customers page edit them). `accounts.py` sends the account emails: confirm your email (on sign-up), confirm a new email (a staff member changed it; the old address is told), and a set-a-new-password link (`welcome/<uid>/<token>` serves customers too); `verify/<uid>/<token>` confirms. Staff are edited on the admin's Staff page (`admin_portal/staff.py`). |
-| `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, email (`email.py`: listmonk tx templates, one per kind; unset `LISTMONK_*` = log only). |
+| `misc_tools` | `/utils/` | Image colour extraction (menu theming), TTS, and email through listmonk: `emails.py` lists every email (key, group, recipient, data fields, subject), its template is `templates/emails/listmonk/<key>.html` (Django `{% trans %}` text plus listmonk's own code via `{% go %}` / `tx.<field>`, `templatetags/listmonk.py`), `listmonk.py` connects (the admin's Email page, kept on `StoreSettings.listmonk_*`; `LISTMONK_*` settings fill in) and installs them once per language that's on (`EmailTemplate`), plus a newsletter campaign template and a customers list kept in step with "Monthly menu email". `email.send(kind, to, data, language=, user=, fallback=)` writes in the recipient's language (`language_for`); not connected = log only; `EmailSwitch` turns one off. **Adding an email**: a `Kind` in `emails.py`, its template, then `send`. |
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 

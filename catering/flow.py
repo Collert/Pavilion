@@ -35,16 +35,50 @@ def order_link(order, request=None) -> str:
     return request.build_absolute_uri(path) if request else path
 
 
+def _when(order) -> str:
+    from django.utils.formats import date_format, time_format
+    return f"{date_format(order.event_date, 'D M j')}, {time_format(order.event_time, 'g:i A')}"
+
+
 def _email(kind, order, request=None, **data):
-    """Email the customer; a failure is logged, never stops the step."""
+    """Email the customer, in their language (their account's; else the page's when they sent it themselves, the
+    store's default when staff did); a failure is logged, never stops the step."""
+    from django.conf import settings
+    from django.utils import translation
+
+    from misc_tools.email import language_for
+    lang = language_for(order.email, user=order.customer, fallback=None if kind == "catering_received" else settings.LANGUAGE_CODE)
     total = pricing.order_totals(order)["total"]
-    payload = {"name": order.first_name, "number": order.number, "title": order.title, "store": StoreSettings.load().name,
-               "when": f"{order.event_date:%a %b} {order.event_date.day}, {order.event_time:%I:%M %p}".replace(" 0", " "),
-               "total": pricing.money(total), "order_url": order_link(order, request), **data}
+    with translation.override(lang):
+        payload = {"name": order.first_name, "number": order.number, "title": order.title, "store": StoreSettings.load().name,
+                   "when": _when(order), "total": pricing.money(total), "order_url": order_link(order, request), **data}
     try:
-        send_email(kind, order.email, payload)
+        send_email(kind, order.email, payload, language=lang)
     except EmailError:
         logger.exception("Catering email %s for %s wasn't sent", kind, order.number)
+
+
+def _tell_staff(order, request=None):
+    """A new request: email everyone who answers catering (the admin's Catering page), in their own language."""
+    from django.contrib.auth.models import User
+    from django.urls import reverse
+    from django.utils import translation
+
+    from users.access import can
+    from users.models import language_of
+    total = pricing.money(pricing.order_totals(order)["total"])
+    link = reverse("admin_catering_order", args=[order.id])
+    for person in User.objects.filter(is_active=True, is_staff=True).exclude(email="").select_related("preference"):
+        if not can(person, "admin.catering.edit"):
+            continue
+        lang = language_of(person)
+        with translation.override(lang):
+            data = {"number": order.number, "customer": order.name, "title": order.title,
+                    "when": _when(order), "total": total, "admin_url": request.build_absolute_uri(link) if request else link}
+        try:
+            send_email("catering_new", person.email, data, language=lang)
+        except EmailError:
+            logger.exception("Couldn't tell %s about catering request %s", person.pk, order.number)
 
 
 def snapshot(order, by):
@@ -78,6 +112,7 @@ def place(order, request=None, quiet=False):
         _say(order, CateringMessage.SYSTEM, at=order.placed_at, text=_("Auto-reply sent: “%(text)s”") % {"text": cfg.auto_reply})
     if not quiet:
         _email("catering_received", order, request, message=cfg.auto_reply)
+        _tell_staff(order, request)
 
 
 def write_lines(order, draft_lines):

@@ -1,0 +1,32 @@
+{% load i18n listmonk %}<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ store }}</title>
+<style>
+  body { margin: 0; padding: 0; background: #E8EDE9; }
+  .pv-page { width: 100%; background: #E8EDE9; padding: 28px 12px; }
+  .pv-card { max-width: 560px; margin: 0 auto; background: #FFFFFF; border-radius: 20px; padding: 28px; font-family: Helvetica, Arial, sans-serif; color: #14261F; font-size: 15px; line-height: 1.55; }
+  .pv-brand { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #1F4A3A; margin-bottom: 18px; }
+  .pv-card h1 { font-size: 24px; line-height: 1.25; margin: 0 0 12px; }
+  .pv-card p { margin: 0 0 14px; }
+  .pv-btn { display: inline-block; padding: 12px 22px; border-radius: 999px; background: #F4A93B; color: #14261F !important; font-weight: 700; text-decoration: none; }
+  .pv-box { padding: 12px 14px; border-radius: 12px; background: #F1F4F2; margin: 0 0 14px; }
+  .pv-table { width: 100%; border-collapse: collapse; margin: 0 0 14px; }
+  .pv-table td { padding: 5px 0; border-bottom: 1px solid #EEF2EF; }
+  .pv-table td.pv-right { text-align: right; }
+  .pv-muted { color: #5B6A62; font-size: 13px; }
+  .pv-foot { max-width: 560px; margin: 14px auto 0; text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #5B6A62; }
+</style>
+</head>
+<body>
+<div class="pv-page">
+  <div class="pv-card">
+    <div class="pv-brand">{{ store }}</div>
+    {% block content %}{% endblock %}
+  </div>
+  <div class="pv-foot">{% block footer %}{% blocktrans %}Sent by {{ store }}.{% endblocktrans %}{% endblock %}</div>
+</div>
+</body>
+</html>

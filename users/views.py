@@ -65,11 +65,8 @@ def register(request):
     
 @login_required
 def profile(request):
-    user = request.user
-    return render(request, "users/profile.html", {
-        "route":"profile",
-        "user":user
-    })
+    """Everyone's profile (name, contact, language, cards) is the store's account page now."""
+    return redirect("account_profile")
 
 def welcome(request, uidb64, token):
     """Set a password from a link: a new staff member's invite (the admin's Staff page) or a password reset (the

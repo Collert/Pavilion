@@ -99,6 +99,33 @@ class Staff(models.Model):
             return True
         return False
 
+class Preference(models.Model):
+    """A person's language: what Pavilion's emails to them are written in, and what they're shown when they sign in.
+    Picked on their account page, or the last language they browsed in (users/middleware.py)."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="preference")
+    language = models.CharField(max_length=10, blank=True)
+
+    def __str__(self):
+        return f"{self.user} · {self.language or '-'}"
+
+
+def enabled_language(code) -> str:
+    """`code` as the store's LANGUAGES spell it ("zh-hk" -> "zh-HK"), or "" when it isn't on."""
+    from django.conf import settings
+    return next((c for c, _name in settings.LANGUAGES if c.lower() == (code or "").lower()), "")
+
+
+def language_of(user) -> str:
+    """The language to write to `user` in: theirs if the store still has it on, else the store's default."""
+    from django.conf import settings
+    pref = getattr(getattr(user, "preference", None), "language", "") if user and user.pk else ""
+    return enabled_language(pref) or settings.LANGUAGE_CODE
+
+
+def set_language(user, code):
+    Preference.objects.update_or_create(user=user, defaults={"language": enabled_language(code) or code})
+
+
 class Customer(models.Model):
     """A customer's profile: what the store's account pages edit (online_store/account.py) and the admin's Customers
     page (admin_portal/customers.py). `email_verified` is set from the link users/views.verify_email sends; a staff
@@ -176,3 +203,10 @@ class SavedAddress(models.Model):
 def create_customer_profile(sender, instance, created, **kwargs):
     if created:
         Customer.objects.create(user=instance)
+
+@receiver(post_save, sender=Customer)
+def newsletter_list(sender, instance, created, **kwargs):
+    """Keep listmonk's customers list in step with their "Monthly menu email" choice (misc_tools/listmonk.py)."""
+    if not created:
+        from misc_tools.listmonk import sync_later
+        sync_later(instance.user)

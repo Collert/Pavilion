@@ -302,22 +302,22 @@ def refund_sheet(order, mode, picks, reason, to):
 
 
 def receipt_data(order, store_name):
-    """What the receipt email shows (see misc_tools.email KINDS['receipt'])."""
+    """What the receipt email shows (misc_tools/emails.py: receipt), in the language that's on."""
     when = timezone.localtime(order.timestamp)
     items = [{"qty": i.quantity, "name": i.title, "total": f"${i.line_total:.2f}"} for i in order.items.all() if not i.parent_id]
-    totals = [{"label": "Subtotal", "value": f"${order.subtotal:.2f}"}]
+    totals = [{"label": str(_("Subtotal")), "value": f"${order.subtotal:.2f}"}]
     if order.discount:
-        totals.append({"label": "Discount", "value": f"−${order.discount:.2f}"})
+        totals.append({"label": str(_("Discount")), "value": f"−${order.discount:.2f}"})
     if order.tax:
-        totals.append({"label": "Tax", "value": f"${order.tax:.2f}"})
+        totals.append({"label": str(_("Tax")), "value": f"${order.tax:.2f}"})
     for fee in order.fee_lines.all():
         totals.append({"label": f"{fee.label} × {fee.quantity}" if fee.quantity > 1 else fee.label, "value": f"${fee.amount:.2f}"})
     if order.tip:
-        totals.append({"label": "Tip", "value": f"${order.tip:.2f}"})
+        totals.append({"label": str(_("Tip")), "value": f"${order.tip:.2f}"})
     for card in order.gift_cards_sold.all():
         totals.append({"label": _("Gift card •• %(last4)s") % {"last4": card.last4}, "value": f"${card.original:.2f}"})
-    totals.append({"label": "Total", "value": f"${order.total:.2f}"})
+    totals.append({"label": str(_("Total")), "value": f"${order.total:.2f}"})
     refunded = refunds.refunded_total(order)
     if refunded:
-        totals.append({"label": "Refunded", "value": f"−${refunded:.2f}"})
+        totals.append({"label": str(_("Refunded")), "value": f"−${refunded:.2f}"})
     return {"store": store_name, "number": order.id, "when": date_format(when, "M j, Y g:i A"), "items": items, "totals": totals}

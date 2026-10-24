@@ -25,6 +25,7 @@ from pavilion import realtime
 
 urlpatterns = [
     path('events/<str:topic>', realtime.stream_view, name='events'),
+    path('i18n/', include('django.conf.urls.i18n')),  # set_language: the language pickers post here
 ]
 
 urlpatterns += i18n_patterns(

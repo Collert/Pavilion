@@ -146,14 +146,20 @@ def publish(request=None) -> int:
 def _notify(user_ids):
     from django.contrib.auth.models import User
 
+    from django.utils import translation
+    from django.utils.formats import date_format
+
     from misc_tools.email import EmailError, send
+    from users.models import language_of
     today = timezone.localdate()
-    for user in User.objects.filter(pk__in=user_ids).exclude(email=""):
+    for user in User.objects.filter(pk__in=user_ids).exclude(email="").select_related("preference"):
         upcoming = Shift.objects.filter(user=user, date__gte=today, date__lt=today + datetime.timedelta(days=14), published=True,
                                         deleted=False).select_related("role")
-        lines = [f"{s.date:%a %b} {s.date.day}: {clock(s.start, False)} – {clock(s.end, False)}" + (f" · {s.role.name}" if s.role else "")
-                 + (f" · {s.note}" if s.note else "") for s in upcoming]
+        lang = language_of(user)
+        with translation.override(lang):  # dates in their language
+            lines = [f"{date_format(s.date, 'D M j')}: {clock(s.start, False)} – {clock(s.end, False)}" + (f" · {s.role.name}" if s.role else "")
+                     + (f" · {s.note}" if s.note else "") for s in upcoming]
         try:
-            send("schedule_changed", user.email, {"name": user.first_name or user.username, "shifts": lines})
+            send("schedule_changed", user.email, {"name": user.first_name or user.username, "shifts": lines}, language=lang)
         except EmailError:
             pass

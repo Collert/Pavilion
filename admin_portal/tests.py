@@ -2996,3 +2996,70 @@ class GiftDesignsPageTests(AdminFixture, TestCase):
         self.client.post(self.url, {"op": "save"})
         self.classic.refresh_from_db()
         self.assertTrue(self.classic.archived)
+
+
+class LanguagesTests(AdminFixture, TestCase):
+    """Languages (admin_portal/languages.py) and how people get theirs (users/middleware.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def tearDown(self):
+        from django.utils import translation
+        translation.activate("en")  # a request in another language leaves it on for the tests after
+
+    def test_the_page_saves_and_asks_for_a_restart(self):
+        from admin_portal import languages
+        from admin_portal.models import StoreSettings
+        self.client.force_login(self.owner)
+        url = reverse("admin_languages")
+        x = self.client.get(url).context["x"]
+        self.assertEqual([r["code"] for r in x["rows"]], ["en", "uk", "zh-HK"])
+        self.assertEqual((x["count"], x["pending"]), (3, False))
+        self.assertEqual(x["rows"][0]["pct"], 100)
+        self.assertGreater(x["rows"][1]["pct"], 0)  # Ukrainian has translations
+        x = self.client.post(url, {"op": "toggle:zh-HK"}).context["x"]
+        x = self.client.post(url, {"op": "toggle:en"}).context["x"]  # the default can't go
+        self.assertEqual((x["count"], x["dirty"]), (2, True))
+        x = self.client.post(url, {"op": "auto", "default": "uk"}).context["x"]
+        self.client.post(url, {"op": "save"})
+        store = StoreSettings.load()
+        self.assertEqual((store.languages, store.default_language, store.match_device), (["uk", "en"], "uk", False))
+        x = self.client.get(url).context["x"]
+        self.assertTrue(x["pending"])
+        self.assertFalse(x["can_restart"])  # not under uvicorn or the reloading dev server
+        self.assertEqual(self.client.post(url, {"op": "restart"}).status_code, 302)
+        self.assertEqual(self.client.get(reverse("admin_languages_status")).json()["boot"], languages.BOOT_ID)
+
+    def test_applying_languages(self):
+        from django.conf import settings
+        from admin_portal import languages
+        before = (list(settings.LANGUAGES), settings.LANGUAGE_CODE, settings.LANGUAGE_MATCH_DEVICE, dict(languages.RUNNING))
+        try:
+            languages.apply(["zh-HK", "nope"], "uk", False)  # the default has to be on: the first one on instead
+            self.assertEqual(([c for c, _n in settings.LANGUAGES], settings.LANGUAGE_CODE, settings.LANGUAGE_MATCH_DEVICE),
+                             (["zh-HK"], "zh-HK", False))
+            self.assertEqual(self.client.get("/uk/menu").status_code, 404)  # turned off: no such address
+        finally:
+            settings.LANGUAGES, settings.LANGUAGE_CODE, settings.LANGUAGE_MATCH_DEVICE, _r = before
+            languages.apply([c for c, _n in before[0]], before[1], before[2])
+
+    def test_people_get_their_language(self):
+        from users.models import Preference, language_of, set_language
+        self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/uk/")  # their device's
+        with override_settings(LANGUAGE_MATCH_DEVICE=False):
+            self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/en/")  # the store's default
+        set_language(self.customer, "zh-HK")
+        self.client.force_login(self.customer)
+        self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/zh-hk/")  # their saved one
+        self.client.get("/uk/menu")  # browsing in another one makes it theirs
+        self.customer.refresh_from_db()
+        self.assertEqual((Preference.objects.get(user=self.customer).language, language_of(User.objects.get(pk=self.customer.pk))), ("uk", "uk"))
+        self.client.get("/zh-hk/menu")
+        self.assertEqual(Preference.objects.get(user=self.customer).language, "zh-HK")
+        self.client.get("/uk/menu")
+        page = self.client.get("/uk/menu")
+        self.assertContains(page, 'name="language" value="zh-hk"')  # the picker
+        moved = self.client.post(reverse("set_language"), {"language": "en", "next": "/uk/menu"})
+        self.assertEqual(moved.url, "/en/menu")
+        self.assertEqual(self.client.get(reverse("profile")).url, reverse("account_profile"))

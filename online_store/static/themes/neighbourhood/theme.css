@@ -212,3 +212,17 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
     .nb-visit-addr { font-size: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { .nb *, .nb *::before, .nb *::after { animation: none !important; transition: none !important; } }
+
+/* The language picker (_language.html): a pill that opens the list of the store's languages */
+.nb-lang { position: relative; }
+.nb-lang summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 20px;
+    border: 1.5px solid var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.nb-lang summary::-webkit-details-marker { display: none; }
+.nb-lang[open] summary { background: var(--ink); color: var(--paper); }
+.nb-lang-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 190px; padding: 6px; border-radius: 16px;
+    background: var(--card); box-shadow: 0 14px 30px rgba(0, 0, 0, .16); display: flex; flex-direction: column; gap: 2px; }
+.nb-lang-menu button { height: 40px; padding: 0 12px; border: none; border-radius: 10px; background: transparent; color: var(--ink); font: inherit;
+    font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer; }
+.nb-lang-menu button span { flex: 1; }
+.nb-lang-menu button:hover, .nb-lang-menu button[aria-current="true"] { background: var(--paper); }
+@media (max-width: 860px) { .nb-lang summary { height: 36px; padding: 0 10px; } }

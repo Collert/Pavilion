@@ -384,7 +384,8 @@ def place_order(request):
             logger.warning("Couldn't get the card details of checkout %s", payment.square_checkout_id, exc_info=True)
     change = sum((p.change for p in order.payments.filter(method=OrderPayment.CASH)), Decimal("0"))
     from gift_cards import giftcards
-    sold = [giftcards.card_json(card, number, sent=bool(card.email) and giftcards.email_sold(request, card, number, sender=sale.get("from", "")))
+    sold = [giftcards.card_json(card, number, sent=bool(card.email) and giftcards.email_sold(request, card, number, sender=sale.get("from", ""),
+                                                                                                fallback=settings.LANGUAGE_CODE))
             for (card, number), sale in zip(order.new_gift_cards, gift_sales)]
     return JsonResponse({"orderId": order.id, "total": to_cents(order.total), "change": to_cents(change),
                          "nextNumber": order.id + 1, "giftCards": sold})

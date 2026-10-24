@@ -639,6 +639,9 @@ def gift_cards_page(request):
             elif result:
                 order, card, number = result
                 sent = email_sold(request, card, number, sender=_gift_sale(st, design)["from"])
+                if not st["self"] and request.user.is_authenticated:
+                    from gift_cards.giftcards import email_receipt
+                    email_receipt(card, request.user)
                 request.session.pop("giftbuy", None)
                 done = {"card": card, "link": reverse("card_display", args=[number]), "sent": sent, "order": order}
         if not done:

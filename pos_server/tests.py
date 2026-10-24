@@ -1210,3 +1210,31 @@ class GiftCardSaleTests(MenuFixture, TestCase):
         card = answer["giftCards"][0]
         self.assertEqual((card["amount"], card["sent"], len(card["number"])), (5000, True, 19))
         self.assertEqual(sent.call_args.args[:2], ("gift_card", "maya@example.com"))
+
+
+class OrderEmailTests(MenuFixture, TestCase):
+    """Ready for pickup and refund emails (pos_server/order_emails.py)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def test_ready_and_refunded(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        from pos_server import order_emails
+        order = create_order(lines=[self.dish(self.coffee)], channel="web", initial_status=OrderStation.STATUS_PENDING,
+                             verify_payment=lambda left: None, email="sam@example.com", name="Sam Lee")
+        with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
+            order_emails.ready(order)
+        kind, to, data = sent.call_args.args
+        self.assertEqual((kind, to, data["name"], data["number"]), ("order_ready", "sam@example.com", "Sam", order.id))
+        refund = SimpleNamespace(amount=Decimal("2.50"), reason="Wrong order", parts=[{"method": "card", "label": "Visa •• 4242"}])
+        with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
+            order_emails.refunded(order, refund)
+        kind, to, data = sent.call_args.args
+        self.assertEqual((kind, data["amount"], data["to"], data["reason"]), ("refund_issued", "$2.50", "Visa •• 4242", "Wrong order"))
+        store_order = create_order(lines=[self.dish(self.coffee)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                                   payments=[{"method": "card", "amount": "2.50"}], email="sam@example.com")
+        with mock.patch("misc_tools.email.send") as sent, self.captureOnCommitCallbacks(execute=True):
+            order_emails.ready(store_order)  # only online pickup orders
+        sent.assert_not_called()

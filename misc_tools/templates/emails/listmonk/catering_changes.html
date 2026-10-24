@@ -1,0 +1,8 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Hi {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans %}{{ store }} suggested some changes to your catering order.{% endblocktrans %}</p>
+{% go "if .Tx.Data.message" %}<div class="pv-box">{% go ".Tx.Data.message" %}</div>{% go "end" %}<ul>{% go "range .Tx.Data.changes" %}<li>{% go "." %}</li>{% go "end" %}</ul>
+<p>{% blocktrans with now=tx.now was=tx.was %}New total {{ now }} (was {{ was }}). Nothing is charged until you accept.{% endblocktrans %}</p>
+<p><a class="pv-btn" href="{% go ".Tx.Data.order_url" %}">{% trans "Review the changes" %}</a></p>
+{% endblock %}

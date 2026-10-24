@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Hi {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans %}Your email address for {{ store }} is being changed to this one. Confirm it to start using it.{% endblocktrans %}</p>
+<p><a class="pv-btn" href="{% go ".Tx.Data.link" %}">{% trans "Confirm this address" %}</a></p>
+{% endblock %}

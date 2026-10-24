@@ -16,6 +16,7 @@
             {% for key, label, url in nav %}<a href="{{ url }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
         </nav>
         <span class="nb-grow"></span>
+        {% include "themes/neighbourhood/_language.html" %}
         {% if me %}
         <a class="nb-me" href="{{ links.account }}"><span class="nb-avatar">{{ me.initials }}</span><span class="nb-me-name">{{ me.first }}</span></a>
         {% elif links.login %}

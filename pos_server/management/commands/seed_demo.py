@@ -1019,8 +1019,10 @@ class Command(BaseCommand):
     def seed_account(self):
         """The customer login's account: a name, preferences, a test card, two addresses and the holiday party request."""
         from catering.models import CateringOrder
-        from users.models import Customer, SavedAddress, SavedCard
+        from users.models import Customer, SavedAddress, SavedCard, set_language
         user = User.objects.get(username="customer")
+        set_language(user, "en")
+        set_language(User.objects.get(username="cashier"), "uk")  # Dana gets her emails in Ukrainian
         user.first_name, user.last_name = "Sofia", "Moreau"
         user.save(update_fields=["first_name", "last_name"])
         profile, _created = Customer.objects.get_or_create(user=user)

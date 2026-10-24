@@ -121,8 +121,12 @@ def order_marking(request):
     if action == "ready":
         if OrderStation.STATUS_PENDING in statuses:
             return JsonResponse({"error": _("Every station has to confirm the order first.")}, status=409)
-        order.set_station_status(filters, OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
-        return JsonResponse({"all_ready": order.all_stations_done()})
+        changed = order.set_station_status(filters, OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
+        all_ready = order.all_stations_done()
+        if all_ready and changed:  # this press finished it (not a repeat)
+            from . import order_emails
+            order_emails.ready(order)
+        return JsonResponse({"all_ready": all_ready})
 
     if action == "pickup":
         if not order.all_stations_done():

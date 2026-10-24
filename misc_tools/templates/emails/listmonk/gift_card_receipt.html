@@ -1,0 +1,5 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Thanks, {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with amount=tx.amount recipient=tx.recipient last4=tx.last4 %}Your {{ amount }} gift card for {{ recipient }} (•• {{ last4 }}) is on its way to them by email.{% endblocktrans %}</p>
+{% endblock %}

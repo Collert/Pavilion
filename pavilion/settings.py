@@ -143,13 +143,14 @@ INSTALLED_APPS = [
 
 # Middleware - Handles request processing, security, and session management
 MIDDLEWARE = [
-    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Manages static files efficiently
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'users.middleware.LanguageMiddleware',  # a signed-in person's saved language; remembers what they browse in
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -170,6 +171,7 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.template.context_processors.i18n',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'users.context_processors.access',
@@ -287,11 +289,20 @@ USE_I18N = True
 
 USE_TZ = True
 
-LANGUAGES = [
+# Every language Pavilion has translations for (locale/). The store turns them on and off and picks the default on
+# the admin's Languages page (StoreSettings); admin_portal/languages.py applies that to LANGUAGES, LANGUAGE_CODE and
+# LANGUAGE_MATCH_DEVICE when Pavilion starts. Adding one: its translations in locale/, then a line here.
+SUPPORTED_LANGUAGES = [
     ('en', _('English')),
     ('uk', _('Ukrainian')),
     ('zh-HK', _('Cantonese (Hong Kong)')),
 ]
+LANGUAGES = list(SUPPORTED_LANGUAGES)
+# Django doesn't know Hong Kong Cantonese by itself (the language pickers show each one's own name from here)
+from django.conf.locale import LANG_INFO  # noqa: E402
+for _code in ("zh-hk", "zh-HK"):
+    LANG_INFO.setdefault(_code, {"bidi": False, "code": "zh-hk", "name": "Cantonese (Hong Kong)", "name_local": "廣東話（香港）"})
+LANGUAGE_MATCH_DEVICE = True  # start people in their browser's language when it's on (else the default)
 
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, "locale"),  # Path for translation files

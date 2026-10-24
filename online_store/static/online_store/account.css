@@ -152,3 +152,6 @@ a { color: inherit; }
     .acct-cater-side { align-items: flex-start; text-align: left; width: 100%; }
     .acct-row .acct-pill { width: auto; }
 }
+.acct-langs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.acct-langs button { height: 40px; padding: 0 16px; border-radius: 20px; border: none; font: inherit; font-size: 14px; font-weight: 800; background: var(--soft, #F1F4F2); color: var(--ink, #14261F); cursor: pointer; }
+.acct-langs button[aria-pressed="true"] { background: var(--ink, #14261F); color: #FFFFFF; }

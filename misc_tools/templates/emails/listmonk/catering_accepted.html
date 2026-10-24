@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}You’re all set, {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with total=tx.total %}Your catering order is confirmed. We charged {{ total }} to your card.{% endblocktrans %}</p>
+{% go "if .Tx.Data.message" %}<div class="pv-box">{% go ".Tx.Data.message" %}</div>{% go "end" %}<div class="pv-box">{% go ".Tx.Data.title" %}<br>{% go ".Tx.Data.when" %} · {% go ".Tx.Data.total" %}</div><p><a class="pv-btn" href="{% go ".Tx.Data.order_url" %}">{% trans "See your order" %}</a></p>
+{% endblock %}

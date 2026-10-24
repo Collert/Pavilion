@@ -47,6 +47,7 @@ class AppSwitcherTests(TestCase):
 
     def test_barely_touches_the_database(self):
         self.client.force_login(self.staff)
+        self.client.get(reverse("app_switcher_index"))  # a session's first page also notes its language (users/middleware.py)
         with self.assertNumQueries(3):  # the session, the user and their groups' permissions
             response = self.client.get(reverse("app_switcher_index"))
         self.assertContains(response, "Dana")

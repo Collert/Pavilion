@@ -12,6 +12,16 @@ class StoreSettings(models.Model):
     Publish copies them here, with `theme` = the theme customers see (online_store/themes.py).
     """
     name = models.CharField(_("store name"), max_length=60, default="My restaurant")
+    # Languages (the admin's Languages page; admin_portal/languages.py applies them when Pavilion starts)
+    languages = models.JSONField(default=list, blank=True, help_text="Language codes turned on; empty means all of them")
+    default_language = models.CharField(max_length=10, default="en")
+    match_device = models.BooleanField(default=True, help_text="Start people in their device's language when it's on")
+    # Email through listmonk (the admin's Email page; misc_tools/listmonk.py). Empty: the LISTMONK_* settings, if any.
+    listmonk_url = models.URLField(blank=True)
+    listmonk_user = models.CharField(max_length=80, blank=True, help_text="An API user in listmonk")
+    listmonk_token = models.CharField(max_length=200, blank=True)
+    listmonk_from = models.CharField(max_length=160, blank=True, help_text="From address, e.g. Corner Kitchen <hello@example.com>")
+    listmonk_list = models.PositiveIntegerField(null=True, blank=True, help_text="The customers list (newsletter)")
     logo = models.ImageField(upload_to="files/branding", null=True, blank=True)
     address = models.CharField(max_length=120, blank=True, help_text="Street address, e.g. 1200 Main St")
     city = models.CharField(max_length=120, blank=True, help_text="City, province and postal code")

@@ -9,6 +9,7 @@ import datetime
 import logging
 from decimal import Decimal
 
+from django.conf import settings
 from django.core import signing
 from django.db import transaction
 from django.urls import reverse
@@ -55,27 +56,36 @@ def issue(*, design, amount: Decimal, recipient, email, message, note, by, reque
         from admin_portal.models import StoreSettings
         data = {"name": recipient, "amount": f"${amount:,.2f}", "message": message, "last4": card.last4,
                 "store": StoreSettings.load().name, "card_url": request.build_absolute_uri(reverse("card_display", args=[number]))}
-        transaction.on_commit(lambda: _send("gift_card_issued", email, data))
+        transaction.on_commit(lambda: _send("gift_card_issued", email, data, fallback=settings.LANGUAGE_CODE))
     return card, number
 
 
-def _send(kind, email, data) -> bool:
+def _send(kind, email, data, fallback=None) -> bool:
+    """Send one; True only when listmonk took it. `fallback`: the language when the recipient has no account
+    (the store's default for what staff send; else the page's)."""
     try:
-        send_email(kind, email, data)
-        return True
+        return bool(send_email(kind, email, data, fallback=fallback))
     except Exception:
         logger.exception("Gift card email (%s) failed", kind)
         return False
 
 
-def email_sold(request, card, number, sender="") -> bool:
+def email_sold(request, card, number, sender="", fallback=None) -> bool:
     """Email a card someone just bought (the register or the store) to its recipient, with its number."""
     from admin_portal.models import StoreSettings
     data = {"name": card.recipient or _("there"), "card_url": request.build_absolute_uri(reverse("card_display", args=[number])),
             "amount": f"${card.original:,.2f}", "last4": card.last4, "message": card.message, "store": StoreSettings.load().name}
     if sender:
         data["sender"] = sender
-    return _send("gift_card_gifted" if sender else "gift_card", card.email, data)
+    return _send("gift_card_gifted" if sender else "gift_card", card.email, data, fallback=fallback)
+
+
+def email_receipt(card, buyer) -> bool:
+    """The buyer's note that the card they bought someone online is on its way (gift_card_receipt)."""
+    if not buyer or not buyer.email or buyer.email.lower() == (card.email or "").lower():
+        return False
+    return _send("gift_card_receipt", buyer.email, {"name": buyer.first_name or buyer.username, "recipient": card.recipient or card.email,
+                                                    "amount": f"${card.original:,.2f}", "last4": card.last4})
 
 
 def card_json(card, number, sent=False) -> dict:
@@ -91,7 +101,7 @@ def resend(card, request) -> bool:
     from admin_portal.models import StoreSettings
     return _send("gift_card_balance", card.email, {
         "name": card.recipient, "last4": card.last4, "balance": f"${card.available_balance:,.2f}",
-        "store": StoreSettings.load().name, "balance_url": balance_link(request, card)})
+        "store": StoreSettings.load().name, "balance_url": balance_link(request, card)}, fallback=settings.LANGUAGE_CODE)
 
 
 def set_frozen(card, frozen, by):

@@ -1,0 +1,7 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with sender=tx.sender %}{{ sender }} sent you a gift card{% endblocktrans %}</h1>
+<p>{% blocktrans with name=tx.name amount=tx.amount %}Hi {{ name }}, here’s {{ amount }} to spend at {{ store }}, at the counter or online.{% endblocktrans %}</p>
+{% go "if .Tx.Data.message" %}<div class="pv-box">{% go ".Tx.Data.message" %}</div>{% go "end" %}<p><a class="pv-btn" href="{% go ".Tx.Data.card_url" %}">{% trans "Open your gift card" %}</a></p>
+<p class="pv-muted">{% trans "Keep this email: it’s the only place the full card number is written down." %}</p>
+{% endblock %}

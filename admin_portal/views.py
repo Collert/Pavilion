@@ -10,6 +10,7 @@ from decimal import Decimal
 from urllib.parse import quote, urlencode
 
 from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.db.models import Max
@@ -19,7 +20,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.text import slugify
 from django.utils.translation import gettext as _, gettext_lazy as _lazy, ngettext
 
@@ -51,6 +52,8 @@ from . import coupons as coupons_data
 from . import discounts as discounts_data
 from . import giftcards as giftcards_data
 from . import giftdesigns as giftdesigns_data
+from . import email_settings as email_data
+from . import languages as languages_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -200,12 +203,16 @@ def order_send(request, order_id):
         messages.error(request, _("Enter an email address."))
         return back
     try:
-        sent = send_email("receipt", to, orders_data.receipt_data(order, StoreSettings.load().name))
+        from misc_tools.email import language_for
+        lang = language_for(to, user=order.customer, fallback=settings.LANGUAGE_CODE)
+        with translation.override(lang):
+            data = orders_data.receipt_data(order, StoreSettings.load().name)
+        sent = send_email("receipt", to, data, language=lang)
     except EmailError as e:
         messages.error(request, _("The receipt wasn't sent: %(error)s") % {"error": e})
         return back
     if not sent:
-        messages.error(request, _("Email isn't set up yet (LISTMONK_URL), so nothing was sent."))
+        messages.error(request, _("Email isn’t set up yet (connect listmonk on the Email page), so nothing was sent."))
         return back
     ReceiptLog.objects.create(order=order, channel=ReceiptLog.EMAIL, to=to, by=request.user)
     if not order.email:
@@ -979,6 +986,66 @@ def catering_settings(request):
 
 # ---------- store hours ----------
 
+@admin_page("languages", edit={"save", "restart"})
+def languages(request):
+    """Languages: which of Pavilion's languages are on, the default, and following the device's language
+    (admin_portal/languages.py). Saved ones apply after a restart, which the page can do."""
+    from .models import StoreSettings
+    store = StoreSettings.load()
+    st = languages_data.state(request.session, store)
+    if request.method == "POST":
+        languages_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        if op == "save":
+            languages_data.save(st, store)
+            request.session.pop(languages_data.KEY, None)
+            messages.success(request, _("Languages saved. Restart Pavilion to use them."))
+            return redirect("admin_languages")
+        if op == "discard":
+            request.session.pop(languages_data.KEY, None)
+            return redirect("admin_languages")
+        if op == "restart":
+            if languages_data.restart():
+                return page(request, "admin_portal/languages.html", "languages",
+                            {"x": languages_data.page(st, store), "restarting": True})
+            messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
+            return redirect("admin_languages")
+        languages_data.apply_op(st, op)
+        request.session[languages_data.KEY] = st
+    return page(request, "admin_portal/languages.html", "languages", {"x": languages_data.page(st, store)})
+
+
+@admin_page("email", edit={"save", "connect", "disconnect", "install", "reset", "test", "sync"})
+def email(request):
+    """Email: the listmonk connection and every email Pavilion sends, with its template per language
+    (admin_portal/email_settings.py)."""
+    from .models import StoreSettings
+    store = StoreSettings.load()
+    st = email_data.state(request.session, store)
+    if request.method == "POST":
+        email_data.take_post(st, request.POST)
+        op = request.POST.get("op", "preview")
+        if op == "save":
+            email_data.save(st)
+            request.session.pop(email_data.KEY, None)
+            messages.success(request, _("Email settings saved."))
+            return redirect("admin_email")
+        if op != "preview":
+            toast, error = email_data.apply_op(st, op, request, store)
+            if toast:
+                messages.success(request, toast)
+            if error:
+                messages.error(request, error)
+        request.session[email_data.KEY] = st
+    return page(request, "admin_portal/email.html", "email", {"x": email_data.page(st, store)})
+
+
+@admin_page("languages")
+def languages_status(request):
+    """Which Pavilion is answering (its BOOT_ID): the page waits for a new one after restarting."""
+    return JsonResponse({"boot": languages_data.BOOT_ID})
+
+
 @admin_page("hours", edit={"pause", "resume", "save"})
 def store_hours(request):
     """Store hours: one form with Save; every change posts the draft back (admin_portal/hours.py). Pausing and resuming
@@ -1484,12 +1551,12 @@ def customers(request):
                 if accounts.send_password_reset(request, person):
                     toast = _("Password reset link sent to %(email)s.") % {"email": person.email}
                 else:
-                    messages.error(request, _("Email isn’t set up yet (LISTMONK_URL), so nothing was sent."))
+                    messages.error(request, _("Email isn’t set up yet (connect listmonk on the Email page), so nothing was sent."))
             elif person and op == "verify":
                 if accounts.send_verification(request, person):
                     toast = _("Verification email sent to %(email)s.") % {"email": accounts.profile_of(person).pending_email or person.email}
                 else:
-                    messages.error(request, _("Email isn’t set up yet (LISTMONK_URL), so nothing was sent."))
+                    messages.error(request, _("Email isn’t set up yet (connect listmonk on the Email page), so nothing was sent."))
             elif person and op == "refresh":
                 problem = customers_data.refresh_cards(st, person)
                 if problem:

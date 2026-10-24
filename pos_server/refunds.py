@@ -181,4 +181,6 @@ def refund_order(order, *, picks=None, whole=False, reason, to, user) -> Refund:
             raise RefundError(_("Square refused the refund: %(error)s") % {"error": e}) from e
     refund.parts = parts
     refund.save(update_fields=["parts"])
+    from . import order_emails
+    order_emails.refunded(order, refund)
     return refund

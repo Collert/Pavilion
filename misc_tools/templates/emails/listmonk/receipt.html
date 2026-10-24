@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% trans "Thanks for your order" %}</h1>
+<p class="pv-muted">{% blocktrans with number=tx.number when=tx.when %}Order #{{ number }} · {{ when }}{% endblocktrans %}</p>
+<table class="pv-table">{% go "range .Tx.Data.items" %}<tr><td>{% go ".qty" %}× {% go ".name" %}</td><td class="pv-right">{% go ".total" %}</td></tr>{% go "end" %}{% go "range .Tx.Data.totals" %}<tr><td class="pv-muted">{% go ".label" %}</td><td class="pv-right">{% go ".value" %}</td></tr>{% go "end" %}</table>
+{% endblock %}

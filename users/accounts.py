@@ -42,7 +42,7 @@ def send_verification(request, user):
     profile = profile_of(user)
     to = profile.pending_email or user.email
     link = request.build_absolute_uri(reverse("verify_email", args=[_uid(user), email_tokens.make_token(user)]))
-    return send("verify_email", to, {"name": user.first_name, "store": _store(), "link": link})
+    return send("verify_email", to, {"name": user.first_name, "store": _store(), "link": link}, user=user)
 
 
 def change_email(request, user, new):
@@ -52,14 +52,14 @@ def change_email(request, user, new):
     profile.pending_email = new
     profile.save(update_fields=["pending_email"])
     link = request.build_absolute_uri(reverse("verify_email", args=[_uid(user), email_tokens.make_token(user)]))
-    send("email_change_confirm", new, {"name": user.first_name, "store": _store(), "link": link})
+    send("email_change_confirm", new, {"name": user.first_name, "store": _store(), "link": link}, user=user)
     if old:
-        send("email_change_notice", old, {"name": user.first_name, "store": _store(), "new": new})
+        send("email_change_notice", old, {"name": user.first_name, "store": _store(), "new": new}, user=user)
 
 
 def send_password_reset(request, user):
     link = request.build_absolute_uri(reverse("staff_welcome", args=[_uid(user), default_token_generator.make_token(user)]))
-    return send("password_reset", user.email, {"name": user.first_name, "store": _store(), "link": link})
+    return send("password_reset", user.email, {"name": user.first_name, "store": _store(), "link": link}, user=user)
 
 
 def confirm(user):

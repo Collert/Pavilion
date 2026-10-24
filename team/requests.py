@@ -114,12 +114,17 @@ def _tell(req):
     from misc_tools.email import EmailError, send
     if not req.user.email:
         return
-    what = (_("Time off: %(when)s") % {"when": span_text(req.first_day, req.last_day)} if isinstance(req, TimeOff)
-            else _("Availability from %(when)s") % {"when": span_text(req.effective, req.effective)})
+    from django.utils import translation
+
+    from users.models import language_of
+    lang = language_of(req.user)
+    with translation.override(lang):  # what it says is in their language, not the manager's
+        what = (_("Time off: %(when)s") % {"when": span_text(req.first_day, req.last_day)} if isinstance(req, TimeOff)
+                else _("Availability from %(when)s") % {"when": span_text(req.effective, req.effective)})
+        decision = str(_("approved") if req.status == Availability.APPROVED else _("declined"))
     try:
-        send("request_decided", req.user.email, {"name": req.user.first_name or req.user.username, "what": what,
-                                                  "decision": _("approved") if req.status == Availability.APPROVED else _("declined"),
-                                                  "message": req.message})
+        send("request_decided", req.user.email, {"name": req.user.first_name or req.user.username, "what": str(what),
+                                                  "decision": decision, "message": req.message}, language=lang)
     except EmailError:
         pass
 

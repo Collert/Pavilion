@@ -275,3 +275,24 @@ class QuoteTests(CateringFixture, TestCase):
         self.client.post(url, {"op": "ful:pickup"})
         q = self.client.post(url, {"op": "ful:delivery"}).context["q"]
         self.assertEqual(q["services"], {})  # no delivery service: delivery is free
+
+
+class StaffNoticeTests(CateringFixture, TestCase):
+    """A new catering request emails the staff who answer catering, in their language (flow._tell_staff)."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+        cls.owner.email = "priya@example.com"
+        cls.owner.save()
+
+    def test_managers_hear_about_new_requests(self):
+        from unittest import mock
+        from users.models import set_language
+        set_language(self.owner, "uk")
+        order = self.make_order()
+        with mock.patch("catering.flow.send_email") as sent:
+            flow._tell_staff(order)
+        kind, to, data = sent.call_args.args
+        self.assertEqual((kind, to, data["number"], data["customer"], sent.call_args.kwargs["language"]),
+                         ("catering_new", "priya@example.com", order.number, "Ben Carter", "uk"))
+        self.assertTrue(data["admin_url"].endswith(f"/admin/catering/{order.id}"))

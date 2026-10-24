@@ -679,6 +679,23 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   order only; those need a signed-in customer, so not the register), a checkout preview of a sample order (pickup or
   delivery) and its performance (uses, discount given, orders total). One form with Save (session draft). The
   delivery fee it needs is set on Store hours, by the delivery cutoffs.
+- **Email** (`admin_email`, `email_settings.py`, 2026-10-23, Settings): connect listmonk (URL, API user and key, an optional
+  From address; "Test and connect" checks it can read lists and templates), its facts, a test email, reload and
+  disconnect, and "Add Pavilion’s templates" while some are missing (`misc_tools/listmonk.py: install`: each email ×
+  each language that's on, a newsletter campaign template per language, and the "<store> customers" list). Emails by
+  group (Accounts, Orders, Catering, Gift cards, Team): on/off (account emails are always on), the listmonk template
+  per language (a template staff pick themselves is theirs: Reset to default makes Pavilion's again and never
+  rewrites theirs), the data each template gets, and Reset to default. The newsletter list is synced when a
+  customer's "Monthly menu email" changes (`users.models.newsletter_list`) or with "Update the list now".
+  New emails with this page: ready for pickup (`pos_server/order_emails.py`, when the kitchen finishes an online
+  pickup order), refund issued, a new catering request to the staff who answer catering, and the buyer's gift card
+  receipt.
+- **Languages** (`admin_languages`, `languages.py`, 2026-10-23, Settings): every supported language with how much of
+  it is translated (from its .po file), on/off switches (the default stays on), search and an All/On filter, the
+  default language, "match each person's device" and a preview of the picker. Saved values apply after a restart:
+  the page shows a "Restart now" card (`languages.restart`: SIGHUP to uvicorn's worker supervisor, or touching the
+  module under the reloading dev server; otherwise it says to restart by hand) and reloads itself once
+  `languages/status` reports a new boot id.
 - **Gift card designs** (`admin_gift_designs`, `giftdesigns.py`, 2026-10-23): the designs in the order buyers see
   them (up and down), each one's picture (kept as soon as it's picked), store name on or off, light or dark text, name,
   default message, amounts and the buyer's own range, where it's sold (online store, register) and when (all year or a

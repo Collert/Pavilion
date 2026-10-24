@@ -1,0 +1,12 @@
+{% load i18n %}{% comment %}
+The language picker (design: AdminLanguages' preview): only when the store has more than one language on. Each choice
+posts to Django's set_language, which keeps the choice in a cookie and goes to the same page in that language.
+{% endcomment %}{% get_available_languages as langs %}{% if langs|length > 1 %}{% get_current_language as cur %}{% get_language_info_list for langs as infos %}
+<details class="nb-lang">
+    <summary aria-label="{% trans 'Language' %}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18"/></svg>{{ cur|slice:":2"|upper }}<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <form method="post" action="{% url 'set_language' %}" class="nb-lang-menu">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        {% for l in infos %}<button name="language" value="{{ l.code }}" lang="{{ l.code }}"{% if l.code|lower == cur %} aria-current="true"{% endif %}><span>{{ l.name_local }}</span>{% if l.code|lower == cur %}<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>{% endif %}</button>{% endfor %}
+    </form>
+</details>
+{% endif %}
