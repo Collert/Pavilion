@@ -290,12 +290,16 @@ def services_teaser(count=3) -> list[dict]:
 
 # ---------- the customer ----------
 
-def live_order(user) -> dict | None:
-    """The signed-in customer's order being made today: {"order", "label", "ready"}."""
-    if not user or not user.is_authenticated:
+def live_order(user, ids=()) -> dict | None:
+    """The order being made today for this visitor: the signed-in customer's, or one this browser placed as a guest
+    (`ids`: the session's "orders", kept when an order is placed). {"order", "label", "ready", "done", "url"}."""
+    from django.db.models import Q
+    signed_in = bool(user and user.is_authenticated)
+    if not signed_in and not ids:
         return None
+    mine = (Q(customer=user) if signed_in else Q(pk__in=[])) | Q(pk__in=list(ids))
     today = timezone.localdate()
-    order = Order.objects.filter(customer=user, picked_up=False, voided_at__isnull=True, timestamp__date=today).order_by("-timestamp").first()
+    order = Order.objects.filter(mine, picked_up=False, voided_at__isnull=True, timestamp__date=today).order_by("-timestamp").first()
     if order is None:
         return None
     ready = order.all_stations_done()

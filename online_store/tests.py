@@ -63,6 +63,16 @@ class PlaceOrderTests(MenuFixture, TestCase):
         return self.client.post(self.url, {"name": "Iryna", "email": "iryna@example.com", "phone": "604-555-0123", "op": "place",
                                            "transaction_uuid": str(transaction.uuid) if transaction else "", **extra})
 
+    def test_a_guest_sees_their_order_in_progress(self):
+        self.place(self.paid_transaction("16.00"))
+        order = Order.objects.get()
+        live = self.client.get(reverse("store_home")).context["live_order"]
+        self.assertEqual(live["order"], order)  # the header's "Cooking · #n" pill, from this browser's session
+        self.assertContains(self.client.get(reverse("store_home")), reverse("order_status", args=[order.id]))
+        self.assertIsNone(self.client_class().get(reverse("store_home")).context["live_order"])  # another browser
+        Order.objects.filter(pk=order.pk).update(picked_up=True)
+        self.assertIsNone(self.client.get(reverse("store_home")).context["live_order"])  # done: the pill goes
+
     def test_paid_order_is_created_pending(self):
         transaction = self.paid_transaction("16.00")
         response = self.place(transaction)
