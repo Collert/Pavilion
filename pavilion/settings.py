@@ -350,11 +350,12 @@ elif TESTING:
     CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'tests'}}  # fresh every run
 else:
     # Development without Redis: a file cache every process shares (several runserver/uvicorn workers see the same
-    # values), in the system's temp folder rather than the project (which may be synced, e.g. by OneDrive)
+    # values), in the system's temp folder rather than the project (which may be synced, e.g. by OneDrive). It retries
+    # when Windows has a file locked mid-write (pavilion/cache.py)
     import tempfile
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'BACKEND': 'pavilion.cache.WindowsSafeFileCache',
             'LOCATION': os.getenv('CACHE_DIR') or os.path.join(tempfile.gettempdir(), 'pavilion-cache'),
         }
     }

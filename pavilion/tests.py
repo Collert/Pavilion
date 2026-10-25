@@ -180,3 +180,28 @@ class DatabaseSettingsTests(SimpleTestCase):
         db = self.settings_with(DATABASE_URL="postgres://pavilion:p%40ss@db.example.com:6543/pavilion")["DATABASES"]["default"]
         self.assertEqual((db["ENGINE"], db["NAME"], db["USER"], db["PASSWORD"], db["HOST"], db["PORT"]),
                          ("django.db.backends.postgresql", "pavilion", "pavilion", "p@ss", "db.example.com", 6543))
+
+
+class DevCacheTests(SimpleTestCase):
+    """pavilion/cache.py: Windows locks a cache file mid-write; the dev cache tries again, then gives up quietly."""
+    def test_a_locked_file_is_tried_again_then_counts_as_a_miss(self):
+        from pavilion.cache import _retry
+        calls = []
+
+        def flaky(self, key, default=None, version=None):
+            calls.append(key)
+            if len(calls) < 3:
+                raise PermissionError(13, "Permission denied")
+            return "value"
+        get = _retry(flaky, lambda key, default=None, version=None: default)
+        self.assertEqual(get(None, "k"), "value")
+        self.assertEqual(len(calls), 3)
+
+        def locked(self, key, default=None, version=None):
+            raise PermissionError(13, "Permission denied")
+        self.assertEqual(_retry(locked, lambda key, default=None, version=None: default)(None, "k", "miss"), "miss")
+
+    def test_the_throttle_lets_requests_through_when_the_cache_fails(self):
+        from pavilion import throttle
+        with override_settings(THROTTLE=True), mock.patch.object(throttle.cache, "add", side_effect=OSError("down")):
+            self.assertEqual(throttle.allow("all", "s1", 1, 10), (True, 0))

@@ -17,6 +17,7 @@ turns it all off (the test runner does; tests fire requests faster than anyone c
     ok, wait = throttle.allow("quote", who, limit=10, window=2)
     if not ok: answer 429 and ask the client to come back in `wait` seconds
 """
+import logging
 import time
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
@@ -25,7 +26,9 @@ from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.utils.translation import gettext as _
 
-SKIP = ("/events/", "/static/", "/media/")  # the live streams hold one request open; files are cheap
+logger = logging.getLogger(__name__)
+
+SKIP =("/events/", "/static/", "/media/")  # the live streams hold one request open; files are cheap
 ADDRESS_FACTOR = 10
 
 
@@ -38,12 +41,16 @@ def allow(scope: str, who, limit: int, window: int, now=None) -> tuple[bool, int
     now = time.time() if now is None else now
     slot = int(now // window)
     key = f"throttle:{scope}:{who}:{slot}"
-    cache.add(key, 0, timeout=window + 1)
     try:
-        count = cache.incr(key)
-    except ValueError:  # expired between add and incr
-        cache.set(key, 1, timeout=window + 1)
-        count = 1
+        cache.add(key, 0, timeout=window + 1)
+        try:
+            count = cache.incr(key)
+        except ValueError:  # expired between add and incr
+            cache.set(key, 1, timeout=window + 1)
+            count = 1
+    except Exception:  # the cache is down or busy: let the request through rather than fail it
+        logger.warning("Throttle cache unavailable", exc_info=True)
+        return True, 0
     if count <= limit:
         return True, 0
     return False, max(1, int((slot + 1) * window - now + 0.999))
