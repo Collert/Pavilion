@@ -401,3 +401,9 @@ button.back-link { border: none; background: none; font-family: inherit; cursor:
 .ro [data-upload], .ro [data-upload-open],
 .nodel button[name="op"]:is([value="archive"], [value="restore"], [value="delete"], [value="trackdel"], [value="pldelete"], [value^="sdel:"]),
 .nodel .tm-remove { display: none !important; }
+
+/* A small borderless icon button (move up and down, remove a row...). Pages may restyle it in their own CSS. */
+.ico { width: 32px; height: 32px; border-radius: 10px; border: none; background: transparent; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; cursor: pointer; }
+.ico:hover:not(:disabled) { background: rgba(20, 38, 31, .06); }
+.ico:disabled { opacity: .3; cursor: default; }
+.ico:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
