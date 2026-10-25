@@ -31,7 +31,7 @@ MENU = [
         ("restocks", _("Restocks"), "admin_restocks"),
     ]),
     ("store", _("Store"), "M4 9h16l-1-4H5z M5 9v11h14V9 M9 20v-6h6v6", [
-        ("branding", _("Branding"), "admin_branding"),
+        ("branding", _("Online store"), "admin_branding"),  # id kept: groups grant admin.branding.*
         ("hours", _("Store hours"), "admin_hours"),
         ("stations", _("Stations"), "admin_stations"),
         ("events", _("Events"), "admin_events"),

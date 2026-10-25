@@ -5,7 +5,7 @@ Branding (design: AdminBranding; admin_portal/branding.py). One form like the ed
 background and is kept as the draft, the preview iframe (the real store, showing the draft) reloads, and Publish
 makes it live. Settings come from the theme's JSON (online_store/themes/<name>.json).
 {% endcomment %}
-{% block title %}{% trans "Branding" %}{% endblock %}
+{% block title %}{% trans "Online store" %}{% endblock %}
 {% block main_class %}brand-main{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/branding.css' %}" rel="stylesheet">
 <script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
@@ -19,7 +19,7 @@ makes it live. Settings come from the theme's JSON (online_store/themes/<name>.j
     <div class="grow">
         <div class="page-kicker">{% trans "Store" %}</div>
         <div class="title-line">
-            <h1 class="disp page-title">{% trans "Branding" %}</h1>
+            <h1 class="disp page-title">{% trans "Online store" %}</h1>
             <span class="brand-live"><span></span>{% blocktrans with name=b.live_title %}Live: {{ name }}{% endblocktrans %}</span>
         </div>
     </div>

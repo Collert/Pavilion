@@ -1637,6 +1637,11 @@ class BrandingTests(AdminFixture, TestCase):
     def setUp(self):
         self.client.force_login(self.owner)
 
+    def test_its_called_online_store(self):
+        page = self.client.get(reverse("admin_branding"))
+        self.assertContains(page, '<h1 class="disp page-title">Online store</h1>', html=False)
+        self.assertIn("Online store", [str(i["label"]) for g in page.context["rail"] for i in g["items"]])
+
     def fields(self, b, **changes):
         """The Branding form's POST fields for what the page shows (branding.html)."""
         data = {}

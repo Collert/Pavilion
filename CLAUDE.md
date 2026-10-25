@@ -222,9 +222,9 @@ The online store is drawn by a theme, built like widgets: `online_store/themes/<
 Views render through `online_store.views.theme_page(request, "home.html", context)`; templates get `t` (the theme's
 values), `store` (name, logo, address, city, phone, directions), `links`, `status`, `hours` and the like; colours,
 sizes and fonts arrive as CSS variables (`themes.css_vars`). What pages show is worked out theme-independently in
-`online_store/storefront.py`. The admin's Branding page edits a draft per theme (`admin_portal.StoreTheme`, store
+`online_store/storefront.py`. The admin's Online store page (id `branding`, so groups keep `admin.branding.*`; a separate Branding page is planned) edits a draft per theme (`admin_portal.StoreTheme`, store
 details in `StoreSettings.draft`) that its preview iframe shows (`themes.previewing`: a superuser's iframe request
-while Branding is open); Publish makes it live. Only "neighbourhood" (the canvas's `Store*` artboards) exists so far.
+while that page is open); Publish makes it live. Only "neighbourhood" (the canvas's `Store*` artboards) exists so far.
 
 ## Access control
 

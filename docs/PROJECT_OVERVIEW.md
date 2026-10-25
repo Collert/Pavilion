@@ -491,7 +491,7 @@ Design canvas's `Admin*` artboards, one page at a time, in the rail's order (`Ad
 shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per page next to it.
 
 - `StoreSettings` (one row, `StoreSettings.load()`): the store's name, shown at the top of the rail with "Pavilion"
-  under it. The Branding page will edit it.
+  under it. The Online store page edits it.
 - **Dashboard home** (`admin_home`, `dashboard.py`): today by hour against the same weekday last week up to the same
   time, or 7/30 days against the period before (calendar: the same weekdays a whole number of weeks earlier; "Open
   days only": days with orders). KPIs, an SVG chart drawn on the server with CSS-only hover tips, "Right now" (open
@@ -620,7 +620,7 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   editor follows the mockup. Disposables' ingredients leave the Ingredients list and the recipe picker.
 - `seed_demo` adds nine weeks of finished orders (closed Tuesdays) so the dashboard and reports have history.
 
-- **Branding** (`admin_branding`, `branding.py`, 2026-10-21): theme cards, the theme's settings (from its JSON) plus
+- **Online store** (was Branding, renamed 2026-10-24 for a separate Branding page to come; still `admin_branding`, `branding.py`, page id `branding`): theme cards, the theme's settings (from its JSON) plus
   the store details (name, logo, address, phone, map link), with contrast warnings, and the real store in a scaled
   iframe (desktop 1440 or phone 390) showing the draft. Every change is kept as a draft at once; Publish copies it
   live (and the store details to `StoreSettings`); "Reset to theme defaults" resets the draft.
