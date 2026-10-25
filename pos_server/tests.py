@@ -1003,6 +1003,17 @@ class RegisterTests(MenuFixture, TestCase):
                 self.assertFalse(nudge_started_orders())  # and it isn't announced twice
         publish.assert_called_once_with("orders")
 
+    def test_media_moves_out_of_the_files_folder(self):
+        """Migration 0033: names and addresses lose the old files/ folder; anything else is left alone."""
+        import importlib
+        move = importlib.import_module("pos_server.migrations.0033_media_out_of_files")
+        bases, folders = {"/media/", "https://cdn.example.com/media/"}, {"branding", "screens"}
+        value = {"logo": "files/branding/logo-1.png", "hero": "https://cdn.example.com/media/files/screens/a.png",
+                 "slides": [{"image": "/media/files/screens/b.png"}], "note": "files/taxes are due", "n": 3}
+        self.assertEqual(move._rename(value, bases, folders), {
+            "logo": "branding/logo-1.png", "hero": "https://cdn.example.com/media/screens/a.png",
+            "slides": [{"image": "/media/screens/b.png"}], "note": "files/taxes are due", "n": 3})
+
     def test_drawer_open_move_close(self):
         self.assertEqual(self.client.get(reverse("cash_drawer")).status_code, 200)
         self.post("cash_drawer", {"action": "open", "amount": "200.00"})

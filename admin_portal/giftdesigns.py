@@ -83,7 +83,7 @@ def take_image(st, upload) -> str:
         return _("Use a JPG or PNG picture.")
     if upload.size > 5 * 1024 * 1024:
         return _("That picture is too big (5 MB at most).")
-    e["image"] = default_storage.save(f"files/gift-cards/designs/{uuid.uuid4().hex[:12]}.{IMAGE_TYPES[upload.content_type]}", upload)
+    e["image"] = default_storage.save(f"gift-cards/designs/{uuid.uuid4().hex[:12]}.{IMAGE_TYPES[upload.content_type]}", upload)
     return ""
 
 

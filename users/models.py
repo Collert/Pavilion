@@ -64,7 +64,7 @@ class Staff(models.Model):
     """A staff member's profile (the account is the User: is_staff, name, email, is_active = can sign in)."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="staff_profile")
     phone = models.CharField(max_length=20, blank=True)
-    photo = models.ImageField(upload_to="files/staff/", blank=True, max_length=300)
+    photo = models.ImageField(upload_to="staff/", blank=True, max_length=300)
     emergency_name = models.CharField(max_length=60, blank=True)
     emergency_phone = models.CharField(max_length=20, blank=True)
     emergency_relation = models.CharField(max_length=40, blank=True, help_text="Who the emergency contact is to them")
@@ -132,7 +132,7 @@ class Customer(models.Model):
     page (admin_portal/customers.py). `email_verified` is set from the link users/views.verify_email sends; a staff
     member's change of email waits in `pending_email` until the new address confirms."""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="customer_profile")
-    profile_picture = models.ImageField(null=True, blank=True, upload_to='files/pfps')
+    profile_picture = models.ImageField(null=True, blank=True, upload_to='pfps')
     phone = models.PositiveBigIntegerField(null=True, blank=True)
     home_address = models.TextField(null=True, blank=True)
     organization = models.CharField(max_length=120, blank=True, help_text="Shows on catering requests and invoices")

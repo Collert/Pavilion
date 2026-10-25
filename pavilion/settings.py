@@ -52,7 +52,7 @@ if not SECRET_KEY:
 DEBUG = os.getenv('ENVIRONMENT') != "production"  # Debug mode enabled unless in production
 
 # User-uploaded media (dish images, menu decorations, promos, gift card art, receipts).
-# Stored names look like "files/dish_images/x.png" (see each model's upload_to).
+# Stored names look like "dish_images/x.png" (see each model's upload_to).
 # Dev: served by Django from ./media. Production: stored in a RustFS (S3-compatible) bucket.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

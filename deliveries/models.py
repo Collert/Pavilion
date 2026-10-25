@@ -40,7 +40,7 @@ class CourierShift(models.Model):
 
 def photo_path(instance, filename):
     # A random name: the photo shows someone's door, so its URL mustn't be guessable
-    return f"files/deliveries/{uuid.uuid4().hex}.jpg"
+    return f"deliveries/{uuid.uuid4().hex}.jpg"
 
 
 class Delivery(models.Model):

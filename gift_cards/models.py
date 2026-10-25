@@ -24,7 +24,7 @@ class GiftCardDesign(models.Model):
     """
     INKS = (("light", "Light"), ("dark", "Dark"))
     name = models.CharField(max_length=40)
-    image = models.ImageField(upload_to="files/gift-cards/designs", null=True, blank=True)
+    image = models.ImageField(upload_to="gift-cards/designs", null=True, blank=True)
     color = models.CharField(max_length=7, default="#1F4A3A", help_text="Shown while there's no picture")
     ink = models.CharField(max_length=5, choices=INKS, default="light")
     show_text = models.BooleanField(default=True, help_text="Print the store name and amount on the card")
@@ -83,7 +83,7 @@ class GiftCard(models.Model):
     number_hash = models.CharField(max_length=64, unique=True, editable=False)
     last4 = models.CharField(max_length=4, editable=False)
     design = models.ForeignKey(GiftCardDesign, on_delete=models.SET_NULL, null=True, blank=True, related_name="cards")
-    image = models.ImageField(upload_to='files/gift-cards/presets', null=True, blank=True, help_text="Cards bought before designs")
+    image = models.ImageField(upload_to='gift-cards/presets', null=True, blank=True, help_text="Cards bought before designs")
     email = models.CharField(max_length=64, blank=True)
     recipient = models.CharField(max_length=60, blank=True)
     message = models.CharField(max_length=120, blank=True)
@@ -193,13 +193,13 @@ class CardPreset(models.Model):
     Attributes:
         name (str): The name of the card preset. It is an optional field with a maximum length of 64 characters.
         amount (Decimal): The amount associated with the card preset. It is a required field with a maximum of 5 digits and 2 decimal places.
-        image (ImageField): An optional image associated with the card preset. The image is uploaded to 'files/gift-cards/presets'.
+        image (ImageField): An optional image associated with the card preset. The image is uploaded to 'gift-cards/presets'.
     Methods:
         __str__(): Returns the name of the card preset as its string representation.
     """
     name = models.CharField(max_length=64, blank=True)
     amount = models.DecimalField(null = False, max_digits=5, decimal_places=2)
-    image = models.ImageField(upload_to='files/gift-cards/presets', null=True)
+    image = models.ImageField(upload_to='gift-cards/presets', null=True)
 
     def __str__(self) -> str:
         return self.name

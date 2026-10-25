@@ -1689,7 +1689,7 @@ class BrandingTests(AdminFixture, TestCase):
         b = self.client.get(url).context["b"]
         png = SimpleUploadedFile("logo.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
         b = self.client.post(url, {**self.fields(b), "op": "preview", "upload-s.logo": png}).context["b"]
-        self.assertTrue(b["store"]["logo"].startswith("files/branding/logo-"))
+        self.assertTrue(b["store"]["logo"].startswith("branding/logo-"))
         bad = SimpleUploadedFile("hero.exe", b"MZ", content_type="application/octet-stream")
         b = self.client.post(url, {**self.fields(b), "op": "preview", "upload-hero": bad}).context["b"]
         self.assertEqual(b["values"]["hero"], "")
@@ -2165,8 +2165,8 @@ class LibraryPageTests(AdminFixture, TestCase):
 
     def test_lists_search_and_missing_info(self):
         from audio.models import Track
-        Track.objects.create(file="files/music/a.mp3", title="Velvet Hour", artist="Juno Hale", album="Paper Moons", artwork="files/music/artwork/a.png", duration=232)
-        Track.objects.create(file="files/music/b.mp3", title="track_07", duration=190)
+        Track.objects.create(file="music/a.mp3", title="Velvet Hour", artist="Juno Hale", album="Paper Moons", artwork="music/artwork/a.png", duration=232)
+        Track.objects.create(file="music/b.mp3", title="track_07", duration=190)
         l = self.client.get(self.url).context["l"]
         self.assertEqual([r["title"] for r in l["rows"]], ["track_07", "Velvet Hour"])  # newest first
         self.assertEqual([(s["key"], s["count"]) for s in l["smart"]], [("all", 2), ("needs", 1)])
@@ -2178,7 +2178,7 @@ class LibraryPageTests(AdminFixture, TestCase):
 
     def test_playlists_bulk_actions_and_song_details(self):
         from audio.models import Playlist, Track
-        a, b, c = (Track.objects.create(file=f"files/music/{n}.mp3", title=n, duration=60) for n in ("Ember", "Gulls", "Long Wire"))
+        a, b, c = (Track.objects.create(file=f"music/{n}.mp3", title=n, duration=60) for n in ("Ember", "Gulls", "Long Wire"))
         back = {"view": "all", "q": "", "sort": "added"}
         response = self.client.post(self.url, {**back, "op": "newpl", "sel": [a.id, b.id]})
         playlist = Playlist.objects.get()
@@ -3021,7 +3021,7 @@ class GiftDesignsPageTests(AdminFixture, TestCase):
         x = self.post(x, "season:seasonal", **{"from": "2026-11-15", "to": "2026-12-31"})
         png = SimpleUploadedFile("card.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, content_type="image/png")
         x = self.client.post(self.url, {"editing": x["d"]["key"], "name": "Holiday", "image": png, "op": "preview"}).context["x"]
-        self.assertTrue(x["d"]["e"]["image"].startswith("files/gift-cards/designs/"))
+        self.assertTrue(x["d"]["e"]["image"].startswith("gift-cards/designs/"))
         x = self.post(x, f"up:{x['d']['e']['id']}")
         self.assertEqual(x["rows"][0]["r"]["name"], "Holiday")
         self.client.post(self.url, {"op": "save"})

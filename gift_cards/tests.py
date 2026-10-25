@@ -15,7 +15,7 @@ from .models import GiftCard
 class BuyCardTests(TestCase):
     def buy(self, transaction, amount="500"):
         return self.client.post(reverse("get-card"), {
-            "transaction_uuid": str(transaction.uuid), "image": "files/gift-cards/presets/25.png",
+            "transaction_uuid": str(transaction.uuid), "image": "gift-cards/presets/25.png",
             "email": "someone@example.com", "amount": amount, "name": "Someone", "sender": "", "gifted": "false"})
 
     def test_card_is_worth_what_was_paid(self, send):

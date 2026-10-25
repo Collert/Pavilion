@@ -486,7 +486,7 @@ store's checkout estimate (`eta`) is unchanged. The order detail's header is a d
 
 ### 6.7 Gift cards (`/gift-cards/`)
 
-- `get-card`: pick a preset or personal design (images listed from storage under `files/gift-cards/{presets,personal}`),
+- `get-card`: pick a preset or personal design (images listed from storage under `gift-cards/{presets,personal}`),
   pay through the same popup. On POST the card is created **only from a paid, unused transaction, for the amount paid**,
   then emailed via listmonk (an email failure is logged; the confirmation page still shows the card link).
 - `card/<number>` renders a code128 barcode. `card-api/<number>`: GET is public (balance, image; email for staff only),

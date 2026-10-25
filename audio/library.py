@@ -1,7 +1,7 @@
 """
 The music library: songs uploaded in the admin's Library (design: AdminLibrary). The browser reads each file's tags
 (title, artist, album, year, genre, artwork, length: admin_portal/static/admin_portal/library.js with audio/tags.js)
-before it uploads, so the server never opens a song: the file is stored as is under files/music/ in the media storage
+before it uploads, so the server never opens a song: the file is stored as is under music/ in the media storage
 and what the tags said is kept on the Track. Screens play songs straight from the storage.
 """
 import posixpath

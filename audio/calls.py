@@ -1,7 +1,7 @@
 """
 Spoken calls on voice channels: "Order for Priya S. is ready" when an order turns ready, and staff announcements.
 A screen's order-ready pop-up with "Read it out" on (or its announcement pop-up) and a voice channel picked says where:
-the speech is made once (misc_tools/speech.py: gTTS after a chime), saved under files/calls/, and sent to each of those
+the speech is made once (misc_tools/speech.py: gTTS after a chime), saved under calls/, and sent to each of those
 channels as a clip (audio/voice.py: broadcast); screens on the channel play it, ducking the channels below.
 
 Making speech takes a second or two and needs the internet, so it runs off the request (a thread), never holding up
@@ -19,7 +19,7 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-CALLS_DIR = "files/calls"
+CALLS_DIR = "calls"
 KEEP = datetime.timedelta(hours=1)
 background = True  # tests run calls straight away
 

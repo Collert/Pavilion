@@ -55,7 +55,7 @@ class LibraryTests(TestCase):
             self.assertFalse(playlist.entries.exists())
 
     def test_playlist_append_and_reorder(self):
-        a, b, c = (Track.objects.create(file=f"files/music/{n}.mp3", title=n) for n in "ABC")
+        a, b, c = (Track.objects.create(file=f"music/{n}.mp3", title=n) for n in "ABC")
         playlist = library.new_playlist([b.id, a.id])
         self.assertEqual(library.append(playlist, [a.id, c.id]), 1)  # A is already in it
         library.reorder(playlist, [c.id, b.id])
@@ -66,9 +66,9 @@ class MusicQueueTests(TestCase):
     """Music channels are radio stations playing a queue: one timeline per channel, every screen in step."""
 
     def setUp(self):
-        self.a = Track.objects.create(file="files/music/a.mp3", title="A", duration=100)
-        self.b = Track.objects.create(file="files/music/b.mp3", title="B", duration=50)
-        self.c = Track.objects.create(file="files/music/c.mp3", title="C", duration=30)
+        self.a = Track.objects.create(file="music/a.mp3", title="A", duration=100)
+        self.b = Track.objects.create(file="music/b.mp3", title="B", duration=50)
+        self.c = Track.objects.create(file="music/c.mp3", title="C", duration=30)
         self.channel = AudioChannel.objects.create(name="Lobby music", kind="music")
         self.t0 = timezone.now()
         nudges = mock.patch("audio.music.publish")
@@ -146,7 +146,7 @@ class MusicQueueTests(TestCase):
         self.assertEqual(AudioChannel.objects.get(pk=self.channel.pk).volume, 100)
 
     def test_shuffle_mixes_only_whats_up_next(self):
-        many = [Track.objects.create(file=f"files/music/{n}.mp3", title=str(n), duration=60) for n in range(12)]
+        many = [Track.objects.create(file=f"music/{n}.mp3", title=str(n), duration=60) for n in range(12)]
         self.do("playnow", ids=[t.id for t in many])
         self.assertEqual(self.do("shuffle"), "shuffled")
         entries = self.state(1)["entries"]
@@ -166,7 +166,7 @@ class MusicQueueTests(TestCase):
         response = self.client.get(reverse("audio_now", args=[self.channel.id]))
         data = response.json()
         self.assertEqual((data["track"]["title"], data["next"]["title"], data["paused"], data["volume"]), ("A", "B", False, 70))
-        self.assertTrue(data["track"]["url"].endswith("files/music/a.mp3"))
+        self.assertTrue(data["track"]["url"].endswith("music/a.mp3"))
         self.assertEqual(self.client.post(reverse("audio_control", args=[self.channel.id]), "{}", content_type="application/json").status_code, 401)
         self.client.force_login(staff)
         response = self.client.post(reverse("audio_control", args=[self.channel.id]), json.dumps({"op": "pause"}),
@@ -185,7 +185,7 @@ class AudioAppTests(TestCase):
         self.staff = crew(User.objects.create_user("dana", password="x", is_staff=True, first_name="Dana", last_name="Wu"))
         self.lobby = AudioChannel.objects.create(name="Lobby music", kind="music", notes="Dining room")
         self.calls = AudioChannel.objects.create(name="Order calls", kind="voice")
-        self.songs = [Track.objects.create(file=f"files/music/{n}.mp3", title=n, artist="Juno Hale", duration=200) for n in ("Velvet Hour", "Ember")]
+        self.songs = [Track.objects.create(file=f"music/{n}.mp3", title=n, artist="Juno Hale", duration=200) for n in ("Velvet Hour", "Ember")]
         self.playlist = library.new_playlist([t.id for t in self.songs])
         self.playlist.name = "Slow evenings"
         self.playlist.save()
@@ -223,11 +223,11 @@ class AudioAppTests(TestCase):
     def test_voice_page_who_is_talking_and_the_last_hour(self):
         from unittest import mock
         self.client.force_login(self.staff)
-        voice.log(self.calls.id, {"kind": "call", "text": "Order for Priya S. is ready.", "url": "/media/files/calls/a.mp3"})
+        voice.log(self.calls.id, {"kind": "call", "text": "Order for Priya S. is ready.", "url": "/media/calls/a.mp3"})
         voice.log(self.calls.id, {"kind": "voice", "name": "Marco Bellini", "first": "Marco", "initials": "MB", "len": 6})
         v = self.client.get(reverse("audio_voice", args=[self.calls.id])).context["v"]
         self.assertEqual([r["kind"] for r in v["rows"]], ["voice", "call"])
-        self.assertEqual(v["last_call"]["url"], "/media/files/calls/a.mp3")
+        self.assertEqual(v["last_call"]["url"], "/media/calls/a.mp3")
         from django.core.cache import cache
         cache.set(voice.who_key(self.calls.id), {"name": "Aisha Okafor", "first": "Aisha", "initials": "AO", "since": 0}, 15)
         context = self.client.get(reverse("audio_voice", args=[self.calls.id])).context
@@ -316,11 +316,11 @@ class VoiceRelayTests(TestCase):
             while json.loads((await screen.next()).get("text") or "{}").get("type") != "stop":
                 pass
             self.assertTrue(dana.outbox.empty() or all("bytes" not in m for m in list(dana.outbox._queue)))  # no echo
-            voice.broadcast(7, {"type": "clip", "url": "/media/files/calls/a.mp3"})
+            voice.broadcast(7, {"type": "clip", "url": "/media/calls/a.mp3"})
             while True:
                 message = json.loads((await screen.next()).get("text") or "{}")
                 if message.get("type") == "clip":
-                    self.assertEqual(message["url"], "/media/files/calls/a.mp3")
+                    self.assertEqual(message["url"], "/media/calls/a.mp3")
                     break
             for s in sockets:
                 s.inbox.put_nowait({"type": "websocket.disconnect"})

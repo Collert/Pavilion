@@ -13,10 +13,10 @@ class StockUpdate(models.Model):
 
     Attributes:
         date (DateTimeField): The date and time when the stock update was created. Automatically set to the current date and time when the object is created.
-        receipt (FileField): An optional file field to upload a receipt for the stock update. The file will be uploaded to the 'files/ingredient_receipts' directory.
+        receipt (FileField): An optional file field to upload a receipt for the stock update. The file will be uploaded to the 'ingredient_receipts' directory.
     """
     date = models.DateTimeField(auto_now_add = True)
-    receipt = models.FileField(upload_to='files/ingredient_receipts', null=True)
+    receipt = models.FileField(upload_to='ingredient_receipts', null=True)
 
 class UpdateIngredient(models.Model):
     """
@@ -312,7 +312,7 @@ class Restock(models.Model):
     fee = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Delivery fee")
     tax = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal("0.00"), help_text="Tax on the receipt")
     notes = models.TextField(blank=True)
-    receipt = models.FileField(upload_to="files/restock_receipts", null=True, blank=True)
+    receipt = models.FileField(upload_to="restock_receipts", null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:

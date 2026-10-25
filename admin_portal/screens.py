@@ -243,7 +243,7 @@ def _changed(widget, params):
 def save_upload(upload):
     if upload.content_type not in IMAGE_TYPES or upload.size > 8 * 1024 * 1024:
         return ""
-    name = default_storage.save(f"files/screens/{uuid.uuid4().hex[:12]}.{IMAGE_TYPES[upload.content_type]}", upload)
+    name = default_storage.save(f"screens/{uuid.uuid4().hex[:12]}.{IMAGE_TYPES[upload.content_type]}", upload)
     return default_storage.url(name)
 
 

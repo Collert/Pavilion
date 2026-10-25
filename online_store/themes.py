@@ -21,7 +21,7 @@ The JSON:
 Param types: string (one line, `max` = length), text (a paragraph), url, bool (a switch; `help` is its line), int /
 number (`min`, `max`, `step`, `control`: "stepper" or "range", `unit`), choice (`options`, `control`: "select",
 "segments" or "cards"; `labels` names the options), color (#hex, `presets`), image (an uploaded file, a media name
-under files/branding/). `show_if` names a bool param that has to be on for the field to show.
+under branding/). `show_if` names a bool param that has to be on for the field to show.
 
 Each theme's values live in admin_portal.StoreTheme (live, and a draft the Branding page edits); the store details
 every theme shows (name, logo, address...) are on StoreSettings. `current(request)` is what a store page renders
@@ -92,7 +92,7 @@ class Param:
         if kind == "color":
             return value.upper() if isinstance(value, str) and COLOR_RE.match(value) else None
         if kind == "image":
-            return value if isinstance(value, str) and (value == "" or value.startswith("files/branding/")) else None
+            return value if isinstance(value, str) and (value == "" or value.startswith("branding/")) else None
         return None
 
     @property

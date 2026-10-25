@@ -12,16 +12,16 @@ from django.utils.translation import gettext_lazy as _
 
 
 class Track(models.Model):
-    """A song in the library: a file under files/music/ in the media storage, kept as it was uploaded, with what its
+    """A song in the library: a file under music/ in the media storage, kept as it was uploaded, with what its
     tags said (read by the browser before uploading: audio/library.py) and anything the admin changed since."""
-    file = models.FileField(upload_to="files/music/", max_length=300, unique=True)
+    file = models.FileField(upload_to="music/", max_length=300, unique=True)
     title = models.CharField(max_length=200)
     artist = models.CharField(max_length=200, blank=True)
     album = models.CharField(max_length=200, blank=True)
     year = models.PositiveSmallIntegerField(null=True, blank=True)
     genre = models.CharField(max_length=80, blank=True)
     duration = models.FloatField(default=0, help_text="Seconds")
-    artwork = models.ImageField(upload_to="files/music/artwork/", blank=True, max_length=300)
+    artwork = models.ImageField(upload_to="music/artwork/", blank=True, max_length=300)
     format = models.CharField(max_length=10, blank=True, help_text="MP3, M4A, FLAC...")
     bitrate = models.PositiveIntegerField(default=0, help_text="kbps")
     size = models.PositiveBigIntegerField(default=0, help_text="Bytes")

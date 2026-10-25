@@ -23,7 +23,7 @@ class StoreSettings(models.Model):
     listmonk_from = models.CharField(max_length=160, blank=True, help_text="From address, e.g. Corner Kitchen <hello@example.com>")
     listmonk_list = models.PositiveIntegerField(null=True, blank=True, help_text="The customers list (newsletter)")
     listmonk_users_list = models.PositiveIntegerField(null=True, blank=True, help_text="The list everyone with an account is in (transactional only)")
-    logo = models.ImageField(upload_to="files/branding", null=True, blank=True)
+    logo = models.ImageField(upload_to="branding", null=True, blank=True)
     address = models.CharField(max_length=120, blank=True, help_text="Street address, e.g. 1200 Main St")
     city = models.CharField(max_length=120, blank=True, help_text="City, province and postal code")
     phone = models.CharField(max_length=40, blank=True)

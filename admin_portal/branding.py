@@ -85,7 +85,7 @@ def upload(file, kind) -> str:
     ext = os.path.splitext(file.name)[1].lower()
     if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg") or file.size > UPLOAD_LIMIT:
         return ""
-    return default_storage.save(f"files/branding/{kind}-{uuid.uuid4().hex[:8]}{ext}", file)
+    return default_storage.save(f"branding/{kind}-{uuid.uuid4().hex[:8]}{ext}", file)
 
 
 def save_draft(theme, values, store):
