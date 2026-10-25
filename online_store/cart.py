@@ -250,15 +250,20 @@ def combo_sheet(combo, post=None) -> dict:
         if slot.picks != 1 or len(options) < 2:
             continue
         chosen = _ints([post.get(f"slot-{slot.id}")]) if post else []
-        default = next((o for o in options if o.is_default), options[0])
-        picked = chosen[0] if chosen else default.dish_id
+        # A required choice starts on its default, skipping sold-out dishes (ComboSlot.default_picks); an optional one
+        # starts on "No thanks"
+        defaults = slot.default_picks()
+        picked = chosen[0] if chosen else (defaults[0].dish_id if defaults and slot.required else None)
         base = [p for p in combo.default_picks() if p.slot_id != slot.id]
         opts = []
+        if not slot.required:
+            opts.append({"name": f"slot-{slot.id}", "value": "", "label": _("No thanks"), "on": picked is None, "off": False, "price": ""})
         for o in options:
             extra = combo.unit_price(base + [o]) - combo.standard_price()
             opts.append({"name": f"slot-{slot.id}", "value": o.dish_id, "label": o.dish.title, "on": o.dish_id == picked,
                          "off": not o.dish.available, "price": f"+{money(extra)}" if extra > 0 else ""})
-        groups.append({"title": slot.title, "kind": "radio", "req": _("Required"), "required": True, "opts": opts})
+        groups.append({"title": slot.title, "kind": "radio", "req": _("Required") if slot.required else _("Optional"),
+                       "required": slot.required, "opts": opts})
     qty = max(1, min(MAX_QTY, _ints([post.get("qty")])[0] if post and _ints([post.get("qty")]) else 1))
     line = combo_line_from_post(combo, post) if post else {"type": "combo", "id": combo.id, "qty": 1, "slots": {}}
     try:

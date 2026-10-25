@@ -616,3 +616,37 @@ class StoreGiftCardsLinkTests(TestCase):
         self.assertContains(home, "Buy a gift card")
         self.assertEqual(home.context["gifts"]["from"], 25)
 
+
+
+class ComboSheetTests(MenuFixture, TestCase):
+    """The store's combo sheet (online_store/cart.py: combo_sheet): what each choice starts on."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from pos_server.models import ComboSlot, ComboSlotOption, Dish
+        cls.build_menu()
+        cookie = Dish.objects.create(title="Cookie", price=Decimal("3.50"), station=cls.bar)
+        brownie = Dish.objects.create(title="Brownie", price=Decimal("4.25"), station=cls.bar)
+        treat = ComboSlot.objects.create(combo=cls.combo, title="Treat", required=False, position=2)
+        ComboSlotOption.objects.create(slot=treat, dish=brownie, price=Decimal("2.00"), is_default=True)
+        ComboSlotOption.objects.create(slot=treat, dish=cookie, price=Decimal("2.00"))
+
+    def picked(self, sheet, title):
+        group = next(g for g in sheet["groups"] if g["title"] == title)
+        return group, [o["label"] for o in group["opts"] if o["on"]]
+
+    def test_a_sold_out_default_isnt_picked(self):
+        from online_store import cart as store_cart
+        from pos_server.models import Combo, Dish
+        Dish.objects.filter(pk=self.coffee.pk).update(availability="off")
+        sheet = store_cart.combo_sheet(Combo.objects.get(pk=self.combo.pk))
+        _group, on = self.picked(sheet, "Drink")
+        self.assertEqual(on, ["Tea"])  # coffee is the default, but it's sold out
+
+    def test_an_optional_choice_starts_on_no_thanks(self):
+        from online_store import cart as store_cart
+        from pos_server.models import Combo
+        sheet = store_cart.combo_sheet(Combo.objects.get(pk=self.combo.pk))
+        group, on = self.picked(sheet, "Treat")
+        self.assertEqual((group["req"], group["required"], on), ("Optional", False, ["No thanks"]))
+        self.assertEqual(sheet["unit"], Decimal("16.00"))  # no treat, no upcharge

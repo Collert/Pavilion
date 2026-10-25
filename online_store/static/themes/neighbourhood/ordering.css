@@ -99,7 +99,10 @@
 .nb-sheet-art .drawing { width: 300px; }
 .nb-sheet-diets { position: absolute; left: 24px; bottom: 24px; right: 24px; display: flex; flex-wrap: wrap; gap: 6px; }
 .nb-sheet-diets span { height: 28px; padding: 0 12px; border-radius: 14px; background: var(--card); box-shadow: inset 0 0 0 var(--outline) var(--ink); font-size: 12px; font-weight: 700; display: flex; align-items: center; }
-.nb-sheet-body { padding: 28px 30px 26px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
+/* The sheet is as tall as the window allows: the details scroll inside it, the picture fills its height, and the
+   quantity and Add button stay pinned at the bottom (sticky) */
+.nb-sheet { grid-template-rows: minmax(0, 1fr); }
+.nb-sheet-body { padding: 28px 30px 0; display: flex; flex-direction: column; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
 .nb-sheet-top { display: flex; align-items: flex-start; gap: 12px; }
 .nb-sheet-top h2 { margin: 0; font-size: 36px; font-weight: 600; line-height: 1.05; }
 .nb-sheet-price { font-size: 18px; font-weight: 700; margin-top: 6px; }
@@ -120,7 +123,8 @@
 .nb-sheet-note { display: block; margin-top: 18px; }
 .nb-sheet-note .strong { display: block; margin-bottom: 8px; font-size: 15px; }
 .nb-sheet-note textarea { width: 100%; padding: 12px 14px; border-radius: 16px; border: 1.5px solid var(--dash); background: var(--paper); resize: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); }
-.nb-sheet-foot { display: flex; gap: 12px; margin-top: 20px; align-items: center; }
+.nb-sheet-foot { display: flex; gap: 12px; margin: 20px -30px 0; padding: 16px 30px 24px; align-items: center; position: sticky; bottom: 0; z-index: 1;
+    background: var(--card); box-shadow: 0 -1px 0 color-mix(in srgb, var(--ink) 10%, transparent), 0 -14px 20px -12px color-mix(in srgb, var(--ink) 18%, transparent); }
 .nb-add-btn { flex: 1; height: 52px; font-size: 16px; }
 .nb-sheet-missing { font-size: 13px; font-weight: 600; color: var(--accent); margin-top: 8px; min-height: 18px; }
 
@@ -258,10 +262,10 @@
     .nb-order-box, .nb-summary { position: static; }
     .nb-menu-tabs { grid-template-columns: 1fr; }
     .nb-menu-tab { min-height: 0; }
-    .nb-sheet { grid-template-columns: 1fr; overflow-y: auto; }
-    .nb-sheet-art { min-height: 200px; }
-    .nb-sheet-art .drawing { width: 180px; }
-    .nb-sheet-body { overflow: visible; }
+    .nb-sheet { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }  /* a band of picture, then the details scroll */
+    .nb-sheet-art { min-height: 0; height: 180px; }
+    .nb-sheet-art .drawing { width: 150px; }
+    .nb-sheet-diets { left: 16px; right: 16px; bottom: 12px; }
     .nb-schedule { grid-template-columns: 1fr; }
     .nb-upsell-grid { grid-template-columns: 1fr; }
 }
@@ -275,6 +279,9 @@
     .nb-steps { grid-template-columns: repeat(2, 1fr); row-gap: 16px; }
     .nb-overlay { padding: 0; align-items: flex-end; }
     .nb-sheet { border-radius: 24px 24px 0 0; max-height: 92dvh; }
+    .nb-sheet-art { height: 140px; }
+    .nb-sheet-body { padding: 20px 18px 0; }
+    .nb-sheet-foot { margin: 16px -18px 0; padding: 12px 18px 18px; }
     .nb-sheet-top h2 { font-size: 28px; }
 }
 
