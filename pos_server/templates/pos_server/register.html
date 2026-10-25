@@ -514,8 +514,10 @@
         </div>
         <div class="terminal-code" id="terminal-code" hidden>
             <span class="grow"><span class="sub">{% trans "On the Terminal, sign in with “Use a device code” and type:" %}</span><b class="terminal-code-text" id="terminal-code-text"></b>
-                <span class="sub" id="terminal-code-sub"></span></span>
+                <span class="sub" id="terminal-code-sub"></span>
+                <span class="sub">{% trans "If the Terminal is still signed in from before, sign out on it first: it keeps its old code until then." %}</span></span>
             <button class="btn btn-sm" type="button" id="terminal-check">{% trans "Check" %}</button>
+            <button class="btn btn-sm" type="button" id="terminal-renew" hidden>{% trans "New code" %}</button>
         </div>
         <div class="screens-pair-form" id="terminal-none" hidden>
             <span class="grow sub" id="terminal-none-text"></span>

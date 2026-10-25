@@ -1015,6 +1015,42 @@ def languages(request):
     return page(request, "admin_portal/languages.html", "languages", {"x": languages_data.page(st, store)})
 
 
+@admin_page("devices", edit={"new", "rename", "newcode"}, delete={"delete"})
+def devices(request):
+    """Devices: the store's trusted devices, their codes and kiosk links (admin_portal/devices.py)."""
+    import uuid
+
+    from pos_server.models import EligibleDevice
+
+    from . import devices as devices_data
+    try:
+        sel = int(request.POST.get("sel") or request.GET.get("sel") or 0)
+    except ValueError:
+        sel = 0
+    if request.method == "POST":
+        op = request.POST.get("op")
+        device = EligibleDevice.objects.filter(pk=sel).first()
+        if op == "new":
+            device = EligibleDevice.objects.create(name=request.POST.get("new_name", "").strip()[:140] or _("New device"))
+            messages.success(request, _("%(name)s added. Open its link on the device, or use its code on the setup page.") % {"name": device.name})
+            return redirect(f"{reverse('admin_devices')}?sel={device.pk}")
+        if device and op == "rename":
+            device.name = request.POST.get("name", "").strip()[:140] or device.name
+            device.save(update_fields=["name"])
+            messages.success(request, _("Saved."))
+        elif device and op == "newcode":
+            device.token = uuid.uuid4()
+            device.save(update_fields=["token"])
+            messages.success(request, _("New code for %(name)s. Its old links and code stop working; set the device up again.") % {"name": device.name})
+        elif device and op == "delete":
+            name = device.name
+            device.delete()
+            messages.success(request, _("%(name)s removed. That device has to be set up again to open staff screens.") % {"name": name})
+            return redirect("admin_devices")
+        return redirect(f"{reverse('admin_devices')}?sel={sel}")
+    return page(request, "admin_portal/devices.html", "devices", {"x": devices_data.page(request, sel)})
+
+
 @admin_page("payments", edit={"connect", "disconnect", "location", "renew"})
 def payments(request):
     """Payments: the store's own Square account, connected with OAuth (admin_portal/payment_settings.py)."""

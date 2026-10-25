@@ -1,45 +1,137 @@
-{% extends "pos_server/layout.html" %}
-{% load i18n %}
-{% load static %}
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+Set up this device (pos_server/views.py: device_elig; laid out like the sign-in page, design: Signin). Staff
+screens send browsers that aren't one of the store's devices here. A browser that remembers its device reconnects
+by itself; otherwise someone who may add devices names it, picks an existing one, or a device code is pasted.
+{% endcomment %}
+{% block title %}{% trans "Set up this device" %} · Pavilion{% endblock %}
+{% block head %}
+<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'users/login.css' %}" rel="stylesheet">
+<link href="{% static 'pos_server/device-setup.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}{% endblock %}
 
 {% block body %}
-{% if not authorized %}
-<h2 style="text-align: center; padding: 1rem 0;">{% trans "This device is not authorized to access the attempted functionality. Please use admin credentials to authorize." %}</h2>
-{% endif %}
-<form id="login" method="post" style="align-content: center;" action="{% url 'device_elig' %}">
-    {% csrf_token %}
-    <input {% if failed_login %}class="error"{% endif %} type="text" name="username" placeholder="{% trans 'Username' %}"/>
-    <input {% if failed_login %}class="error"{% endif %} type="password" name="password" placeholder="{% trans 'Password' %}"/>
-    <input type="text" required name="device" placeholder="{% trans 'Device name' %}"/>
-    {% if request.GET.next %}
-    <input type="hidden" name="next" value="{{ request.GET.next }}">
-    {% endif %}
-    <button {% if failed_login %}class="error"{% endif %}>{% trans "Authorize" %}</button>
-    {% if failed_login %}
-    <span>{% trans "Failed to authenticate, please try again" %}</span>
-    {% endif %}
-</form>
+<section class="lock-status" aria-label="Pavilion">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">Pavilion</div>
+    </div>
+    <div class="lock-center">
+        <h2 class="tagline">{% trans "Set it up once." %}<br><span>{% trans "Ready" %}</span> {% trans "every day after." %}</h2>
+    </div>
+</section>
 
-{% if authorized and uuid %}
-<script>
-    const UUID = "{{uuid}}"
-    window.localStorage.setItem("deviceToken", UUID)
-    alert("{% trans 'Device registered! You will now be redirected to homepage.' %}")
-    window.location.href = "{{next_url|escapejs}}"
-</script>
-{% elif not failed_login %}
-<script>
-    // A device that is already registered (token in localStorage) just needs its cookie refreshed.
-    const storedToken = window.localStorage.getItem("deviceToken")
-    if (storedToken) {
-        fetch("{% url 'device_elig' %}", {
-            method: "PUT",
-            headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
-            body: JSON.stringify({token: storedToken})
-        }).then(response => {
-            if (response.ok) window.location.href = "{{ next_url|default:"/"|escapejs }}"
-        })
-    }
-</script>
+<aside class="lock-panel" aria-label="{% trans 'Set up this device' %}">
+{% if view == "done" %}
+    <div class="lock-view rise sign-in dv-done">
+        {{ device.token|stringformat:"s"|json_script:"device-token" }}
+        <div class="dv-check" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></div>
+        <div class="overline">{% trans "All set" %}</div>
+        <h1 class="h1 lock-title">{% blocktrans with name=device.name %}This is {{ name }}{% endblocktrans %}</h1>
+        <div class="sign-in-sub">{% trans "Staff screens open here without asking again. Taking you there now…" %}</div>
+        <a class="btn btn-primary submit dv-go" href="{{ next_url }}" id="dv-continue">{% trans "Continue" %}</a>
+    </div>
+{% else %}
+    {{ next_url|json_script:"dv-next" }}
+    <div class="lock-view rise sign-in" id="dv-reconnect" hidden>
+        <div class="overline">{% trans "Set up this device" %}</div>
+        <h1 class="h1 lock-title">{% trans "Reconnecting…" %}</h1>
+        <div class="sign-in-sub">{% trans "This browser has been set up before. One moment." %}</div>
+    </div>
+    <div class="lock-view rise sign-in" id="dv-setup">
+        <div class="overline">{% trans "Set up this device" %}</div>
+        <h1 class="h1 lock-title">{% trans "Which device is this?" %}</h1>
+        <div class="sign-in-sub">{% trans "Registers, kitchen screens and the time clock only open on the store’s own devices." %}</div>
+
+        <form method="post" action="{% url 'device_elig' %}" class="dv-form" id="dv-add" novalidate>{% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}"><input type="hidden" name="op" value="add">
+            <div class="fields">
+                <div>
+                    <label for="dv-name" class="field-label">{% trans "Name it" %}</label>
+                    <div class="si-field">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8 M12 16v4"></path></svg>
+                        <input id="dv-name" name="name" type="text" maxlength="140" placeholder="{% trans 'e.g. Front register' %}" value="{{ name }}" autocomplete="off" {% if signed_in %}autofocus{% endif %}>
+                    </div>
+                </div>
+                {% if not signed_in %}
+                <div>
+                    <label for="dv-user" class="field-label">{% trans "Someone who can add devices signs in" %}</label>
+                    <div class="si-field">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20a8 8 0 0 1 16 0"></path></svg>
+                        <input id="dv-user" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="{% trans 'Email or username' %}" value="{{ identifier }}">
+                    </div>
+                </div>
+                <div>
+                    <div class="si-field">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="3"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                        <input name="password" type="password" autocomplete="current-password" placeholder="{% trans 'Password' %}" aria-label="{% trans 'Password' %}">
+                    </div>
+                </div>
+                {% else %}
+                <div class="dv-signed sub">{% blocktrans with who=signed_in.first_name|default:signed_in.username %}Adding it as {{ who }}.{% endblocktrans %}</div>
+                {% endif %}
+            </div>
+            <div class="form-error" role="alert">{% if error and not view == "code" %}<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.01"></path></svg>{{ error }}{% endif %}</div>
+            <button class="btn btn-primary submit"><span>{% trans "Add this device" %}</span></button>
+        </form>
+
+        {% if signed_in and devices %}
+        <form method="post" action="{% url 'device_elig' %}" class="dv-form dv-join">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}"><input type="hidden" name="op" value="join">
+            <label for="dv-existing" class="field-label">{% trans "Or it’s one already set up" %}</label>
+            <div class="dv-row">
+                <select class="input dv-select" id="dv-existing" name="device">{% for d in devices %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select>
+                <button class="btn btn-md">{% trans "Use it" %}</button>
+            </div>
+        </form>
+        {% endif %}
+
+        <div class="grow"></div>
+        <details class="dv-code"{% if view == "code" %} open{% endif %}>
+            <summary>{% trans "Have a device code?" %}</summary>
+            <form method="post" action="{% url 'device_elig' %}" class="dv-row">{% csrf_token %}
+                <input type="hidden" name="next" value="{{ next_url }}"><input type="hidden" name="op" value="code">
+                <input class="input dv-select" name="code" autocomplete="off" spellcheck="false" placeholder="{% trans 'From the admin’s Devices page' %}" aria-label="{% trans 'Device code' %}">
+                <button class="btn btn-md">{% trans "Use code" %}</button>
+            </form>
+            {% if view == "code" and error %}<div class="field-error">{{ error }}</div>{% endif %}
+        </details>
+    </div>
 {% endif %}
+</aside>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if view == "done" %}
+    // Remember the device here too, so a cleared cookie comes back by itself, then carry on
+    try { localStorage.setItem("deviceToken", JSON.parse(document.getElementById("device-token").textContent)); } catch { /* private mode */ }
+    setTimeout(() => { location.href = document.getElementById("dv-continue").href; }, 1400);
+{% else %}
+    // A browser that was set up before (token kept in localStorage) gets its cookie back without asking
+    (async () => {
+        let token = null;
+        try { token = localStorage.getItem("deviceToken"); } catch { /* private mode */ }
+        if (!token || {% if error %}true{% else %}false{% endif %}) return;
+        document.getElementById("dv-setup").hidden = true;
+        document.getElementById("dv-reconnect").hidden = false;
+        const response = await fetch("{% url 'device_elig' %}", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value },
+            body: JSON.stringify({ token }),
+        }).catch(() => null);
+        if (response && response.ok) { location.href = JSON.parse(document.getElementById("dv-next").textContent) || "/"; return; }
+        try { localStorage.removeItem("deviceToken"); } catch { /* nothing kept */ }
+        document.getElementById("dv-reconnect").hidden = true;
+        document.getElementById("dv-setup").hidden = false;
+    })();
+{% endif %}
+</script>
 {% endblock %}

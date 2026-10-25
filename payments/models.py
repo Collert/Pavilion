@@ -92,6 +92,12 @@ class SquareTerminal(models.Model):
     def __str__(self):
         return f"{self.name} ({self.status})"
 
+    @property
+    def expired(self) -> bool:
+        """A code nobody typed in time (Square gives 5 minutes); a new one has to be made."""
+        from django.utils import timezone
+        return self.status == "EXPIRED" or (self.status == "UNPAIRED" and self.pair_by is not None and self.pair_by < timezone.now())
+
     @classmethod
     def for_register(cls, register):
         """The paired Terminal of a register (EligibleDevice or None), or None."""

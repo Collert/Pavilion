@@ -488,6 +488,13 @@ store's checkout estimate (`eta`) is unchanged. The order detail's header is a d
 
 ### 6.8 Device registration
 
+October 2026: the setup page (`/restaurant/check-device`) is redesigned like the sign-in page ("Which device is this?":
+someone with `admin.devices.edit` names it or picks an existing one, or a device code is pasted; a browser that remembers
+its token reconnects by itself). `?device-token=<token>` works on any link (`DeviceTokenMiddleware`: sets the cookie, then
+reloads without it), for kiosks that wipe cookies. The admin's Devices page (Settings) lists devices with their code and
+kiosk links, adds, renames, gives a new code (old links stop) and removes them. `EligibleDevice.token` is unique and
+`created_at` records when it was added.
+
 POS/KDS views use `device_required`: when `ENFORCE_DEVICE_CHECK` is on (default in production), the browser needs a
 signed HttpOnly `pavilion_device` cookie for a registered `EligibleDevice`. Unregistered browsers are redirected to
 `check-device`, where a superuser registers them; a browser that already has the token in `localStorage` re-sends it

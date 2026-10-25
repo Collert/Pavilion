@@ -1,0 +1,24 @@
+/* Devices (admin_portal/templates/admin_portal/devices.html). Cards from team.css, email.css and payments.css. */
+.dv-new { display: flex; gap: 8px; align-items: center; margin: 0; }
+.dv-new .field { width: 220px; height: 44px; }
+.dv-body { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.dv-list { width: 360px; flex: none; display: flex; flex-direction: column; padding: 16px; overflow: hidden; }
+.dv-list-sub { padding: 0 4px 10px; }
+.dv-rows { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: thin; }
+.dv-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; color: var(--ink); text-decoration: none; }
+.dv-row:hover { background: #F6F8F7; }
+.dv-row.on { background: var(--mint); box-shadow: inset 0 0 0 2px var(--brand); }
+.dv-ic { width: 38px; height: 38px; flex: none; border-radius: 12px; background: var(--soft); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+.dv-row.on .dv-ic { background: #FFFFFF; }
+.dv-empty { padding: 10px 4px; }
+.dv-detail { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
+.dv-detail > * { flex: none; }
+.dv-name { display: flex; gap: 10px; align-items: flex-end; margin: 0; }
+.dv-name .field { width: 100%; }
+.dv-copy { display: flex; gap: 8px; align-items: center; }
+.dv-copy .pm-code { flex: 1; min-width: 0; }
+
+@media (max-width: 1100px) {
+    .dv-body { flex-direction: column; overflow-y: auto; }
+    .dv-list { width: auto; max-height: 40vh; }
+}

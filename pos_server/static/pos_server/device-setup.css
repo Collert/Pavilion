@@ -1,0 +1,15 @@
+/* Set up this device (pos_server/templates/pos_server/ineligible-device.html), on top of lock.css and users/login.css */
+.dv-form { margin: 0; }
+.dv-form .fields { margin-top: 26px; }
+.dv-signed { margin-top: -2px; }
+.dv-join { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.dv-row { display: flex; gap: 10px; align-items: center; }
+.dv-select { flex: 1; min-width: 0; height: 52px; }
+.dv-code { margin-top: 18px; }
+.dv-code summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--brand); padding: 6px 0; list-style: none; }
+.dv-code summary::-webkit-details-marker { display: none; }
+.dv-code[open] summary { margin-bottom: 10px; }
+.dv-done { justify-content: center; }
+.dv-check { width: 76px; height: 76px; border-radius: 26px; background: var(--mint); color: var(--brand); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+.dv-go { margin-top: 28px; text-decoration: none; }
+#dv-setup[hidden], #dv-reconnect[hidden] { display: none; }

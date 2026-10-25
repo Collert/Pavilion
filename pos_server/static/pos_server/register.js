@@ -2098,8 +2098,11 @@ function renderTerminal() {
     if (st.paired) $("#terminal-name").textContent = st.paired.name;
     if (st.code) {
         $("#terminal-code-text").textContent = st.code.code;
-        $("#terminal-code-sub").textContent = st.code.pairBy
-            ? interpolate(t("Use it by %s."), [new Date(st.code.pairBy).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })]) : "";
+        $("#terminal-code-text").classList.toggle("expired", !!st.code.expired);
+        $("#terminal-code-sub").textContent = st.code.expired ? t("This code expired (they last 5 minutes). Make a new one.")
+            : st.code.pairBy ? interpolate(t("Use it by %s."), [new Date(st.code.pairBy).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })]) : "";
+        $("#terminal-check").hidden = !!st.code.expired;
+        $("#terminal-renew").hidden = !st.code.expired;
     }
     $("#terminal-none-text").textContent = !st.register ? t("Register this device first: Terminals belong to a register.")
         : st.fallback ? t("No Terminal of its own yet: it uses the store's default Terminal.") : t("No Terminal yet: card payments can't be taken.");
@@ -2124,6 +2127,7 @@ async function loadTerminal(action) {
 }
 $("#terminal-new").addEventListener("click", () => loadTerminal("pair"));
 $("#terminal-check").addEventListener("click", () => loadTerminal("check"));
+$("#terminal-renew").addEventListener("click", () => loadTerminal("pair"));
 $("#terminal-unpair").addEventListener("click", () => loadTerminal("unpair"));
 $("#terminal-sandbox-use").addEventListener("click", async () => {
     const answer = await post(urls.terminal, { action: "sandbox", device: $("#terminal-sandbox-pick").value }).catch(() => null);

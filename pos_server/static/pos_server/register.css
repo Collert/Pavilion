@@ -414,6 +414,8 @@
 #terminal-sandbox .input { flex: 1; min-width: 0; }
 .terminal-code .grow, #terminal-paired .grow { display: flex; flex-direction: column; gap: 4px; }
 .terminal-code-text { font-family: var(--heading); font-size: 30px; letter-spacing: .12em; }
+.terminal-code-text.expired { text-decoration: line-through; color: var(--muted); }
+#terminal-renew[hidden], #terminal-check[hidden] { display: none; }
 .reg-screens-btn .menu-switch-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .reg-screens-btn #screen-pill-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pair-dot { width: 8px; height: 8px; flex: none; border-radius: 4px; background: #12875A; }

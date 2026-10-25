@@ -477,10 +477,11 @@ def card_status(request, checkout_id):
 
 def terminal_json(register) -> dict:
     paired = SquareTerminal.for_register(register)
-    waiting = None if paired else SquareTerminal.objects.filter(register=register, status="UNPAIRED").first() if register else None
+    waiting = None if paired else SquareTerminal.objects.filter(register=register, status__in=["UNPAIRED", "EXPIRED"]).first() if register else None
     return {"paired": {"name": paired.name, "id": paired.id, "device": paired.device_id} if paired else None,
             "sandbox": [{"id": d, "label": str(label)} for d, label in square.SANDBOX_TERMINALS] if square.sandbox() else [],
-            "code": {"code": waiting.code, "pairBy": waiting.pair_by.isoformat() if waiting.pair_by else None, "id": waiting.id} if waiting else None,
+            "code": {"code": waiting.code, "pairBy": waiting.pair_by.isoformat() if waiting.pair_by else None, "id": waiting.id,
+                     "expired": waiting.expired} if waiting else None,
             "fallback": bool(settings.SQUARE_DEVICE_ID) and not paired, "register": bool(register)}
 
 

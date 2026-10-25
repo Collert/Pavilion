@@ -169,16 +169,6 @@ class RegisterEndpointTests(RegistersAndTerminals):
         self.assertFalse(CashDrawerSession.objects.exists())
 
 
-class DeviceLinkTests(TestCase):
-    def test_a_device_token_link_registers_the_browser(self):
-        device = EligibleDevice.objects.create(name="Register 2")
-        self.client.force_login(User.objects.create_user("dana", is_staff=True))
-        response = self.client.get(reverse("device_elig"), {"device-token": str(device.token)})
-        self.assertRedirects(response, reverse("pos"), fetch_redirect_response=False)
-        self.assertIn(DEVICE_COOKIE, response.cookies)
-        self.assertNotIn(DEVICE_COOKIE, self.client.get(reverse("device_elig"), {"device-token": "nope"}).cookies)
-
-
 @override_settings(SQUARE_APPLICATION_ID="sq0idp-app", SQUARE_APPLICATION_SECRET="sq0csp-secret", SQUARE_ENVIRONMENT="sandbox",
                    SQUARE_ACCESS_TOKEN="env-token")
 class SquareOAuthTests(TestCase):
@@ -303,3 +293,93 @@ class SandboxTerminalTests(RegistersAndTerminals):
         self.assertEqual(self.client_on(self.front).get(reverse("register_terminal")).json()["sandbox"], [])
         with self.assertRaises(square.SquareError):
             square.use_sandbox_terminal(self.front, "9fa747a2-25ff-48ee-b078-04381f7c828f")
+
+
+class RepairingTests(RegistersAndTerminals):
+    """Square Terminals keep the code they signed in with; Pavilion keeps one register per Terminal and says when a code expired."""
+
+    def test_a_terminal_paired_again_leaves_its_old_register(self):
+        new = SquareTerminal.objects.create(name="Patio", register=self.patio, device_code_id="dc-again", code="ZZZZ")
+        square.device_code_event({"id": "dc-again", "status": "PAIRED", "device_id": "device-front"})  # the front's Terminal
+        self.front_terminal.refresh_from_db()
+        self.assertIsNone(self.front_terminal.register)
+        self.assertEqual(SquareTerminal.for_register(self.patio), new)
+        self.assertIsNone(SquareTerminal.for_register(self.front))
+
+    def test_an_unused_code_expires(self):
+        import datetime
+        from django.utils import timezone
+        bar = EligibleDevice.objects.create(name="Bar register")
+        SquareTerminal.objects.create(name="Bar", register=bar, device_code_id="dc-old", code="OLDD",
+                                      pair_by=timezone.now() - datetime.timedelta(minutes=1))
+        state = self.client_on(bar).get(reverse("register_terminal")).json()
+        self.assertEqual((state["code"]["code"], state["code"]["expired"]), ("OLDD", True))
+
+
+class DeviceTests(TestCase):
+    """Devices trusted to run staff screens: the setup page, kiosk links (?device-token= on any link) and the admin's Devices page."""
+
+    def setUp(self):
+        self.owner = User.objects.create_superuser("owner", password="pw", first_name="Alex")
+        self.device = EligibleDevice.objects.create(name="Front register")
+
+    def test_a_device_code_in_any_link_sets_the_browser_up(self):
+        url = reverse("time_clock") + f"?device-token={self.device.token}&x=1"
+        response = self.client.get(url)
+        self.assertRedirects(response, reverse("time_clock") + "?x=1", fetch_redirect_response=False)  # the code leaves the address
+        self.assertIn(DEVICE_COOKIE, response.cookies)
+        self.assertNotIn(DEVICE_COOKIE, self.client_class().get(reverse("time_clock") + "?device-token=nope").cookies)
+
+    def test_the_setup_page_sends_a_device_on(self):
+        self.client.get(reverse("device_elig") + f"?device-token={self.device.token}")
+        self.assertRedirects(self.client.get(reverse("device_elig")), reverse("pos"), fetch_redirect_response=False)
+
+    def test_someone_who_can_add_devices_names_this_one(self):
+        url = reverse("device_elig")
+        page = self.client.get(url)
+        self.assertContains(page, "Which device is this?")
+        refused = self.client.post(url, {"op": "add", "name": "Patio", "username": "owner", "password": "wrong"})
+        self.assertContains(refused, "don’t match")
+        staff = User.objects.create_user("dana", password="pw", is_staff=True)
+        self.assertContains(self.client.post(url, {"op": "add", "name": "Patio", "username": "dana", "password": "pw"}), "don’t let you add devices")
+        done = self.client.post(url, {"op": "add", "name": "Patio", "username": "owner", "password": "pw"})
+        self.assertContains(done, "This is Patio")
+        self.assertEqual(str(EligibleDevice.objects.get(name="Patio").token), done.cookies[DEVICE_COOKIE].value.split(":")[0])
+        del staff
+
+    def test_join_an_existing_device_or_paste_its_code(self):
+        url = reverse("device_elig")
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(url), "Front register")  # it's offered to pick
+        done = self.client.post(url, {"op": "join", "device": self.device.id})
+        self.assertContains(done, "This is Front register")
+        anonymous = self.client_class()
+        self.assertContains(anonymous.post(url, {"op": "code", "code": "nope"}), "isn’t one of this store’s devices")
+        self.assertContains(anonymous.post(url, {"op": "code", "code": str(self.device.token)}), "This is Front register")
+
+    def test_the_admin_devices_page(self):
+        url = reverse("admin_devices")
+        self.client.force_login(self.owner)
+        page = self.client.get(url, {"sel": self.device.id})
+        self.assertContains(page, str(self.device.token))
+        self.assertContains(page, f"?device-token={self.device.token}")  # kiosk links
+        self.client.post(url, {"op": "new", "new_name": "Kitchen screen"})
+        added = EligibleDevice.objects.get(name="Kitchen screen")
+        self.client.post(url, {"op": "rename", "sel": added.id, "name": "Pass screen"})
+        old = added.token
+        self.client.post(url, {"op": "newcode", "sel": added.id})
+        added.refresh_from_db()
+        self.assertEqual(added.name, "Pass screen")
+        self.assertNotEqual(added.token, old)
+        self.client.post(url, {"op": "delete", "sel": added.id})
+        self.assertFalse(EligibleDevice.objects.filter(pk=added.pk).exists())
+
+    def test_seeing_devices_isnt_changing_them(self):
+        viewer = crew(User.objects.create_user("viewer", password="x", is_staff=True), "app.admin", "admin.devices.view")
+        self.client.force_login(viewer)
+        self.assertEqual(self.client.get(reverse("admin_devices")).status_code, 200)
+        self.client.post(reverse("admin_devices"), {"op": "newcode", "sel": self.device.id})
+        old = self.device.token
+        self.device.refresh_from_db()
+        self.assertEqual(self.device.token, old)
+

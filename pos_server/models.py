@@ -1174,15 +1174,18 @@ class ComponentIngredient(models.Model):
     
 class EligibleDevice(models.Model):
     """
-    Model representing an eligible device.
-    Attributes:
-        token (UUIDField): A unique identifier for the device, automatically generated.
-        name (CharField): The name of the device, with a maximum length of 140 characters.
-    Methods:
-        __str__(): Returns the name of the device as its string representation.
+    A device trusted to run Pavilion's staff screens (a register, a kitchen screen, the time clock, a kiosk). A
+    browser is that device while it holds a signed cookie with its token (pos_server/devices.py). It's set on the
+    device setup page (/restaurant/check-device), or by opening any Pavilion link with ?device-token=<token>, which
+    kiosks that wipe their cookies can keep in their start URL. Listed and managed on the admin's Devices page.
+    The register's drawer, lock-screen history and Square Terminal belong to the device, not the person.
     """
-    token = models.UUIDField(default=uuid.uuid4)
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
     name = models.CharField(max_length=140)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name", "id"]
 
     def __str__(self) -> str:
         return self.name

@@ -103,6 +103,7 @@ class Command(BaseCommand):
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
+            EligibleDevice.objects.get_or_create(name="Kitchen screen")  # the KDS tablet by the pass (admin's Devices page)
             # Register 1's own Square Terminal (each register pairs its own; demo ids never reach Square)
             from payments.models import SquareTerminal
             self.terminal, _ = SquareTerminal.objects.get_or_create(device_code_id="demo:code-1", defaults={

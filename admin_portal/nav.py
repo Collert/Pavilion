@@ -58,6 +58,7 @@ MENU = [
         ("languages", _("Languages"), "admin_languages"),
         ("email", _("Email"), "admin_email"),
         ("payments", _("Payments"), "admin_payments"),
+        ("devices", _("Devices"), "admin_devices"),
     ]),
 ]
 

@@ -14,7 +14,7 @@ import json
 from functools import wraps
 from users.access import can
 
-from .devices import api_app_required, app_required, superuser_required, device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
+from .devices import DEVICE_COOKIE, api_app_required, app_required, superuser_required, device_required, is_registered_device, set_device_cookie, token_is_registered, safe_next_url
 from .orders import OrderError, collect_order, create_order, orders_for_screens, refund_gift_cards, station_list
 from django.utils import timezone
 
@@ -172,68 +172,68 @@ def menu_select(request):
             request.session["register_menu"] = menu.id
     return redirect(reverse("pos"))
 
-@login_required
+def can_add_devices(user) -> bool:
+    """Who may make a browser into a device: owners, and groups with the admin's Devices page (edit)."""
+    from users.access import can_page
+    return bool(user and user.is_authenticated and (user.is_superuser or can_page(user, "devices", "edit")))
+
+
 def device_elig(request):
     """
-    Handle device eligibility requests.
-
-    This view handles three types of HTTP requests: PUT, GET, and POST.
-
-    - PUT: Checks if the device token provided in the request body is eligible.
-      Returns a JSON response with status "device ok" if the device is recognized,
-      otherwise returns a 403 Forbidden response.
-
-    - GET: Renders the ineligible device page with a login route and unauthorized status.
-
-    - POST: Authenticates the user with provided username and password. If the user is a superuser,
-      creates a new eligible device and redirects to the next URL if provided, otherwise renders
-      the ineligible device page with the new device's UUID and authorized status. If authentication
-      fails, renders the ineligible device page with a failed login status.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse: The HTTP response object.
+    Set up this device (pos_server/templates/pos_server/ineligible-device.html; laid out like the sign-in page).
+    Staff screens send unregistered browsers here. A browser that remembers its device (its token in
+    localStorage) reconnects by itself (PUT). Otherwise:
+      POST op=add   a new device named here: by someone who may add devices (signed in already, or signing in now)
+      POST op=join  this browser becomes a device that exists (people who may add devices)
+      POST op=code  a device code pasted from the admin's Devices page
+    Afterwards the page keeps the token in localStorage and goes on to `next`.
     """
+    next_url = safe_next_url(request, request.POST.get("next") or request.GET.get("next")) or reverse("pos")
     if request.method == "PUT":
         try:
             token = json.loads(request.body)["token"]
         except (ValueError, KeyError, TypeError):
             return HttpResponseForbidden("Forbidden: Device not recognized.")
         if token_is_registered(token):
-            # Hand the device a signed cookie so the server can check it on later requests
             return set_device_cookie(JsonResponse({"status": "device ok"}, status=200), token)
         return HttpResponseForbidden("Forbidden: Device not recognized.")
-    elif request.method == "GET":
-        token = request.GET.get("device-token", "")
-        if token and token_is_registered(token):  # a link that registers this browser as a known device (seed_demo prints one)
-            return set_device_cookie(redirect(safe_next_url(request, request.GET.get("next")) or reverse("pos")), token)
-        return render(request, "pos_server/ineligible-device.html", {
-                "route":"login",
-                "authorized":False,
-                "next_url":safe_next_url(request, request.GET.get("next")) or "/",
-            })
-    elif request.method == "POST":
-        username = request.POST["username"]
-        password = request.POST["password"]
-        device_name = request.POST["device"]
-        user = authenticate(request, username=username, password=password)
-        if user is not None and user.is_superuser:
-            new_device = EligibleDevice.objects.create(name=device_name)
-            # The page stores the token in localStorage, then continues to "next"
-            response = render(request, "pos_server/ineligible-device.html", {
-                "route":"login",
-                "uuid":new_device.token,
-                "authorized":True,
-                "next_url":safe_next_url(request, request.POST.get('next')) or "/",
-            })
-            return set_device_cookie(response, new_device.token)
-        else:
-            return render(request, "pos_server/ineligible-device.html", {
-                "route":"login",
-                "failed_login":True,
-            })
+    if request.method == "GET" and token_is_registered(request.get_signed_cookie(DEVICE_COOKIE, default=None)):
+        return redirect(next_url)  # already one of the store's devices (e.g. it just opened a kiosk link)
+    context = {"next_url": next_url, "error": "", "view": "add", "name": "", "identifier": ""}
+    user = request.user if can_add_devices(request.user) else None
+    if request.method == "POST":
+        op = request.POST.get("op", "add")
+        device = None
+        if op == "code":
+            code = request.POST.get("code", "").strip()
+            device = EligibleDevice.objects.filter(token=code).first() if token_is_registered(code) else None
+            if device is None:
+                context.update(error=_("That device code isn’t one of this store’s devices."), view="code")
+        elif op == "join" and user:
+            device = EligibleDevice.objects.filter(pk=request.POST.get("device") or 0).first()
+        elif op == "add":
+            name = request.POST.get("name", "").strip()[:140]
+            context["name"] = name
+            if user is None:  # sign in now, as someone who may add devices
+                identifier = request.POST.get("username", "").strip()
+                context["identifier"] = identifier
+                username = User.objects.filter(email__iexact=identifier).values_list("username", flat=True).first() if "@" in identifier else identifier
+                signed = authenticate(request, username=username or identifier, password=request.POST.get("password", ""))
+                user = signed if can_add_devices(signed) else None
+                if signed is None:
+                    context["error"] = _("That email or username and password don’t match.")
+                elif user is None:
+                    context["error"] = _("Your groups don’t let you add devices. Ask an owner.")
+            if user and not name:
+                context["error"] = _("Name this device, e.g. Front register.")
+            elif user:
+                device = EligibleDevice.objects.create(name=name)
+        if device is not None:
+            response = render(request, "pos_server/ineligible-device.html", {**context, "view": "done", "device": device})
+            return set_device_cookie(response, device.token)
+    context.update(signed_in=user, devices=EligibleDevice.objects.all() if user else [])
+    return render(request, "pos_server/ineligible-device.html", context)
+
 
 def group_by_station(dishes):
     """[(Station, [dishes...]), ...] in station order, skipping empty stations."""

@@ -75,6 +75,8 @@ def _device_code_changed(terminal, code):
         terminal.device_id = code["device_id"]
         if terminal.register_id:  # one Terminal per register: the newly paired one replaces the old
             SquareTerminal.objects.filter(register_id=terminal.register_id).exclude(pk=terminal.pk).update(register=None)
+        # and one register per Terminal: a Terminal paired again (a new code) leaves the register it was with
+        SquareTerminal.objects.filter(device_id=terminal.device_id).exclude(pk=terminal.pk).update(register=None)
     terminal.save()
     publish("checkout")
     return terminal

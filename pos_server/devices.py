@@ -129,3 +129,22 @@ def api_staff_required(view):
             return JsonResponse({"error": "Staff only"}, status=403)
         return view(request, *args, **kwargs)
     return wrapper
+
+
+class DeviceTokenMiddleware:
+    """
+    ?device-token=<token> on any Pavilion link makes this browser that device (the signed cookie), then loads the
+    same address without the token. Kiosks that wipe their cookies keep it in their start URL (copied from the
+    admin's Devices page). An unknown token is ignored, and the page asks to set the device up as usual.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        token = request.GET.get("device-token") if request.method == "GET" else None
+        if token and token_is_registered(token):
+            params = request.GET.copy()
+            del params["device-token"]
+            return set_device_cookie(redirect(request.path + (f"?{params.urlencode()}" if params else "")), token)
+        return self.get_response(request)
