@@ -2120,7 +2120,7 @@ function renderTerminal() {
         $("#terminal-renew").hidden = !st.code.expired;
     }
     $("#terminal-none-text").textContent = !st.register ? t("Register this device first: Terminals belong to a register.")
-        : st.fallback ? t("No Terminal of its own yet: it uses the store's default Terminal.") : t("No Terminal yet: card payments can't be taken.");
+        : t("No Terminal yet: card payments are paid on the customer's phone (a QR code).");
     $("#terminal-new").disabled = !st.register;
     // Square's sandbox: one of its test Terminals instead of pairing
     const sandbox = st.sandbox || [];

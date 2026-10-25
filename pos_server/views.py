@@ -358,7 +358,6 @@ def pair_square_terminal(request):
         "route": "terminal-setup",
         "terminals": SquareTerminal.objects.select_related("register")[:30],
         "registers": EligibleDevice.objects.order_by("name"),
-        "fallback_device_id": settings.SQUARE_DEVICE_ID,
         "error": error,
     })
 

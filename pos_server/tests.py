@@ -960,9 +960,21 @@ class RegisterTests(MenuFixture, TestCase):
         self.client.force_login(other)
         self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": approval["approval"]})).status_code, 400)
 
-    @override_settings(SQUARE_DEVICE_ID="store-terminal")  # no registered device here: the store's default Terminal
     @mock.patch("payments.square.gather_terminal_checkout")
     def test_card_checkout_checks_the_cart_first(self, checkout):
+        import uuid
+        from django.http import HttpResponse
+        from payments.models import SquareTerminal
+        from pos_server.devices import DEVICE_COOKIE, set_device_cookie
+        from pos_server.models import EligibleDevice
+        body = {"lines": [self.dish(self.burger)], "total": "14.50", "amount": "14.50", "payments": []}
+        phone = self.post("register_card", body).json()  # no registered device, so no Terminal: a QR code for the phone
+        self.assertTrue(phone["checkoutId"].startswith("phone-"))
+        self.assertIn("<svg", phone["phone"]["qr"])
+        checkout.assert_not_called()
+        device = EligibleDevice.objects.create(name="Front counter", token=uuid.uuid4())
+        self.client.cookies[DEVICE_COOKIE] = set_device_cookie(HttpResponse(), device.token).cookies[DEVICE_COOKIE].value
+        SquareTerminal.objects.create(register=device, status="PAIRED", device_id="store-terminal")
         checkout.return_value = mock.Mock(is_success=lambda: True, body={"checkout": {"id": "c1", "status": "PENDING"}})
         body = {"lines": [self.dish(self.burger)], "total": "14.50", "amount": "14.50", "payments": []}
         self.assertEqual(self.post("register_card", {**body, "total": "9.00"}).status_code, 400)
@@ -971,7 +983,7 @@ class RegisterTests(MenuFixture, TestCase):
         self.assertEqual(self.post("register_card", body).json()["checkoutId"], "c1")
         self.assertEqual(checkout.call_args.args[1], "store-terminal")
         from payments.models import TerminalCheckout
-        self.assertEqual(TerminalCheckout.objects.get().amount, Decimal("14.50"))  # kept in the database, not the cache
+        self.assertEqual(TerminalCheckout.objects.get(checkout_id="c1").amount, Decimal("14.50"))  # kept in the database, not the cache
 
     def test_drawer_open_move_close(self):
         self.assertEqual(self.client.get(reverse("cash_drawer")).status_code, 200)

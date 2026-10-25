@@ -151,7 +151,7 @@ def gather_terminal_checkout(amount: Decimal, device_id: str, reference: str = "
 def start_checkout(register, amount: Decimal, user=None) -> TerminalCheckout:
     """Start a card payment on this register's Terminal. Raises SquareError (its message can be shown)."""
     terminal = SquareTerminal.for_register(register)
-    device_id = terminal.device_id if terminal else settings.SQUARE_DEVICE_ID
+    device_id = terminal.device_id if terminal else ""
     if not device_id:
         raise SquareError(_("No card terminal is paired with this register. Pair one from the Screen button."))
     response = gather_terminal_checkout(amount, device_id, reference=f"register-{register.id}" if register else "")
@@ -186,7 +186,7 @@ PHONE_MINUTES = 15  # how long a phone payment's link works
 
 
 def has_terminal(register) -> bool:
-    return bool(SquareTerminal.for_register(register) or settings.SQUARE_DEVICE_ID)
+    return bool(SquareTerminal.for_register(register))  # each register its own: no store-wide Terminal to fall back on
 
 
 def start_phone_checkout(register, amount: Decimal, user=None, summary=()) -> TerminalCheckout:

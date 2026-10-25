@@ -62,15 +62,12 @@ class CheckoutTests(RegistersAndTerminals):
         self.assertEqual((a.status, b.status, b.payment_ids), ("PENDING", "COMPLETED", ["p1"]))
         self.assertIsNone(square.checkout_event({"id": "someone-elses", "status": "COMPLETED"}))
 
-    @override_settings(SQUARE_DEVICE_ID="")
     def test_a_register_without_a_terminal_is_told_to_pair_one(self):
         bar = EligibleDevice.objects.create(name="Bar register")
+        self.assertFalse(square.has_terminal(bar))  # so the register shows a QR code for the customer's phone
         with self.assertRaises(square.SquareError) as e:
             square.start_checkout(bar, Decimal("5"))
         self.assertIn("No card terminal", str(e.exception))
-        with override_settings(SQUARE_DEVICE_ID="store-default"), mock.patch("payments.square.gather_terminal_checkout", return_value=started("c-bar")) as gather:
-            square.start_checkout(bar, Decimal("5"))
-        self.assertEqual(gather.call_args.args[1], "store-default")
 
     def test_an_order_claims_its_card_payment_once(self):
         row = TerminalCheckout.objects.create(checkout_id="c1", register=self.front, amount=Decimal("12.50"), status="IN_PROGRESS")
@@ -385,7 +382,7 @@ class DeviceTests(TestCase):
 
 
 
-@override_settings(SQUARE_DEVICE_ID="", SQUARE_APPLICATION_ID="sq0idp-app", SQUARE_ENVIRONMENT="sandbox")
+@override_settings(SQUARE_APPLICATION_ID="sq0idp-app", SQUARE_ENVIRONMENT="sandbox")
 class PhonePaymentTests(RegistersAndTerminals):
     """A register without a Terminal: the customer pays by card on their own phone (QR code → /payments/pay/<link>)."""
 

@@ -35,7 +35,7 @@ Registers usually pair their own from the register's Screen & terminal sheet.
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="5">{% trans "No terminals paired yet." %}{% if fallback_device_id %} {% trans "Registers without one use SQUARE_DEVICE_ID from the environment." %}{% endif %}</td></tr>
+            <tr><td colspan="5">{% trans "No terminals paired yet." %}</td></tr>
         {% endfor %}
         </tbody>
     </table>

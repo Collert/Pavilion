@@ -331,7 +331,7 @@ above the order, the drawer's and lock screen's panels top to bottom, the KDS he
    ("Check with Square" asks Square directly when no webhook arrives; Cancel cancels on the Terminal). Placing the order
    claims the checkout once. In Square's sandbox nothing can be paired: the sheet offers Square's test device ids instead
    (approved, approved with a tip, Interac, buyer cancels, times out, offline; approvals up to $25).
-   **No Terminal: the customer's phone.** A register with no Terminal (and no `SQUARE_DEVICE_ID`) shows "Show QR code" for
+   **No Terminal: the customer's phone.** A register with no Terminal of its own shows "Show QR code" for
    card: a `TerminalCheckout` of kind `phone` (amount, a summary of the lines, a link token). The QR code opens
    `/payments/pay/<link>` with the store's look, what's being paid and the card form; `square.charge_phone` charges the
    register's amount once (the checkout id is Square's idempotency key) and publishes `checkout`. Cancel closes the link;

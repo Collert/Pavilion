@@ -25,7 +25,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # API Keys and Environment Variables (Ensure these are set in a .env file)
 SQUARE_ACCESS_TOKEN = os.getenv('SQUARE_ACCESS_TOKEN')
 SQUARE_ENVIRONMENT = os.getenv('SQUARE_ENVIRONMENT')
-SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
 SQUARE_APPLICATION_ID = os.getenv('SQUARE_APPLICATION_ID')

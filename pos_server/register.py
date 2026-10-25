@@ -492,7 +492,7 @@ def terminal_json(register) -> dict:
             "sandbox": [{"id": d, "label": str(label)} for d, label in square.SANDBOX_TERMINALS] if square.sandbox() else [],
             "code": {"code": waiting.code, "pairBy": waiting.pair_by.isoformat() if waiting.pair_by else None, "id": waiting.id,
                      "expired": waiting.expired} if waiting else None,
-            "fallback": bool(settings.SQUARE_DEVICE_ID) and not paired, "register": bool(register)}
+            "register": bool(register)}
 
 
 @register_staff_required

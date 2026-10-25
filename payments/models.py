@@ -74,7 +74,7 @@ class SquareTerminal(models.Model):
     A Square Terminal paired with one register (payments/square.py: pair_terminal). The register asks Square for a
     device code; once it's typed into the Terminal, Square's device.code.paired webhook (or "Check" on the register)
     fills in `device_id` and that register's card payments go to it. Each register has its own; a register without
-    one falls back to settings.SQUARE_DEVICE_ID.
+    one takes cards on the customer's phone (a QR code).
     """
     name = models.CharField(max_length=100, default="Square Terminal")
     register = models.ForeignKey("pos_server.EligibleDevice", null=True, blank=True, on_delete=models.SET_NULL, related_name="terminals",
