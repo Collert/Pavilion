@@ -596,19 +596,41 @@ def _authorize_saved(card, amount):
 
 # ---------- gift cards ----------
 
-def _gift_state(request):
+def _default_amount(design):
+    return int(design.amounts[min(1, len(design.amounts) - 1)]) if design.amounts else "other"
+
+
+def _gift_form(request, designs):
+    """The gift card form's state: on a POST, what was sent (checked against the design picked); else the defaults.
+    Picking a design, an amount or who it's for happens in the browser (themes/neighbourhood/gift-cards.js), so the
+    server only reads the form when someone buys."""
     user = request.user
-    st = request.session.get("giftbuy") or {"design": None, "amt": None, "other": "", "to": "", "email": "", "from": "", "msg": "",
-                                            "self": False}
-    if not st["from"] and user.is_authenticated:
-        st["from"] = user.get_full_name()
-    return st
+    post = request.POST if request.method == "POST" else {}
+    design = next((d for d in designs if str(d.id) == post.get("design", "")), designs[0] if designs else None)
+    st = {"amt": None, "other": "", "to": "", "email": "", "from": user.get_full_name() if user.is_authenticated else "",
+          "msg": design.message if design else "", "self": False}
+    if design is None:
+        return st, None
+    st["amt"] = _default_amount(design)
+    if post:
+        for f, size in (("to", 60), ("email", 64), ("from", 60), ("msg", 120)):
+            st[f] = post.get(f, "").strip()[:size]
+        st["other"] = "".join(c for c in post.get("other", "") if c.isdigit())[:4]
+        amt = post.get("amt", "")
+        if amt == "other" and design.custom:
+            st["amt"] = "other"
+        elif amt.isdigit() and int(amt) in [int(a) for a in design.amounts]:
+            st["amt"] = int(amt)
+        st["self"] = post.get("self") == "1"
+        if st["self"] and user.is_authenticated:
+            st["email"], st["to"] = st["email"] or user.email, st["to"] or user.get_full_name()
+    return st, design
 
 
 def _gift_sale(st, design):
     amount = st["other"] if st["amt"] == "other" else st["amt"]
     return {"design": design.id if design else None, "amount": str(amount or 0), "to": st["to"], "email": st["email"],
-            "message": st["msg"], "from": "" if st["self"] else st["from"]}
+            "message": "" if st["self"] else st["msg"], "from": "" if st["self"] else st["from"]}
 
 
 def gift_cards_page(request):
@@ -616,59 +638,33 @@ def gift_cards_page(request):
     Buy a gift card (the designs sold online: gift_cards.GiftCardDesign): pick a design and amount, who it's for and a
     message, and pay. It's an order of its own (pricing's gift_sales, no food), charged straight away, and the card is
     emailed to the recipient with its number; the buyer sees the card's link once, on the page after paying.
+    The page carries every design (json_script) and the browser switches between them; only Buy posts.
     """
     from gift_cards.giftcards import email_sold
     from gift_cards.models import GiftCardDesign
     designs = GiftCardDesign.on_sale("online")
-    st = _gift_state(request)
-    design = next((d for d in designs if d.id == st["design"]), designs[0] if designs else None)
-    if design and st["amt"] not in [int(a) for a in design.amounts] + ["other"]:
-        st["amt"] = int(design.amounts[min(1, len(design.amounts) - 1)]) if design.amounts else "other"
+    st, design = _gift_form(request, designs)
     pay, done = None, None
-    if request.method == "POST":
-        post = request.POST
-        for f, size in (("to", 60), ("email", 64), ("from", 60), ("msg", 120)):
-            if f in post:
-                st[f] = post.get(f, "").strip()[:size]
-        if "other" in post:
-            other = "".join(c for c in post.get("other", "") if c.isdigit())[:4]
-            if other and other != st["other"]:
-                st["amt"] = "other"
-            st["other"] = other
-        op = post.get("op", "")
-        name, _sep, arg = op.partition(":")
-        if name == "design" and arg.isdigit():
-            picked = next((d for d in designs if d.id == int(arg)), None)
-            if picked:
-                st["design"], design = picked.id, picked
-                st["amt"] = int(picked.amounts[min(1, len(picked.amounts) - 1)]) if picked.amounts else "other"
-                st["msg"] = st["msg"] or picked.message
-        elif name == "amt" and (arg.isdigit() or arg == "other"):
-            st["amt"] = int(arg) if arg.isdigit() else "other"
-        elif name == "for" and arg in ("gift", "self"):
-            st["self"] = arg == "self"
-            if st["self"] and request.user.is_authenticated:
-                st["email"], st["to"] = request.user.email, request.user.get_full_name()
-        elif name == "place" and design:
-            result = _buy_gift(request, st, design)
-            if isinstance(result, dict) and "amount" in result:
-                pay = result
-            elif result:
-                order, card, number = result
-                sent = email_sold(request, card, number, sender=_gift_sale(st, design)["from"])
-                if not st["self"] and request.user.is_authenticated:
-                    from gift_cards.giftcards import email_receipt
-                    email_receipt(card, request.user)
-                request.session.pop("giftbuy", None)
-                done = {"card": card, "link": reverse("card_display", args=[number]), "sent": sent, "order": order}
-        if not done:
-            request.session["giftbuy"] = {**st, "design": design.id if design else None}
-    if design and not st["msg"]:
-        st["msg"] = design.message
+    if request.method == "POST" and design and request.POST.get("op") == "place":
+        result = _buy_gift(request, st, design)
+        if isinstance(result, dict) and "amount" in result:
+            pay = result
+        elif result:
+            order, card, number = result
+            sent = email_sold(request, card, number, sender=_gift_sale(st, design)["from"])
+            if not st["self"] and request.user.is_authenticated:
+                from gift_cards.giftcards import email_receipt
+                email_receipt(card, request.user)
+            done = {"card": card, "link": reverse("card_display", args=[number]), "sent": sent, "order": order}
     amount = st["other"] if st["amt"] == "other" else st["amt"]
+    user = request.user
     return theme_page(request, "gift_cards.html", {
         "designs": designs, "design": design, "st": st, "amount": amount, "pay": pay, "done": done,
-        "can_buy": bool(design and amount and st["email"]), "signed_in": request.user.is_authenticated,
+        "can_buy": bool(design and amount and st["email"]), "signed_in": user.is_authenticated,
+        "designs_data": [{"id": d.id, "name": d.name, "color": d.color, "ink": d.ink, "image": d.image.url if d.image else "",
+                          "showText": d.show_text, "amounts": [int(a) for a in d.amounts], "custom": d.custom,
+                          "min": d.min_amount, "max": d.max_amount, "message": d.message} for d in designs],
+        "buyer": {"name": user.get_full_name(), "email": user.email} if user.is_authenticated else None,
     }, active="giftcards")
 
 

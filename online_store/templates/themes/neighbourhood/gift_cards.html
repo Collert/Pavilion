@@ -2,11 +2,12 @@
 {% load static i18n %}
 {% comment %}
 Gift cards (online_store/pages.py: gift_cards_page; no mockup of its own, laid out like the Gift card designs page's
-"How it shows" preview). One form that posts as you type (data-search); "Buy" pays with a saved card or opens
-Square's card form (checkout.js buys once paid). The card is emailed with its number.
+"How it shows" preview). Every design comes with the page; gift-cards.js switches the preview, amounts and labels in
+the browser, and only "Buy" posts: it pays with a saved card or opens Square's card form (checkout.js buys once
+paid). Without JavaScript it's still a plain form. The card is emailed with its number.
 {% endcomment %}
 {% block title %}{% trans "Gift cards" %} · {{ store.name }}{% endblock %}
-{% block scripts %}<script type="module" src="{% static 'themes/neighbourhood/checkout.js' %}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'themes/neighbourhood/checkout.js' %}"></script><script type="module" src="{% static 'themes/neighbourhood/gift-cards.js' %}"></script>{% endblock %}
 {% block content %}
 <section class="nb-page-top">
     <div class="nb-kick accent">{% trans "Gift cards" %}</div>
@@ -31,37 +32,38 @@ Square's card form (checkout.js buys once paid). The card is emailed with its nu
 {% elif not designs %}
 <section class="nb-empty"><p class="nb-empty-text">{% trans "Gift cards aren’t on sale online right now. Ask us at the counter." %}</p></section>
 {% else %}
-<form method="post" action="{% url 'store_gift_cards' %}" class="nb-gift" data-search data-checkout>
+<form method="post" action="{% url 'store_gift_cards' %}" class="nb-gift" data-checkout data-gift>
 {% csrf_token %}
 <input type="hidden" name="transaction_uuid" value="">
+{{ designs_data|json_script:"gift-designs" }}{{ buyer|json_script:"gift-me" }}
 <div class="nb-gift-grid" id="gift-form" data-region>
     <div>
-        <div class="nb-gift-art big ink-{{ design.ink }}" style="background-color: {{ design.color }};{% if design.image %} background-image: url('{{ design.image.url }}');{% endif %}">
-            {% if design.show_text %}<span class="nb-serif">{{ store.name }}</span>{% else %}<span></span>{% endif %}<span class="nb-serif nb-gift-amt">{% if amount %}${{ amount }}{% endif %}</span>
+        <div class="nb-gift-art big ink-{{ design.ink }}" id="gift-preview" style="background-color: {{ design.color }};{% if design.image %} background-image: url('{{ design.image.url }}');{% endif %}" data-store="{{ store.name }}">
+            <span class="nb-serif" id="gift-preview-name">{% if design.show_text %}{{ store.name }}{% endif %}</span><span class="nb-serif nb-gift-amt" id="gift-preview-amt">{% if amount %}${{ amount }}{% endif %}</span>
         </div>
         <div class="nb-gift-designs" role="radiogroup" aria-label="{% trans 'Design' %}">
-            {% for d in designs %}<button role="radio" aria-checked="{% if d == design %}true{% else %}false{% endif %}" name="op" value="design:{{ d.id }}" class="ink-{{ d.ink }}" style="background-color: {{ d.color }};{% if d.image %} background-image: url('{{ d.image.url }}');{% endif %}"><span>{{ d.name }}</span></button>{% endfor %}
+            {% for d in designs %}<label class="ink-{{ d.ink }}" style="background-color: {{ d.color }};{% if d.image %} background-image: url('{{ d.image.url }}');{% endif %}"><input type="radio" name="design" value="{{ d.id }}" class="visually-hidden"{% if d == design %} checked{% endif %}><span>{{ d.name }}</span></label>{% endfor %}
         </div>
     </div>
     <div class="nb-gift-form">
-        <h2 class="nb-serif nb-h2">{% blocktrans with name=design.name %}{{ name }} gift card{% endblocktrans %}</h2>
+        <h2 class="nb-serif nb-h2" id="gift-title" data-text="{% trans '%s gift card' %}">{% blocktrans with name=design.name %}{{ name }} gift card{% endblocktrans %}</h2>
         <div class="nb-lbl">{% trans "Amount" %}</div>
-        <div class="nb-gift-amounts">
-            {% for a in design.amounts %}<button class="nb-chip{% if st.amt == a %} on{% endif %}" name="op" value="amt:{{ a }}" aria-pressed="{% if st.amt == a %}true{% else %}false{% endif %}">${{ a }}</button>{% endfor %}
-            {% if design.custom %}<label class="nb-gift-other{% if st.amt == 'other' %} on{% endif %}"><span>$</span><input name="other" value="{{ st.other }}" inputmode="numeric" placeholder="{% trans 'Other' %}" aria-label="{% blocktrans with low=design.min_amount high=design.max_amount %}Another amount, ${{ low }} to ${{ high }}{% endblocktrans %}"></label>{% endif %}
+        <div class="nb-gift-amounts" id="gift-amounts" role="radiogroup" aria-label="{% trans 'Amount' %}">
+            {% for a in design.amounts %}<label class="nb-gift-chip"><input type="radio" name="amt" value="{{ a }}" class="visually-hidden"{% if st.amt == a %} checked{% endif %}><span>${{ a }}</span></label>{% endfor %}
+            <label class="nb-gift-other" id="gift-other"{% if not design.custom %} hidden{% endif %}><input type="radio" name="amt" value="other" class="visually-hidden"{% if st.amt == 'other' %} checked{% endif %}><span>$</span><input name="other" value="{{ st.other }}" inputmode="numeric" placeholder="{% trans 'Other' %}" aria-label="{% trans 'Another amount' %}"></label>
         </div>
-        {% if design.custom %}<div class="muted small">{% blocktrans with low=design.min_amount high=design.max_amount %}Or any amount from ${{ low }} to ${{ high }}.{% endblocktrans %}</div>{% endif %}
+        <div class="muted small" id="gift-range" data-text="{% trans 'Or any amount from $%s to $%s.' %}"{% if not design.custom %} hidden{% endif %}>{% blocktrans with low=design.min_amount high=design.max_amount %}Or any amount from ${{ low }} to ${{ high }}.{% endblocktrans %}</div>
         <div class="nb-seg nb-gift-for" role="radiogroup" aria-label="{% trans 'Who it’s for' %}">
-            <button role="radio" aria-checked="{{ st.self|yesno:'false,true' }}" name="op" value="for:gift">{% trans "It’s a gift" %}</button>
-            <button role="radio" aria-checked="{{ st.self|yesno:'true,false' }}" name="op" value="for:self">{% trans "For me" %}</button>
+            <label><input type="radio" name="self" value="0" class="visually-hidden"{% if not st.self %} checked{% endif %}><span>{% trans "It’s a gift" %}</span></label>
+            <label><input type="radio" name="self" value="1" class="visually-hidden"{% if st.self %} checked{% endif %}><span>{% trans "For me" %}</span></label>
         </div>
         <div class="nb-field-grid">
-            <label><span class="nb-lbl">{% if st.self %}{% trans "Your name" %}{% else %}{% trans "Their name" %}{% endif %}</span><input class="nb-input" name="to" value="{{ st.to }}" autocomplete="off"></label>
-            <label><span class="nb-lbl">{% if st.self %}{% trans "Your email" %}{% else %}{% trans "Their email" %}{% endif %}</span><input class="nb-input" type="email" name="email" value="{{ st.email }}" autocomplete="off"></label>
-            {% if not st.self %}<label class="wide"><span class="nb-lbl">{% trans "From" %}</span><input class="nb-input" name="from" value="{{ st.from }}" autocomplete="name"></label>{% endif %}
+            <label><span class="nb-lbl" data-gift="{% trans 'Their name' %}" data-self="{% trans 'Your name' %}">{% if st.self %}{% trans "Your name" %}{% else %}{% trans "Their name" %}{% endif %}</span><input class="nb-input" name="to" value="{{ st.to }}" autocomplete="off"></label>
+            <label><span class="nb-lbl" data-gift="{% trans 'Their email' %}" data-self="{% trans 'Your email' %}">{% if st.self %}{% trans "Your email" %}{% else %}{% trans "Their email" %}{% endif %}</span><input class="nb-input" type="email" name="email" value="{{ st.email }}" autocomplete="off"></label>
+            <label class="wide" data-gift-only{% if st.self %} hidden{% endif %}><span class="nb-lbl">{% trans "From" %}</span><input class="nb-input" name="from" value="{{ st.from }}" autocomplete="name"></label>
         </div>
-        {% if not st.self %}<label class="nb-block"><span class="nb-lbl">{% trans "Message" %}</span><input class="nb-input" name="msg" value="{{ st.msg }}" maxlength="120"></label>{% endif %}
-        <button class="nb-btn nb-btn-accent nb-btn-big nb-gift-buy" name="op" value="place"{% if not can_buy %} disabled{% endif %}>{% if amount %}{% blocktrans %}Buy ${{ amount }} gift card{% endblocktrans %}{% else %}{% trans "Buy gift card" %}{% endif %}</button>
+        <label class="nb-block" data-gift-only{% if st.self %} hidden{% endif %}><span class="nb-lbl">{% trans "Message" %}</span><input class="nb-input" name="msg" value="{{ st.msg }}" maxlength="120"></label>
+        <button class="nb-btn nb-btn-accent nb-btn-big nb-gift-buy" id="gift-buy" name="op" value="place" data-text="{% trans 'Buy $%s gift card' %}" data-plain="{% trans 'Buy gift card' %}"{% if not can_buy %} disabled{% endif %}>{% if amount %}{% blocktrans %}Buy ${{ amount }} gift card{% endblocktrans %}{% else %}{% trans "Buy gift card" %}{% endif %}</button>
         <p class="muted small">{% trans "We email the card right away. It works at the counter and online, never expires, and can’t be turned back into cash." %}{% if signed_in %} {% trans "Paid with your saved card, or a new one if you have none." %}{% endif %}</p>
     </div>
 </div>

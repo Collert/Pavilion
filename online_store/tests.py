@@ -428,6 +428,26 @@ class GiftCardPageTests(TestCase):
         self.assertEqual(GiftCard.find(done["link"].rsplit("/", 1)[-1]), done["card"])
         self.assertEqual(done["order"].authorization.status, PaymentAuthorization.CAPTURED)
 
+    def test_the_page_carries_every_design_and_only_buy_posts(self):
+        from gift_cards.models import GiftCardDesign
+        other = GiftCardDesign.objects.create(name="Birthday", amounts=[20, 40], custom=True, min_amount=10, max_amount=200, on_register=False)
+        page = self.client.get(reverse("store_gift_cards"))
+        self.assertEqual([d["name"] for d in page.context["designs_data"]], ["Thank you", "Birthday"])
+        self.assertContains(page, 'id="gift-designs"')
+        self.assertNotContains(page, "data-search")  # nothing posts while choosing
+        self.client.force_login(self.user)
+        from unittest import mock
+        with mock.patch("gift_cards.giftcards.send_email"):
+            page = self.client.post(reverse("store_gift_cards"), {"op": "place", "design": other.id, "amt": "other", "other": "75",
+                                                                 "self": "1", "to": "", "email": ""})
+        done = page.context["done"]
+        self.assertEqual((done["card"].design, done["card"].original, done["card"].email), (other, Decimal("75"), "ana@example.com"))
+        self.assertEqual(self.client.get(reverse("store_gift_cards")).context["me"]["first"], "Ana")  # the header's, not overridden
+
+    def test_an_amount_the_design_doesnt_have_falls_back(self):
+        page = self.client.post(reverse("store_gift_cards"), {"design": self.design.id, "amt": "999", "email": "sam@example.com"})
+        self.assertEqual(page.context["st"]["amt"], 25)
+
 
 
 class StaffAccountTests(TestCase):
