@@ -332,6 +332,18 @@ class StoreOrderingTests(MenuFixture, TestCase):
         when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
         self.assertEqual(when["message"], "Burger isn’t on the menu then.")
 
+    def test_a_combos_picks_needn_t_be_on_the_menu_themselves(self):
+        """A kids' main sold only inside the kids' meal: the combo is on the menu, its dish isn't (it was refused)."""
+        from online_store.pages import _schedule
+        from pos_server.models import Dish
+        kids_burger = Dish.objects.create(title="Kids cheeseburger", price=Decimal("7.00"), station=self.kitchen)  # on no menu
+        self.combo.menu.add(self.menu)
+        with at_noon():
+            open_hours(before=60, after=240)
+            when = _schedule({"when": "now", "date": "", "time": ""}, [self.combo], False)
+            self.assertTrue(when["ok"], when["message"])
+            self.assertFalse(_schedule({"when": "now", "date": "", "time": ""}, [kids_burger], False)["ok"])
+
 
 class AccountTests(MenuFixture, TestCase):
     """online_store/account.py: sign in and join, the account pages, saved cards at checkout."""

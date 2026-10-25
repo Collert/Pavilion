@@ -294,7 +294,7 @@ def _clock(minutes):
     return storefront.clock(datetime.time(minutes // 60 % 24, minutes % 60))
 
 
-def _schedule(state, cart_dishes, delivery):
+def _schedule(state, cart_items, delivery):
     """When the order can be: today's/the chosen day's windows, the calendar, and whether the time works."""
     now = timezone.localtime()
     hours = Hours()
@@ -353,11 +353,12 @@ def _schedule(state, cart_dishes, delivery):
             when = _("today") if day == today else _("tomorrow") if day == today + datetime.timedelta(days=1) else f"{day:%a, %b} {day.day}"
             message = (_("Arrives %(when)s at %(time)s, give or take 10 min") if delivery else _("Ready for pickup %(when)s at %(time)s")) % {
                 "when": when, "time": storefront.clock(at.time())}
-    # Everything in the cart has to be on a menu that's live then
-    if ok and cart_dishes:
+    # Everything in the cart has to be on a menu that's live then: the dish, or the combo (not the dishes picked in it,
+    # which may only be sold as part of the combo)
+    if ok and cart_items:
         schedule = Schedule(list(Menu.objects.filter(draft=False)))
         live = {m.id for m in schedule.live(start)}
-        off = [d.title for d in cart_dishes if not any(m.id in live for m in d.menu.all())]
+        off = [item.title for item in cart_items if not any(m.id in live for m in item.menu.all())]
         if off:
             ok = False
             message = _("%(items)s isn’t on the menu then.") % {"items": ", ".join(off[:2])}
@@ -423,8 +424,8 @@ def checkout(request):
     if priced is None:
         return theme_page(request, "cart.html", {"empty": True, "menus_now": storefront.menus_now(limit=2),
                                                  "orders": _recent(request)}, active="")
-    cart_dishes = [p.dish for line in priced.lines for p in line.picks]
-    when = _schedule(state, cart_dishes, delivery)
+    cart_dishes = [p.dish for line in priced.lines for p in line.picks]  # for "Goes well with"
+    when = _schedule(state, [line.item for line in priced.lines], delivery)
     base = priced.subtotal - priced.discount
     tip = (base * Decimal(state["tip"]) / 100).quantize(CENT, rounding=ROUND_HALF_UP)
     total = priced.total + tip
@@ -500,7 +501,7 @@ def _place(request, state):
     if priced is None:
         messages.error(request, _("Your cart is empty."))
         return None
-    when = _schedule(state, [p.dish for line in priced.lines for p in line.picks], delivery)
+    when = _schedule(state, [line.item for line in priced.lines], delivery)
     ok, problem = _contact_ok(request, state)
     if not when["ok"] or not ok:
         messages.error(request, problem if not ok else when["message"])
