@@ -35,7 +35,7 @@ it when you change how something works.
   mocked. Add tests with every fix. `requirements-dev.txt` adds `fakeredis`.
 - Quick smoke test without a server: `django.test.Client(HTTP_HOST='localhost')` + `force_login(user)`.
 - Daily crons in production: `manage.py catering_deposits`, `gift_cards_cleanup`, `square_refresh`.
-- Settings switch on `ENVIRONMENT=production` (Postgres, DEBUG off, Redis + `SECRET_KEY` required, S3 media) vs anything
+- Settings switch on `ENVIRONMENT=production` (Postgres from `DATABASE_URL`, a connection string read by dj-database-url, or the `POSTGRES_*`/`DB_*` parts; DEBUG off, Redis + `SECRET_KEY` required, S3 media) vs anything
   else (SQLite `db.sqlite3`, DEBUG on). Secrets live in `pavilion/.env` (template: `pavilion/.env.example`). Never print
   or commit its values.
 - Translations: `make_translations.bat` (makemessages uk, zh_HK) → `manage.py compilemessages`.

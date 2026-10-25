@@ -165,3 +165,18 @@ class ThrottleTests(TestCase):
             request.session = None
             self.assertEqual(middleware(request).status_code, 200)
         self.assertIn("/events/", SKIP)
+
+
+class DatabaseSettingsTests(SimpleTestCase):
+    """settings.py takes a DATABASE_URL connection string in place of the POSTGRES_*/DB_* parts."""
+    def settings_with(self, **env):
+        import os
+        import runpy
+        from pathlib import Path
+        with mock.patch.dict(os.environ, env), mock.patch("dotenv.load_dotenv"):
+            return runpy.run_path(str(Path(__file__).with_name("settings.py")))
+
+    def test_a_connection_string(self):
+        db = self.settings_with(DATABASE_URL="postgres://pavilion:p%40ss@db.example.com:6543/pavilion")["DATABASES"]["default"]
+        self.assertEqual((db["ENGINE"], db["NAME"], db["USER"], db["PASSWORD"], db["HOST"], db["PORT"]),
+                         ("django.db.backends.postgresql", "pavilion", "pavilion", "p@ss", "db.example.com", 6543))

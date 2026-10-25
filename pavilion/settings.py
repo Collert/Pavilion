@@ -192,8 +192,13 @@ ASGI_APPLICATION = 'pavilion.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+# DATABASE_URL (a connection string such as postgres://user:pass@host:5432/name, parsed by dj-database-url) wins in
+# any environment; without it production builds one from POSTGRES_*/DB_* and development uses SQLite.
 
-if os.getenv('ENVIRONMENT') == "production":
+if os.getenv('DATABASE_URL'):
+    import dj_database_url
+    DATABASES = {'default': dj_database_url.parse(os.environ['DATABASE_URL'])}
+elif os.getenv('ENVIRONMENT') == "production":
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -204,7 +209,6 @@ if os.getenv('ENVIRONMENT') == "production":
             'PORT': os.getenv('DB_PORT', '5432'),
         }
     }
-    NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}"
 else:
     DATABASES = {
         'default': {
@@ -212,7 +216,7 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-    NOTIFICATIONS_HOST = "http://127.0.0.1:8000"
+NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}" if os.getenv('ENVIRONMENT') == "production" else "http://127.0.0.1:8000"
 
 if 'local.internal.uahelp.ca' in socket.gethostname().lower():
     SECURE_PROXY_SSL_HEADER = None
