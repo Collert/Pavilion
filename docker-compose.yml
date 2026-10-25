@@ -23,6 +23,28 @@ services:
     volumes:
       - logs:/app/logs
 
+  # The daily jobs (docs/PROJECT_OVERVIEW.md §8 "Scheduled jobs"): the same image, once a day after a first run at start
+  scheduler:
+    build: .
+    container_name: pavilion_scheduler
+    restart: unless-stopped
+    env_file:
+      - pavilion/.env
+    environment:
+      ENVIRONMENT: production
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+    command: >
+      sh -c "sleep 120; while true; do
+      python manage.py catering_deposits; python manage.py gift_cards_cleanup; python manage.py square_refresh;
+      sleep 86400; done"
+    volumes:
+      - logs:/app/logs
+
   db:
     image: postgres:16
     container_name: pavilion_db

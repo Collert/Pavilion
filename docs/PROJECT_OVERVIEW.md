@@ -1000,9 +1000,9 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 ### Environment (`pavilion/.env`, see `pavilion/.env.example`)
 
 `ENVIRONMENT` (production → Postgres, DEBUG off, Redis, S3 media, file logging), `SECRET_KEY` (required in production),
-`APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`,
+`APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `DATABASE_URL` (a connection string; else `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`),
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
-`ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/LOCATION_ID/DEVICE_ID/WEBHOOK_SIGNATURE_KEY`,
+`ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/APPLICATION_SECRET/LOCATION_ID/WEBHOOK_SIGNATURE_KEY` (Terminals are paired per register; there's no store-wide `SQUARE_DEVICE_ID` any more),
 `LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
@@ -1011,6 +1011,9 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 
 - `manage.py catering_deposits`, once a day: holds catering deposits that are due and completes past catering orders.
 - `manage.py gift_cards_cleanup`, once a day: deletes gift cards that have been empty for 30 days.
+- `manage.py square_refresh`, once a day: renews the store's Square OAuth tokens.
+
+In Docker, the compose file's `scheduler` service runs all three once a day (same image).
 
 ### Local dev (Windows)
 
@@ -1030,7 +1033,7 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 
 - Python 3.12 slim + ffmpeg, libgl, libpq, gettext. Collects static and compiles translations at build time; the
   container runs `migrate`, then `uvicorn pavilion.asgi:application --workers ${WEB_CONCURRENCY:-3}`.
-- Compose: `web` + `db` (Postgres 16, healthchecked, port not published) + `redis`. Secrets come from `pavilion/.env`.
+- Compose: `web` + `scheduler` (the daily jobs) + `db` (Postgres 16, healthchecked, port not published) + `redis`. Secrets come from `pavilion/.env`.
   `.dockerignore` keeps `.env`, databases and media out of the image.
 - Media lives in the RustFS bucket, which must allow anonymous reads (images are embedded in emails and cached by the PWA).
 - Put a TLS-terminating proxy in front (nginx, Caddy, Cloudflare). For nginx, don't buffer `/events/`.

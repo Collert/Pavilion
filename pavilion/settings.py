@@ -217,6 +217,8 @@ else:
         }
     }
 NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}" if os.getenv('ENVIRONMENT') == "production" else "http://127.0.0.1:8000"
+# Sign-in and CSRF cookies only over HTTPS in production, like the device cookie (pos_server/devices.py)
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
 
 if 'local.internal.uahelp.ca' in socket.gethostname().lower():
     SECURE_PROXY_SSL_HEADER = None
