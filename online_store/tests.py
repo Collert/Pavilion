@@ -280,12 +280,17 @@ class StoreOrderingTests(MenuFixture, TestCase):
         o = self.client.get(reverse("order_status", args=[order.id])).context["o"]
         self.assertEqual(o["totals"][-1], ("Tip", "$1.60"))
 
-    def test_card_payment_opens_the_card_sheet(self):
+    def test_card_payment_opens_the_card_form(self):
         self.add_burger()
-        page = self.client.post(reverse("store_cart"), {"name": "Iryna", "email": "iryna@example.com", "op": "place"}).context
+        response = self.client.post(reverse("store_cart"), {"name": "Iryna", "email": "iryna@example.com", "op": "place"})
+        page = response.context
         self.assertEqual(page["pay"]["amount"], Decimal("18.40"))  # 16.00 + 15% tip
         self.assertIn("confirmation_needed=1", page["pay"]["url"])
         self.assertFalse(Order.objects.exists())
+        # in the summary, in place of Place order: no overlay, a frame that sizes itself, the place button for checkout.js
+        self.assertContains(response, "data-card-frame")
+        self.assertContains(response, '<button hidden name="op" value="place"')
+        self.assertNotContains(response, "nb-overlay")
 
     def test_first_scheduled_time_is_never_too_early(self):
         from unittest import mock

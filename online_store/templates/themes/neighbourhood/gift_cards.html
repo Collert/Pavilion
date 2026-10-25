@@ -63,23 +63,18 @@ paid). Without JavaScript it's still a plain form. The card is emailed with its 
             <label class="wide" data-gift-only{% if st.self %} hidden{% endif %}><span class="nb-lbl">{% trans "From" %}</span><input class="nb-input" name="from" value="{{ st.from }}" autocomplete="name"></label>
         </div>
         <label class="nb-block" data-gift-only{% if st.self %} hidden{% endif %}><span class="nb-lbl">{% trans "Message" %}</span><input class="nb-input" name="msg" value="{{ st.msg }}" maxlength="120"></label>
-        <button class="nb-btn nb-btn-accent nb-btn-big nb-gift-buy" id="gift-buy" name="op" value="place" data-text="{% trans 'Buy $%s gift card' %}" data-plain="{% trans 'Buy gift card' %}"{% if not can_buy %} disabled{% endif %}>{% if amount %}{% blocktrans %}Buy ${{ amount }} gift card{% endblocktrans %}{% else %}{% trans "Buy gift card" %}{% endif %}</button>
+        {% if pay %}
+        <div class="nb-paycard" aria-label="{% trans 'Pay by card' %}">
+            <div class="nb-paycard-head"><span class="nb-serif nb-grow">{% trans "Pay by card" %}</span><a class="nb-paycard-back" href="{% url 'store_gift_cards' %}">{% trans "Back" %}</a></div>
+            <div class="muted nb-paycard-note">{% blocktrans with a=pay.amount|floatformat:2 %}${{ a }} for the gift card, charged now.{% endblocktrans %}</div>
+            <iframe class="nb-pay-inline" src="{{ pay.url }}" title="{% trans 'Card payment' %}" data-card-frame></iframe>
+        </div>
+        {% endif %}
+        <button class="nb-btn nb-btn-accent nb-btn-big nb-gift-buy" id="gift-buy"{% if pay %} hidden{% endif %} name="op" value="place" data-text="{% trans 'Buy $%s gift card' %}" data-plain="{% trans 'Buy gift card' %}"{% if not can_buy %} disabled{% endif %}>{% if amount %}{% blocktrans %}Buy ${{ amount }} gift card{% endblocktrans %}{% else %}{% trans "Buy gift card" %}{% endif %}</button>
         <p class="muted small">{% trans "We email the card right away. It works at the counter and online, never expires, and can’t be turned back into cash." %}{% if signed_in %} {% trans "Paid with your saved card, or a new one if you have none." %}{% endif %}</p>
     </div>
 </div>
 </form>
 {% endif %}
 
-<div id="co-paysheet" data-region>
-{% if pay %}
-<div class="nb-overlay">
-    <a class="nb-scrim" href="{% url 'store_gift_cards' %}" aria-label="{% trans 'Close' %}"></a>
-    <div class="nb-sheet nb-pay-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Pay by card' %}">
-        <div class="nb-sheet-top"><div class="nb-grow"><h2 class="nb-serif">{% trans "Pay by card" %}</h2><div class="muted">{% blocktrans with a=pay.amount|floatformat:2 %}${{ a }} for the gift card.{% endblocktrans %}</div></div>
-            <a class="nb-close" href="{% url 'store_gift_cards' %}" aria-label="{% trans 'Close' %}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></a></div>
-        <iframe class="nb-pay-frame" src="{{ pay.url }}" title="{% trans 'Card payment' %}"></iframe>
-    </div>
-</div>
-{% endif %}
-</div>
 {% endblock %}

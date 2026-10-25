@@ -5,7 +5,8 @@
         --pc-radius: var(--radius, 22px); --pc-head: var(--heading-font, 'Fraunces', serif); --pc-body-font: var(--body-font, 'DM Sans', system-ui, sans-serif); }
 * { box-sizing: border-box; }
 body.pc-body { margin: 0; font-family: var(--pc-body-font); color: var(--pc-ink); -webkit-font-smoothing: antialiased; }
-body.pc-body.sheet { background: transparent; padding: 4px 2px; }
+body.pc-body.sheet { background: transparent; padding: 2px 1px 4px; color-scheme: normal; }
+body.pc-body.sheet .pc-fine { text-align: left; }
 body.pc-body.page { background: var(--pc-paper); min-height: 100dvh; }
 
 .pc-form { display: flex; flex-direction: column; gap: 12px; }

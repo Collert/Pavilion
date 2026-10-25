@@ -172,23 +172,20 @@ order, or first opens Square's card form for what gift cards don't cover (checko
             {% for t in tips %}<button role="radio" aria-checked="{% if t.on %}true{% else %}false{% endif %}" name="op" value="tip:{{ t.pct }}" class="{% if t.on %}on{% endif %}"><b>{% if t.pct %}{{ t.pct }}%{% else %}{% trans "None" %}{% endif %}</b><span>${{ t.amount|floatformat:2 }}</span></button>{% endfor %}
         </div>
         <div class="nb-sum-total"><span class="nb-serif nb-grow">{% trans "Total" %}</span><span class="nb-serif">${{ total|floatformat:2 }}</span></div>
+        {% if pay %}
+        <div class="nb-paycard" aria-label="{% trans 'Pay by card' %}">
+            <div class="nb-paycard-head"><span class="nb-serif nb-grow">{% trans "Pay by card" %}</span><a class="nb-paycard-back" href="{% url 'store_cart' %}">{% trans "Back to the order" %}</a></div>
+            <div class="muted nb-paycard-note">{% blocktrans with a=pay.amount|floatformat:2 %}${{ a }}, held on your card until the kitchen accepts the order.{% endblocktrans %}</div>
+            <iframe class="nb-pay-inline" src="{{ pay.url }}" title="{% trans 'Card payment' %}" data-card-frame></iframe>
+            <button hidden name="op" value="place" tabindex="-1"></button>{# checkout.js places the order through it once the card is paid #}
+        </div>
+        {% else %}
         <button class="nb-btn nb-btn-accent nb-place" name="op" value="place" {% if not ready %}disabled{% endif %}>{% blocktrans with t=total|floatformat:2 %}Place order · ${{ t }}{% endblocktrans %}</button>
         <div class="nb-sum-note">{% if not when.ok %}{% trans "Pick a time we’re open to place this order." %}{% elif contact_problem %}{{ contact_problem }}{% elif to_pay > 0 %}{% blocktrans with a=to_pay|floatformat:2 %}${{ a }} goes on your card. It’s only charged once the kitchen accepts the order.{% endblocktrans %}{% else %}{% trans "Your cards cover it all." %}{% endif %}</div>
+        {% endif %}
     </aside>
 </div>
 </form>
 
-<div id="co-paysheet" data-region>
-{% if pay %}
-<div class="nb-overlay">
-    <a class="nb-scrim" href="{% url 'store_cart' %}" aria-label="{% trans 'Close' %}"></a>
-    <div class="nb-sheet nb-pay-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Pay by card' %}">
-        <div class="nb-sheet-top"><div class="nb-grow"><h2 class="nb-serif">{% trans "Pay by card" %}</h2><div class="muted">{% blocktrans with a=pay.amount|floatformat:2 %}${{ a }}, held on your card until the kitchen accepts the order.{% endblocktrans %}</div></div>
-            <a class="nb-close" href="{% url 'store_cart' %}" aria-label="{% trans 'Close' %}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></a></div>
-        <iframe class="nb-pay-frame" src="{{ pay.url }}" title="{% trans 'Card payment' %}"></iframe>
-    </div>
-</div>
-{% endif %}
-</div>
 {% endif %}
 {% endblock %}

@@ -98,3 +98,10 @@ async function start() {
 }
 
 start();
+
+// In the store's checkout the form sits in a frame: tell the page how tall it is, so the frame fits it exactly
+if (config.mode === "sheet" && parent !== window) {
+    const report = () => parent.postMessage({ action: "cardFormHeight", height: document.documentElement.scrollHeight }, location.origin);
+    new ResizeObserver(report).observe(document.body);
+    report();
+}
