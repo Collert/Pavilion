@@ -180,12 +180,27 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
 .nb-foot-base { margin-top: 44px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--paper) 22%, var(--ink)); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-size: 13px; color: color-mix(in srgb, var(--paper) 62%, var(--ink)); }
 
 /* ---------- narrower screens ---------- */
+/* Home: gift cards (between the menus and the catering band) */
+.nb-gifts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+.nb-gifts-p { font-size: 18px; line-height: 1.55; color: var(--soft-ink); max-width: 520px; margin: 14px 0 0; }
+.nb-gifts .nb-hero-btns { align-items: center; margin-top: 24px; }
+.nb-gifts-from { font-weight: 600; }
+.nb-gifts-art { position: relative; display: block; height: 300px; text-decoration: none; }
+.nb-gifts-art .nb-gift-art { position: absolute; width: min(340px, 78%); font-size: 18px; padding: 18px 20px; transition: transform .25s ease; }
+.nb-gifts-art .nb-gift-amt.small { font-size: 40px; }
+.nb-gifts-art .n1 { right: 0; top: 70px; transform: rotate(5deg); z-index: 3; }
+.nb-gifts-art .n2 { right: 16%; top: 30px; transform: rotate(-4deg); z-index: 2; }
+.nb-gifts-art .n3 { right: 30%; top: 0; transform: rotate(-11deg); z-index: 1; }
+.nb-gifts-art:hover .n1 { transform: rotate(7deg) translateY(-6px); }
+
 @media (max-width: 1180px) {
     .nb-nav { margin-left: 12px; }
     .nb-favs { grid-template-columns: repeat(2, 1fr); }
     .nb-foot-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 960px) {
+    .nb-gifts { grid-template-columns: 1fr; gap: 24px; }
+    .nb-gifts-art { height: 240px; }
     .nb-nav, .nb-me-name, .nb-live-text { display: none; }
     .nb-live { padding: 0 7px; }
     .nb-nav-mobile { display: flex; gap: 4px; overflow-x: auto; padding: 8px var(--pad); border-bottom: var(--rule); scrollbar-width: none; }
@@ -202,6 +217,11 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
     .nb-map { min-height: 240px; }
 }
 @media (max-width: 560px) {
+    .nb-gifts-art { height: 210px; }
+    .nb-gifts-art .nb-gift-art { width: 70%; font-size: 15px; }
+    .nb-gifts-art .nb-gift-amt.small { font-size: 30px; }
+    .nb-gifts-art .n2 { right: 12%; }
+    .nb-gifts-art .n3 { right: 24%; }
     .nb-bar { height: 68px; gap: 8px; }
     .nb-brand-name { font-size: 22px; }
     .nb-order { padding: 0 14px; }

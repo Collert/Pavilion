@@ -72,6 +72,27 @@
 </section>
 {% endif %}
 
+{% if gifts %}
+<section class="nb-section nb-gifts">
+    <div class="nb-gifts-text">
+        <div class="nb-kick accent">{% trans "Gift cards" %}</div>
+        <h2 class="nb-serif nb-h2">{{ t.gift_title }}</h2>
+        {% if t.gift_text %}<p class="nb-gifts-p">{{ t.gift_text }}</p>{% endif %}
+        <div class="nb-hero-btns">
+            <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.giftcards }}">{% trans "Buy a gift card" %}</a>
+            {% if gifts.from %}<span class="muted nb-gifts-from">{% blocktrans with low=gifts.from %}From ${{ low }}{% endblocktrans %}</span>{% endif %}
+        </div>
+    </div>
+    <a class="nb-gifts-art" href="{{ links.giftcards }}" aria-label="{% trans 'Buy a gift card' %}">
+        {% for d in gifts.designs %}
+        <span class="nb-gift-art n{{ forloop.counter }} ink-{{ d.ink }}" style="background-color: {{ d.color }};{% if d.image %} background-image: url('{{ d.image.url }}');{% endif %}">
+            {% if d.show_text %}<span class="nb-serif">{{ store.name }}</span>{% else %}<span></span>{% endif %}<span class="nb-serif nb-gift-amt small">{% if d.amounts %}${{ d.amounts|last }}{% endif %}</span>
+        </span>
+        {% endfor %}
+    </a>
+</section>
+{% endif %}
+
 {% if catering %}
 <section class="nb-catering">
     <div>

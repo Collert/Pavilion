@@ -24,8 +24,10 @@ def theme_page(request, page, context=None, active=""):
     """Render one of the live theme's pages (themes/<name>/<page>) with what every theme page gets."""
     cur = themes.current(request)
     links = store_links(request)
-    nav = [(key, label, links[key]) for key, label in (("home", _("Home")), ("menu", _("Menu")), ("catering", _("Catering")),
-                                                        ("services", _("Events & services"))) if links[key]]
+    if not storefront.gift_designs():
+        links["giftcards"] = ""  # nothing on sale online: no link to an empty page
+    nav = [(key, label, links[key]) for key, label in (("home", _("Home")), ("menu", _("Menu")), ("giftcards", _("Gift cards")),
+                                                        ("catering", _("Catering")), ("services", _("Events & services"))) if links[key]]
     user = request.user
     hours = Hours()
     return render(request, cur.theme.template(page), {
@@ -62,6 +64,7 @@ def index(request):
         "headline": {"first": first, "amp": bool(amp), "rest": rest},
         "menus_now": storefront.menus_now() if t.get("show_menus") else [],
         "favourites": storefront.best_sellers(pictures=t.get("pictures", "photos")) if t.get("show_favourites") else [],
+        "gifts": storefront.gift_teaser() if t.get("show_gifts", True) else None,
         "catering": storefront.catering_teaser() if t.get("show_catering") else None,
         "services": storefront.services_teaser() if t.get("show_services") else [],
         "pickup_minutes": storefront.pickup_minutes(),

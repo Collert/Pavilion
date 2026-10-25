@@ -210,6 +210,23 @@ def pickup_minutes() -> int:
     return max(5, int(round(avg.total_seconds() / 60 / 5) * 5))
 
 
+# ---------- gift cards ----------
+
+def gift_designs() -> list:
+    """The gift card designs sold online right now (their season included)."""
+    from gift_cards.models import GiftCardDesign
+    return GiftCardDesign.on_sale("online")
+
+
+def gift_teaser(designs=None) -> dict | None:
+    """The home page's gift cards section: up to three designs and the smallest amount, or None when none are sold."""
+    designs = gift_designs() if designs is None else designs
+    if not designs:
+        return None
+    amounts = [int(a) for d in designs for a in (d.amounts or [])] + [d.min_amount for d in designs if d.custom]
+    return {"designs": designs[:3], "from": min(amounts) if amounts else None}
+
+
 # ---------- catering and services ----------
 
 def catering_teaser() -> dict | None:

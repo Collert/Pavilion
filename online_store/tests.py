@@ -546,3 +546,21 @@ class StoreThrottleTests(TestCase):
             response = self.client.post(url, {"op": "tip:0"}, follow=True)
             self.assertContains(response, "a lot of taps")
             self.client.post(url, {"op": "place"})  # placing is never skipped (it fails here for an empty cart)
+
+
+class StoreGiftCardsLinkTests(TestCase):
+    """Gift cards in the store's header and on the home page, only while a design is sold online."""
+
+    def test_header_and_home_section(self):
+        from gift_cards.models import GiftCardDesign
+        GiftCardDesign.objects.all().delete()
+        home = self.client.get(reverse("store_home"))
+        self.assertNotContains(home, "Buy a gift card")
+        self.assertNotIn("giftcards", [key for key, _l, _u in home.context["nav"]])
+        GiftCardDesign.objects.create(name="Classic", amounts=[25, 50], online=True)
+        home = self.client.get(reverse("store_home"))
+        keys = [key for key, _l, _u in home.context["nav"]]
+        self.assertEqual(keys[keys.index("menu") + 1], "giftcards")  # between Menu and Catering
+        self.assertContains(home, "Buy a gift card")
+        self.assertEqual(home.context["gifts"]["from"], 25)
+
