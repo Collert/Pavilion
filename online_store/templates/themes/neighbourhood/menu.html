@@ -10,6 +10,7 @@ they change (data-search; the default op is "preview") so its price follows, and
 <section class="nb-page-top">
     <div class="nb-kick accent">{% trans "Order online" %}</div>
     <h1 class="nb-serif nb-page-title">{% trans "Menus" %}</h1>
+    <div class="nb-contents" id="nb-menu-tabs" data-region>{# switching menus (data-live tabs) swaps these and the dishes below #}
     {% if tabs %}
     <nav class="nb-menu-tabs" aria-label="{% trans 'Menus' %}">
         {% for m in tabs %}
@@ -24,9 +25,11 @@ they change (data-search; the default op is "preview") so its price follows, and
     {% if notice %}
     <div class="nb-notice {{ notice_kind }}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>{{ notice }}</span></div>
     {% endif %}
+    </div>
 </section>
 
 <section class="nb-menu-body">
+    <div class="nb-contents" id="nb-menu-dishes" data-region>
     {% if sections %}
     <nav class="nb-sections" aria-label="{% trans 'Sections' %}">
         <div class="nb-kick small muted">{{ menu.title }}</div>
@@ -62,6 +65,7 @@ they change (data-search; the default op is "preview") so its price follows, and
     {% else %}
     <div class="nb-empty-note">{% trans "There’s no menu online right now. Have a look again soon." %}</div>
     {% endif %}
+    </div>
 
     <aside class="nb-order-box" aria-label="{% trans 'Your order' %}" id="nb-order" data-region>
         <div class="nb-order-head"><h2 class="nb-serif">{% trans "Your order" %}</h2><span>{% blocktrans count n=count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>

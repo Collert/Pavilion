@@ -332,6 +332,18 @@ class StoreOrderingTests(MenuFixture, TestCase):
         when = self.client.post(url, {"op": "preview", "hour": "11", "minute": "30", "ampm": "AM"}).context["when"]
         self.assertEqual(when["message"], "Burger isn’t on the menu then.")
 
+    def test_switching_menus_swaps_the_tabs_and_dishes(self):
+        """The tabs are data-live links: live-page.js swaps only data-regions, so the tabs and dishes must be ones."""
+        from pos_server.models import Dish, Menu
+        brunch = Menu.objects.create(title="Brunch", manual_on=True, position=self.menu.position + 1)
+        Dish.objects.create(title="Shakshuka", price=Decimal("14.00"), station=self.kitchen).menu.add(brunch)
+        page = self.client.get(reverse("menu") + f"?actual={brunch.id}").content.decode()
+        self.assertIn('id="nb-menu-tabs" data-region', page)
+        self.assertIn('id="nb-menu-dishes" data-region', page)
+        dishes = page.split('id="nb-menu-dishes"')[1]
+        self.assertIn("Shakshuka", dishes)
+        self.assertNotIn(">Burger<", dishes)
+
     def test_a_combos_picks_needn_t_be_on_the_menu_themselves(self):
         """A kids' main sold only inside the kids' meal: the combo is on the menu, its dish isn't (it was refused)."""
         from online_store.pages import _schedule

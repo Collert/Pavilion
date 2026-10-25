@@ -364,3 +364,4 @@
     .nb-gift-grid, .nb-gift-done { grid-template-columns: 1fr; }
     .nb-gift-amt { font-size: 40px; }
 }
+.nb-contents { display: contents; }  /* a live region that doesn't change the grid it sits in */
