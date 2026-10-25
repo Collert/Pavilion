@@ -177,3 +177,99 @@ class DeviceLinkTests(TestCase):
         self.assertRedirects(response, reverse("pos"), fetch_redirect_response=False)
         self.assertIn(DEVICE_COOKIE, response.cookies)
         self.assertNotIn(DEVICE_COOKIE, self.client.get(reverse("device_elig"), {"device-token": "nope"}).cookies)
+
+
+@override_settings(SQUARE_APPLICATION_ID="sq0idp-app", SQUARE_APPLICATION_SECRET="sq0csp-secret", SQUARE_ENVIRONMENT="sandbox",
+                   SQUARE_ACCESS_TOKEN="env-token")
+class SquareOAuthTests(TestCase):
+    """Connecting the store's own Square account (payments/square_oauth.py; the admin's Payments page)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_superuser("owner", password="x")
+        self.client.force_login(self.owner)
+
+    def connect(self):
+        """Press Connect with Square, then come back from Square with a code."""
+        from urllib.parse import parse_qs, urlparse
+        from payments.models import SquareConnection
+        start = self.client.post(reverse("admin_payments"), {"op": "connect"})
+        query = parse_qs(urlparse(start["Location"]).query)
+        app = mock.Mock()
+        app.o_auth.obtain_token.return_value = ok({"access_token": "seller-token", "refresh_token": "seller-refresh",
+                                                   "expires_at": "2026-11-23T00:00:00Z", "merchant_id": "M1"})
+        seller = mock.Mock()
+        seller.merchants.retrieve_merchant.return_value = ok({"merchant": {"business_name": "Corner Kitchen"}})
+        seller.locations.list_locations.return_value = ok({"locations": [{"id": "L1", "name": "Main Street", "status": "ACTIVE"}]})
+        with mock.patch("payments.square_oauth._app_client", return_value=app), mock.patch("payments.square_oauth.seller_client", return_value=seller):
+            back = self.client.get(reverse("square_oauth_callback"), {"code": "the-code", "state": query["state"][0]}, follow=True)
+        return start, query, back, app, SquareConnection.current()
+
+    def test_connect_with_square(self):
+        from payments.secrets import decrypt
+        start, query, back, app, connection = self.connect()
+        self.assertTrue(start["Location"].startswith("https://connect.squareupsandbox.com/oauth2/authorize?"))
+        self.assertEqual(query["client_id"], ["sq0idp-app"])
+        self.assertIn("DEVICE_CREDENTIAL_MANAGEMENT", query["scope"][0])
+        self.assertTrue(query["redirect_uri"][0].endswith("/square/oauth/callback"))
+        self.assertContains(back, "Connected to Corner Kitchen on Square.")
+        self.assertEqual(app.o_auth.obtain_token.call_args.args[0]["code"], "the-code")
+        self.assertEqual((connection.merchant_id, connection.location_id, connection.location_name), ("M1", "L1", "Main Street"))
+        self.assertNotIn("seller-token", connection.access_token)  # kept encrypted
+        self.assertEqual(decrypt(connection.access_token), "seller-token")
+        self.assertEqual(square.location_id(), "L1")
+
+    def test_square_calls_use_the_connected_account(self):
+        self.connect()
+        with mock.patch("payments.square_oauth.seller_client") as seller:
+            square.square_client.payments  # noqa: B018
+        self.assertEqual(seller.call_args.args[0], "seller-token")
+
+    def test_without_a_connection_the_environment_token_is_used(self):
+        with mock.patch("payments.square_oauth.seller_client") as seller:
+            square.square_client.payments  # noqa: B018
+        self.assertEqual(seller.call_args.args[0], "env-token")
+
+    def test_a_wrong_state_is_refused(self):
+        from payments.models import SquareConnection
+        self.client.post(reverse("admin_payments"), {"op": "connect"})
+        back = self.client.get(reverse("square_oauth_callback"), {"code": "c", "state": "forged"}, follow=True)
+        self.assertContains(back, "expired")
+        self.assertIsNone(SquareConnection.current())
+
+    def test_an_access_token_running_out_is_renewed(self):
+        import datetime
+        from django.utils import timezone
+        from payments import square_oauth
+        from payments.secrets import decrypt
+        _s, _q, _b, _a, connection = self.connect()
+        connection.expires_at = timezone.now() + datetime.timedelta(days=2)
+        connection.save()
+        app = mock.Mock()
+        app.o_auth.obtain_token.return_value = ok({"access_token": "new-token", "expires_at": "2026-12-23T00:00:00Z"})
+        with mock.patch("payments.square_oauth._app_client", return_value=app):
+            self.assertEqual(square_oauth.access_token(connection), "new-token")
+        self.assertEqual(app.o_auth.obtain_token.call_args.args[0]["grant_type"], "refresh_token")
+        connection.refresh_from_db()
+        self.assertEqual(decrypt(connection.refresh_token), "seller-refresh")  # kept when Square doesn't send a new one
+
+    def test_disconnect_revokes_access(self):
+        from payments.models import SquareConnection
+        self.connect()
+        app = mock.Mock()
+        app.o_auth.revoke_token.return_value = ok({"success": True})
+        with mock.patch("payments.square_oauth._app_client", return_value=app):
+            self.client.post(reverse("admin_payments"), {"op": "disconnect"})
+        self.assertEqual(app.o_auth.revoke_token.call_args.args, ({"client_id": "sq0idp-app", "access_token": "seller-token"}, "Client sq0csp-secret"))
+        self.assertIsNone(SquareConnection.current())
+
+    def test_only_people_who_can_edit_payments_connect(self):
+        viewer = crew(User.objects.create_user("viewer", password="x", is_staff=True), "app.admin", "admin.payments.view")
+        self.client.force_login(viewer)
+        self.assertContains(self.client.get(reverse("admin_payments")), "Connect with Square")
+        refused = self.client.post(reverse("admin_payments"), {"op": "connect"})
+        self.assertFalse(refused.get("Location", "").startswith("https://connect."))
+        self.assertNotEqual(self.client.get(reverse("square_oauth_callback"), {"code": "c", "state": "s"})["Location"], reverse("admin_payments"))
+
+    @override_settings(SQUARE_APPLICATION_SECRET="")
+    def test_the_page_says_when_the_app_isnt_set_up(self):
+        self.assertContains(self.client.get(reverse("admin_payments")), "SQUARE_APPLICATION_SECRET")

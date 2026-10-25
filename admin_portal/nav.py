@@ -57,6 +57,7 @@ MENU = [
     ("settings", _("Settings"), "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1 7 17 M17 7l2.1-2.1", [
         ("languages", _("Languages"), "admin_languages"),
         ("email", _("Email"), "admin_email"),
+        ("payments", _("Payments"), "admin_payments"),
     ]),
 ]
 

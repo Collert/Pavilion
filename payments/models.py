@@ -129,3 +129,29 @@ class TerminalCheckout(models.Model):
     @property
     def finished(self) -> bool:
         return self.status in self.FINISHED
+
+
+class SquareConnection(models.Model):
+    """
+    The store's own Square account, connected on the admin's Payments page through OAuth (payments/square_oauth.py).
+    One row. Its access token (30 days, refreshed before it runs out) and refresh token are kept encrypted
+    (payments/secrets.py). Without a row, settings.SQUARE_ACCESS_TOKEN / SQUARE_LOCATION_ID are used (development).
+    """
+    merchant_id = models.CharField(max_length=64)
+    business_name = models.CharField(max_length=200, blank=True)
+    environment = models.CharField(max_length=12, default="sandbox", help_text="sandbox or production, as it was connected")
+    access_token = models.TextField(help_text="Encrypted")
+    refresh_token = models.TextField(blank=True, help_text="Encrypted")
+    expires_at = models.DateTimeField(null=True, blank=True)
+    location_id = models.CharField(max_length=64, blank=True, help_text="The Square location payments go to")
+    location_name = models.CharField(max_length=200, blank=True)
+    connected_at = models.DateTimeField(auto_now_add=True)
+    connected_by = models.ForeignKey("auth.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    refreshed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.business_name or self.merchant_id} ({self.environment})"
+
+    @classmethod
+    def current(cls):
+        return cls.objects.order_by("-connected_at").first()

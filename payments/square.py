@@ -17,20 +17,37 @@ from django.conf import settings
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext as _
-from square.client import Client
-from square.http.auth.o_auth_2 import BearerAuthCredentials
-
 from pavilion.realtime import publish
 
-from .models import PaymentAuthorization, SquareTerminal, TerminalCheckout
+from .models import PaymentAuthorization, SquareConnection, SquareTerminal, TerminalCheckout
 
 logger = logging.getLogger(__name__)
 
-# Initialize the Square client
-square_client = Client(
-    bearer_auth_credentials=BearerAuthCredentials(access_token=settings.SQUARE_ACCESS_TOKEN),
-    environment=settings.SQUARE_ENVIRONMENT
-)
+
+class _SquareClient:
+    """Square's API for the store's own account: the one connected on the admin's Payments page (OAuth, refreshed
+    as needed; payments/square_oauth.py), else SQUARE_ACCESS_TOKEN from the environment (development). Built for
+    each use, so a new connection takes effect at once in every worker."""
+
+    def __getattr__(self, name):
+        from .square_oauth import access_token, seller_client
+        connection = SquareConnection.current()
+        token = access_token(connection) if connection else (settings.SQUARE_ACCESS_TOKEN or "")
+        return getattr(seller_client(token), name)
+
+
+square_client = _SquareClient()
+
+
+def location_id() -> str:
+    """The Square location payments go to: the connected account's pick, else SQUARE_LOCATION_ID."""
+    connection = SquareConnection.current()
+    return (connection.location_id if connection else "") or settings.SQUARE_LOCATION_ID or ""
+
+
+def connected() -> bool:
+    """Whether Square can be used: an account is connected, or a token is set in the environment."""
+    return bool(SquareConnection.current() or settings.SQUARE_ACCESS_TOKEN)
 
 
 # ---------- pairing a Terminal with a register ----------
@@ -41,7 +58,7 @@ def pair_terminal(register, name=""):
     name = (name or (register.name if register else "") or "Square Terminal")[:100]
     response = square_client.devices.create_device_code({
         "idempotency_key": str(uuid.uuid4()),
-        "device_code": {"name": name, "product_type": "TERMINAL_API", "location_id": settings.SQUARE_LOCATION_ID},
+        "device_code": {"name": name, "product_type": "TERMINAL_API", "location_id": location_id()},
     })
     if not response.is_success():
         raise SquareError(response.errors)
@@ -178,7 +195,7 @@ def create_web_payment(token, amount:Decimal, transaction, autocomplete = True):
             "amount": to_cents(amount),
             "currency": "CAD"
         },
-        "location_id": settings.SQUARE_LOCATION_ID,
+        "location_id": location_id(),
         "idempotency_key": str(uuid.uuid4()),  # Important to avoid duplicate charges
         'autocomplete': autocomplete
     })
@@ -301,7 +318,7 @@ def charge_card(customer_id, card_id, amount, key, note="", autocomplete=True):
     result = square_client.payments.create_payment({
         "source_id": card_id, "customer_id": customer_id,
         "amount_money": {"amount": to_cents(amount), "currency": "CAD"},
-        "location_id": settings.SQUARE_LOCATION_ID, "idempotency_key": key[:45],
+        "location_id": location_id(), "idempotency_key": key[:45],
         "autocomplete": autocomplete, "note": note[:500],
     })
     if not result.is_success():

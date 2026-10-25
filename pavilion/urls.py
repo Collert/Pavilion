@@ -23,9 +23,15 @@ from django.views.decorators.cache import cache_control
 from django.views.i18n import JavaScriptCatalog
 from pavilion import realtime
 
+from admin_portal import views as admin_views  # noqa: E402
+from pos_server import views as pos_views  # noqa: E402
+
 urlpatterns = [
     path('events/<str:topic>', realtime.stream_view, name='events'),
     path('i18n/', include('django.conf.urls.i18n')),  # set_language: the language pickers post here
+    # Square needs fixed addresses, the same in every language: the OAuth redirect URL and the webhook
+    path('square/oauth/callback', admin_views.square_oauth_callback, name='square_oauth_callback'),
+    path('square/webhook', pos_views.square_webhook, name='square_webhook_plain'),
 ]
 
 urlpatterns += i18n_patterns(

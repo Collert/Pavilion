@@ -2,6 +2,7 @@
 # square.client.Client, which payments/square.py uses.
 Django~=6.1.2
 squareup==38.2.0.20241017
+cryptography~=50.0  # encrypts the Square OAuth tokens (payments/secrets.py)
 python-dotenv~=1.0
 psycopg2-binary~=2.9
 whitenoise~=6.12

@@ -29,6 +29,7 @@ SQUARE_DEVICE_ID = os.getenv('SQUARE_DEVICE_ID')
 SQUARE_LOCATION_ID = os.getenv('SQUARE_LOCATION_ID')
 SQUARE_WEBHOOK_SIGNATURE_KEY = os.getenv('SQUARE_WEBHOOK_SIGNATURE_KEY')
 SQUARE_APPLICATION_ID = os.getenv('SQUARE_APPLICATION_ID')
+SQUARE_APPLICATION_SECRET = os.getenv('SQUARE_APPLICATION_SECRET', '')  # Pavilion's Square app: stores connect with OAuth (admin Payments page)
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 # Email goes through listmonk (misc_tools/email.py). Unset: emails are logged, not sent.
 LISTMONK_URL = os.getenv('LISTMONK_URL', '')

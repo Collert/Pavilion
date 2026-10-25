@@ -1015,6 +1015,67 @@ def languages(request):
     return page(request, "admin_portal/languages.html", "languages", {"x": languages_data.page(st, store)})
 
 
+@admin_page("payments", edit={"connect", "disconnect", "location", "renew"})
+def payments(request):
+    """Payments: the store's own Square account, connected with OAuth (admin_portal/payment_settings.py)."""
+    from payments import square_oauth
+    from payments.models import SquareConnection
+
+    from . import payment_settings
+    connection = SquareConnection.current()
+    if request.method == "POST":
+        op = request.POST.get("op")
+        if op == "connect":
+            if not square_oauth.configured():
+                messages.error(request, _("Pavilion’s Square app isn’t set up yet (SQUARE_APPLICATION_ID and SQUARE_APPLICATION_SECRET)."))
+                return redirect("admin_payments")
+            state = square_oauth.new_state()
+            request.session[payment_settings.SESSION_STATE] = state
+            return redirect(square_oauth.authorize_url(state, payment_settings.callback_url(request)))
+        if connection and op == "disconnect":
+            square_oauth.disconnect(connection)
+            messages.success(request, _("Square is disconnected. Card payments stop until it’s connected again."))
+        elif connection and op == "location":
+            places = {p["id"]: p["name"] for p in square_oauth.locations(connection)}
+            picked = request.POST.get("location", "")
+            if picked in places:
+                connection.location_id, connection.location_name = picked, places[picked]
+                connection.save(update_fields=["location_id", "location_name"])
+                messages.success(request, _("Payments go to %(name)s.") % {"name": places[picked]})
+        elif connection and op == "renew":
+            try:
+                square_oauth.refresh(connection)
+                messages.success(request, _("Square access renewed."))
+            except square_oauth.OAuthError as e:
+                messages.error(request, str(e))
+        return redirect("admin_payments")
+    return page(request, "admin_portal/payments.html", "payments", {"x": payment_settings.page(request)})
+
+
+def square_oauth_callback(request):
+    """Square sends the manager back here after "Connect with Square" (not under a language prefix: Square needs one
+    fixed address, registered as the app's redirect URL). Only whoever started it, with Payments edit, finishes it."""
+    from payments import square_oauth
+
+    from users.access import can_page
+
+    from . import payment_settings
+    if not request.user.is_authenticated or not can_page(request.user, "payments", "edit"):
+        return redirect(f"{settings.LOGIN_URL}?{urlencode({'next': request.get_full_path()})}")
+    expected = request.session.pop(payment_settings.SESSION_STATE, None)
+    if request.GET.get("error"):
+        messages.error(request, _("Square wasn’t connected: %(why)s") % {"why": request.GET.get("error_description") or request.GET["error"]})
+    elif not expected or request.GET.get("state") != expected or not request.GET.get("code"):
+        messages.error(request, _("That Square sign-in link expired. Press Connect with Square again."))
+    else:
+        try:
+            connection = square_oauth.connect(request.GET["code"], payment_settings.callback_url(request), request.user)
+            messages.success(request, _("Connected to %(name)s on Square.") % {"name": connection.business_name or connection.merchant_id})
+        except square_oauth.OAuthError as e:
+            messages.error(request, _("Square wasn’t connected: %(why)s") % {"why": e})
+    return redirect("admin_payments")
+
+
 @admin_page("email", edit={"save", "connect", "disconnect", "install", "reset", "test", "sync"})
 def email(request):
     """Email: the listmonk connection and every email Pavilion sends, with its template per language

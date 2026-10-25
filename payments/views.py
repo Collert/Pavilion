@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction as db_transaction
 from django.shortcuts import render
 from django.http import JsonResponse
+from . import square
 from .square import create_web_payment
 from django.conf import settings
 import json
@@ -53,7 +54,7 @@ def web_payment(request):
         transaction = Transaction.objects.create(amount=amount) if amount else None
         confirmation_needed = bool(request.GET.get('confirmation_needed', False))
         return render(request, "payments/square-checkout.html", {
-            "location_id":settings.SQUARE_LOCATION_ID,
+            "location_id": square.location_id(),
             "app_id":settings.SQUARE_APPLICATION_ID,
             "amount":int(amount * 100) if amount else None,  # cents
             "transaction":transaction,
@@ -118,7 +119,7 @@ def save_card(request):
     """
     from . import square
     if request.method != "POST":
-        return render(request, "payments/save-card.html", {"location_id": settings.SQUARE_LOCATION_ID,
+        return render(request, "payments/save-card.html", {"location_id": square.location_id(),
                                                            "app_id": settings.SQUARE_APPLICATION_ID, "dev_env": settings.DEBUG})
     try:
         data = json.loads(request.body)

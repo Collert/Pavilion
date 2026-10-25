@@ -318,7 +318,14 @@ above the order, the drawer's and lock screen's panels top to bottom, the KDS he
 4. **Cash drawer** (`/restaurant/drawer`): open with a starting amount (keypad), see cash/card sales and paid in/out
    for the session, record paid in/out, close by counting (the expected amount stays hidden until then) and see the
    difference. One open `CashDrawerSession` per registered device (one shared session when the device check is off).
-5. **Terminals** (October 2026): each register pairs its own from its Screen sheet ("Card terminal": a device code to type
+5. **The store's Square account** (October 2026): connected with OAuth on the admin's Payments page (Settings). Pavilion
+   is one Square app (`SQUARE_APPLICATION_ID`/`SECRET`); "Connect with Square" sends the manager to Square's authorize page
+   with a `state` kept in the session; Square returns to `/square/oauth/callback` (no language prefix), which swaps the code
+   for tokens (`payments/square_oauth.py`), stored encrypted on `SquareConnection` with the business name and the location
+   payments go to. Every call goes through `square.square_client`, built for that account each time; access tokens (30 days)
+   are renewed with a week left and daily (`square_refresh`); Disconnect revokes them. Without a connection,
+   `SQUARE_ACCESS_TOKEN`/`SQUARE_LOCATION_ID` are used (development).
+6. **Terminals** (October 2026): each register pairs its own from its Screen sheet ("Card terminal": a device code to type
    on the Terminal; Square's `device.code.paired` webhook or Check finishes it). A card payment is a `TerminalCheckout` row;
    `terminal.checkout.updated` updates it and publishes `checkout`; the register asks `register/card/<id>` for its own
    ("Check with Square" asks Square directly when no webhook arrives; Cancel cancels on the Terminal). Placing the order
