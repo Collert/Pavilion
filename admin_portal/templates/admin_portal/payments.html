@@ -49,7 +49,7 @@ Square account, connected with OAuth, the location payments go to, and what to s
             <li>{% trans "Keep customers’ saved cards" %}</li>
         </ul>
         {% if x.configured %}
-        <form method="post">{% csrf_token %}<button class="em-connect" name="op" value="connect">{% trans "Connect with Square" %}</button></form>
+        <form method="post" data-navigate>{% csrf_token %}<button class="em-connect" name="op" value="connect">{% trans "Connect with Square" %}</button></form>
         <div class="em-hint">{% if x.environment == "sandbox" %}{% trans "This server uses Square’s sandbox: connect a sandbox seller account (test payments only)." %}{% else %}{% trans "Live payments: connect the store’s real Square account." %}{% endif %}</div>
         {% else %}
         <div class="em-err">{% trans "Whoever runs this Pavilion server needs to set up its Square app first: SQUARE_APPLICATION_ID and SQUARE_APPLICATION_SECRET, with the redirect URL below." %}</div>

@@ -229,6 +229,10 @@ class SquareOAuthTests(TestCase):
             square.square_client.payments  # noqa: B018
         self.assertEqual(seller.call_args.args[0], "env-token")
 
+    def test_the_connect_button_is_a_real_page_load(self):
+        # live-page would send it in the background, and the browser can't follow the redirect to Square from there
+        self.assertContains(self.client.get(reverse("admin_payments")), '<form method="post" data-navigate>')
+
     def test_a_wrong_state_is_refused(self):
         from payments.models import SquareConnection
         self.client.post(reverse("admin_payments"), {"op": "connect"})

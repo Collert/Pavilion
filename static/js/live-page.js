@@ -13,7 +13,8 @@
 //   the form after it's sent; a form with data-search submits itself as you type (a POST one saves as you type: while
 //   you type in a region, only its [data-calc] parts are swapped). A form with data-queue sends its last submit after
 //   one in flight instead of dropping it; a region with data-keep is left alone by background answers.
-// Regions marked data-transient (toasts) are only taken from responses to your own actions.
+// Regions marked data-transient (toasts) are only taken from responses to your own actions. A form with
+// data-navigate is left to the browser (a full page load), for answers that go to another site.
 // Without JavaScript, everything still works as plain forms and links.
 
 import { onLiveUpdate } from "./live.js";
@@ -222,6 +223,7 @@ export function livePage({ topics = [] } = {}) {
         const submitter = event.submitter;
         const target = submitter?.getAttribute("formtarget") || form.getAttribute("target");
         if (target && target !== "_self") return;  // e.g. a printable page in a new tab: let the browser do it
+        if (form.hasAttribute("data-navigate")) return;  // e.g. off to another site (Square's sign-in): a real page load
         event.preventDefault();
         const data = new FormData(form, submitter);
         // A button's formaction / formmethod win, so one form can preview with GET and confirm with POST
