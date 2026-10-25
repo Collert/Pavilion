@@ -142,6 +142,8 @@ async def event_stream(topics):
             done, _ = await asyncio.wait(pending.keys(), timeout=HEARTBEAT_SECONDS, return_when=asyncio.FIRST_COMPLETED)
             if not done:
                 yield "event: ping\ndata: {}\n\n"  # an event, not a comment, so clients can tell the stream is alive
+                if "orders" in topics:
+                    await _orders_tick()
                 continue
             for future in done:
                 topic = pending.pop(future)
@@ -160,6 +162,17 @@ async def event_stream(topics):
                 pass
         for reader in readers.values():
             await reader.aclose()
+
+
+@sync_to_async
+def _orders_tick():
+    """Scheduled orders reaching their start time: the nudge their placing couldn't give yet
+    (pos_server.models.nudge_started_orders). Never breaks the stream."""
+    from pos_server.models import nudge_started_orders
+    try:
+        nudge_started_orders()
+    except Exception:
+        logger.exception("Checking for started orders failed")
 
 
 def stream_response(topics):

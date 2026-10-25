@@ -975,7 +975,7 @@ the in-memory courier set, and the inventory crafting page's SSE.
 - `/events/<topic>` is an async view, so open streams don't hold worker threads (daphne in dev, uvicorn in production).
   Heartbeats every 15 s; `X-Accel-Buffering: no` for nginx.
 - Events are only nudges ("orders changed"). Screens refetch their normal JSON endpoint, so access rules and redaction
-  live in one place. `static/js/live.js` (`onLiveUpdate(topic, refresh)`) adds a debounce, refetches on every (re)connect, and reopens the stream if the 15 s `ping` heartbeat stops. No screen polls.
+  live in one place. `static/js/live.js` (`onLiveUpdate(topic, refresh)`) adds a debounce, refetches on every (re)connect, and reopens the stream if the 15 s `ping` heartbeat stops. No screen polls. Scheduled orders join screens at their `start_time`, when nothing in the database changes: the heartbeat of open "orders" streams calls `pos_server.models.nudge_started_orders` (one stream per beat, via `cache.add`), which publishes "orders" once orders have started since the last look, so they appear within ~15 s without a reload.
 - Redis is also the cache in production, so the Square checkout status is shared between workers. Couriers are in the
   `CourierShift` table.
 

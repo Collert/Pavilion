@@ -985,6 +985,24 @@ class RegisterTests(MenuFixture, TestCase):
         from payments.models import TerminalCheckout
         self.assertEqual(TerminalCheckout.objects.get(checkout_id="c1").amount, Decimal("14.50"))  # kept in the database, not the cache
 
+    def test_scheduled_orders_nudge_screens_when_they_start(self):
+        """Nothing changes when a scheduled order's time comes, so the SSE heartbeat asks (models.nudge_started_orders)."""
+        import datetime as dt
+        from django.core.cache import cache
+        from django.utils import timezone
+        from pos_server.models import nudge_started_orders
+        later = Order.objects.create(name="Later", start_time=timezone.now() + dt.timedelta(minutes=20))
+        cache.delete_many(["orders:start-check", "orders:started-upto"])
+        with mock.patch("pavilion.realtime.publish") as publish:
+            self.assertFalse(nudge_started_orders())  # not its time yet
+            cache.delete("orders:start-check")
+            with mock.patch("pos_server.models.now", return_value=later.start_time + dt.timedelta(seconds=5)):
+                self.assertTrue(nudge_started_orders())
+                self.assertFalse(nudge_started_orders())  # another stream's heartbeat a moment later: already checked
+                cache.delete("orders:start-check")
+                self.assertFalse(nudge_started_orders())  # and it isn't announced twice
+        publish.assert_called_once_with("orders")
+
     def test_drawer_open_move_close(self):
         self.assertEqual(self.client.get(reverse("cash_drawer")).status_code, 200)
         self.post("cash_drawer", {"action": "open", "amount": "200.00"})

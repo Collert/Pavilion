@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.timezone import localtime, now
 from gift_cards.models import GiftCard
+import datetime
 import json
 import uuid
 from payments.models import PaymentAuthorization
@@ -1264,6 +1265,24 @@ def active_orders_queryset():
         (models.Q(station_statuses__status__in=[OrderStation.STATUS_PENDING, OrderStation.STATUS_APPROVED]) |
          models.Q(picked_up=False))
     ).exclude(id__in=hidden_order_ids()).distinct()
+
+def nudge_started_orders():
+    """
+    Scheduled orders join the screens when their start_time comes, but nothing changes in the database then, so no
+    signal publishes "orders". The SSE heartbeat (pavilion/realtime.py) calls this on every open "orders" stream; one
+    of them every few seconds (cache.add) looks for orders that started since the last look and nudges the screens.
+    """
+    from pavilion.realtime import HEARTBEAT_SECONDS, publish
+    if not cache.add("orders:start-check", 1, timeout=HEARTBEAT_SECONDS - 2):
+        return False
+    current = now()
+    since = cache.get("orders:started-upto") or current - datetime.timedelta(seconds=HEARTBEAT_SECONDS * 4)
+    cache.set("orders:started-upto", current, timeout=None)
+    if not Order.objects.filter(start_time__gt=since, start_time__lte=current).exists():
+        return False
+    update_active_orders_cache()
+    publish("orders")
+    return True
 
 def update_active_orders_cache():
     """Cache the IDs of active orders under 'active_orders' (60 s)."""
