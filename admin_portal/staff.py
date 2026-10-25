@@ -9,7 +9,7 @@ superusers. The store always keeps one active owner, and nobody can turn off or 
 
     request.session["admin_staff"] = {"rows": {user id: row}, "removed": [ids], "sel": id, "q", "role", "confirm": id,
                                       "add": None or {"tab": "find"|"new", "aq", "pick", "first", "last", "email", "phone", "invite"}}
-    row = {"first", "last", "email", "phone", "roles": [ids], "groups": [ids], "em_name", "em_phone", "active"}
+    row = {"first", "last", "email", "phone", "roles": [ids], "groups": [ids], "em_name", "em_rel", "em_phone", "active"}
 """
 import re
 
@@ -26,7 +26,7 @@ from .team import face, full_name, initials, when
 
 KEY = "admin_staff"
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-FIELDS = ("first", "last", "email", "phone", "em_name", "em_phone")
+FIELDS = ("first", "last", "email", "phone", "em_name", "em_rel", "em_phone")
 
 
 def _int(value, default=None):
@@ -52,7 +52,7 @@ def saved_row(user) -> dict:
     p = profile(user)
     return {"first": user.first_name, "last": user.last_name, "email": user.email, "phone": p.phone,
             "roles": sorted(r.id for r in p.roles.all()), "groups": sorted(g.id for g in user.groups.all()),
-            "em_name": p.emergency_name, "em_phone": p.emergency_phone, "active": user.is_active}
+            "em_name": p.emergency_name, "em_rel": p.emergency_relation, "em_phone": p.emergency_phone, "active": user.is_active}
 
 
 def owners_group():
@@ -176,6 +176,7 @@ def save(st, users):
         user.groups.set(row["groups"])
         p = profile(user)
         p.phone, p.emergency_name, p.emergency_phone = row["phone"], row["em_name"], row["em_phone"]
+        p.emergency_relation = row.get("em_rel", "")[:40]
         p.save()
         p.roles.set(row["roles"])
     for uid in st["removed"]:

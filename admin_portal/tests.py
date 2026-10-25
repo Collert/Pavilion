@@ -2225,7 +2225,7 @@ class StaffPageTests(AdminFixture, TestCase):
     def fields(self, s, **changes):
         p = s["p"]
         data = {"sel": str(p["id"]), "profile": "1", "q": s["st"]["q"], "first": p["r"]["first"], "last": p["r"]["last"],
-                "email": p["r"]["email"], "phone": p["r"]["phone"], "em_name": p["r"]["em_name"], "em_phone": p["r"]["em_phone"],
+                "email": p["r"]["email"], "phone": p["r"]["phone"], "em_name": p["r"]["em_name"], "em_rel": p["r"].get("em_rel", ""), "em_phone": p["r"]["em_phone"],
                 "roles": [str(i) for i in p["r"]["roles"]], "groups": [str(i) for i in p["r"]["groups"]]}
         if p["r"]["active"]:
             data["active"] = "1"
@@ -2242,7 +2242,7 @@ class StaffPageTests(AdminFixture, TestCase):
         self.assertEqual([x["name"] for x in s["items"]], ["Marco", "Priya Shah (you)"])
         s = self.post(s, f"pick:{self.staff.id}")
         self.assertEqual(s["p"]["id"], self.staff.id)
-        s = self.post(s, roles=[str(self.cook.id)], groups=[str(self.front.id)], em_name="Giulia", em_phone="604 555 0173", phone="604 555 0119")
+        s = self.post(s, roles=[str(self.cook.id)], groups=[str(self.front.id)], em_name="Giulia", em_rel="Sister", em_phone="604 555 0173", phone="604 555 0119")
         self.assertEqual((s["status"], s["items"][0]["roles"]), ("Unsaved changes", "Cook"))
         self.staff.refresh_from_db()
         self.assertFalse(self.staff.groups.exists())  # not yet
@@ -2259,6 +2259,7 @@ class StaffPageTests(AdminFixture, TestCase):
         p = self.staff.staff_profile
         self.assertEqual(([g.name for g in self.staff.groups.all()], [r.name for r in p.roles.all()], p.emergency_name, p.phone),
                          (["Front of house", "Kitchen"], ["Cook"], "Giulia", "604 555 0119"))  # Kitchen: Cook's starting group
+        self.assertEqual(p.emergency_relation, "Sister")
         self.assertFalse(self.staff.is_superuser)
 
     def test_owners_are_superusers_and_one_always_stays(self):

@@ -99,7 +99,10 @@ and the photo take effect straight away.
                 <div class="tm-head-row"><span class="tm-heart">{% icon "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" 18 2.2 %}</span>
                     <h2 class="disp tm-h2 grow">{% trans "Emergency contact" %}</h2></div>
                 <div class="tm-stack">
-                    <label><span class="lbl">{% trans "Contact name" %}</span><input class="field" name="em_name" value="{{ p.r.em_name }}" maxlength="60" placeholder="{% trans 'Who to call' %}" autocomplete="off"></label>
+                    <div class="tm-two-in">
+                        <label><span class="lbl">{% trans "Contact name" %}</span><input class="field" name="em_name" value="{{ p.r.em_name }}" maxlength="60" placeholder="{% trans 'Who to call' %}" autocomplete="off"></label>
+                        <label><span class="lbl">{% trans "Relationship" %}</span><input class="field" name="em_rel" value="{{ p.r.em_rel|default:'' }}" maxlength="40" placeholder="{% trans 'e.g. Mother' %}" autocomplete="off"></label>
+                    </div>
                     <label><span class="lbl">{% trans "Contact phone" %}</span><input class="field" type="tel" name="em_phone" value="{{ p.r.em_phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
                 </div>
                 {% if p.em_warn %}<div class="tm-note">{{ p.em_warn }}</div>{% endif %}
