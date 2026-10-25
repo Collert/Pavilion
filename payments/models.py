@@ -106,13 +106,19 @@ class SquareTerminal(models.Model):
 
 class TerminalCheckout(models.Model):
     """
-    One card payment asked of a Terminal (payments/square.py: start_checkout). Square's terminal.checkout.updated
-    webhook keeps `status` current, so every worker sees the same thing; the register that started it waits on the
-    "checkout" nudge and asks for its own checkout only. Placing the order claims it (`order`), once.
+    One card payment a register asked for (payments/square.py). On a Terminal (start_checkout): Square's
+    terminal.checkout.updated webhook keeps `status` current. On the customer's phone (start_phone_checkout, for
+    registers without a Terminal): the register shows a QR code for /pay/<link>, where the customer pays by card
+    (payments/views.py: phone_pay). Either way the register that started it waits on the "checkout" nudge and asks for
+    its own checkout only, and placing the order claims it (`order`), once.
     """
     PENDING, IN_PROGRESS, CANCEL_REQUESTED, CANCELED, COMPLETED = "PENDING", "IN_PROGRESS", "CANCEL_REQUESTED", "CANCELED", "COMPLETED"
     FINISHED = (CANCELED, COMPLETED)
+    TERMINAL, PHONE = "terminal", "phone"
     checkout_id = models.CharField(max_length=64, unique=True)
+    kind = models.CharField(max_length=8, choices=[(TERMINAL, "Square Terminal"), (PHONE, "Customer's phone")], default=TERMINAL)
+    link = models.CharField(max_length=40, blank=True, db_index=True, help_text="Phone payments: the /pay/<link> address")
+    summary = models.JSONField(default=list, blank=True, help_text="Phone payments: what's being paid for [{qty, title, total}]")
     register = models.ForeignKey("pos_server.EligibleDevice", null=True, blank=True, on_delete=models.SET_NULL, related_name="checkouts")
     terminal = models.ForeignKey(SquareTerminal, null=True, blank=True, on_delete=models.SET_NULL, related_name="checkouts")
     device_id = models.CharField(max_length=100, blank=True, help_text="Square's id of the Terminal it went to")

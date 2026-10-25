@@ -446,6 +446,26 @@
     </div>
 </dialog>
 
+<!-- No Terminal: the customer pays by card on their own phone (payments/views.py: phone_pay) -->
+<dialog class="sheet w-sm" id="phone-sheet" aria-labelledby="phone-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Card on their phone" %}</div>
+            <h2 class="h2" id="phone-title"></h2>
+        </div>
+    </div>
+    <div class="sheet-body phone-body">
+        <img class="phone-qr" id="phone-qr" alt="{% trans 'QR code to pay on a phone' %}">
+        <div class="phone-steps">{% trans "The customer scans it with their phone’s camera and pays by card there." %}</div>
+        <div class="phone-wait"><span class="pulse-dot" aria-hidden="true"></span><span id="phone-wait-text">{% trans "Waiting for the customer…" %}</span></div>
+        <div class="sub phone-url" id="phone-url"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" type="button" id="phone-cancel">{% trans "Cancel" %}</button>
+        <button class="btn grow" type="button" id="phone-check">{% trans "Check payment" %}</button>
+    </div>
+</dialog>
+
 <!-- Type a line's quantity instead of tapping + over and over -->
 <dialog class="sheet w-sm" id="qty-sheet" aria-labelledby="qty-title">
     <div class="sheet-head">

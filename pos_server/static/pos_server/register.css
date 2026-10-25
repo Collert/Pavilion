@@ -408,6 +408,12 @@
 /* Screens sheet: announce (and pair) */
 .reg-screens-btn { flex: none; max-width: 200px; }
 .card-actions { display: flex; gap: 14px; flex: none; }
+.phone-body { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.phone-qr { width: min(300px, 70vw); aspect-ratio: 1; border-radius: 18px; background: #FFFFFF; box-shadow: inset 0 0 0 1px var(--line); }
+.phone-steps { font-size: 16px; font-weight: 600; max-width: 380px; }
+.phone-wait { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--brand); }
+.pulse-dot { width: 10px; height: 10px; border-radius: 5px; background: var(--amber); animation: pulse 1.6s ease-out infinite; }
+.phone-url { word-break: break-all; max-width: 420px; }
 .card-actions[hidden] { display: none; }
 .terminal-code { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--soft); }
 .terminal-code[hidden], #terminal-none[hidden], #terminal-paired[hidden], #terminal-sandbox[hidden], #terminal-sandbox-hint[hidden] { display: none; }

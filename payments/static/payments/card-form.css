@@ -1,0 +1,46 @@
+/* The card form and the customer's phone payment page (payments/templates/payments/). Colours and fonts come from
+   the store theme's variables (online_store/themes.py: css_vars), with neutral fallbacks. */
+:root { --pc-ink: var(--ink, #221E18); --pc-soft: var(--soft-ink, #5C5446); --pc-paper: var(--paper, #F6F0E4); --pc-card: var(--card, #FFFDF8);
+        --pc-accent: var(--accent, #CF4A2C); --pc-deep: var(--deep, #2C5A43); --pc-line: #E4DACA; --pc-bad: #B3361F;
+        --pc-radius: var(--radius, 22px); --pc-head: var(--heading-font, 'Fraunces', serif); --pc-body-font: var(--body-font, 'DM Sans', system-ui, sans-serif); }
+* { box-sizing: border-box; }
+body.pc-body { margin: 0; font-family: var(--pc-body-font); color: var(--pc-ink); -webkit-font-smoothing: antialiased; }
+body.pc-body.sheet { background: transparent; padding: 4px 2px; }
+body.pc-body.page { background: var(--pc-paper); min-height: 100dvh; }
+
+.pc-form { display: flex; flex-direction: column; gap: 12px; }
+.pc-card { min-height: 92px; }
+.pc-loading { display: flex; align-items: center; gap: 10px; height: 92px; justify-content: center; color: var(--pc-soft); font-size: 14px; font-weight: 600; border-radius: 14px; background: var(--pc-card); }
+.pc-error { margin: 0; padding: 12px 14px; border-radius: 14px; background: #FBE9E5; color: #8E2914; font-size: 14px; font-weight: 600; line-height: 1.4; }
+.pc-error[hidden] { display: none; }
+.pc-pay { height: 56px; border: none; border-radius: 28px; background: var(--pc-accent); color: #FFFFFF; font: inherit; font-size: 17px; font-weight: 700;
+          display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: opacity .2s ease, transform .14s ease; }
+.pc-pay:not(:disabled):active { transform: scale(.98); }
+.pc-pay:disabled { cursor: default; opacity: .55; }
+.pc-pay.busy { opacity: 1; }
+.pc-pay.done { background: var(--pc-deep); }
+.pc-pay .pc-spin { display: none; }
+.pc-pay.busy:not(.done) .pc-spin { display: block; }
+.pc-spin { width: 18px; height: 18px; border-radius: 9px; border: 2.5px solid currentColor; border-right-color: transparent; animation: pcSpin .8s linear infinite; flex: none; }
+@keyframes pcSpin { to { transform: rotate(360deg); } }
+.pc-fine { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--pc-soft); line-height: 1.5; text-align: center; }
+.pc-fine svg { vertical-align: -2px; margin-right: 2px; }
+.pc-test { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: #FFF3DD; color: #8A4B00; font-weight: 600; }
+
+/* the customer's phone */
+.pc-page { max-width: 460px; margin: 0 auto; padding: 22px 16px 32px; display: flex; flex-direction: column; gap: 18px; }
+.pc-store { display: flex; align-items: center; gap: 12px; }
+.pc-logo { width: 44px; height: 44px; border-radius: 14px; object-fit: cover; flex: none; }
+.pc-mark { display: flex; align-items: center; justify-content: center; background: var(--pc-deep); color: #FFFFFF; font-family: var(--pc-head); font-size: 22px; font-weight: 600; }
+.pc-store-name { font-family: var(--pc-head); font-size: 22px; font-weight: 600; }
+.pc-panel { background: var(--pc-card); border-radius: var(--pc-radius); padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 18px 40px -24px rgba(34, 30, 24, .35); }
+.pc-kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pc-accent); }
+.pc-amount { margin: -6px 0 0; font-family: var(--pc-head); font-size: 52px; line-height: 1.05; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pc-lines { display: flex; flex-direction: column; gap: 6px; padding: 12px 0 2px; border-top: 1px dashed var(--pc-line); font-size: 14px; font-weight: 500; }
+.pc-lines > div { display: flex; gap: 8px; }
+.pc-qty { width: 28px; flex: none; font-weight: 700; color: var(--pc-deep); }
+.pc-grow { flex: 1; min-width: 0; }
+.pc-state { align-items: center; text-align: center; padding: 36px 22px; }
+.pc-check { width: 76px; height: 76px; border-radius: 38px; background: var(--pc-deep); color: #FFFFFF; display: flex; align-items: center; justify-content: center; }
+.pc-title { margin: 0; font-family: var(--pc-head); font-size: 32px; font-weight: 600; line-height: 1.15; }
+.pc-sub { margin: 0; font-size: 15px; color: var(--pc-soft); line-height: 1.5; }

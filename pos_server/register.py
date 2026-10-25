@@ -237,6 +237,7 @@ def register(request):
                 "screenPair": reverse("screens_pair"),
                 "screenSummary": reverse("screen_summary", args=["CODE"]),
             },
+            "hasTerminal": square.has_terminal(current_device(request)),  # without one, card payments go to the phone
         },
     })
 
@@ -438,8 +439,17 @@ def card_checkout(request):
         if card is None or card.frozen or card.available_balance < part:
             return JsonResponse({"message": _("Card x%(last4)s no longer has enough balance for $%(amount)s.") % {
                 "last4": str(number)[-4:], "amount": part}}, status=402)
+    device = current_device(request)
+    if not square.has_terminal(device):  # no Terminal: the customer pays on their phone (a QR code for /pay/<link>)
+        import segno
+        summary = [{"qty": line.quantity, "title": line.item.title, "total": str(line.unit_price * line.quantity)} for line in cart.lines]
+        checkout = square.start_phone_checkout(device, amount, request.user, summary)
+        url = request.build_absolute_uri(reverse("phone_pay", args=[checkout.link]))
+        return JsonResponse({"checkoutId": checkout.checkout_id, "status": checkout.status, "phone": {
+            "url": url, "minutes": square.PHONE_MINUTES,
+            "qr": segno.make(url, error="m").svg_inline(scale=8, border=2, dark="#14261F", light="#FFFFFF")}})
     try:
-        checkout = square.start_checkout(current_device(request), amount, request.user)
+        checkout = square.start_checkout(device, amount, request.user)
     except square.SquareError as e:
         return JsonResponse({"message": str(e.args[0]) if e.args else _("The terminal didn't start the payment.")}, status=502)
     except Exception:

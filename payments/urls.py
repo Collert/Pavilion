@@ -6,4 +6,5 @@ urlpatterns = [
     path("web-payment-window", views.web_payment, name="web-payment-window"),
     path("process-web-payment", views.process_web_payment, name="process-web-payment"),
     path("save-card", views.save_card, name="save-card"),
+    path("pay/<str:link>", views.phone_pay, name="phone_pay"),
 ]

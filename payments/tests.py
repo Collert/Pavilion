@@ -383,3 +383,71 @@ class DeviceTests(TestCase):
         self.device.refresh_from_db()
         self.assertEqual(self.device.token, old)
 
+
+
+@override_settings(SQUARE_DEVICE_ID="", SQUARE_APPLICATION_ID="sq0idp-app", SQUARE_ENVIRONMENT="sandbox")
+class PhonePaymentTests(RegistersAndTerminals):
+    """A register without a Terminal: the customer pays by card on their own phone (QR code → /payments/pay/<link>)."""
+
+    def setUp(self):
+        self.bar = EligibleDevice.objects.create(name="Bar register")
+        kitchen = Station.objects.get_or_create(code="kitchen", defaults={"name": "Kitchen"})[0]
+        self.tea = Dish.objects.create(title="Tea", price=Decimal("3.00"), station=kitchen)
+        self.on_bar = self.client_on(self.bar)
+        self.cart = {"lines": [{"type": "dish", "id": self.tea.id, "qty": 2}], "total": "6.00"}
+
+    def start(self):
+        answer = self.on_bar.post(reverse("register_card"), json.dumps({**self.cart, "amount": "6.00", "payments": []}),
+                                  content_type="application/json").json()
+        return answer, TerminalCheckout.objects.get(checkout_id=answer["checkoutId"])
+
+    def charge(self, row, client=None):
+        client = client or self.client_class()
+        return client.post(reverse("phone_pay", args=[row.link]), json.dumps({"token": "cnon:card"}), content_type="application/json")
+
+    @mock.patch("payments.square.square_client")
+    def test_pay_on_the_phone_then_place_the_order(self, client):
+        answer, row = self.start()
+        self.assertIn("/payments/pay/", answer["phone"]["url"])
+        self.assertIn("<svg", answer["phone"]["qr"])
+        self.assertEqual((row.kind, row.amount, row.summary[0]["title"], row.summary[0]["qty"]), ("phone", Decimal("6.00"), "Tea", 2))
+        page = self.client_class().get(reverse("phone_pay", args=[row.link]))
+        self.assertContains(page, "$6.00")
+        self.assertContains(page, "Tea")
+        client.payments.create_payment.return_value = ok({"payment": {"id": "pay-1"}})
+        self.assertEqual(self.charge(row).json()["status"], "success")
+        sent = client.payments.create_payment.call_args.args[0]
+        self.assertEqual((sent["amount_money"]["amount"], sent["idempotency_key"]), (600, row.checkout_id))  # the register's amount, once
+        self.assertEqual(self.on_bar.get(reverse("register_card_status", args=[row.checkout_id])).json()["status"], "COMPLETED")
+        self.assertContains(self.client_class().get(reverse("phone_pay", args=[row.link])), "Paid $6.00")
+        client.payments.get_payment.return_value = ok({"payment": {"card_details": {"card": {"card_brand": "VISA", "last_4": "4242"}}}})
+        placed = self.on_bar.post(reverse("pos"), json.dumps({**self.cart, "payments": [{"method": "card", "amount": "6.00", "checkoutId": row.checkout_id}]}),
+                                  content_type="application/json")
+        self.assertEqual(placed.status_code, 200, placed.content)
+        payment = Order.objects.get().payments.get()
+        self.assertEqual((payment.square_payment_id, payment.card_last4), ("pay-1", "4242"))
+
+    @mock.patch("payments.square.square_client")
+    def test_a_canceled_phone_payment_cant_be_paid(self, client):
+        _answer, row = self.start()
+        canceled = self.on_bar.post(reverse("register_card_status", args=[row.checkout_id]), json.dumps({"op": "cancel"}),
+                                    content_type="application/json").json()
+        self.assertEqual(canceled["status"], "CANCELED")
+        self.assertEqual(self.charge(row).status_code, 402)
+        client.payments.create_payment.assert_not_called()
+        self.assertContains(self.client_class().get(reverse("phone_pay", args=[row.link])), "This payment is closed")
+
+    def test_with_a_terminal_it_goes_to_the_terminal(self):
+        SquareTerminal.objects.create(name="Bar", register=self.bar, device_code_id="dc-bar", code="X", status="PAIRED", device_id="device-bar")
+        with mock.patch("payments.square.gather_terminal_checkout", return_value=started("c-term")):
+            answer, row = self.start()
+        self.assertNotIn("phone", answer)
+        self.assertEqual(row.kind, "terminal")
+
+    def test_the_store_card_form(self):
+        page = self.client.get(reverse("web-payment-window"), {"amount": "12.50"})
+        config = page.context["config"]
+        self.assertEqual((config["amountText"], config["sandbox"], config["mode"]), ("$12.50", True, "sheet"))
+        self.assertContains(page, "sandbox.web.squarecdn.com")
+        self.assertNotContains(page, "UrkVan")
+        self.assertNotContains(page, "&#x27;")  # the theme's font names arrive as written, not HTML-escaped

@@ -180,8 +180,57 @@ def checkout_event(checkout: dict):
     return _checkout_changed(row, checkout)
 
 
+# ---------- card payments on the customer's phone (registers without a Terminal) ----------
+
+PHONE_MINUTES = 15  # how long a phone payment's link works
+
+
+def has_terminal(register) -> bool:
+    return bool(SquareTerminal.for_register(register) or settings.SQUARE_DEVICE_ID)
+
+
+def start_phone_checkout(register, amount: Decimal, user=None, summary=()) -> TerminalCheckout:
+    """A card payment the customer makes on their own phone: the register shows a QR code for /pay/<link>."""
+    import secrets
+    link = secrets.token_urlsafe(18)
+    return TerminalCheckout.objects.create(checkout_id=f"phone-{link}", kind=TerminalCheckout.PHONE, link=link, register=register,
+                                           amount=amount, status=TerminalCheckout.PENDING, started_by=user, summary=list(summary))
+
+
+def phone_expired(row) -> bool:
+    from django.utils import timezone
+    import datetime
+    return not row.finished and row.created_at < timezone.now() - datetime.timedelta(minutes=PHONE_MINUTES)
+
+
+def charge_phone(row, card_token: str) -> TerminalCheckout:
+    """The customer paid on their phone: charge exactly the amount the register asked for, once. Raises SquareError
+    (its message can be shown to the customer)."""
+    with transaction.atomic():
+        row = TerminalCheckout.objects.select_for_update().get(pk=row.pk)
+        if row.status == TerminalCheckout.COMPLETED:
+            return row
+        if row.status == TerminalCheckout.CANCELED or phone_expired(row):
+            raise SquareError(_("This payment was canceled at the counter. Ask for a new code."))
+        result = square_client.payments.create_payment({
+            "source_id": card_token, "idempotency_key": row.checkout_id, "location_id": location_id(),
+            "amount_money": {"amount": to_cents(row.amount), "currency": "CAD"}, "autocomplete": True,
+            "reference_id": f"register-{row.register_id}" if row.register_id else "", "note": "Paid on the customer's phone"})
+        if not result.is_success():
+            raise SquareError(_("The card was declined. Try another card."))
+        row.status, row.payment_ids = TerminalCheckout.COMPLETED, [result.body["payment"]["id"]]
+        row.save(update_fields=["status", "payment_ids", "updated_at"])
+    publish("checkout")
+    return row
+
+
 def refresh_checkout(row) -> TerminalCheckout:
     """Ask Square for a checkout's status (when the register checks and no webhook reached us)."""
+    if row.kind == TerminalCheckout.PHONE:
+        if phone_expired(row):
+            row.status = TerminalCheckout.CANCELED
+            row.save(update_fields=["status", "updated_at"])
+        return row  # phone payments are only ever changed here, so the row is up to date
     result = square_client.terminal.get_terminal_checkout(row.checkout_id)
     if not result.is_success():
         raise SquareError(result.errors)
@@ -191,6 +240,14 @@ def refresh_checkout(row) -> TerminalCheckout:
 def cancel_checkout(row) -> TerminalCheckout:
     """Stop a checkout on the Terminal (the cashier pressed Cancel)."""
     if row.finished:
+        return row
+    if row.kind == TerminalCheckout.PHONE:
+        with transaction.atomic():
+            row = TerminalCheckout.objects.select_for_update().get(pk=row.pk)
+            if not row.finished:  # the phone may have paid a moment ago: then it stays paid
+                row.status = TerminalCheckout.CANCELED
+                row.save(update_fields=["status", "updated_at"])
+        publish("checkout")
         return row
     result = square_client.terminal.cancel_terminal_checkout(row.checkout_id)
     if not result.is_success():
@@ -281,6 +338,10 @@ def fill_card_details(payment):
     Look up which Square payment a register card payment was (from its Terminal checkout) and store the card's
     brand, last 4 digits and how it was presented. Raises SquareError if Square can't say.
     """
+    if not payment.square_payment_id:  # the payment the checkout made: kept on the row, else asked of Square
+        row = TerminalCheckout.objects.filter(checkout_id=payment.square_checkout_id).exclude(payment_ids=[]).first()
+        if row is not None:
+            payment.square_payment_id = row.payment_ids[0]
     if not payment.square_payment_id:
         result = square_client.terminal.get_terminal_checkout(payment.square_checkout_id)
         if not result.is_success():

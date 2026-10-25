@@ -1673,11 +1673,14 @@ function renderPay() {
     } else if (ui.method === "card") {
         const waiting = ui.card !== "idle";
         $("#card-panel").classList.toggle("waiting", waiting);
-        $("#card-title").textContent = waiting ? t("Waiting for card") : t("Card on the terminal");
-        $("#card-text").textContent = waiting ? t("The terminal is ready. Tap, insert or swipe.")
+        const phone = !boot.hasTerminal;  // no Terminal: the customer pays on their phone (a QR code)
+        $("#card-title").textContent = waiting ? t("Waiting for card") : phone ? t("Card on their phone") : t("Card on the terminal");
+        $("#card-text").textContent = waiting ? (phone ? t("The customer is paying on their phone.") : t("The terminal is ready. Tap, insert or swipe."))
+            : phone ? interpolate(t("Show a QR code: the customer pays %s by card on their own phone."), [fmt(now)])
             : interpolate(t("Charge %s on the terminal, then the customer taps, inserts or swipes."), [fmt(now)]);
-        $("#card-actions").hidden = ui.card !== "waiting";
-        label = waiting ? t("Waiting for terminal…") : interpolate(t("Charge %s"), [fmt(now)]);
+        $("#card-actions").hidden = ui.card !== "waiting" || phone;
+        label = waiting ? (phone ? t("Waiting for payment…") : t("Waiting for terminal…"))
+            : phone ? interpolate(t("Show QR code · %s"), [fmt(now)]) : interpolate(t("Charge %s"), [fmt(now)]);
         disabled = disabled || waiting;
     } else if (ui.method === "staff") {
         const used = state.payments.filter((p) => p.method === "staff").reduce((sum, p) => sum + p.amount, 0);
@@ -1962,6 +1965,7 @@ async function chargeCard(amount) {
         if (finished || !data?.finished) return;
         finished = true;
         stopCardWatch?.();
+        if ($("#phone-sheet").open) $("#phone-sheet").close();
         ui.card = "idle";
         if (data.status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card"), checkoutId });
         else { renderPay(); toast(t("The card payment was canceled."), { error: true }); }
@@ -1975,7 +1979,7 @@ async function chargeCard(amount) {
     };
     stopCardWatch = onLiveUpdate("checkout", () => check());
     $("#card-check").onclick = () => check(true);
-    $("#card-cancel").onclick = async () => {
+    const cancel = async () => {
         const answer = await post(statusUrl, { op: "cancel" }).catch(() => ({ ok: false, data: {} }));
         if (!answer.ok) {
             toast(answer.data.message || t("Square didn't answer. Try again."), { error: true });
@@ -1984,6 +1988,17 @@ async function chargeCard(amount) {
         if (answer.data.finished) settle(answer.data);  // it may have gone through just before
         else toast(t("Canceling on the terminal…"));
     };
+    $("#card-cancel").onclick = cancel;
+    if (result.data.phone) {  // no Terminal: the QR code for the customer's phone
+        const phone = result.data.phone;
+        $("#phone-title").textContent = fmt(amount);
+        $("#phone-qr").src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(phone.qr);
+        $("#phone-url").textContent = interpolate(t("Or open %s · works for %s minutes"), [phone.url, phone.minutes]);
+        $("#phone-cancel").onclick = cancel;
+        $("#phone-sheet").oncancel = (event) => { event.preventDefault(); cancel(); };  // Esc cancels the payment too
+        $("#phone-check").onclick = () => check(true);
+        $("#phone-sheet").showModal();
+    }
 }
 
 // Gift cards: typed (or a keyboard-style barcode scanner), or scanned with the camera
