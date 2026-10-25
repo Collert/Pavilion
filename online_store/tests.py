@@ -17,6 +17,17 @@ from pos_server.models import Order, OrderStation
 from pos_server.tests import MenuFixture
 
 
+def at_noon():
+    """Today at noon, for tests whose "open for the next few hours" would run past midnight late at night."""
+    import contextlib
+    import datetime as dt
+    noon = timezone.make_aware(dt.datetime.combine(timezone.localdate(), dt.time(12, 0)))
+    stack = contextlib.ExitStack()
+    for target in ("django.utils.timezone.now", "pos_server.models.now"):
+        stack.enter_context(mock.patch(target, return_value=noon))
+    return stack
+
+
 def open_hours(before=60, after=180, day=None, **cutoffs):
     """The store open today (an event) from `before` minutes ago to `after` from now (the week closed), cutoffs 0 unless given."""
     StoreHours.objects.update_or_create(pk=1, defaults={"week": [{"open": False, "r": []}] * 7, **{
@@ -129,6 +140,10 @@ class PlaceOrderTests(MenuFixture, TestCase):
         self.assertFalse(Order.objects.exists())
 
     def test_delivery_stops_at_its_cutoff(self):
+        with at_noon():
+            self._delivery_stops_at_its_cutoff()
+
+    def _delivery_stops_at_its_cutoff(self):
         open_hours(after=30, delivery_before=45)  # pickup is still on, delivery stopped
         address = {"address": "1 Main St", "city": "New Westminster", "postal": "V3M 1A1"}
         self.client.post(self.url, {"op": "method:delivery"})
@@ -275,9 +290,11 @@ class StoreOrderingTests(MenuFixture, TestCase):
     def test_first_scheduled_time_is_never_too_early(self):
         from unittest import mock
         from online_store.pages import _schedule
-        now = timezone.now()
+        with at_noon():
+            now = timezone.now()
+            open_hours(before=60, after=240)  # open around noon, whatever time the tests run
         at = now.replace(minute=now.minute // 5 * 5, second=50, microsecond=0)  # 20 min later is :x0:50, not a whole 5 minutes
-        with mock.patch("django.utils.timezone.now", return_value=at):
+        with mock.patch("django.utils.timezone.now", return_value=at), mock.patch("pos_server.models.now", return_value=at):
             when = _schedule({"when": "later", "date": timezone.localdate(at).isoformat(), "time": ""}, [], False)
         self.assertTrue(when["ok"], when["message"])
 
