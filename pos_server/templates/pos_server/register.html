@@ -163,7 +163,10 @@
                     <div class="blocked-title" id="card-title">{% trans "Card on the terminal" %}</div>
                     <div class="blocked-text" id="card-text">{% trans "Start the payment, then the customer taps, inserts or swipes." %}</div>
                 </div>
-                <button class="btn-link" id="card-cancel" hidden>{% trans "Stop waiting" %}</button>
+                <div class="card-actions" id="card-actions" hidden>
+                    <button class="btn-link" id="card-check">{% trans "Check with Square" %}</button>
+                    <button class="btn-link" id="card-cancel">{% trans "Cancel" %}</button>
+                </div>
             </div>
 
             <div class="gift" id="gift-panel" hidden>
@@ -487,7 +490,7 @@
     <div class="sheet-head">
         <div>
             <div class="overline">{% trans "Register" %}</div>
-            <h2 class="h2" id="screens-title">{% trans "Screens" %}</h2>
+            <h2 class="h2" id="screens-title">{% trans "Screen & terminal" %}</h2>
         </div>
         <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
     </div>
@@ -502,6 +505,22 @@
             <button class="btn btn-dark">{% trans "Pair" %}</button>
         </form>
         <p class="hint">{% trans "While you take payment, the order shows on the paired screen." %}</p>
+    </div>
+    <div class="screens-pair" id="terminal-pair">
+        <div class="overline">{% trans "Card terminal" %}</div>
+        <div class="screens-paired" id="terminal-paired" hidden>
+            <span class="grow"><b id="terminal-name"></b><span class="sub">{% trans "Card payments on this register go to it." %}</span></span>
+            <button class="btn btn-sm" type="button" id="terminal-unpair">{% trans "Unpair" %}</button>
+        </div>
+        <div class="terminal-code" id="terminal-code" hidden>
+            <span class="grow"><span class="sub">{% trans "On the Terminal, sign in with “Use a device code” and type:" %}</span><b class="terminal-code-text" id="terminal-code-text"></b>
+                <span class="sub" id="terminal-code-sub"></span></span>
+            <button class="btn btn-sm" type="button" id="terminal-check">{% trans "Check" %}</button>
+        </div>
+        <div class="screens-pair-form" id="terminal-none" hidden>
+            <span class="grow sub" id="terminal-none-text"></span>
+            <button class="btn btn-dark" type="button" id="terminal-new">{% trans "Pair a Terminal" %}</button>
+        </div>
     </div>
     <div class="overline">{% trans "Announcement" %}</div>
     <form id="announce-form" data-url="{% url 'screens_announce' %}" class="screens-form">

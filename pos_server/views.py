@@ -206,6 +206,9 @@ def device_elig(request):
             return set_device_cookie(JsonResponse({"status": "device ok"}, status=200), token)
         return HttpResponseForbidden("Forbidden: Device not recognized.")
     elif request.method == "GET":
+        token = request.GET.get("device-token", "")
+        if token and token_is_registered(token):  # a link that registers this browser as a known device (seed_demo prints one)
+            return set_device_cookie(redirect(safe_next_url(request, request.GET.get("next")) or reverse("pos")), token)
         return render(request, "pos_server/ineligible-device.html", {
                 "route":"login",
                 "authorized":False,
@@ -329,36 +332,32 @@ def format_float(num:float) -> str:
     else:
         return f"{num:.10f}".rstrip("0").rstrip(".")
 
-# @local_network_only
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def pair_square_terminal(request):
     """
-    Pair a Square Terminal. POST action=new creates a pairing code to enter on the Terminal; GET shows
-    the codes and refreshes any that are still waiting, so reloading the page picks up a finished pairing.
+    Every Square Terminal and the register it takes card payments for. Registers pair their own (the register's
+    Screen & terminal sheet); here a superuser can pair one for any register, check a code, or free a Terminal.
     """
     error = None
     if request.method == "POST":
         try:
-            if request.POST.get("action") == "new":
-                square.create_device_code(request.POST.get("name") or "Square Terminal")
-            elif request.POST.get("action") == "activate":
-                terminal = SquareTerminal.objects.get(pk=request.POST.get("id"), status="PAIRED")
-                terminal.is_active = True
-                terminal.save()
-                SquareTerminal.objects.exclude(pk=terminal.pk).update(is_active=False)
+            action = request.POST.get("action")
+            if action == "new":
+                register = EligibleDevice.objects.filter(pk=request.POST.get("register") or 0).first()
+                square.pair_terminal(register, request.POST.get("name", ""))
+            elif action == "check":
+                square.refresh_device_code(SquareTerminal.objects.get(pk=request.POST.get("id")))
+            elif action == "free":
+                SquareTerminal.objects.filter(pk=request.POST.get("id")).update(register=None)
             return redirect(reverse("pair-terminal"))
         except Exception as e:
             logger.exception("Square terminal pairing failed")
             error = str(e)
-    for terminal in SquareTerminal.objects.filter(status="UNPAIRED"):
-        try:
-            square.refresh_device_code(terminal)
-        except Exception as e:
-            logger.warning("Could not refresh device code %s: %s", terminal.code, e)
     return render(request, "pos_server/pair_pos.html", {
-        "route":"terminal-setup",
-        "terminals": SquareTerminal.objects.all()[:10],
+        "route": "terminal-setup",
+        "terminals": SquareTerminal.objects.select_related("register")[:30],
+        "registers": EligibleDevice.objects.order_by("name"),
         "fallback_device_id": settings.SQUARE_DEVICE_ID,
         "error": error,
     })
@@ -456,88 +455,32 @@ def order_progress(request):
     })
         
 @require_POST
-@csrf_exempt  # Disable CSRF for this view as it's an external API
+@csrf_exempt  # Square calls it; the signature proves it's Square
 def square_webhook(request):
     """
-    Handle Square webhook events.
-    This function processes incoming webhook events from Square, verifies the 
-    event signature to ensure it is from Square, and updates the checkout card 
-    status in the cache and global variables.
-    Args:
-        request (HttpRequest): The HTTP request object containing the webhook 
-        event data.
-    Returns:
-        HttpResponse: A response indicating whether the webhook was processed 
-        successfully or if the signature was invalid.
-    Raises:
-        json.JSONDecodeError: If the request body cannot be decoded as JSON.
-    Notes:
-        - The Square webhook signing secret is retrieved from the Django 
-          settings.
-        - The notification URL is built from the request object.
-        - The signature is validated using the `is_valid_webhook_event_signature` 
-          function.
-        - If the signature is valid, the checkout card status is updated in the 
-          cache and global variables.
-        - If the signature is invalid, a forbidden response is returned.
+    Square's webhooks, checked against SQUARE_WEBHOOK_SIGNATURE_KEY. terminal.checkout.updated updates that
+    checkout's row and device.code.paired finishes a register's Terminal pairing (payments/square.py). Both are kept
+    in the database and announced on "checkout", so every worker and register sees the same state.
     """
-    # Your Square webhook signing secret
-    signature_key = settings.SQUARE_WEBHOOK_SIGNATURE_KEY
-
-    # The URL where event notifications are sent (your webhook endpoint)
-    # notification_url = "https://be1e-2605-8d80-481-f962-cd85-83bc-b51-d999.ngrok-free.app/pos/webhook/square"
-    notification_url = request.build_absolute_uri()
-
-    # Read the raw request body and signature
-    body = request.body.decode('utf-8')
-    square_signature = request.headers.get('x-square-hmacsha256-signature')
-
-    # Validate the webhook event signature
-    is_from_square = is_valid_webhook_event_signature(body, square_signature, signature_key, notification_url)
-
-    # Verify the signature
-    if is_from_square:
-        # Process the webhook data
-        webhook_data = json.loads(request.body.decode('utf8'))
-        checkout_id = webhook_data["data"]["object"]["checkout"]["id"]
-        current_checkout_id = cache.get('current_checkout_id')
-        
-        # Only update status if this matches our current checkout
-        if current_checkout_id and checkout_id == current_checkout_id:
-            status = webhook_data["data"]["object"]["checkout"]["status"]
-            cache.set('checkout_card_status', status, timeout=180)
-            publish("checkout")
-            logger.info("Square checkout %s is now %s", checkout_id, status)
-        else:
-            logger.info("Ignoring webhook for checkout %s (current: %s)", checkout_id, current_checkout_id)
-        
-        return HttpResponse('Webhook processed', status=200)
-    else:
+    body = request.body.decode("utf-8")
+    signature = request.headers.get("x-square-hmacsha256-signature")
+    key = settings.SQUARE_WEBHOOK_SIGNATURE_KEY
+    if not (signature and key and is_valid_webhook_event_signature(body, signature, key, request.build_absolute_uri())):
         logger.warning("Square webhook with an invalid signature")
-        # Invalid signature, return forbidden
-        return HttpResponseForbidden('Invalid signature')
-    
-@api_app_required("app.register")
-@device_required
-def check_card_status(request):
-    """
-    Handle GET and DELETE requests to check or delete the card status.
+        return HttpResponseForbidden("Invalid signature")
+    try:
+        event = json.loads(body)
+        kind, obj = event.get("type", ""), event.get("data", {}).get("object", {})
+    except (ValueError, AttributeError):
+        return HttpResponse("Not JSON", status=400)
+    if kind.startswith("terminal.checkout") and "checkout" in obj:
+        square.checkout_event(obj["checkout"])
+    elif kind.startswith("device.code") and "device_code" in obj:
+        square.device_code_event(obj["device_code"])
+    else:
+        logger.info("Ignoring Square webhook %s", kind)
+    return HttpResponse("Webhook processed", status=200)
 
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        JsonResponse: A JSON response containing the card status for GET requests,
-                      or a confirmation of deletion for DELETE requests.
-    """
-    status = cache.get('checkout_card_status')
-    if request.method == "GET":
-        # Return explicit null status if not found in cache
-        return JsonResponse({"status": status if status is not None else None})
-    elif request.method == "DELETE":
-        cache.delete('checkout_card_status')
-        cache.delete('current_checkout_id')  # Clean up checkout ID as well
-        return JsonResponse({"status": status if status is not None else None})
 
 def active_orders(request):
     """

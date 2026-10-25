@@ -30,6 +30,7 @@ from django.utils.translation import gettext as _
 from gift_cards.models import GiftCard
 from pavilion import throttle
 from payments import square
+from payments.models import SquareTerminal, TerminalCheckout
 from users.access import can
 
 from . import approvals
@@ -230,7 +231,8 @@ def register(request):
                 "card": reverse("register_card"),
                 "catalog": reverse("register_catalog"),
                 "drawer": reverse("cash_drawer"),
-                "cardStatus": reverse("check_card_status"),
+                "cardStatus": reverse("register_card_status", args=["CHECKOUT"]),
+                "terminal": reverse("register_terminal"),
                 "giftCard": "/gift-cards/card-api/",
                 "screenPair": reverse("screens_pair"),
                 "screenSummary": reverse("screen_summary", args=["CODE"]),
@@ -358,6 +360,8 @@ def place_order(request):
         gift_sales = _gift_sales(body)
     except (ValueError, KeyError, TypeError, AttributeError, OrderError):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
+    if any(p.get("method") == "card" and not p.get("checkoutId") for p in payments):
+        return JsonResponse({"message": _("Card payments are taken on the Terminal.")}, status=400)
     if not payments:
         return JsonResponse({"message": _("Take a payment first.")}, status=400)
     if unknown:
@@ -435,16 +439,75 @@ def card_checkout(request):
             return JsonResponse({"message": _("Card x%(last4)s no longer has enough balance for $%(amount)s.") % {
                 "last4": str(number)[-4:], "amount": part}}, status=402)
     try:
-        response = square.gather_terminal_checkout(amount)
-    except Exception as e:
+        checkout = square.start_checkout(current_device(request), amount, request.user)
+    except square.SquareError as e:
+        return JsonResponse({"message": str(e.args[0]) if e.args else _("The terminal didn't start the payment.")}, status=502)
+    except Exception:
         logger.exception("Starting a Terminal checkout failed")
-        return JsonResponse({"message": str(e)}, status=502)
-    if not response.is_success():
-        return JsonResponse({"message": "; ".join(str(err.get("detail", err)) for err in response.errors or [])}, status=502)
-    checkout = response.body["checkout"]
-    cache.set("current_checkout_id", checkout["id"], timeout=600)
-    cache.set("checkout_card_status", checkout["status"], timeout=600)
-    return JsonResponse({"checkoutId": checkout["id"], "status": checkout["status"]})
+        return JsonResponse({"message": _("The terminal didn't start the payment.")}, status=502)
+    return JsonResponse({"checkoutId": checkout.checkout_id, "status": checkout.status})
+
+
+def checkout_json(row) -> dict:
+    return {"checkoutId": row.checkout_id, "status": row.status, "finished": row.finished, "amount": str(row.amount),
+            "canceled": row.status == TerminalCheckout.CANCELED, "reason": row.cancel_reason}
+
+
+@register_staff_required
+@device_required
+def card_status(request, checkout_id):
+    """
+    This register's card payment (payments.TerminalCheckout), kept current by Square's webhook. The register asks
+    on each "checkout" nudge. GET ?refresh=1 asks Square itself (the "Check with Square" button, for when no webhook
+    reaches us); POST {"op": "cancel"} stops it on the Terminal.
+    """
+    row = TerminalCheckout.objects.filter(checkout_id=checkout_id, register=current_device(request)).first()
+    if row is None:
+        return JsonResponse({"message": _("That card payment wasn't started on this register.")}, status=404)
+    try:
+        if request.method == "POST" and json.loads(request.body or "{}").get("op") == "cancel":
+            row = square.cancel_checkout(row)
+        elif request.GET.get("refresh") and not row.finished:
+            row = square.refresh_checkout(row)
+    except (square.SquareError, ValueError):
+        logger.warning("Square couldn't update checkout %s", checkout_id, exc_info=True)
+        return JsonResponse({**checkout_json(row), "message": _("Square didn't answer. Try again.")}, status=502)
+    return JsonResponse(checkout_json(row))
+
+
+def terminal_json(register) -> dict:
+    paired = SquareTerminal.for_register(register)
+    waiting = None if paired else SquareTerminal.objects.filter(register=register, status="UNPAIRED").first() if register else None
+    return {"paired": {"name": paired.name, "id": paired.id} if paired else None,
+            "code": {"code": waiting.code, "pairBy": waiting.pair_by.isoformat() if waiting.pair_by else None, "id": waiting.id} if waiting else None,
+            "fallback": bool(settings.SQUARE_DEVICE_ID) and not paired, "register": bool(register)}
+
+
+@register_staff_required
+@device_required
+def terminal(request):
+    """
+    This register's Square Terminal: GET its state; POST {"action": "pair"} asks Square for a code to type into the
+    Terminal (Square's webhook finishes the pairing), "check" asks Square about the code, "unpair" stops using it.
+    """
+    register = current_device(request)
+    if request.method == "POST":
+        if register is None:
+            return JsonResponse({"message": _("Register this device first: Terminals belong to a register.")}, status=400)
+        action = json.loads(request.body or "{}").get("action")
+        try:
+            if action == "pair":
+                square.pair_terminal(register)
+            elif action == "check":
+                waiting = SquareTerminal.objects.filter(register=register, status="UNPAIRED").first()
+                if waiting:
+                    square.refresh_device_code(waiting)
+            elif action == "unpair":
+                square.unpair_terminal(register)
+        except square.SquareError:
+            logger.warning("Square terminal pairing failed", exc_info=True)
+            return JsonResponse({**terminal_json(register), "message": _("Square didn't answer. Try again.")}, status=502)
+    return JsonResponse(terminal_json(register))
 
 
 # ---------- lock screen ----------

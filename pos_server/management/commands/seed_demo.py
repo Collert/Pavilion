@@ -47,7 +47,7 @@ from screens.models import Screen, ScreenSession
 from services.models import Booking, Service
 from users.models import Staff
 
-# A fixed token so a dev browser can be registered once: ?device-token=<this> on any POS page
+# A fixed token so a dev browser can be registered once: /restaurant/check-device?device-token=<this>
 DEMO_DEVICE_TOKEN = "00000000-0000-4000-8000-000000000001"
 
 CONDIMENTS = ["Ketchup", "Mustard", "Mayo", "Hot sauce", "Extra salt packet"]
@@ -103,6 +103,10 @@ class Command(BaseCommand):
             self.seed_screens()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
+            # Register 1's own Square Terminal (each register pairs its own; demo ids never reach Square)
+            from payments.models import SquareTerminal
+            self.terminal, _ = SquareTerminal.objects.get_or_create(device_code_id="demo:code-1", defaults={
+                "name": "Register 1", "register": self.device, "code": "DEMO1A", "status": "PAIRED", "device_id": "demo:terminal-1"})
             # The register's lock screen offers PIN sign-in to whoever used it last
             for username in ("admin", "priya", "cashier"):  # Dana (cashier) most recent
                 for device in (None, self.device):
@@ -119,7 +123,7 @@ class Command(BaseCommand):
                 obj.save()
         self.stdout.write(self.style.SUCCESS(
             "Seeded. Log in as admin/admin, or on the register's lock screen as Dana (PIN 1234). Register this "
-            f"browser as a device with ?device-token={DEMO_DEVICE_TOKEN} (only needed when ENFORCE_DEVICE_CHECK is on)."
+            f"browser as Register 1 (it has a demo Terminal; needed to pair a real one) at /en/restaurant/check-device?device-token={DEMO_DEVICE_TOKEN}"
         ))
 
     # ---------- people ----------
@@ -1608,6 +1612,13 @@ class Command(BaseCommand):
             for payment in created.payments.filter(method=OrderPayment.CARD):  # what Square would have reported
                 brand, last4 = random.choice(cards)
                 payment.square_payment_id = f"demo-{created.pk}-{payment.pk}"
+                if channel == "store":  # taken on Register 1's Terminal: the checkout the webhook completed
+                    from payments.models import TerminalCheckout
+                    checkout = TerminalCheckout.objects.create(
+                        checkout_id=f"demo-checkout-{created.pk}-{payment.pk}", register=self.device, terminal=self.terminal,
+                        device_id=self.terminal.device_id, amount=payment.amount, status=TerminalCheckout.COMPLETED,
+                        payment_ids=[payment.square_payment_id], order=created)
+                    payment.square_checkout_id = checkout.checkout_id
                 payment.card_brand, payment.card_last4 = brand, last4
                 payment.entry_method = payment.entry_method or random.choice(["tap", "tap", "chip"])
                 payment.save()

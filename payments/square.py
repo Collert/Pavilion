@@ -1,14 +1,30 @@
-from django.conf import settings
-from square.client import Client
-from square.http.auth.o_auth_2 import BearerAuthCredentials
+"""
+Square: Terminal payments for the registers (each register pairs its own Terminal), Web Payments for the online
+store, captures, voids, refunds and saved cards.
+
+Terminal flow: a register pairs a Terminal with a device code (pair_terminal; Square's device.code.paired webhook,
+or refresh_device_code, finishes it). A card payment starts a TerminalCheckout on that register's Terminal
+(start_checkout); Square's terminal.checkout.updated webhook updates its row (checkout_event) and publishes
+"checkout", and the register asks for its own checkout. Nothing is kept in process memory or under global cache
+keys, so any number of registers and workers can take card payments at once. Placing the order claims the
+checkout (claim_checkout): this register's, completed, for that amount, used once.
+"""
+import logging
 import uuid
 from decimal import Decimal
-from django.http import JsonResponse, HttpResponse
-import json
-from django.core.cache import cache
-from pavilion.realtime import publish
-from .models import PaymentAuthorization, SquareTerminal
+
+from django.conf import settings
+from django.db import transaction
 from django.utils.dateparse import parse_datetime
+from django.utils.translation import gettext as _
+from square.client import Client
+from square.http.auth.o_auth_2 import BearerAuthCredentials
+
+from pavilion.realtime import publish
+
+from .models import PaymentAuthorization, SquareTerminal, TerminalCheckout
+
+logger = logging.getLogger(__name__)
 
 # Initialize the Square client
 square_client = Client(
@@ -16,92 +32,140 @@ square_client = Client(
     environment=settings.SQUARE_ENVIRONMENT
 )
 
-def gather_terminal_checkout(amount:Decimal):
-    """
-    Initiates a terminal checkout request with Square API.
-    This function converts the given amount to the smallest currency unit (e.g., cents)
-    and creates a checkout request with necessary details such as idempotency key,
-    amount, note, and device options. It then sends the request to the Square API
-    to create a terminal checkout.
-    Args:
-        amount (float): The amount for the transaction in dollars.
-    Returns:
-        dict: The response from the Square API after creating the terminal checkout.
-    """
-    # Convert amount to the smallest currency unit, e.g., cents
-    amount_money = {"amount": to_cents(amount), "currency": "CAD"}
 
-    checkout_request = {
-        "idempotency_key": str(uuid.uuid4()),  # Unique identifier for the request
-        "checkout": {
-            "amount_money": amount_money,
-            "note": "Transaction through Pavilion",
-            "device_options": {
-                "device_id": SquareTerminal.current_device_id() or settings.SQUARE_DEVICE_ID,
-                "tip_settings": {
-                    "allow_tipping": True  # Or True, as per your requirement
-                }
-            }
-            # Add other necessary fields according to your requirements
-        }
-    }
+# ---------- pairing a Terminal with a register ----------
 
-    api_response = square_client.terminal.create_terminal_checkout(checkout_request)
-    return api_response
-
-def create_device_code(name="Square Terminal"):
-    """Ask Square for a new pairing code and store it. Raises SquareError on failure."""
+def pair_terminal(register, name=""):
+    """Ask Square for a device code for this register's Terminal (typed in on the Terminal: "Use a device code").
+    Codes it asked for before and never used are dropped. Raises SquareError."""
+    name = (name or (register.name if register else "") or "Square Terminal")[:100]
     response = square_client.devices.create_device_code({
         "idempotency_key": str(uuid.uuid4()),
-        "device_code": {
-            "name": name,
-            "product_type": "TERMINAL_API",
-            "location_id": settings.SQUARE_LOCATION_ID
-        }
+        "device_code": {"name": name, "product_type": "TERMINAL_API", "location_id": settings.SQUARE_LOCATION_ID},
     })
     if not response.is_success():
         raise SquareError(response.errors)
-    device_code = response.body["device_code"]
+    SquareTerminal.objects.filter(register=register).exclude(status="PAIRED").delete()
+    code = response.body["device_code"]
     return SquareTerminal.objects.create(
-        name=name,
-        device_code_id=device_code["id"],
-        code=device_code["code"],
-        status=device_code.get("status", "UNPAIRED"),
-        pair_by=parse_datetime(device_code["pair_by"]) if device_code.get("pair_by") else None,
-    )
+        name=name, register=register, device_code_id=code["id"], code=code["code"], status=code.get("status", "UNPAIRED"),
+        pair_by=parse_datetime(code["pair_by"]) if code.get("pair_by") else None)
+
+
+def _device_code_changed(terminal, code):
+    terminal.status = code.get("status", terminal.status)
+    if terminal.status == "PAIRED" and code.get("device_id"):
+        terminal.device_id = code["device_id"]
+        if terminal.register_id:  # one Terminal per register: the newly paired one replaces the old
+            SquareTerminal.objects.filter(register_id=terminal.register_id).exclude(pk=terminal.pk).update(register=None)
+    terminal.save()
+    publish("checkout")
+    return terminal
+
 
 def refresh_device_code(terminal):
-    """Update a pairing code's status from Square. A newly paired terminal becomes the active one."""
+    """Ask Square how a pairing code is doing ("Check" on the register, when no webhook reached us)."""
     response = square_client.devices.get_device_code(terminal.device_code_id)
     if not response.is_success():
         raise SquareError(response.errors)
-    device_code = response.body["device_code"]
-    terminal.status = device_code.get("status", terminal.status)
-    if terminal.status == "PAIRED" and device_code.get("device_id"):
-        terminal.device_id = device_code["device_id"]
-        if not terminal.is_active:
-            SquareTerminal.objects.exclude(pk=terminal.pk).update(is_active=False)
-            terminal.is_active = True
-    terminal.save()
-    return terminal
+    return _device_code_changed(terminal, response.body["device_code"])
 
-def terminal_checkout(request):
-    body = json.loads(request.body)
-    amount = Decimal(str(body["amount"]))
-    response = gather_terminal_checkout(amount)
-    if response.is_success():
-        checkout = response.body
-        checkout_id = checkout["checkout"]["id"]
-        # Store both the status and checkout ID for better tracking
-        # Using 60 second timeout to match active orders caching pattern
-        cache.set('checkout_card_status', checkout["checkout"]["status"], timeout=180)
-        cache.set('current_checkout_id', checkout_id, timeout=180)
-        publish("checkout")
-        return JsonResponse({"message":checkout}, status=200)
-    elif response.is_error():
-        errors = response.errors
-        return JsonResponse({"message":errors}, status=500)
-    
+
+def device_code_event(code: dict):
+    """Square's device.code.paired webhook: the code was typed into a Terminal."""
+    terminal = SquareTerminal.objects.filter(device_code_id=code.get("id", "")).first()
+    return _device_code_changed(terminal, code) if terminal else None
+
+
+def unpair_terminal(register):
+    """This register stops using its Terminal (Square still knows the Terminal; pair it again to use it)."""
+    SquareTerminal.objects.filter(register=register).update(register=None)
+    publish("checkout")
+
+
+# ---------- card payments on a Terminal ----------
+
+def gather_terminal_checkout(amount: Decimal, device_id: str, reference: str = ""):
+    """Ask Square to take `amount` on the Terminal `device_id`. Returns Square's response."""
+    return square_client.terminal.create_terminal_checkout({
+        "idempotency_key": str(uuid.uuid4()),
+        "checkout": {
+            "amount_money": {"amount": to_cents(amount), "currency": "CAD"},
+            "reference_id": reference[:40],
+            "note": "Transaction through Pavilion",
+            "device_options": {"device_id": device_id, "tip_settings": {"allow_tipping": True}},
+        },
+    })
+
+
+def start_checkout(register, amount: Decimal, user=None) -> TerminalCheckout:
+    """Start a card payment on this register's Terminal. Raises SquareError (its message can be shown)."""
+    terminal = SquareTerminal.for_register(register)
+    device_id = terminal.device_id if terminal else settings.SQUARE_DEVICE_ID
+    if not device_id:
+        raise SquareError(_("No card terminal is paired with this register. Pair one from the Screen button."))
+    response = gather_terminal_checkout(amount, device_id, reference=f"register-{register.id}" if register else "")
+    if not response.is_success():
+        raise SquareError("; ".join(str(err.get("detail", err)) for err in response.errors or []))
+    checkout = response.body["checkout"]
+    return TerminalCheckout.objects.create(checkout_id=checkout["id"], register=register, terminal=terminal, device_id=device_id,
+                                           amount=amount, status=checkout.get("status", TerminalCheckout.PENDING), started_by=user)
+
+
+def _checkout_changed(row, checkout: dict):
+    row.status = checkout.get("status", row.status)
+    row.payment_ids = checkout.get("payment_ids") or row.payment_ids
+    row.cancel_reason = checkout.get("cancel_reason", row.cancel_reason) or ""
+    row.save(update_fields=["status", "payment_ids", "cancel_reason", "updated_at"])
+    publish("checkout")
+    return row
+
+
+def checkout_event(checkout: dict):
+    """Square's terminal.checkout.updated webhook. Checkouts we didn't start are ignored."""
+    row = TerminalCheckout.objects.filter(checkout_id=checkout.get("id", "")).first()
+    if row is None:
+        logger.info("Ignoring a webhook for checkout %s, which isn't ours", checkout.get("id"))
+        return None
+    return _checkout_changed(row, checkout)
+
+
+def refresh_checkout(row) -> TerminalCheckout:
+    """Ask Square for a checkout's status (when the register checks and no webhook reached us)."""
+    result = square_client.terminal.get_terminal_checkout(row.checkout_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return _checkout_changed(row, result.body["checkout"])
+
+
+def cancel_checkout(row) -> TerminalCheckout:
+    """Stop a checkout on the Terminal (the cashier pressed Cancel)."""
+    if row.finished:
+        return row
+    result = square_client.terminal.cancel_terminal_checkout(row.checkout_id)
+    if not result.is_success():
+        raise SquareError(result.errors)
+    return _checkout_changed(row, result.body["checkout"])
+
+
+def claim_checkout(checkout_id, register, amount, order):
+    """Placing an order uses a card payment once: it must be this register's checkout, completed, for that amount.
+    Raises ValueError with a message for the cashier. Call inside the order's transaction."""
+    with transaction.atomic():
+        row = TerminalCheckout.objects.select_for_update().filter(checkout_id=checkout_id).first()
+        if row is None or row.register_id != (register.id if register else None):
+            raise ValueError(_("That card payment wasn't taken on this register."))
+        if row.status != TerminalCheckout.COMPLETED:
+            raise ValueError(_("That card payment hasn't gone through."))
+        if row.amount != Decimal(amount):
+            raise ValueError(_("That card payment was for $%(amount)s.") % {"amount": row.amount})
+        if row.order_id:
+            raise ValueError(_("That card payment was already used for order #%(n)s.") % {"n": row.order_id})
+        row.order = order
+        row.save(update_fields=["order", "updated_at"])
+        return row
+
+
 def to_cents(amount) -> int:
     """Dollars (Decimal/str/float) to integer cents, which is what Square expects."""
     return int((Decimal(str(amount)) * 100).quantize(Decimal("1")))

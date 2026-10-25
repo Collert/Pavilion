@@ -71,18 +71,19 @@ class PaymentAuthorization(models.Model):
 
 class SquareTerminal(models.Model):
     """
-    A Square Terminal paired with this POS through a device code (pos_server.views.pair_square_terminal).
-
-    Pairing: create a code here, type it into the Terminal, then refresh. Once Square reports the code as
-    PAIRED, `device_id` is filled in and this terminal becomes the one card payments are sent to.
+    A Square Terminal paired with one register (payments/square.py: pair_terminal). The register asks Square for a
+    device code; once it's typed into the Terminal, Square's device.code.paired webhook (or "Check" on the register)
+    fills in `device_id` and that register's card payments go to it. Each register has its own; a register without
+    one falls back to settings.SQUARE_DEVICE_ID.
     """
     name = models.CharField(max_length=100, default="Square Terminal")
+    register = models.ForeignKey("pos_server.EligibleDevice", null=True, blank=True, on_delete=models.SET_NULL, related_name="terminals",
+                                 help_text="The register that sends its card payments here")
     device_code_id = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=20)
-    status = models.CharField(max_length=20, default="UNPAIRED")
+    status = models.CharField(max_length=20, default="UNPAIRED", help_text="Square's device code status: UNPAIRED, PAIRED, EXPIRED")
     pair_by = models.DateTimeField(null=True, blank=True)
     device_id = models.CharField(max_length=100, blank=True)
-    is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -92,6 +93,39 @@ class SquareTerminal(models.Model):
         return f"{self.name} ({self.status})"
 
     @classmethod
-    def current_device_id(cls):
-        terminal = cls.objects.filter(is_active=True).exclude(device_id="").first()
-        return terminal.device_id if terminal else None
+    def for_register(cls, register):
+        """The paired Terminal of a register (EligibleDevice or None), or None."""
+        return cls.objects.filter(register=register, status="PAIRED").exclude(device_id="").first() if register else None
+
+
+class TerminalCheckout(models.Model):
+    """
+    One card payment asked of a Terminal (payments/square.py: start_checkout). Square's terminal.checkout.updated
+    webhook keeps `status` current, so every worker sees the same thing; the register that started it waits on the
+    "checkout" nudge and asks for its own checkout only. Placing the order claims it (`order`), once.
+    """
+    PENDING, IN_PROGRESS, CANCEL_REQUESTED, CANCELED, COMPLETED = "PENDING", "IN_PROGRESS", "CANCEL_REQUESTED", "CANCELED", "COMPLETED"
+    FINISHED = (CANCELED, COMPLETED)
+    checkout_id = models.CharField(max_length=64, unique=True)
+    register = models.ForeignKey("pos_server.EligibleDevice", null=True, blank=True, on_delete=models.SET_NULL, related_name="checkouts")
+    terminal = models.ForeignKey(SquareTerminal, null=True, blank=True, on_delete=models.SET_NULL, related_name="checkouts")
+    device_id = models.CharField(max_length=100, blank=True, help_text="Square's id of the Terminal it went to")
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    status = models.CharField(max_length=20, default=PENDING)
+    payment_ids = models.JSONField(default=list, blank=True)
+    cancel_reason = models.CharField(max_length=40, blank=True)
+    started_by = models.ForeignKey("auth.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    order = models.ForeignKey("pos_server.Order", null=True, blank=True, on_delete=models.SET_NULL, related_name="terminal_checkouts",
+                              help_text="The order that used it")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.checkout_id} ${self.amount} {self.status}"
+
+    @property
+    def finished(self) -> bool:
+        return self.status in self.FINISHED

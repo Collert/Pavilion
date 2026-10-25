@@ -76,7 +76,7 @@ All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/ev
 | Prefix | App | Key routes |
 | --- | --- | --- |
 | `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
-| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `webhook/square/check_card_status`, `check-su` |
+| `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `register/card/<checkout id>`, `register/terminal`, `check-su` |
 | `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `shifts[/pars]`, `requests`, `roles`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
 | `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
@@ -191,7 +191,9 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `EligibleDevice(token, name)`: registered POS/KDS devices (§6.8).
 - `payments.Transaction(uuid, amount, successful, used)`: one online card payment. Only the server marks it `successful`;
   `Transaction.consume()` spends it once. `PaymentAuthorization(payment_id, amount cents, currency, status)`: `""`
-  authorized, `cap` captured, `del` voided/refunded. `SquareTerminal`: paired Terminal devices.
+  authorized, `cap` captured, `del` voided/refunded. `SquareTerminal`: a Terminal and the register (`EligibleDevice`) it takes
+  card payments for. `TerminalCheckout`: one card payment asked of a Terminal (register, amount, Square's status, the order
+  that used it).
 - `gift_cards.GiftCard(number_hash, last4, design, available_balance, original, email, recipient, message, note, source
   online/pos/staff, buyer, issued_at/by, frozen, empty_since)`: the 16-digit number is never stored (since 2026-10-23;
   `GiftCard.find` hashes what's typed), `GiftCardEvent` (its history: issue, use, refund, adjust, note),
@@ -316,7 +318,12 @@ above the order, the drawer's and lock screen's panels top to bottom, the KDS he
 4. **Cash drawer** (`/restaurant/drawer`): open with a starting amount (keypad), see cash/card sales and paid in/out
    for the session, record paid in/out, close by counting (the expected amount stays hidden until then) and see the
    difference. One open `CashDrawerSession` per registered device (one shared session when the device check is off).
-5. `pair-terminal` (superuser) pairs Square Terminals as before.
+5. **Terminals** (October 2026): each register pairs its own from its Screen sheet ("Card terminal": a device code to type
+   on the Terminal; Square's `device.code.paired` webhook or Check finishes it). A card payment is a `TerminalCheckout` row;
+   `terminal.checkout.updated` updates it and publishes `checkout`; the register asks `register/card/<id>` for its own
+   ("Check with Square" asks Square directly when no webhook arrives; Cancel cancels on the Terminal). Placing the order
+   claims the checkout once. `pair-terminal` (superuser) lists every Terminal and its register. Before this, one "active"
+   Terminal took every register's payments and the checkout lived under two global cache keys.
 
 ### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen,bar`)
 
@@ -1021,7 +1028,8 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 
 ### Known limits (not bugs, but worth knowing)
 
-- POS card payments: the server trusts the POS that the Terminal checkout completed (the POS is staff-only and device-gated).
+- POS card payments: the server checks the Terminal checkout itself (completed, this register's, that amount, once). Terminal
+  tips aren't recorded on the order yet.
 - Customer order pages use sequential order IDs, so anyone can view any order's dish list and progress (no names, phones or addresses are shown).
 - `card-api` GET is public: the 16-digit card number is the only secret for checking a balance.
 - Receipt name/address are hard-coded for the cathedral café (`RESTAURANT_ADDRESS` is an env

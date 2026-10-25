@@ -326,13 +326,14 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
-# Redis carries the cache and the SSE pub/sub between worker processes. Required in production: with
-# several workers, per-process memory (LocMemCache, the in-process event broker) silently breaks the
-# Square checkout status and live screen updates.
+# Redis carries the cache and the SSE pub/sub between worker processes. Required in production: with several
+# workers, per-process memory silently breaks rate limits, lock-screen attempts and live screen updates. Square
+# Terminal checkouts and pairings live in the database (payments.TerminalCheckout, SquareTerminal), not the cache.
 REDIS_URL = os.getenv('REDIS_URL')
 if os.getenv('ENVIRONMENT') == "production" and not REDIS_URL:
     raise RuntimeError("REDIS_URL must be set in production")
 
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 if REDIS_URL:
     CACHES = {
         'default': {
@@ -340,11 +341,16 @@ if REDIS_URL:
             'LOCATION': REDIS_URL,
         }
     }
+elif TESTING:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'tests'}}  # fresh every run
 else:
+    # Development without Redis: a file cache every process shares (several runserver/uvicorn workers see the same
+    # values), in the system's temp folder rather than the project (which may be synced, e.g. by OneDrive)
+    import tempfile
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': os.getenv('CACHE_DIR') or os.path.join(tempfile.gettempdir(), 'pavilion-cache'),
         }
     }
 # Error reporting to Bugsink (Sentry-compatible). The DSN is public by design (it only allows sending events).

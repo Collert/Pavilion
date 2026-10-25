@@ -27,6 +27,14 @@ from .pricing import DishKit, dish_queryset, price_cart
 from users.testing import crew
 
 
+def terminal_card(amount, register=None):
+    """A card payment as the register sends it: backed by a completed Terminal checkout (payments.TerminalCheckout)."""
+    from payments.models import TerminalCheckout
+    checkout = TerminalCheckout.objects.create(checkout_id=f"test-{TerminalCheckout.objects.count() + 1}", register=register,
+                                               amount=Decimal(amount), status=TerminalCheckout.COMPLETED)
+    return {"method": "card", "amount": amount, "checkoutId": checkout.checkout_id}
+
+
 class MenuFixture:
     """
     A small menu: a burger (kitchen) with adjustable parts, a patty-temperature option, a bun swap, an add-on
@@ -828,6 +836,10 @@ class KitchenDisplayTests(MenuFixture, TestCase):
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class RegisterTests(MenuFixture, TestCase):
+    def run(self, result=None):
+        with mock.patch("payments.square.fill_card_details"):  # Square isn't asked for the card's details here
+            return super().run(result)
+
     @classmethod
     def setUpTestData(cls):
         cls.build_menu()
@@ -887,13 +899,13 @@ class RegisterTests(MenuFixture, TestCase):
     def test_split_payment_with_a_gift_card(self):
         card = GiftCard.objects.create(available_balance=Decimal("5.00"))
         response = self.post("pos", {"lines": [self.dish(self.burger)], "total": "14.50", "payments": [
-            {"method": "gift", "number": card.number, "amount": "5.00"}, {"method": "card", "amount": "9.50"}]})
+            {"method": "gift", "number": card.number, "amount": "5.00"}, terminal_card("9.50")]})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(sorted(Order.objects.get().payments.values_list("method", flat=True)), ["card", "gift"])
 
     def test_manual_discount_needs_the_permission(self):
         body = {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": {"kind": "amt", "value": "1.00"}},
-                "total": "1.00", "payments": [{"method": "card", "amount": "1.00"}]}
+                "total": "1.00", "payments": [terminal_card("1.00")]}
         self.assertEqual(self.post("pos", body).status_code, 400)
         crew(self.staff, "app.register", "act.discount")  # a group with "Give discounts"
         self.assertEqual(self.post("pos", body).status_code, 200)
@@ -937,7 +949,7 @@ class RegisterTests(MenuFixture, TestCase):
 
         def cart(manual):
             return {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": manual}, "total": "1.00",
-                    "payments": [{"method": "card", "amount": "1.00"}]}
+                    "payments": [terminal_card("1.00")]}
         # the approval is for $1.00 off, for this cashier
         self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.50", "approval": approval["approval"]})).status_code, 400)
         self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": "forged"})).status_code, 400)
@@ -948,6 +960,7 @@ class RegisterTests(MenuFixture, TestCase):
         self.client.force_login(other)
         self.assertEqual(self.post("pos", cart({"kind": "amt", "value": "1.00", "approval": approval["approval"]})).status_code, 400)
 
+    @override_settings(SQUARE_DEVICE_ID="store-terminal")  # no registered device here: the store's default Terminal
     @mock.patch("payments.square.gather_terminal_checkout")
     def test_card_checkout_checks_the_cart_first(self, checkout):
         checkout.return_value = mock.Mock(is_success=lambda: True, body={"checkout": {"id": "c1", "status": "PENDING"}})
@@ -956,6 +969,9 @@ class RegisterTests(MenuFixture, TestCase):
         self.assertEqual(self.post("register_card", {**body, "amount": "20.00"}).status_code, 400)
         checkout.assert_not_called()
         self.assertEqual(self.post("register_card", body).json()["checkoutId"], "c1")
+        self.assertEqual(checkout.call_args.args[1], "store-terminal")
+        from payments.models import TerminalCheckout
+        self.assertEqual(TerminalCheckout.objects.get().amount, Decimal("14.50"))  # kept in the database, not the cache
 
     def test_drawer_open_move_close(self):
         self.assertEqual(self.client.get(reverse("cash_drawer")).status_code, 200)
@@ -1164,6 +1180,10 @@ class RealtimeTests(MenuFixture, TestCase):
 
 class GiftCardSaleTests(MenuFixture, TestCase):
     """Gift cards bought on the register or online (pricing's gift_sales, orders.issue_gift_cards)."""
+    def run(self, result=None):
+        with mock.patch("payments.square.fill_card_details"):
+            return super().run(result)
+
     @classmethod
     def setUpTestData(cls):
         from gift_cards.models import GiftCardDesign
@@ -1218,7 +1238,7 @@ class GiftCardSaleTests(MenuFixture, TestCase):
         quote_ = self.client.post(reverse("register_quote"), json.dumps(body), content_type="application/json").json()
         self.assertEqual((quote_["total"], quote_["giftTotal"]), (5000, 5000))
         with mock.patch("gift_cards.giftcards.send_email") as sent:
-            answer = self.client.post(reverse("pos"), json.dumps({**body, "total": "50.00", "payments": [{"method": "card", "amount": "50.00"}]}),
+            answer = self.client.post(reverse("pos"), json.dumps({**body, "total": "50.00", "payments": [terminal_card("50.00")]}),
                                       content_type="application/json").json()
         card = answer["giftCards"][0]
         self.assertEqual((card["amount"], card["sent"], len(card["number"])), (5000, True, 19))

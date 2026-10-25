@@ -211,6 +211,12 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         OrderPayment.objects.create(order=order, method=OrderPayment.GIFT, amount=amount, gift_card=card, drawer=drawer)
     order.new_gift_cards = issue_gift_cards(order, cart.gift_sales, channel, fields.get("cashier"))
     for method, amount, tendered, checkout in tenders:
+        if checkout:  # a Terminal card payment: it must have gone through, on this register, for this amount, once
+            from payments.square import claim_checkout
+            try:
+                claim_checkout(checkout, fields.get("device"), amount, order)
+            except ValueError as e:
+                raise OrderError(str(e))
         OrderPayment.objects.create(order=order, method=method, amount=amount, tendered=tendered, drawer=drawer,
                                     square_checkout_id=checkout)
     if verify_payment and total - gift_total > 0:

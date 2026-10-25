@@ -311,6 +311,8 @@ class RefundTests(AdminFixture, TestCase):
         self.assertFalse(Refund.objects.exists())
 
     def test_card_details_come_from_the_terminal_checkout(self):
+        from payments.models import TerminalCheckout
+        TerminalCheckout.objects.create(checkout_id="chk-9", amount=Decimal("2.10"), status=TerminalCheckout.COMPLETED)
         order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
                              payments=[{"method": "card", "amount": "2.10", "checkoutId": "chk-9"}], drawer=self.drawer)
         payment = order.payments.get()

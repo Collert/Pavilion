@@ -1676,7 +1676,7 @@ function renderPay() {
         $("#card-title").textContent = waiting ? t("Waiting for card") : t("Card on the terminal");
         $("#card-text").textContent = waiting ? t("The terminal is ready. Tap, insert or swipe.")
             : interpolate(t("Charge %s on the terminal, then the customer taps, inserts or swipes."), [fmt(now)]);
-        $("#card-cancel").hidden = ui.card !== "waiting";
+        $("#card-actions").hidden = ui.card !== "waiting";
         label = waiting ? t("Waiting for terminal…") : interpolate(t("Charge %s"), [fmt(now)]);
         disabled = disabled || waiting;
     } else if (ui.method === "staff") {
@@ -1935,7 +1935,9 @@ $("#gd-done").addEventListener("click", () => {
     $("#giftdone-sheet").close();
 });
 
-// Card: start a Terminal checkout, then wait for Square's webhook to report the result
+// Card: start a checkout on this register's Terminal, then wait for Square's webhook to report it. The server keeps
+// each checkout in the database (payments.TerminalCheckout) and nudges "checkout"; this register then asks about its
+// own checkout only. "Check with Square" asks Square directly (no webhook in development); Cancel stops the Terminal.
 let stopCardWatch = null;
 
 async function chargeCard(amount) {
@@ -1953,27 +1955,34 @@ async function chargeCard(amount) {
     }
     ui.card = "waiting";
     renderPay();
+    const checkoutId = result.data.checkoutId;
+    const statusUrl = urls.cardStatus.replace("CHECKOUT", encodeURIComponent(checkoutId));
     let finished = false;
-    const check = async () => {
-        if (finished) return;
-        const response = await fetch(urls.cardStatus).catch(() => null);
-        const status = response && response.ok ? (await response.json()).status : null;
-        if (status === "COMPLETED" || status === "CANCELED" || status === "CANCEL_REQUESTED") {
-            finished = true;
-            stopCardWatch?.();
-            await fetch(urls.cardStatus, { method: "DELETE", headers: { "X-CSRFToken": csrftoken } }).catch(() => {});
-            ui.card = "idle";
-            if (status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card"), checkoutId: result.data.checkoutId });
-            else { renderPay(); toast(t("The card payment was canceled."), { error: true }); }
-        }
-    };
-    // Square's webhook updates the status and the server sends a "checkout" event
-    stopCardWatch = onLiveUpdate("checkout", check);
-    $("#card-cancel").onclick = () => {
+    const settle = (data) => {
+        if (finished || !data?.finished) return;
         finished = true;
         stopCardWatch?.();
         ui.card = "idle";
-        renderPay();
+        if (data.status === "COMPLETED") addPayment({ method: "card", amount, label: t("Card"), checkoutId });
+        else { renderPay(); toast(t("The card payment was canceled."), { error: true }); }
+    };
+    const check = async (refresh = false) => {
+        if (finished) return;
+        const response = await fetch(statusUrl + (refresh ? "?refresh=1" : ""), { headers: { Accept: "application/json" } }).catch(() => null);
+        const data = response ? await response.json().catch(() => null) : null;
+        if (refresh && !response?.ok) toast(data?.message || t("Square didn't answer. Try again."), { error: true });
+        settle(data);
+    };
+    stopCardWatch = onLiveUpdate("checkout", () => check());
+    $("#card-check").onclick = () => check(true);
+    $("#card-cancel").onclick = async () => {
+        const answer = await post(statusUrl, { op: "cancel" }).catch(() => ({ ok: false, data: {} }));
+        if (!answer.ok) {
+            toast(answer.data.message || t("Square didn't answer. Try again."), { error: true });
+            return;
+        }
+        if (answer.data.finished) settle(answer.data);  // it may have gone through just before
+        else toast(t("Canceling on the terminal…"));
     };
 }
 
@@ -2077,8 +2086,40 @@ $("#clear-cart").addEventListener("click", clearCart);
 $("#disc-toggle").addEventListener("click", () => { ui.discListOpen = !ui.discListOpen; renderTotals(); });
 $("#menu-switch").addEventListener("click", () => $("#menu-sheet").showModal());
 
+// This register's Square Terminal (register.terminal): pair it with a code typed on the Terminal; Square's webhook
+// (or Check) finishes it, and the "checkout" nudge brings the sheet up to date
+let terminalState = null;
+function renderTerminal() {
+    const st = terminalState;
+    $("#terminal-paired").hidden = !st?.paired;
+    $("#terminal-code").hidden = !st?.code;
+    $("#terminal-none").hidden = !st || !!st.paired || !!st.code;
+    if (!st) return;
+    if (st.paired) $("#terminal-name").textContent = st.paired.name;
+    if (st.code) {
+        $("#terminal-code-text").textContent = st.code.code;
+        $("#terminal-code-sub").textContent = st.code.pairBy
+            ? interpolate(t("Use it by %s."), [new Date(st.code.pairBy).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })]) : "";
+    }
+    $("#terminal-none-text").textContent = !st.register ? t("Register this device first: Terminals belong to a register.")
+        : st.fallback ? t("No Terminal of its own yet: it uses the store's default Terminal.") : t("No Terminal yet: card payments can't be taken.");
+    $("#terminal-new").disabled = !st.register;
+}
+async function loadTerminal(action) {
+    const answer = action ? await post(urls.terminal, { action }).catch(() => null)
+        : await fetch(urls.terminal, { headers: { Accept: "application/json" } }).then(async (r) => ({ ok: r.ok, data: await r.json() })).catch(() => null);
+    if (!answer) return;
+    if (!answer.ok && answer.data?.message) toast(answer.data.message, { error: true });
+    if (answer.data && "paired" in answer.data) terminalState = answer.data;
+    renderTerminal();
+}
+$("#terminal-new").addEventListener("click", () => loadTerminal("pair"));
+$("#terminal-check").addEventListener("click", () => loadTerminal("check"));
+$("#terminal-unpair").addEventListener("click", () => loadTerminal("unpair"));
+onLiveUpdate("checkout", () => { if ($("#screens-sheet").open) loadTerminal(); });
+
 // Screens: pair with a screen session, and staff announcements (screens/views.py: pair, announce)
-$("#screens-open").addEventListener("click", () => { renderPairing(); $("#screens-sheet").showModal(); });
+$("#screens-open").addEventListener("click", () => { renderPairing(); loadTerminal(); $("#screens-sheet").showModal(); });
 $("#screen-pair-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
