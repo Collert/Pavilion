@@ -16,7 +16,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext as _, gettext_lazy
 from pavilion.realtime import publish
 
 from .models import PaymentAuthorization, SquareConnection, SquareTerminal, TerminalCheckout
@@ -92,6 +92,37 @@ def device_code_event(code: dict):
     """Square's device.code.paired webhook: the code was typed into a Terminal."""
     terminal = SquareTerminal.objects.filter(device_code_id=code.get("id", "")).first()
     return _device_code_changed(terminal, code) if terminal else None
+
+
+# Square's sandbox has no Terminals to pair: these test device ids each act out one outcome
+# (https://developer.squareup.com/docs/devtools/sandbox/testing). Approvals go through up to $25; more stays pending.
+SANDBOX_TERMINALS = [
+    ("9fa747a2-25ff-48ee-b078-04381f7c828f", gettext_lazy("Card approved")),
+    ("22cd266c-6246-4c06-9983-67f0c26346b0", gettext_lazy("Card approved, with a 20% tip")),
+    ("388b5a08-a77c-48ef-ad2a-4a790e6f2789", gettext_lazy("Interac approved (CAD)")),
+    ("841100b9-ee60-4537-9bcf-e30b2ba5e215", gettext_lazy("Buyer cancels")),
+    ("0a956d49-619a-4530-8e5e-8eac603ffc5e", gettext_lazy("Times out")),
+    ("da40d603-c2ea-4a65-8cfd-f42e36dab0c7", gettext_lazy("Terminal offline")),
+]
+
+
+def sandbox() -> bool:
+    from .square_oauth import environment
+    return environment() == "sandbox"
+
+
+def use_sandbox_terminal(register, device_id):
+    """Sandbox only: give the register one of Square's test Terminals instead of pairing a real one."""
+    labels = dict(SANDBOX_TERMINALS)
+    if not sandbox() or device_id not in labels:
+        raise SquareError(_("Test Terminals are only for Square's sandbox."))
+    SquareTerminal.objects.filter(register=register).update(register=None)
+    terminal, _created = SquareTerminal.objects.update_or_create(
+        device_code_id=f"sandbox:{register.id}:{device_id}",
+        defaults={"name": _("Test Terminal: %(what)s") % {"what": labels[device_id]}, "register": register, "code": "",
+                  "status": "PAIRED", "device_id": device_id})
+    publish("checkout")
+    return terminal
 
 
 def unpair_terminal(register):

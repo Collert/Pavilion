@@ -329,7 +329,9 @@ above the order, the drawer's and lock screen's panels top to bottom, the KDS he
    on the Terminal; Square's `device.code.paired` webhook or Check finishes it). A card payment is a `TerminalCheckout` row;
    `terminal.checkout.updated` updates it and publishes `checkout`; the register asks `register/card/<id>` for its own
    ("Check with Square" asks Square directly when no webhook arrives; Cancel cancels on the Terminal). Placing the order
-   claims the checkout once. `pair-terminal` (superuser) lists every Terminal and its register. Before this, one "active"
+   claims the checkout once. In Square's sandbox nothing can be paired: the sheet offers Square's test device ids instead
+   (approved, approved with a tip, Interac, buyer cancels, times out, offline; approvals up to $25).
+   `pair-terminal` (superuser) lists every Terminal and its register. Before this, one "active"
    Terminal took every register's payments and the checkout lived under two global cache keys.
 
 ### 6.3 Kitchen display (`/restaurant/order-marking?filter=kitchen,bar`)

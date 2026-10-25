@@ -521,6 +521,11 @@
             <span class="grow sub" id="terminal-none-text"></span>
             <button class="btn btn-dark" type="button" id="terminal-new">{% trans "Pair a Terminal" %}</button>
         </div>
+        <div class="screens-pair-form" id="terminal-sandbox" hidden>
+            <select class="input" id="terminal-sandbox-pick" aria-label="{% trans 'Square sandbox test Terminal' %}"></select>
+            <button class="btn btn-sm" type="button" id="terminal-sandbox-use">{% trans "Use test Terminal" %}</button>
+        </div>
+        <p class="hint" id="terminal-sandbox-hint" hidden>{% trans "Square’s sandbox has no real Terminals: pick how the test one answers. Approvals go through up to $25." %}</p>
     </div>
     <div class="overline">{% trans "Announcement" %}</div>
     <form id="announce-form" data-url="{% url 'screens_announce' %}" class="screens-form">

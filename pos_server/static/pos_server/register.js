@@ -2104,6 +2104,15 @@ function renderTerminal() {
     $("#terminal-none-text").textContent = !st.register ? t("Register this device first: Terminals belong to a register.")
         : st.fallback ? t("No Terminal of its own yet: it uses the store's default Terminal.") : t("No Terminal yet: card payments can't be taken.");
     $("#terminal-new").disabled = !st.register;
+    // Square's sandbox: one of its test Terminals instead of pairing
+    const sandbox = st.sandbox || [];
+    $("#terminal-sandbox").hidden = !sandbox.length || !st.register;
+    $("#terminal-sandbox-hint").hidden = $("#terminal-sandbox").hidden;
+    if (sandbox.length) {
+        const pick = $("#terminal-sandbox-pick");
+        pick.replaceChildren(...sandbox.map((d) => el("option", { text: d.label, attrs: { value: d.id } })));
+        if (st.paired && sandbox.some((d) => d.id === st.paired.device)) pick.value = st.paired.device;
+    }
 }
 async function loadTerminal(action) {
     const answer = action ? await post(urls.terminal, { action }).catch(() => null)
@@ -2116,6 +2125,11 @@ async function loadTerminal(action) {
 $("#terminal-new").addEventListener("click", () => loadTerminal("pair"));
 $("#terminal-check").addEventListener("click", () => loadTerminal("check"));
 $("#terminal-unpair").addEventListener("click", () => loadTerminal("unpair"));
+$("#terminal-sandbox-use").addEventListener("click", async () => {
+    const answer = await post(urls.terminal, { action: "sandbox", device: $("#terminal-sandbox-pick").value }).catch(() => null);
+    if (answer?.data && "paired" in answer.data) { terminalState = answer.data; renderTerminal(); }
+    if (answer && !answer.ok) toast(answer.data.message || t("That didn't work."), { error: true });
+});
 onLiveUpdate("checkout", () => { if ($("#screens-sheet").open) loadTerminal(); });
 
 // Screens: pair with a screen session, and staff announcements (screens/views.py: pair, announce)

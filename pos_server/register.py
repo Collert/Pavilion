@@ -478,7 +478,8 @@ def card_status(request, checkout_id):
 def terminal_json(register) -> dict:
     paired = SquareTerminal.for_register(register)
     waiting = None if paired else SquareTerminal.objects.filter(register=register, status="UNPAIRED").first() if register else None
-    return {"paired": {"name": paired.name, "id": paired.id} if paired else None,
+    return {"paired": {"name": paired.name, "id": paired.id, "device": paired.device_id} if paired else None,
+            "sandbox": [{"id": d, "label": str(label)} for d, label in square.SANDBOX_TERMINALS] if square.sandbox() else [],
             "code": {"code": waiting.code, "pairBy": waiting.pair_by.isoformat() if waiting.pair_by else None, "id": waiting.id} if waiting else None,
             "fallback": bool(settings.SQUARE_DEVICE_ID) and not paired, "register": bool(register)}
 
@@ -504,6 +505,8 @@ def terminal(request):
                     square.refresh_device_code(waiting)
             elif action == "unpair":
                 square.unpair_terminal(register)
+            elif action == "sandbox":
+                square.use_sandbox_terminal(register, json.loads(request.body or "{}").get("device", ""))
         except square.SquareError:
             logger.warning("Square terminal pairing failed", exc_info=True)
             return JsonResponse({**terminal_json(register), "message": _("Square didn't answer. Try again.")}, status=502)

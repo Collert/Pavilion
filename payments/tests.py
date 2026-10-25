@@ -277,3 +277,29 @@ class SquareOAuthTests(TestCase):
     @override_settings(SQUARE_APPLICATION_SECRET="")
     def test_the_page_says_when_the_app_isnt_set_up(self):
         self.assertContains(self.client.get(reverse("admin_payments")), "SQUARE_APPLICATION_SECRET")
+
+
+@override_settings(SQUARE_ENVIRONMENT="sandbox")
+class SandboxTerminalTests(RegistersAndTerminals):
+    """Square's sandbox has no Terminals to pair: a register can use one of its test device ids instead."""
+
+    def test_pick_a_test_terminal(self):
+        bar = EligibleDevice.objects.create(name="Bar register")
+        on_bar = self.client_on(bar)
+        url = reverse("register_terminal")
+        state = on_bar.get(url).json()
+        self.assertIn("9fa747a2-25ff-48ee-b078-04381f7c828f", [d["id"] for d in state["sandbox"]])
+        state = on_bar.post(url, json.dumps({"action": "sandbox", "device": "841100b9-ee60-4537-9bcf-e30b2ba5e215"}),
+                            content_type="application/json").json()
+        self.assertEqual(state["paired"]["device"], "841100b9-ee60-4537-9bcf-e30b2ba5e215")
+        with mock.patch("payments.square.gather_terminal_checkout", return_value=started("c-test")) as gather:
+            square.start_checkout(bar, Decimal("5"))
+        self.assertEqual(gather.call_args.args[1], "841100b9-ee60-4537-9bcf-e30b2ba5e215")
+        refused = on_bar.post(url, json.dumps({"action": "sandbox", "device": "made-up"}), content_type="application/json")
+        self.assertEqual(refused.status_code, 502)
+
+    @override_settings(SQUARE_ENVIRONMENT="production")
+    def test_not_in_production(self):
+        self.assertEqual(self.client_on(self.front).get(reverse("register_terminal")).json()["sandbox"], [])
+        with self.assertRaises(square.SquareError):
+            square.use_sandbox_terminal(self.front, "9fa747a2-25ff-48ee-b078-04381f7c828f")

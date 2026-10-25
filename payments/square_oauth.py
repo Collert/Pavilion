@@ -24,9 +24,10 @@ from .secrets import decrypt, encrypt
 
 logger = logging.getLogger(__name__)
 
-# What Pavilion does in the store's account: payments, Terminal checkouts and refunds; pairing Terminals; its
-# locations and name; customers and their saved cards
-SCOPES = ["PAYMENTS_READ", "PAYMENTS_WRITE", "DEVICE_CREDENTIAL_MANAGEMENT", "MERCHANT_PROFILE_READ", "CUSTOMERS_READ", "CUSTOMERS_WRITE"]
+# What Pavilion does in the store's account: payments, Terminal checkouts (in person) and refunds; pairing
+# Terminals; its locations and name; customers and their saved cards
+SCOPES = ["PAYMENTS_READ", "PAYMENTS_WRITE", "PAYMENTS_WRITE_IN_PERSON", "DEVICE_CREDENTIAL_MANAGEMENT", "MERCHANT_PROFILE_READ",
+          "CUSTOMERS_READ", "CUSTOMERS_WRITE"]
 REFRESH_WHEN_LEFT = datetime.timedelta(days=7)
 
 

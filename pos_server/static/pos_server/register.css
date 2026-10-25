@@ -410,7 +410,8 @@
 .card-actions { display: flex; gap: 14px; flex: none; }
 .card-actions[hidden] { display: none; }
 .terminal-code { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--soft); }
-.terminal-code[hidden], #terminal-none[hidden], #terminal-paired[hidden] { display: none; }
+.terminal-code[hidden], #terminal-none[hidden], #terminal-paired[hidden], #terminal-sandbox[hidden], #terminal-sandbox-hint[hidden] { display: none; }
+#terminal-sandbox .input { flex: 1; min-width: 0; }
 .terminal-code .grow, #terminal-paired .grow { display: flex; flex-direction: column; gap: 4px; }
 .terminal-code-text { font-family: var(--heading); font-size: 30px; letter-spacing: .12em; }
 .reg-screens-btn .menu-switch-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
