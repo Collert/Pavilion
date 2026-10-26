@@ -91,18 +91,23 @@ applies after a restart (the card does it, as on Languages; languages.js reloads
 
     <section class="card tm-card pm-card si-wide" aria-label="{% trans 'Services Pavilion uses' %}">
         <h2 class="disp tm-h2">{% trans "Services Pavilion uses" %}</h2>
-        <div class="small muted strong">{% trans "Keys are kept encrypted and never shown again. Paste a new one to change it." %}</div>
+        <div class="small muted strong">{% trans "Couriers’ travel times come from free OpenStreetMap services: one finds addresses on the map, the other works out the routes. Both need to be set." %}</div>
         <div class="si-two">
             <div>
-                <label class="block top12"><span class="lbl">{% trans "Google Maps API key" %}</span>
-                    <input class="field" type="password" name="google_key" autocomplete="off" placeholder="{% if x.has_google %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key' %}{% endif %}"></label>
-                <div class="em-hint">{% if x.env_google %}{% trans "Using the key in the server’s settings for now." %} {% endif %}{% trans "Couriers’ travel times and directions (the Distance Matrix API)." %}</div>
-                {% if x.has_google %}<label class="si-clear"><input type="checkbox" name="clear_google_key" value="1"> {% trans "Remove the saved key" %}</label>{% endif %}
+                <label class="block top12"><span class="lbl">{% trans "Address lookup (Nominatim)" %}</span>
+                    <input class="field{% if e.geocoder_url %} bad{% endif %}" type="url" name="geocoder_url" value="{{ v.geocoder_url }}" placeholder="{% if x.env_geocoder %}{{ x.env_geocoder }}{% else %}http://nominatim:8080{% endif %}" autocomplete="off"></label>
+                {% if e.geocoder_url %}<div class="em-hint bad">{{ e.geocoder_url }}</div>
+                {% elif x.public_geocoder %}<div class="em-hint bad">{% trans "OpenStreetMap’s public server allows light use only: at most one lookup a second, no heavy use. Pavilion keeps to that and remembers each address, which suits a small store." %} <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">{% trans "Read its usage policy" %}</a></div>
+                {% else %}<div class="em-hint">{% if x.env_geocoder and not v.geocoder_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Nominatim (docker compose --profile geocoding)." %}</div>{% endif %}
+                <label class="block top12"><span class="lbl">{% trans "Routes (Valhalla)" %}</span>
+                    <input class="field{% if e.routing_url %} bad{% endif %}" type="url" name="routing_url" value="{{ v.routing_url }}" placeholder="{% if x.env_routing %}{{ x.env_routing }}{% else %}http://valhalla:8002{% endif %}" autocomplete="off"></label>
+                {% if e.routing_url %}<div class="em-hint bad">{{ e.routing_url }}</div>
+                {% else %}<div class="em-hint">{% if x.env_routing and not v.routing_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Valhalla (docker compose --profile routing)." %}</div>{% endif %}
             </div>
             <div>
                 <label class="block top12"><span class="lbl">{% trans "Weather API key" %}</span>
                     <input class="field" type="password" name="weather_key" autocomplete="off" placeholder="{% if x.has_weather %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key' %}{% endif %}"></label>
-                <div class="em-hint">{% if x.env_weather %}{% trans "Using the key in the server’s settings for now." %} {% endif %}{% trans "The weather on screens, from weatherapi.com." %}</div>
+                <div class="em-hint">{% if x.env_weather %}{% trans "Using the key in the server’s settings for now." %} {% endif %}{% trans "The weather on screens, from weatherapi.com. Kept encrypted and never shown again." %}</div>
                 {% if x.has_weather %}<label class="si-clear"><input type="checkbox" name="clear_weather_key" value="1"> {% trans "Remove the saved key" %}</label>{% endif %}
             </div>
         </div>

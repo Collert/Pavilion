@@ -74,6 +74,40 @@ services:
       interval: 5s
       retries: 10
 
+  # Delivery travel times without a paid API (deliveries/routes.py), both optional and off by default:
+  #   docker compose --profile routing --profile geocoding up -d
+  # then set VALHALLA_URL=http://valhalla:8002 and GEOCODER_URL=http://nominatim:8080 (or put them on Store info).
+  # Both build from an OpenStreetMap extract of your area (OSM_EXTRACT, a Geofabrik .osm.pbf link) on their first
+  # start, which takes a while (tens of minutes for a province) and a few GB of disk; after that they start at once.
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    container_name: pavilion_valhalla
+    restart: unless-stopped
+    profiles: ["routing"]
+    environment:
+      tile_urls: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
+      use_tiles_ignore_pbf: "True"
+      build_elevation: "False"
+      build_transit: "False"
+    volumes:
+      - valhalla_data:/custom_files
+    # Not published to the host; Pavilion reaches it as http://valhalla:8002
+
+  nominatim:
+    image: mediagis/nominatim:5.3
+    container_name: pavilion_nominatim
+    restart: unless-stopped
+    profiles: ["geocoding"]
+    shm_size: 1g
+    environment:
+      PBF_URL: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
+      IMPORT_STYLE: street   # addresses and streets are all Pavilion looks up; smaller and quicker than "full"
+    volumes:
+      - nominatim_data:/var/lib/postgresql/16/main
+    # Not published to the host; Pavilion reaches it as http://nominatim:8080
+
 volumes:
   pg_data:
   logs:
+  valhalla_data:
+  nominatim_data:

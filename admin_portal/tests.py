@@ -3130,25 +3130,27 @@ class StoreInfoTests(AdminFixture, TestCase):
         store.save()
         self.client.force_login(self.owner)
         self.assertContains(self.client.get(reverse("admin_store_info")), "Store info")
-        self.assertRedirects(self.post(google_key="maps-key"), reverse("admin_store_info"))
+        self.assertRedirects(self.post(weather_key="sky-key", routing_url="http://valhalla:8002", geocoder_url="http://nominatim:8080"),
+                             reverse("admin_store_info"))
         self.assertEqual(tax_rate(), Decimal("0.05"))
         self.assertEqual(limit_bytes(), 2_500_000_000)
         self.assertEqual(routes.origin(), "1200 Main St, Vancouver, BC V6A 1A1")
-        self.assertEqual(store_info.google_key(), "maps-key")
+        self.assertEqual((store_info.weather_key(), store_info.routing_url(), store_info.geocoder_url()),
+                         ("sky-key", "http://valhalla:8002", "http://nominatim:8080"))
         row = StoreSettings.objects.get()
-        self.assertNotIn("maps-key", row.google_key)  # encrypted
+        self.assertNotIn("sky-key", row.weather_key)  # encrypted
         self.assertEqual((row.draft["name"], row.draft["address"]), ("Juniper Lane", "1200 Main St"))
         self.post()  # an empty key field keeps the saved key
-        self.assertEqual(store_info.google_key(), "maps-key")
-        self.post(clear_google_key="1")
-        self.assertEqual(StoreSettings.objects.get().google_key, "")
+        self.assertEqual(store_info.weather_key(), "sky-key")
+        self.post(clear_weather_key="1")
+        self.assertEqual(StoreSettings.objects.get().weather_key, "")
 
     def test_mistakes_are_shown_and_nothing_is_saved(self):
         from admin_portal.models import StoreSettings
         self.client.force_login(self.owner)
-        response = self.post(name="", tax_rate="105", email="nope", time_zone="Mars/Olympus", music_storage_gb="lots")
+        response = self.post(name="", tax_rate="105", email="nope", time_zone="Mars/Olympus", music_storage_gb="lots", routing_url="valhalla")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.context["x"]["errors"]), {"name", "tax_rate", "email", "time_zone", "music_storage_gb"})
+        self.assertEqual(set(response.context["x"]["errors"]), {"name", "tax_rate", "email", "time_zone", "music_storage_gb", "routing_url"})
         self.assertEqual(StoreSettings.objects.get().tax_rate, Decimal("0"))
 
     def test_a_new_time_zone_waits_for_a_restart(self):

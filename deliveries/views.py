@@ -357,22 +357,6 @@ def done(request, id):
     })
 
 
-# ---------- for the online store ----------
-
-def get_eta(request):
-    """Checkout's delivery estimate: ?destination=<address>&customer=true -> the quickest and slowest courier mode."""
-    destination = request.GET.get("destination")
-    if not destination:
-        return HttpResponseBadRequest(_("Destination address needed."))
-    try:
-        estimate = routes.customer_estimate(destination)
-    except Exception:
-        return JsonResponse({"text": "???", "value": 1})
-    if estimate is None:
-        return HttpResponseNotFound(_("No couriers available"))
-    return JsonResponse(estimate)
-
-
 # ---------- web push ----------
 
 def vapid_public_key(request):

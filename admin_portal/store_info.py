@@ -9,8 +9,9 @@ Save.
     time zone the store's clock: store hours, schedules and reports. Applied when Pavilion starts (`load_time_zone`,
               from AdminPortalConfig.ready), so saving asks for a restart (languages.restart)
     music     how much space the music library may use (audio/library.py)
-    keys      Google Maps (couriers' travel times) and weatherapi.com (the screens' weather), encrypted with a key
-              from SECRET_KEY (payments/secrets.py). Empty: the GOOGLE_API_KEY / WEATHER_API_KEY settings, if any.
+    services  the Valhalla and Nominatim servers couriers' travel times come from (deliveries/routes.py; empty: the
+              VALHALLA_URL / GEOCODER_URL settings), and the weatherapi.com key for screens, encrypted with a key from
+              SECRET_KEY (payments/secrets.py; empty: the WEATHER_API_KEY setting).
 
 Everything else reads these through the functions below, which use StoreSettings.load() (cached).
 """
@@ -19,6 +20,7 @@ import sys
 import warnings
 import zoneinfo
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -55,8 +57,12 @@ def music_limit_bytes() -> int:
     return int((store().music_storage_gb or 0) * 1000 ** 3)
 
 
-def google_key() -> str:
-    return secrets.decrypt(store().google_key) or (settings.GOOGLE_API_KEY or "")
+def routing_url() -> str:
+    return store().routing_url or settings.VALHALLA_URL
+
+
+def geocoder_url() -> str:
+    return store().geocoder_url or settings.GEOCODER_URL
 
 
 def weather_key() -> str:
@@ -113,7 +119,8 @@ def zones() -> list:
 def values_of(s: StoreSettings) -> dict:
     return {"name": s.name, "phone": s.phone, "email": s.email, "address": s.address, "city": s.city,
             "directions": s.directions, "tax_rate": _plain(s.tax_rate), "time_zone": s.time_zone,
-            "music_storage_gb": _plain(s.music_storage_gb), "google_key": "", "weather_key": ""}
+            "music_storage_gb": _plain(s.music_storage_gb), "routing_url": s.routing_url, "geocoder_url": s.geocoder_url,
+            "weather_key": ""}
 
 
 def _plain(number) -> str:
@@ -123,9 +130,9 @@ def _plain(number) -> str:
 
 
 def from_post(post) -> dict:
-    v = {k: post.get(k, "").strip() for k in DETAILS + ("tax_rate", "time_zone", "music_storage_gb")}
-    v["google_key"], v["weather_key"] = post.get("google_key", "").strip(), post.get("weather_key", "").strip()
-    v["clear"] = [k for k in ("google_key", "weather_key") if post.get(f"clear_{k}")]
+    v = {k: post.get(k, "").strip() for k in DETAILS + ("tax_rate", "time_zone", "music_storage_gb", "routing_url", "geocoder_url")}
+    v["weather_key"] = post.get("weather_key", "").strip()
+    v["clear"] = [k for k in ("weather_key",) if post.get(f"clear_{k}")]
     return v
 
 
@@ -156,6 +163,10 @@ def problems(v) -> dict:
             URLValidator(schemes=["http", "https"])(v["directions"])
         except ValidationError:
             out["directions"] = _("Paste the whole link, starting with https://")
+    for key in ("routing_url", "geocoder_url"):  # servers may be Docker names (http://valhalla:8002): no domain needed
+        parts = urlsplit(v[key])
+        if v[key] and (parts.scheme not in ("http", "https") or not parts.hostname or " " in v[key] or len(v[key]) > 200):
+            out[key] = _("Paste the whole address, starting with https:// (or http:// on your own network)")
     if len(v["phone"]) > 40 or (v["phone"] and not re.fullmatch(r"[0-9+()./ \-x]+", v["phone"])):
         out["phone"] = _("Use digits, spaces and + ( ) - only.")
     for key, limit in (("address", 120), ("city", 120)):
@@ -178,11 +189,11 @@ def save(v):
     s.tax_rate = _number(v["tax_rate"], 0, 100, 3)
     s.music_storage_gb = _number(v["music_storage_gb"], 0, 100000, 1)
     s.time_zone = v["time_zone"]
-    for k in ("google_key", "weather_key"):
-        if k in v["clear"]:
-            setattr(s, k, "")
-        elif v[k]:
-            setattr(s, k, secrets.encrypt(v[k]))
+    s.routing_url, s.geocoder_url = v["routing_url"], v["geocoder_url"]
+    if "weather_key" in v["clear"]:
+        s.weather_key = ""
+    elif v["weather_key"]:
+        s.weather_key = secrets.encrypt(v["weather_key"])
     if s.draft:  # keep the Online store page's draft in step, so its Publish doesn't put the old details back
         s.draft = {**s.draft, **{k: v[k] for k in BRANDING_DETAILS if k in s.draft}}
     s.save()
@@ -198,8 +209,8 @@ def page(s: StoreSettings, v=None, errors=None) -> dict:
     used = used_bytes()
     return {
         "v": v or values_of(s), "errors": errors or {}, "zones": zones(),
-        "has_google": bool(s.google_key), "has_weather": bool(s.weather_key),
-        "env_google": not s.google_key and bool(settings.GOOGLE_API_KEY),
-        "env_weather": not s.weather_key and bool(settings.WEATHER_API_KEY),
+        "has_weather": bool(s.weather_key), "env_weather": not s.weather_key and bool(settings.WEATHER_API_KEY),
+        "env_routing": settings.VALHALLA_URL, "env_geocoder": settings.GEOCODER_URL,
+        "public_geocoder": "openstreetmap.org" in ((v or {}).get("geocoder_url") or s.geocoder_url or settings.GEOCODER_URL),
         "music_used_gb": f"{used / 1000 ** 3:.1f}", "restart": restart_pending(s), "running_zone": RUNNING["time_zone"],
     }

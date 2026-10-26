@@ -45,7 +45,8 @@ class StoreSettings(models.Model):
                                  help_text="The store's time zone (applied when Pavilion starts)")
     music_storage_gb = models.DecimalField(max_digits=7, decimal_places=1, default=Decimal("10"),
                                            help_text="How much space the music library may use, in GB")
-    google_key = models.TextField(blank=True, help_text="Google Maps API key, encrypted (payments/secrets.py)")
+    routing_url = models.URLField(blank=True, help_text="A Valhalla server, for delivery travel times (deliveries/routes.py)")
+    geocoder_url = models.URLField(blank=True, help_text="A Nominatim server, to find delivery addresses on the map")
     weather_key = models.TextField(blank=True, help_text="weatherapi.com key, encrypted (payments/secrets.py)")
 
     class Meta:

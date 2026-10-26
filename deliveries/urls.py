@@ -8,7 +8,6 @@ urlpatterns = [
     path("order/<int:id>", views.order, name="delivery_order"),
     path("current", views.current, name="delivery_current"),
     path("done/<int:id>", views.done, name="delivery_done"),
-    path("eta", views.get_eta, name="eta"),
     path('vapid-public-key/', views.vapid_public_key, name='deliveries_vapid_public_key'),
     path('save-subscription/', views.save_subscription, name='deliveries_save_subscription'),
 ]

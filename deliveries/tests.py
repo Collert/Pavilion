@@ -29,7 +29,7 @@ def jpeg(size=(2400, 1800), exif=None):
     return SimpleUploadedFile("door.jpg", out.getvalue(), content_type="image/jpeg")
 
 
-@override_settings(ENFORCE_DEVICE_CHECK=False, MEDIA_ROOT=MEDIA, GOOGLE_API_KEY=None)
+@override_settings(ENFORCE_DEVICE_CHECK=False, MEDIA_ROOT=MEDIA, VALHALLA_URL="", GEOCODER_URL="")
 class CourierTests(MenuFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -258,22 +258,28 @@ class CourierTests(MenuFixture, TestCase):
 
     # ---------- travel times and push ----------
 
-    @override_settings(GOOGLE_API_KEY="key")
+    @override_settings(VALHALLA_URL="http://valhalla:8002", GEOCODER_URL="http://nominatim:8080")
     @mock.patch("deliveries.routes.origin", new=lambda: "1200 Main St")
     def test_travel_times_are_looked_up_once(self):
+        """Nominatim finds both addresses (once each), Valhalla's matrix gives one answer per travel mode."""
         delivery = self.delivery_order()
         self.start()
-        answer = {"rows": [{"elements": [{"status": "OK", "duration": {"value": 420}, "distance": {"value": 2600}}]}]}
-        with mock.patch("deliveries.routes.requests.get") as get:
-            get.return_value.json.return_value = answer
+        places = {"1200 Main St": [{"lat": "49.27", "lon": "-123.10"}], delivery.destination: [{"lat": "49.26", "lon": "-123.07"}]}
+        with mock.patch("deliveries.routes.requests.get") as get, mock.patch("deliveries.routes.requests.post") as post:
+            get.side_effect = lambda url, params, **kw: mock.Mock(json=lambda: places[params["q"]])
+            post.return_value.json.return_value = {"sources_to_targets": {"durations": [[420]], "distances": [[2.6]]}}
             response = self.client.get(reverse("delivery_orders"))
             self.client.get(reverse("delivery_orders"))
-        self.assertEqual(get.call_count, len(routes.MODES))
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(post.call_count, len(routes.MODES))
+        self.assertEqual({c.kwargs["json"]["costing"] for c in post.call_args_list}, {"auto", "bicycle", "pedestrian"})
+        self.assertEqual(post.call_args.kwargs["json"]["targets"], [{"lat": 49.26, "lon": -123.07}])
+        self.assertIn("Pavilion", get.call_args.kwargs["headers"]["User-Agent"])
         delivery.refresh_from_db()
         self.assertEqual((delivery.distance_m, delivery.travel_seconds["bicycling"]), (2600, 420))
         self.assertContains(response, "2.6 km")
 
-    @override_settings(GOOGLE_API_KEY="key")
+    @override_settings(VALHALLA_URL="http://valhalla:8002", GEOCODER_URL="http://nominatim:8080")
     @mock.patch("deliveries.routes.origin", new=lambda: "1200 Main St")
     def test_a_failed_lookup_is_not_retried_straight_away(self):
         import requests
@@ -283,6 +289,23 @@ class CourierTests(MenuFixture, TestCase):
             self.client.get(reverse("delivery_orders"))
             self.client.get(reverse("delivery_orders"))
         self.assertEqual(get.call_count, 1)
+
+    @override_settings(VALHALLA_URL="http://valhalla:8002")
+    def test_the_public_geocoder_gets_one_lookup_a_second(self):
+        """OpenStreetMap's public Nominatim: one request a second across workers, each address asked once."""
+        public = "https://nominatim.openstreetmap.org"
+        with mock.patch("deliveries.routes.requests.get") as get, mock.patch("deliveries.routes.time.sleep"):
+            get.return_value.json.return_value = [{"lat": "49.2", "lon": "-123.1"}]
+            self.assertEqual(routes.geocode("1 Main St", public), (49.2, -123.1))
+            self.assertEqual(routes.geocode("1  main st", public), (49.2, -123.1))  # remembered
+            with self.assertRaises(routes.Busy):
+                routes.geocode("2 Main St", public)  # the second's turn is taken
+        self.assertEqual(get.call_count, 1)
+
+    def test_valhallas_verbose_answer_is_read_too(self):
+        with mock.patch("deliveries.routes.requests.post") as post:
+            post.return_value.json.return_value = {"sources_to_targets": [[{"time": 300, "distance": 1.25}, {"time": None, "distance": None}]]}
+            self.assertEqual(routes._matrix("http://v", (1, 2), [(3, 4), (5, 6)], "driving"), [(300, 1250), None])
 
     def test_new_orders_are_pushed_to_couriers(self):
         with self.captureOnCommitCallbacks(execute=True):

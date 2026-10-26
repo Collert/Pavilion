@@ -62,7 +62,7 @@ through listmonk (2026-10-20, replacing SendGrid); their wording lives in listmo
 - **Static:** whitenoise, collected to `staticfiles/`. Shared CSS kit `static/css/AD-Elements/`; shared JS in `static/js/`.
 - **Media:** `./media` served by Django in dev; a RustFS (S3-compatible) bucket via `django-storages` in production.
 - **Integrations:** Square (Terminal API, Web Payments SDK, webhooks) on `squareup==38.x` (later versions replaced
-  `square.client.Client`), listmonk transactional email (`misc_tools/email.py`), Google Distance Matrix, OpenWeather, Web Push (VAPID), gTTS +
+  `square.client.Client`), listmonk transactional email (`misc_tools/email.py`), Valhalla and Nominatim (OpenStreetMap routing and address lookup), weatherapi.com, Web Push (VAPID), gTTS +
   ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
 - **i18n:** `i18n_patterns`, so page URLs carry `/en/`, `/uk/` or `/zh-hk/`. `LANGUAGE_CODE` must be one of `LANGUAGES`
   (`en`), or `reverse()` outside a request builds 404ing `/en-us/` URLs. JS strings use `gettext()` via `/jsi18n/`.
@@ -479,10 +479,17 @@ the start button's label and push sign-up.
 6. **Declined:** rejecting the order on the KDS deletes it as usual, but the courier's `Delivery` stays (order empty,
    `declined_reason` from the `RejectedOrder`) until they tap "Back to orders"; they get a push too.
 
-Travel times (`deliveries/routes.py`): Google Distance Matrix from the store's address (Store info), one request per mode for all
-new deliveries, stored on the `Delivery` (`distance_m`, `travel_seconds`) so each is looked up once; a failed lookup
-waits 10 minutes. Without a Google Maps key (Store info) the app shows "–". The store's name names the restaurant in the app. The
-store's checkout estimate (`eta`) is unchanged. The order detail's header is a drawing of streets, not a real map.
+Travel times (`deliveries/routes.py`, since 2026-10-26 instead of Google's paid Distance Matrix): the store's address
+and each delivery address are turned into map points by a Nominatim server (cached 30 days per address), then a Valhalla
+server's matrix (`/sources_to_targets`, costing auto / bicycle / pedestrian) gives one request per mode for all new
+deliveries. Results are stored on the `Delivery` (`distance_m`, `travel_seconds`) so each is looked up once; a failed
+lookup waits 10 minutes. Both servers are set on Store info (`VALHALLA_URL`/`GEOCODER_URL` fill in); docker compose's
+`routing` and `geocoding` profiles run them from an OpenStreetMap extract (`OSM_EXTRACT`, British Columbia by default;
+the first start builds for a while). OpenStreetMap's public Nominatim may be used within its policy
+(https://operations.osmfoundation.org/policies/nominatim/): Pavilion names itself, sends the store's email, keeps to one
+lookup a second across workers and at most 3 per page, and caches every answer. Without the servers the app shows "–".
+Directions still open Google Maps as a plain link (no API). The store's name names the restaurant in the app. The old
+public `eta` endpoint (the old store's checkout estimate) is gone. The order detail's header is a drawing of streets, not a real map.
 
 ### 6.7 Gift cards (`/gift-cards/`)
 
@@ -523,8 +530,8 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   shown at the top of the rail with "Pavilion" under it, and everything on **Store info** (Settings, `store_info.py`):
   details (name, phone, email, address, city, map link; the Online store page drafts the same ones and Store info keeps
   that draft in step), the tax rate, the time zone (applied when Pavilion starts, like languages; the page restarts it),
-  the music library's space and the Google Maps and weatherapi.com keys (encrypted with `payments/secrets.py`; the
-  `GOOGLE_API_KEY`/`WEATHER_API_KEY` settings only fill in). Migration `admin_portal 0007` copied `TAX_RATE`,
+  the music library's space, the Valhalla and Nominatim servers for travel times, and the weatherapi.com key (encrypted
+  with `payments/secrets.py`; `VALHALLA_URL`/`GEOCODER_URL`/`WEATHER_API_KEY` only fill in). Migration `admin_portal 0007` copied `TAX_RATE`,
   `MUSIC_STORAGE_GB` and `RESTAURANT_NAME/ADDRESS` from the environment once; those settings are gone.
 - **Dashboard home** (`admin_home`, `dashboard.py`): today by hour against the same weekday last week up to the same
   time, or 7/30 days against the period before (calendar: the same weekdays a whole number of weeks earlier; "Open
@@ -1008,7 +1015,7 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 `APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `DATABASE_URL` (a connection string; else `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`),
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
 `ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/APPLICATION_SECRET/LOCATION_ID/WEBHOOK_SIGNATURE_KEY` (Terminals are paired per register; there's no store-wide `SQUARE_DEVICE_ID` any more),
-`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY` (both only when Store info has none), `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`. The store's name, address, tax, time zone and music space are on the admin's Store info page, not here.
+`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `VALHALLA_URL`, `GEOCODER_URL`, `WEATHER_API_KEY` (all only when Store info has none), `OSM_EXTRACT` (compose), `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`. The store's name, address, tax, time zone and music space are on the admin's Store info page, not here.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
 
