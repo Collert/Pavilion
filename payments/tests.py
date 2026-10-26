@@ -406,7 +406,7 @@ class PhonePaymentTests(RegistersAndTerminals):
     def test_pay_on_the_phone_then_place_the_order(self, client):
         answer, row = self.start()
         self.assertIn("/payments/pay/", answer["phone"]["url"])
-        self.assertIn("<svg", answer["phone"]["qr"])
+        self.assertTrue(answer["phone"]["qr"].startswith("data:image/svg+xml"))  # an <img> src
         self.assertEqual((row.kind, row.amount, row.summary[0]["title"], row.summary[0]["qty"]), ("phone", Decimal("6.00"), "Tea", 2))
         page = self.client_class().get(reverse("phone_pay", args=[row.link]))
         self.assertContains(page, "$6.00")
