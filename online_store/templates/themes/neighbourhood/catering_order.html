@@ -1,0 +1,121 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n %}
+{% comment %}
+A catering request after it's sent (design: StoreCateringOrder; catering/views.py: order_page). Versions as tabs
+(?v=), what changed against the version before (?diff=0 hides it), and the banner's actions: accept the store's
+changes, suggest your own (?edit=1: a form posted on every change, like the admin's draft), or cancel. Messages
+on the side. Follows the store (SSE "catering").
+{% endcomment %}
+{% block title %}{{ o.title }} · {{ store.name }}{% endblock %}
+{% block live_topics %}"catering"{% endblock %}
+{% block content %}
+<section class="nb-page-top">
+    <div class="nb-crumbs">{% if links.account %}<a class="strong" href="{{ links.account }}">{% trans "Your account" %}</a> · {% endif %}{% trans "Catering requests" %} · {{ o.number }}</div>
+    <div class="nb-req-title"><h1 class="nb-serif nb-page-title nb-grow">{{ o.title }}</h1><span class="nb-req-status {{ kind }}">{% if editing %}{% trans "Editing your changes" %}{% elif kind == "proposal" %}{% trans "Changes proposed" %}{% elif kind == "waiting" %}{% blocktrans with name=store_name %}Waiting on {{ name }}{% endblocktrans %}{% else %}{{ o.get_status_display }}{% endif %}</span></div>
+    <div class="nb-facts">{% for label, value, sub in facts %}<div class="nb-fact"><div class="nb-kick small muted">{{ label }}</div><div class="nb-fact-value">{{ value }}</div><div class="muted small">{{ sub }}</div></div>{% endfor %}</div>
+
+    <div id="cr-banner" data-region>
+    <div class="nb-banner-box {{ kind }}">
+        <span class="nb-banner-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="{% if kind == 'confirmed' %}m5 12.5 4.5 4.5L19 7.5{% elif kind == 'cancelled' %}M6 6l12 12M18 6 6 18{% elif kind == 'waiting' %}M12 7v5l3 2 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z{% elif kind == 'editing' %}M7 7h10 M7 12h10 M7 17h6{% else %}M4 20h4L19 9l-4-4L4 16z M13 7l4 4{% endif %}"/></svg></span>
+        <div class="nb-grow"><div class="nb-serif nb-banner-head">{{ head }}</div><div class="nb-banner-text">{{ text }}</div></div>
+        {% if proposal %}
+        <form method="post" class="nb-banner-btns">{% csrf_token %}
+            <a class="nb-link-btn dark" href="?cancel=1">{% trans "Cancel request" %}</a>
+            <a class="nb-btn nb-btn-line" href="?edit=1">{% trans "Suggest changes" %}</a>
+            <button class="nb-btn nb-btn-accent" name="op" value="agree">{% blocktrans with t=new_total %}Accept changes · {{ t }}{% endblocktrans %}</button>
+        </form>
+        {% elif with_them %}
+        <div class="nb-banner-btns"><a class="nb-link-btn dark" href="?cancel=1">{% trans "Cancel request" %}</a><a class="nb-btn nb-btn-line" href="?edit=1">{% trans "Change it" %}</a></div>
+        {% elif editing %}
+        <div class="nb-banner-btns"><a class="nb-btn nb-btn-ghost" href="?">{% trans "Discard" %}</a><button class="nb-btn nb-btn-gold" form="cr-edit" name="op" value="send" {% if not chips %}disabled{% endif %}>{% if chips %}{% blocktrans with t=tot.total|floatformat:"2g" %}Send changes · ${{ t }}{% endblocktrans %}{% else %}{% trans "Make a change first" %}{% endif %}</button></div>
+        {% endif %}
+    </div>
+    {% if request.GET.cancel and open %}
+    <form method="post" class="nb-confirm">{% csrf_token %}
+        <span class="nb-grow">{% trans "Cancel this request? Nothing is charged." %}</span>
+        <a class="nb-btn nb-btn-line" href="?">{% trans "Keep it" %}</a>
+        <button class="nb-btn nb-btn-danger" name="op" value="cancel">{% trans "Yes, cancel" %}</button>
+    </form>
+    {% endif %}
+    </div>
+</section>
+
+<div class="nb-co-grid req">
+    <div class="nb-co-main">
+        <section class="nb-card" id="cr-order" data-region>
+            {% if editing %}<form method="post" id="cr-edit" data-search>{% csrf_token %}<input type="hidden" name="editing" value="1">
+                <input type="hidden" name="line-count" value="{{ draft.lines|length }}"><input type="hidden" name="add_kind" value="dish"><input type="hidden" name="add_last" value="">
+                {% for l in draft.lines %}<input type="hidden" name="line-{{ forloop.counter0 }}-id" value="{{ l.id }}"><input type="hidden" name="line-{{ forloop.counter0 }}-kind" value="{{ l.kind }}"><input type="hidden" name="line-{{ forloop.counter0 }}-ref" value="{{ l.ref }}"><input type="hidden" name="line-{{ forloop.counter0 }}-removed" value="{% if l.removed %}1{% endif %}"><input type="hidden" name="line-{{ forloop.counter0 }}-price" value="{{ l.price }}"><input type="hidden" name="line-{{ forloop.counter0 }}-amount" value="{{ l.amount }}">{% if l.removed or l.kind != "dish" %}<input type="hidden" name="line-{{ forloop.counter0 }}-quantity" value="{{ l.quantity }}">{% endif %}{% endfor %}
+            {% endif %}
+            <div class="nb-card-head"><h2 class="nb-serif">{% if editing %}{% trans "Your changes" %}{% else %}{% trans "The order" %}{% endif %}</h2>
+                {% if can_diff %}<a class="nb-switch-link" href="?v={{ chosen }}&diff={% if diff_on %}0{% else %}1{% endif %}" role="switch" aria-checked="{% if diff_on %}true{% else %}false{% endif %}">{% trans "Show what changed" %}<span class="nb-switch{% if diff_on %} on{% endif %}"><span></span></span></a>{% endif %}</div>
+            {% if tabs|length > 1 %}
+            <div class="nb-versions" role="tablist" aria-label="{% trans 'Versions' %}">
+                {% for v in tabs %}<a class="nb-version{% if v.on %} on{% endif %}" role="tab" aria-selected="{% if v.on %}true{% else %}false{% endif %}" href="?v={{ v.n }}{% if not diff_on %}&diff=0{% endif %}"><span class="nb-version-top"><span class="strong">{{ v.label }}</span>{% if v.tag %}<span class="nb-tag">{{ v.tag }}</span>{% endif %}</span><span class="small">{{ v.sub }}</span></a>{% endfor %}
+            </div>
+            {% endif %}
+            {% if chips %}<div class="nb-chips-row">{% for c in chips %}<span class="nb-change {{ c.kind }}">{{ c.t }}</span>{% endfor %}</div>{% endif %}
+            {% for g in groups %}
+            <div class="nb-kick small muted top14">{{ g.title }}</div>
+            <div class="nb-req-lines">
+                {% for x in g.rows %}
+                <div class="nb-req-line{% if x.removed %} removed{% elif x.new %} new{% elif x.changed %} changed{% endif %}">
+                    <div class="nb-grow"><div class="nb-req-name"><span class="strong{% if x.removed %} struck{% endif %}">{{ x.name }}</span>{% if x.tag %}<span class="nb-tag {{ x.tag_kind }}">{{ x.tag }}</span>{% endif %}</div><div class="muted small top4">{{ x.detail }}</div></div>
+                    {% if editing and not x.removed and x.l.kind == "dish" %}
+                    <span class="nb-stepper small"><button form="cr-edit" name="op" value="less:{{ x.n }}" aria-label="{% blocktrans with n=x.name %}Fewer {{ n }}{% endblocktrans %}">−</button><input class="nb-qty-in" form="cr-edit" type="number" min="1" name="line-{{ x.n }}-quantity" value="{{ x.l.quantity }}" aria-label="{% blocktrans with n=x.name %}How many {{ n }}{% endblocktrans %}"><button form="cr-edit" name="op" value="more:{{ x.n }}" aria-label="{% blocktrans with n=x.name %}More {{ n }}{% endblocktrans %}">+</button></span>
+                    {% else %}<span class="muted strong nb-req-qty">{{ x.qty_text }}</span>{% endif %}
+                    <span class="nb-co-price{% if x.removed %} struck{% endif %}">${{ x.total|floatformat:"2g" }}</span>
+                    {% if editing and not x.removed and x.l.kind == "dish" %}<button class="nb-x" form="cr-edit" name="op" value="remove:{{ x.n }}" aria-label="{% blocktrans with n=x.name %}Remove {{ n }}{% endblocktrans %}">×</button>{% elif x.can_undo %}<button class="nb-btn nb-btn-line nb-btn-sm" form="cr-edit" name="op" value="undo:{{ x.n }}">{% trans "Undo" %}</button>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            {% if editing %}
+            <div class="nb-req-add">
+                <label class="nb-req-add-row"><span class="strong">{% trans "Add a dish" %}</span>
+                    <select class="nb-input" form="cr-edit" name="add_ref"><option value="">{% trans "Choose from the catering menu…" %}</option>{% for d in add_options %}<option value="{{ d.id }}">{{ d.label }}</option>{% endfor %}</select>
+                    <input type="hidden" form="cr-edit" name="add_qty" value="10"><input type="hidden" form="cr-edit" name="add_price" value="">
+                    <button class="nb-btn nb-btn-ink nb-btn-sm" form="cr-edit" name="op" value="add">{% trans "Add" %}</button></label>
+                <label class="nb-block"><span class="nb-lbl">{% blocktrans with name=store_name %}Note for {{ name }}{% endblocktrans %} <span class="muted">· {% trans "optional" %}</span></span><textarea class="nb-input nb-area" form="cr-edit" name="msg" rows="2" maxlength="600" placeholder="{% trans 'e.g. We’ll skip the fries. Could we get 12 more brownies instead?' %}">{{ draft.msg }}</textarea></label>
+            </div>
+            {% endif %}
+            <div class="nb-req-totals">
+                <div><span class="nb-grow">{% trans "Subtotal" %}</span>{% if tp and tp.subtotal != tot.subtotal %}<s>${{ tp.subtotal|floatformat:"2g" }}</s>{% endif %}<span>${{ tot.subtotal|floatformat:"2g" }}</span></div>
+                <div><span class="nb-grow">{% trans "Tax" %}</span>{% if tp and tp.tax != tot.tax %}<s>${{ tp.tax|floatformat:"2g" }}</s>{% endif %}<span>${{ tot.tax|floatformat:"2g" }}</span></div>
+                <div class="big"><span class="nb-serif nb-grow">{% if editing %}{% trans "New total" %}{% elif o.charged %}{% trans "Paid" %}{% else %}{% trans "Total" %}{% endif %}</span>{% if tp and tp.total != tot.total %}<s>${{ tp.total|floatformat:"2g" }}</s>{% endif %}<span class="nb-serif">${{ tot.total|floatformat:"2g" }}</span></div>
+                {% if tot.deposit %}<div class="dep"><span class="nb-grow">{% trans "Equipment deposit, held close to the event" %}</span><span>${{ tot.deposit|floatformat:"2g" }}</span></div>{% endif %}
+            </div>
+            {% if editing %}</form>{% endif %}
+        </section>
+
+        <section class="nb-card" id="cr-history" data-region>
+            <h2 class="nb-serif nb-h-card">{% trans "History" %}</h2>
+            <ol class="nb-history">{% for h in history %}<li class="{{ h.state }}"><span class="nb-hist-dot"></span><div><div class="strong">{{ h.what }}</div><div class="muted small">{{ h.when }}</div></div></li>{% endfor %}</ol>
+        </section>
+    </div>
+
+    <aside class="nb-req-side">
+        <section class="nb-card nb-msgs" id="cr-msgs" data-region>
+            <div class="nb-msgs-head"><h2 class="nb-serif nb-h-card">{% trans "Messages" %}</h2><div class="muted small">{% blocktrans with name=store_name %}With {{ name }} · replies by email too{% endblocktrans %}</div></div>
+            <div class="nb-msgs-list">
+                {% for m in thread %}
+                {% if m.event %}<div class="nb-msg-event"><span></span>{{ m.text }} · {{ m.at }}<span></span></div>
+                {% else %}<div class="nb-msg{% if m.mine %} mine{% endif %}"><div class="nb-msg-who">{{ m.who }} · {{ m.at }}</div><div>{{ m.text|linebreaksbr }}</div></div>{% endif %}
+                {% endfor %}
+            </div>
+            {% if open %}
+            <form method="post" class="nb-msg-form" data-reset>{% csrf_token %}
+                <textarea class="nb-input nb-area" name="text" rows="2" maxlength="600" required placeholder="{% trans 'Ask a question or reply…' %}" aria-label="{% blocktrans with name=store_name %}Message {{ name }}{% endblocktrans %}"></textarea>
+                <button class="nb-btn nb-btn-accent" name="op" value="reply">{% trans "Send" %}</button>
+            </form>
+            {% endif %}
+        </section>
+        <section class="nb-card">
+            <div class="nb-kick small muted">{% trans "Payment" %}</div>
+            <div class="nb-pay-row"><span class="nb-card-mark">{{ o.card_brand|default:"CARD"|upper|slice:":4" }}</span><div class="nb-grow"><div class="strong">{{ pay_head }}</div><div class="muted small">{{ pay_sub }}</div></div></div>
+            {% if pay_note %}<p class="muted small">{{ pay_note }}</p>{% endif %}
+            {% if policy %}<p class="muted small"><b>{% trans "Cancellation policy." %}</b> {{ policy }}</p>{% endif %}
+        </section>
+    </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Branding (design: AdminBranding; admin_portal/branding.py). One form like the editors: every change posts in the
+background and is kept as the draft, the preview iframe (the real store, showing the draft) reloads, and Publish
+makes it live. Settings come from the theme's JSON (online_store/themes/<name>.json).
+{% endcomment %}
+{% block title %}{% trans "Online store" %}{% endblock %}
+{% block main_class %}brand-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/branding.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/branding.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_branding' %}?theme={{ b.theme.name }}&device={{ b.device }}" enctype="multipart/form-data" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="brand-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <div class="title-line">
+            <h1 class="disp page-title">{% trans "Online store" %}</h1>
+            <span class="brand-live"><span></span>{% blocktrans with name=b.live_title %}Live: {{ name }}{% endblocktrans %}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ b.status_kind }}">{{ b.status }}</span>
+    <button class="btn-light" name="op" value="reset" {% if b.is_default %}disabled{% endif %}>{% trans "Reset to theme defaults" %}</button>
+    <button class="btn-amber" name="op" value="publish" {% if not b.can_publish %}disabled{% endif %}>{% icon "M12 19V5 M6 11l6-6 6 6" 18 2.4 %}{{ b.publish_text }}</button>
+</header>
+
+<section class="theme-cards" aria-label="{% trans 'Online store theme' %}" id="brand-themes" data-region>
+    {% for c in b.cards %}
+    <a class="theme-card{% if c.on %} on{% endif %}" href="?theme={{ c.t.name }}&device={{ b.device }}" role="radio" aria-checked="{% if c.on %}true{% else %}false{% endif %}">
+        <span class="theme-thumb" style="background: {{ c.thumb.bg }}; color: {{ c.thumb.fg }}">
+            <span class="thumb-bar" style="background: {{ c.thumb.accent }}"></span>
+            <span class="thumb-title" style="font-family: '{{ c.thumb.font }}', serif">{{ b.store.name|default:c.t.title }}</span>
+            <span class="thumb-cards"><span style="background: {{ c.thumb.card }}"></span><span style="background: {{ c.thumb.card }}"></span><span style="background: {{ c.thumb.card }}"></span></span>
+        </span>
+        <span class="theme-meta"><span class="grow two-line"><span class="strong">{{ c.t.title }}</span><span class="theme-desc ellipsis">{{ c.t.description }}</span></span>{% if c.live %}<span class="live-tag">{% trans "Live" %}</span>{% endif %}</span>
+    </a>
+    {% endfor %}
+    <div class="theme-more">{% trans "More themes are on the way." %}</div>
+</section>
+
+<div class="brand-body">
+    <section class="brand-settings" aria-label="{% trans 'Theme settings' %}">
+        <div class="brand-settings-head">
+            <h2 class="disp card-title">{% blocktrans with name=b.theme.title %}{{ name }} settings{% endblocktrans %}</h2>
+            <div class="card-sub">{% trans "Every theme exposes its own settings. Changes show in the preview right away." %}</div>
+        </div>
+        <div class="brand-fields" id="brand-fields" data-region>
+            {% for g in b.groups %}
+            <div class="field-group">
+                <div class="ov faint">{{ g.name }}</div>
+                {% for name, value in g.hidden %}<input type="hidden" name="v-{{ name }}" value="{{ value }}">{% endfor %}
+                {% for f in g.fields %}{% with p=f.p %}
+                <div class="bfield">
+                    <div class="bfield-top"><span class="bfield-label">{{ p.label }}</span>
+                        {% if f.count %}<span class="num bfield-count">{{ f.count }}</span>{% elif p.control == "range" %}<span class="num bfield-val">{{ f.value }}{{ p.unit }}</span>{% endif %}</div>
+                    {% if p.type == "color" %}
+                    <div class="color-row">
+                        <label class="swatch" style="background: {{ f.value }}"><input type="color" value="{{ f.value|lower }}" data-hex="{{ f.name }}" aria-label="{{ p.label }}"></label>
+                        <input class="field num hex" name="{{ f.name }}" value="{{ f.value }}" maxlength="7" aria-label="{% blocktrans with label=p.label %}{{ label }} hex code{% endblocktrans %}">
+                        <span class="presets">{% for c in f.presets %}<button class="preset{% if c.on %} on{% endif %}" name="op" value="set:{{ p.name }}:{{ c.value }}" style="background: {{ c.value }}" aria-label="{% blocktrans with c=c.value %}Use {{ c }}{% endblocktrans %}"></button>{% endfor %}</span>
+                    </div>
+                    {% elif p.type == "string" or p.type == "url" %}
+                    <input class="field" name="{{ f.name }}" value="{{ f.value }}"{% if p.max %} maxlength="{{ p.max|floatformat:0 }}"{% endif %} data-type-preview aria-label="{{ p.label }}">
+                    {% elif p.type == "text" %}
+                    <textarea class="field area" name="{{ f.name }}" rows="3" maxlength="600" data-type-preview aria-label="{{ p.label }}">{{ f.value }}</textarea>
+                    {% elif p.type == "bool" %}
+                    <input type="hidden" name="{{ f.name }}" value="{% if f.value %}1{% endif %}">
+                    <button class="toggle-row" name="op" value="toggle:{{ p.name }}" role="switch" aria-checked="{% if f.value %}true{% else %}false{% endif %}" aria-label="{{ p.label }}">
+                        <span class="grow">{{ p.help }}</span><span class="switch{% if f.value %} on{% endif %}"><span></span></span></button>
+                    {% elif p.type == "image" %}
+                    <input type="hidden" name="{{ f.name }}" value="{{ f.value }}">
+                    <div class="image-row">
+                        <span class="image-box{% if p.name == 'logo' %} square{% endif %}">{% if f.url %}<img src="{{ f.url }}" alt="">{% else %}{% trans "None" %}{% endif %}</span>
+                        <label class="upload-btn"><input type="file" accept="image/*" name="upload-{% if f.name == 's-logo' %}s.logo{% else %}{{ p.name }}{% endif %}" data-upload class="visually-hidden">{% if f.url %}{% trans "Replace" %}{% else %}{% trans "Upload" %}{% endif %}</label>
+                        {% if f.url %}<button class="remove-btn" name="op" value="clear:{% if f.name == 's-logo' %}s.logo{% else %}{{ p.name }}{% endif %}">{% trans "Remove" %}</button>{% endif %}
+                    </div>
+                    {% elif p.type == "choice" and p.control == "select" %}
+                    <select class="field" name="{{ f.name }}"{% if p.name|slice:"-5:" == "_font" %} style="font-family: '{{ f.value }}'; font-size: 16px"{% endif %}>{% for c in f.choices %}<option value="{{ c.value }}" {% if c.on %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>
+                    {% elif p.type == "choice" %}
+                    <input type="hidden" name="{{ f.name }}" value="{{ f.value }}">
+                    <div class="segs{% if p.control == 'cards' %} cards{% endif %}" role="radiogroup" aria-label="{{ p.label }}">{% for c in f.choices %}<button role="radio" aria-checked="{% if c.on %}true{% else %}false{% endif %}" name="op" value="set:{{ p.name }}:{{ c.value }}">{{ c.label }}</button>{% endfor %}</div>
+                    {% elif p.control == "range" %}
+                    <input type="range" name="{{ f.name }}" min="{{ p.min }}" max="{{ p.max }}" step="{{ p.step }}" value="{{ f.value }}" aria-label="{{ p.label }}">
+                    {% else %}
+                    <span class="num-step">
+                        <button name="op" value="less:{{ p.name }}" {% if f.less_off %}disabled{% endif %} aria-label="{% blocktrans with label=p.label %}Decrease {{ label }}{% endblocktrans %}">−</button>
+                        <input type="number" name="{{ f.name }}" value="{{ f.value }}" class="num" aria-label="{{ p.label }}">
+                        <button name="op" value="more:{{ p.name }}" {% if f.more_off %}disabled{% endif %} aria-label="{% blocktrans with label=p.label %}Increase {{ label }}{% endblocktrans %}">+</button>
+                    </span>
+                    {% endif %}
+                    {% if p.help and p.type != "bool" %}<div class="bfield-help">{{ p.help }}</div>{% endif %}
+                    {% if f.empty %}<div class="bfield-empty">{{ f.empty }}</div>{% endif %}
+                    {% if f.warn %}<div class="bfield-warn">{{ f.warn }}</div>{% endif %}
+                </div>
+                {% endwith %}{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="brand-preview" aria-label="{% trans 'Preview' %}" id="brand-preview" data-region>
+        <div class="preview-bar">
+            <span class="dots"><span></span><span></span><span></span></span>
+            <span class="url-pill">{% icon "M5 11h14v10H5z M8 11V8a4 4 0 0 1 8 0v3" 12 2.6 %}{{ b.domain }}.pavilion.store</span>
+            <span class="seg soft devices" role="radiogroup" aria-label="{% trans 'Preview size' %}">
+                <a class="seg-btn" role="radio" aria-checked="{% if b.device == 'desktop' %}true{% else %}false{% endif %}" aria-label="{% trans 'Desktop preview' %}" href="?theme={{ b.theme.name }}&device=desktop" data-live>{% icon "M3 5h18v11H3z M8 20h8 M12 16v4" 16 2 %}</a>
+                <a class="seg-btn" role="radio" aria-checked="{% if b.device == 'mobile' %}true{% else %}false{% endif %}" aria-label="{% trans 'Phone preview' %}" href="?theme={{ b.theme.name }}&device=mobile" data-live>{% icon "M7 3h10v18H7z M11 18h2" 16 2 %}</a>
+            </span>
+        </div>
+        <div class="preview-stage {{ b.device }}" data-scale-stage>
+            <iframe src="{% url 'store_home' %}?preview=1&v={{ b.version }}" title="{% trans 'Store preview' %}" data-scale="{% if b.device == 'mobile' %}390{% else %}1440{% endif %}"></iframe>
+        </div>
+    </section>
+</div>
+</form>
+{% endblock %}

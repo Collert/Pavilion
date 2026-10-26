@@ -1,5 +1,7 @@
-version: "3.8"
-
+# Production-style stack: app (uvicorn, ASGI) + Postgres + Redis.
+# Secrets and per-site settings come from the deployment's variables (Dokploy's Environment tab, i.e. a .env beside
+# this file) or pavilion/.env; pavilion/.env.example lists them.
+# Media is stored in a RustFS (S3-compatible) bucket configured with the RUSTFS_* variables.
 services:
   web:
     build: .
@@ -7,37 +9,116 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
     environment:
-      - ENVIRONMENT=production
-      - POSTGRES_DB=pavilion_db
-      - POSTGRES_USER=pavilion_user
-      - POSTGRES_PASSWORD=pavilion_pass
-      - DB_HOST=db
-      - DB_PORT=5432
-    env_file:
-      - pavilion/.env
+      ENVIRONMENT: production
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      VALHALLA_URL: http://valhalla:8002
+      GEOCODER_URL: http://nominatim:8080
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
-  # volumes:
-  #   - .:/app  # Syncs local files to the container (useful during development)
+      - logs:/app/logs
+
+  # The daily jobs (docs/PROJECT_OVERVIEW.md §8 "Scheduled jobs"): the same image, once a day after a first run at start
+  scheduler:
+    build: .
+    container_name: pavilion_scheduler
+    restart: unless-stopped
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
+    environment:
+      ENVIRONMENT: production
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "sleep 120; while true; do
+      python manage.py catering_deposits; python manage.py gift_cards_cleanup; python manage.py square_refresh;
+      sleep 86400; done"
+    volumes:
+      - logs:/app/logs
 
   db:
     image: postgres:16
     container_name: pavilion_db
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: pavilion_db
-      POSTGRES_USER: pavilion_user
-      POSTGRES_PASSWORD: pavilion_pass
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env: POSTGRES_DB/USER/PASSWORD
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
     volumes:
       - pg_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-pavilion_user} -d $${POSTGRES_DB:-pavilion_db}"]
+      interval: 5s
+      retries: 10
+    # Not published to the host on purpose; use `docker compose exec db psql` to get in.
+
+  # The cache every worker shares and the live-update events between them (REDIS_URL). Everything in it is short-lived
+  # (rate limits, PIN lockouts, pop-ups, who's talking; sign-ins are in Postgres), so nothing is saved to disk and the
+  # oldest keys go first when it's full. Not published to the host.
+  redis:
+    image: redis:7-alpine
+    container_name: pavilion_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  # Delivery travel times without a paid API (deliveries/routes.py): web reaches them through VALHALLA_URL and
+  # GEOCODER_URL above (Store info can point elsewhere). Until they've built, couriers see "–" for travel times.
+  # Both build from an OpenStreetMap extract of your area (OSM_EXTRACT, a Geofabrik .osm.pbf link) on their first
+  # start, which takes a while (tens of minutes for a province) and a few GB of disk; after that they start at once.
+  # Set OSM_EXTRACT with the deployment's variables (Dokploy's Environment tab, or a .env beside this file); British
+  # Columbia otherwise.
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    container_name: pavilion_valhalla
+    restart: unless-stopped
+    environment:
+      tile_urls: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
+      use_tiles_ignore_pbf: "True"
+      build_elevation: "False"
+      build_transit: "False"
+    volumes:
+      - valhalla_data:/custom_files
+    # Not published to the host; Pavilion reaches it as http://valhalla:8002
+
+  nominatim:
+    image: mediagis/nominatim:5.3
+    container_name: pavilion_nominatim
+    restart: unless-stopped
+    shm_size: 1g
+    environment:
+      PBF_URL: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
+      IMPORT_STYLE: street   # addresses and streets are all Pavilion looks up; smaller and quicker than "full"
+    volumes:
+      - nominatim_data:/var/lib/postgresql/16/main
+    # Not published to the host; Pavilion reaches it as http://nominatim:8080
 
 volumes:
   pg_data:
-  static_volume:
-  media_volume:
+  logs:
+  valhalla_data:
+  nominatim_data:

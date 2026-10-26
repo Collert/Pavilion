@@ -1,0 +1,9 @@
+{% load static %}{% comment %}
+A menu board: `b` = screens.menu_boards.board(). Used by the menu_board screen widget and the admin's Display tab
+preview (with `preview`). screens/widgets/menu_board.js turns pages and slot screens over using the data- timings.
+{% endcomment %}<div class="menu-board" data-page-sec="{{ b.display.page_sec }}" data-page-fx="{{ b.display.page_fx }}"
+     data-group-sec="{{ b.display.group_sec }}" data-group-fx="{{ b.display.group_fx }}"{% if preview %} data-preview{% endif %}>
+    {% if b.fonts %}<link href="{{ b.fonts }}" rel="stylesheet">{% endif %}
+    {% for path in b.template.css %}<link href="{% static path %}" rel="stylesheet">{% endfor %}
+    {% include b.template.template with b=b %}
+</div>

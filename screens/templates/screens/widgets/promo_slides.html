@@ -1,0 +1,12 @@
+{% load i18n %}<article class="promo" style="background: {{ params.background }}; color: {{ params.color }}" data-promo data-ms="{{ data.ms }}">
+    {% for s in data.slides %}
+    <div class="promo-slide{% if forloop.first %} on{% endif %}"{% if s.image %} style="background-image: linear-gradient(transparent 35%, rgba(0, 0, 0, .55)), url('{{ s.image }}')"{% endif %}>
+        {% if s.tag %}<span class="promo-tag">{{ s.tag }}</span>{% endif %}
+        {% if s.title %}<h3>{{ s.title }}</h3>{% endif %}
+        {% if s.text %}<p>{{ s.text }}</p>{% endif %}
+    </div>
+    {% empty %}
+    <div class="promo-slide on"><p>{% trans "Add a headline, or offers to show." %}</p></div>
+    {% endfor %}
+    {% if data.slides|length > 1 %}<div class="promo-dots" aria-hidden="true">{% for s in data.slides %}<span{% if forloop.first %} class="on"{% endif %}></span>{% endfor %}</div>{% endif %}
+</article>

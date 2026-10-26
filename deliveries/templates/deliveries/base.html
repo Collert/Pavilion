@@ -1,0 +1,54 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n courier_tags %}
+{% comment %}
+Courier app pages (deliveries/views.py). Server-rendered; static/js/live-page.js keeps them current: forms and data-live
+links load in the background and only the [data-region]s whose HTML changed are swapped in (a region id that
+changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" nudges refetch the same way.
+{% endcomment %}
+
+{% block title %}{% trans "Courier" %} · Pavilion{% endblock %}
+{% block head %}
+<link rel="manifest" href="{% static 'deliveries/manifest.json' %}">
+<meta name="theme-color" content="#14261F">
+<link href="{% static 'deliveries/courier.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}
+<nav class="rail courier-rail" aria-label="{% trans 'Courier' %}">
+    <div class="rail-logo" role="img" aria-label="{% trans 'Pavilion Courier' %}">{% icon "logo" 24 2 %}</div>
+    {% comment %}Only the buttons are a live region: the clock below is kept ticking by staff-page.js, which holds on to its elements.{% endcomment %}
+    <div class="rail-modes" id="courier-nav" data-region>
+    {% if shift %}
+    <div class="rail-rule" aria-hidden="true"></div>
+    <a class="rail-item" href="{% url 'delivery_orders' %}" data-live {% if nav == "orders" %}aria-current="page"{% endif %}>{% icon "list" 22 2 %}{% trans "Orders" %}</a>
+    {% if current %}
+    <a class="rail-item" href="{% url 'delivery_current' %}" data-live {% if nav == "delivery" %}aria-current="page"{% endif %}>
+        {% icon "bag" 22 2 %}{% trans "Delivery" %}{% if nav != "delivery" %}<span class="rail-badge" aria-hidden="true"></span>{% endif %}
+    </a>
+    {% else %}
+    <span class="rail-item off" aria-disabled="true">{% icon "bag" 22 2 %}{% trans "Delivery" %}</span>
+    {% endif %}
+    <a class="rail-item" href="{% url 'delivery_orders' %}?end=1" data-live>{% icon "power" 22 2 %}{% trans "End shift" %}</a>
+    {% endif %}
+    </div>
+    <div class="rail-spacer"></div>
+    {% include "pos_server/rail_foot.html" %}
+</nav>
+{% endblock %}
+
+{% block body %}
+<main class="courier" id="page" data-now="{{ now_ms }}">{% block content %}{% endblock %}</main>
+<div id="toasts" data-region data-transient>{% for message in messages %}
+    <div class="courier-toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { livePage } from "{% static 'js/live-page.js' %}";
+    livePage({ topics: ["orders"] });
+</script>
+<script type="module" src="{% static 'deliveries/courier.js' %}" id="courier-js"
+        data-worker="{% static 'deliveries/service-worker.js' %}"
+        data-vapid="{% url 'deliveries_vapid_public_key' %}" data-subscribe="{% url 'deliveries_save_subscription' %}"></script>
+{% endblock %}

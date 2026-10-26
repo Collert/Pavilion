@@ -1,0 +1,116 @@
+/* Combos: list and editor (admin_portal/templates/admin_portal/combos.html, combo.html). Editor basics are in admin.css. */
+
+.admin-main { gap: 14px; }
+.block { display: block; }
+.tiny { font-size: 11px; font-weight: 700; }
+
+/* ---------- list ---------- */
+.list-search { width: 280px; height: 44px; }
+.combo-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; flex: none; }
+.kpi { border-radius: 20px; background: var(--surface); padding: 14px 18px; min-width: 0; }
+.kpi-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.kpi-value { font-size: 26px; line-height: 32px; margin-top: 2px; }
+.kpi-sub { font-size: 12px; font-weight: 600; color: var(--muted); }
+.combo-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) 130px 140px 120px 120px 16px; gap: 14px; align-items: center; }
+.combo-row { min-height: 68px; padding: 8px 10px; border-radius: 16px; }
+.combo-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.badge { width: 40px; height: 40px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.combo-name .strong { font-size: 15px; font-weight: 800; }
+.slot-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.slot-chip { height: 24px; padding: 0 9px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; white-space: nowrap; background: var(--soft); color: var(--ink-2); }
+.slot-chip.optional { background: var(--surface); color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--border); }
+.save-chip { height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; background: var(--amber-soft); color: var(--amber-ink); white-space: nowrap; }
+.save-chip.none { background: var(--red-soft); color: var(--red-ink); }
+.combo-status { height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.combo-status.big { height: 28px; padding: 0 11px; border-radius: 14px; }
+.combo-status.active { background: var(--mint); color: var(--brand); }
+.combo-status.nomenu { background: var(--amber-soft); color: var(--amber-ink); }
+.combo-status.hidden { background: #ECEFED; color: var(--muted); }
+
+/* ---------- editor ---------- */
+.basics-grid { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 12px; }
+.block-label { display: block; margin-top: 12px; }
+#combo-basics .field { height: 44px; padding: 0 12px; font-weight: 700; }
+#combo-basics textarea.field { height: auto; padding: 10px 12px; resize: none; font-weight: 600; line-height: 1.45; }
+.field.ticket { text-transform: uppercase; letter-spacing: .04em; }
+.card-head.end { align-items: flex-end; }
+.mint-btn { height: 40px; padding: 0 14px; border-radius: 20px; border: none; background: var(--mint); color: var(--brand); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.slot-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.slot-card { border-radius: 18px; padding: 12px; background: var(--soft); }
+.slot-card.optional { background: var(--softer); }
+.slot-card.has-errors { box-shadow: inset 0 0 0 2px #E7B3A8; }
+.slot-top { display: flex; align-items: center; gap: 10px; }
+.slot-n { width: 30px; height: 30px; border-radius: 15px; background: var(--ink); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 15px; flex: none; }
+.slot-name { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border: none; border-radius: 12px; background: var(--surface); font: inherit; font-size: 15px; font-weight: 800; color: var(--ink); }
+.picks { display: flex; align-items: center; gap: 2px; height: 40px; padding: 0 4px; border-radius: 12px; background: var(--surface); flex: none; }
+.picks-label { font-size: 12px; font-weight: 700; color: var(--muted); padding: 0 6px 0 8px; }
+.picks-n { min-width: 16px; text-align: center; font-size: 15px; font-weight: 800; }
+.ico { width: 32px; height: 32px; border-radius: 10px; border: none; background: transparent; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+.ico:hover:not(:disabled) { background: rgba(20, 38, 31, .06); }
+.ico:disabled { opacity: .3; }
+.ico.danger:hover { color: var(--red); background: var(--red-soft); }
+.req-switch, .active-switch { position: relative; height: 40px; padding: 0 10px 0 12px; border-radius: 12px; background: var(--surface); display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; cursor: pointer; flex: none; }
+.req-switch input, .active-switch input, .mode-seg input, .def-radio input, .menu-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.req-text { min-width: 58px; }
+.req-switch:has(input:focus-visible), .active-switch:has(input:focus-visible), .mode-seg label:has(input:focus-visible),
+.def-radio:has(input:focus-visible), .menu-pill:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
+.active-switch { height: 32px; padding: 0 4px 0 10px; border-radius: 16px; background: var(--softer); font-size: 12px; }
+.slot-hint { font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 6px 40px; }
+.slot-table { margin-left: 40px; border-radius: 14px; background: var(--surface); overflow: hidden; }
+.opt-grid { display: grid; grid-template-columns: 64px minmax(0, 1fr) 90px 120px 32px; gap: 10px; align-items: center; }
+.opt-head { padding: 8px 12px 4px; color: var(--faint); font-size: 11px; }
+.opt-row { padding: 4px 12px; min-height: 44px; }
+.opt-dish { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
+.dot { width: 8px; height: 8px; border-radius: 4px; flex: none; }
+.sold-tag { height: 20px; padding: 0 7px; border-radius: 10px; background: var(--red-soft); color: var(--red-ink); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; white-space: nowrap; }
+.def-radio { position: relative; width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--surface); box-shadow: inset 0 0 0 2px #C9D3CD; cursor: pointer; }
+.def-radio:has(input:checked) { background: var(--brand); box-shadow: none; }
+.def-radio:has(input:checked) span { width: 8px; height: 8px; border-radius: 4px; background: #FFFFFF; }
+.in-combo { font-size: 13px; font-weight: 800; color: var(--brand); padding-left: 4px; }
+.add-dish { padding: 6px 12px 10px; }
+.add-dish select { height: 36px; padding: 0 10px; border: none; border-radius: 10px; background: var(--mint); color: var(--brand); font: inherit; font-size: 13px; font-weight: 800; max-width: 100%; }
+.slot-error { margin: 8px 0 0 40px; font-size: 12px; font-weight: 800; color: var(--red-ink); }
+.no-slots { padding: 40px 20px; border-radius: 18px; background: var(--softer); text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
+
+.big-field { display: flex; align-items: center; gap: 4px; height: 48px; padding: 0 14px; border-radius: 14px; background: var(--soft); }
+.big-field:focus-within { box-shadow: inset 0 0 0 2px var(--brand); }
+.big-field input { border: none; background: transparent; width: 100%; min-width: 0; font-size: 22px; color: var(--ink); outline: none; }
+.unit.big { font-size: 18px; font-weight: 800; }
+.calc { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.calc-line { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.calc-line.big { font-family: var(--heading); font-size: 20px; font-weight: 700; color: var(--ink); padding-top: 6px; border-top: 1px solid var(--line); margin-top: 2px; }
+.calc-line.save { font-size: 14px; font-weight: 800; color: var(--amber-ink); }
+.calc-line.nosave { font-size: 14px; font-weight: 800; color: var(--red-ink); }
+.save-bar { margin-top: 12px; height: 10px; border-radius: 5px; background: var(--soft); overflow: hidden; display: flex; }
+.bar-combo { height: 100%; background: var(--brand); }
+.bar-save { height: 100%; flex: 1; background: var(--amber); }
+.bar-legend { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.price-warn { margin-top: 10px; padding: 9px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; line-height: 1.4; background: var(--amber-soft); color: var(--amber-ink); }
+.price-warn.bad { background: var(--red-soft); color: var(--red-ink); }
+
+.register-preview { background: var(--ink); color: #FFFFFF; }
+.register-preview > .ov { color: var(--rail-ink); }
+.preview-card { margin-top: 12px; border-radius: 18px; background: var(--surface); color: var(--ink); padding: 14px 16px; }
+.preview-top { display: flex; align-items: flex-start; gap: 10px; }
+.preview-title, .preview-price { font-size: 19px; line-height: 24px; }
+.preview-top .save-chip { height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; margin-top: 4px; }
+.preview-slots { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.preview-slot { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--softer); min-width: 0; }
+.preview-slot > .ov { width: 64px; flex: none; color: var(--faint); font-size: 10px; }
+.preview-slot .strong { font-size: 13px; }
+.kitchen-line { font-size: 12px; font-weight: 600; color: var(--rail-ink); margin-top: 10px; }
+.menu-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.menu-pill { position: relative; height: 34px; padding: 0 12px; border-radius: 17px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; background: var(--soft); color: var(--ink-2); cursor: pointer; }
+.menu-pill:has(input:checked) { background: var(--brand); color: #FFFFFF; }
+.menus-line { margin-top: 10px; }
+
+@media (max-width: 1280px) {
+    .combo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .combo-grid { grid-template-columns: minmax(0, 1.5fr) 120px 130px 110px 16px; }
+    .combo-grid > :nth-child(2), .combo-grid > :nth-child(5) { display: none; }
+    .editor-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+@media (max-width: 1000px) {
+    .editor-grid { grid-template-columns: 1fr; }
+    .slot-top { flex-wrap: wrap; }
+}

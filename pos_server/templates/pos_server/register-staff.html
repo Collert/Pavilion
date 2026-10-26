@@ -8,7 +8,7 @@
     {% csrf_token %}
     {{ form.as_p }}
     <p>
-        <label for="email">{% "trans Email address:" %}</label>
+        <label for="email">{% trans "Email address:" %}</label>
         <input required type="email" name="email" id="email">
     </p>
     <p>

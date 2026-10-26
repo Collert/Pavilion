@@ -1,0 +1,40 @@
+{
+  "title": "Staff announcement",
+  "description": "When someone sends one from the register",
+  "kind": "popup",
+  "trigger": "announcement",
+  "icon": "M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z M16 9a4 4 0 0 1 0 6",
+  "color": "#6FA8FF",
+  "template": "screens/popups/announcement.html",
+  "context": "screens.popups.announcement",
+  "live": [
+    "popups"
+  ],
+  "params": {
+    "style": {
+      "type": "choice",
+      "options": [
+        "full",
+        "banner"
+      ],
+      "default": "banner",
+      "label": "Style",
+      "help": "Full screen, or a banner along the bottom"
+    },
+    "seconds": {
+      "type": "int",
+      "default": 10,
+      "min": 2,
+      "max": 60,
+      "unit": "s",
+      "label": "Show for"
+    },
+    "channel": {
+      "type": "string",
+      "default": "",
+      "source": "audio:voice",
+      "label": "Play on",
+      "help": "A voice channel from the Audio tab"
+    }
+  }
+}

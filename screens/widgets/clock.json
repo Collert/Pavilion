@@ -1,0 +1,14 @@
+{
+  "title": "Clock",
+  "description": "The time and date in the restaurant's time zone, ticking.",
+  "icon": "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 7v5l3 2",
+  "color": "#4E79B5",
+  "template": "screens/widgets/clock.html",
+  "css": ["screens/widgets/clock.css"],
+  "js": ["screens/widgets/clock.js"],
+  "params": {
+    "hour12": {"type": "bool", "default": true, "label": "12-hour clock"},
+    "show_date": {"type": "bool", "default": true, "label": "Show the date"},
+    "card": {"type": "bool", "default": true, "label": "On a card"}
+  }
+}

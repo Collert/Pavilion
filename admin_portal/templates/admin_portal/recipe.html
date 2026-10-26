@@ -1,0 +1,142 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}{% load cook_scene from cookery_tags %}
+{% comment %}
+Recipe editor (design: AdminRecipes, edit state; admin_portal/recipes.py: editor). One form with Save like the dish
+editor: buttons post an `op` (add_step, step_up:2, timer:1, sel:3...) and get the draft back; editor.js posts op=preview
+when a field changes and remembers which step you're in (data-step), so the Cookery preview on the right follows it.
+{% endcomment %}
+{% block title %}{{ e.title }} · {% trans "Recipes" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/recipes.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=e.d %}
+<form method="post" action="{% url 'admin_recipe' e.recipe.id %}" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="recipe-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Recipes" %}</button>
+        <h1 class="disp page-title ellipsis">{{ e.title }}</h1>
+    </div>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div id="recipe-leave" data-region>
+    {% if e.leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this recipe." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_recipes' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="recipe-grid-layout">
+    <div class="editor-col">
+        <section class="card details" aria-label="{% trans 'Details' %}" id="recipe-details" data-region>
+            <input type="hidden" name="sel" value="{{ d.sel }}">
+            <label><span class="lbl">{% trans "Recipe name" %}</span><input class="field" name="title" value="{{ d.title }}" maxlength="140"></label>
+            <label><span class="lbl">{% trans "Attached to" %}</span>
+                <select class="field" name="target">
+                    <option value=""{% if not d.target %} selected{% endif %}>{% trans "Not attached" %}</option>
+                    {% for g in e.groups %}<optgroup label="{{ g.label }}">{% for o in g.options %}<option value="{{ o.key }}"{% if o.key == d.target %} selected{% endif %}>{{ o.label }}{% if o.taken %} ({% trans "has a recipe" %}){% endif %}</option>{% endfor %}</optgroup>{% endfor %}
+                </select></label>
+            <label><span class="lbl">{{ e.yield_label }}</span>
+                <span class="unit-field"><input type="number" name="yield" min="0" step="any" class="num" value="{{ d.yield }}" aria-label="{{ e.yield_label }}"><span class="unit">{{ e.unit }}</span></span></label>
+            <div>
+                <span class="lbl">{% trans "Total time · start to finish" %}</span>
+                <div class="total-row">
+                    <span class="unit-field total{% if e.total_bad %} bad{% endif %}"><input type="number" name="total_h" min="0" class="num" value="{{ e.total_h }}" aria-label="{% trans 'Total time, hours' %}"><span class="unit">h</span></span>
+                    <span class="unit-field total{% if e.total_bad %} bad{% endif %}"><input type="number" name="total_m" min="0" max="59" class="num" value="{{ e.total_m }}" aria-label="{% trans 'Total time, minutes' %}"><span class="unit">{% trans "min" %}</span></span>
+                    <button class="outline-btn tall" name="op" value="use_timers">{{ e.use_timers }}</button>
+                </div>
+                <div class="total-hint{% if e.total_bad %} bad{% endif %}">{{ e.total_hint }}</div>
+            </div>
+            <div class="kind-line"><span class="kind-chip {{ e.kind }}">{{ e.kind_text }}</span><span>{{ e.kind_hint }}</span></div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Ingredients' %}" id="recipe-ings" data-region>
+            <input type="hidden" name="ing-count" value="{{ d.ings|length }}">
+            <h2 class="disp card-title">{% trans "Ingredients" %}</h2>
+            <div class="card-sub">{{ e.ing_sub }}</div>
+            <div class="mini-thead ing-grid"><span>{% trans "Item" %}</span><span>{% trans "Amount" %}</span><span>{% trans "Type" %}</span><span></span></div>
+            {% for g in e.ings %}
+            <div class="mini-line ing-grid">
+                <input type="hidden" name="ing-{{ g.i }}-id" value="{{ g.g.id }}"><input type="hidden" name="ing-{{ g.i }}-kind" value="{{ g.g.kind }}"><input type="hidden" name="ing-{{ g.i }}-item" value="{{ g.g.item }}">
+                <span class="strong">{{ g.item.title }}</span>
+                <span class="unit-field small"><input type="number" name="ing-{{ g.i }}-qty" min="0" step="any" class="num" value="{{ g.g.qty }}" aria-label="{% blocktrans with name=g.item.title %}Amount of {{ name }}{% endblocktrans %}"><span class="unit">{{ g.unit }}</span></span>
+                <span><span class="type-chip{% if g.component %} component{% endif %}">{% if g.component %}{% trans "Component" %}{% else %}{% trans "Ingredient" %}{% endif %}</span></span>
+                <button class="x-btn" name="op" value="remove_ing:{{ g.i }}" aria-label="{% blocktrans with name=g.item.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+            </div>
+            {% empty %}
+            <div class="empty small">{% trans "No ingredients yet." %}</div>
+            {% endfor %}
+            <select class="outline-select add-item" name="add_item" aria-label="{% trans 'Add an ingredient or component' %}">
+                <option value="" selected>{% trans "+ Add an ingredient or component" %}</option>
+                <optgroup label="{% trans 'Ingredients' %}">{% for i in e.ingredient_choices %}<option value="i:{{ i.id }}">{{ i.title }} ({{ i.unit_of_measurement }})</option>{% endfor %}</optgroup>
+                <optgroup label="{% trans 'Components' %}">{% for c in e.component_choices %}<option value="c:{{ c.id }}">{{ c.title }} ({{ c.unit_of_measurement }})</option>{% endfor %}</optgroup>
+            </select>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Steps' %}" id="recipe-steps" data-region>
+            <input type="hidden" name="step-count" value="{{ d.steps|length }}">
+            <h2 class="disp card-title">{% trans "Steps" %}</h2>
+            <div class="card-sub">{{ e.steps_sub }}</div>
+            <div class="timeline" aria-hidden="true">{% for t in e.timeline %}<span class="{% if t.on %}on{% elif t.timed %}timed{% endif %}" style="flex:{{ t.grow }} 1 0" title="{{ t.title }}"></span>{% endfor %}</div>
+            <ol class="step-list">
+                {% for st in e.steps %}
+                <li class="step-card{% if st.on %} on{% endif %}" data-step="{{ st.i }}">
+                    <input type="hidden" name="step-{{ st.i }}-id" value="{{ st.s.id }}">
+                    <input type="hidden" name="step-{{ st.i }}-timer" value="{% if st.s.timer %}1{% endif %}">
+                    <div class="step-top">
+                        <button class="step-n" name="op" value="sel:{{ st.i }}" aria-label="{% blocktrans with n=st.n %}Preview step {{ n }}{% endblocktrans %}">{{ st.n }}</button>
+                        <input class="step-title" name="step-{{ st.i }}-title" value="{{ st.s.title }}" maxlength="80" placeholder="{% trans 'Step title' %}" aria-label="{% blocktrans with n=st.n %}Step {{ n }} title{% endblocktrans %}">
+                        <button class="arrow-btn" name="op" value="step_up:{{ st.i }}" {% if st.first %}disabled{% endif %} aria-label="{% blocktrans with n=st.n %}Move step {{ n }} up{% endblocktrans %}">{% icon "M6 15l6-6 6 6" 14 2.6 %}</button>
+                        <button class="arrow-btn" name="op" value="step_down:{{ st.i }}" {% if st.last %}disabled{% endif %} aria-label="{% blocktrans with n=st.n %}Move step {{ n }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                        <button class="arrow-btn" name="op" value="remove_step:{{ st.i }}" aria-label="{% blocktrans with n=st.n %}Delete step {{ n }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                    </div>
+                    <textarea class="step-text" name="step-{{ st.i }}-text" rows="2" placeholder="{% trans 'What the cook does in this step' %}" aria-label="{% blocktrans with n=st.n %}Step {{ n }} description{% endblocktrans %}">{{ st.s.text }}</textarea>
+                    <div class="step-foot">
+                        <label class="proc-label">{% trans "Process" %}
+                            <select name="step-{{ st.i }}-scene" aria-label="{% blocktrans with n=st.n %}Step {{ n }} process{% endblocktrans %}">{% for key, label in e.processes %}<option value="{{ key }}"{% if key == st.s.scene %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        <span class="grow"></span>
+                        <button class="timer-btn{% if st.s.timer %} on{% endif %}" role="switch" name="op" value="timer:{{ st.i }}" aria-checked="{% if st.s.timer %}true{% else %}false{% endif %}" aria-label="{% blocktrans with n=st.n %}Timer for step {{ n }}{% endblocktrans %}">
+                            {% icon "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z M12 8v4l2.5 2 M9 2h6" 15 2.2 %}{% if st.s.timer %}{% trans "Timer" %}{% else %}{% trans "Add timer" %}{% endif %}</button>
+                        {% if st.s.timer %}
+                        <span class="mins-field"><input type="number" name="step-{{ st.i }}-mins" min="1" max="1440" class="num" value="{{ st.s.mins }}" aria-label="{% blocktrans with n=st.n %}Step {{ n }} timer minutes{% endblocktrans %}"><span class="unit">{% trans "min" %}</span></span>
+                        <span class="num muted small strong human">{{ st.human }}</span>
+                        {% else %}<input type="hidden" name="step-{{ st.i }}-mins" value="{{ st.s.mins }}">{% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ol>
+            <button class="add-step" name="op" value="add_step">{% icon "plus" 16 2.6 %}{% trans "Add a step" %}</button>
+            <button class="text-btn danger delete-recipe" name="op" value="delete" onclick="return confirm(gettext('Delete this recipe?'))">{% trans "Delete this recipe" %}</button>
+        </section>
+    </div>
+
+    <aside class="cook-preview" aria-label="{% trans 'How the cook sees it' %}" id="recipe-preview" data-region>
+        {% with pv=e.pv %}
+        <div class="ov">{% blocktrans with pos=pv.pos %}In Cookery · step {{ pos }}{% endblocktrans %}</div>
+        <div class="scene-box">{% cook_scene pv.scene True 240 %}</div>
+        <div class="proc-row"><span class="pv-proc">{{ pv.process }}</span></div>
+        <h2 class="disp pv-title">{{ pv.title }}</h2>
+        <p class="pv-text">{{ pv.text }}</p>
+        <div class="grow"></div>
+        {% if pv.timer %}
+        <div class="pv-timer">{% icon "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z M12 8v4l2.5 2 M9 2h6" 22 2.2 %}<span class="disp num">{{ pv.clock }}</span><span class="grow"></span><span class="pv-start">{% trans "Start timer" %}</span></div>
+        {% else %}
+        <div class="pv-note">{% trans "No timer. The cook taps Next when this step is done." %}</div>
+        {% endif %}
+        <div class="pv-nav">
+            <button name="op" value="sel:{{ pv.prev }}" {% if pv.prev is None %}disabled{% endif %} aria-label="{% trans 'Preview previous step' %}">{% trans "Back" %}</button>
+            <button class="next" name="op" value="sel:{{ pv.next }}" {% if pv.next is None %}disabled{% endif %} aria-label="{% trans 'Preview next step' %}">{% trans "Next step" %}</button>
+        </div>
+        {% endwith %}
+    </aside>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

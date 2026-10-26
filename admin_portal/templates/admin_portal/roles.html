@@ -1,0 +1,114 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Roles (design: AdminRoles; admin_portal/roles.py). One form with Save: picking a role, its icon and colour, adding
+or removing people and its starting groups all post the draft back (editor.js); Save writes it.
+{% endcomment %}
+{% block title %}{% trans "Roles" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="roles-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Roles" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New role" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card tm-list" id="roles-list" data-region aria-label="{% trans 'Roles' %}" style="width: 400px">
+        <div class="rl-intro">{% trans "Roles are the jobs people do. One person can have several." %}</div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Roles' %}">
+            {% for r in x.rows %}
+            <button class="tm-row rl-row{% if r.on %} on{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.r.id }}">
+                <span class="rl-tile" style="background: {{ r.r.color }}">{% icon r.icon 22 2 %}</span>
+                <span class="grow two-line"><span class="strong ellipsis">{{ r.name }}</span><span class="small muted ellipsis">{{ r.desc }}</span></span>
+                <span class="rl-faces">{% for f in r.faces %}<span style="background: {{ f.face }}">{{ f.ini }}</span>{% endfor %}{% if r.more %}<span class="more">+{{ r.more }}</span>{% endif %}{% if not r.faces %}<span class="nobody">{% trans "Nobody" %}</span>{% endif %}</span>
+            </button>
+            {% endfor %}
+        </div>
+        <div class="tm-foot"><span>{{ x.foot }}</span><span{% if x.no_role %} class="warn"{% endif %}>{{ x.foot_warn }}</span></div>
+    </section>
+
+    <section class="tm-edit" id="roles-edit" data-region aria-label="{% trans 'Role settings' %}">
+    {% with d=x.d %}{% if d %}
+        <input type="hidden" name="editing" value="{{ d.key }}">
+        <div class="card tm-card rl-card">
+            <div class="rl-ident">
+                <span class="rl-big" style="background: {{ d.e.color }}; --c: {{ d.e.color }}">{% icon d.icon 40 1.8 %}</span>
+                <div class="grow rl-names">
+                    <label><span class="lbl">{% trans "Role name" %}</span><input class="field{% if d.err %} bad{% endif %}" name="name" value="{{ d.e.name }}" maxlength="24" placeholder="{% trans 'e.g. Line cook' %}" autocomplete="off"></label>
+                    {% if d.err %}<div class="tm-err tight">{{ d.err }}</div>{% endif %}
+                    <label><span class="lbl rl-lbl"><span>{% trans "Description" %}</span><span class="faint num">{{ d.e.desc|length }}/120</span></span>
+                        <textarea class="field rl-desc" name="desc" rows="2" maxlength="120" placeholder="{% trans 'What this job covers, in a sentence' %}">{{ d.e.desc }}</textarea></label>
+                </div>
+            </div>
+            <div class="rl-looks">
+                <div>
+                    <div class="lbl">{% trans "Icon" %}</div>
+                    <div class="rl-icons" role="radiogroup" aria-label="{% trans 'Icon' %}">
+                        {% for k, label, path, on in d.icons %}<button role="radio" aria-checked="{{ on|yesno:'true,false' }}" aria-label="{{ label }}" title="{{ label }}" name="op" value="icon:{{ k }}"{% if on %} style="background: {{ d.e.color }}; color: #FFFFFF"{% endif %}>{% icon path 20 2 %}</button>{% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <div class="lbl">{% trans "Color" %}</div>
+                    <div class="rl-colors" role="radiogroup" aria-label="{% trans 'Color' %}">
+                        {% for c, label, on in d.colors %}<button role="radio" aria-checked="{{ on|yesno:'true,false' }}" aria-label="{{ label }}" title="{{ label }}" name="op" value="color:{{ c }}" style="--c: {{ c }}"></button>{% endfor %}
+                    </div>
+                    <div class="lbl top14">{% trans "On profiles" %}</div>
+                    <span class="tm-role rl-chip" style="--c: {{ d.e.color }}"><span class="tm-dot" style="background: {{ d.e.color }}"></span>{{ d.e.name|default:_("Role") }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="rl-grid">
+            <div class="card tm-card">
+                <h2 class="disp tm-h2">{{ d.people_head }}</h2>
+                <div class="small muted strong">{% trans "Same as ticking the role on someone’s profile." %}</div>
+                <div class="rl-people">
+                    {% for p in d.people %}
+                    <div class="rl-person{% if p.off %} off{% endif %}">
+                        <span class="tm-face" style="--c: {{ p.face }}; width: 36px; height: 36px; font-size: 13px">{{ p.ini }}</span>
+                        <span class="grow two-line"><span class="strong">{{ p.name }}</span><span class="small muted">{{ p.also }}</span></span>
+                        <button class="rl-x" name="op" value="rm:{{ p.u.id }}" aria-label="{% blocktrans with name=p.u.first_name role=d.e.name %}Remove {{ name }} from {{ role }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                    </div>
+                    {% empty %}
+                    <div class="rl-nobody">{% trans "Nobody has this role yet." %}</div>
+                    {% endfor %}
+                </div>
+                {% if d.add %}
+                <select class="field rl-add" name="add_person" aria-label="{% trans 'Add someone' %}">
+                    <option value="" selected>+ {% trans "Add someone to this role" %}</option>
+                    {% for id, name in d.add %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
+                </select>
+                {% endif %}
+            </div>
+            <div class="rl-side">
+                <div class="card tm-card">
+                    <h2 class="disp tm-h2">{% trans "Starting groups" %}</h2>
+                    <div class="small muted strong rl-note">{% trans "Ticked automatically when someone gets this role. You can still change groups per person." %}</div>
+                    <div class="tm-groups">
+                        {% for g in d.groups %}<label class="tm-group"><span class="tm-box"><input type="checkbox" name="groups" value="{{ g.g.id }}"{% if g.on %} checked{% endif %}><span></span></span><span class="strong">{{ g.g.name }}</span></label>{% endfor %}
+                    </div>
+                </div>
+                <div class="card tm-card">
+                    <div class="ov muted">{% trans "Archive" %}</div>
+                    <div class="small muted strong rl-note">{{ d.archive_hint }}</div>
+                    <button class="rl-archive" name="op" value="archive"{% if d.archive_off %} disabled{% endif %}>{% blocktrans with name=d.e.name|default:_("role") %}Archive {{ name }}{% endblocktrans %}</button>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card tm-card tm-none">{% trans "No roles yet. Add one with New role." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

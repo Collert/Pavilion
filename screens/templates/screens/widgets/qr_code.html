@@ -1,0 +1,5 @@
+{% load i18n %}<article class="qr" style="background: {{ params.background }}; color: {{ params.color }}">
+    {% if data.svg %}<div class="qr-code" role="img" aria-label="{% blocktrans with url=data.url %}QR code for {{ url }}{% endblocktrans %}">{{ data.svg }}</div>
+    <div class="qr-text">{% if params.caption %}<h3>{{ params.caption }}</h3>{% endif %}<p>{{ data.url }}</p></div>
+    {% else %}<p class="qr-empty">{% trans "Add the link to show its code." %}</p>{% endif %}
+</article>

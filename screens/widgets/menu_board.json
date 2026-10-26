@@ -1,0 +1,14 @@
+{
+  "title": "Menu board",
+  "description": "A menu, laid out with the template, pages, groups and look set in its Display tab (Admin → Menus). Give it the whole screen, sized for the template (portrait 1080 × 1920 or landscape 1920 × 1080), with no padding.",
+  "icon": "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M9 9h6 M9 13h6",
+  "color": "#12875A",
+  "template": "screens/widgets/menu_board.html",
+  "context": "screens.providers.menu_board",
+  "live": ["menus", "inventory"],
+  "css": ["screens/widgets/menu_board.css"],
+  "js": ["screens/widgets/menu_board.js"],
+  "params": {
+    "menu": {"type": "int", "default": 0, "min": 0, "label": "Menu", "source": "menus", "help": "Its template, pages and look are set in the menu's Display tab (Admin → Menus)"}
+  }
+}

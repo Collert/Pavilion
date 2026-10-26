@@ -1,0 +1,2 @@
+{% load i18n %}{% trans "Ready for pickup" as kicker %}{% if data.name %}{% blocktrans with n=data.number asvar small %}Order #{{ n }}{% endblocktrans %}{% endif %}
+{% include "screens/popups/_card.html" with kicker=kicker big=data.name|default:data.number small=small %}

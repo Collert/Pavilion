@@ -1,0 +1,265 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Catering orders (design: AdminCatering; admin_portal/catering.py). The inbox on the left, one order on the right.
+?edit=1 turns the order card into the editing draft (form#cater-edit, posted on every change like the other
+editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=reject open the sheets.
+{% endcomment %}
+{% block title %}{% trans "Catering" %}{% endblock %}
+{% block main_class %}cater-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/catering.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+{% block live_topics %}"catering"{% endblock %}
+
+{% block content %}
+{% include "admin_portal/catering_head.html" %}
+<div class="cater-body">
+    <section class="cater-list" aria-label="{% trans 'Catering orders' %}" id="cater-list" data-region>
+        <div class="cater-list-top">
+            <nav class="cater-tabs" aria-label="{% trans 'Status' %}">
+                {% for t in c.tabs %}
+                <a class="cater-tab" href="{{ t.url }}" data-live {% if t.on %}aria-current="page"{% endif %}>{{ t.label }}<span class="cater-tab-count{% if t.key == 'new' and t.count %} hot{% endif %}">{{ t.count }}</span></a>
+                {% endfor %}
+            </nav>
+            {% if c.off %}<div class="cater-off">{% trans "Catering is off, so customers can’t place new orders. Orders already here still need you." %}</div>{% endif %}
+        </div>
+        <div class="cater-rows">
+            {% for r in c.rows %}
+            <a class="cater-row{% if r.on %} on{% endif %}" href="{{ r.url }}" data-live {% if r.on %}aria-current="true"{% endif %}>
+                <span class="date-box {{ r.o.status }}"><span class="date-mon">{{ r.mon }}</span><span class="disp num date-day">{{ r.day }}</span></span>
+                <span class="row-main">
+                    <span class="row-name"><span class="strong ellipsis">{{ r.name }}</span>{% if r.o.status == "new" %}<span class="new-dot"></span>{% endif %}</span>
+                    <span class="row-title ellipsis">{{ r.o.title }}</span>
+                    <span class="num row-meta">{{ r.meta }}</span>
+                    {% if r.flag %}<span class="pill {{ r.flag_kind }}">{{ r.flag }}</span>{% endif %}
+                </span>
+                <span class="row-side">
+                    <span class="num strong">{{ r.total|money }}</span>
+                    {% if r.o.status != "new" %}<span class="pill st-{{ r.o.status }}">{{ r.o.get_status_display }}</span>{% endif %}
+                </span>
+            </a>
+            {% empty %}
+            <div class="cater-empty">{{ c.empty }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="cater-detail" aria-label="{% trans 'Catering order' %}">
+    {% if d %}{% with o=d.o %}
+        <div class="card cater-card" id="cater-event" data-region>
+            <div class="event-top">
+                <span class="event-avatar" style="background: {{ d.color }}">{{ d.ini }}</span>
+                <div class="grow two-line">
+                    <div class="event-title"><h2 class="disp">{{ o.title }}</h2><span class="pill big st-{{ o.status }}">{{ o.get_status_display }}</span></div>
+                    <div class="event-who">{{ d.who }}</div>
+                </div>
+                <span class="num event-no">{{ o.number }}</span>
+            </div>
+            <div class="facts">
+                {% for f in d.facts %}
+                <div class="fact"><div class="fact-label">{{ f.label }}</div><div class="num fact-value">{{ f.value }}</div><div class="num fact-sub">{{ f.sub }}</div></div>
+                {% endfor %}
+            </div>
+            <div class="event-notes">
+                <div class="lead-note{% if d.lead_bad %} bad{% endif %}">{% icon "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2" 16 2.4 %}<span>{{ d.lead }}</span></div>
+                <div class="kitchen-note">{% icon "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1 0-5.5 3-7.5.5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z" 16 2.2 %}<span>{{ d.kitchen }}</span></div>
+            </div>
+            {% if o.note %}
+            <div class="cust-note"><div class="cust-note-label">{% blocktrans with name=d.first %}Note from {{ name }}{% endblocktrans %}</div><div class="cust-note-text">“{{ o.note }}”</div></div>
+            {% endif %}
+        </div>
+
+        <div id="cater-order" data-region>
+        {% if d.editing %}<form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" id="cater-edit" data-editor data-queue>{% csrf_token %}
+            <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+            <input type="hidden" name="line-count" value="{{ d.draft.lines|length }}">
+            {% for l in d.draft.lines %}
+            <input type="hidden" name="line-{{ forloop.counter0 }}-id" value="{{ l.id }}"><input type="hidden" name="line-{{ forloop.counter0 }}-kind" value="{{ l.kind }}">
+            <input type="hidden" name="line-{{ forloop.counter0 }}-ref" value="{{ l.ref }}"><input type="hidden" name="line-{{ forloop.counter0 }}-removed" value="{% if l.removed %}1{% endif %}">
+            {% endfor %}
+            <input type="hidden" name="add_last" value="{{ d.draft.add_last }}"><input type="hidden" name="add_kind" value="{{ d.draft.add_kind }}">
+        {% endif %}
+        <section class="card cater-card{% if d.editing %} editing{% endif %}" aria-label="{% trans 'Order' %}">
+            <div class="order-head"><h2 class="disp grow">{{ d.head }}</h2><span class="small muted strong">{{ d.portions }}</span></div>
+            {% for g in d.groups %}
+            <div class="line-group">
+                <div class="ov faint">{{ g.title }}</div>
+                {% for x in g.rows %}
+                <div class="line{% if x.removed %} removed{% elif x.new %} new{% elif x.changed %} changed{% endif %}">
+                    <div class="grow two-line">
+                        <span class="line-name"><span class="strong ellipsis{% if x.removed %} struck{% endif %}">{{ x.name }}</span>{% if x.tag %}<span class="pill {{ x.tag_kind }}">{{ x.tag }}</span>{% endif %}</span>
+                        <span class="num small muted">{{ x.detail }}</span>
+                    </div>
+                    {% if d.editing and not x.removed %}
+                    <input type="hidden" name="line-{{ x.n }}-amount" value="{{ x.l.amount }}">
+                    {% if x.counts %}
+                    <span class="stepper">
+                        <button class="step" name="op" value="less:{{ x.n }}" aria-label="{% blocktrans with name=x.name %}Fewer {{ name }}{% endblocktrans %}">−</button>
+                        <input type="number" name="line-{{ x.n }}-quantity" min="1" class="num step-in" value="{{ x.l.quantity }}" aria-label="{% blocktrans with name=x.name %}Quantity of {{ name }}{% endblocktrans %}">
+                        <button class="step" name="op" value="more:{{ x.n }}" aria-label="{% blocktrans with name=x.name %}More {{ name }}{% endblocktrans %}">+</button>
+                    </span>
+                    {% else %}<input type="hidden" name="line-{{ x.n }}-quantity" value="{{ x.l.quantity }}">{% endif %}
+                    {% if x.hourly %}
+                    <span class="stepper">
+                        <button class="step" name="op" value="hless:{{ x.n }}" aria-label="{% trans 'Less time' %}">−</button>
+                        <span class="num step-text">{{ x.amount_text }}</span>
+                        <button class="step" name="op" value="hmore:{{ x.n }}" aria-label="{% trans 'More time' %}">+</button>
+                    </span>
+                    {% endif %}
+                    {% if x.custom %}
+                    <span class="each-price" title="{% trans 'Price each' %}"><span>$</span><input type="number" name="line-{{ x.n }}-price" min="0" step="0.05" class="num" value="{{ x.l.price }}" aria-label="{% blocktrans with name=x.name %}Price each for {{ name }}{% endblocktrans %}"><span class="each-unit">{% trans "ea" %}</span></span>
+                    {% else %}<input type="hidden" name="line-{{ x.n }}-price" value="{{ x.l.price }}">{% endif %}
+                    {% else %}
+                    {% if d.editing %}<input type="hidden" name="line-{{ x.n }}-quantity" value="{{ x.l.quantity }}"><input type="hidden" name="line-{{ x.n }}-amount" value="{{ x.l.amount }}"><input type="hidden" name="line-{{ x.n }}-price" value="{{ x.l.price }}">{% endif %}
+                    <span class="num line-qty">{{ x.qty_text }}</span>
+                    {% endif %}
+                    <span class="num line-total{% if x.removed %} struck{% endif %}" data-calc>{{ x.total|money }}</span>
+                    {% if d.editing %}
+                    {% if not x.removed %}<button class="line-x" name="op" value="remove:{{ x.n }}" aria-label="{% blocktrans with name=x.name %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 14 2.8 %}</button>
+                    {% elif x.can_undo %}<button class="line-undo" name="op" value="undo:{{ x.n }}">{% trans "Undo" %}</button>{% endif %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% empty %}
+            <div class="cater-empty">{% trans "Nothing on this order." %}</div>
+            {% endfor %}
+
+            {% if d.editing %}{% with a=d.add %}
+            <div class="add-box">
+                <div class="add-top">
+                    <span class="ov muted">{% trans "Add to order" %}</span>
+                    <div class="add-kinds" role="group" aria-label="{% trans 'What to add' %}">
+                        {% for k in a.kinds %}<button class="add-kind" name="op" value="add_kind:{{ k.key }}" aria-pressed="{% if k.on %}true{% else %}false{% endif %}">{% icon k.path 15 2.2 %}{{ k.label }}</button>{% endfor %}
+                    </div>
+                </div>
+                <div class="add-fields">
+                    <label class="grow"><span class="lbl">{{ a.what }}</span>
+                        <select class="field" name="add_ref"><option value="">{{ a.placeholder }}</option>{% for x in a.options %}<option value="{{ x.id }}" {% if x.sel %}selected{% endif %}>{{ x.label }}</option>{% endfor %}</select></label>
+                    <label class="add-qty"><span class="lbl">{{ a.qty_label }}</span><input type="number" min="1" class="field num" name="add_qty" value="{{ d.draft.add_qty }}"></label>
+                    {% if a.custom %}
+                    <label class="add-price"><span class="lbl">{% trans "Price each" %}</span><span class="price-field"><span>$</span><input type="number" min="0" step="0.05" class="num" name="add_price" value="{{ d.draft.add_price }}" aria-label="{% trans 'Price each' %}"></span></label>
+                    {% else %}
+                    <input type="hidden" name="add_price" value="">
+                    <div class="add-price"><span class="lbl">{% trans "Price" %}</span><div class="num fixed-price">{{ a.fixed }}</div></div>
+                    {% endif %}
+                    <button class="add-btn" name="op" value="add" {% if not a.ok %}disabled{% endif %}>{% trans "Add" %}</button>
+                </div>
+                <div class="num small faint add-hint">{{ a.hint }}</div>
+            </div>
+            {% endwith %}{% endif %}
+
+            <div class="cater-totals" data-calc>
+                {% for t in d.totals %}
+                <div class="total-line{% if t.big %} big{% endif %}"><span class="grow">{{ t.label }}</span>{% if t.was is not None %}<span class="num was">{{ t.was|money }}</span>{% endif %}<span class="num">{{ t.value|money }}</span></div>
+                {% endfor %}
+            </div>
+            {% if d.editing %}
+            <label class="why"><span class="lbl">{% trans "Why the changes?" %} <span class="req">· {% blocktrans with name=d.first %}required, {{ name }} sees this with the new total{% endblocktrans %}</span></span>
+                <textarea class="area warm" name="msg" rows="3" maxlength="600" placeholder="{{ d.edit.placeholder }}" data-type-preview>{{ d.draft.msg }}</textarea></label>
+            {% endif %}
+            {% if d.deposit %}
+            <div class="deposit-note">{% icon "M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z" 18 2.2 %}<div class="two-line"><span class="num strong">{{ d.deposit.head }}</span><span class="num small">{{ d.deposit.sub }}</span></div></div>
+            {% endif %}
+        </section>
+        {% if d.editing %}</form>{% endif %}
+        </div>
+
+        <section class="card cater-card" aria-label="{% trans 'Conversation' %}" id="cater-thread" data-region>
+            <h2 class="disp card-title">{% trans "Conversation" %}</h2>
+            <div class="card-sub">{{ d.thread_sub }}{% if not d.closed %} <a class="cust-link" href="{{ d.link }}" target="_blank" rel="noopener">{% trans "Their order page" %}</a>{% endif %}</div>
+            <ol class="thread">
+                {% for e in d.timeline %}
+                <li>
+                    <div class="thread-rail"><span class="thread-av {{ e.who }}"{% if e.color %} style="background: {{ e.color }}"{% endif %}>{{ e.ini }}</span>{% if not forloop.last %}<span class="thread-line"></span>{% endif %}</div>
+                    <div class="thread-body">
+                        <div class="thread-head"><span class="strong">{{ e.head }}</span><span class="num thread-at">{{ e.at }}</span></div>
+                        {% if e.text %}<div class="bubble {{ e.who }}">{{ e.text|linebreaksbr }}</div>{% endif %}
+                        {% if e.changes %}<div class="change-list">{% for ch in e.changes %}<div class="num change {{ ch.kind }}">{{ ch.t }}</div>{% endfor %}{% if e.total %}<div class="num change total">{{ e.total }}</div>{% endif %}</div>{% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ol>
+            {% if not d.closed and not d.editing %}
+            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="reply" data-reset>{% csrf_token %}
+                <textarea class="area" name="text" rows="2" maxlength="600" required placeholder="{{ d.reply_ph }}" aria-label="{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %}"></textarea>
+                <button class="send-btn" name="op" value="reply">{% trans "Send" %}</button>
+            </form>
+            {% endif %}
+        </section>
+
+        <div class="cater-bar-wrap" id="cater-bar" data-region>
+            {% with b=d.bar %}
+            {% if b.kind == "new" %}
+            <div class="cater-bar dark">
+                <span class="num grow bar-text">{{ b.text }}</span>
+                <a class="bar-btn ghost-red" href="?tab={{ c.tab }}&sheet=reject" data-live>{% trans "Reject" %}</a>
+                <a class="bar-btn white" href="?tab={{ c.tab }}&edit=1" data-live>{% trans "Propose changes" %}</a>
+                <a class="bar-btn amber" href="?tab={{ c.tab }}&sheet=accept" data-live>{% trans "Accept and charge" %}</a>
+            </div>
+            {% elif b.kind == "edit" %}
+            <div class="cater-bar dark">
+                <div class="grow two-line">
+                    <span class="bar-edit-head"><span class="strong">{{ d.edit.head }}</span><span class="num strong amber-text">{{ d.edit.total }}</span></span>
+                    <span class="small bar-hint">{{ d.edit.hint }}</span>
+                </div>
+                <a class="bar-btn ghost" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Cancel" %}</a>
+                <button class="bar-btn amber" form="cater-edit" name="op" value="send" {% if not d.edit.can_send %}disabled{% endif %}>{% blocktrans with name=d.first %}Send to {{ name }}{% endblocktrans %}</button>
+            </div>
+            {% else %}
+            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="cater-bar light">{% csrf_token %}
+                <span class="bar-icon {{ b.tone }}">{% if b.icon == "wait" %}{% icon "M12 7v5l3 2 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" 16 2.6 %}{% elif b.icon == "ok" %}{% icon "check" 16 2.6 %}{% else %}{% icon "close" 16 2.6 %}{% endif %}</span>
+                <div class="grow two-line"><span class="num strong small-13">{{ b.head }}</span><span class="num small muted">{{ b.sub }}</span></div>
+                {% for btn in b.buttons %}
+                {% if btn.href %}<a class="bar-btn sm {{ btn.kind }}" href="{{ btn.href }}&tab={{ c.tab }}" data-live>{{ btn.label }}</a>
+                {% else %}<button class="bar-btn sm {{ btn.kind }}" name="op" value="{{ btn.op }}">{{ btn.label }}</button>{% endif %}
+                {% endfor %}
+            </form>
+            {% endif %}
+            {% endwith %}
+        </div>
+    {% endwith %}{% else %}
+        <div class="card cater-card cater-none">
+            <div class="disp empty-title">{% trans "No catering orders yet" %}</div>
+            <div class="muted">{% trans "When customers order catering, the orders wait here for you." %}</div>
+        </div>
+    {% endif %}
+    </section>
+</div>
+
+<div id="cater-sheet" data-region>
+{% if d.sheet %}{% with o=d.o sh=d.sheet %}
+<div class="overlay">
+    <a class="scrim" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live aria-label="{% trans 'Close' %}"></a>
+    {% if sh.kind == "accept" %}
+    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="sheet cater-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Accept order' %}">{% csrf_token %}
+        <div><h2 class="disp sheet-title">{% blocktrans with name=d.first %}Accept and charge {{ name }}?{% endblocktrans %}</h2><div class="small muted strong top4">{{ sh.sub }}</div></div>
+        <div class="sheet-amounts">
+            <div class="amount-row warm"><div class="grow two-line"><span class="strong small-13">{% trans "Charge now" %}</span><span class="num small muted">{{ o.card }}</span></div><span class="disp num amount-big">{{ d.t.total|money }}</span></div>
+            {% if d.t.deposit %}<div class="amount-row blue"><div class="grow two-line"><span class="strong small-13">{% trans "Deposit hold" %}</span><span class="num small">{{ sh.dep_when }}</span></div><span class="disp num amount-mid">{{ d.t.deposit|money }}</span></div>{% endif %}
+        </div>
+        <label><span class="lbl">{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %} <span class="opt">· {% trans "optional, goes with the confirmation" %}</span></span>
+            <textarea class="area" name="message" rows="2" maxlength="400" placeholder="{% trans 'e.g. All set! We’ll arrive 30 minutes early to set up.' %}"></textarea></label>
+        <div class="sheet-btns">
+            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Not yet" %}</a>
+            <button class="sheet-btn amber" name="op" value="accept">{% blocktrans with total=d.t.total|money %}Accept and charge {{ total }}{% endblocktrans %}</button>
+        </div>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="sheet cater-sheet reject" role="dialog" aria-modal="true" aria-label="{{ sh.title }}">{% csrf_token %}
+        <div><h2 class="disp sheet-title">{{ sh.title }}</h2><div class="small muted strong top4">{{ sh.sub }}</div></div>
+        <fieldset class="reasons"><legend class="lbl">{% trans "Reason" %}</legend>
+            {% for r in sh.reasons %}<label class="reason"><input type="radio" name="reason" value="{{ r }}" required {% if r == sh.default %}checked{% endif %} class="visually-hidden"><span>{{ r }}</span></label>{% endfor %}
+        </fieldset>
+        <label><span class="lbl">{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %} <span class="req">· {% trans "required" %}</span></span>
+            <textarea class="area" name="message" rows="3" maxlength="600" required placeholder="{% trans 'Let them know why, and what might work instead.' %}"></textarea></label>
+        <div class="sheet-btns">
+            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Keep order" %}</a>
+            <button class="sheet-btn red" name="op" value="reject">{{ sh.button }}</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endwith %}{% endif %}
+</div>
+{% endblock %}

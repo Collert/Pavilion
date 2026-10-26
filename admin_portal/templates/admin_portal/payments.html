@@ -1,0 +1,82 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Payments (Settings; admin_portal/payment_settings.py; no mockup, laid out like the Email page): the store's own
+Square account, connected with OAuth, the location payments go to, and what to set up in Square for Pavilion.
+{% endcomment %}
+{% block title %}{% trans "Payments" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Payments" %}</h1>
+    </div>
+    <span class="em-status{% if x.connection and not x.problem %} on{% endif %}"><span></span>{% if x.connection and not x.problem %}{% trans "Square connected" %}{% elif x.connection %}{% trans "Can’t reach Square" %}{% elif x.fallback %}{% trans "Using the server’s Square token" %}{% else %}{% trans "Not connected" %}{% endif %}</span>
+</header>
+
+<div class="pm-body">
+    <section class="card tm-card pm-card" aria-label="Square">
+        <div class="em-brand"><span class="em-brand-ic pm-square" aria-hidden="true"><span></span></span>
+            <div class="grow"><h2 class="disp tm-h2">Square</h2><div class="small muted strong">{% trans "Card payments on the registers’ Terminals and online go to your Square account." %}</div></div></div>
+        {% if x.connection %}
+        <div class="em-facts">{% for k, v in x.facts %}<div><span>{{ k }}</span><span class="ellipsis">{{ v }}</span></div>{% endfor %}</div>
+        {% if x.problem %}<div class="em-err">{% blocktrans with why=x.problem %}Square didn’t answer: {{ why }}. If access was removed in Square, connect again.{% endblocktrans %}</div>{% endif %}
+        {% if x.locations %}
+        <form method="post" class="pm-location">{% csrf_token %}
+            <label class="block top12"><span class="lbl">{% trans "Payments go to" %}</span>
+                <select class="field" name="location">{% if not x.connection.location_id %}<option value="">{% trans "Pick a location" %}</option>{% endif %}
+                    {% for l in x.locations %}<option value="{{ l.id }}"{% if l.id == x.connection.location_id %} selected{% endif %}>{{ l.name }}{% if l.address %} · {{ l.address }}{% endif %}</option>{% endfor %}
+                </select></label>
+            <button class="em-soft top10" name="op" value="location">{% trans "Use this location" %}</button>
+        </form>
+        {% if not x.connection.location_id %}<div class="em-hint bad">{% trans "Pick the location card payments go to." %}</div>{% endif %}
+        {% endif %}
+        <form method="post" class="em-btns">{% csrf_token %}
+            <button class="em-soft" name="op" value="renew">{% trans "Renew access now" %}</button>
+            <button class="em-soft red" name="op" value="disconnect">{% trans "Disconnect" %}</button>
+        </form>
+        {% else %}
+        <p class="pm-text">{% trans "Connect the store’s Square account: you sign in to Square, check what Pavilion may do, and come back here. Pavilion never sees your Square password." %}</p>
+        <ul class="pm-list small muted strong">
+            <li>{% trans "Take payments on Square Terminals and online, and refund them" %}</li>
+            <li>{% trans "Pair Terminals with registers" %}</li>
+            <li>{% trans "Read your business name and locations" %}</li>
+            <li>{% trans "Keep customers’ saved cards" %}</li>
+        </ul>
+        {% if x.configured %}
+        <form method="post" data-navigate>{% csrf_token %}<button class="em-connect" name="op" value="connect">{% trans "Connect with Square" %}</button></form>
+        <div class="em-hint">{% if x.environment == "sandbox" %}{% trans "This server uses Square’s sandbox (test payments only). First open your sandbox test account in this browser: Square Developer Console → Sandbox test accounts → Open in Square Dashboard. Square’s sign-in page fails without it." %}{% else %}{% trans "Live payments: connect the store’s real Square account." %}{% endif %}</div>
+        {% else %}
+        <div class="em-err">{% trans "Whoever runs this Pavilion server needs to set up its Square app first: SQUARE_APPLICATION_ID and SQUARE_APPLICATION_SECRET, with the redirect URL below." %}</div>
+        {% endif %}
+        {% if x.fallback %}<div class="em-hint">{% trans "Until then, the access token in the server’s settings is used (fine for development)." %}</div>{% endif %}
+        {% endif %}
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Set up in Square' %}">
+        <h2 class="disp tm-h2">{% trans "Set up in Square" %}</h2>
+        <div class="small muted strong">{% trans "In the Square Developer Dashboard, for Pavilion’s app. Usually done once by whoever runs the server." %}</div>
+        <div class="pm-rows">
+            <div><span class="lbl">{% trans "OAuth redirect URL" %}</span><code class="pm-code">{{ x.callback }}</code></div>
+            <div><span class="lbl">{% trans "Webhook URL" %}</span><code class="pm-code">{{ x.webhook }}</code>
+                <span class="small muted">{% blocktrans with events=x.events|join:", " %}Events: {{ events }}. Put its signature key in SQUARE_WEBHOOK_SIGNATURE_KEY.{% endblocktrans %}</span>
+                {% if not x.webhook_key %}<span class="em-hint bad">{% trans "No webhook signature key is set, so Square’s updates are turned away. Registers can still press Check with Square." %}</span>{% endif %}</div>
+            <div><span class="lbl">{% trans "Permissions it asks for" %}</span><span class="small muted strong">{{ x.scopes|join:" · " }}</span></div>
+        </div>
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Terminals' %}">
+        <h2 class="disp tm-h2">{% trans "Terminals" %}</h2>
+        <div class="small muted strong">{% trans "Each register pairs its own Square Terminal from its Screen button." %}</div>
+        <div class="pm-rows">
+            {% for t in x.terminals %}<div class="pm-terminal"><span class="strong">{{ t.register.name }}</span>{% if t.name != t.register.name %}<span class="small muted">{{ t.name }}</span>{% endif %}</div>
+            {% empty %}<div class="small muted">{% trans "No register has a Terminal yet." %}</div>{% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

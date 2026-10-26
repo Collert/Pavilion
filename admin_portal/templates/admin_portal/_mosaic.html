@@ -1,0 +1,2 @@
+{% comment %}A playlist's artwork as a 2×2 mosaic (admin_portal/library.py: mosaic); blanks when it has no pictures.{% endcomment %}
+<span class="{{ cls }}{% if not tiles.0 %} blank{% endif %}" aria-hidden="true">{% for t in tiles %}<span{% if t %} style="background-image: url('{{ t }}')"{% endif %}></span>{% endfor %}</span>

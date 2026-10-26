@@ -1,0 +1,85 @@
+{% load i18n admin_tags %}
+{% comment %}
+The Library's Add music dialog (design: AdminLibrary, upload). Outside #page, so page updates leave it alone.
+library.js fills it: each file's tags are read in the browser (audio/static/audio/tags.js), checked or filled in here,
+then the file is uploaded as is to admin_library_upload with what was read. Nothing is built from customer text.
+{% endcomment %}
+<dialog class="up" id="upload-music" aria-labelledby="up-title" data-upload-url="{% url 'admin_library_upload' %}"
+        data-max-size="{{ l.max_size }}" data-room="{{ l.limit_left }}">
+    <div class="up-head">
+        <div class="grow">
+            <h2 id="up-title" class="disp up-title">{% trans "Add music" %}</h2>
+            <div class="small muted">{% trans "We read each file’s tags and fill in what we find. Anything missing stays blank for you to fill in, or leave." %}</div>
+        </div>
+        <button type="button" class="close-btn" data-up-close aria-label="{% trans 'Close' %}">{% icon "close" 16 2.6 %}</button>
+    </div>
+    <div class="up-body">
+        <div class="up-queue">
+            <label class="up-zone" data-up-zone>
+                <input type="file" multiple hidden data-up-input accept="audio/*,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.wav">
+                <span class="up-zone-tile">{% icon "M12 16V4 M7 9l5-5 5 5 M5 20h14" 20 2.4 %}</span>
+                <span class="grow"><span class="strong up-zone-text" data-zone-text></span>
+                    <span class="small muted up-zone-sub">{% trans "MP3, M4A, AAC, FLAC, OGG, WAV · up to 200 MB each" %}</span></span>
+            </label>
+            <div class="up-files" role="listbox" aria-label="{% trans 'Files' %}" data-up-files></div>
+        </div>
+        <div class="up-pane">
+            <div class="up-none small muted" data-pane="none"></div>
+            <div class="up-wait" data-pane="wait" hidden>
+                <span class="up-spin"></span>
+                <div class="strong" data-wait-text></div>
+                <div class="small muted">{% trans "Title, artist, album, year, genre and artwork" %}</div>
+            </div>
+            <div class="up-cur" data-pane="ready" hidden>
+                <div class="up-art-row">
+                    <span class="up-art" data-f-art>{% icon "M4 16l4.5-4.5 3 3L15 11l5 5 M4 5h16v14H4z M9 9h.01" 34 1.8 %}</span>
+                    <div class="grow up-art-side">
+                        <div class="up-line"><span class="strong">{% trans "Artwork" %}</span><span class="up-tag" data-tag="art"></span></div>
+                        <div class="small muted" data-art-hint></div>
+                        <div class="up-line">
+                            <label class="up-art-btn"><input type="file" accept="image/jpeg,image/png,image/webp" hidden data-f-art-input><span data-art-btn></span></label>
+                            <button type="button" class="up-art-rm" data-f-art-rm>{% trans "Remove" %}</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="up-grid">
+                    <label class="s6"><span class="lbl"><span>{% trans "Title" %}</span><span class="up-tag" data-tag="title"></span><span class="grow"></span><button type="button" class="up-act" data-act="title" hidden></button></span>
+                        <input class="field" data-f="title" maxlength="200" placeholder="{% trans 'Song title' %}"></label>
+                    <label class="s3"><span class="lbl"><span>{% trans "Artist" %}</span><span class="up-tag" data-tag="artist"></span><span class="grow"></span><button type="button" class="up-act" data-act="artist" hidden></button></span>
+                        <input class="field" data-f="artist" maxlength="200" placeholder="{% trans 'Who performs it' %}"></label>
+                    <label class="s3"><span class="lbl"><span>{% trans "Album" %}</span><span class="up-tag" data-tag="album"></span><span class="grow"></span><button type="button" class="up-act" data-act="album" hidden></button></span>
+                        <input class="field" data-f="album" maxlength="200" placeholder="{% trans 'Album or single' %}"></label>
+                    <label class="s2"><span class="lbl"><span>{% trans "Year" %}</span><span class="up-tag" data-tag="year"></span></span>
+                        <input class="field" data-f="year" maxlength="4" inputmode="numeric" placeholder="{% trans 'e.g. 2024' %}"></label>
+                    <label class="s4"><span class="lbl"><span>{% trans "Genre" %}</span><span class="up-tag" data-tag="genre"></span></span>
+                        <input class="field" data-f="genre" maxlength="80" placeholder="{% trans 'e.g. Jazz' %}"></label>
+                </div>
+                <div class="up-facts" data-facts></div>
+                <div class="small up-note" data-note></div>
+            </div>
+        </div>
+    </div>
+    <div class="up-error" role="alert" data-up-error hidden></div>
+    <div class="up-foot">
+        <label class="up-pl">{% trans "Also add to" %}
+            <select class="field" data-up-pl>
+                <option value="">{% trans "No playlist" %}</option>
+                {% for id, name in l.pl_opts %}<option value="{{ id }}"{% if l.v.id == id %} selected{% endif %}>{{ name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="up-rights"><span class="lib-box"><input type="checkbox" data-up-rights><span></span></span>
+            <span>{% trans "We own these songs or are licensed to play them in public" %}</span></label>
+        <button type="button" class="btn-soft" data-up-close>{% trans "Cancel" %}</button>
+        <button type="button" class="btn-amber" data-up-add disabled></button>
+    </div>
+</dialog>
+<template id="up-file-tpl">
+    <div class="up-file">
+        <button type="button" role="option" class="up-file-btn">
+            <span class="up-file-art"></span>
+            <span class="grow up-file-text"><span class="strong ellipsis up-file-name"></span><span class="ellipsis up-file-sub"></span><span class="up-file-bar" hidden><span></span></span></span>
+            <span class="up-pill"></span>
+        </button>
+        <button type="button" class="lib-ico up-rm">{% icon "close" 13 2.8 %}</button>
+    </div>
+</template>

@@ -1,0 +1,169 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Combo editor (design: AdminCombos, edit state; admin_portal/combos.py: editor). One form like the dish editor: Save
+writes it, the other buttons (add choice, picks −/+, move, remove...) post `op` and show the draft again with prices
+worked out, and editor.js posts op=preview when a field changes. Choices are numbered fields (slot-0-title,
+slot-0-opt-1-price...).
+{% endcomment %}
+{% block title %}{{ e.title }} · {% trans "Combos" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/combos.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=e.d %}
+<form method="post" action="{% url 'admin_combo' e.combo.id %}" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="combo-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Combos" %}</button>
+        <div class="title-line">
+            <h1 class="disp page-title ellipsis">{{ e.title }}</h1>
+            <span class="combo-status big {{ e.state.key }}">{{ e.state.label }}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div id="combo-leave" data-region>
+    {% if e.leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this combo." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_combos' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="editor-grid">
+    <div class="editor-col">
+        <section class="card" aria-label="{% trans 'Basics' %}" id="combo-basics" data-region>
+            <div class="basics-grid">
+                <label><span class="lbl">{% trans "Combo name" %}</span><input class="field" name="title" value="{{ d.title }}" maxlength="140"></label>
+                <label><span class="lbl">{% trans "Name on kitchen tickets" %}</span><input class="field ticket" name="ticket_name" value="{{ d.ticket_name }}" maxlength="12"></label>
+            </div>
+            <label class="block-label"><span class="lbl">{% trans "Description" %}</span><textarea class="field" name="description" rows="2">{{ d.description }}</textarea></label>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Choices' %}" id="combo-slots" data-region>
+            <input type="hidden" name="slot-count" value="{{ d.slots|length }}">
+            <div class="card-head end">
+                <div class="grow">
+                    <h2 class="disp card-title">{% trans "What’s in the combo" %}</h2>
+                    <div class="card-sub">{% trans "Each choice is one step at the register. Mark a default and set upcharges for premium picks." %}</div>
+                </div>
+                <button class="mint-btn" name="op" value="add_slot">{% icon "plus" 14 2.6 %}{% trans "Add choice" %}</button>
+            </div>
+            <div class="slot-list">
+                {% for s in e.slots %}
+                <div class="slot-card{% if not s.s.required %} optional{% endif %}{% if s.errors %} has-errors{% endif %}">
+                    <input type="hidden" name="slot-{{ s.i }}-id" value="{{ s.s.id }}">
+                    <input type="hidden" name="slot-{{ s.i }}-picks" value="{{ s.s.picks }}">
+                    <input type="hidden" name="slot-{{ s.i }}-opt-count" value="{{ s.s.options|length }}">
+                    <div class="slot-top">
+                        <span class="disp num slot-n">{{ s.n }}</span>
+                        <input class="slot-name" name="slot-{{ s.i }}-title" value="{{ s.s.title }}" maxlength="60" placeholder="{% trans 'e.g. Pick a side' %}" aria-label="{% trans 'Choice name' %}">
+                        <span class="picks">
+                            <span class="picks-label">{% trans "Picks" %}</span>
+                            <button class="ico" name="op" value="picks_less:{{ s.i }}" {% if s.less_off %}disabled{% endif %} aria-label="{% trans 'One fewer pick' %}">{% icon "M5 12h14" 14 2.6 %}</button>
+                            <span class="num picks-n">{{ s.s.picks }}</span>
+                            <button class="ico" name="op" value="picks_more:{{ s.i }}" {% if s.more_off %}disabled{% endif %} aria-label="{% trans 'One more pick' %}">{% icon "plus" 14 2.6 %}</button>
+                        </span>
+                        <label class="req-switch"><input type="checkbox" name="slot-{{ s.i }}-required" value="1" role="switch" {% if s.s.required %}checked{% endif %}>
+                            <span class="req-text">{% if s.s.required %}{% trans "Required" %}{% else %}{% trans "Optional" %}{% endif %}</span><span class="switch{% if s.s.required %} on{% endif %}"><span></span></span></label>
+                        <button class="ico" name="op" value="slot_up:{{ s.i }}" {% if s.first %}disabled{% endif %} aria-label="{% trans 'Move choice up' %}">{% icon "M6 15l6-6 6 6" 14 2.6 %}</button>
+                        <button class="ico" name="op" value="slot_down:{{ s.i }}" {% if s.last %}disabled{% endif %} aria-label="{% trans 'Move choice down' %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                        <button class="ico danger" name="op" value="remove_slot:{{ s.i }}" aria-label="{% trans 'Remove choice' %}">{% icon "close" 13 2.8 %}</button>
+                    </div>
+                    <div class="slot-hint">{{ s.hint }}</div>
+                    <div class="slot-table">
+                        <div class="ov opt-grid opt-head"><span>{% if s.s.required %}{% trans "Default" %}{% endif %}</span><span>{% trans "Dish" %}</span><span class="right">{% trans "On its own" %}</span><span>{% if e.percent %}{% trans "In combo" %}{% else %}{% trans "Upcharge" %}{% endif %}</span><span></span></div>
+                        {% for o in s.options %}
+                        <div class="opt-grid opt-row">
+                            <input type="hidden" name="slot-{{ s.i }}-opt-{{ o.j }}-id" value="{{ o.o.id }}"><input type="hidden" name="slot-{{ s.i }}-opt-{{ o.j }}-dish" value="{{ o.o.dish }}">
+                            <span>{% if s.s.required %}<label class="def-radio"><input type="radio" name="slot-{{ s.i }}-default" value="{{ o.o.dish }}" {% if o.default %}checked{% endif %} aria-label="{% blocktrans with name=o.dish.title %}Make {{ name }} the default{% endblocktrans %}"><span></span></label>{% endif %}</span>
+                            <span class="opt-dish"><span class="dot" style="background:{{ o.dish.station.color }}"></span><span class="strong ellipsis">{{ o.dish.title }}</span>{% if not o.dish.available %}<span class="sold-tag">{% trans "Sold out today" %}</span>{% endif %}</span>
+                            <span class="num right muted small strong">{{ o.dish.price|money }}</span>
+                            {% if e.percent %}<span class="num in-combo" data-calc>{{ o.in_combo|money }}</span><input type="hidden" name="slot-{{ s.i }}-opt-{{ o.j }}-price" value="{{ o.o.price }}">
+                            {% else %}<span class="unit-field small"><span class="unit">+$</span><input type="number" name="slot-{{ s.i }}-opt-{{ o.j }}-price" min="0" step="0.25" class="num" value="{{ o.o.price }}" aria-label="{% blocktrans with name=o.dish.title %}Upcharge for {{ name }}{% endblocktrans %}"></span>{% endif %}
+                            <button class="ico" name="op" value="remove_option:{{ s.i }}:{{ o.j }}" aria-label="{% blocktrans with name=o.dish.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                        </div>
+                        {% endfor %}
+                        <div class="add-dish">
+                            <select name="slot-{{ s.i }}-add" aria-label="{% trans 'Add a dish to this choice' %}">
+                                <option value="">{% trans "+ Add a dish" %}</option>
+                                {% for g in s.add %}{% if g.dishes %}<optgroup label="{{ g.group }}">{% for dish in g.dishes %}<option value="{{ dish.id }}">{{ dish.title }} · {{ dish.price|money }}</option>{% endfor %}</optgroup>{% endif %}{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% for err in s.errors %}<div class="slot-error">{{ err }}</div>{% endfor %}
+                </div>
+                {% empty %}
+                <div class="no-slots">{% trans "No choices yet. Add one for each step, like a main, a side and a drink." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="editor-col side" id="combo-side" data-region>
+        <section class="card" aria-label="{% trans 'Price' %}">
+            <div class="ov muted">{% trans "Price" %}</div>
+            <div class="mode-seg" role="radiogroup" aria-label="{% trans 'How the price is set' %}">
+                <label><input type="radio" name="pricing" value="fixed" {% if not e.percent %}checked{% endif %}>{% trans "Set price" %}</label>
+                <label><input type="radio" name="pricing" value="percent" {% if e.percent %}checked{% endif %}>{% trans "Percent off" %}</label>
+            </div>
+            {% if e.percent %}
+            <label class="block-label"><span class="lbl">{% trans "Discount on the items" %}</span>
+                <span class="big-field"><input type="number" name="percent_off" min="0" max="99" step="1" class="num disp" value="{{ d.percent_off }}" aria-label="{% trans 'Discount on the items' %}"><span class="unit">{% trans "% off" %}</span></span></label>
+            <input type="hidden" name="price" value="{{ d.price }}">
+            {% else %}
+            <label class="block-label"><span class="lbl">{% trans "Combo price" %}</span>
+                <span class="big-field"><span class="unit big">$</span><input type="number" name="price" min="0" step="0.05" class="num disp" value="{{ d.price }}" aria-label="{% trans 'Combo price' %}"></span></label>
+            <input type="hidden" name="percent_off" value="{{ d.percent_off }}">
+            {% endif %}
+            <div class="calc" data-calc>
+                {% for c in e.calc %}<div class="calc-line {{ c.kind }}"><span>{{ c.label }}</span><span class="num">{{ c.value }}</span></div>{% endfor %}
+            </div>
+            <div class="save-bar" data-calc><span class="bar-combo" style="width:{{ e.combo_share }}%"></span><span class="bar-save"></span></div>
+            <div class="bar-legend"><span>{% trans "Combo price" %}</span><span>{% trans "Customer saves" %}</span></div>
+            <div data-calc>{% for w in e.warnings %}<div class="price-warn{% if w.bad %} bad{% endif %}">{{ w.text }}</div>{% endfor %}</div>
+        </section>
+
+        <section class="card register-preview" aria-label="{% trans 'Register preview' %}">
+            <div class="ov">{% trans "How it looks at the register" %}</div>
+            <div class="preview-card">
+                <div class="preview-top">
+                    <div class="grow"><div class="disp preview-title">{{ e.title }}</div><div class="muted small">{{ d.description|default:_("No description yet")|truncatechars:80 }}</div></div>
+                    <div class="right"><div class="disp num preview-price">{{ e.from_price }}</div><span class="save-chip{% if not e.saves %} none{% endif %}">{{ e.save_text }}</span></div>
+                </div>
+                <div class="preview-slots">
+                    {% for p in e.preview %}<div class="preview-slot"><span class="ov ellipsis">{{ p.slot }}</span><span class="grow"><span class="strong ellipsis block">{{ p.pick }}</span><span class="muted tiny ellipsis block">{{ p.more }}</span></span></div>{% endfor %}
+                </div>
+            </div>
+            <div class="kitchen-line">{{ e.kitchen }}</div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Where it shows' %}">
+            <div class="card-head center">
+                <div class="ov muted grow">{% trans "On these menus" %}</div>
+                <label class="active-switch"><input type="checkbox" name="active" value="1" role="switch" {% if d.active %}checked{% endif %} aria-label="{% trans 'Combo active' %}">{% if d.active %}{% trans "Active" %}{% else %}{% trans "Hidden" %}{% endif %}<span class="switch{% if d.active %} on{% endif %}"><span></span></span></label>
+            </div>
+            <div class="menu-pills">
+                {% for m in e.menus %}<label class="menu-pill"><input type="checkbox" name="menus" value="{{ m.menu.id }}" {% if m.on %}checked{% endif %}>{{ m.menu.title }}</label>{% empty %}<span class="muted small">{% trans "No menus yet." %}</span>{% endfor %}
+            </div>
+            <div class="hint small menus-line">{{ e.menus_line }}</div>
+        </section>
+
+        {% if e.combo.archived %}
+        <button class="text-btn" name="op" value="restore">{% trans "Restore this combo" %}</button>
+        {% else %}
+        <button class="text-btn danger" name="op" value="archive">{% trans "Archive this combo" %}</button>
+        {% endif %}
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

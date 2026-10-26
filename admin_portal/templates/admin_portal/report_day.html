@@ -1,0 +1,139 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+One business day's report (design: AdminReports, day state; admin_portal/reports.py: day_report). The arrows step
+between business days; Export CSV downloads the same numbers.
+{% endcomment %}
+{% block title %}{{ r.day|date:"M j" }} · {% trans "Reports" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/reports.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <a class="back-link" href="{% url 'admin_reports' %}?month={{ r.day|date:'Y-m' }}">{% icon "back" 18 2.4 %}{% trans "Reports" %}</a>
+        <h1 class="disp page-title">{{ r.day|date:"l, F j, Y" }}</h1>
+    </div>
+    <div class="head-tools">
+        <div class="pager">
+            {% if earlier %}<a class="pager-btn" href="{% url 'admin_report_day' earlier|date:'Y-m-d' %}" aria-label="{% blocktrans with day=earlier|date:'l, F j' %}Previous business day, {{ day }}{% endblocktrans %}">{% icon "back" 18 2.4 %}</a>
+            {% else %}<span class="pager-btn off" aria-label="{% trans 'No earlier business day' %}">{% icon "back" 18 2.4 %}</span>{% endif %}
+            <span class="pager-label small">{% trans "Business day" %}</span>
+            {% if later %}<a class="pager-btn" href="{% url 'admin_report_day' later|date:'Y-m-d' %}" aria-label="{% blocktrans with day=later|date:'l, F j' %}Next business day, {{ day }}{% endblocktrans %}">{% icon "chevron" 18 2.4 %}</a>
+            {% else %}<span class="pager-btn off" aria-label="{% trans 'No later business day' %}">{% icon "chevron" 18 2.4 %}</span>{% endif %}
+        </div>
+        <a class="btn-dark" href="{% url 'admin_report_csv' r.day|date:'Y-m-d' %}" download>{% icon "M12 4v12 M7 11l5 5 5-5 M5 20h14" 18 2.2 %}{% trans "Export CSV" %}</a>
+    </div>
+</header>
+
+<div class="day-kpis">
+    {% for k in r.kpis %}
+    <div class="stat small">
+        <div class="stat-label">{{ k.label }}</div>
+        <div class="disp num stat-value">{% if k.money0 %}{{ k.value|money0 }}{% elif k.money %}{{ k.value|money }}{% else %}{{ k.value }}{% endif %}</div>
+        <div class="stat-sub">{% if k.sub %}{{ k.sub }}{% endif %}{% if k.sub and k.sub_money is not None %} · {% endif %}{% if k.sub_money is not None %}{% if k.money0 %}{{ k.sub_money|money }}{% else %}{{ k.sub_money|money0 }}{% endif %}{% endif %}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<nav class="chips" aria-label="{% trans 'Report sections' %}">
+    <a class="chip" href="#sec-dishes">{% trans "Dishes" %}</a>
+    <a class="chip" href="#sec-components">{% trans "Components" %}</a>
+    <a class="chip" href="#sec-ingredients">{% trans "Ingredients" %}</a>
+    <a class="chip" href="#sec-stations">{% trans "Station mix" %}</a>
+    <a class="chip" href="#sec-occasions">{% trans "Customer occasions" %}</a>
+    <a class="chip" href="#sec-prep">{% trans "Prep times" %}</a>
+</nav>
+
+{% if not r.orders %}
+<section class="card"><div class="empty">{% trans "No orders on this day." %}</div></section>
+{% else %}
+<section class="card section" id="sec-dishes" aria-label="{% trans 'Dishes sold' %}">
+    <div class="card-head base">
+        <h2 class="disp card-title">{% trans "Dishes sold" %}</h2>
+        <span class="card-sub">{% blocktrans count n=r.items %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %} · {{ r.sales|money }}</span>
+    </div>
+    <div class="mini-head dish-grid"><span>{% trans "Dish" %}</span><span>{% trans "Station" %}</span><span class="right">{% trans "Sold" %}</span><span class="right">{% trans "Sales" %}</span><span>{% trans "Share of items" %}</span></div>
+    {% for d in r.dishes %}
+    <div class="mini-row dish-grid">
+        <span class="ellipsis">{{ d.name }}</span>
+        <span class="station">{% if d.station %}<span class="station-dot" style="background:{{ d.station.color }}"></span>{{ d.station.name }}{% else %}<span class="station-dot combo"></span>{% trans "Combo" %}{% endif %}</span>
+        <span class="num right strong">{{ d.qty }}</span>
+        <span class="num right muted">{{ d.sales|money }}</span>
+        <span class="share"><span class="share-track"><span class="hbar" style="width:{{ d.width }}%"></span></span><span class="num">{{ d.share }}%</span></span>
+    </div>
+    {% endfor %}
+</section>
+
+<div class="two-col">
+    <section class="card section" id="sec-components" aria-label="{% trans 'Components used' %}">
+        <h2 class="disp card-title">{% trans "Components used" %}</h2>
+        <div class="card-sub">{% trans "Worked out from the dishes sold and their recipes" %}</div>
+        <div class="mini-head use-grid"><span>{% trans "Component" %}</span><span class="right">{% trans "Used" %}</span><span class="right">{% trans "Used in" %}</span></div>
+        {% for c in r.components %}
+        <div class="mini-row use-grid"><span class="ellipsis">{{ c.name }}</span><span class="num right">{{ c.qty }} <span class="muted">{{ c.unit }}</span></span><span class="num right muted">{{ c.used_in }}</span></div>
+        {% empty %}<div class="empty small">{% trans "No recipes on what was sold." %}</div>{% endfor %}
+    </section>
+    <section class="card section" id="sec-ingredients" aria-label="{% trans 'Ingredients used' %}">
+        <h2 class="disp card-title">{% trans "Ingredients used" %}</h2>
+        <div class="card-sub">{% trans "Worked out from the components used and their recipes" %}</div>
+        <div class="mini-head use-grid wide"><span>{% trans "Ingredient" %}</span><span class="right">{% trans "Used" %}</span><span class="right">{% trans "Used in" %}</span></div>
+        {% for i in r.ingredients %}
+        <div class="mini-row use-grid wide"><span class="ellipsis">{{ i.name }}</span><span class="num right">{{ i.qty }} <span class="muted">{{ i.unit }}</span></span><span class="num right muted">{{ i.used_in }}</span></div>
+        {% empty %}<div class="empty small">{% trans "No ingredients on the components used." %}</div>{% endfor %}
+    </section>
+</div>
+
+<section class="card section station-mix" id="sec-stations" aria-label="{% trans 'Station mix' %}">
+    <div class="mix-side">
+        <h2 class="disp card-title">{% trans "Station mix" %}</h2>
+        <div class="card-sub">{% trans "Share of items each station made" %}</div>
+        <div class="donut">
+            <svg role="img" aria-label="{% trans 'Station mix' %}: {{ r.donut_aria }}" width="200" height="200" viewBox="0 0 200 200">
+                {% for p in r.donut %}<path d="{{ p.d }}" fill="{{ p.color }}" fill-rule="evenodd"/>{% endfor %}
+            </svg>
+            <div class="donut-center"><span class="disp num">{{ r.items_made }}</span><span>{% trans "items made" %}</span></div>
+        </div>
+    </div>
+    <div class="mix-table">
+        <div class="mini-head station-grid"><span>{% trans "Station" %}</span><span class="right">{% trans "Items" %}</span><span class="right">{% trans "Share" %}</span><span class="right">{% trans "Sales" %}</span><span class="right">{% trans "Busiest hour" %}</span></div>
+        {% for s in r.stations %}
+        <div class="mini-row station-grid tall">
+            <span class="station"><span class="station-key" style="background:{{ s.color }}"></span>{{ s.name }}</span>
+            <span class="num right strong">{{ s.items }}</span>
+            <span class="num right">{{ s.share }}%</span>
+            <span class="num right muted">{{ s.sales|money0 }}</span>
+            <span class="num right muted">{{ s.peak }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<div class="two-col">
+    <section class="card section" id="sec-occasions" aria-label="{% trans 'Customer occasions' %}">
+        <h2 class="disp card-title">{% trans "Customer occasions" %}</h2>
+        <div class="card-sub">{% trans "Orders and sales in each 15 minutes · busiest highlighted" %}</div>
+        <div class="mini-head slot-grid"><span>{% trans "Time" %}</span><span>{% trans "Orders" %}</span><span class="right">{% trans "Sales" %}</span></div>
+        {% for s in r.slots %}
+        <div class="slot-row slot-grid{% if s.busiest %} busiest{% elif s.hour_start %} hour{% endif %}">
+            <span class="num slot-time">{{ s.time }}</span>
+            <span class="slot-bar"><span class="num slot-n">{{ s.orders }}</span><span class="slot-track"><span class="hbar" style="width:{{ s.width }}%"></span></span></span>
+            <span class="num right">{% if s.sales is not None %}{{ s.sales|money }}{% else %}—{% endif %}</span>
+        </div>
+        {% endfor %}
+    </section>
+    <section class="card section" id="sec-prep" aria-label="{% trans 'Average preparation time' %}">
+        <h2 class="disp card-title">{% trans "Average prep time" %}</h2>
+        <div class="card-sub">{% blocktrans with target=r.target %}Order to ready, per 15 minutes · dashed line is the {{ target }} target{% endblocktrans %}</div>
+        <div class="mini-head prep-grid"><span>{% trans "Time" %}</span><span>{% trans "Average" %}</span><span class="right">{% trans "Avg" %}</span><span class="right">{% trans "Orders" %}</span></div>
+        {% for p in r.prep %}
+        <div class="slot-row prep-grid{% if p.hour_start %} hour{% endif %}">
+            <span class="num slot-time">{{ p.time }}</span>
+            <span class="prep-track"><span class="hbar{% if p.over %} over{% endif %}" style="width:{{ p.width }}%"></span><span class="target" aria-hidden="true" style="left:{{ r.target_pct }}%"></span></span>
+            <span class="num right strong{% if p.over %} over-text{% endif %}">{{ p.avg }}</span>
+            <span class="num right muted">{{ p.n }}</span>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+{% endif %}
+{% endblock %}

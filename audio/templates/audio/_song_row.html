@@ -1,0 +1,16 @@
+{% load i18n admin_tags %}{% comment %}
+A song in Browse or a playlist (pages.music_page: song_row): tapping it plays it now, as the only song in the queue;
+⋯ (or a long press) opens the sheet: play now, play next, add to the end of the queue.
+{% endcomment %}
+<div class="au-song{% if r.cur %} cur{% endif %}" role="listitem">
+    {% if numbered %}<span class="num au-q-n">{{ r.n }}</span>{% endif %}
+    <button class="au-song-main" form="au-ctl" name="op" value="playnow:t{{ r.t.id }}" data-sheet-href="?view={{ m.view }}{% if m.detail %}&pl={{ m.detail.p.id }}{% endif %}&q={{ m.q|urlencode }}&sort={{ m.sort }}&sheet=song:{{ r.t.id }}"
+            aria-label="{% blocktrans with t=r.t.title %}Play {{ t }}{% endblocktrans %}">
+        <span class="au-art big{% if not r.art %} blank{% endif %}"{% if r.art %} style="background-image: url('{{ r.art }}')"{% endif %}>{% if r.cur %}<span class="au-art-eq"><span></span><span></span><span></span></span>{% endif %}</span>
+        <span class="au-q-text wide"><span class="au-q-title">{{ r.t.title }}</span><span class="au-q-artist">{{ r.artist }}</span></span>
+        {% if not numbered %}<span class="au-song-album">{{ r.album }}</span>{% endif %}
+        <span class="num au-q-dur">{{ r.dur }}</span>
+    </button>
+    <a class="au-ico" href="?view={{ m.view }}{% if m.detail %}&pl={{ m.detail.p.id }}{% endif %}&q={{ m.q|urlencode }}&sort={{ m.sort }}&sheet=song:{{ r.t.id }}" data-live
+       aria-label="{% blocktrans with t=r.t.title %}More for {{ t }}{% endblocktrans %}">{% icon "M5 12h.01 M12 12h.01 M19 12h.01" 18 4 %}</a>
+</div>

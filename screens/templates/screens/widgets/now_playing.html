@@ -1,0 +1,38 @@
+{% load i18n %}{% comment %}
+What's playing on one of the screen's music channels (screens/providers.py: now_playing). The time left and the bar
+tick in the browser (live-page.js: data-ends, data-bar-ends); when the song ends the screen refetches.
+{% endcomment %}
+<div class="screen-card now-playing{% if not data.playing %} is-paused{% endif %}" role="group" aria-label="{% trans 'Now playing' %}">
+    {% if data.art %}<img class="np-art" src="{{ data.art }}" alt="">
+    {% else %}<svg class="np-art" aria-hidden="true" viewBox="0 0 100 100">
+        <rect width="100" height="100" fill="#F6D9C4"></rect>
+        <circle cx="34" cy="40" r="26" fill="#E27D4E"></circle>
+        <circle cx="66" cy="64" r="20" fill="#F2C14E" opacity=".9"></circle>
+        <rect x="0" y="70" width="100" height="14" fill="#1C2321" opacity=".85"></rect>
+    </svg>{% endif %}
+    <div class="np-main">
+        <div class="np-label">
+            {% if data.playing %}<span class="np-eq" aria-hidden="true"><span></span><span></span><span></span><span></span></span>{% endif %}
+            <span class="np-kicker">{% if not data.track %}{% trans "Music" %}{% elif data.playing %}{% trans "Now playing" %}{% else %}{% trans "Paused" %}{% endif %}</span>
+        </div>
+        <div class="np-track">
+            <span class="np-title">{% if data.track %}{{ data.track.title }}{% else %}{% trans "Nothing playing" %}{% endif %}</span>
+            {% if data.track.artist %}<span class="np-artist">{{ data.track.artist }}</span>{% endif %}
+        </div>
+        {% if data.track %}
+        <div class="np-progress">
+            <span class="np-time"{% if data.playing %} data-ends="{{ data.ends_ms }}"{% endif %}>{{ data.left }}</span>
+            <div class="np-bar" role="progressbar" aria-label="{% trans 'Song progress' %}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ data.pct|floatformat:0 }}">
+                <div style="width: {{ data.pct }}%"{% if data.playing %} data-bar-ends="{{ data.ends_ms }}" data-bar-total="{{ data.total_ms }}"{% endif %}></div></div>
+            <span class="np-time np-time--end">{{ data.length }}</span>
+        </div>
+        {% endif %}
+    </div>
+    {% if params.show_up_next and data.next %}
+    <div class="np-next">
+        <div class="np-kicker">{% trans "Up next" %}</div>
+        <div class="np-next-title">{{ data.next.title }}</div>
+        <div class="np-next-artist">{{ data.next.artist }}</div>
+    </div>
+    {% endif %}
+</div>

@@ -35,7 +35,6 @@
             <a href="/admin/">{% trans "Advanced management" %}</a>
             {% endif %}
             <a href="{% url 'component_availability' %}">{% trans "Component availability" %}</a>
-            <a href="{% url 'recipes' %}">{% trans "Recipes" %}</a>
         </nav>
     </header>
     <main id="{{route}}">{% block body %}{% endblock %}</main>

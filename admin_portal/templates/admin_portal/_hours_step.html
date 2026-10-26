@@ -1,0 +1,9 @@
+{% load i18n admin_tags %}
+<div class="hr-step-row">
+    <span class="grow hr-step-label">{{ r.label }}</span>
+    <span class="hr-stepper{% if soft %} soft{% endif %}">
+        <button class="ico" name="op" value="less:{{ r.key }}" {% if r.less_off %}disabled{% endif %} aria-label="{% blocktrans with l=r.label %}Less: {{ l }}{% endblocktrans %}">{% icon "M5 12h14" 12 3 %}</button>
+        <span class="num">{{ r.value }}</span>
+        <button class="ico" name="op" value="more:{{ r.key }}" {% if r.more_off %}disabled{% endif %} aria-label="{% blocktrans with l=r.label %}More: {{ l }}{% endblocktrans %}">{% icon "M12 5v14M5 12h14" 12 3 %}</button>
+    </span>
+</div>

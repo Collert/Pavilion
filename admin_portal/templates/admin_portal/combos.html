@@ -1,0 +1,64 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Combos list (design: AdminCombos, list state; admin_portal/combos.py: combo_list). KPIs are the last 30 days of active
+combos. Filters are links, search (combo or dish names) submits as you type. Refetched on "menus"/"inventory" nudges.
+{% endcomment %}
+{% block title %}{% trans "Combos" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/combos.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"menus", "inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Menu" %}</div>
+        <h1 class="disp page-title">{% trans "Combos" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search combos' %}" placeholder="{% trans 'Search combos or dishes' %}">
+    </form>
+    <form method="post" action="{% url 'admin_combo_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New combo" %}</button>
+    </form>
+</header>
+
+<div class="combo-kpis" id="combos-kpis" data-region>
+    {% for k in l.kpis %}
+    <div class="kpi"><div class="kpi-label">{{ k.label }}</div><div class="disp num kpi-value ellipsis">{{ k.value }}</div><div class="kpi-sub">{{ k.sub }}</div></div>
+    {% endfor %}
+</div>
+
+<nav class="filter-chips" aria-label="{% trans 'Status' %}" id="combos-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<section class="card table-card" aria-label="{% trans 'Combos' %}" id="combos-list" data-region>
+    <div class="thead combo-grid">
+        <span>{% trans "Combo" %}</span><span>{% trans "Choices" %}</span><span>{% trans "Price" %}</span><span>{% trans "Customer saves" %}</span>
+        <span>{% trans "Sold · 30 days" %}</span><span class="right">{% trans "Status" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for r in l.rows %}
+        <a class="trow combo-grid combo-row" href="{% url 'admin_combo' r.combo.id %}"
+           aria-label="{% blocktrans with name=r.combo.title price=r.p.combo|money %}Edit {{ name }}, {{ price }}{% endblocktrans %}">
+            <span class="combo-name">
+                <span class="disp badge" style="background:{{ r.tint.0 }};color:{{ r.tint.1 }}">{{ r.initials }}</span>
+                <span class="two-line"><span class="strong ellipsis">{{ r.combo.title }}</span><span class="muted small ellipsis">{{ r.menus }}</span></span>
+            </span>
+            <span class="slot-chips">{% for s in r.slots %}<span class="slot-chip{% if not s.required %} optional{% endif %}">{{ s.label }}</span>{% endfor %}</span>
+            <span class="two-line"><span class="num strong">{{ r.p.combo|money }}</span><span class="muted small">{{ r.price_sub }}</span></span>
+            <span><span class="save-chip{% if r.p.save <= 0 %} none{% endif %}">{% if r.p.save > 0 %}{% blocktrans with s=r.p.save|money %}Save {{ s }}{% endblocktrans %}{% else %}{% trans "No saving" %}{% endif %}</span></span>
+            <span class="two-line"><span class="num strong">{{ r.stats.sold }}</span><span class="muted small">{{ r.sold_sub }}</span></span>
+            <span class="right"><span class="combo-status {{ r.status.key }}">{{ r.status.label }}</span></span>
+            {% icon "chevron" 16 %}
+        </a>
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "No combos match" %}</div><div>{% trans "Try another filter or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

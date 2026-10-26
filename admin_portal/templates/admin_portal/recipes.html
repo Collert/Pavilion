@@ -1,0 +1,57 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Recipes list (design: AdminRecipes, list state; admin_portal/recipes.py: recipe_list), in sections by what they're
+attached to. Filters are links, search (recipe or what it makes) submits as you type. Refetched on "inventory".
+{% endcomment %}
+{% block title %}{% trans "Recipes" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/recipes.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Menu" %}</div>
+        <h1 class="disp page-title">{% trans "Recipes" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search recipes' %}" placeholder="{% trans 'Search recipes' %}">
+    </form>
+    <form method="post" action="{% url 'admin_recipe_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New recipe" %}</button>
+    </form>
+</header>
+
+<nav class="filter-chips" aria-label="{% trans 'Show' %}" id="recipes-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<div class="recipe-sections" id="recipes-list" data-region>
+    {% for sec in l.sections %}
+    <section class="card recipe-section" aria-label="{{ sec.name }}">
+        <div class="section-head"><h2 class="disp section-name">{{ sec.name }}</h2><span class="hint">{{ sec.sub }}</span></div>
+        {% for r in sec.rows %}
+        <a class="recipe-row recipe-grid" href="{% url 'admin_recipe' r.recipe.id %}" aria-label="{% blocktrans with name=r.title %}Edit recipe {{ name }}{% endblocktrans %}">
+            <span class="kind-box {{ r.kind }}">
+                {% if r.kind == "component" %}{% icon "M21 8 12 3 3 8l9 5 9-5z M3 8v8l9 5 9-5V8 M12 13v8" 20 %}
+                {% elif r.kind == "transform" %}{% icon "M4 8h13l-3-3 M20 16H7l3 3" 20 %}
+                {% elif r.kind == "dish" %}{% icon "M4 13h16a8 8 0 0 1-16 0z M12 5v3 M8 6v2 M16 6v2" 20 %}
+                {% else %}{% icon "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M9 12h6" 20 %}{% endif %}
+            </span>
+            <span class="two-line"><span class="strong ellipsis recipe-name">{{ r.title }}</span><span class="muted small ellipsis">{{ r.makes }}</span></span>
+            <span class="proc-chips">{% for p in r.processes %}<span class="proc-chip {{ p.key }}">{{ p.label }}</span>{% endfor %}</span>
+            <span class="num muted small strong">{{ r.steps }}</span>
+            <span class="num strong">{{ r.time }}</span>
+            {% icon "chevron" 16 %}
+        </a>
+        {% endfor %}
+    </section>
+    {% empty %}
+    <div class="card empty"><div class="disp empty-title">{% trans "No recipes match" %}</div><div>{% trans "Try another filter or clear the search." %}</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

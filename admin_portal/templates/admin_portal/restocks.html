@@ -1,0 +1,84 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Restocks list (design: AdminRestocks, list state; admin_portal/restocks.py: restock_list). The amber band lists
+suppliers with items under par that aren't on an open order; "Draft order" posts here and opens the new draft.
+Filters are links, search (order, supplier or item) submits as you type. Refetched on "inventory".
+{% endcomment %}
+{% block title %}{% trans "Restocks" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/restocks.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Inventory" %}</div>
+        <h1 class="disp page-title">{% trans "Restocks" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search restocks' %}" placeholder="{% trans 'Search orders, suppliers, items' %}">
+    </form>
+    <form method="post" action="{% url 'admin_restock_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New restock" %}</button>
+    </form>
+</header>
+
+<div class="comp-kpis" id="restocks-kpis" data-region>
+    {% for k in l.kpis %}
+    <div class="kpi"><div class="kpi-label">{{ k.label }}</div><div class="disp num kpi-value ellipsis">{{ k.value }}</div><div class="kpi-sub ellipsis">{{ k.sub }}</div></div>
+    {% endfor %}
+</div>
+
+<div id="restocks-suggest" data-region>
+    {% if l.suggest %}
+    <section class="suggest" aria-label="{% trans 'Under par' %}">
+        {% icon "M12 3 2.5 20h19z M12 10v4 M12 17h.01" 22 2.2 %}
+        <div class="suggest-text"><div class="strong">{{ l.suggest_title }}</div><div class="small">{% trans "Not already on an open order" %}</div></div>
+        <div class="suggest-list">
+            {% for g in l.suggest %}
+            <form method="post" class="suggest-form">{% csrf_token %}
+                <input type="hidden" name="supplier" value="{{ g.supplier.id }}">
+                <button class="suggest-card" aria-label="{% blocktrans with s=g.supplier.name %}Draft an order from {{ s }}{% endblocktrans %}">
+                    <span><span class="strong block nowrap">{{ g.supplier.name }}</span><span class="tiny muted block nowrap">{{ g.sub }}</span></span>
+                    <span class="draft-btn">{% trans "Draft order" %}</span>
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<nav class="filter-chips" aria-label="{% trans 'Status' %}" id="restocks-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{% if f.key != "all" %}<span class="st-dot {{ f.key }}"></span>{% endif %}{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<section class="card table-card" aria-label="{% trans 'Restocks' %}" id="restocks-list" data-region>
+    <div class="thead po-grid">
+        <span>{% trans "Order" %}</span><span>{% trans "Supplier" %}</span><span>{% trans "Status" %}</span><span>{% trans "Dates" %}</span>
+        <span>{% trans "Items" %}</span><span class="right">{% trans "Total" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for row in l.rows %}
+        <a class="trow po-grid comp-row" href="{% url 'admin_restock' row.r.id %}" aria-label="{% blocktrans with n=row.r.number s=row.r.supplier.name st=row.r.get_status_display %}Open {{ n }}, {{ s }}, {{ st }}{% endblocktrans %}">
+            <span class="disp num po-no">{{ row.r.number }}</span>
+            <span class="two-line"><span class="strong ellipsis comp-name">{{ row.r.supplier.name }}</span><span class="muted small ellipsis">{{ row.by }}</span></span>
+            <span><span class="st-pill {{ row.r.status }}"><span class="st-dot {{ row.r.status }}"></span>{{ row.r.get_status_display }}</span></span>
+            <span class="two-line"><span class="small strong ink">{{ row.date }}</span><span class="small {% if row.late %}late{% else %}muted{% endif %}">{{ row.date_sub }}</span></span>
+            <span class="two-line"><span class="small strong ink-2 ellipsis">{{ row.items }}</span>
+                <span class="po-chips">{% if row.changes %}<span class="po-chip change">{% blocktrans count n=row.changes %}{{ n }} price change{% plural %}{{ n }} price changes{% endblocktrans %}</span>{% endif %}
+                {% if row.r.status != "draft" %}<span class="po-chip{% if row.r.receipt %}{% elif row.r.status == 'delivered' %} missing{% else %} none{% endif %}">{% icon "M21 12.5 12.5 21a5 5 0 0 1-7-7L14 5.5a3.3 3.3 0 0 1 4.7 4.7L10.2 18.7a1.7 1.7 0 0 1-2.4-2.4L15.5 8.6" 11 2.6 %}{% if row.r.receipt %}{% trans "Receipt" %}{% else %}{% trans "No receipt" %}{% endif %}</span>{% endif %}</span></span>
+            <span class="num right strong">{{ row.total|money }}</span>
+            {% icon "chevron" 16 2.4 %}
+        </a>
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "No restocks match" %}</div><div>{% trans "Try another status or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

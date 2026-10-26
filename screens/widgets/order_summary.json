@@ -1,0 +1,26 @@
+{
+  "title": "Order summary",
+  "description": "While its paired register takes payment (sessions only)",
+  "kind": "popup",
+  "trigger": "order_summary",
+  "icon": "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6 M9 16h3",
+  "color": "#E9A64B",
+  "template": "screens/popups/order_summary.html",
+  "context": "screens.popups.order_summary",
+  "live": [
+    "popups"
+  ],
+  "params": {
+    "title": {
+      "type": "string",
+      "default": "Your order",
+      "label": "Heading"
+    },
+    "prompt": {
+      "type": "bool",
+      "default": true,
+      "label": "Payment prompt",
+      "help": "“Tap, insert or swipe” under the total"
+    }
+  }
+}

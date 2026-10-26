@@ -1,13 +1,43 @@
 {% extends "pos_server/layout.html" %}
 {% load i18n %}
-{% load static %}
-
+{% comment %}
+Every Square Terminal and the register it takes card payments for (pos_server/views.py: pair_square_terminal).
+Registers usually pair their own from the register's Screen & terminal sheet.
+{% endcomment %}
 {% block body %}
-{% csrf_token %}
-<h1>{% trans "Square terminal device code:" %}</h1>
-<span>{{code}}</span>
-<div>
-    <button>{% trans "Send test transaction" %}</button>
-    <button>{% trans "Generate new code" %}</button>
+<div style="padding: 1rem; display: grid; gap: 1rem;">
+    <h1>{% trans "Square Terminals" %}</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <p>{% blocktrans %}Each register uses its own Terminal. Pair one here or on the register: make a code, sign in on the Terminal with "Use a device code" and type it. It finishes by itself when Square tells us, or press Check.{% endblocktrans %}</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="new">
+        <select name="register" required>
+            {% for r in registers %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+        </select>
+        <input type="text" name="name" placeholder="{% trans 'Terminal name (optional)' %}">
+        <button>{% trans "Make a pairing code" %}</button>
+    </form>
+    <table>
+        <thead><tr><th>{% trans "Name" %}</th><th>{% trans "Register" %}</th><th>{% trans "Code" %}</th><th>{% trans "Status" %}</th><th></th></tr></thead>
+        <tbody>
+        {% for terminal in terminals %}
+            <tr>
+                <td>{{ terminal.name }}</td>
+                <td>{{ terminal.register.name|default:"—" }}</td>
+                <td><b>{{ terminal.code }}</b>{% if terminal.status == "UNPAIRED" and terminal.pair_by %} ({% trans "expires" %} {{ terminal.pair_by|time }}){% endif %}</td>
+                <td>{{ terminal.status }}</td>
+                <td>
+                    <form method="post" style="display: inline">{% csrf_token %}<input type="hidden" name="id" value="{{ terminal.id }}">
+                        {% if terminal.status != "PAIRED" %}<button name="action" value="check">{% trans "Check" %}</button>{% endif %}
+                        {% if terminal.register %}<button name="action" value="free">{% trans "Free it" %}</button>{% endif %}
+                    </form>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5">{% trans "No terminals paired yet." %}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

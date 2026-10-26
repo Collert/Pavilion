@@ -1,0 +1,41 @@
+/* Audio channels (design: AdminAudio); the list and editor share stations.css */
+.au-filters { display: flex; gap: 4px; padding: 4px; margin: 16px 16px 8px; border-radius: 16px; background: var(--soft); flex: none; }
+.au-filters button { flex: 1; height: 36px; border: none; border-radius: 12px; background: transparent; font: inherit; font-size: 13px; font-weight: 800; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.au-filters button span { font-size: 11px; color: var(--faint); }
+.au-filters button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 38, 31, .14); }
+.au-filters button[aria-selected="true"] span { color: var(--brand); }
+.au-none { padding: 28px 16px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
+.au-name { height: 44px; padding: 0 12px; font-weight: 700; }
+.au-notes { resize: none; font-weight: 600; line-height: 1.45; }
+.st-ident .st-err { padding-left: 96px; }
+.au-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.au-types.col { grid-template-columns: 1fr; margin-top: 6px; }
+.au-types button { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 16px; background: var(--softer); color: var(--ink); text-align: left; font: inherit; }
+.au-types button[aria-checked="true"] { background: color-mix(in srgb, var(--c) 8%, #FFFFFF); box-shadow: inset 0 0 0 2px var(--c); }
+.au-types .strong { font-size: 15px; }
+.au-type-tile { width: 40px; height: 40px; flex: none; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.au-types button[aria-checked="true"] .au-type-tile { color: #FFFFFF; background: var(--c); }
+.au-desc { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.au-radio { width: 20px; height: 20px; flex: none; border-radius: 10px; border: 2px solid #B9C5BF; display: flex; align-items: center; justify-content: center; }
+.au-radio span { width: 10px; height: 10px; border-radius: 5px; }
+.au-types button[aria-checked="true"] .au-radio { border-color: var(--c); }
+.au-types button[aria-checked="true"] .au-radio span { background: var(--c); }
+.au-plays { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.au-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 800; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.au-warn { display: flex; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--amber-soft); color: var(--amber-ink); font-size: 12px; font-weight: 700; line-height: 1.45; }
+.au-warn svg { flex: none; margin-top: 1px; }
+.au-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
+.au-uses { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.au-use { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--softer); }
+.au-use .strong { font-size: 14px; }
+.au-frame { flex: none; border-radius: 4px; border: 2.5px solid var(--ink-2); }
+.au-frame.land { width: 34px; height: 22px; }
+.au-frame.port { width: 20px; height: 30px; }
+.au-rank { height: 24px; padding: 0 9px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap; background: #ECEFED; color: var(--muted); }
+.au-rank.top { background: var(--mint); color: var(--brand); }
+.au-empty { padding: 16px; border-radius: 16px; border: 2px dashed var(--border); font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.45; }
+.au-pick { padding: 40px; text-align: center; color: var(--muted); font-weight: 600; }
+.au-sheet { width: 560px; }
+.scrim { border: none; }
+@media (max-width: 1180px) { .au-grid { grid-template-columns: 1fr; } }
+.st-rows > .st-row { flex: none; }

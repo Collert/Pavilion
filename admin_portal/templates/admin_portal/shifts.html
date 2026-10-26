@@ -1,0 +1,167 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Shifts (design: AdminShifts; admin_portal/shifts.py). The view is in the address (week, day, group, cov; shift=<id>
+or new=1 opens the drawer). Shifts are saved as they're made, moved (dragged, shifts.js) or deleted, and wait for
+Publish. Clicking an empty spot on a row starts a new shift there (shifts.js); a short coverage hour does too.
+{% endcomment %}
+{% block title %}{% trans "Shifts" %}{% endblock %}
+{% block main_class %}sh-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/shifts.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/shifts.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with st=h.st %}
+<header class="page-head" id="sh-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Shifts" %}</h1>
+    </div>
+    <nav class="sh-seg" aria-label="{% trans 'Group rows by' %}">
+        {% for key, label, href in h.groups %}<a href="{{ href }}" data-live{% if st.group == key %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+    <a class="sh-cov-btn{% if st.cov %} on{% endif %}" href="{{ h.cov_href }}" data-live aria-pressed="{{ st.cov|yesno:'true,false' }}">{% trans "Coverage" %}</a>
+    <a class="btn-light" href="{% url 'admin_shift_pars' %}" title="{% trans 'How many people each role needs, by hour' %}">{% icon "M4 20V10 M10 20V4 M16 20v-7 M22 20H2" 18 2.2 %}{% trans "Pars" %}</a>
+    <a class="btn-light" href="{{ h.back }}&new=1" data-live>{% icon "plus" 18 2.4 %}{% trans "New shift" %}</a>
+    <form method="post">{% csrf_token %}
+        <input type="hidden" name="week" value="{{ st.week|date:'Y-m-d' }}"><input type="hidden" name="day" value="{{ st.day }}">
+        <input type="hidden" name="group" value="{{ st.group }}"><input type="hidden" name="cov" value="{{ st.cov|yesno:'1,0' }}">
+        <button class="btn-amber" name="op" value="publish"{% if not h.unpub %} disabled{% endif %}>{% icon "M4 12l16-8-6 16-2.5-6.5z M11.5 13.5 20 4" 18 2.4 %}{{ h.pub_text }}</button>
+    </form>
+</header>
+
+<nav class="sh-week" id="sh-week" data-region aria-label="{% trans 'Week' %}">
+    <a class="sh-arrow" href="{{ h.prev }}" data-live aria-label="{% trans 'Previous week' %}">{% icon "M15 6l-6 6 6 6" 16 2.6 %}</a>
+    {% for d in h.days %}
+    <a class="sh-day{% if d.on %} on{% endif %}" href="{{ d.href }}" data-live{% if d.on %} aria-current="date"{% endif %}>
+        <span class="sh-day-top"><span class="sh-dow">{{ d.dow }}</span><span class="disp num sh-date">{{ d.date }}</span>{% if d.today %}<span class="sh-today">{% trans "Today" %}</span>{% endif %}</span>
+        <span class="num sh-day-sub">{{ d.sub }}</span>
+        <span class="sh-flag {{ d.tone }}">{{ d.flag }}</span>
+    </a>
+    {% endfor %}
+    <a class="sh-arrow" href="{{ h.next }}" data-live aria-label="{% trans 'Next week' %}">{% icon "M9 6l6 6-6 6" 16 2.6 %}</a>
+</nav>
+
+<form method="post" id="sh-move" hidden>{% csrf_token %}
+    <input type="hidden" name="week" value="{{ st.week|date:'Y-m-d' }}"><input type="hidden" name="day" value="{{ st.day }}">
+    <input type="hidden" name="group" value="{{ st.group }}"><input type="hidden" name="cov" value="{{ st.cov|yesno:'1,0' }}">
+    <input type="hidden" name="op" value="move"><input type="hidden" name="id"><input type="hidden" name="user"><input type="hidden" name="role"><input type="hidden" name="start">
+</form>
+
+<section class="card sh-board" id="sh-board" data-region aria-label="{% trans 'Schedule' %}" data-new-href="{{ h.back }}&new=1">
+    <div class="sh-hours">
+        <div class="sh-label-col sh-day-title">{{ h.day_title }}</div>
+        <div class="sh-scale">
+            {% if h.band %}<div class="sh-band" style="left: {{ h.band.left }}; width: {{ h.band.width }}"><span>{{ h.band.text }}</span></div>{% endif %}
+            {% for x in h.hours %}<span class="sh-hour{% if x.first %} first{% endif %}{% if x.open %} open{% endif %}" style="left: {{ x.left }}">{{ x.label }}</span>{% endfor %}
+        </div>
+    </div>
+    <div class="sh-scroll">
+        {% if st.cov %}
+        <div class="sh-cov">
+            {% for c in h.cov %}
+            <div class="sh-cov-row">
+                <div class="sh-label-col sh-cov-name"><span class="sh-dot" style="background: {{ c.r.color }}"></span><span class="grow">{{ c.r.name }}</span>{% if c.short %}<span class="sh-short">{% blocktrans with n=c.short %}{{ n }}h short{% endblocktrans %}</span>{% endif %}</div>
+                <div class="sh-cov-cells">{% for x in c.cells %}<a class="sh-cell {{ x.tone }}" href="{{ x.href }}" data-live title="{{ x.title }}">{{ x.t }}</a>{% endfor %}</div>
+            </div>
+            {% empty %}
+            <div class="sh-cov-none">{% trans "No pars for this day yet." %} <a href="{% url 'admin_shift_pars' %}">{% trans "Set pars" %}</a></div>
+            {% endfor %}
+            <div class="sh-legend"><span><i class="ok"></i>{% trans "Covered" %}</span><span><i class="short"></i>{% trans "Short, click to add a shift" %}</span><span><i class="over"></i>{% trans "More than needed" %}</span></div>
+        </div>
+        {% endif %}
+
+        {% for r in h.rows %}
+        {% if r.kind == "head" %}
+        <div class="sh-head-row"><span class="sh-dot big" style="background: {{ r.color }}"></span><span class="strong">{{ r.name }}</span><span class="num faint small strong">{{ r.sub }}</span></div>
+        {% else %}
+        <div class="sh-row{% if r.kind == 'open' %} open{% endif %}">
+            <div class="sh-label-col sh-who">
+                {% if r.kind == "open" %}
+                <span class="sh-face open">?</span>
+                <span class="grow two-line"><span class="strong small">{% trans "Open shifts" %}</span><span class="sh-chips"><span class="sh-chip fill">{{ r.fill }}</span></span></span>
+                {% else %}
+                <span class="sh-face{% if r.dim %} dim{% endif %}" style="background: {{ r.face }}">{{ r.ini }}</span>
+                <span class="grow two-line"><span class="strong small ellipsis">{{ r.name }}</span>
+                    <span class="sh-chips">{% for g in r.roles %}<span class="sh-chip" style="--c: {{ g.color }}">{{ g.name }}</span>{% endfor %}</span></span>
+                <span class="num sh-hrs{% if r.over %} over{% endif %}" title="{{ r.hrs_title }}">{{ r.hrs }}</span>
+                {% endif %}
+            </div>
+            <div class="sh-lane" data-lane data-user="{{ r.uid }}" data-role="{{ r.role }}" data-new-role="{{ r.new_role }}" style="background-image: {{ h.shade }}, linear-gradient(90deg, #EEF2EF 1px, transparent 1px); background-size: 100% 100%, calc(100% / 24) 100%">
+                {% for u in r.unavail %}<div class="sh-unavail{% if u.full %} full{% endif %}" style="left: {{ u.left }}; width: {{ u.width }}" title="{{ u.title|default:u.label }}"><span>{{ u.label }}</span></div>{% endfor %}
+                {% for b in r.blocks %}
+                <a class="sh-block{% if b.narrow or b.tight %} narrow{% endif %}{% if b.open %} is-open{% endif %}{% if b.warn %} warn{% endif %}{% if not b.pub %} unpub{% endif %}" href="{{ b.href }}" data-live draggable="true"
+                   data-shift="{{ b.s.id }}" data-start="{{ b.s.start }}" data-end="{{ b.s.end }}"
+                   style="--c: {{ b.color }}; left: {{ b.left }}; width: calc({{ b.width }} - 2px)" title="{{ b.title }}">
+                    {% if b.brk %}<span class="sh-brk" style="left: {{ b.brk.left }}; width: {{ b.brk.width }}"></span>{% endif %}
+                    <span class="sh-block-name">{% if b.warn %}{% icon "M12 4 2.5 20h19z M12 10v4 M12 17h.01" 12 3 %}{% endif %}<span class="ellipsis">{{ b.label }}</span></span>
+                    {% if not b.narrow and not b.tight %}<span class="num sh-block-time">{{ b.time }}</span>{% endif %}
+                    {% if b.did %}<span class="sh-did {{ b.did_tone }}">{{ b.did }}</span>{% endif %}
+                </a>
+                {% endfor %}
+                {% for a in r.actual %}<div class="sh-actual{% if a.live %} live{% endif %}" style="left: {{ a.left }}; width: {{ a.width }}" title="{{ a.title }}">{% for g in a.gaps %}<span style="left: {{ g.left }}; width: {{ g.width }}"></span>{% endfor %}</div>{% endfor %}
+                {% if h.now_line %}<div class="sh-now" style="left: {{ h.now_line }}"></div>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="sh-foot">
+        {% for t, tone in h.foot %}<span class="sh-foot-item {{ tone }}">{{ t }}</span>{% endfor %}
+        <span class="grow"></span>
+        <span>{% trans "Drag a shift to move it. Click an empty spot to add one." %}</span>
+    </div>
+</section>
+
+<div id="sh-drawer" data-region>{% with x=h.drawer %}{% if x %}
+    <a class="sh-scrim" href="{{ h.close }}" data-live aria-label="{% trans 'Close' %}" data-close></a>
+    <form method="post" class="sh-drawer" role="dialog" aria-modal="true" aria-label="{{ x.title }}" data-editor data-queue>{% csrf_token %}
+        <button name="op" value="preview" hidden data-preview tabindex="-1"></button>
+        <input type="hidden" name="week" value="{{ st.week|date:'Y-m-d' }}"><input type="hidden" name="day" value="{{ st.day }}">
+        <input type="hidden" name="group" value="{{ st.group }}"><input type="hidden" name="cov" value="{{ st.cov|yesno:'1,0' }}">
+        <input type="hidden" name="id" value="{{ x.d.id|default:'' }}">
+        <div class="sh-drawer-head"><span class="sh-tile" style="background: {{ x.color }}"></span><h2 class="disp grow">{{ x.title }}</h2>
+            <a class="close-btn" href="{{ h.close }}" data-live aria-label="{% trans 'Close' %}">{% icon "close" 16 2.6 %}</a></div>
+        <div class="sh-drawer-body">
+            <label><span class="lbl">{% trans "Who" %}</span>
+                <select class="field" name="user"><option value="">{% trans "Nobody yet (open shift)" %}</option>
+                    {% for p in x.people %}<option value="{{ p.u.id }}"{% if p.on %} selected{% endif %}>{{ p.label }}</option>{% endfor %}</select></label>
+            <div><span class="lbl">{% trans "Role for this shift" %}</span>
+                <div class="sh-roles" role="radiogroup" aria-label="{% trans 'Role' %}">
+                    {% for g in x.roles %}<label class="sh-role{% if not g.theirs %} faint{% endif %}" style="--c: {{ g.r.color }}"><input type="radio" name="role" value="{{ g.r.id }}"{% if g.on %} checked{% endif %}><span class="sh-dot" style="background: {{ g.r.color }}"></span>{{ g.r.name }}</label>{% endfor %}
+                </div>
+                {% if x.role_warn %}<div class="sh-role-warn">{{ x.role_warn }}</div>{% endif %}
+            </div>
+            <div class="sh-times">
+                <label><span class="lbl">{% trans "Starts" %}</span><select class="field num" name="start">{% for m, t, on in x.starts %}<option value="{{ m }}"{% if on %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                <label><span class="lbl">{% trans "Ends" %}</span><select class="field num" name="end">{% for m, t, on in x.ends %}<option value="{{ m }}"{% if on %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                <label><span class="lbl">{% trans "Unpaid break" %}</span><select class="field num" name="brk">{% for b, t, on in x.breaks %}<option value="{{ b }}"{% if on %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+            </div>
+            <div class="num sh-len">{{ x.len }}</div>
+            {% for i in x.issues %}<div class="sh-issue">{{ i }}</div>{% endfor %}
+            {% if x.punches %}
+            <div class="sh-punches">
+                <div class="sh-punch-head"><span class="lbl">{% trans "Time clock" %}</span><span class="sh-did {{ x.punches.tone }}">{{ x.punches.did }}</span></div>
+                {% for what, when in x.punches.rows %}<div class="sh-punch"><span class="grow">{{ what }}</span><span class="num">{{ when }}</span></div>{% endfor %}
+                <div class="small muted strong">{{ x.punches.sum }}</div>
+            </div>
+            {% endif %}
+            <label><span class="lbl">{% trans "Note" %} <span class="faint">· {% trans "shows on their schedule" %}</span></span>
+                <input class="field" name="note" value="{{ x.d.note }}" maxlength="80" placeholder="{% trans 'e.g. Prep for the Friday event' %}" autocomplete="off"></label>
+            {% if not x.d.id %}
+            <div><span class="lbl">{% trans "Same shift on other days this week" %}</span>
+                <div class="sh-also">{% for a in x.also %}<label class="{% if a.self %}self{% endif %}"><input type="checkbox" name="also" value="{{ a.i }}"{% if a.on %} checked{% endif %}{% if a.self %} disabled{% endif %}>{{ a.label }}</label>{% endfor %}</div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="sh-drawer-foot">
+            {% if x.d.id %}<button class="sh-del" name="op" value="delete">{% trans "Delete" %}</button>{% endif %}
+            <span class="grow"></span>
+            <a class="btn-soft" href="{{ h.close }}" data-live>{% trans "Cancel" %}</a>
+            <button class="btn-amber" name="op" value="save"{% if x.save_off %} disabled{% endif %}>{{ x.save }}</button>
+        </div>
+    </form>
+{% endif %}{% endwith %}</div>
+{% endwith %}
+{% endblock %}

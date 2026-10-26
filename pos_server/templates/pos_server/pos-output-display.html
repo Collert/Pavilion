@@ -44,20 +44,14 @@
             </div>
         </div>
         <header>
-            <img src="/{{menu.header_image}}" alt="{{menu.title}} header image">
+            {% if menu.header_image %}<img src="{{menu.header_image.url}}" alt="{{menu.title}} header image">{% endif %}
             <h1>{{menu.title|title}}</h1>
         </header>
         <div id="menu-actual">
-            {% for category, dishes in compiled_menu.items %}
+            {% for station, dishes in compiled_menu %}
                 {% if dishes %}
                 <div class="title-item-pack">
-                {% if category == "kitchen" %}
-                <h2>{% trans "Hot meals" %}</h2>
-                {% elif category == "bar" %}
-                <h2>{% trans "Drinks and snacks" %}</h2>
-                {% elif category == "gng" %}
-                <h2>{% trans "Pre-packaged food" %}</h2>
-                {% endif %}
+                <h2>{{ station.heading }}</h2>
                 {% for dish in dishes %}
                 {% if dish.available %}
                 <div class="menu-item">
@@ -86,7 +80,7 @@
             {% endif %} -->
         </small>
         <footer>
-            <img src="/{{menu.footer_image}}" alt="{{menu.title}} footer image">
+            {% if menu.footer_image %}<img src="{{menu.footer_image.url}}" alt="{{menu.title}} footer image">{% endif %}
         </footer>
     </main>
     <main id="thank-you">
@@ -97,9 +91,6 @@
             alert("{% trans 'Don\'t forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)' %}");
             sessionStorage.setItem("fsReminderDone", "true");
         } 
-        const dishes = JSON.parse('{{dishes|safe}}');
-        console.log(dishes)
-        
         const bg = getComputedStyle(document.body).getPropertyValue('--primary-background');
 
         document.documentElement.style.setProperty('--primary-contrast', invertColor(bg));
@@ -129,6 +120,7 @@
             return (zeros + str).slice(-len);
         }
     </script>
+    <script src="{% url 'javascript-catalog' %}"></script>
     <script type="module" src="{% static 'pos_server/pos-output-screen.js' %}"></script>
 </body>
 </html>

@@ -1,0 +1,15 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}
+
+{% block content %}
+<div class="c-screen c-pad c-done swap">
+    {% for f in confetti %}<span aria-hidden="true" class="confetti {{ f.color }}{% if f.round %} round{% endif %}" style="left: {{ f.left }}%; width: {{ f.w }}px; height: {{ f.h }}px; animation-delay: {{ f.delay }}s"></span>{% endfor %}
+    <div class="c-badge-ok pop">{% icon "big-check" 52 2.6 %}</div>
+    <h1 class="c-title" role="status">{% trans "Delivered!" %}</h1>
+    <p class="c-lead">{% blocktrans trimmed with n=delivery.order_number name=delivery.first_name %}Order #{{ n }} is with {{ name }}. Nice work! Head back when you’re ready for the next one.{% endblocktrans %}</p>
+    <div class="c-stats">{% for value, label in stats %}<div><div class="disp">{{ value }}</div><div class="c-stat-label">{{ label }}</div></div>{% endfor %}</div>
+    <div class="grow"></div>
+    <a class="c-btn c-btn-primary wide" href="{{ home }}" target="_blank" rel="noopener">{% icon "navigate" 20 2.2 %}{% blocktrans trimmed with name=restaurant %}Navigate back to {{ name }}{% endblocktrans %}</a>
+    <a class="c-btn c-btn-white wide" href="{% url 'delivery_orders' %}" data-live>{% trans "Back to orders" %}</a>
+</div>
+{% endblock %}

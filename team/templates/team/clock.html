@@ -1,0 +1,165 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+The time clock (team/clock_views.py; no mockup, designed after the register's lock screen). Left: the time, who's
+clocked in and who's due. Right, one of: who's clocking in (PIN or email and password), their clock (clock in, unpaid
+break, clock out, today's punches), a manager's approval, or a done screen that goes back by itself. Buttons are POST
+forms (live-page.js swaps the two regions); the PIN pads are clock.js.
+{% endcomment %}
+{% block title %}{% trans "Time clock" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'team/clock.css' %}" rel="stylesheet">{% endblock %}
+{% block rail %}{% endblock %}
+
+{% block body %}
+<div class="clock-app" id="page">
+<section class="lock-status tc-board" id="tc-board" data-region aria-label="{% trans 'Who’s working' %}">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">{% trans "Time clock" %}</div>
+    </div>
+    <div class="tc-now">
+        <div class="overline on-dark" id="today"></div>
+        <div class="clock"><span id="clock-time"></span><span class="ampm" id="clock-ampm"></span></div>
+    </div>
+    <div class="tc-lists">
+        <div>
+            <div class="overline on-dark">{% blocktrans count n=board.on|length %}{{ n }} on the clock{% plural %}{{ n }} on the clock{% endblocktrans %}</div>
+            <div class="tc-who">
+                {% for p in board.on %}
+                <div class="tc-person{% if p.break %} away{% endif %}"><span class="tc-ini">{{ p.ini }}</span><span class="grow"><span class="tc-name">{{ p.name }}</span><span class="tc-sub">{{ p.sub }}</span></span></div>
+                {% empty %}
+                <div class="tc-empty">{% trans "Nobody yet." %}</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% if board.due %}
+        <div>
+            <div class="overline on-dark">{% trans "Due in" %}</div>
+            <div class="tc-who">
+                {% for p in board.due %}
+                <div class="tc-person due"><span class="tc-time{% if p.late %} late{% endif %}">{{ p.time }}</span><span class="grow"><span class="tc-name">{{ p.name }}</span><span class="tc-sub">{% if p.late %}{% trans "Late" %}{% if p.role %} · {% endif %}{% endif %}{{ p.role }}</span></span></div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<aside class="lock-panel tc-panel" id="tc-panel" data-region data-until="{{ until_ms }}" data-view="{{ view }}" aria-label="{% trans 'Time clock' %}">
+{% if view == "who" %}
+    <div class="lock-view">
+        <div class="overline">{% trans "Time clock" %}</div>
+        <h1 class="h1 lock-title">{% trans "Who’s clocking in?" %}</h1>
+        <form method="post" class="seg tc-tabs" role="tablist">{% csrf_token %}
+            <button role="tab" name="op" value="tab:pin" aria-pressed="{% if tab != 'email' %}true{% else %}false{% endif %}">{% trans "PIN" %}</button>
+            <button role="tab" name="op" value="tab:email" aria-pressed="{% if tab == 'email' %}true{% else %}false{% endif %}">{% trans "Email and password" %}</button>
+        </form>
+        {% if tab == "email" %}
+        <form method="post" class="tc-email">{% csrf_token %}
+            <input type="hidden" name="op" value="password">
+            <label class="field overline">{% trans "Email" %}<input class="input" type="text" name="email" value="{{ email }}" autocomplete="username" autocapitalize="none" required></label>
+            <label class="field overline">{% trans "Password" %}<input class="input" type="password" name="password" autocomplete="current-password" required></label>
+            {% if error %}<div class="error-line" role="alert">{{ error }}</div>{% endif %}
+            <button class="btn btn-primary">{% trans "Continue" %}</button>
+        </form>
+        {% elif people %}
+        <form method="post" class="tc-pin" data-pin-form>{% csrf_token %}
+            <input type="hidden" name="op" value="pin">
+            <input type="hidden" name="staff" value="{% if pick %}{{ pick }}{% endif %}">
+            <input type="hidden" name="pin" value="">
+            <div role="group" aria-label="{% trans 'Staff' %}" class="tc-people">
+                {% for p in people %}<button type="button" class="staff-btn" data-staff="{{ p.id }}" aria-pressed="{% if pick == p.id %}true{% else %}false{% endif %}"><span class="avatar">{{ p.name|first|upper }}</span><span>{{ p.name }}</span>{% if p.in %}<span class="tc-dot" title="{% trans 'On the clock' %}"></span>{% endif %}</button>{% endfor %}
+            </div>
+            <div class="pin-prompt" data-prompt data-empty="{% trans 'Pick your name, then type your PIN' %}" data-named="{% trans 'Enter your 4-digit PIN, %s' %}"></div>
+            <div class="dots{% if error %} bad{% endif %}" role="img" data-dots></div>
+            <div class="pin-error" role="alert">{% if error %}{{ error }}{% endif %}</div>
+            {% include "team/_pin_pad.html" %}
+        </form>
+        {% else %}
+        <p class="no-pins">{% trans "Nobody has a register PIN yet. Use your email and password, or ask a manager to set your PIN." %}</p>
+        {% endif %}
+        <div class="grow"></div>
+        <div class="lock-foot"><span>{% trans "Forgot your PIN? Ask a manager" %}</span><a href="{% url 'app_switcher_index' %}">{% trans "Apps" %}</a></div>
+    </div>
+
+{% elif view == "me" %}
+    <div class="lock-view">
+        <div class="tc-me">
+            <span class="tc-avatar {{ me.state }}">{{ me.ini }}</span>
+            <span class="grow"><span class="h2 tc-hi">{% blocktrans with name=me.first %}Hi, {{ name }}{% endblocktrans %}</span><span class="tc-status {{ me.state }}">{{ me.status }}</span></span>
+        </div>
+        <div class="tc-card">
+            <div class="overline">{% trans "Today" %}</div>
+            {% for s in me.shifts %}<div class="tc-shift"><span class="tc-role" style="background: {{ s.color }}"></span><span class="grow strong">{{ s.role }}</span><span class="num">{{ s.time }}</span></div>
+            {% empty %}<div class="sub">{% trans "You’re not on the schedule today." %}</div>{% endfor %}
+        </div>
+        {% if me.plan and not me.plan.ok %}<div class="tc-note">{{ me.plan.reason }}</div>{% endif %}
+        {% if error %}<div class="error-line tc-err" role="alert">{{ error }}</div>{% endif %}
+        <form method="post" class="tc-actions">{% csrf_token %}
+            {% if me.state == "out" %}
+            <button class="btn btn-primary tc-big" name="op" value="in">{% if me.plan.ok or me.plan.self %}{% trans "Clock in" %}{% else %}{% trans "Clock in · ask a manager" %}{% endif %}</button>
+            {% elif me.state == "in" %}
+            <button class="btn tc-big" name="op" value="break">{% trans "Start unpaid break" %}</button>
+            <button class="btn btn-dark tc-big" name="op" value="out">{% trans "Clock out" %}</button>
+            {% else %}
+            <button class="btn btn-primary tc-big" name="op" value="unbreak">{% trans "End break" %}</button>
+            <button class="btn btn-dark tc-big" name="op" value="out">{% trans "Clock out" %}</button>
+            {% endif %}
+        </form>
+        {% if me.rows %}
+        <div class="tc-card tc-punches">
+            <div class="tc-row-head"><span class="overline">{% trans "Today’s punches" %}</span><span class="sub">{% blocktrans with t=me.worked %}{{ t }} worked{% endblocktrans %}</span></div>
+            {% for r in me.rows %}<div class="tc-punch {{ r.kind }}"><span class="tc-mark"></span><span class="grow">{{ r.what }}</span><span class="num">{{ r.time }}</span></div>{% endfor %}
+        </div>
+        {% endif %}
+        <div class="grow"></div>
+        <form method="post" class="lock-foot">{% csrf_token %}<span>{% trans "Not you, or finished?" %}</span><button class="btn btn-sm" name="op" value="done">{% trans "Done" %}</button></form>
+    </div>
+
+{% elif view == "approve" %}
+    <div class="lock-view">
+        <div class="overline">{% trans "Manager approval" %}</div>
+        <h1 class="h1 lock-title">{% blocktrans with name=me.first %}Let {{ name }} clock in?{% endblocktrans %}</h1>
+        <div class="tc-note">{{ me.plan.reason }}</div>
+        {% if approvers %}
+        <form method="post" class="tc-pin" data-pin-form>{% csrf_token %}
+            <input type="hidden" name="op" value="approve">
+            <input type="hidden" name="staff" value="{% if approvers|length == 1 %}{{ approvers.0.id }}{% endif %}">
+            <input type="hidden" name="pin" value="">
+            <div role="group" aria-label="{% trans 'Who is approving' %}" class="tc-people">
+                {% for p in approvers %}<button type="button" class="staff-btn" data-staff="{{ p.id }}" aria-pressed="{% if approvers|length == 1 %}true{% else %}false{% endif %}"><span class="avatar">{{ p.name|first|upper }}</span><span>{{ p.name }}</span></button>{% endfor %}
+            </div>
+            <div class="pin-prompt" data-prompt data-empty="{% trans 'Manager: pick your name, then type your PIN' %}" data-named="{% trans 'Enter your 4-digit PIN, %s' %}"></div>
+            <div class="dots{% if error %} bad{% endif %}" role="img" data-dots></div>
+            <div class="pin-error" role="alert">{% if error %}{{ error }}{% endif %}</div>
+            {% include "team/_pin_pad.html" %}
+        </form>
+        {% else %}
+        <p class="no-pins">{% trans "Nobody who can approve clock-ins has a register PIN yet. A manager can set one up, or give someone “Approve clock-ins” on the Groups page." %}</p>
+        {% endif %}
+        <div class="grow"></div>
+        <form method="post" class="lock-foot">{% csrf_token %}<span></span><button class="btn btn-sm" name="op" value="back">{% trans "Back" %}</button></form>
+    </div>
+
+{% else %}
+    <div class="lock-view welcome">
+        <div class="welcome-icon pop tc-done {{ done.kind }}">
+            {% if done.kind == "break" %}<svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v5a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z M16 10h1.5a2.5 2.5 0 0 1 0 5H16 M4 21h14"></path></svg>
+            {% elif done.kind == "out" %}<svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4 M10 16l-4-4 4-4 M6 12h10"></path></svg>
+            {% else %}<svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>{% endif %}
+        </div>
+        <h2 class="h2" role="status">{{ done.title }}</h2>
+        <div class="welcome-text">{{ done.text }}</div>
+        <form method="post">{% csrf_token %}<button class="btn btn-md" name="op" value="done">{% trans "Done" %}</button></form>
+    </div>
+{% endif %}
+</aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'team/clock.js' %}"></script>
+{% endblock %}

@@ -56,7 +56,7 @@
             document.querySelector("#pass-error").innerHTML = `{% trans "Passwords don't match!" %}`;
         } else if (/^[a-zA-Z0-9@./+_-]{1,150}$/.test(document.querySelector("#id_username").value)) {
             document.querySelector("#username-error").hidden = false;
-            document.querySelector("#username-error").innerHTML = "{% trans 'Username does not satisfy requirements! %}'";
+            document.querySelector("#username-error").innerHTML = "{% trans 'Username does not satisfy requirements!' %}";
         } else {
             e.currentTarget.submit()
         }

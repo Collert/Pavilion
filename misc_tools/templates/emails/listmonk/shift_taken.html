@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Hi {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with who=tx.who %}{{ who }} picked up the shift you gave away. It’s off your schedule.{% endblocktrans %}</p>
+<div class="pv-box">{% go ".Tx.Data.shift" %}</div>
+{% endblock %}

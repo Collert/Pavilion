@@ -1,253 +1,149 @@
-{% extends "pos_server/layout.html" %}
-{% load i18n %}
-{% load static %}
-{% load custom_filters %}
-{% load tz %}
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Orders" %} · Pavilion{% endblock %}
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link href="{% static 'pos_server/order-marking.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}
+<nav class="rail" aria-label="{% trans 'Station controls' %}">
+    <div class="rail-logo">{% include "pos_server/icons/logo.svg" %}</div>
+    <button class="rail-item" id="filter-open" aria-haspopup="dialog">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"></path></svg>
+        {% trans "Filter" %}
+        <span class="rail-badge" id="filter-count"></span>
+        <kbd class="kbd on-dark rail-kbd">F</kbd>
+    </button>
+    <button class="rail-item" id="auto-open" aria-haspopup="dialog" aria-pressed="false">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M12 7.5V12l3 2"></path></svg>
+        {% trans "Auto" %}
+        <span class="rail-badge" id="auto-badge" hidden>{% trans "On" %}</span>
+        <kbd class="kbd on-dark rail-kbd">A</kbd>
+    </button>
+    <button class="rail-item" id="avail-open" aria-haspopup="dialog">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>
+        {% trans "Stock" %}
+        <kbd class="kbd on-dark rail-kbd">S</kbd>
+    </button>
+    <div class="rail-spacer"></div>
+    {% include "pos_server/rail_foot.html" %}
+</nav>
+{% endblock %}
 
 {% block body %}
-{% csrf_token %}
-{% for order in orders %}
-    <div 
-        data-order-id="{{order.order_id}}" 
-        data-channel="{{order.channel}}"
-        data-payment-id="{{order.payment_id}}"
-        data-kitchen-status="{{order.kitchen_status}}"
-        data-bar-status="{{order.bar_status}}"
-        data-gng-status="{{order.gng_status}}"
-        class="order {% if order|all_stations_ready %}success{% endif %}"
-    >
-        <div class="summary">
-            <h2>
-                {% if order.name %}
-                {{order.name}}
-                {% else %}
-                {% trans "No name" %}
-                {% endif %}
-            </h2>
-            <div class="name-time">
-                <span>{% trans "Order" %} #{{order.order_id}}</span>
-                <span data-timestamp="{{order.start_time}}" class="timestamp">
-                    {%trans "Prep time:" %} <span>{{order.start_time}}</span>
-                </span>
-            </div>
+<main class="kds-main">
+    <header class="kds-header">
+        <div class="kds-heading">
+            <div class="overline" id="head-over"></div>
+            <h1 class="kds-title" id="head-title"></h1>
         </div>
+        <div class="kds-side">
+            <div class="kds-summary" id="summary"></div>
+            <div class="cap nav-hint"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> {% trans "Switch order" %} · <kbd class="kbd">PgUp</kbd><kbd class="kbd">PgDn</kbd> {% trans "Scroll" %}</div>
+        </div>
+    </header>
+    <div class="kds-list" id="list" aria-live="polite"></div>
+    <div id="toasts"></div>
+</main>
+
+<dialog class="sheet kds-sheet w-filter" id="filter-sheet" aria-labelledby="filter-title">
+    <div class="sheet-head">
         <div>
-            <h3>
-                {% if order.channel == "store" %}
-                <span class="material-symbols-outlined">storefront</span> {% trans "In-person" %}
-                {% elif order.channel == "web" %}
-                <span class="material-symbols-outlined">shopping_cart_checkout</span> {% trans "Online pick-up" %}
-                <span class="material-symbols-outlined">call</span> {{order.phone}}
-                {% elif order.channel == "delivery" %}
-                <span class="material-symbols-outlined">local_shipping</span> {% trans "Delivery" %}
-                <span class="material-symbols-outlined">call</span> {{order.phone}}
-                {% endif %}
-            </h3>
-            <div class="progresses">
-                {% if order.kitchen_status != 4 %}
-                    <div class="progress-stack kitchen-progress">
-                        <span class="material-symbols-outlined">restaurant</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>
-                    </div>
-                {% endif %}
-                {% if order.bar_status != 4 %}
-                    <div class="progress-stack bar-progress">
-                        <span class="material-symbols-outlined">local_cafe</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>
-                    </div>
-                {% endif %}
-                {% if order.gng_status != 4 %}
-                    <div class="progress-stack gng-progress">
-                        <span class="material-symbols-outlined">kitchen</span>
-                        <div class="hourglass">
-                            <span class="material-symbols-outlined">hourglass_bottom</span>
-                            <span class="material-symbols-outlined">hourglass_top</span>
-                        </div>
-                        <span class="material-symbols-outlined check">check</span>
-                        <span class="material-symbols-outlined done_all">done_all</span>      
-                    </div>
-                {% endif %}
-            </div>
-            <h3>
-                {% if order.to_go_order %}
-                <span class="material-symbols-outlined">takeout_dining</span> {% trans "Order to-go" %}
-                {% else %}
-                <span class="material-symbols-outlined">restaurant</span> {% trans 'Order for here' %}
-                {% endif %}
-            </h3>
-            <ul>
-                {% for item in order.dishes %}
-                    {% if item.station in filters %}
-                        <li>{{item.quantity}} X {{item.name}}</li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
-            {% if order.special_instructions %}
-            <h3>{% trans "Special instructions:" %}</h3>
-            <p>{{order.special_instructions}}</p>
-            {% endif %}
+            <div class="overline">{% trans "Filter" %}</div>
+            <h2 class="sheet-title" id="filter-title">{% trans "Show orders for" %}</h2>
+            <div class="sheet-sub">{% trans "Each order shows only the items these stations make." %}</div>
         </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
     </div>
-{% endfor %}
-<dialog class="full" id="availability">
-    <iframe style="height: 99%; width: 100%;" src="{% url 'component_availability' %}" frameborder="0"></iframe>
-</dialog>
-
-<dialog class="full" id="reject-reason">
-    <nav>
-        <h2>{% trans "Reason for rejection" %}</h2>
-        <button tabindex="-1" class="icon">Close</button>
-    </nav>
-    <form action="/" method="post">
-        <div id="rejection-reasons">
-            <div class="rejection">
-                <input tabindex="-1" type="checkbox" data-key="1" id="rejection-out-of-stock" value="out-of-stock" name="reason">
-                <label for="rejection-out-of-stock">
-                    <span class="material-symbols-outlined">no_meals</span>
-                    <span>{% trans "Out of one or more components" %}</span>
-                    <span>1</span>
-                </label>
-            </div>
-            <div class="rejection">
-                <input tabindex="-1" type="checkbox" data-key="2" id="rejection-no-containers" value="no-containers" name="reason">
-                <label for="rejection-no-containers">
-                    <span class="material-symbols-outlined">takeout_dining</span>
-                    <span>{% trans "Out of containers to pack the order" %}</span>
-                    <span>2</span>
-                </label>
-            </div>
-        </div>
-        <textarea name="reason-extra" placeholder="Extra information for rejection?"></textarea>
-        <button type="submit">{% trans "Reject" %}</button>
-    </form>
-</dialog>
-
-<dialog id="order-management">
-    <nav>
-        <h2>{% trans "Order management" %}</h2>
-        <button tabindex="-1" class="icon"><span class="material-symbols-outlined">close</span></button>
-    </nav>
-    <div class="order-actions">
-        <button id="approve-order-button">
-            <span class="material-symbols-outlined">check</span>
-            <span>{% trans "Approve order" %}</span>
-        </button>
-        <button id="reject-order-button">
-            <span class="material-symbols-outlined">block</span>
-            <span>{% trans "Reject order" %}</span>
-        </button>
-        <button id="mark-order-done-button">
-            <span class="material-symbols-outlined">done_all</span>
-            <span>{% trans "Mark order done" %}</span>
-        </button>
-        <button id="mark-order-collected-button">
-            <span class="material-symbols-outlined">how_to_reg</span>
-            <span>{% trans "Mark order picked up" %}</span>
-        </button>
+    <div role="group" aria-label="{% trans 'Stations' %}" class="station-grid" id="station-grid"></div>
+    <div class="legend" id="legend"><span class="overline">{% trans "Status key" %}</span></div>
+    <div class="sheet-foot">
+        <button class="btn-link" id="select-all">{% trans "Select all" %} <kbd class="kbd">A</kbd></button>
+        <div class="grow"></div>
+        <button class="btn btn-primary" data-close>{% trans "Done" %} <kbd class="kbd">Enter</kbd></button>
     </div>
 </dialog>
 
-<script>
-    const stations = JSON.parse('{{stations|safe}}')
-    const filters = JSON.parse('{{filters|safe}}')
-    const orderFilters = {
-        kitchen:filters.includes("kitchen"),
-        bar:filters.includes("bar"),
-        gng:filters.includes("gng")
-    }
-</script>
-<script> 
-    const checkOrdersLink = "{% url 'active_orders' %}";
-    const approveOrderLink = "{% url 'capture-payment' %}";
-</script>
-<script>
-    document.querySelector("#filters-form")?.addEventListener("submit", e => {
-        e.preventDefault()
-        let query = '?'
-        if (e.currentTarget.querySelector("#kitchen-filter").checked) {
-            query += "filter=kitchen"
-        }
-        if (e.currentTarget.querySelector("#bar-filter").checked) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += "filter=bar"
-        }
-        if (e.currentTarget.querySelector("#gng-filter").checked) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += "filter=gng"
-        }
-        if (e.currentTarget.querySelector("#auto-done-input").value) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += `auto-done=${e.currentTarget.querySelector("#auto-done-input").value}`
-        }
-        if (e.currentTarget.querySelector("#auto-collect-input").value) {
-            if (query !== "?") {
-                query += "&"
-            }
-            query += `auto-collect=${e.currentTarget.querySelector("#auto-collect-input").value}`
-        }
-        // const url = new URL()
-        window.location.replace(window.location.href.split('?')[0] + query) 
-    })
-</script>
-<script type="module" src="{% static 'pos_server/kitchen-bar.js' %}"></script>
-<script type="module" src="{% static 'pos_server/authorizedDeviceCheck.js' %}"></script>
+<dialog class="sheet kds-sheet w-filter" id="auto-sheet" aria-labelledby="auto-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Auto" %}</div>
+            <h2 class="sheet-title" id="auto-title">{% trans "Move orders along by themselves" %}</h2>
+            <div class="sheet-sub">{% trans "For the orders on this screen and its stations. Leave a box empty to turn that step off." %}</div>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+    </div>
+    <div class="auto-rows">
+        <label class="auto-row" for="auto-ready">
+            <span class="auto-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M8 12.4l2.8 2.8 5.2-5.6"></path></svg></span>
+            <span class="grow">
+                <span class="strong">{% trans "Mark ready" %}</span>
+                <span class="cap">{% trans "Minutes after an order goes in progress (every station has confirmed it)." %}</span>
+            </span>
+            <span class="auto-input"><input class="input" id="auto-ready" type="number" min="1" max="240" inputmode="numeric" placeholder="{% trans 'Off' %}"><span class="cap">{% trans "min" %}</span></span>
+        </label>
+        <label class="auto-row" for="auto-pickup">
+            <span class="auto-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z M9 8V6.5a3 3 0 0 1 6 0V8 M9.5 14l2 2 3.5-4"></path></svg></span>
+            <span class="grow">
+                <span class="strong">{% trans "Mark picked up" %}</span>
+                <span class="cap">{% trans "Minutes after this screen marks it ready. While other stations are still on it, it tries again every minute. Not for deliveries." %}</span>
+            </span>
+            <span class="auto-input"><input class="input" id="auto-pickup" type="number" min="1" max="240" inputmode="numeric" placeholder="{% trans 'Off' %}"><span class="cap">{% trans "min" %}</span></span>
+        </label>
+    </div>
+    <div class="sheet-foot">
+        <span class="sub grow">{% trans "Tab moves between the boxes." %}</span>
+        <button class="btn" data-close>{% trans "Cancel" %} <kbd class="kbd">Esc</kbd></button>
+        <button class="btn btn-primary" id="auto-save">{% trans "Save" %} <kbd class="kbd">Enter</kbd></button>
+    </div>
+</dialog>
+
+<dialog class="sheet avail-dialog" id="avail-sheet" aria-label="{% trans 'Availability' %}">
+    {% include "inventory/availability_panel.html" with dialog=True %}
+</dialog>
+
+<dialog class="sheet kds-sheet w-reject" id="reject-sheet" aria-labelledby="reject-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline danger">{% trans "Reject order" %}</div>
+            <h2 class="sheet-title" id="reject-title"></h2>
+            <div class="sheet-sub">{% trans "Front of house sees this reason and lets the customer know." %}</div>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+    </div>
+    <div>
+        <div class="overline gap-below">{% trans "Quick reasons" %}</div>
+        <div role="group" aria-label="{% trans 'Quick reasons' %}" class="reasons" id="reasons"></div>
+    </div>
+    <div>
+        <label for="reject-text" class="overline gap-below">{% trans "Or write a reason" %}</label>
+        <div class="reject-text-box">
+            <textarea id="reject-text" class="textarea" rows="3" maxlength="200" placeholder="{% trans 'What happened, in a few words' %}"></textarea>
+            <span class="sub reject-count" id="reject-count">0/200</span>
+        </div>
+    </div>
+    <div class="sheet-foot">
+        <span class="sub grow" id="reject-hint"></span>
+        <button class="btn" data-close>{% trans "Cancel" %} <kbd class="kbd">Esc</kbd></button>
+        <button class="btn btn-reject" id="reject-go" disabled>{% trans "Reject order" %} <kbd class="kbd on-dark">Enter</kbd></button>
+    </div>
+</dialog>
+
+{{ orders|json_script:"kds-orders" }}
+{{ stations|json_script:"kds-stations" }}
+{{ filters|json_script:"kds-filters" }}
+{{ reasons|json_script:"kds-reasons" }}
+{{ can_reject|json_script:"kds-can-reject" }}
+{{ server_now|json_script:"kds-now" }}
+{% url 'active_orders' as feed_url %}{{ feed_url|json_script:"kds-feed" }}
 {% endblock %}
 
-{% block marking-nav %}
-<dialog id="filters-dialog">
-    <nav>
-        <h1>Preferences</h1>
-        <button class="icon close-button"><span class="material-symbols-outlined">close</span></button>
-    </nav>
-    <form id="filters-form" action="" method="get">
-        <div class="preference-categories">
-            <div class="preference-category">
-                <h2>{% trans "Filters" %}</h2>
-                <div class="filter-switch">
-                    <input {% if "kitchen" in filters %}checked{% endif %} type="checkbox" name="filter" id="kitchen-filter">
-                    <label for="kitchen-filter">{% trans "Hot food" %}</label>
-                </div>
-                <div class="filter-switch">
-                    <input {% if "bar" in filters %}checked{% endif %} type="checkbox" name="filter" id="bar-filter">
-                    <label for="bar-filter">{% trans "Drinks & sweets" %}</label>
-                </div>
-                <div class="filter-switch">
-                    <input {% if "gng" in filters %}checked{% endif %} type="checkbox" name="filter" id="gng-filter">
-                    <label for="gng-filter">{% trans "Frozen products" %}</label>
-                </div>
-            </div>
-            <div class="preference-category">
-                <h2>{% trans "Auto-done" %}</h2>
-                <small style="width: 12rem; text-align: center;">{% trans "Automatically mark orders as done after the specified number of minutes. <br>(Leave blank to disable)" %}</small>
-                <input placeholder="{% trans 'Minutes' %}" type="number" min="1" name="auto-done" id="auto-done-input">
-            </div>
-            <div class="preference-category">
-                <h2>{% trans "Auto-pickup" %}</h2>
-                <small style="width: 12rem; text-align: center;">{% trans "Automatically mark orders as collected after the specified number of minutes. <br>(Leave blank to disable)" %}</small>
-                <input placeholder="{% trans 'Minutes' %}" type="number" min="1" name="auto-collect" id="auto-collect-input">
-            </div>
-        </div>
-        <button>{% trans "Submit" %}</button>
-    </form>
-</dialog>
-<button id="filters-icon" class="icon"><span class="material-symbols-outlined">tune</span></button>
-<script>
-    document.querySelector("#filters-icon").addEventListener("click", e => {document.querySelector("#filters-dialog").showModal()})
-</script>
-{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'pos_server/order-marking.js' %}"></script>{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Hi {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with what=tx.what decision=tx.decision %}Your request ({{ what }}) was {{ decision }}.{% endblocktrans %}</p>
+{% go "if .Tx.Data.message" %}<div class="pv-box">{% go ".Tx.Data.message" %}</div>{% go "end" %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{
+  "title": "Featured dish",
+  "description": "Spotlight one item: its photo, name and price, live from the menu (sold out shows as sold out).",
+  "icon": "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z",
+  "color": "#F4A93B",
+  "template": "screens/widgets/featured_dish.html",
+  "context": "screens.providers.featured_dish",
+  "live": ["menus", "inventory"],
+  "css": ["screens/widgets/featured_dish.css"],
+  "params": {
+    "dish": {"type": "int", "default": 0, "min": 0, "label": "Dish", "source": "dishes"},
+    "badge": {"type": "string", "default": "Chef’s pick", "label": "Badge", "help": "A small pill above the name; empty for none"},
+    "price": {"type": "bool", "default": true, "label": "Price", "help": "Show the price"},
+    "description": {"type": "bool", "default": true, "label": "Description", "help": "Show the dish's description"},
+    "background": {"type": "color", "default": "#1C2321", "label": "Background", "presets": ["#1C2321", "#14261F", "#FFFFFF", "#FBE7B5"]},
+    "color": {"type": "color", "default": "#F4F1EA", "label": "Text colour", "presets": ["#F4F1EA", "#1C2321"]}
+  }
+}

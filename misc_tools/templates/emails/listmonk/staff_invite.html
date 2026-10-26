@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Welcome to the team, {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans %}You’ve been added to the staff at {{ store }}. Set your password to sign in to the apps.{% endblocktrans %}</p>
+<p><a class="pv-btn" href="{% go ".Tx.Data.link" %}">{% trans "Set my password" %}</a></p>
+{% endblock %}

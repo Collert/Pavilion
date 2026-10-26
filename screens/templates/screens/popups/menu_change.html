@@ -1,0 +1,1 @@
+{% load i18n %}{% trans "Menu" as kicker %}{% if params.message %}{% include "screens/popups/_card.html" with kicker=kicker big=params.message small="" %}{% else %}{% blocktrans with m=data.menu.title asvar big %}{{ m }} starts now{% endblocktrans %}{% include "screens/popups/_card.html" with kicker=kicker big=big small="" %}{% endif %}

@@ -1,0 +1,215 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Discounts (design: AdminDiscounts; admin_portal/discounts.py). One form with Save: every field and button posts the
+draft back (editor.js) and the regions that changed are swapped in; Save writes it. Builds on Coupons' styles.
+{% endcomment %}
+{% block title %}{% trans "Discounts" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/coupons.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/discounts.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="dc-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Customers" %}</div>
+        <h1 class="disp page-title">{% trans "Discounts" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "New discount" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card tm-list cp-list" id="dc-list" data-region aria-label="{% trans 'Discounts' %}">
+        <div class="tm-list-top">
+            <div class="cp-tabs" role="tablist" aria-label="{% trans 'Filter discounts' %}">
+                {% for k, label, n, on in x.tabs %}<button role="tab" aria-selected="{{ on|yesno:'true,false' }}" name="op" value="tab:{{ k }}">{{ label }}<span>{{ n }}</span></button>{% endfor %}
+            </div>
+        </div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Discounts' %}">
+            {% for r in x.rows %}
+            <button class="tm-row cp-row{% if r.on %} on{% endif %}{% if r.dim %} off{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.r.id }}">
+                <span class="dc-tile{% if r.big|length > 3 %} small{% endif %}" style="background: {{ r.color }}">{{ r.big }}</span>
+                <span class="grow two-line">
+                    <span class="cp-row-top"><span class="dc-name ellipsis">{{ r.r.title|default:_("Untitled") }}</span><span class="cp-st {{ r.st_key }}">{{ r.st }}</span></span>
+                    <span class="small muted ellipsis">{% if not r.auto %}{% trans "Register" %} · {% endif %}{{ r.desc }}</span>
+                </span>
+                <span class="num cp-used">{{ r.used }}</span>
+            </button>
+            {% empty %}
+            <div class="tm-none">{% trans "No discounts here." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="tm-edit" aria-label="{% trans 'Discount settings' %}">
+    {% with d=x.d %}{% if d %}
+    <div class="sc-grid cp-grid">
+        <div class="sc-col">
+            <div class="card tm-card" id="dc-name" data-region>
+                <input type="hidden" name="editing" value="{{ d.key }}">
+                <label><span class="lbl">{% trans "Name on receipts and the menu" %}</span>
+                    <input class="field dc-name-in{% if d.err.name %} bad{% endif %}" name="title" value="{{ d.e.title }}" maxlength="40" placeholder="{% trans 'e.g. Happy hour' %}" autocomplete="off" data-type-preview></label>
+                {% if d.err.name %}<div class="tm-err tight sc-err">{{ d.err.name }}</div>{% endif %}
+                <div class="dc-how">
+                    <span class="lbl">{% trans "How it’s given" %}</span>
+                    <div class="sc-seg" role="radiogroup" aria-label="{% trans 'How it’s given' %}">
+                        <button role="radio" aria-checked="{{ d.e.auto|yesno:'true,false' }}" name="op" value="how:auto">{% trans "Applies by itself" %}</button>
+                        <button role="radio" aria-checked="{{ d.e.auto|yesno:'false,true' }}" name="op" value="how:pick">{% trans "Cashier picks it" %}</button>
+                    </div>
+                </div>
+                <div class="dc-switches">
+                    <button class="tm-switch-row sc-switch" role="switch" aria-checked="{{ d.e.paused|yesno:'false,true' }}" name="op" value="flip:paused">
+                        <span class="grow two-line"><span class="strong">{% trans "Turned on" %}</span><span class="small muted">{{ d.live_hint }}</span></span>
+                        <span class="sc-sw"><span></span></span>
+                    </button>
+                    <button class="tm-switch-row sc-switch" role="switch" aria-checked="{% if d.e.badge and not d.badge_lock %}true{% else %}false{% endif %}" name="op" value="flip:badge"{% if d.badge_lock %} disabled{% endif %}>
+                        <span class="grow two-line"><span class="strong">{% trans "Show a badge" %}</span><span class="small muted">{{ d.badge_hint }}</span></span>
+                        <span class="sc-sw"><span></span></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card tm-card" id="dc-when" data-region>
+                <div class="dc-when-head"><h2 class="disp tm-h2 grow">{% trans "When it runs" %}</h2><span class="dc-now{% if d.now_on %} on{% endif %}">{{ d.now_text }}</span></div>
+                <div class="lbl top12">{% trans "Days" %}</div>
+                <div class="dc-days" role="group" aria-label="{% trans 'Days' %}">
+                    {% for n, short, full, on, today in d.days %}<button class="dc-day{% if today %} today{% endif %}" aria-pressed="{{ on|yesno:'true,false' }}" aria-label="{{ full }}" name="op" value="day:{{ n }}">{{ short }}</button>{% endfor %}
+                    <span class="dc-gap"></span>
+                    {% for k, label in d.presets %}<button class="dc-preset" name="op" value="days:{{ k }}">{{ label }}</button>{% endfor %}
+                </div>
+                <div class="dc-hours">
+                    <div class="sc-seg" role="radiogroup" aria-label="{% trans 'Hours' %}">
+                        <button role="radio" aria-checked="{{ d.e.all_day|yesno:'true,false' }}" name="op" value="hours:all">{% trans "All day" %}</button>
+                        <button role="radio" aria-checked="{{ d.e.all_day|yesno:'false,true' }}" name="op" value="hours:set">{% trans "Set hours" %}</button>
+                    </div>
+                    {% if not d.e.all_day %}
+                    <label class="grow"><span class="lbl">{% trans "From" %}</span><select class="field num" name="from">{% for v, t, on in d.from_opts %}<option value="{{ v }}"{% if on %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                    <label class="grow"><span class="lbl">{% trans "Until" %}</span><select class="field num" name="to">{% for v, t, on in d.to_opts %}<option value="{{ v }}"{% if on %} selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+                    {% endif %}
+                </div>
+                <div class="cp-two">
+                    <label><span class="lbl">{% trans "Starts" %}</span><input class="field num" type="date" name="start" value="{{ d.e.start }}"></label>
+                    <label><span class="lbl cp-end-lbl"><span>{% trans "Ends" %}</span><button class="cp-link" name="op" value="end">{% if d.e.end %}{% trans "No end date" %}{% else %}{% trans "Set an end date" %}{% endif %}</button></span>
+                        <input class="field num" type="date" name="end" value="{{ d.e.end }}"{% if not d.e.end %} disabled{% endif %}></label>
+                </div>
+                {% if d.err.date %}<div class="tm-err tight sc-err">{{ d.err.date }}</div>{% endif %}
+                <div class="dc-sched">{{ d.sched_text }}</div>
+            </div>
+
+            <div class="card tm-card" id="dc-discount" data-region>
+                <h2 class="disp tm-h2">{% trans "Discount" %}</h2>
+                <div class="sc-fields">
+                    <div class="sc-seg" role="radiogroup" aria-label="{% trans 'Discount type' %}">
+                        <button role="radio" aria-checked="{{ d.is_pct|yesno:'true,false' }}" name="op" value="kind:pct">{% trans "Percent off" %}</button>
+                        <button role="radio" aria-checked="{{ d.is_pct|yesno:'false,true' }}" name="op" value="kind:amt">{% trans "Amount off" %}</button>
+                    </div>
+                    <label class="sc-w140"><span class="lbl">{% if d.is_pct %}{% trans "Percent off" %}{% else %}{% trans "Amount off" %}{% endif %}</span>
+                        <span class="sc-money">{% if not d.is_pct %}<span>$</span>{% endif %}<input class="num" name="value" value="{{ d.e.value }}" inputmode="decimal" data-type-preview>{% if d.is_pct %}<span>%</span>{% endif %}</span></label>
+                    {% if d.is_pct %}<label class="sc-w150"><span class="lbl">{% trans "Max discount" %} <span class="faint">· {% trans "optional" %}</span></span>
+                        <span class="sc-money"><span>$</span><input class="num" name="cap" value="{{ d.e.cap }}" inputmode="decimal" placeholder="{% trans 'No cap' %}" data-type-preview></span></label>{% endif %}
+                </div>
+                {% if d.err.value %}<div class="tm-err tight sc-err">{{ d.err.value }}</div>{% endif %}
+
+                <div class="lbl top18">{% trans "Applies to" %}</div>
+                <div class="cp-targets" role="radiogroup" aria-label="{% trans 'Applies to' %}">
+                    {% for k, label, desc, icon, color, on, locked in d.targets %}
+                    <button class="cp-target" role="radio" aria-checked="{{ on|yesno:'true,false' }}" name="op" value="target:{{ k }}" style="--c: {{ color }}"{% if locked %} disabled title="{% trans 'The register doesn’t take delivery orders.' %}"{% endif %}>
+                        <span class="cp-target-ic">{% icon icon 18 2.2 %}</span>
+                        <span class="grow"><span class="strong block">{{ label }}</span><span class="tiny muted block">{{ desc }}</span></span>
+                    </button>
+                    {% endfor %}
+                </div>
+                {% if d.e.target == "items" %}
+                <div class="cp-cats">
+                    {% for c in d.cats %}
+                    <div>
+                        <div class="cp-cat-head"><span class="cp-dot" style="background: {{ c.color }}"></span><span class="grow strong">{{ c.name }}</span>
+                            <button class="cp-link" name="op" value="cat:{{ c.id }}">{% if c.all %}{% trans "Clear" %}{% else %}{% blocktrans with n=c.n %}Pick all {{ n }}{% endblocktrans %}{% endif %}</button></div>
+                        <div class="cp-chips">{% for key, name, price, on in c.items %}<button class="cp-chip" aria-pressed="{{ on|yesno:'true,false' }}" name="op" value="item:{{ key }}">{{ name }}{% if price %}<span class="num">{{ price }}</span>{% endif %}</button>{% endfor %}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif d.e.target == "menus" %}
+                <div class="cp-menus">
+                    {% for id, name, sub, on in d.menus %}
+                    <button class="cp-menu" role="checkbox" aria-checked="{{ on|yesno:'true,false' }}" name="op" value="menu:{{ id }}">
+                        <span class="tm-box"><span></span></span><span class="grow"><span class="strong block">{{ name }}</span><span class="tiny muted block">{{ sub }}</span></span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="small muted strong top8">{% trans "Takes the discount off anything in these menus. A dish on two menus only counts once." %}</div>
+                {% elif d.e.target == "delivery" %}
+                <div class="cp-deliv"><span class="grow">{{ d.del_text }}</span>{% if not d.free %}<button name="op" value="free">{% trans "Make it free delivery" %}</button>{% endif %}</div>
+                {% endif %}
+            </div>
+
+            <div class="card tm-card" id="dc-conditions" data-region>
+                <h2 class="disp tm-h2">{% trans "Conditions" %}</h2>
+                <div class="cp-two">
+                    <label><span class="lbl">{% trans "Minimum order subtotal" %}</span>
+                        <span class="sc-money{% if d.err.min %} bad{% endif %}"><span>$</span><input class="num" name="min" value="{{ d.e.min }}" inputmode="decimal" placeholder="{% trans 'No minimum' %}"></span></label>
+                    <div><span class="lbl">{% trans "Order types" %}</span>
+                        <div class="cp-chans">{% for c, label, on in d.chans %}<button aria-pressed="{{ on|yesno:'true,false' }}" name="op" value="chan:{{ c }}"{% if d.chan_lock %} disabled{% endif %}>{{ label }}</button>{% endfor %}</div></div>
+                </div>
+                {% if d.err.min %}<div class="tm-err tight sc-err">{{ d.err.min }}</div>{% endif %}
+                <div class="lbl top16">{% trans "Who gets it" %}</div>
+                <div class="dc-who" role="radiogroup" aria-label="{% trans 'Who gets it' %}">
+                    {% for k, label, desc, on in d.who %}
+                    <button role="radio" aria-checked="{{ on|yesno:'true,false' }}" name="op" value="who:{{ k }}"><span class="strong block">{{ label }}</span><span class="tiny muted block">{{ desc }}</span></button>
+                    {% endfor %}
+                </div>
+                {% if d.who_note %}<div class="cp-acct">{{ d.who_note }}</div>{% endif %}
+                {% if d.e.auto %}
+                <button class="tm-switch-row sc-switch" role="switch" aria-checked="{{ d.e.stack|yesno:'true,false' }}" name="op" value="flip:stack">
+                    <span class="grow two-line"><span class="strong">{% trans "Works with coupons" %}</span><span class="small muted">{{ d.stack_hint }}</span></span>
+                    <span class="sc-sw"><span></span></span>
+                </button>
+                <div class="cp-acct">{% trans "If two automatic discounts fit the same order, the customer gets whichever saves them more." %}</div>
+                {% else %}
+                <div class="cp-acct">{% trans "The cashier picks it for one item or the whole order. An order takes one order discount: this, a code or a typed-in one." %}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="sc-side">
+            <div class="sc-dark" id="dc-preview" data-region>
+                {% with pv=d.pv %}
+                <div class="cp-pv-head"><div class="ov sc-ov grow">{% trans "Checkout preview" %}</div>
+                    <div class="cp-modes" role="radiogroup" aria-label="{% trans 'Preview order type' %}">
+                        <button role="radio" aria-checked="{% if pv.mode == 'pickup' %}true{% else %}false{% endif %}" name="op" value="pv:pickup">{% trans "Pickup" %}</button>
+                        <button role="radio" aria-checked="{% if pv.mode == 'delivery' %}true{% else %}false{% endif %}" name="op" value="pv:delivery">{% trans "Delivery" %}</button>
+                        <button role="radio" aria-checked="{% if pv.mode == 'store' %}true{% else %}false{% endif %}" name="op" value="pv:store">{% trans "In store" %}</button>
+                    </div></div>
+                <div class="sc-receipt">
+                    {% for q, name, price, hit in pv.lines %}<div class="sc-line"><span class="num cp-q">{{ q }}×</span><span class="grow">{{ name }}{% if hit %}<span class="cp-hit"> ✓</span>{% endif %}</span><span class="num">{{ price }}</span></div>{% empty %}<div class="sc-line">{% trans "Add dishes to see a sample order." %}</div>{% endfor %}
+                    <hr>
+                    {% for k, v, tone in pv.sums %}<div class="sc-line {{ tone }}"><span class="grow">{{ k }}</span><span class="num">{{ v }}</span></div>{% endfor %}
+                </div>
+                <div class="sc-note{% if pv.warn %} warn{% endif %}">{{ pv.note }}</div>
+                {% endwith %}
+            </div>
+            <div class="card tm-card" id="dc-stats" data-region>
+                <div class="ov muted">{% trans "Performance" %}</div>
+                <div class="sc-stats">{% for k, v in d.stats %}<div><div class="disp num">{{ v }}</div><div class="tiny muted strong">{{ k }}</div></div>{% endfor %}</div>
+                <div class="tiny muted cp-limit">{{ d.limit_text }}</div>
+            </div>
+            <div class="card tm-card" id="dc-delete" data-region>
+                <div class="ov muted">{% trans "Delete" %}</div>
+                <div class="small muted strong rl-note top8">{{ d.del_hint }}</div>
+                <div class="cp-del-row"><button class="cu-soft grow" name="op" value="dup">{% trans "Duplicate" %}</button><button class="rl-archive cp-del" name="op" value="delete">{% trans "Delete" %}</button></div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        <div class="card tm-card tm-none" id="dc-none" data-region>{% trans "No discounts yet. Add one with New discount." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

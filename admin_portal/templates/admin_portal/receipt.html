@@ -1,0 +1,38 @@
+{% load static i18n admin_tags %}<!DOCTYPE html>
+{% comment %}A printable receipt for one order (admin_portal/views.py: order_receipt). print.js opens the print dialog.{% endcomment %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% blocktrans with n=d.order.id %}Receipt · order #{{ n }}{% endblocktrans %}</title>
+    <style>
+        body { margin: 0; background: #FFFFFF; color: #000000; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+        .receipt { width: 300px; margin: 24px auto; }
+        h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
+        .center { text-align: center; }
+        .row { display: flex; justify-content: space-between; gap: 12px; }
+        .mods { padding-left: 2ch; color: #444444; }
+        hr { border: none; border-top: 1px dashed #000000; margin: 10px 0; }
+        .big { font-weight: 700; font-size: 15px; }
+        @media print { .receipt { margin: 0; } }
+    </style>
+    <script type="module" src="{% static 'admin_portal/print.js' %}"></script>
+</head>
+<body>
+<div class="receipt">
+    <h1>{{ store.name }}</h1>
+    <div class="center">{% blocktrans with n=d.order.id %}Order #{{ n }}{% endblocktrans %}<br>{{ d.order.timestamp|date:"M j, Y g:i A" }}</div>
+    <hr>
+    {% for it in d.items %}
+    <div class="row"><span>{{ it.item.quantity }}× {{ it.item.title }}</span><span>{{ it.item.line_total|money }}</span></div>
+    {% if it.mods %}<div class="mods">{{ it.mods }}</div>{% endif %}
+    {% endfor %}
+    <hr>
+    {% for t in d.totals %}<div class="row{% if t.big %} big{% endif %}"><span>{{ t.label }}</span><span>{{ t.value|money }}</span></div>{% endfor %}
+    <hr>
+    {% for p in d.payments %}<div class="row"><span>{{ p.label }}</span><span>{{ p.amount|money }}</span></div>{% endfor %}
+    <hr>
+    <div class="center">{% trans "Thank you!" %}</div>
+</div>
+</body>
+</html>

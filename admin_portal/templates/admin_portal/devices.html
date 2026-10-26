@@ -1,0 +1,88 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Devices (Settings; admin_portal/devices.py; no mockup). The devices trusted to run staff screens: pick one on the
+left; its name, device code and kiosk links (any link with ?device-token= sets the browser up) on the right.
+{% endcomment %}
+{% block title %}{% trans "Devices" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/devices.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Devices" %}</h1>
+    </div>
+    <form method="post" class="dv-new">{% csrf_token %}
+        <input class="field" name="new_name" maxlength="140" placeholder="{% trans 'e.g. Patio register' %}" aria-label="{% trans 'New device name' %}">
+        <button class="btn-amber" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "Add device" %}</button>
+    </form>
+</header>
+
+<div class="dv-body">
+    <section class="card dv-list" aria-label="{% trans 'Devices' %}">
+        <div class="card-sub dv-list-sub">{% trans "Computers, tablets and phones that open registers, kitchen screens, the time clock and screens." %}</div>
+        <div class="dv-rows">
+            {% for r in x.rows %}
+            <a class="dv-row{% if r.on %} on{% endif %}" href="?sel={{ r.d.id }}" data-live {% if r.on %}aria-current="true"{% endif %}>
+                <span class="dv-ic" aria-hidden="true">{% icon "M3 4h18v12H3z M8 20h8 M12 16v4" 18 2 %}</span>
+                <span class="grow"><span class="strong block">{{ r.d.name }}</span><span class="small muted block">{% blocktrans with when=r.added %}Added {{ when }}{% endblocktrans %}{% if r.terminal %} · {% trans "Square Terminal" %}{% endif %}</span></span>
+            </a>
+            {% empty %}
+            <div class="small muted dv-empty">{% trans "No devices yet. Add one, or open a staff screen on the device and set it up there." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if x.d %}
+    <div class="dv-detail">
+        <section class="card tm-card pm-card">
+            <form method="post" class="dv-name">{% csrf_token %}<input type="hidden" name="sel" value="{{ x.d.id }}">
+                <label class="grow"><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ x.d.name }}" maxlength="140"></label>
+                <button class="em-soft" name="op" value="rename">{% trans "Save" %}</button>
+            </form>
+            <div class="pm-rows">
+                <div><span class="lbl">{% trans "Device code" %}</span>
+                    <div class="dv-copy"><code class="pm-code" id="dv-code">{{ x.d.token }}</code><button type="button" class="em-soft" data-copy="dv-code">{% trans "Copy" %}</button></div>
+                    <span class="small muted">{% blocktrans with url=x.setup %}On the device, open {{ url }} → “Have a device code?” and paste it.{% endblocktrans %}</span></div>
+                {% if x.terminal %}<div><span class="lbl">{% trans "Square Terminal" %}</span><span class="strong">{{ x.terminal.name }}</span></div>{% endif %}
+            </div>
+            <form method="post" class="em-btns">{% csrf_token %}<input type="hidden" name="sel" value="{{ x.d.id }}">
+                <button class="em-soft" name="op" value="newcode">{% trans "Make a new code" %}</button>
+                <button class="em-soft red" name="op" value="delete">{% trans "Remove device" %}</button>
+            </form>
+            <div class="em-hint">{% trans "A new code stops this device’s old links and code from working: use it if one got out." %}</div>
+        </section>
+
+        <section class="card tm-card pm-card">
+            <h2 class="disp tm-h2">{% trans "Kiosk links" %}</h2>
+            <div class="small muted strong">{% trans "Open one on the device and it’s set up, even if it forgets everything on restart. Use it as a kiosk’s start page. Anyone with the link can use it as this device, so keep it on the device." %}</div>
+            <div class="pm-rows">
+                {% for l in x.links %}
+                <div><span class="lbl">{{ l.label }}</span>
+                    <div class="dv-copy"><code class="pm-code" id="dv-link-{{ forloop.counter }}">{{ l.url }}</code><button type="button" class="em-soft" data-copy="dv-link-{{ forloop.counter }}">{% trans "Copy" %}</button></div></div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    // Copy a code or link (what HTML can't do)
+    document.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-copy]");
+        if (!button) return;
+        const text = document.getElementById(button.dataset.copy)?.textContent.trim() || "";
+        try { await navigator.clipboard.writeText(text); button.textContent = gettext("Copied"); }
+        catch { getSelection().selectAllChildren(document.getElementById(button.dataset.copy)); }
+        setTimeout(() => { button.textContent = gettext("Copy"); }, 1600);
+    });
+</script>
+{% endblock %}

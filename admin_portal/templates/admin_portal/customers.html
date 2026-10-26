@@ -1,0 +1,168 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Customers (design: AdminCustomers; admin_portal/customers.py). One form with Save: picking someone, the search,
+sort and filters, and every profile field post the draft back (editor.js); Save writes it. Cards, password resets,
+verification emails and Make staff act straight away.
+{% endcomment %}
+{% block title %}{% trans "Customers" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="cu-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Customers" %}</div>
+        <h1 class="disp page-title">{% trans "Customers" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="tm-list card" aria-label="{% trans 'Customer list' %}" id="cu-list" data-region>
+        <input type="hidden" name="sel" value="{{ x.st.sel|default:'' }}">
+        <div class="tm-list-top">
+            <div class="cu-search-row">
+                <label class="tm-search grow">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
+                    <input class="field" name="q" value="{{ x.st.q }}" placeholder="{% trans 'Name, email or phone' %}" aria-label="{% trans 'Search customers' %}" data-type-preview autocomplete="off"></label>
+                <select class="field cu-sort" name="sort" aria-label="{% trans 'Sort' %}">{% for k, label, on in x.sorts %}<option value="{{ k }}"{% if on %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            </div>
+            <div class="tm-filters" role="group" aria-label="{% trans 'Filter' %}">
+                {% for key, label, n, on in x.filters %}<button name="op" value="filter:{{ key }}" aria-pressed="{{ on|yesno:'true,false' }}">{{ label }}<span>{{ n }}</span></button>{% endfor %}
+            </div>
+        </div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Customers' %}">
+            {% for r in x.rows %}
+            <button class="tm-row{% if r.on %} on{% endif %}{% if r.off %} off{% endif %}" role="option" aria-selected="{{ r.on|yesno:'true,false' }}" name="op" value="pick:{{ r.u.id }}">
+                <span class="tm-face" style="--c: {{ r.face }}; width: 44px; height: 44px; font-size: 15px">{{ r.ini }}</span>
+                <span class="grow two-line">
+                    <span class="tm-row-top"><span class="strong ellipsis">{{ r.name }}</span>{% if r.off %}<span class="tm-off">{% trans "Signed out" %}</span>{% endif %}</span>
+                    <span class="small muted ellipsis">{{ r.email }}</span>
+                </span>
+                <span class="cu-count"><span class="num strong">{{ r.orders }}</span><span class="tiny muted">{{ r.last }}</span></span>
+            </button>
+            {% empty %}
+            <div class="tm-none">{% if x.none %}{% trans "No customers yet. They appear here once they make an account in the store." %}{% else %}{% trans "No customers match that." %}{% endif %}</div>
+            {% endfor %}
+        </div>
+        <div class="tm-foot"><span>{{ x.foot_left }}</span><span>{{ x.foot_right }}</span></div>
+    </section>
+
+    <section class="tm-edit" aria-label="{% trans 'Customer profile' %}" id="cu-profile" data-region>
+    {% with p=x.p %}{% if p %}
+        <input type="hidden" name="profile" value="1">
+        <div class="card tm-card">
+            <div class="tm-ident">
+                <div class="tm-photo-col cu-photo">
+                    <span class="tm-face big" style="--c: {{ p.face }}; width: 96px; height: 96px; border-radius: 48px; font-size: 34px">{{ p.ini }}</span>
+                    <span class="tiny muted strong">{{ p.since }}</span>
+                </div>
+                <div class="tm-fields">
+                    <label><span class="lbl">{% trans "First name" %}</span><input class="field" name="first" value="{{ p.r.first }}" maxlength="40" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Last name" %}</span><input class="field" name="last" value="{{ p.r.last }}" maxlength="40" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Email" %}</span><input class="field{% if p.err %} bad{% endif %}" type="email" name="email" value="{{ p.r.email }}" maxlength="80" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Phone" %}</span><input class="field" type="tel" name="phone" value="{{ p.r.phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
+                    <label class="cu-wide"><span class="lbl">{% trans "Staff notes" %} <span class="faint">· {% trans "only staff see this" %}</span></span>
+                        <textarea class="field cu-notes" name="notes" rows="2" maxlength="200" placeholder="{% trans 'e.g. Prefers oat milk. Calls ahead for big orders.' %}">{{ p.r.notes }}</textarea></label>
+                </div>
+            </div>
+            {% if p.err %}<div class="tm-err">{{ p.err }}</div>{% endif %}
+            {% if p.email_note %}<div class="tm-note cu-email-note">{% icon "M12 8v4 M12 16h.01 M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" 16 2.2 %}<span>{{ p.email_note }}</span></div>{% endif %}
+        </div>
+
+        <div class="cu-stats">
+            {% for k, v, sub in p.stats %}<div class="card"><div class="small muted strong">{{ k }}</div><div class="disp num cu-stat">{{ v }}</div><div class="tiny muted">{{ sub }}</div></div>{% endfor %}
+        </div>
+
+        <div class="card tm-card">
+            <div class="cu-head-row">
+                <div class="grow"><h2 class="disp tm-h2">{% trans "Recent orders" %}</h2><div class="small muted strong">{{ p.fav }}</div></div>
+                <a class="cu-link" href="{% url 'admin_orders' %}?date=all&q={{ p.orders_q|urlencode }}">{{ p.all_orders }}</a>
+            </div>
+            <div class="cu-orders">
+                {% for o in p.recent %}
+                <a class="cu-order" href="{% url 'admin_order' o.o.id %}">
+                    <span class="num strong cu-no">#{{ o.o.id }}</span>
+                    <span class="small muted strong cu-date">{{ o.date }}</span>
+                    <span class="cu-ch" style="color: {{ o.ch.1 }}">{{ o.ch.0 }}</span>
+                    <span class="grow ellipsis cu-items">{{ o.items }}</span>
+                    <span class="cu-state {{ o.tone }}">{{ o.state }}</span>
+                    <span class="num strong cu-total">{{ o.total }}</span>
+                </a>
+                {% empty %}
+                <div class="rl-nobody">{% trans "No orders yet. They made an account but haven’t checked out." %}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="tm-two">
+            <div class="card tm-card">
+                <div class="cu-head-row"><h2 class="disp tm-h2 grow">{% trans "Payment methods" %}</h2>
+                    <button class="cu-ico" name="op" value="refresh" aria-label="{% trans 'Refresh from Square' %}" title="{% trans 'Refresh from Square' %}">{% icon "M20 12a8 8 0 1 1-2.3-5.6 M20 4v5h-5" 16 2.4 %}</button></div>
+                <div class="small muted strong">{{ p.cards_sub }}</div>
+                <div class="cu-cards">
+                    {% for c in p.cards %}
+                    <div class="cu-card">
+                        <span class="cu-brand" style="background: {{ c.color }}">{{ c.short }}</span>
+                        <span class="grow"><span class="cu-card-top"><span class="num strong">•••• {{ c.c.last4 }}</span>{% if c.default %}<span class="cu-def">{% trans "Default" %}</span>{% endif %}</span>
+                            <span class="tiny num cu-exp {{ c.tone }}">{{ c.exp }}</span></span>
+                        {% if c.confirm %}<button class="cu-keep" name="op" value="card_keep">{% trans "Keep" %}</button>{% endif %}
+                        <button class="cu-rm{% if c.confirm %} sure{% endif %}" name="op" value="card_rm:{{ c.c.id }}">{% if c.confirm %}{% trans "Remove card" %}{% else %}{% trans "Remove" %}{% endif %}</button>
+                    </div>
+                    {% empty %}
+                    <div class="rl-nobody">{% trans "No saved cards." %}</div>
+                    {% endfor %}
+                </div>
+                <div class="tiny muted cu-fine">{% trans "Customers add cards themselves at checkout. Pavilion only keeps Square’s reference, never the card number." %}</div>
+            </div>
+
+            <div class="card tm-card">
+                <h2 class="disp tm-h2">{% trans "Delivery addresses" %}</h2>
+                <div class="small muted strong">{% trans "Shown at checkout. The default is picked first." %}</div>
+                <div class="cu-addrs">
+                    {% for a in p.r.addrs %}
+                    <div class="cu-addr">
+                        <input type="hidden" name="addr_id" value="{{ a.id }}">
+                        <div class="cu-addr-top">
+                            <input class="field cu-addr-label" name="addr_label" value="{{ a.label }}" maxlength="16" placeholder="{% trans 'Label' %}" aria-label="{% trans 'Address label' %}">
+                            <button class="cu-def-btn{% if a.def %} on{% endif %}" name="op" value="addr_default:{{ forloop.counter0 }}">{% if a.def %}{% trans "Default" %}{% else %}{% trans "Make default" %}{% endif %}</button>
+                            <span class="grow"></span>
+                            <button class="cu-ico small" name="op" value="addr_rm:{{ forloop.counter0 }}" aria-label="{% blocktrans with label=a.label|default:_('address') %}Remove {{ label }}{% endblocktrans %}">{% icon "close" 13 2.8 %}</button>
+                        </div>
+                        <input class="field cu-addr-in" name="addr_line" value="{{ a.line }}" maxlength="90" placeholder="{% trans 'Street, unit, city' %}" aria-label="{% trans 'Street address' %}">
+                        <input class="field cu-addr-in light" name="addr_note" value="{{ a.note }}" maxlength="90" placeholder="{% trans 'Buzzer, gate code, where to leave it' %}" aria-label="{% trans 'Delivery notes' %}">
+                    </div>
+                    {% endfor %}
+                    <button class="cu-add" name="op" value="addr_add">+ {% trans "Add address" %}</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card tm-card">
+            <h2 class="disp tm-h2">{% trans "Account" %}</h2>
+            <div class="cu-switches">
+                {% for k, name, on, hint in p.switches %}
+                <button class="tm-switch-row sc-switch" role="switch" aria-checked="{{ on|yesno:'true,false' }}" name="op" value="flip:{{ k }}">
+                    <span class="grow two-line"><span class="strong">{{ name }}</span><span class="small muted">{{ hint }}</span></span>
+                    <span class="sc-sw"><span></span></span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="cu-facts">{% for k, v, tone in p.facts %}<div><div class="tm-fact-k">{{ k }}</div><div class="num tm-fact-v{% if tone %} cu-warn{% endif %}">{{ v }}</div></div>{% endfor %}</div>
+            <div class="cu-actions">
+                <button class="cu-soft" name="op" value="reset">{% trans "Email a password reset link" %}</button>
+                {% if p.unverified %}<button class="cu-soft" name="op" value="verify">{% trans "Resend verification email" %}</button>{% endif %}
+                {% if p.can_staff %}<button class="cu-soft" name="op" value="make_staff">{% trans "Make staff" %}</button>{% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="card tm-card tm-none">{% trans "Pick a customer on the left." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+</form>
+{% endblock %}

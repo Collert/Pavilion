@@ -1,0 +1,181 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Staff (design: AdminStaff; admin_portal/staff.py). One form with Save: picking someone, filtering by role and every
+profile field post the draft back (editor.js); Save writes it. "Add staff" (promote an account or make a new one)
+and the photo take effect straight away.
+{% endcomment %}
+{% block title %}{% trans "Staff" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="staff-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Team" %}</div>
+        <h1 class="disp page-title">{% trans "Staff" %}</h1>
+    </div>
+    <span class="saved-text {{ s.status_kind }}">{{ s.status }}</span>
+    <button class="btn-light" name="op" value="add">{% icon "plus" 18 2.4 %}{% trans "Add staff" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not s.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="tm-list card" aria-label="{% trans 'Staff list' %}" id="staff-list" data-region>
+        <input type="hidden" name="sel" value="{{ s.st.sel|default:'' }}">
+        <div class="tm-list-top">
+            <label class="tm-search">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
+                <input class="field" name="q" value="{{ s.st.q }}" placeholder="{% trans 'Search name, email or phone' %}" aria-label="{% trans 'Search staff' %}" data-type-preview autocomplete="off"></label>
+            <div class="tm-filters" role="group" aria-label="{% trans 'Filter by role' %}">
+                {% for key, label, n, on in s.filters %}<button name="op" value="role:{% if on and key != 'all' %}all{% else %}{{ key }}{% endif %}" aria-pressed="{{ on|yesno:'true,false' }}">{{ label }}<span>{{ n }}</span></button>{% endfor %}
+            </div>
+        </div>
+        <div class="tm-rows" role="listbox" aria-label="{% trans 'Staff' %}">
+            {% for x in s.items %}
+            <button class="tm-row{% if x.on %} on{% endif %}{% if x.off %} off{% endif %}" role="option" aria-selected="{{ x.on|yesno:'true,false' }}" name="op" value="pick:{{ x.id }}">
+                <span class="tm-face" style="--c: {{ x.face }}{% if x.photo %}; background-image: url('{{ x.photo }}'){% endif %}">{% if not x.photo %}{{ x.ini }}{% endif %}</span>
+                <span class="grow two-line">
+                    <span class="tm-row-top"><span class="strong ellipsis">{{ x.name }}</span>{% if x.off %}<span class="tm-off">{% trans "Can’t sign in" %}</span>{% endif %}</span>
+                    <span class="small muted ellipsis">{{ x.roles }}</span>
+                </span>
+                {% if x.no_em %}<span class="tm-warn" title="{% trans 'No emergency contact' %}">{% icon "M12 4 2.5 20h19z M12 10v4 M12 17h.01" 14 2.6 %}</span>{% endif %}
+            </button>
+            {% empty %}
+            <div class="tm-none">{% if s.none %}{% trans "No staff yet. Add someone with Add staff." %}{% else %}{% trans "No staff match that." %}{% endif %}</div>
+            {% endfor %}
+        </div>
+        <div class="tm-foot"><span>{{ s.foot }}</span><span{% if s.no_em %} class="warn"{% endif %}>{{ s.foot_warn }}</span></div>
+    </section>
+
+    <section class="tm-edit" aria-label="{% trans 'Staff profile' %}" id="staff-profile" data-region>
+    {% with p=s.p %}{% if p %}
+        <input type="hidden" name="profile" value="1">
+        {% if p.guarded %}<div class="tm-note tm-guard">{% trans "Only owners can change an owner’s profile." %}</div>{% endif %}
+        <fieldset class="tm-fieldset"{% if p.guarded %} disabled{% endif %}>
+        <div class="card tm-card">
+            <div class="tm-ident">
+                <div class="tm-photo-col">
+                    <span class="tm-face big" style="--c: {{ p.face }}{% if p.photo %}; background-image: url('{{ p.photo }}'){% endif %}">{% if not p.photo %}{{ p.ini }}{% endif %}</span>
+                    <label class="tm-photo-btn"><input type="file" name="photo" accept="image/jpeg,image/png,image/webp" hidden data-upload>{% if p.photo %}{% trans "Change photo" %}{% else %}{% trans "Upload photo" %}{% endif %}</label>
+                    {% if p.photo %}<button class="tm-photo-rm" name="op" value="photoclear">{% trans "Remove photo" %}</button>{% endif %}
+                </div>
+                <div class="tm-fields">
+                    <label><span class="lbl">{% trans "First name" %}</span><input class="field{% if p.first_bad %} bad{% endif %}" name="first" value="{{ p.r.first }}" maxlength="40" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Last name" %}</span><input class="field" name="last" value="{{ p.r.last }}" maxlength="40" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Email" %}</span><input class="field{% if p.email_bad %} bad{% endif %}" type="email" name="email" value="{{ p.r.email }}" maxlength="80" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Phone" %}</span><input class="field" type="tel" name="phone" value="{{ p.r.phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
+                </div>
+            </div>
+            {% if p.err %}<div class="tm-err">{{ p.err }}</div>{% endif %}
+        </div>
+
+        <div class="tm-two">
+            <div class="card tm-card">
+                <h2 class="disp tm-h2">{% trans "Roles" %}</h2>
+                <div class="small muted">{% trans "The jobs they do here. Pick as many as fit." %}</div>
+                <div class="tm-roles">
+                    {% for x in p.roles %}<label class="tm-role" style="--c: {{ x.r.color }}"><input type="checkbox" name="roles" value="{{ x.r.id }}"{% if x.on %} checked{% endif %}><span class="tm-dot"></span>{{ x.r.name }}</label>{% empty %}
+                    <span class="small muted">{% trans "No roles yet. Add them on the Roles page." %}</span>{% endfor %}
+                </div>
+            </div>
+            <div class="card tm-card">
+                <h2 class="disp tm-h2">{% trans "Groups" %}</h2>
+                <div class="small muted">{% trans "What parts of Pavilion they can open." %}</div>
+                <div class="tm-groups">
+                    {% for x in p.groups %}
+                    <label class="tm-group{% if x.locked %} locked{% endif %}"><span class="tm-box"><input type="checkbox" name="groups" value="{{ x.g.id }}"{% if x.on %} checked{% endif %}{% if x.locked %} disabled{% endif %}><span></span></span>{% if x.locked and x.on %}<input type="hidden" name="groups" value="{{ x.g.id }}">{% endif %}
+                        <span class="grow two-line"><span class="strong">{{ x.g.name }}</span><span class="tm-desc">{{ x.desc }}</span></span></label>
+                    {% endfor %}
+                </div>
+                {% if p.group_warn %}<div class="tm-note">{{ p.group_warn }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="tm-two">
+            <div class="card tm-card">
+                <div class="tm-head-row"><span class="tm-heart">{% icon "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" 18 2.2 %}</span>
+                    <h2 class="disp tm-h2 grow">{% trans "Emergency contact" %}</h2></div>
+                <div class="tm-stack">
+                    <div class="tm-two-in">
+                        <label><span class="lbl">{% trans "Contact name" %}</span><input class="field" name="em_name" value="{{ p.r.em_name }}" maxlength="60" placeholder="{% trans 'Who to call' %}" autocomplete="off"></label>
+                        <label><span class="lbl">{% trans "Relationship" %}</span><input class="field" name="em_rel" value="{{ p.r.em_rel|default:'' }}" maxlength="40" placeholder="{% trans 'e.g. Mother' %}" autocomplete="off"></label>
+                    </div>
+                    <label><span class="lbl">{% trans "Contact phone" %}</span><input class="field" type="tel" name="em_phone" value="{{ p.r.em_phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
+                </div>
+                {% if p.em_warn %}<div class="tm-note">{{ p.em_warn }}</div>{% endif %}
+            </div>
+            <div class="card tm-card tm-account">
+                <h2 class="disp tm-h2">{% trans "Account" %}</h2>
+                <label class="tm-switch-row"><span class="grow two-line"><span class="strong">{% trans "Can sign in" %}</span><span class="small muted">{{ p.active_hint }}</span></span>
+                    <input type="checkbox" name="active" value="1" class="tm-switch"{% if p.r.active %} checked{% endif %}{% if p.you %} disabled{% endif %}>{% if p.you %}<input type="hidden" name="active" value="1">{% endif %}</label>
+                <div class="tm-facts">
+                    <div><div class="tm-fact-k">{% trans "Staff since" %}</div><div class="num tm-fact-v">{{ p.since }}</div></div>
+                    <div><div class="tm-fact-k">{% trans "Last signed in" %}</div><div class="num tm-fact-v">{{ p.seen }}</div></div>
+                </div>
+                <span class="grow"></span>
+                {% if p.confirm %}<div class="tm-danger-note">{% trans "Their account stays, along with their order history. They lose access to the register and admin, and drop off this list." %}</div>{% endif %}
+                <div class="tm-remove-row">
+                    {% if p.confirm %}<button class="tm-keep" name="op" value="keep">{% trans "Keep" %}</button>{% endif %}
+                    <button class="tm-remove{% if p.confirm %} sure{% endif %}" name="op" value="remove"{% if p.remove_off %} disabled{% endif %}>{{ p.remove_text }}</button>
+                </div>
+            </div>
+        </div>
+        </fieldset>
+    {% else %}
+        <div class="card tm-card tm-none">{% trans "Pick someone on the left, or add staff." %}</div>
+    {% endif %}{% endwith %}
+    </section>
+</div>
+
+<div id="staff-add" data-region>{% with a=s.add %}{% if a %}
+    <div class="overlay">
+        <button class="scrim" name="op" value="closeadd" aria-label="{% trans 'Close' %}"></button>
+        <div class="sheet tm-add" role="dialog" aria-modal="true" aria-labelledby="add-title">
+            <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="add-title">{% trans "Add staff" %}</h2>
+                <div class="small muted">{% trans "Staff are accounts marked as staff. Promote someone who already has an account, or make a new one." %}</div></div>
+                <button class="close-btn" name="op" value="closeadd" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
+            <div class="tm-tabs" role="tablist">
+                <button role="tab" name="op" value="addtab:find" aria-selected="{% if a.tab == 'find' %}true{% else %}false{% endif %}">{% trans "Existing account" %}</button>
+                <button role="tab" name="op" value="addtab:new" aria-selected="{% if a.tab == 'new' %}true{% else %}false{% endif %}">{% trans "New account" %}</button>
+            </div>
+            {% if a.tab == "find" %}
+            <input class="field tm-add-q" name="aq" value="{{ a.aq }}" placeholder="{% trans 'Search accounts by name or email' %}" aria-label="{% trans 'Search accounts' %}" data-type-preview autocomplete="off">
+            <div class="tm-accts" role="listbox" aria-label="{% trans 'Accounts' %}">
+                {% for x in a.accts %}
+                <button class="tm-acct{% if x.on %} on{% endif %}" role="option" aria-selected="{{ x.on|yesno:'true,false' }}" name="op" value="acct:{{ x.u.id }}">
+                    <span class="tm-acct-face">{{ x.ini }}</span>
+                    <span class="grow two-line"><span class="strong">{{ x.name }}</span><span class="small muted ellipsis">{{ x.u.email }}</span></span>
+                    <span class="tm-acct-meta">{{ x.meta }}</span>
+                </button>
+                {% empty %}
+                <div class="tm-none">{% trans "No account matches." %} <button class="tm-link" name="op" value="addtab:new">{% trans "Make a new one" %}</button></div>
+                {% endfor %}
+            </div>
+            <div class="small faint">{% trans "Only accounts that aren’t staff yet are shown. Their order history stays with them." %}</div>
+            {% else %}
+            <input type="hidden" name="new_present" value="1">
+            <div class="tm-new">
+                <div class="tm-two-in">
+                    <label><span class="lbl">{% trans "First name" %}</span><input class="field" name="new_first" value="{{ a.first }}" maxlength="40" autocomplete="off"></label>
+                    <label><span class="lbl">{% trans "Last name" %}</span><input class="field" name="new_last" value="{{ a.last }}" maxlength="40" autocomplete="off"></label>
+                </div>
+                <label><span class="lbl">{% trans "Email" %}</span><input class="field" type="email" name="new_email" value="{{ a.email }}" maxlength="80" placeholder="{% trans 'They’ll sign in with this' %}" autocomplete="off"></label>
+                {% if a.email_err %}<div class="tm-err tight">{{ a.email_err }}</div>{% endif %}
+                <label><span class="lbl">{% trans "Phone" %} <span class="faint">· {% trans "optional" %}</span></span><input class="field" type="tel" name="new_phone" value="{{ a.phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
+                <label class="tm-switch-row"><span class="grow two-line"><span class="strong">{% trans "Email them an invite" %}</span><span class="small muted">{% trans "They set their own password from the link" %}</span></span>
+                    <input type="checkbox" name="new_invite" value="1" class="tm-switch"{% if a.invite %} checked{% endif %}></label>
+            </div>
+            {% endif %}
+            <div class="sheet-foot tm-add-foot">
+                <span class="grow small muted">{% trans "You can add roles and groups on their profile next." %}</span>
+                <button class="btn-soft" name="op" value="closeadd">{% trans "Cancel" %}</button>
+                <button class="btn-amber" name="op" value="{% if a.tab == 'find' %}promote{% else %}create{% endif %}"{% if a.off %} disabled{% endif %}>{{ a.go }}</button>
+            </div>
+        </div>
+    </div>
+{% endif %}{% endwith %}</div>
+</form>
+{% endblock %}

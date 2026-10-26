@@ -1,0 +1,217 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+The screen editor (design: AdminScreens, edit; admin_portal/screens.py: editor_page). One form: every button posts an
+op and the page comes back with the draft. The preview is the real screen rendered from the draft in an iframe;
+picking a node there, or dropping a widget from the library on an empty slot, comes back here through screens.js.
+{% endcomment %}
+{% block title %}{{ e.d.name }} · {% trans "Screens" %}{% endblock %}
+{% block main_class %}sc-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/screens.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/screens.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_screen' e.screen.id %}" enctype="multipart/form-data" class="editor-form" data-editor data-queue data-screen-editor>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<button type="submit" name="op" value="" hidden data-op tabindex="-1"></button>
+
+<header class="page-head editor-head" id="screen-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Screens" %}</button>
+        <div class="title-line"><h1 class="disp page-title ellipsis">{{ e.d.name|default:_("Untitled screen") }}</h1><span class="sc-orient big">{{ e.orient_label }}</span></div>
+    </div>
+    <button class="sc-round" name="op" value="undo" {% if not e.can_undo %}disabled{% endif %} aria-label="{% trans 'Undo' %}">{% icon "M9 14 4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3" 18 2.2 %}</button>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save and push to screens" %}</button>
+</header>
+
+<div class="sc-edit">
+    <section class="sc-preview" aria-label="{% trans 'Screen preview' %}">
+        <nav class="sc-crumbs" id="screen-crumbs" data-region aria-label="{% trans 'Selected' %}">
+            {% for c in e.crumbs %}{% if not forloop.first %}<span class="sc-sep">›</span>{% endif %}<button name="op" value="sel:{{ c.sel }}"{% if c.on %} aria-current="true"{% endif %}>{{ c.label }}</button>{% endfor %}
+            <span class="grow"></span><span class="small muted sc-drag-hint">{% trans "Drag a widget onto an empty slot" %}</span>
+            <span hidden data-preview-state data-v="{{ e.preview_v }}" data-sel="{{ e.preview_sel }}" data-popup="{{ e.preview_popup }}" data-url="{{ e.preview }}" data-ratio="{{ e.ratio }}"></span>
+        </nav>
+        <div class="sc-stage">
+            <div class="sc-frame-outer" id="screen-frame" data-region data-keep data-ratio style="--r: {{ e.ratio }}">
+                <iframe class="sc-frame" src="{{ e.preview_base }}" data-preview title="{% trans 'Preview' %}" tabindex="-1"></iframe>
+            </div>
+        </div>
+        <div class="sc-foot"><span class="sc-dot{% if e.d.public %} on{% endif %}"></span><span class="small strong grow ellipsis">{% if e.d.public %}{% trans "Anyone with the link can open it" %}{% else %}{% trans "Staff only" %}{% endif %}</span>
+            <a class="sc-address" href="{{ e.address }}" target="_blank" rel="noopener">{{ e.address }}</a></div>
+    </section>
+
+    <section class="sc-panel card" aria-label="{% trans 'Screen settings' %}" id="screen-panel" data-region>
+        <input type="hidden" name="editing" value="{{ e.editing }}">
+        <div class="sc-tabs" role="tablist" aria-label="{% trans 'Editor sections' %}">{% for key, lbl, n in e.tabs %}<button role="tab" name="op" value="tab:{{ key }}" aria-selected="{% if e.tab == key %}true{% else %}false{% endif %}">{{ lbl }}<b>{{ n }}</b></button>{% endfor %}</div>
+        <div class="sc-panel-scroll">
+            {% if e.tab == "popups" %}
+            <h2 class="disp sc-h0">{% trans "Pop-ups" %}</h2>
+            <div class="small muted">{% trans "They don’t take up a slot. Each one appears over the screen when its trigger fires." %}</div>
+            <div class="sc-pops">
+                {% for x in e.pops %}
+                <div class="sc-pop">
+                    <div class="sc-pop-head">
+                        <span class="sc-pop-icon" style="color: {{ x.w.color }}">{% icon x.w.icon 16 2 %}</span>
+                        <span class="grow two-line"><span class="strong">{{ x.w.title }}</span><span class="sc-trigger">{% icon "M13 3 4 14h7l-1 7 9-11h-7z" 11 2.6 %}{{ x.w.description }}</span></span>
+                        <button class="sc-preview-btn" name="op" value="ppreview:{{ x.i }}">{% trans "Preview" %}</button>
+                        <button class="ico" name="op" value="popen:{{ x.i }}" aria-expanded="{% if x.open %}true{% else %}false{% endif %}" aria-label="{% if x.open %}{% blocktrans with t=x.w.title %}Hide {{ t }} settings{% endblocktrans %}{% else %}{% blocktrans with t=x.w.title %}Show {{ t }} settings{% endblocktrans %}{% endif %}"><span class="sc-chev{% if x.open %} open{% endif %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</span></button>
+                    </div>
+                    {% if x.open %}
+                    <div class="sc-fields sc-pop-fields">{% for f in x.fields %}{% include "admin_portal/_screen_field.html" %}{% endfor %}
+                        <button class="sc-pop-remove" name="op" value="pdel:{{ x.i }}">{% trans "Remove pop-up" %}</button></div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="sc-none">{% trans "No pop-ups on this screen." %}</div>
+                {% endfor %}
+            </div>
+            <div class="ov muted top12">{% trans "Add a pop-up" %}</div>
+            <div class="sc-pop-lib">
+                {% for x in e.pop_lib %}
+                <button class="sc-lib-item wide" name="op" value="padd:{{ x.name }}" {% if x.added %}disabled{% endif %}>
+                    <span class="sc-pop-icon" style="color: {{ x.w.color }}">{% icon x.w.icon 16 2 %}</span>
+                    <span class="grow two-line"><span class="strong">{{ x.w.title }}</span><span class="sc-lib-hint">{{ x.w.description }}</span></span>
+                    <span class="sc-cta">{% if x.added %}{% trans "Added" %}{% else %}{% trans "+ Add" %}{% endif %}</span>
+                </button>
+                {% endfor %}
+            </div>
+            {% elif e.tab == "audio" %}
+            <h2 class="disp sc-h0">{% trans "Audio channels" %}</h2>
+            <div class="small muted">{% trans "Played through the device’s speakers. Higher in the list wins: while it plays, the channels below drop to the level you set." %}</div>
+            {% if e.mix %}
+            <div class="sc-mix">
+                <div class="sc-mix-head"><span class="ov">{% trans "How they mix" %}</span><span>{% trans "60 seconds" %}</span></div>
+                {% for lane in e.mix %}
+                <div class="sc-lane"><span class="sc-lane-name ellipsis">{{ lane.name }}</span><span class="sc-lane-bars">{% for b in lane.bars %}<span class="{{ b.kind }}" style="height: {{ b.h }}%"></span>{% endfor %}</span></div>
+                {% endfor %}
+                <div class="sc-mix-keys"><span><i class="music"></i>{% trans "Music" %}</span><span><i class="voice"></i>{% trans "Voice" %}</span><span><i class="ducked"></i>{% trans "Lowered while a channel above plays" %}</span></div>
+            </div>
+            {% endif %}
+            <div class="sc-chans">
+                {% for c in e.chans %}
+                <div class="sc-chan">
+                    <div class="sc-chan-head">
+                        <span class="sc-chan-n num">{{ c.n }}</span>
+                        <select class="sc-chan-name" name="a-{{ c.i }}-channel" aria-label="{% trans 'Channel' %}">{% for v, lbl in c.options %}<option value="{{ v }}"{% if v == c.p.channel %} selected{% endif %}>{{ lbl }}</option>{% endfor %}</select>
+                        <button class="ico" name="op" value="aup:{{ c.i }}" {% if c.top %}disabled{% endif %} aria-label="{% blocktrans with n=c.name %}Move {{ n }} up{% endblocktrans %}">{% icon "m6 15 6-6 6 6" 14 2.6 %}</button>
+                        <button class="ico" name="op" value="adown:{{ c.i }}" {% if c.last %}disabled{% endif %} aria-label="{% blocktrans with n=c.name %}Move {{ n }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 14 2.6 %}</button>
+                        <button class="ico" name="op" value="adel:{{ c.i }}" aria-label="{% blocktrans with n=c.name %}Remove {{ n }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 13 2.4 %}</button>
+                    </div>
+                    <div class="sc-chan-row">
+                        <div class="seg soft sc-seg sc-chan-type" role="radiogroup" aria-label="{% trans 'Channel type' %}">
+                            <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:music" aria-pressed="{% if c.w.channel == 'music' %}true{% else %}false{% endif %}">{% trans "Music" %}</button>
+                            <button class="seg-btn" role="radio" name="op" value="atype:{{ c.i }}:voice" aria-pressed="{% if c.w.channel == 'voice' %}true{% else %}false{% endif %}">{% trans "Voice" %}</button>
+                        </div>
+                        <a class="sc-chan-source" href="{% url 'admin_audio' %}">{% trans "Edit channels" %} ›</a>
+                    </div>
+                    {% if c.top %}
+                    <input type="hidden" name="a-{{ c.i }}-keep" value="{{ c.p.keep }}">
+                    <div class="sc-chan-top">{% trans "Top channel. It always plays at its normal volume." %}</div>
+                    {% else %}
+                    <label class="sc-block"><span class="sc-label-line"><span class="small strong muted">{% trans "When a channel above plays, play at" %}</span><span class="num small strong">{{ c.p.keep }}%</span></span>
+                        <input type="range" name="a-{{ c.i }}-keep" min="0" max="100" step="5" value="{{ c.p.keep }}"></label>
+                    <div class="sc-help">{{ c.keep_example }}</div>
+                    {% endif %}
+                    <div class="sc-help">{{ c.used }}</div>
+                </div>
+                {% empty %}
+                <div class="sc-none">{% trans "This screen is silent." %}</div>
+                {% endfor %}
+            </div>
+            <button class="sc-add top12" name="op" value="aadd:music">{% trans "+ Add channel" %}</button>
+            <div class="sc-help top12">{% trans "Channels don’t play yet: playback comes with Audio channels and the Library." %}</div>
+            {% else %}
+            <div class="ov muted">{% trans "Layout" %}</div>
+            <div class="sc-tree" role="tree" aria-label="{% trans 'Layout' %}">
+                {% for n in e.tree %}
+                <button class="sc-node{% if n.on %} on{% endif %}{% if n.empty %} empty{% endif %}" role="treeitem" aria-selected="{% if n.on %}true{% else %}false{% endif %}" name="op" value="sel:{{ n.sel }}" style="--d: {{ n.depth }}">
+                    <span class="sc-node-icon"{% if n.color %} style="color: {{ n.color }}"{% endif %}>{% icon n.icon 13 2.2 %}</span>
+                    <span class="grow ellipsis">{{ n.label }}</span><span class="sc-meta">{{ n.meta }}</span>
+                </button>
+                {% endfor %}
+            </div>
+
+            {% with p=e.panel %}
+            {% if p.kind == "screen" %}
+            <h2 class="disp sc-h">{% trans "Screen" %}</h2>
+            <label class="sc-block"><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ e.d.name }}" maxlength="40"></label>
+            <div class="lbl top12">{% trans "Orientation" %}</div>
+            <div class="seg soft sc-seg" role="radiogroup" aria-label="{% trans 'Orientation' %}">{% for key, lbl in p.orients %}<button class="seg-btn" role="radio" name="op" value="orient:{{ key }}" aria-pressed="{% if e.d.orient == key %}true{% else %}false{% endif %}">{{ lbl }}</button>{% endfor %}</div>
+            <div class="lbl top12">{% trans "Background" %}</div>
+            <div class="sc-bgs">{% for hex, lbl in p.bgs %}<button name="op" value="bg:{{ hex }}" aria-label="{{ lbl }}" title="{{ lbl }}" aria-pressed="{% if e.d.bg == hex %}true{% else %}false{% endif %}" style="background: {{ hex }}"></button>{% endfor %}</div>
+            <button class="sc-toggle top12" name="op" value="public" role="switch" aria-checked="{% if e.d.public %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="strong">{% trans "Anyone with the link" %}</span><span class="small muted">{% trans "For screens customers see, like a pickup board. Off: staff only." %}</span></span>
+                <span class="switch{% if e.d.public %} on{% endif %}"><span></span></span></button>
+            <button class="sc-toggle top12" name="op" value="sessions" role="switch" aria-checked="{% if e.d.sessions %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="strong">{% trans "Sessions" %}</span><span class="small muted">{% trans "Each display opens its own session with a code a register can pair with, so its order summary shows only there." %}</span></span>
+                <span class="switch{% if e.d.sessions %} on{% endif %}"><span></span></span></button>
+            {% if e.d.sessions %}
+            <div class="lbl top12">{% trans "Showing on" %}</div>
+            <div class="sc-devices">
+                {% for s in p.sessions %}
+                <div class="sc-device"><span class="sc-dot{% if s.online %} on{% endif %}"></span>
+                    <span class="grow two-line"><span class="strong">{{ s.name }}</span><span class="small muted">{% if s.paired_by %}{% blocktrans with who=s.paired_by %}Paired by {{ who }}{% endblocktrans %}{% else %}{% trans "No register paired" %}{% endif %}{% if s.last_seen %} · {% blocktrans with ago=s.last_seen|timesince %}seen {{ ago }} ago{% endblocktrans %}{% endif %}</span></span>
+                    <span class="sc-code">{{ s.code }}</span>
+                    <button class="ico" name="op" value="sdel:{{ s.id }}" aria-label="{% blocktrans with n=s.name %}Remove {{ n }}{% endblocktrans %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 13 2.4 %}</button></div>
+                {% empty %}
+                <div class="sc-device"><span class="sc-dot"></span><span class="grow small muted">{% trans "No sessions yet. Open the screen from Apps → Screens on a display to start one." %}</span></div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% elif p.kind == "slot" %}
+            <h2 class="disp sc-h">{% trans "Add a widget" %}</h2>
+            <div class="small muted">{% trans "Click to put it in the selected slot, or drag it onto any empty slot." %}</div>
+            {% for title, items in p.groups %}
+            <div class="ov muted top12">{{ title }}</div>
+            <div class="sc-lib">
+                {% for x in items %}
+                <button class="sc-lib-item" name="op" value="add:{{ x.name }}" draggable="true" data-widget="{{ x.name }}" aria-label="{% blocktrans with t=x.w.title %}Add {{ t }}{% endblocktrans %}">
+                    <span class="sc-lib-icon" style="--c: {{ x.w.color }}">{% icon x.w.icon 16 2 %}</span>
+                    <span class="two-line"><span class="strong">{{ x.w.title }}</span><span class="sc-lib-hint ellipsis">{{ x.w.description }}</span></span>
+                </button>
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            {% elif p.kind == "group" %}
+            <div class="sc-row-head"><h2 class="disp sc-h grow">{% if p.rows %}{% trans "Rows" %}{% else %}{% trans "Columns" %}{% endif %}</h2>
+                <button class="sc-small-btn" name="op" value="flip">{% if p.rows %}{% trans "Turn into columns" %}{% else %}{% trans "Turn into rows" %}{% endif %}</button></div>
+            <div class="sc-step-row"><span class="grow">{% if p.rows %}{% trans "Number of rows" %}{% else %}{% trans "Number of columns" %}{% endif %}</span>
+                <span class="sc-stepper"><button class="ico" name="op" value="less" {% if p.less_off %}disabled{% endif %} aria-label="{% trans 'One fewer' %}">{% icon "M5 12h14" 12 3 %}</button><span class="num">{{ p.count }}</span><button class="ico" name="op" value="more" {% if p.more_off %}disabled{% endif %} aria-label="{% trans 'One more' %}">{% icon "M12 5v14M5 12h14" 12 3 %}</button></span></div>
+            <div class="lbl top12">{% if p.rows %}{% trans "Heights" %}{% else %}{% trans "Widths" %}{% endif %}</div>
+            <div class="sc-bar">{% for x in p.parts %}<span style="flex: {% if x.px %}0 0 18%{% else %}{{ x.size }}{% endif %}; background: {{ x.color }}">{% if x.px %}{{ x.size }}{% else %}{{ x.share }}%{% endif %}</span>{% endfor %}</div>
+            <div class="sc-parts">
+                {% for x in p.parts %}
+                <div class="sc-part"><button class="grow ellipsis" name="op" value="sel:{{ x.sel }}">{{ x.label }}</button>
+                    <span class="sc-stepper small"><button class="ico" name="op" value="wless:{{ x.i }}" {% if x.less_off %}disabled{% endif %} aria-label="{% blocktrans with n=forloop.counter %}Make {{ n }} smaller{% endblocktrans %}">{% icon "M5 12h14" 11 3 %}</button><span class="num">{{ x.size }}</span><button class="ico" name="op" value="wmore:{{ x.i }}" {% if x.more_off %}disabled{% endif %} aria-label="{% blocktrans with n=forloop.counter %}Make {{ n }} bigger{% endblocktrans %}">{% icon "M12 5v14M5 12h14" 11 3 %}</button></span></div>
+                {% endfor %}
+            </div>
+            <label class="sc-block top12"><span class="sc-label-line"><span class="lbl">{% trans "Gap between" %}</span><span class="num small strong">{{ p.gap }} px</span></span>
+                <input type="range" name="p-gap" min="0" max="80" step="4" value="{{ p.gap }}"></label>
+            {% if p.warn %}<div class="sc-warn">{{ p.warn }}</div>{% endif %}
+            <button class="sc-remove" name="op" value="remove">{% if p.rows %}{% trans "Remove rows and everything inside" %}{% else %}{% trans "Remove columns and everything inside" %}{% endif %}</button>
+
+            {% elif p.kind == "widget" %}
+            <div class="sc-w-head"><span class="sc-lib-icon big" style="--c: {{ p.w.color }}">{% icon p.w.icon 18 2 %}</span>
+                <div class="grow"><h2 class="disp sc-h0">{{ p.w.title }}</h2><div class="sc-lib-hint">{{ p.w.description }}</div></div></div>
+            <div class="sc-fields">
+                {% for f in p.fields %}{% include "admin_portal/_screen_field.html" %}{% endfor %}
+            </div>
+            <div class="sc-two">
+                <button class="sc-soft-btn" name="op" value="swap">{% trans "Swap widget" %}</button>
+                <button class="sc-remove" name="op" value="remove">{% trans "Remove" %}</button>
+            </div>
+            {% else %}
+            <div class="sc-warn top12">{% trans "This widget isn’t available any more. Remove it or swap it for another." %}</div>
+            <div class="sc-two"><button class="sc-soft-btn" name="op" value="swap">{% trans "Swap widget" %}</button><button class="sc-remove" name="op" value="remove">{% trans "Remove" %}</button></div>
+            {% endif %}
+            {% endwith %}
+            {% endif %}
+        </div>
+    </section>
+</div>
+</form>
+{% endblock %}

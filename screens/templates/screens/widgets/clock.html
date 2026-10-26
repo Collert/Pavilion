@@ -1,0 +1,7 @@
+{% load tz %}{% get_current_timezone as tz %}{% now "A" as ampm %}
+<div class="clock{% if params.card %} screen-card{% endif %}" role="timer" data-clock data-hour12="{{ params.hour12|yesno:'1,0' }}" data-tz="{{ tz }}">
+    <div class="clock-time">
+        <span data-clock-time>{% if params.hour12 %}{% now "g:i" %}{% else %}{% now "H:i" %}{% endif %}</span>{% if params.hour12 %}<span class="clock-ampm" data-clock-ampm>{{ ampm|lower }}</span>{% endif %}
+    </div>
+    {% if params.show_date %}<div class="clock-date" data-clock-date>{% now "l, F j" %}</div>{% endif %}
+</div>

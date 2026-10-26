@@ -1,0 +1,288 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Menu editor (design: AdminMenus: items, schedule and display tabs; admin_portal/menus.py). One form with Save, like the
+dish editor: the whole draft travels in the hidden `state` field, the fields of the tab on screen are merged into it,
+and every other button posts an `op` (tab:…, toggle:d:5, day:0:3, page:1…) that changes the draft without saving.
+editor.js posts op=preview when a field changes (and while typing in [data-type-preview] fields). The display tab's
+preview is the real menu board (screens/menu_board_frame.html) drawn small, turning over 5× faster.
+{% endcomment %}
+{% block title %}{{ title }} · {% trans "Menus" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/menus.css' %}" rel="stylesheet">
+<link href="{% static 'screens/widgets/menu_board.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'screens/widgets/menu_board.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/menu-preview.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" action="{% url 'admin_menu' menu.id %}" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<div id="menu-state" data-region><input type="hidden" name="state" value="{{ state }}"></div>
+
+<header class="page-head editor-head" id="menu-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Menus" %}</button>
+        <div class="title-line">
+            <input class="disp title-input" name="title" value="{{ d.title }}" maxlength="140" aria-label="{% trans 'Menu name' %}">
+            <span class="menu-status {{ status.key }}"><span class="status-dot"></span>{{ status.label }}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ status_kind }}">{{ save_status }}</span>
+    <button class="btn-light danger-text" name="op" value="delete" onclick="return confirm(gettext('Delete this menu?'))">{% trans "Delete" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% if menu.draft %}{% trans "Save and publish" %}{% else %}{% trans "Save" %}{% endif %}</button>
+</header>
+
+<div id="menu-leave" data-region>
+    {% if leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this menu." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_menus' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<nav class="tabs editor-tabs" role="tablist" aria-label="{% trans 'Menu editor' %}" id="menu-tabs" data-region>
+    <button class="tab" role="tab" name="op" value="tab:items" aria-selected="{% if tab == 'items' %}true{% else %}false{% endif %}"{% if tab == "items" %} aria-current="page"{% endif %}>{% icon "M4 6h16 M4 12h16 M4 18h10" 18 %}{% trans "Items" %}<span class="tab-count">{{ items_count }}</span></button>
+    <button class="tab" role="tab" name="op" value="tab:schedule" aria-selected="{% if tab == 'schedule' %}true{% else %}false{% endif %}"{% if tab == "schedule" %} aria-current="page"{% endif %}>{% icon "clock" 18 %}{% trans "Schedule" %}<span class="tab-count">{% if d.auto %}{% trans "Auto" %}{% else %}{% trans "Manual" %}{% endif %}</span></button>
+    <button class="tab" role="tab" name="op" value="tab:display" aria-selected="{% if tab == 'display' %}true{% else %}false{% endif %}"{% if tab == "display" %} aria-current="page"{% endif %}>{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 %}{% trans "Display" %}<span class="tab-count{% if bad_timing %} bad{% endif %}">{% if bad_timing %}!{% else %}{{ template_name }}{% endif %}</span></button>
+</nav>
+
+{% if tab == "items" %}
+<div class="items-tab" id="menu-items" data-region>
+    <section class="card catalog" aria-label="{% trans 'All dishes and combos' %}">
+        <div class="catalog-head">
+            <div class="card-head center">
+                <h2 class="disp card-title">{% trans "Dishes and combos" %}</h2>
+                <button class="btn-soft small-btn" name="op" value="{% if c.all_shown_on %}remove_shown{% else %}add_shown{% endif %}" {% if not c.rows %}disabled{% endif %}>
+                    {% if c.all_shown_on %}{% trans "Remove all shown" %}{% else %}{% trans "Add all shown" %}{% endif %}</button>
+            </div>
+            <label class="search soft">
+                {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+                <input type="search" name="q" value="{{ c.query }}" data-type-preview aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search dishes and combos' %}">
+            </label>
+            <div class="group-chips" role="group" aria-label="{% trans 'Filter by group' %}">
+                {% for g in c.groups %}<button class="group-chip" name="op" value="group:{{ g.key }}" aria-pressed="{% if g.key == c.group %}true{% else %}false{% endif %}">{% if g.color %}<span class="dot" style="background:{{ g.color }}"></span>{% endif %}{{ g.label }}</button>{% endfor %}
+            </div>
+        </div>
+        <div class="catalog-list" id="menu-catalog-list" data-region>
+            {% for r in c.rows %}
+            <button class="cat-row" role="checkbox" name="op" value="toggle:{% if r.kind == 'combo' %}c{% else %}d{% endif %}:{{ r.obj.id }}" aria-checked="{% if r.on %}true{% else %}false{% endif %}">
+                <span class="box">{% if r.on %}{% icon "check" 14 3 %}{% endif %}</span>
+                <span class="ellipsis grow strong">{{ r.obj.title }}</span>
+                {% if r.out %}<span class="sold-out">{% trans "Sold out" %}</span>{% endif %}
+                <span class="cat-group"><span class="dot" style="background:{{ r.color }}"></span>{{ r.group }}</span>
+                <span class="num cat-price">{{ r.price|money }}</span>
+            </button>
+            {% empty %}
+            <div class="empty small">{% trans "Nothing matches." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+    <section class="card picked" aria-label="{% trans 'In this menu' %}" id="menu-picked" data-region>
+        <div class="card-head base"><h2 class="disp card-title">{% trans "In this menu" %}</h2>
+            <span class="card-meta">{% blocktrans count n=c.count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>
+        <div class="picked-list">
+            {% for g in c.picked %}
+            <div class="picked-group">
+                <div class="picked-head"><span class="dot" style="background:{{ g.color }}"></span>{{ g.label }}<span class="muted">{{ g.items|length }}</span></div>
+                <div class="picked-chips">
+                    {% for i in g.items %}
+                    <span class="picked-chip{% if i.out %} out{% endif %}">{{ i.obj.title }}{% if i.out %} · {% trans "sold out" %}{% endif %}
+                        <button name="op" value="toggle:{% if i.kind == 'combo' %}c{% else %}d{% endif %}:{{ i.obj.id }}" aria-label="{% blocktrans with name=i.obj.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 14 2.6 %}</button></span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty small">{% trans "Nothing in this menu yet. Tick dishes and combos on the left." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+{% elif tab == "schedule" %}
+<div class="schedule-tab" id="menu-schedule" data-region>
+    <section class="card auto-card" aria-label="{% trans 'Automatic' %}">
+        <span class="two-line grow">
+            <span class="disp auto-title">{% trans "Turn this menu on and off automatically" %}</span>
+            <span class="muted small">{% if s.auto %}{% trans "Turns on when any rule on the left matches, and off when any rule on the right matches." %}{% else %}{% trans "Off. The menu stays as it is until someone changes it." %}{% endif %}</span>
+        </span>
+        <button class="switch-only" role="switch" name="op" value="auto" aria-checked="{% if s.auto %}true{% else %}false{% endif %}" aria-label="{% trans 'Automatic schedule' %}"><span class="switch big{% if s.auto %} on{% endif %}"><span></span></span></button>
+    </section>
+    {% if not s.auto %}
+    <section class="card manual-card">
+        <span class="grow">{% trans "This menu only changes when someone switches it here." %} {% if s.manual_on %}{% trans "It's on." %}{% else %}{% trans "It's off." %}{% endif %}</span>
+        <button class="{% if s.manual_on %}btn-soft{% else %}btn-dark{% endif %}" name="op" value="manual">{% if s.manual_on %}{% trans "Turn off" %}{% else %}{% trans "Turn on" %}{% endif %}</button>
+    </section>
+    {% else %}
+    <div class="rule-sets">
+        {% for set in s.sets %}
+        <section class="card rule-set" aria-label="{{ set.title }}">
+            <div class="set-head">
+                <span class="set-icon {{ set.kind }}">{% if set.kind == "on" %}{% icon "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0" 18 %}{% else %}{% icon "M6 6l12 12M18 6 6 18" 18 %}{% endif %}</span>
+                <span class="two-line"><span class="disp set-title">{{ set.title }}</span><span class="muted small">{{ set.sub }}</span></span>
+            </div>
+            <div class="rules">
+                {% for r in set.rules %}
+                <div class="rule">
+                    <div class="rule-top">
+                        <span class="rule-label">{{ r.label }}</span>
+                        <button class="icon-btn" name="op" value="remove_rule:{{ r.i }}" aria-label="{% trans 'Remove this rule' %}">{% icon "close" 16 2.4 %}</button>
+                    </div>
+                    {% if r.rule.type == "weekly" %}
+                    <div class="rule-body">
+                        <span class="days">{% for day in r.days %}<button class="day" name="op" value="day:{{ r.i }}:{{ day.n }}" aria-pressed="{% if day.on %}true{% else %}false{% endif %}" aria-label="{{ day.name }}">{{ day.letter }}</button>{% endfor %}</span>
+                        <span class="muted small">{% trans "at" %}</span>
+                        <input class="time-input" type="time" name="rule-{{ r.i }}-time" value="{{ r.rule.time|time:'H:i' }}" aria-label="{% trans 'Time' %}">
+                    </div>
+                    {% elif r.rule.type == "dates" %}
+                    <div class="rule-body">
+                        <span class="muted small">{% trans "From" %}</span><input class="time-input" type="date" name="rule-{{ r.i }}-start" value="{{ r.rule.start_date|date:'Y-m-d' }}" aria-label="{% trans 'From' %}">
+                        <span class="muted small">{% trans "to" %}</span><input class="time-input" type="date" name="rule-{{ r.i }}-end" value="{{ r.rule.end_date|date:'Y-m-d' }}" aria-label="{% trans 'To' %}">
+                    </div>
+                    {% else %}
+                    <div class="rule-body">
+                        <span class="muted small">{% trans "When" %}</span>
+                        <select class="time-input" name="rule-{{ r.i }}-other" aria-label="{% trans 'Other menu' %}">{% for o in r.others %}<option value="{{ o.id }}"{% if o.id == r.rule.other_menu_id %} selected{% endif %}>{{ o.title }}</option>{% endfor %}</select>
+                        <span class="muted small">{% trans "turns on" %}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="empty small">{{ set.empty }}</div>
+                {% endfor %}
+            </div>
+            <div class="adds">
+                {% for type, label in set.adds %}<button class="add-btn" name="op" value="add_rule:{{ set.kind }}:{{ type }}">{% icon "plus" 16 2.4 %}{{ label }}</button>{% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    <section class="card week-card" aria-label="{% trans 'This week' %}">
+        <div class="card-head base"><h2 class="disp card-title">{% trans "How the week looks" %}</h2><span class="card-meta">{{ s.week_note }}</span></div>
+        <div class="week-legend"><span><span class="key mine"></span>{{ s.title }}</span><span><span class="key others"></span>{% trans "Other scheduled menus" %}</span><span><span class="key now"></span>{% trans "Now" %}</span></div>
+        <div class="week">
+            <div class="week-ticks"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
+            {% for day in s.week %}
+            <div class="week-row">
+                <span class="week-day{% if day.today %} today{% endif %}">{{ day.name }}</span>
+                <div class="week-track">
+                    {% for o in day.others %}<span class="seg-other" title="{{ o.title }}" style="left:{{ o.left }}%;width:{{ o.width }}%"></span>{% endfor %}
+                    {% for g in day.mine %}<span class="seg-mine" title="{{ g.title }}" style="left:{{ g.left }}%;width:{{ g.width }}%"></span>{% endfor %}
+                    {% if day.today %}<span class="now-line" style="left:{{ s.now_left }}%"></span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% for n in s.notes %}<div class="note">{% icon "M4 6h16v14H4z M4 10h16 M9 3v4 M15 3v4" 16 %}{{ n }}</div>{% endfor %}
+        {% for o in s.overlaps %}<div class="note warn" role="note">{% icon "info" 16 %}{{ o }}</div>{% endfor %}
+    </section>
+    {% endif %}
+</div>
+
+{% else %}
+<div class="display-tab" id="menu-display" data-region>
+    <section class="card tpl-card" aria-label="{% trans 'Template' %}">
+        <div class="tpl-row" role="radiogroup" aria-label="{% trans 'Template' %}">
+            {% for t in v.templates %}
+            <label class="tpl{% if t.on %} on{% endif %}">
+                <input type="radio" name="template" value="{{ t.name }}" {% if t.on %}checked{% endif %}>
+                <span class="tpl-thumb {{ t.t.layout.orientation }}" style="--bg:{{ t.t.params.background.default }};--fg:{{ t.t.params.text.default }};--accent:{{ t.t.params.accent.default }}"><span class="tpl-bar"></span><span class="tpl-lines"></span></span>
+                <span class="tpl-name">{{ t.t.title }}</span>
+                <span class="tpl-sub">{{ t.sub }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </section>
+    <div class="display-grid">
+        <section class="card slots-card" aria-label="{% trans 'Pages and slots' %}">
+            <div class="page-tabs">
+                {% for n in v.pages %}<button class="page-tab" name="op" value="page:{{ n }}" aria-pressed="{% if n == v.page %}true{% else %}false{% endif %}">{% blocktrans with n=forloop.counter %}Page {{ n }}{% endblocktrans %}</button>{% endfor %}
+                <button class="outline-btn" name="op" value="add_page" aria-label="{% trans 'Add a page' %}">{% icon "plus" 13 2.8 %}{% trans "Page" %}</button>
+                <span class="grow"></span>
+                {% if v.pages|length > 1 %}<button class="text-link danger-text" name="op" value="remove_page">{% trans "Remove page" %}</button>{% endif %}
+            </div>
+            <div class="hint small exposes">{{ v.exposes }}</div>
+            {% if v.has_featured %}
+            <label class="slot-field"><span class="ov muted">{% trans "Featured item · optional" %}</span>
+                <select class="field" name="featured">{% for o in v.featured_options %}<option value="{{ o.key }}"{% if o.on %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></label>
+            {% endif %}
+            {% for sl in v.slots %}
+            <label class="slot-field"><span class="ov muted">{{ sl.label }}</span>
+                <select class="field" name="slot-{{ sl.k }}">{% for o in sl.options %}<option value="{{ o.key }}"{% if o.on %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select>
+                {% if sl.note %}<span class="slot-note{% if sl.rotates %} rotates{% endif %}">{{ sl.note }}</span>{% endif %}</label>
+            {% endfor %}
+            {% for u in v.unplaced %}<div class="note warn" role="note">{{ u }}</div>{% endfor %}
+            <div class="sold-box">
+                <div class="ov muted">{% trans "Sold-out items" %}</div>
+                <div class="seg-radio" role="radiogroup" aria-label="{% trans 'Sold-out items' %}">
+                    <label><input type="radio" name="sold" value="show" {% if v.d.sold == "show" %}checked{% endif %}>{% trans "Show as sold out" %}</label>
+                    <label><input type="radio" name="sold" value="hide" {% if v.d.sold == "hide" %}checked{% endif %}>{% trans "Hide them" %}</label>
+                </div>
+                <div class="hint small">{{ v.sold_hint }}</div>
+            </div>
+        </section>
+
+        <section class="card preview-card" aria-label="{% trans 'Preview' %}">
+            <div class="preview-head">
+                <span class="disp preview-title grow">{% trans "Preview" %}</span>
+                <span class="hint small" data-preview-state>{% trans "5× speed" %}</span>
+                <button type="button" class="round-btn dark" data-preview-play aria-label="{% trans 'Pause preview' %}">{% icon "M7 5h4v14H7z M13 5h4v14h-4z" 16 2.4 %}</button>
+                <button type="button" class="round-btn" data-preview-restart aria-label="{% trans 'Restart preview' %}">{% icon "M4 12a8 8 0 1 0 2.4-5.7 M4 4v5h5" 16 2.4 %}</button>
+            </div>
+            <div class="preview-stage" id="menu-preview" data-region>
+                <div class="preview-frame {% if v.portrait %}portrait{% else %}landscape{% endif %}" data-preview-page="{{ v.page }}"
+                     style="--u: {% if v.portrait %}.3px{% else %}.2px{% endif %}; width: calc(var(--u) * {{ v.canvas.0 }}); height: calc(var(--u) * {{ v.canvas.1 }})"
+                     role="img" aria-label="{% blocktrans with name=title template=v.template.title %}Preview of {{ name }} on the {{ template }} template{% endblocktrans %}">
+                    {% include "screens/menu_board_frame.html" with b=v.board preview=True %}
+                </div>
+            </div>
+        </section>
+
+        <section class="card timing-card" aria-label="{% trans 'Transitions and timing' %}">
+            <div class="disp timing-title">{% trans "Transitions" %}</div>
+            {% for tm in v.timers %}
+            <div class="timer">
+                <div class="strong">{{ tm.title }}</div>
+                <div class="hint small">{{ tm.sub }}</div>
+                {% if tm.active %}
+                <div class="seg-radio fx" role="radiogroup" aria-label="{{ tm.title }}">
+                    {% for key, label in v.fx %}<label><input type="radio" name="{{ tm.kind }}_fx" value="{{ key }}" {% if tm.fx == key %}checked{% endif %}>{{ label }}</label>{% endfor %}
+                </div>
+                <div class="sec-row">
+                    <span class="grow">{% trans "Change every" %}</span>
+                    <button class="round-btn" name="op" value="sec:{{ tm.kind }}:-5" aria-label="{% trans 'Five seconds less' %}">{% icon "M5 12h14" 14 2.6 %}</button>
+                    <label class="sec-field{% if tm.bad and tm.kind == 'group' %} bad{% endif %}"><input type="number" min="3" max="600" name="{{ tm.kind }}_sec" value="{{ tm.sec }}" class="num" aria-label="{% trans 'Seconds' %}">s</label>
+                    <button class="round-btn" name="op" value="sec:{{ tm.kind }}:5" aria-label="{% trans 'Five seconds more' %}">{% icon "plus" 14 2.6 %}</button>
+                </div>
+                {% for kind, text in tm.msgs %}<div class="note {% if kind == 'err' %}bad{% else %}warn{% endif %}" role="{% if kind == 'err' %}alert{% else %}note{% endif %}">{% icon "M12 3 2 20h20z M12 10v4 M12 17h.01" 15 2.2 %}<span>{{ text }}</span></div>{% endfor %}
+                {% else %}
+                <input type="hidden" name="{{ tm.kind }}_fx" value="{{ tm.fx }}"><input type="hidden" name="{{ tm.kind }}_sec" value="{{ tm.sec }}">
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="note">{% trans "Pages always stay up longer than a group's screens, so every page gets at least one full cycle of its groups." %}</div>
+
+            {% if v.look %}
+            <input type="hidden" name="look-present" value="1">
+            <div class="disp timing-title look-title">{% trans "Look" %}</div>
+            <div class="look-fields">
+                {% for f in v.look %}
+                <label class="look-field{% if f.param.type == 'color' %} color{% endif %}"><span class="lbl">{{ f.param.label|default:f.name }}</span>
+                    {% if f.param.type == "color" %}<span class="color-pick" style="--swatch: {{ f.value }}"><input type="color" name="look-{{ f.name }}" value="{{ f.value }}" aria-label="{{ f.param.label|default:f.name }}"><span class="color-hex num">{{ f.value|upper }}</span></span>
+                    {% elif f.param.type == "choice" %}<select class="field" name="look-{{ f.name }}">{% for o in f.param.options %}<option{% if o == f.value %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+                    {% elif f.param.type == "bool" %}<input type="checkbox" name="look-{{ f.name }}" value="1" {% if f.value %}checked{% endif %}>
+                    {% elif f.param.type == "int" or f.param.type == "number" %}<input class="field" type="number" name="look-{{ f.name }}" value="{{ f.value }}"{% if f.param.min is not None %} min="{{ f.param.min }}"{% endif %}{% if f.param.max is not None %} max="{{ f.param.max }}"{% endif %}>
+                    {% else %}<input class="field" name="look-{{ f.name }}" value="{{ f.value }}" maxlength="300">{% endif %}
+                    {% if f.param.help %}<span class="hint tiny">{{ f.param.help }}</span>{% endif %}
+                </label>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</div>
+{% endif %}
+</form>
+{% endblock %}

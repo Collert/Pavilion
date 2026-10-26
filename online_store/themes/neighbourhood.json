@@ -1,0 +1,55 @@
+{
+  "title": "Neighbourhood",
+  "description": "Warm, editorial, a corner kitchen",
+  "fonts": "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=DM+Serif+Display&family=Playfair+Display:wght@500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap",
+  "css": ["themes/neighbourhood/theme.css", "themes/neighbourhood/ordering.css", "themes/neighbourhood/catering.css"],
+  "thumb": {"background": "paper", "text": "ink", "accent": "accent", "card": "card", "band": "deep", "font": "heading_font"},
+  "contrast": [["ink", "paper", "Text on the background"], ["ink", "card", "Text on cards"], ["soft_ink", "paper", "Quiet text"],
+               ["paper", "deep", "Banner text"], ["card", "accent", "Button text"]],
+  "groups": [
+    {"name": "Colours", "params": {
+      "paper": {"type": "color", "default": "#F6F0E4", "label": "Background", "presets": ["#F6F0E4", "#FFFFFF", "#F2F5F3", "#FBF3E4"]},
+      "card": {"type": "color", "default": "#FFFDF8", "label": "Cards", "presets": ["#FFFDF8", "#FFFFFF", "#FFF7EC"]},
+      "ink": {"type": "color", "default": "#221E18", "label": "Text", "presets": ["#221E18", "#14261F", "#111111"]},
+      "soft_ink": {"type": "color", "default": "#5C5446", "label": "Quiet text", "presets": ["#5C5446", "#5B6A62", "#6B6B6B"]},
+      "accent": {"type": "color", "default": "#CF4A2C", "label": "Accent", "help": "Order buttons and the cart", "presets": ["#CF4A2C", "#1F4A3A", "#3D5AFE", "#B07A1A"]},
+      "deep": {"type": "color", "default": "#2C5A43", "label": "Deep colour", "help": "The top banner and the catering band", "presets": ["#2C5A43", "#14261F", "#2F4A7A", "#5B2A3A"]},
+      "highlight": {"type": "color", "default": "#EDB547", "label": "Highlight", "help": "Circles behind food, badges, links on dark", "presets": ["#EDB547", "#F49AC1", "#8ED1C6", "#F28B66"]},
+      "sage": {"type": "color", "default": "#DCE4D0", "label": "Soft panels", "presets": ["#DCE4D0", "#E9E0CC", "#F2D3C4"]}
+    }},
+    {"name": "Type", "params": {
+      "heading_font": {"type": "choice", "options": ["Fraunces", "DM Serif Display", "Playfair Display", "Bricolage Grotesque"], "default": "Fraunces", "label": "Heading font"},
+      "body_font": {"type": "choice", "options": ["DM Sans", "Manrope", "Inter"], "default": "DM Sans", "label": "Text font"}
+    }},
+    {"name": "Top banner", "params": {
+      "banner": {"type": "bool", "default": true, "label": "Banner", "help": "Open or closed now, across the top of every page"},
+      "banner_text": {"type": "string", "default": "Holiday catering is booking now", "max": 60, "label": "Banner link", "show_if": "banner", "help": "Empty to show only the opening hours"},
+      "banner_link": {"type": "choice", "options": ["catering", "menu", "services"], "labels": ["Catering", "Menu", "Services"], "default": "catering", "control": "segments", "label": "It goes to", "show_if": "banner"}
+    }},
+    {"name": "Homepage", "params": {
+      "kicker": {"type": "string", "default": "Main Street, since 2019", "max": 40, "label": "Small line above the headline"},
+      "headline": {"type": "string", "default": "Smashed, slow-cooked & baked this morning.", "max": 70, "label": "Headline", "help": "An & is drawn in the accent's italic"},
+      "intro": {"type": "text", "default": "A neighbourhood kitchen for burgers off the flat-top, twelve-hour pork, big grain bowls and a bakery case that’s empty by two.", "label": "Intro"},
+      "hero": {"type": "image", "default": "", "label": "Hero photo", "help": "Square works best. Without one, a drawing of your best seller"},
+      "stamp": {"type": "string", "default": "Fresh daily · Main Street", "max": 30, "label": "Spinning stamp", "help": "Empty to hide it"},
+      "show_menus": {"type": "bool", "default": true, "label": "What’s on the menu", "help": "Live and upcoming menus"},
+      "show_favourites": {"type": "bool", "default": true, "label": "Most ordered", "help": "This week’s four best sellers"},
+      "show_gifts": {"type": "bool", "default": true, "label": "Gift cards", "help": "When gift cards are sold online"},
+      "gift_title": {"type": "string", "default": "Give them lunch on us", "max": 40, "label": "Gift cards heading", "show_if": "show_gifts"},
+      "gift_text": {"type": "text", "default": "Send a gift card by email in a minute. It works here and on online orders, and never expires.", "label": "Gift cards text", "show_if": "show_gifts"},
+      "show_catering": {"type": "bool", "default": true, "label": "Catering band", "help": "When catering is on"},
+      "catering_title": {"type": "string", "default": "Feeding a crowd?", "max": 40, "label": "Catering heading", "show_if": "show_catering"},
+      "catering_text": {"type": "text", "default": "Office lunches, birthdays, weddings. Build a quote from our catering menu, add servers or equipment, and we’ll confirm the details with you.", "label": "Catering text", "show_if": "show_catering"},
+      "show_services": {"type": "bool", "default": true, "label": "Events and services", "help": "Three of your services you book online"},
+      "show_visit": {"type": "bool", "default": true, "label": "Visit us", "help": "Address, map and this week’s hours"}
+    }},
+    {"name": "Look", "params": {
+      "pictures": {"type": "choice", "options": ["photos", "drawings"], "labels": ["Photos", "Drawings"], "default": "photos", "control": "segments", "label": "Dish pictures", "help": "Drawings are used for dishes without a photo either way"},
+      "radius": {"type": "int", "default": 22, "min": 0, "max": 32, "control": "range", "unit": "px", "label": "Corner roundness"},
+      "outline": {"type": "number", "default": 1.5, "min": 0, "max": 3, "step": 0.5, "control": "range", "unit": "px", "label": "Outline weight", "help": "The ink lines around cards and buttons"}
+    }},
+    {"name": "Footer", "params": {
+      "about": {"type": "text", "default": "Smash burgers, slow pork and a bakery case that empties by two. Since 2019 on Main Street.", "label": "About the store"}
+    }}
+  ]
+}

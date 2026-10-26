@@ -1,0 +1,21 @@
+{% load i18n static %}
+{% comment %}
+The card form (Square's Web Payments card fields, styled with the store theme): used in the store's "Pay by card"
+sheet (square-checkout.html) and on the customer's phone (phone_pay.html). card-form.js reads `config`: the Square
+app and location, the amount, where to send the card and what to do once paid.
+{% endcomment %}
+{{ config|json_script:"card-config" }}
+<div class="pc-form">
+    <div id="card-container" class="pc-card"><div class="pc-loading"><span class="pc-spin" aria-hidden="true"></span>{% trans "Loading the card form…" %}</div></div>
+    <div class="pc-error" id="card-error" role="alert" hidden></div>
+    <button class="pc-pay" id="card-pay" type="button" disabled>
+        <span class="pc-spin" aria-hidden="true"></span><span id="card-pay-text">{% blocktrans with amount=config.amountText %}Pay {{ amount }}{% endblocktrans %}</span>
+    </button>
+    <p class="pc-fine">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+        {% blocktrans with name=config.store %}Secured by Square. {{ name }} never sees your card number.{% endblocktrans %}
+        {% if config.sandbox %}<span class="pc-test">{% trans "Test payments: use 4111 1111 1111 1111, any future date, any CVV and postal code." %}</span>{% endif %}
+    </p>
+</div>
+<script src="https://{% if config.sandbox %}sandbox.{% endif %}web.squarecdn.com/v1/square.js"></script>
+<script type="module" src="{% static 'payments/card-form.js' %}"></script>

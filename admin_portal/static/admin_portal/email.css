@@ -1,0 +1,89 @@
+/* Email (design: AdminEmail). Builds on team.css. */
+.top8 { margin-top: 8px; }
+.top10 { margin-top: 10px; }
+.top12 { margin-top: 12px; }
+.block { display: block; }
+.wide { width: 100%; }
+.em-status { height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; margin-bottom: 5px; background: #FFFFFF; color: var(--muted); }
+.em-status span { width: 8px; height: 8px; border-radius: 4px; background: #B5C0BA; }
+.em-status.on { background: var(--mint); color: var(--brand); }
+.em-status.on span { background: var(--green); }
+.em-side { width: 360px; flex: none; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; scrollbar-width: thin; }
+.em-side > * { flex: none; }
+.em-brand { display: flex; align-items: center; gap: 12px; }
+.em-brand-ic { width: 42px; height: 42px; flex: none; border-radius: 14px; background: var(--ink); color: var(--amber); display: flex; align-items: center; justify-content: center; }
+.em-hint { font-size: 12px; font-weight: 600; color: #7C8A83; margin-top: 8px; line-height: 1.45; }
+.em-hint.bad { color: #B3361F; }
+.em-key { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 6px 0 14px; border-radius: 14px; background: var(--soft); }
+.em-key input { flex: 1; min-width: 0; border: none; background: transparent; height: 100%; font: inherit; font-weight: 700; color: var(--ink); }
+.em-key input:focus { outline: none; }
+.em-key button { height: 32px; padding: 0 10px; border: none; border-radius: 10px; background: #FFFFFF; color: var(--ink); font-size: 12px; font-weight: 800; }
+.em-connect { margin-top: 14px; width: 100%; height: 46px; border: none; border-radius: 23px; background: var(--ink); color: #FFFFFF; font-size: 14px; font-weight: 800; }
+.em-facts { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.em-facts div { display: flex; gap: 10px; font-size: 13px; }
+.em-facts span:first-child { width: 96px; flex: none; font-weight: 700; color: var(--muted); }
+.em-facts span:last-child { flex: 1; min-width: 0; font-weight: 800; }
+.em-err { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #FBE9E5; color: #8E2914; font-size: 12px; font-weight: 700; line-height: 1.45; }
+.em-btns { display: flex; gap: 8px; margin-top: 14px; }
+.em-soft { height: 40px; padding: 0 14px; border: none; border-radius: 20px; background: var(--soft); color: var(--ink); font-size: 13px; font-weight: 800; }
+.em-soft.red { background: #FBE9E5; color: #8E2914; }
+.em-ico { width: 40px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.em-install { padding: 16px 18px; border-radius: 20px; background: #FFF3DD; color: #8A4B00; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.em-install .strong { font-size: 15px; color: var(--ink); }
+.em-install button { margin-top: 6px; height: 42px; border: none; border-radius: 21px; background: var(--ink); color: #FFFFFF; font-size: 14px; font-weight: 800; }
+.em-sync { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: #EAF0F8; color: #2C4E7C; font-size: 12px; font-weight: 700; }
+.em-sync.done { background: var(--mint); color: var(--brand); }
+.em-cats { padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.em-cat { height: 52px; padding: 0 10px; border: none; border-radius: 16px; display: flex; align-items: center; gap: 12px; color: var(--ink); background: transparent; font-size: 15px; font-weight: 800; text-align: left; }
+.em-cat.on { background: var(--soft); }
+.em-cat-ic { width: 36px; height: 36px; flex: none; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--soft); color: var(--muted); }
+.em-cat.on .em-cat-ic { background: var(--ink); color: var(--amber); }
+.em-warn { width: 18px; height: 18px; border-radius: 9px; background: var(--amber); color: var(--ink); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.em-main { flex: 1; min-width: 0; padding: 20px 24px; overflow-y: auto; scrollbar-width: thin; }
+.em-empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; box-sizing: border-box; }
+.em-empty-ic { width: 84px; height: 84px; border-radius: 28px; background: var(--soft); color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.em-empty h2 { margin: 18px 0 0; font-size: 26px; }
+.em-empty p { margin: 8px 0 0; max-width: 460px; font-size: 14px; font-weight: 600; color: var(--muted); line-height: 1.55; }
+.em-teaser { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 18px; max-width: 520px; }
+.em-teaser span { height: 30px; padding: 0 12px; border-radius: 15px; background: var(--soft); font-size: 12px; font-weight: 800; color: var(--ink-2); display: inline-flex; align-items: center; }
+.em-head { display: flex; align-items: baseline; gap: 12px; }
+.em-head h2 { margin: 0; font-size: 24px; }
+.em-card { margin-top: 14px; padding: 18px; border-radius: 20px; background: var(--softer); }
+.em-card.on { background: #FFFFFF; box-shadow: inset 0 0 0 1.5px #E3E9E5; }
+.em-card-top { display: flex; align-items: flex-start; gap: 14px; }
+.em-card-ic { width: 42px; height: 42px; flex: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--soft); color: #9AA8A1; }
+.em-card.on .em-card-ic { background: var(--ink); color: var(--amber); }
+.em-name { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; }
+.em-always { height: 22px; padding: 0 9px; border-radius: 11px; background: var(--mint); color: var(--brand); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; display: inline-flex; align-items: center; }
+.em-when { color: var(--ink-2); margin-top: 2px; }
+.em-to { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #7C8A83; margin-top: 6px; }
+.lg-sw { width: 44px; height: 26px; border: none; border-radius: 13px; padding: 3px; box-sizing: border-box; flex: none; display: flex; background: #C9D3CD; }
+.lg-sw span { width: 20px; height: 20px; border-radius: 10px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(20, 38, 31, .3); transition: transform .2s ease; }
+.lg-sw[aria-checked="true"] { background: var(--green); }
+.lg-sw[aria-checked="true"] span { transform: translateX(18px); }
+.lg-sw:disabled { opacity: .55; cursor: not-allowed; }
+.em-langs { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-left: 56px; }
+.em-lang { display: flex; align-items: center; gap: 10px; }
+.em-lang-name { width: 110px; flex: none; font-size: 13px; font-weight: 800; color: var(--brand); }
+.em-lang select { flex: 1; min-width: 0; }
+.em-lang select.warn { box-shadow: inset 0 0 0 2px var(--amber); background: #FFF8EC; }
+.em-lang-warn { margin: -2px 0 2px 120px; font-size: 12px; font-weight: 700; color: #8A4B00; }
+.em-row { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.em-link { padding: 0; border: none; background: none; color: var(--brand); font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+.em-caret { display: inline-flex; transition: transform .2s ease; }
+.em-caret.open { transform: rotate(90deg); }
+.em-data { padding: 12px 14px; border-radius: 14px; background: var(--softer); }
+.em-data code { font-family: ui-monospace, Menlo, monospace; color: var(--ink); }
+.em-vars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.em-vars span { height: 26px; padding: 0 9px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E3E9E5; font: 600 12px ui-monospace, Menlo, monospace; color: var(--ink); display: inline-flex; align-items: center; }
+@media (max-width: 1180px) {
+    .em-side { width: 300px; }
+    .em-langs { padding-left: 0; }
+    .em-lang-warn { margin-left: 0; }
+}
+@media (max-width: 860px) {
+    .tm-body { flex-direction: column; }
+    .em-side { width: auto; }
+    .em-lang { flex-wrap: wrap; }
+    .em-lang-name { width: 100%; }
+}

@@ -1,0 +1,181 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load static i18n %}
+{% comment %}
+Build a catering quote (design: StoreCatering; catering/views.py: quote_page, catering/store.py). One form that posts
+as you type (data-search) so the quote stays in the session and the totals and calendar follow; buttons post an op.
+"Send for review" opens the send sheet: a card on file (payments/save-card in an iframe), the policy, and Send.
+{% endcomment %}
+{% block title %}{% trans "Catering" %} · {{ store.name }}{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'themes/neighbourhood/catering.js' %}"></script>{% endblock %}
+{% block content %}
+<form method="post" action="{% url 'store_catering' %}" class="nb-checkout" data-search data-quote>
+{% csrf_token %}
+<section class="nb-page-top">
+    <div class="nb-cat-hero">
+        <div class="nb-cat-hero-art" aria-hidden="true">{% include "themes/neighbourhood/_drawing.html" with kind="bowl" size=180 %}</div>
+        <div class="nb-kick gold">{% trans "Catering" %}</div>
+        <h1 class="nb-serif nb-cat-hero-title">{% trans "Build a catering quote" %}</h1>
+        <p class="nb-cat-hero-text">{% trans "Pick your dishes and any services you need. We’ll look it over, confirm it or suggest changes, and you approve the final version before anything is charged." %}</p>
+        {% if off %}<div class="nb-warn">{% trans "We’re not taking catering orders online right now. Send us a message instead." %}</div>{% endif %}
+        <div class="nb-rules">
+            {% for icon, title, text in rules %}
+            <div class="nb-rule"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--highlight)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ icon }}"/></svg>
+                <div class="nb-serif nb-rule-title">{{ title }}</div><div class="nb-rule-text">{{ text }}</div></div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<div class="nb-co-grid">
+    <div class="nb-co-main">
+        <section class="nb-card" id="cq-event" data-region>
+            <div class="nb-step-head"><span class="nb-step-n">1</span><h2 class="nb-serif">{% trans "Your event" %}</h2><span class="nb-step-pill{% if st.day and st.time_ok and q.ful and st.lead_ok %} done{% endif %}">{% if st.day and st.time_ok and q.ful and st.lead_ok %}{% trans "Done" %}{% else %}{% trans "Date, time and delivery" %}{% endif %}</span></div>
+            <label class="nb-block"><span class="nb-lbl">{% trans "What’s the occasion?" %}</span><input class="nb-input" name="title" value="{{ q.title }}" maxlength="140" placeholder="{% trans 'e.g. Office lunch, Maya’s 40th' %}"></label>
+            <div class="nb-cq-when">
+                <div>
+                    <div class="nb-cal-head"><span class="strong nb-grow">{% trans "Date" %}</span>
+                        <button class="nb-cal-nav" name="op" value="month:{{ st.prev_month }}" {% if st.no_prev %}disabled{% endif %} aria-label="{% trans 'Previous month' %}">‹</button>
+                        <span class="strong nb-cal-month">{{ st.month|date:"F Y" }}</span>
+                        <button class="nb-cal-nav" name="op" value="month:{{ st.next_month }}" aria-label="{% trans 'Next month' %}">›</button></div>
+                    <div class="nb-cal-dow" aria-hidden="true"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+                    <div class="nb-cal" role="group" aria-label="{% trans 'Pick a date' %}">
+                        {% for c in st.cells %}{% if c %}<button class="nb-cal-day{% if c.on %} on{% endif %}{% if c.today %} today{% endif %}{% if c.short %} short{% endif %}" name="op" value="date:{{ c.iso }}" {% if c.off %}disabled{% endif %} aria-pressed="{% if c.on %}true{% else %}false{% endif %}" aria-label="{{ c.date|date:'F j' }}">{{ c.date.day }}</button>{% else %}<span></span>{% endif %}{% endfor %}
+                    </div>
+                    <div class="nb-cal-note"><span class="nb-cal-key"></span>{% blocktrans with d=st.earliest|date:"M j" %}Earliest date for this order is {{ d }}{% endblocktrans %}{% if st.cfg.rush %} · {% trans "sooner goes in as a request" %}{% endif %}</div>
+                </div>
+                <div>
+                    <div class="strong small-title">{% trans "Time" %}</div>
+                    <div class="nb-time-row">
+                        <div class="nb-time" role="group" aria-label="{% trans 'Time' %}">
+                            <div class="nb-time-col"><button name="op" value="hup" aria-label="{% trans 'Hour up' %}">▲</button><input class="nb-serif" name="hour" inputmode="numeric" maxlength="2" value="{{ st.picker.hour }}" aria-label="{% trans 'Hour' %}"><button name="op" value="hdown" aria-label="{% trans 'Hour down' %}">▼</button></div>
+                            <span class="nb-serif nb-time-colon">:</span>
+                            <div class="nb-time-col"><button name="op" value="mup" aria-label="{% trans 'Minute up' %}">▲</button><input class="nb-serif" name="minute" inputmode="numeric" maxlength="2" value="{{ st.picker.minute }}" aria-label="{% trans 'Minutes' %}"><button name="op" value="mdown" aria-label="{% trans 'Minute down' %}">▼</button></div>
+                            <input type="hidden" name="ampm" value="{{ st.picker.ampm }}">
+                            <div class="nb-ampm" role="radiogroup" aria-label="{% trans 'AM or PM' %}"><button role="radio" aria-checked="{% if st.picker.ampm == 'AM' %}true{% else %}false{% endif %}" name="op" value="am">AM</button><button role="radio" aria-checked="{% if st.picker.ampm == 'PM' %}true{% else %}false{% endif %}" name="op" value="pm">PM</button></div>
+                        </div>
+                        <div class="nb-grow"><div class="nb-time-msg{% if st.time_ok %} ok{% endif %}">{{ st.time_msg }}</div><div class="muted small top4">{% trans "Food ready by this time. Type it or use the arrows." %}</div></div>
+                    </div>
+                    <div class="nb-lead{% if st.lead_ok %} ok{% elif st.lead_ok is False %} bad{% endif %}">{{ st.lead }}</div>
+                </div>
+            </div>
+            <div class="strong small-title">{% trans "How should we get it to you?" %}</div>
+            <div class="nb-options{% if fuls|length > 1 %} two{% endif %}" role="radiogroup" aria-label="{% trans 'Fulfilment' %}">
+                {% for way, label, desc in fuls %}
+                <button class="nb-option big{% if q.ful == way %} on{% endif %}" role="radio" aria-checked="{% if q.ful == way %}true{% else %}false{% endif %}" name="op" value="ful:{{ way }}">
+                    <span class="nb-option-top"><span class="nb-radio"></span><span class="nb-serif">{{ label }}</span></span><span class="nb-option-sub">{{ desc }}</span></button>
+                {% endfor %}
+            </div>
+            {% if q.ful and q.ful != "pickup" %}<label class="nb-block"><span class="nb-lbl">{% trans "Delivery address" %}</span><input class="nb-input" name="address" value="{{ q.address }}" placeholder="{% trans 'Street address, unit, buzzer' %}" autocomplete="street-address"></label>{% endif %}
+        </section>
+
+        <section class="nb-card" id="cq-food" data-region>
+            <div class="nb-step-head"><span class="nb-step-n">2</span><h2 class="nb-serif">{% trans "Food" %}</h2><span class="nb-step-pill{% if q.dishes %} done{% endif %}">{% blocktrans count n=q.dishes|length %}{{ n }} dish{% plural %}{{ n }} dishes{% endblocktrans %}</span></div>
+            <p class="muted nb-step-text">{% trans "Catering prices, packed in trays and labelled. Bigger quantities get a better price." %}</p>
+            <div class="nb-cats" role="tablist" aria-label="{% trans 'Food type' %}">{% for key, label in cats %}<button role="tab" aria-selected="{% if q.cat == key %}true{% else %}false{% endif %}" name="op" value="cat:{{ key }}">{{ label }}</button>{% endfor %}</div>
+            {% for f in foods %}
+            <div class="nb-food">
+                <div class="nb-co-art tone-{{ f.tone }}">{% include "themes/neighbourhood/_drawing.html" with kind=f.drawing size=56 %}</div>
+                <div class="nb-grow"><div class="nb-food-name"><span class="nb-serif">{{ f.dish.title }}</span>{% for d in f.diets %}<span class="nb-tag diet">{{ d }}</span>{% endfor %}</div><div class="muted small top4">{{ f.price }}</div></div>
+                {% if f.qty %}
+                <span class="nb-stepper small"><button name="op" value="dec:{{ f.dish.id }}" aria-label="{% blocktrans with n=f.dish.title %}Fewer {{ n }}{% endblocktrans %}">−</button><input class="nb-qty-in" type="number" min="0" name="qty-{{ f.dish.id }}" value="{{ f.qty }}" aria-label="{% blocktrans with n=f.dish.title %}How many {{ n }}{% endblocktrans %}"><button name="op" value="inc:{{ f.dish.id }}" aria-label="{% blocktrans with n=f.dish.title %}More {{ n }}{% endblocktrans %}">+</button></span>
+                {% else %}<button class="nb-btn nb-btn-line nb-btn-sm" name="op" value="add:{{ f.dish.id }}">{% blocktrans with n=f.dish.catering_min %}Add {{ n }}{% endblocktrans %}</button>{% endif %}
+                <span class="nb-co-price">{{ f.total }}</span>
+            </div>
+            {% empty %}
+            <div class="muted top8">{% trans "No dishes are on the catering menu yet." %}</div>
+            {% endfor %}
+        </section>
+
+        <section class="nb-card" id="cq-svc" data-region>
+            <div class="nb-step-head"><span class="nb-step-n">3</span><h2 class="nb-serif">{% trans "Services" %}</h2><span class="muted small">{% trans "Optional" %}</span></div>
+            <p class="muted nb-step-text">{% trans "Staff, equipment, rentals and extras. Rentals with a deposit are held on your card close to the event and released when everything comes back." %}</p>
+            {% for g in svc_groups %}
+            <div class="nb-kick small muted top14">{{ g.title }}</div>
+            {% for x in g.items %}
+            <div class="nb-svc{% if x.x %} on{% endif %}">
+                <div class="nb-grow"><div class="nb-svc-name"><span class="strong">{{ x.s.title }}</span>{% if x.deposit %}<span class="nb-tag">{% blocktrans with d=x.deposit %}{{ d }} deposit{% endblocktrans %}</span>{% endif %}</div>
+                    <div class="muted small top4">{% if x.s.description %}{{ x.s.description }} {% endif %}{{ x.price }}</div></div>
+                {% if x.locked %}{% if x.x %}<span class="nb-tag diet">{% trans "Added for delivery" %}</span>{% else %}<span class="muted small">{% trans "Delivery only" %}</span>{% endif %}
+                {% elif x.x %}
+                <span class="nb-stepper small"><button name="op" value="sdec:{{ x.s.id }}" aria-label="{% trans 'Fewer' %}">−</button><span>{{ x.x.q }}{% if x.unit %} {{ x.unit }}{% endif %}</span><button name="op" value="sinc:{{ x.s.id }}" aria-label="{% trans 'More' %}">+</button></span>
+                {% if x.timed %}<span class="nb-stepper small"><button name="op" value="hdec:{{ x.s.id }}" aria-label="{% trans 'Less time' %}">−</button><span>{{ x.amount_text }}</span><button name="op" value="hinc:{{ x.s.id }}" aria-label="{% trans 'More time' %}">+</button></span>{% endif %}
+                {% else %}<button class="nb-btn nb-btn-line nb-btn-sm" name="op" value="sadd:{{ x.s.id }}">{% trans "Add" %}</button>{% endif %}
+                <span class="nb-co-price small-price">{{ x.total }}</span>
+            </div>
+            {% endfor %}
+            {% endfor %}
+        </section>
+
+        <section class="nb-card" id="cq-notes" data-region>
+            <div class="nb-step-head"><span class="nb-step-n">4</span><h2 class="nb-serif">{% trans "Anything we should know?" %}</h2></div>
+            <textarea class="nb-input nb-area" name="note" rows="3" placeholder="{% trans 'Allergies, dietary needs, access, setup times' %}" aria-label="{% trans 'Notes for the restaurant' %}">{{ q.note }}</textarea>
+            <div class="nb-field-grid">
+                <label><span class="nb-lbl">{% trans "Your name" %}</span><input class="nb-input" name="name" value="{{ q.name }}" autocomplete="name"></label>
+                <label><span class="nb-lbl">{% trans "Organization" %} <span class="muted">· {% trans "optional" %}</span></span><input class="nb-input" name="org" value="{{ q.org }}" autocomplete="organization"></label>
+                <label><span class="nb-lbl">{% trans "Email" %}</span><input class="nb-input" type="email" name="email" value="{{ q.email }}" autocomplete="email"></label>
+                <label><span class="nb-lbl">{% trans "Phone" %}</span><input class="nb-input" name="phone" value="{{ q.phone }}" autocomplete="tel" inputmode="tel"></label>
+            </div>
+        </section>
+    </div>
+
+    <aside class="nb-quote-box" aria-label="{% trans 'Your quote' %}" id="cq-quote" data-region>
+        <div class="nb-quote-top">
+            <div class="nb-kick gold small">{% trans "Your quote" %}</div>
+            <div class="nb-serif nb-quote-title">{{ q.title|default:_("Your event") }}</div>
+            <div class="nb-quote-when">{% if st.day %}{{ st.day|date:"l, F j" }}{% if st.time_ok %} · {{ st.picker.hour }}:{{ st.picker.minute }} {{ st.picker.ampm }}{% endif %}{% for way, label, desc in fuls %}{% if way == q.ful %} · {{ label }}{% endif %}{% endfor %}{% else %}{% trans "Pick a date and time" %}{% endif %}</div>
+        </div>
+        <div class="nb-quote-body">
+            {% for g in quote_groups %}
+            <div class="nb-quote-group"><div class="nb-kick small muted">{{ g.title }}</div>
+                {% for r in g.rows %}<div class="nb-quote-line"><span class="nb-grow strong">{{ r.name }}</span><span class="muted">{{ r.qty }}</span><span class="nb-quote-amt">{{ r.total }}</span></div>{% endfor %}</div>
+            {% empty %}
+            <div class="nb-quote-empty">{% trans "Add dishes or services to see your quote." %}</div>
+            {% endfor %}
+            <div class="nb-quote-sums">
+                <div><span class="nb-grow">{% trans "Subtotal" %}</span><span>${{ st.totals.subtotal|floatformat:"2g" }}</span></div>
+                <div><span class="nb-grow">{% trans "Tax" %}</span><span>${{ st.totals.tax|floatformat:"2g" }}</span></div>
+                <div class="big"><span class="nb-serif nb-grow">{% trans "Estimated total" %}</span><span class="nb-serif">${{ st.totals.total|floatformat:"2g" }}</span></div>
+                {% if st.totals.deposit %}<div class="dep"><span class="nb-grow">{% trans "Equipment deposit, held separately" %}</span><span>${{ st.totals.deposit|floatformat:"2g" }}</span></div>{% endif %}
+            </div>
+            {% if st.cfg.min_subtotal %}
+            <div class="nb-min"><div class="nb-min-top"><span class="nb-grow">{% if st.min_pct >= 100 %}{% trans "Minimum reached" %}{% else %}{% trans "Keep going" %}{% endif %}</span><span>{% blocktrans with m=st.cfg.min_subtotal|floatformat:"0" %}${{ m }} minimum{% endblocktrans %}</span></div><div class="nb-min-bar"><span style="width: {{ st.min_pct }}%"{% if st.min_pct >= 100 %} class="done"{% endif %}></span></div></div>
+            {% endif %}
+            <div class="nb-notice warn small-notice"><span>{% trans "This is a quote, not a bill. When you send it, we keep your card on file. You’re only charged once we confirm and you approve the final total." %}</span></div>
+        </div>
+        <div class="nb-quote-foot">
+            <button class="nb-btn nb-btn-accent nb-place" name="op" value="review" {% if st.blocker or off %}disabled{% endif %}>{% trans "Send for review" %}</button>
+            <div class="nb-blocker">{{ st.blocker }}</div>
+        </div>
+    </aside>
+</div>
+
+<div id="cq-send" data-region>
+{% if sending and not st.blocker %}
+<div class="nb-overlay">
+    <a class="nb-scrim" href="{% url 'store_catering' %}" aria-label="{% trans 'Keep editing' %}"></a>
+    <div class="nb-sheet nb-send-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Send your catering request' %}">
+        <div class="nb-kick accent">{% trans "Almost there" %}</div>
+        <h2 class="nb-serif">{% blocktrans with name=store.name %}Send your request to {{ name }}{% endblocktrans %}</h2>
+        <div class="nb-send-grid">
+            <div class="nb-send-box"><div class="strong small muted">{% trans "Estimated total" %}</div><div class="nb-serif nb-send-total">${{ st.totals.total|floatformat:"2g" }}</div><div class="muted small">{% trans "Not a charge." %}</div></div>
+            <div class="nb-send-box sage"><div class="strong small">{% trans "Charged only when" %}</div><div class="nb-send-when">{% blocktrans with name=store.name %}{{ name }} confirms, and you approve the final quote. If they suggest changes, you’ll see exactly what changed first.{% endblocktrans %}</div></div>
+        </div>
+        <div class="strong small-title">{% trans "Card on file" %}</div>
+        {% if card %}
+        <div class="nb-pay-card"><span class="nb-card-mark">{{ card.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{% blocktrans with last4=card.last4 %}Card ending {{ last4 }}{% endblocktrans %}</span><button class="nb-link-btn" name="op" value="drop_card">{% trans "Use another card" %}</button></div>
+        {% else %}
+        {% if saved_cards %}<div class="nb-options">{% for c in saved_cards %}<button class="nb-option" name="op" value="use_card:{{ c.id }}"><span class="nb-radio"></span><span class="nb-card-mark">{{ c.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{{ c.label }}</span></button>{% endfor %}</div><div class="muted small top8">{% trans "Or add a new card:" %}</div>{% endif %}
+        <iframe class="nb-card-frame" src="{% url 'save-card' %}" title="{% trans 'Add a card' %}"></iframe>
+        {% endif %}
+        {% if st.cfg.policy %}<div class="nb-policy"><b>{% trans "Cancellation policy." %}</b> {{ st.cfg.policy }}</div>{% endif %}
+        <button class="nb-check" role="checkbox" aria-checked="{% if q.agree %}true{% else %}false{% endif %}" name="op" value="agree"><span class="nb-checkbox{% if q.agree %} on{% endif %}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>{% trans "I agree to the cancellation policy and to keeping my card on file" %}</button>
+        <div class="nb-send-btns">
+            <a class="nb-btn nb-btn-line nb-btn-big" href="{% url 'store_catering' %}">{% trans "Keep editing" %}</a>
+            <button class="nb-btn nb-btn-accent nb-btn-big" name="op" value="send" {% if not card or not q.agree %}disabled{% endif %}>{% trans "Send request" %}</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+</form>
+{% endblock %}

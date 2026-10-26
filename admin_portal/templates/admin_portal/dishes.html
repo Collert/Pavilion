@@ -1,0 +1,72 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Dishes list (design: AdminDishes, list state; admin_portal/dishes.py: dish_list), by station. Filters are links,
+search submits as you type (data-search). Refetched on "menus" and "inventory" nudges (sold out, prices).
+{% endcomment %}
+{% block title %}{% trans "Dishes" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/dishes.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"menus", "inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Menu" %}</div>
+        <h1 class="disp page-title">{% trans "Dishes" %}</h1>
+    </div>
+    <form class="search dish-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search dishes' %}">
+    </form>
+    <form method="post" action="{% url 'admin_dish_new' %}">{% csrf_token %}
+        <button class="btn-dark" {% if not has_stations %}disabled{% endif %}>{% icon "plus" 18 2.4 %}{% trans "New dish" %}</button>
+    </form>
+</header>
+
+<div class="list-tools" id="dishes-tools" data-region>
+    <nav class="filter-chips" aria-label="{% trans 'Show' %}">
+        {% for f in l.filters %}
+        <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+        {% endfor %}
+    </nav>
+</div>
+
+<div class="dish-sections" id="dishes-list" data-region>
+    {% for sec in l.sections %}
+    <section class="card dish-section" aria-label="{{ sec.name }}">
+        <div class="section-head">
+            <span class="section-dot" style="background:{{ sec.color }}"></span>
+            <h2 class="disp section-name">{{ sec.name }}</h2>
+            <span class="hint">{% blocktrans count n=sec.count with avg=sec.avg|money %}{{ n }} dish · avg {{ avg }}{% plural %}{{ n }} dishes · avg {{ avg }}{% endblocktrans %}</span>
+        </div>
+        {% for r in sec.rows %}
+        <a class="dish-row dish-grid" href="{% url 'admin_dish' r.dish.id %}"
+           aria-label="{% blocktrans with name=r.dish.title price=r.dish.price|money avail=r.avail.label %}Edit {{ name }}, {{ price }}, {{ avail }}{% endblocktrans %}">
+            <span class="dish-thumb" style="--tint:{{ r.dish.station.color }}">
+                {% if r.dish.image %}<img src="{{ r.dish.image.url }}" alt="" loading="lazy">{% else %}<span class="disp">{{ r.dish.title|slice:":1" }}</span>{% endif %}
+            </span>
+            <span class="dish-main">
+                <span class="dish-name-line"><span class="dish-name ellipsis">{{ r.dish.title }}</span>
+                    {% for t in r.tags %}<span class="diet-tag">{{ t }}</span>{% endfor %}
+                    {% if r.dish.catering %}<span class="diet-tag">{% trans "Catering" %}</span>{% endif %}
+                </span>
+                <span class="dish-desc ellipsis">{{ r.dish.description }}</span>
+            </span>
+            <span class="dish-menus ellipsis">{{ r.menus_text }}</span>
+            <span class="dish-allergens ellipsis{% if r.allergens %} has{% endif %}">{% if r.allergens %}{{ r.allergens|join:" · " }}{% else %}{% trans "No allergens" %}{% endif %}</span>
+            <span class="dish-cost num {{ r.level }}">{% if r.fc is None %}{% trans "No recipe" %}{% else %}{{ r.fc }}%{% endif %}</span>
+            <span class="num dish-price">{{ r.dish.price|money }}</span>
+            <span class="avail-cell"><span class="avail-chip {{ r.avail.key }}">{{ r.avail.label }}</span></span>
+            {% icon "chevron" 16 %}
+        </a>
+        {% endfor %}
+    </section>
+    {% empty %}
+    <div class="card empty">
+        <div class="disp empty-title">{% trans "No dishes match" %}</div>
+        <div>{% if has_stations %}{% trans "Try another filter or clear the search." %}{% else %}{% trans "Add a station first: every dish is made at one." %}{% endif %}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

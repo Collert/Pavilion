@@ -1,0 +1,148 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Store hours (design: AdminHours; admin_portal/hours.py: page). One form with Save in the header: switches, steppers and
+"+ Add" buttons post an `op`, selects and dates post the draft as they change (editor.js), and the page comes back with
+the draft, the week chart and "Right now". The pause buttons act right away.
+{% endcomment %}
+{% block title %}{% trans "Store hours" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/hours.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=h.d %}
+<form method="post" action="{% url 'admin_hours' %}" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="hours-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Store" %}</div>
+        <h1 class="disp page-title">{% trans "Store hours" %}</h1>
+    </div>
+    <span class="saved-text {{ h.status_kind }}">{{ h.status }}</span>
+    <button class="btn-amber" name="op" value="save" {% if not h.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="hr-scroll">
+    <div class="hr-col" id="hours-main" data-region>
+        {% for k, v in h.switches %}<input type="hidden" name="{{ k }}" value="{% if v %}1{% endif %}">{% endfor %}
+        {% for k, v in h.steps %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+
+        <section class="card hr-card" aria-label="{% trans 'Weekly hours' %}">
+            <div class="hr-card-head">
+                <div class="grow"><h2 class="disp card-title">{% trans "Weekly hours" %}</h2>
+                    <div class="card-sub">{% trans "Add more than one period to a day for breaks, like closing 1 to 2 PM for lunch." %}</div></div>
+                <span class="small strong muted nowrap">{{ h.week_total }}</span>
+            </div>
+            <div class="hr-days">
+                {% for x in h.days %}
+                <div class="hr-day{% if x.errs %} bad{% endif %}">
+                    <input type="hidden" name="d{{ x.i }}-open" value="{% if x.open %}1{% endif %}">
+                    {% for a, b in x.hidden %}<input type="hidden" name="d{{ x.i }}-from" value="{{ a }}"><input type="hidden" name="d{{ x.i }}-to" value="{{ b }}">{% endfor %}
+                    <div class="hr-day-name">
+                        <button class="switch-only" name="op" value="day:{{ x.i }}" role="switch" aria-checked="{% if x.open %}true{% else %}false{% endif %}" aria-label="{% if x.open %}{% blocktrans with d=x.name %}Close on {{ d }}{% endblocktrans %}{% else %}{% blocktrans with d=x.name %}Open on {{ d }}{% endblocktrans %}{% endif %}"><span class="switch{% if x.open %} on{% endif %}"><span></span></span></button>
+                        <span><span class="hr-day-title">{{ x.name }}</span><span class="hr-day-sub{% if not x.open %} off{% endif %}">{{ x.sub }}</span></span>
+                    </div>
+                    <div class="hr-ranges">
+                        {% for r in x.ranges %}
+                        <div>
+                            {% if r.break %}<div class="hr-break"><span></span>{{ r.break }}</div>{% endif %}
+                            <div class="hr-range">
+                                <select class="tsel num" name="d{{ x.i }}-from" aria-label="{% blocktrans with d=x.name n=forloop.counter %}{{ d }} period {{ n }} opens{% endblocktrans %}">{% for v, t in h.from_opts %}<option value="{{ v }}"{% if v == r.a %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+                                <span class="hr-to">{% trans "to" %}</span>
+                                <select class="tsel num wide" name="d{{ x.i }}-to" aria-label="{% blocktrans with d=x.name n=forloop.counter %}{{ d }} period {{ n }} closes{% endblocktrans %}">{% for v, t in h.to_opts %}<option value="{{ v }}"{% if v == r.b %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+                                <span class="hr-len">{{ r.len }}</span>
+                                <button class="ico" name="op" value="rm:{{ x.i }}:{{ r.j }}" {% if x.ranges|length <= 1 %}disabled{% endif %} aria-label="{% blocktrans with d=x.name n=forloop.counter %}Remove {{ d }} period {{ n }}{% endblocktrans %}">{% icon "M6 6l12 12M18 6 6 18" 14 2.6 %}</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if x.open %}<div><button class="hr-add" name="op" value="add:{{ x.i }}" {% if x.add_off %}disabled{% endif %}>{% trans "+ Add period" %}</button></div>
+                        {% else %}<div class="hr-closed">{% trans "Closed all day" %}</div>{% endif %}
+                        {% for e in x.errs %}<div class="hr-err">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="hr-copy">
+                        <select name="copy-{{ x.i }}" aria-label="{% blocktrans with d=x.name %}Copy {{ d }} hours to other days{% endblocktrans %}" {% if not x.open or x.errs %}disabled{% endif %}>{% for v, t in h.copy_opts %}<option value="{{ v }}">{{ t }}</option>{% endfor %}</select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card hr-card" aria-label="{% trans 'Week at a glance' %}">
+            <div class="hr-card-head center">
+                <h2 class="disp card-title grow">{% trans "Week at a glance" %}</h2>
+                <span class="hr-key"><span class="hr-sw store"></span>{% trans "Open" %}</span>
+                <span class="hr-key"><span class="hr-sw pick"></span>{% trans "Pickup orders" %}</span>
+                <span class="hr-key"><span class="hr-sw deliv"></span>{% trans "Delivery orders" %}</span>
+            </div>
+            <div class="hr-chart">
+                <div class="hr-ticks">{% for t in h.ticks %}<span class="num" style="left: {{ t.left }}">{{ t.label }}</span>{% endfor %}</div>
+                <div class="hr-rows">
+                    {% for t in h.ticks %}<span class="hr-grid" style="left: {{ t.left }}"></span>{% endfor %}
+                    {% if h.now_line %}<span class="hr-now" style="top: {{ h.now_line.top }}px; left: {{ h.now_line.left }}"><span>{% trans "Now" %}</span></span>{% endif %}
+                    {% for c in h.chart %}
+                    <div class="hr-row">
+                        <span class="hr-row-label{% if not c.open %} off{% endif %}">{{ c.label }}</span>
+                        {% for b in c.bars %}<span class="hr-bar {{ b.kind }}" title="{{ b.title }}" style="left: {{ b.left }}; width: {{ b.width }}"></span>{% endfor %}
+                        {% if not c.open %}<span class="hr-row-closed">{% trans "Closed" %}</span>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-sub top10">{% trans "Pickup and delivery bars show when customers can actually place those orders, after your cutoffs." %}</div>
+        </section>
+    </div>
+
+    <div class="hr-col" id="hours-side" data-region>
+        <section class="hr-now-card" aria-label="{% trans 'Right now' %}">
+            <div class="hr-now-top"><span class="hr-now-dot{% if h.now.open %} open{% endif %}"></span><span class="ov">{% blocktrans with t=h.now.clock %}Right now · {{ t }}{% endblocktrans %}</span></div>
+            <div class="disp hr-now-head">{{ h.now.head }}</div>
+            <div class="hr-now-sub">{{ h.now.sub }}</div>
+            <div class="hr-now-lines">
+                {% for l in h.now.lines %}<div class="hr-now-line"><span class="hr-sw {{ l.kind }}"></span><span class="grow">{{ l.label }}</span><span class="num {{ l.state }}">{{ l.value }}</span></div>{% endfor %}
+            </div>
+            <div class="hr-now-store"><div>{% trans "On your online store today" %}</div><b>{{ h.now.store_line }}</b></div>
+        </section>
+
+        <section class="card hr-card" aria-label="{% trans 'Pause online orders' %}">
+            <span class="hr-big">{% trans "Pause online orders" %}</span>
+            <span class="small muted">{% trans "For a rush or a short-staffed shift. Dine-in isn’t affected." %}</span>
+            {% if h.paused %}
+            <div class="hr-paused"><span class="grow">{% blocktrans with t=h.paused %}Online orders paused until {{ t }}{% endblocktrans %}</span><button class="hr-resume" name="op" value="resume">{% trans "Resume now" %}</button></div>
+            {% else %}
+            <div class="hr-pauses">{% for minutes, label in h.pauses %}<button name="op" value="pause:{{ minutes }}">{{ label }}</button>{% endfor %}</div>
+            {% endif %}
+        </section>
+
+        <section class="card hr-card" aria-label="{% trans 'Order cutoffs' %}">
+            <h2 class="disp card-title">{% trans "Order cutoffs" %}</h2>
+            <div class="small muted">{% trans "So nobody orders a minute before close and keeps the team late." %}</div>
+            {% for c in h.cutoffs %}
+            <div class="hr-cut">
+                <div class="hr-cut-head"><span class="hr-sw {{ c.kind }}"></span><span class="grow strong">{{ c.name }}</span><span class="hr-example">{{ c.example }}</span></div>
+                {% for r in c.rows %}{% include "admin_portal/_hours_step.html" with r=r %}{% endfor %}
+                {% if c.kind == "deliv" %}
+                <label class="hr-fee"><span class="grow two-line"><span class="strong">{% trans "Delivery fee" %}</span><span class="small muted">{% trans "On every delivery order. Coupons can take it off." %}</span></span>
+                    <span class="hr-fee-in"><span>$</span><input class="num" name="delivery_fee" value="{{ d.delivery_fee }}" inputmode="decimal" aria-label="{% trans 'Delivery fee' %}"></span></label>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button class="hr-toggle" name="op" value="toggle:around_breaks" role="switch" aria-checked="{% if d.around_breaks %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="strong">{% trans "Apply cutoffs around breaks too" %}</span><span class="small muted">{% trans "Stop orders before a break and restart after" %}</span></span>
+                <span class="switch{% if d.around_breaks %} on{% endif %}"><span></span></span>
+            </button>
+            {% for w in h.warnings %}<div class="hr-warn">{{ w }}</div>{% endfor %}
+        </section>
+
+        <section class="card hr-card" aria-label="{% trans 'Ordering ahead' %}">
+            <button class="hr-toggle plain" name="op" value="toggle:ahead" role="switch" aria-checked="{% if d.ahead %}true{% else %}false{% endif %}">
+                <span class="grow two-line"><span class="hr-big">{% trans "Let customers order ahead" %}</span><span class="small muted">{% trans "Schedule pickup or delivery for later, even while you’re closed" %}</span></span>
+                <span class="switch{% if d.ahead %} on{% endif %}"><span></span></span>
+            </button>
+            {% if d.ahead %}{% for r in h.ahead_rows %}{% include "admin_portal/_hours_step.html" with r=r soft=True %}{% endfor %}{% endif %}
+            <div class="small muted top12">{% blocktrans with tz=h.tz %}Times use the store’s time zone, {{ tz }}.{% endblocktrans %}</div>
+        </section>
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

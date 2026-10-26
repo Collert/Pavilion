@@ -1,0 +1,112 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Shift pars (design: AdminShiftPars; admin_portal/pars.py). One form with Save: the weekly pars and seasonal ones on
+the left, the picked set's day on the right (each role's people needed, hour by hour, as time windows).
+{% endcomment %}
+{% block title %}{% trans "Shift pars" %}{% endblock %}
+{% block main_class %}sh-main sp-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/shifts.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="sp-head" data-region>
+    <div class="grow">
+        <a class="page-kicker back-link" href="{% url 'admin_shifts' %}">{% icon "M15 6l-6 6 6 6" 14 2.6 %}{% trans "Shifts" %}</a>
+        <h1 class="disp page-title">{% trans "Shift pars" %}</h1>
+    </div>
+    <span class="saved-text {{ x.status_kind }}">{{ x.status }}</span>
+    <button class="btn-light" name="op" value="season">{% icon "plus" 18 2.4 %}{% trans "Seasonal par" %}</button>
+    <button class="btn-amber" name="op" value="save"{% if not x.can_save %} disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div class="sp-body">
+    <section class="card sp-list" id="sp-list" data-region aria-label="{% trans 'Par sets' %}">
+        <div class="sp-intro">{% trans "Pars are how many people each role needs, hour by hour. Shifts shows who’s short against them." %}</div>
+        <div class="sp-rows" role="listbox" aria-label="{% trans 'Par sets' %}">
+            <div class="ov sp-group">{% trans "Every week" %}</div>
+            {% include "admin_portal/_par_item.html" with i=x.weekly %}
+            <div class="ov sp-group">{% trans "Seasonal" %}</div>
+            {% for i in x.seasons %}{% include "admin_portal/_par_item.html" %}{% empty %}<div class="small muted sp-intro">{% trans "None yet. Add one for a busy season, a festival weekend or the holidays." %}</div>{% endfor %}
+        </div>
+    </section>
+
+    <section class="sp-edit" id="sp-edit" data-region aria-label="{% trans 'Pars' %}">
+        {% if x.is_season %}
+        <div class="card sp-card">
+            <div class="sp-season">
+                <label><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ x.e.name }}" maxlength="40" placeholder="{% trans 'e.g. Patio season' %}" autocomplete="off"></label>
+                <label><span class="lbl">{% trans "Starts" %}</span><input class="field num" type="date" name="start" value="{{ x.e.start }}"></label>
+                <label><span class="lbl">{% trans "Ends" %}</span><input class="field num" type="date" name="end" value="{{ x.e.end }}"></label>
+            </div>
+            {% if x.err %}<div class="sp-err">{{ x.err }}</div>{% endif %}
+            <div class="lbl top14">{% trans "How it works with the weekly pars" %}</div>
+            <div class="sp-modes" role="radiogroup" aria-label="{% trans 'Mode' %}">
+                <label class="sp-mode"><input type="radio" name="mode" value="add"{% if x.e.mode == 'add' %} checked{% endif %}><span class="strong">{% trans "Add on top" %}</span>
+                    <span class="small muted">{% trans "These people are extra. Fri dinner: weekly 2 cooks + 1 here = 3." %}</span></label>
+                <label class="sp-mode"><input type="radio" name="mode" value="replace"{% if x.e.mode == 'replace' %} checked{% endif %}><span class="strong">{% trans "Replace" %}</span>
+                    <span class="small muted">{% trans "Use these numbers instead of the weekly pars on these days." %}</span></label>
+            </div>
+            <div class="sp-season-foot"><span class="grow small strong">{{ x.season_text }}</span>
+                <button class="sp-del" name="op" value="delete">{% trans "Delete seasonal par" %}</button></div>
+        </div>
+        {% endif %}
+
+        <div class="card sp-card">
+            <div class="sp-days">
+                {% for d in x.days %}<button class="sp-day{% if d.on %} on{% elif d.off %} off{% endif %}" name="op" value="day:{{ d.i }}" aria-pressed="{{ d.on|yesno:'true,false' }}">
+                    <span class="strong">{{ d.label }}</span><span class="num sp-day-sub">{{ d.sub }}</span></button>{% endfor %}
+            </div>
+            <div class="sp-day-head">
+                <div class="grow"><h2 class="disp">{{ x.day_title }}</h2><div class="small muted">{{ x.day_sub }}</div></div>
+                {% if x.is_season %}<button class="sp-switch-row" name="op" value="dayon" role="switch" aria-checked="{{ x.day_on|yesno:'true,false' }}">{% trans "Applies this day" %}<span class="tm-switch-look{% if x.day_on %} on{% endif %}"></span></button>{% endif %}
+                {% if x.day_on %}
+                <details class="sp-copy">
+                    <summary>{% icon "M8 8h12v12H8z M16 8V4H4v12h4" 14 2.4 %}{% blocktrans with day=x.day_title|slice:":3" %}Copy {{ day }} to…{% endblocktrans %}</summary>
+                    <div class="sp-copy-pop">
+                        <div class="small muted strong">{% blocktrans with day=x.day_title %}Replace these days’ pars with {{ day }}’s.{% endblocktrans %}</div>
+                        <div class="sp-copy-days">{% for c in x.copy_days %}<label{% if c.self %} class="self"{% endif %}><input type="checkbox" name="copy" value="{{ c.i }}"{% if c.self %} disabled{% endif %} data-no-preview>{{ c.label }}</label>{% endfor %}</div>
+                        <div class="sp-copy-foot"><button class="text-btn" name="op" value="copy:all">{% trans "All days" %}</button><button class="btn-amber small-btn" name="op" value="copy">{% trans "Copy" %}</button></div>
+                    </div>
+                </details>
+                {% endif %}
+            </div>
+            {% if not x.day_on %}
+            <div class="sp-off">{% blocktrans with day=x.day_title %}Off on {{ day }}s. The weekly pars apply as normal. Turn on “Applies this day” to set numbers.{% endblocktrans %}</div>
+            {% else %}
+            <div class="sp-scale"><div>{% for h in x.hours %}<span{% if h.first %} class="first"{% endif %} style="left: {{ h.left }}">{{ h.label }}</span>{% endfor %}</div></div>
+            {% for r in x.roles %}
+            <div class="sp-role" style="--c: {{ r.r.color }}">
+                <div class="sp-role-top">
+                    <div class="sp-role-name"><span class="sh-dot big" style="background: {{ r.r.color }}"></span><span class="grow"><span class="strong">{{ r.r.name }}</span><span class="num small faint strong">{{ r.sub }}</span></span></div>
+                    <div class="sp-strip">{% for c in r.cells %}<span class="sp-cell{% if c.n %} n{% if c.n >= 2 %} many{% endif %}{% elif c.base %} base{% endif %}" style="--a: {{ c.a }}" title="{{ c.title }}">{{ c.t }}</span>{% endfor %}</div>
+                </div>
+                <div class="sp-wins">
+                    {% for w in r.wins %}
+                    <span class="sp-win">
+                        <select class="num" name="w-{{ r.r.id }}-{{ w.k }}-a" aria-label="{% trans 'From' %}">{% for m, t in w.a_opts %}<option value="{{ m }}"{% if m == w.a %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+                        <span class="to">{% trans "to" %}</span>
+                        <select class="num" name="w-{{ r.r.id }}-{{ w.k }}-b" aria-label="{% trans 'Until' %}">{% for m, t in w.b_opts %}<option value="{{ m }}"{% if m == w.b %} selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+                        <span class="sp-step">
+                            <button name="op" value="less:{{ r.r.id }}:{{ w.k }}" aria-label="{% trans 'One fewer' %}"{% if w.less_off %} disabled{% endif %}>{% icon "M5 12h14" 11 3 %}</button>
+                            <span class="num">{{ w.n }}</span>
+                            <button name="op" value="more:{{ r.r.id }}:{{ w.k }}" aria-label="{% trans 'One more' %}">{% icon "plus" 11 3 %}</button>
+                        </span>
+                        <button name="op" value="rm:{{ r.r.id }}:{{ w.k }}" aria-label="{% trans 'Remove' %}">{% icon "close" 11 3 %}</button>
+                    </span>
+                    {% endfor %}
+                    <button class="sp-add" name="op" value="add:{{ r.r.id }}">{{ r.add }}</button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="sp-off">{% trans "No roles yet. Add them on the Roles page first." %}</div>
+            {% endfor %}
+            <div class="sp-foot">{{ x.foot }}</div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+</form>
+{% endblock %}

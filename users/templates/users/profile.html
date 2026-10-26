@@ -5,7 +5,7 @@
 {% block body %}
 <form action="" method="post">
     <div id="left">
-        <img src="{% if user.customer_profile.profile_picture %}/{{user.customer_profile.profile_picture}}{% else %}https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png{% endif %}" id="pfp" alt="profile picture">
+        <img src="{% if user.customer_profile.profile_picture %}{{user.customer_profile.profile_picture.url}}{% else %}https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png{% endif %}" id="pfp" alt="profile picture">
         <label hidden for="pfp-input">Upload profile picture</label>
         <input disabled type="file" name="pfp" id="pfp-input">
         <div id="name">

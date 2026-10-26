@@ -1,19 +1,29 @@
-Django
-gunicorn
-squareup
-python-dotenv
-psycopg2-binary
-cloudinary
-opencv-python 
-scikit-learn 
-numpy
-Pillow
-markdown
-django-mathfilters
-gevent
-gtts
-pydub
-python-barcode
-sendgrid
-pywebpush
-whitenoise
+# Pinned to what the app is tested with. squareup must stay on 38.x: later releases replaced
+# square.client.Client, which payments/square.py uses.
+Django~=6.1.2
+squareup==38.2.0.20241017
+cryptography~=50.0  # encrypts the Square OAuth tokens (payments/secrets.py)
+python-dotenv~=1.0
+psycopg2-binary~=2.9
+dj-database-url~=3.1  # DATABASE_URL connection strings (settings.py)
+whitenoise~=6.12
+django-storages[s3]~=1.14
+django-mathfilters~=1.0
+redis~=8.1
+daphne~=4.2
+uvicorn[standard]~=0.54
+requests~=2.32
+
+# Menu colour extraction
+opencv-python~=4.10.0
+scikit-learn~=1.5.2
+numpy~=2.1
+Pillow~=11.0
+
+# Recipes, gift card barcodes, email, web push, TTS announcements (joined with the ffmpeg binary)
+Markdown~=3.7
+python-barcode~=0.15
+segno~=1.6
+pywebpush~=2.0
+gTTS~=2.5
+sentry-sdk~=2.0

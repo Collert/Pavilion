@@ -1,0 +1,10 @@
+/* The admin editor's preview: every node can be picked; the selected one is outlined, empty slots invite a widget */
+[data-path] { cursor: pointer; position: relative; }
+.widget[data-path]:not(.widget--rows):not(.widget--columns):hover { outline: calc(var(--u) * 4) solid rgba(244, 169, 59, .55); outline-offset: calc(var(--u) * -4); border-radius: calc(var(--u) * 20); }
+.widget.is-selected { outline: calc(var(--u) * 6) solid #F4A93B; outline-offset: calc(var(--u) * -6); border-radius: calc(var(--u) * 20); z-index: 2; }
+.widget--rows.is-selected, .widget--columns.is-selected { outline-style: dashed; }
+.slot-edit { align-items: center; justify-content: center; border: calc(var(--u) * 4) dashed rgba(127, 127, 127, .45); border-radius: calc(var(--u) * 24); color: rgba(127, 127, 127, .9); font-size: calc(var(--u) * 28); font-weight: 700; }
+.slot-edit > span { flex: none; pointer-events: none; }
+.slot-edit.is-over { border-color: #3DD68C; background: rgba(61, 214, 140, .14); color: #3DD68C; }
+.slot-edit.is-selected { border-color: #F4A93B; color: #F4A93B; outline: none; }
+.screen > .slot-edit:only-child { min-height: 100%; }

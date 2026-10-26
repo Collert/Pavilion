@@ -1,0 +1,191 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load static i18n %}
+{% comment %}
+Checkout (design: StoreCart; online_store/pages.py: checkout). One form: it posts as you type (data-search) so
+the choices are kept in the session and the totals follow; the buttons post an op. "Place order" creates the
+order, or first opens Square's card form for what gift cards don't cover (checkout.js places it once paid).
+{% endcomment %}
+{% block title %}{% trans "Checkout" %} · {{ store.name }}{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'themes/neighbourhood/checkout.js' %}"></script>{% endblock %}
+{% block content %}
+{% if empty %}
+<section class="nb-empty">
+    <div class="nb-empty-bag"><svg aria-hidden="true" width="84" height="84" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2"/></svg></div>
+    <h1 class="nb-serif nb-page-title">{% trans "Your cart is empty" %}</h1>
+    {% if menus_now %}<p class="nb-empty-text">{% for m in menus_now %}{% if m.state == "now" %}{% blocktrans with menu=m.menu.title %}{{ menu }} is on now.{% endblocktrans %}{% else %}{% blocktrans with menu=m.menu.title when=m.pill|lower %}{{ menu }}: {{ when }}.{% endblocktrans %}{% endif %} {% endfor %}</p>{% endif %}
+    <div class="nb-hero-btns center">
+        <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.menu }}">{% trans "Browse the menu" %}</a>
+        {% if links.account %}<a class="nb-btn nb-btn-line nb-btn-big" href="{{ links.account }}">{% trans "Reorder a past order" %}</a>{% endif %}
+    </div>
+    {% for o in orders %}{% if o.progress < 5 %}
+    <a class="nb-track" href="{{ o.url }}">
+        <span class="nb-track-icon"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16 M6 14a6 6 0 0 1 12 0 M3 18h18 M12 5v3"/></svg></span>
+        <span class="nb-grow"><span class="nb-track-kick">{% blocktrans with n=o.number label=o.label %}ORDER #{{ n }} · {{ label }}{% endblocktrans %}</span><span class="nb-serif nb-track-eta">{% blocktrans with t=o.eta %}Ready around {{ t }}{% endblocktrans %}</span></span>
+        <span class="strong">{% trans "Track" %} →</span>
+    </a>
+    {% endif %}{% endfor %}
+</section>
+{% else %}
+<form method="post" action="{% url 'store_cart' %}" class="nb-checkout" data-search data-checkout>
+{% csrf_token %}
+<input type="hidden" name="transaction_uuid" value="">
+<section class="nb-page-top">
+    <a class="nb-back" href="{{ links.menu }}">← {% trans "Keep browsing" %}</a>
+    <h1 class="nb-serif nb-page-title">{% trans "Checkout" %}</h1>
+</section>
+<div class="nb-co-grid">
+    <div class="nb-co-main">
+        <section class="nb-card" id="co-items" data-region>
+            <div class="nb-card-head"><h2 class="nb-serif">{% trans "Your order" %}</h2><span class="muted">{% blocktrans count n=count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>
+            {% for r in rows %}
+            <div class="nb-co-row">
+                <div class="nb-co-art tone-{{ forloop.counter0 }}">{% if r.picture.photo %}<img src="{{ r.picture.photo }}" alt="">{% else %}{% include "themes/neighbourhood/_drawing.html" with kind=r.picture.drawing size=58 %}{% endif %}</div>
+                <div class="nb-grow">
+                    <div class="nb-serif nb-co-name">{{ r.title }}</div>
+                    <div class="nb-mods">{{ r.mods }}{% if r.note %} · “{{ r.note }}”{% endif %}</div>
+                    <button class="nb-link-btn" name="op" value="remove:{{ r.key }}">{% trans "Remove" %}</button>
+                </div>
+                <span class="nb-stepper small">
+                    <button name="op" value="dec:{{ r.key }}" aria-label="{% blocktrans with name=r.title %}One fewer {{ name }}{% endblocktrans %}">−</button>
+                    <span>{{ r.qty }}</span>
+                    <button name="op" value="inc:{{ r.key }}" aria-label="{% blocktrans with name=r.title %}One more {{ name }}{% endblocktrans %}">+</button>
+                </span>
+                <span class="nb-co-price">${{ r.total|floatformat:2 }}</span>
+            </div>
+            {% endfor %}
+            {% if upsell %}
+            <div class="nb-upsell">
+                <div class="strong">{% trans "Goes well with" %}</div>
+                <div class="nb-upsell-grid">
+                    {% for u in upsell %}
+                    <div class="nb-upsell-item">
+                        {% include "themes/neighbourhood/_drawing.html" with kind=u.picture.drawing size=40 %}
+                        <div class="nb-grow"><div class="strong small">{{ u.dish.title }}</div><div class="muted small">{{ u.price }}</div></div>
+                        <button class="nb-round-add" name="op" value="upsell:{{ u.dish.id }}" aria-label="{% blocktrans with name=u.dish.title %}Add {{ name }}{% endblocktrans %}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14 M5 12h14"/></svg></button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="nb-card" id="co-how" data-region>
+            <h2 class="nb-serif">{% trans "How you’ll get it" %}</h2>
+            <input type="hidden" name="method" value="{{ state.method }}">
+            <div class="nb-options two" role="radiogroup" aria-label="{% trans 'Pickup or delivery' %}">
+                <button class="nb-option big{% if not delivery %} on{% endif %}" role="radio" aria-checked="{% if delivery %}false{% else %}true{% endif %}" name="op" value="method:pickup">
+                    <span class="nb-option-top"><span class="nb-radio"></span><span class="nb-serif">{% trans "Pickup" %}</span></span>
+                    <span class="nb-option-sub">{% if store_line %}{{ store_line }} · {% endif %}{% blocktrans with n=pickup_minutes %}ready in about {{ n }} min{% endblocktrans %}</span>
+                </button>
+                <button class="nb-option big{% if delivery %} on{% endif %}" role="radio" aria-checked="{% if delivery %}true{% else %}false{% endif %}" name="op" value="method:delivery" {% if not delivery_open %}disabled{% endif %}>
+                    <span class="nb-option-top"><span class="nb-radio"></span><span class="nb-serif">{% trans "Delivery" %}</span></span>
+                    <span class="nb-option-sub">{% if delivery_open %}{% blocktrans with a=pickup_minutes|add:20 b=pickup_minutes|add:30 %}{{ a }}–{{ b }} min{% endblocktrans %}{% else %}{% trans "Not delivering right now" %}{% endif %}</span>
+                </button>
+            </div>
+            {% if delivery %}
+            <div class="nb-fields">
+                <div class="strong small-title">{% trans "Deliver to" %}</div>
+                {% if saved_addresses %}
+                <div class="nb-options">
+                    {% for a in saved_addresses %}<button class="nb-option{% if state.address_id == a.id|stringformat:'s' %} on{% endif %}" role="radio" name="op" value="address:{{ a.id }}" aria-checked="{% if state.address_id == a.id|stringformat:'s' %}true{% else %}false{% endif %}"><span class="nb-radio"></span><span class="nb-grow"><span class="strong">{{ a.label }}</span><span class="nb-option-sub">{{ a.one_line }}</span></span></button>{% endfor %}
+                </div>
+                {% endif %}
+                <div class="nb-field-grid">
+                    <label class="wide"><span class="nb-lbl">{% trans "Street address" %}</span><input class="nb-input" name="address" value="{{ state.address }}" autocomplete="address-line1" placeholder="{% trans '355 Railway St' %}"></label>
+                    <label><span class="nb-lbl">{% trans "Unit or floor" %}</span><input class="nb-input" name="unit" value="{{ state.unit }}" autocomplete="address-line2"></label>
+                    <label><span class="nb-lbl">{% trans "City" %}</span><input class="nb-input" name="city" value="{{ state.city }}" autocomplete="address-level2"></label>
+                    <label><span class="nb-lbl">{% trans "Postal code" %}</span><input class="nb-input" name="postal" value="{{ state.postal }}" autocomplete="postal-code"></label>
+                </div>
+                <label class="nb-block"><span class="nb-lbl">{% trans "Note for the driver" %}</span><input class="nb-input" name="driver_note" value="{{ state.driver_note }}" placeholder="{% trans 'Buzzer, floor, where to leave it' %}"></label>
+            </div>
+            {% endif %}
+            <div class="strong small-title">{% trans "When" %}</div>
+            <input type="hidden" name="when" value="{{ state.when }}">
+            <div class="nb-options{% if when.ahead %} two{% endif %}" role="radiogroup" aria-label="{% trans 'When' %}">
+                <button class="nb-option{% if state.when == 'asap' %} on{% endif %}" role="radio" aria-checked="{% if state.when == 'asap' %}true{% else %}false{% endif %}" name="op" value="when:asap" {% if not when.open_now %}disabled{% endif %}>
+                    <span class="nb-radio"></span><span class="nb-grow"><span class="strong">{% trans "As soon as possible" %}</span><span class="nb-option-sub">{% if when.open_now %}{% if state.when == 'asap' %}{{ when.message }}{% else %}{% trans "Straight to the kitchen" %}{% endif %}{% elif when.paused %}{% blocktrans with t=when.paused %}Paused until {{ t }}{% endblocktrans %}{% else %}{% trans "We’re closed right now" %}{% endif %}</span></span>
+                </button>
+                {% if when.ahead %}
+                <button class="nb-option{% if state.when == 'later' %} on{% endif %}" role="radio" aria-checked="{% if state.when == 'later' %}true{% else %}false{% endif %}" name="op" value="when:later">
+                    <span class="nb-radio"></span><span class="nb-grow"><span class="strong">{% trans "Schedule for later" %}</span><span class="nb-option-sub">{% trans "Pick a date and time" %}</span></span>
+                </button>
+                {% endif %}
+            </div>
+            {% if state.when == "later" %}
+            <div class="nb-schedule">
+                <div>
+                    <div class="strong small-title">{% trans "Date" %}</div>
+                    <div class="nb-days" role="group" aria-label="{% trans 'Pick a date' %}">
+                        {% for d in when.days %}<button class="nb-day{% if d.on %} on{% endif %}{% if d.today %} today{% endif %}" name="op" value="date:{{ d.iso }}" {% if not d.open %}disabled{% endif %} aria-pressed="{% if d.on %}true{% else %}false{% endif %}"><span>{{ d.date|date:"D" }}</span><b>{{ d.date.day }}</b><span>{{ d.date|date:"M" }}</span></button>{% endfor %}
+                    </div>
+                    <div class="muted small top8">{% trans "Order up to two weeks ahead." %}</div>
+                </div>
+                <div>
+                    <div class="strong small-title">{% if delivery %}{% trans "Delivery time" %}{% else %}{% trans "Pickup time" %}{% endif %}</div>
+                    <div class="nb-time-row">
+                        <div class="nb-time" role="group" aria-label="{% trans 'Time' %}">
+                            <div class="nb-time-col"><button name="op" value="hup" aria-label="{% trans 'Hour up' %}">▲</button><input class="nb-serif" name="hour" inputmode="numeric" maxlength="2" value="{{ when.picker.hour }}" aria-label="{% trans 'Hour' %}"><button name="op" value="hdown" aria-label="{% trans 'Hour down' %}">▼</button></div>
+                            <span class="nb-serif nb-time-colon">:</span>
+                            <div class="nb-time-col"><button name="op" value="mup" aria-label="{% trans 'Minute up' %}">▲</button><input class="nb-serif" name="minute" inputmode="numeric" maxlength="2" value="{{ when.picker.minute }}" aria-label="{% trans 'Minutes' %}"><button name="op" value="mdown" aria-label="{% trans 'Minute down' %}">▼</button></div>
+                            <input type="hidden" name="ampm" value="{{ when.picker.ampm }}">
+                            <div class="nb-ampm" role="radiogroup" aria-label="{% trans 'AM or PM' %}"><button role="radio" aria-checked="{% if when.picker.ampm == 'AM' %}true{% else %}false{% endif %}" name="op" value="am">AM</button><button role="radio" aria-checked="{% if when.picker.ampm == 'PM' %}true{% else %}false{% endif %}" name="op" value="pm">PM</button></div>
+                        </div>
+                        <div class="nb-grow"><div class="nb-time-msg{% if when.ok %} ok{% endif %}">{{ when.message }}</div><div class="muted small top4">{{ when.hint }}</div></div>
+                    </div>
+                </div>
+            </div>
+            {% elif not when.ok %}<div class="nb-warn">{{ when.message }}</div>{% endif %}
+            <label class="nb-block"><span class="nb-lbl">{% trans "Note for the kitchen" %}</span><input class="nb-input" name="note" value="{{ state.note }}" maxlength="200" placeholder="{% trans 'Anything we should know' %}"></label>
+        </section>
+
+        <section class="nb-card" id="co-pay" data-region>
+            <div class="nb-card-head"><h2 class="nb-serif">{% trans "Payment" %}</h2>{% if me %}<span class="muted">{{ state.name }}{% if state.email %} · {{ state.email }}{% endif %}</span>{% endif %}</div>
+            <div class="nb-field-grid">
+                <label><span class="nb-lbl">{% trans "Name for the order" %}</span><input class="nb-input" name="name" value="{{ state.name }}" autocomplete="name"></label>
+                <label><span class="nb-lbl">{% trans "Phone" %}{% if not delivery %} <span class="muted">· {% trans "optional" %}</span>{% endif %}</span><input class="nb-input" name="phone" value="{{ state.phone }}" autocomplete="tel" inputmode="tel"></label>
+                {% if not me %}<label class="wide"><span class="nb-lbl">{% trans "Email for the receipt" %}</span><input class="nb-input" type="email" name="email" value="{{ state.email }}" autocomplete="email"></label>{% endif %}
+            </div>
+            <input type="hidden" name="pay" value="{{ state.pay }}">
+            <div class="nb-options" role="radiogroup" aria-label="{% trans 'Payment method' %}">
+                {% for c in saved_cards %}
+                <button class="nb-option{% if state.pay == c.key %} on{% endif %}" role="radio" name="op" value="pay:card:{{ c.id }}" aria-checked="{% if state.pay == c.key %}true{% else %}false{% endif %}">
+                    <span class="nb-radio"></span><span class="nb-card-mark">{{ c.brand|default:"CARD"|upper|slice:":4" }}</span><span class="nb-grow strong">{{ c.label }}</span>{% if c.is_default %}<span class="muted small">{% trans "Default" %}</span>{% endif %}</button>
+                {% endfor %}
+                <button class="nb-option{% if state.pay == 'new' %} on{% endif %}" role="radio" name="op" value="pay:new" aria-checked="{% if state.pay == 'new' %}true{% else %}false{% endif %}">
+                    <span class="nb-radio"></span><span class="nb-card-mark">{% if saved_cards %}+{% else %}{% trans "CARD" %}{% endif %}</span><span class="nb-grow strong">{% if saved_cards %}{% trans "Add a new card" %}{% else %}{% trans "Pay by card" %}{% endif %}</span><span class="muted small">{% trans "You’ll enter it on the next step" %}</span></button>
+            </div>
+            <div class="nb-code-row">
+                <input class="nb-input" name="code" placeholder="{% trans 'Promo or gift card code' %}" aria-label="{% trans 'Promo or gift card code' %}" autocomplete="off">
+                <button class="nb-btn nb-btn-line" name="op" value="code">{% trans "Apply" %}</button>
+            </div>
+            {% if coupon %}<div class="nb-applied">{% blocktrans %}{{ coupon }} applied{% endblocktrans %} <button class="nb-link-btn" name="op" value="drop_code">{% trans "Remove" %}</button></div>{% endif %}
+            {% for c, amount in gifts %}<div class="nb-applied">{% blocktrans with last4=c.last4 a=amount|floatformat:2 %}Gift card •• {{ last4 }} pays ${{ a }}{% endblocktrans %} <button class="nb-link-btn" name="op" value="drop_gift:{{ c.id }}">{% trans "Remove" %}</button></div>{% endfor %}
+        </section>
+    </div>
+
+    <aside class="nb-summary" aria-label="{% trans 'Summary' %}" id="co-summary" data-region>
+        <h2 class="nb-serif">{% trans "Summary" %}</h2>
+        <div class="nb-sum-lines">{% for label, value, kind in lines %}<div class="{{ kind }}"><span class="nb-grow">{{ label }}</span><span>{{ value }}</span></div>{% endfor %}</div>
+        <div class="nb-sum-tip-title">{% trans "Tip the team" %}</div>
+        <input type="hidden" name="tip" value="{{ state.tip }}">
+        <div class="nb-tips" role="radiogroup" aria-label="{% trans 'Tip' %}">
+            {% for t in tips %}<button role="radio" aria-checked="{% if t.on %}true{% else %}false{% endif %}" name="op" value="tip:{{ t.pct }}" class="{% if t.on %}on{% endif %}"><b>{% if t.pct %}{{ t.pct }}%{% else %}{% trans "None" %}{% endif %}</b><span>${{ t.amount|floatformat:2 }}</span></button>{% endfor %}
+        </div>
+        <div class="nb-sum-total"><span class="nb-serif nb-grow">{% trans "Total" %}</span><span class="nb-serif">${{ total|floatformat:2 }}</span></div>
+        {% if pay %}
+        <div class="nb-paycard" aria-label="{% trans 'Pay by card' %}">
+            <div class="nb-paycard-head"><span class="nb-serif nb-grow">{% trans "Pay by card" %}</span><a class="nb-paycard-back" href="{% url 'store_cart' %}">{% trans "Back to the order" %}</a></div>
+            <div class="muted nb-paycard-note">{% blocktrans with a=pay.amount|floatformat:2 %}${{ a }}, held on your card until the kitchen accepts the order.{% endblocktrans %}</div>
+            <iframe class="nb-pay-inline" src="{{ pay.url }}" title="{% trans 'Card payment' %}" data-card-frame></iframe>
+            <button hidden name="op" value="place" tabindex="-1"></button>{# checkout.js places the order through it once the card is paid #}
+        </div>
+        {% else %}
+        <button class="nb-btn nb-btn-accent nb-place" name="op" value="place" {% if not ready %}disabled{% endif %}>{% blocktrans with t=total|floatformat:2 %}Place order · ${{ t }}{% endblocktrans %}</button>
+        <div class="nb-sum-note">{% if not when.ok %}{% trans "Pick a time we’re open to place this order." %}{% elif contact_problem %}{{ contact_problem }}{% elif to_pay > 0 %}{% blocktrans with a=to_pay|floatformat:2 %}${{ a }} goes on your card. It’s only charged once the kitchen accepts the order.{% endblocktrans %}{% else %}{% trans "Your cards cover it all." %}{% endif %}</div>
+        {% endif %}
+    </aside>
+</div>
+</form>
+
+{% endif %}
+{% endblock %}

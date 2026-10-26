@@ -1,0 +1,28 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}
+
+{% block content %}
+<form class="c-screen c-pad swap" method="post" action="{% url 'delivery_shift' %}" data-start>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="start">
+    <div class="ov">{{ day }}</div>
+    <h1 class="c-title">{% blocktrans trimmed with name=user.first_name|default:user.username %}Hey {{ name }}, ready to roll?{% endblocktrans %}</h1>
+    <p class="c-lead">{% trans "How are you getting around this shift? We use it to work out travel times for each order." %}</p>
+
+    <fieldset class="c-modes">
+        <legend class="c-hidden">{% trans "Transport for this shift" %}</legend>
+        {% for m in modes %}
+        <label class="c-mode">
+            <input type="radio" name="mode" value="{{ m.value }}" required data-short="{{ m.short }}">
+            <span class="c-mode-icon">{% icon m.value 30 1.9 %}</span>
+            <span class="c-mode-text"><span class="c-mode-label">{{ m.label }}</span><span class="c-mode-sub">{{ m.sub }}</span></span>
+            <span class="c-radio" aria-hidden="true"></span>
+        </label>
+        {% endfor %}
+    </fieldset>
+
+    <div class="grow"></div>
+    <div class="c-note">{% icon "info" 18 2 %}{% trans "You'll get a notification on this phone when a delivery order comes in." %}</div>
+    <button class="c-btn c-btn-primary" data-start-button data-pick="{% trans 'Pick how you’re travelling' %}" data-go="{% trans 'Start shift' %}">{% trans "Start shift" %}</button>
+</form>
+{% endblock %}

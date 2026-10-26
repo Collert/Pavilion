@@ -1,0 +1,24 @@
+{
+  "title": "Order list",
+  "description": "Pickup orders being prepared, or ready to collect, with the customer's first name and order number. Delivery orders aren't shown.",
+  "icon": "M4 5h7v14H4z M13 5h7v14h-7z M6 9h3 M15 9h3",
+  "color": "#C9821A",
+  "template": "screens/widgets/order_list.html",
+  "context": "screens.providers.order_list",
+  "live": ["orders"],
+  "css": ["screens/widgets/order_list.css"],
+  "params": {
+    "show": {"type": "choice", "options": ["preparing", "ready"], "default": "preparing", "label": "Show", "help": "preparing: any station still working on it; ready: every station done, not picked up yet"},
+    "title": {"type": "string", "default": "Preparing", "label": "Heading"},
+    "subtitle": {"type": "string", "default": "We're making these now", "label": "Subheading"},
+    "icon": {"type": "choice", "options": ["pot", "bag", "none"], "default": "pot", "label": "Icon"},
+    "theme": {"type": "choice", "options": ["light", "dark"], "default": "light", "label": "Theme"},
+    "columns": {"type": "int", "default": 2, "min": 1, "max": 6, "label": "Columns"},
+    "limit": {"type": "int", "default": 12, "min": 1, "max": 60, "label": "Most tiles shown", "help": "The rest are counted in a \"+ N more\" line"},
+    "more_text": {"type": "string", "default": "more on the way", "label": "\"More\" text", "help": "Shown as \"+ N more on the way\""},
+    "fresh_seconds": {"type": "int", "default": 12, "min": 0, "max": 600, "label": "\"Just ready\" for", "help": "Seconds a newly ready order is highlighted"},
+    "fresh_text": {"type": "string", "default": "Just ready", "label": "Highlight badge"},
+    "empty_text": {"type": "string", "default": "", "label": "When empty", "help": "Shown when there are no orders"},
+    "footer": {"type": "text", "default": "", "label": "Footer", "help": "Small print at the bottom"}
+  }
+}

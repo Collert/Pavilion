@@ -1,0 +1,234 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+One retail order (design: AdminOrders, order state; admin_portal/orders.py: order_page). The send-receipt and refund
+sheets are this page with ?sheet=send / ?sheet=refund: every choice in them is a GET link or submit, so the server
+works out the refund total; the final button POSTs. Print opens the printable receipt in a new tab.
+{% endcomment %}
+{% block title %}{% blocktrans with n=d.order.id %}Order #{{ n }}{% endblocktrans %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/orders.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"orders"{% endblock %}
+
+{% block content %}
+{% with o=d.order %}
+<header class="page-head order-head" id="order-head" data-region>
+    <div class="grow">
+        <a class="back-link" href="{% url 'admin_orders' %}">{% icon "back" 18 2.4 %}{% trans "Retail orders" %}</a>
+        <div class="title-line">
+            <h1 class="disp page-title">{% blocktrans with n=o.id %}Order #{{ n }}{% endblocktrans %}</h1>
+            <span class="status-chip big {{ d.status }}">{{ d.status_label }}</span>
+        </div>
+        <div class="page-meta">{{ d.meta }}</div>
+    </div>
+    <div class="pager">
+        {% if d.newer %}<a class="pager-btn" href="{% url 'admin_order' d.newer.id %}" aria-label="{% trans 'Newer order' %}">{% icon "back" 18 2.4 %}</a>{% else %}<span class="pager-btn off">{% icon "back" 18 2.4 %}</span>{% endif %}
+        <span class="pager-label small">{% blocktrans with p=d.position n=d.count %}{{ p }} of {{ n }}{% endblocktrans %}</span>
+        {% if d.older %}<a class="pager-btn" href="{% url 'admin_order' d.older.id %}" aria-label="{% trans 'Older order' %}">{% icon "chevron" 18 2.4 %}</a>{% else %}<span class="pager-btn off">{% icon "chevron" 18 2.4 %}</span>{% endif %}
+    </div>
+    <form method="post" action="{% url 'admin_order_print' o.id %}" target="_blank">{% csrf_token %}
+        <button class="btn-light">{% icon "print" 18 %}{% trans "Print receipt" %}</button>
+    </form>
+    <a class="btn-dark" href="?sheet=send" data-live>{% icon "M4 12 20 4l-6 16-3-7z M11 13l9-9" 18 %}{% trans "Send receipt" %}</a>
+    {% if d.can_refund %}<a class="btn-danger" href="?sheet=refund" data-live>{% icon "M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11" 18 %}{{ d.refund_label }}</a>
+    {% else %}<span class="btn-danger off">{{ d.refund_label }}</span>{% endif %}
+</header>
+
+<div class="order-body" id="order-body" data-region>
+    <div class="order-left">
+        <section class="card order-card" aria-label="{% trans 'Items' %}">
+            <div class="card-head base"><h2 class="disp card-title">{% trans "Items" %}</h2><span class="card-meta">{% blocktrans count n=d.item_count %}{{ n }} item{% plural %}{{ n }} items{% endblocktrans %}</span></div>
+            <div class="mini-head item-grid"><span>{% trans "Qty" %}</span><span>{% trans "Item" %}</span><span>{% trans "Station" %}</span><span class="right">{% trans "Each" %}</span><span class="right">{% trans "Total" %}</span></div>
+            {% for it in d.items %}
+            <div class="item-grid item-row">
+                <span class="num qty">{{ it.item.quantity }}×</span>
+                <span class="item-name">
+                    <span class="name{% if it.refunded >= it.item.quantity %} struck{% endif %}">{{ it.item.title }}</span>
+                    {% if it.mods %}<span class="mods">{{ it.mods }}</span>{% endif %}
+                    {% if it.item.note %}<span class="mods">“{{ it.item.note }}”</span>{% endif %}
+                    {% if it.refund_text %}<span class="refund-tag">{{ it.refund_text }}</span>{% endif %}
+                </span>
+                <span class="station-cell">{% if it.combo %}<span class="dot combo"></span>{% trans "Combo" %}{% elif it.station %}<span class="dot" style="background:{{ it.station.color }}"></span>{{ it.station.name }}{% else %}—{% endif %}</span>
+                <span class="num right muted">{{ it.item.unit_price|money }}</span>
+                <span class="num right strong">{{ it.item.line_total|money }}</span>
+            </div>
+            {% endfor %}
+            <div class="totals">
+                {% for t in d.totals %}
+                <div class="total-row{% if t.big %} big disp{% endif %}{% if t.red %} red{% endif %}"><span>{{ t.label }}</span><span class="num">{{ t.value|money }}</span></div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card order-card" aria-label="{% trans 'Timeline' %}">
+            <h2 class="disp card-title">{% trans "Timeline" %}</h2>
+            <ol class="timeline">
+                {% for e in d.timeline %}
+                <li>
+                    <span class="tl-icon {{ e.tone }}">{% icon e.icon 18 %}</span>
+                    <span class="tl-text"><span class="tl-title">{{ e.title }}</span>{% if e.sub %}<span class="tl-sub">{{ e.sub }}</span>{% endif %}</span>
+                    <span class="num tl-time">{{ e.at|time:"g:i A" }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+        </section>
+    </div>
+
+    <div class="order-right">
+        <section class="card side-card" aria-label="{% trans 'Customer' %}">
+            <div class="ov side-ov">{% trans "Customer" %}</div>
+            <div class="who">
+                <span class="who-avatar{% if not d.linked %} walkin{% endif %}">{% if d.linked %}{{ d.name|first|upper }}{% else %}?{% endif %}</span>
+                <span class="two-line"><span class="who-name">{{ d.name }}</span><span class="muted small">{{ d.customer_sub }}</span></span>
+            </div>
+            {% if d.email or d.phone %}
+            <div class="contact">
+                <span>{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 16 %}{{ d.email|default:_("No email on file") }}</span>
+                <span class="num">{% icon "M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M11 18h2" 16 %}{{ d.phone|default:_("No phone on file") }}</span>
+            </div>
+            {% else %}
+            <div class="no-contact">{% trans "No contact details on file. Sending a receipt will ask for an email." %}</div>
+            {% endif %}
+        </section>
+
+        <section class="card side-card" aria-label="{% trans 'Payment' %}">
+            <div class="ov side-ov">{% trans "Payment" %}</div>
+            <div class="pay-rows">
+                {% for p in d.payments %}
+                <div class="pay-row {{ p.kind }}">
+                    <span class="pay-row-icon">{% icon p.icon 18 %}</span>
+                    <span class="two-line grow"><span class="strong">{{ p.label }}</span><span class="small">{{ p.sub }}</span></span>
+                    <span class="num strong">{{ p.amount|money }}</span>
+                </div>
+                {% empty %}
+                <div class="muted small">{% trans "No payments recorded." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card side-card" aria-label="{% trans 'Details' %}">
+            <div class="ov side-ov">{% trans "Details" %}</div>
+            <dl class="details">{% for k, v in d.details %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>
+        </section>
+
+        <section class="card side-card" aria-label="{% trans 'Receipts' %}">
+            <div class="ov side-ov">{% trans "Receipts" %}</div>
+            {% for r in d.receipts %}
+            <div class="receipt-row">{% if r.channel == "print" %}{% icon "print" 16 %}{% trans "Printed" %}{% else %}{% icon "M4 12 20 4l-6 16-3-7z M11 13l9-9" 16 %}{{ r.get_channel_display }} · {{ r.to }}{% endif %}<span class="grow"></span><span class="num muted">{{ r.at|date:"M j, g:i A" }}</span></div>
+            {% empty %}
+            <div class="receipt-row muted">{% icon "print" 16 %}{% trans "No receipt given yet" %}</div>
+            {% endfor %}
+        </section>
+
+        <section class="card side-card" aria-label="{% trans 'Staff note' %}">
+            <form method="post" action="{% url 'admin_order_note' o.id %}" class="note-form">{% csrf_token %}
+                <label for="staff-note" class="ov side-ov">{% trans "Staff note" %}</label>
+                <textarea id="staff-note" name="note" rows="3" class="field" placeholder="{% trans 'Only staff can see this' %}">{{ o.staff_note }}</textarea>
+                <button class="btn-soft">{% trans "Save note" %}</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+<div id="order-sheet" data-region>
+{% if sheet == "send" %}
+<div class="overlay">
+    <a class="scrim" href="{% url 'admin_order' o.id %}" data-live aria-label="{% trans 'Close' %}"></a>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Send receipt' %}">
+        <div class="sheet-head">
+            <div><div class="ov muted">{% trans "Send receipt" %}</div><h2 class="disp sheet-title">{% blocktrans with n=o.id total=o.total|money %}Order #{{ n }} · {{ total }}{% endblocktrans %}</h2></div>
+            <a class="close-btn" href="{% url 'admin_order' o.id %}" data-live aria-label="{% trans 'Close' %}">{% icon "close" 20 2.4 %}</a>
+        </div>
+        <div>
+            <div class="ov muted">{% trans "Send with" %}</div>
+            <div class="services" role="radiogroup" aria-label="{% trans 'Send with' %}">
+                {% for key, label, enabled in send.channels %}
+                {% if enabled %}
+                <a class="svc" role="radio" aria-checked="{% if send.svc == key %}true{% else %}false{% endif %}" href="?sheet=send&svc={{ key }}&to={{ send.to|urlencode }}" data-live>
+                    <span class="svc-icon">{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 20 %}</span><span>{{ label }}</span>
+                </a>
+                {% else %}
+                <span class="svc off" role="radio" aria-checked="false" aria-disabled="true" title="{% trans 'Coming soon' %}">
+                    <span class="svc-icon">{% if key == "sms" %}{% icon "M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M11 18h2" 20 %}{% elif key == "whatsapp" %}{% icon "M12 4c4.4 0 8 3.1 8 7s-3.6 7-8 7c-1 0-2-.2-2.9-.5L5 19l1.2-3.4A6.6 6.6 0 0 1 4 11c0-3.9 3.6-7 8-7z" 20 %}{% elif key == "telegram" %}{% icon "M4 12 20 4l-6 16-3-7z M11 13l9-9" 20 %}{% else %}{% icon "M4 5h16v11H9l-5 4z" 20 %}{% endif %}</span>
+                    <span>{{ label }}</span><span class="soon">{% trans "Soon" %}</span>
+                </span>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <form method="post" action="{% url 'admin_order_send' o.id %}" class="send-form">{% csrf_token %}
+            <label class="field-wrap">{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 20 %}
+                <input type="email" name="to" value="{{ send.to }}" required aria-label="{% trans 'Email address' %}" placeholder="customer@example.com">
+            </label>
+            <div class="hint">{% trans "A full receipt with the itemised order." %}</div>
+            <div class="sheet-foot">
+                <a class="btn-soft" href="{% url 'admin_order' o.id %}" data-live>{% trans "Cancel" %}</a>
+                <button class="btn-amber">{% trans "Send by email" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% elif sheet == "refund" and refund %}
+<div class="overlay">
+    <a class="scrim" href="{% url 'admin_order' o.id %}" data-live aria-label="{% trans 'Close' %}"></a>
+    <div class="sheet wide" role="dialog" aria-modal="true" aria-label="{% trans 'Refund' %}">
+        <form method="get" class="refund-pick">
+            <input type="hidden" name="sheet" value="refund">
+            <input type="hidden" name="mode" value="{{ refund.mode }}">
+            <input type="hidden" name="reason" value="{{ refund.reason }}">
+            <input type="hidden" name="to" value="{{ refund.to }}">
+            {% if refund.mode == "items" %}{% for r in refund.rows %}<input type="hidden" name="q_{{ r.item.id }}" value="{{ r.pick }}">{% endfor %}{% endif %}
+            <div class="sheet-head">
+                <div><div class="ov muted">{% trans "Refund" %}</div><h2 class="disp sheet-title">{% blocktrans with n=o.id name=d.name %}Order #{{ n }} · {{ name }}{% endblocktrans %}</h2></div>
+                <div class="seg soft" role="group" aria-label="{% trans 'Refund what' %}">
+                    <button class="seg-btn" name="mode" value="whole" aria-pressed="{% if refund.mode == 'whole' %}true{% else %}false{% endif %}">{% trans "Whole order" %}</button>
+                    <button class="seg-btn" name="mode" value="items" aria-pressed="{% if refund.mode == 'items' %}true{% else %}false{% endif %}">{% trans "Pick items" %}</button>
+                </div>
+            </div>
+            <div class="sheet-scroll">
+                <div class="ov muted">{% trans "Items" %}</div>
+                {% for r in refund.rows %}
+                <div class="refund-row{% if not r.left %} done{% endif %}">
+                    <span class="two-line grow"><span class="strong">{{ r.item.quantity }}× {{ r.item.title }}</span>
+                        <span class="muted small">{% if not r.left %}{% trans "Already refunded" %}{% else %}{{ r.each|money }} {% trans "each" %}{% if r.done %} · {% blocktrans with n=r.done %}{{ n }} already refunded{% endblocktrans %}{% endif %}{% endif %}</span></span>
+                    {% if refund.mode == "items" and r.left %}
+                    <span class="stepper">
+                        <button name="q_{{ r.item.id }}" value="{{ r.pick|add:-1 }}" {% if r.pick <= 0 %}disabled{% endif %} aria-label="{% blocktrans with item=r.item.title %}Refund one fewer {{ item }}{% endblocktrans %}">{% icon "M5 12h14" 18 2.4 %}</button>
+                        <span class="disp">{% blocktrans with p=r.pick l=r.left %}{{ p }} of {{ l }}{% endblocktrans %}</span>
+                        <button name="q_{{ r.item.id }}" value="{{ r.pick|add:1 }}" {% if r.pick >= r.left %}disabled{% endif %} aria-label="{% blocktrans with item=r.item.title %}Refund one more {{ item }}{% endblocktrans %}">{% icon "plus" 18 2.4 %}</button>
+                    </span>
+                    {% endif %}
+                    <span class="num strong amount">{% if r.amount %}{{ r.amount|money }}{% else %}—{% endif %}</span>
+                </div>
+                {% endfor %}
+                <div class="ov muted section-ov">{% trans "Reason" %}</div>
+                <div class="chip-row">
+                    {% for reason in refund.reasons %}<button class="pick-chip red" name="reason" value="{{ reason }}" aria-pressed="{% if reason == refund.reason %}true{% else %}false{% endif %}">{{ reason }}</button>{% endfor %}
+                </div>
+                <div class="ov muted section-ov">{% trans "Refund to" %}</div>
+                <div class="targets">
+                    <button class="target-btn" name="to" value="original" aria-pressed="{% if refund.to == 'original' %}true{% else %}false{% endif %}" {% if refund.only_cash %}disabled{% endif %}>
+                        {% icon "M3 6h18v12H3z M3 10h18 M7 15h4" 20 %}<span class="two-line"><span class="strong">{{ refund.original_label }}</span><span class="small muted">{% if refund.only_cash %}{% trans "Paid in cash" %}{% else %}{% trans "3–5 business days for cards" %}{% endif %}</span></span>
+                    </button>
+                    <button class="target-btn" name="to" value="cash" aria-pressed="{% if refund.to == 'cash' %}true{% else %}false{% endif %}">
+                        {% icon "M3 7h18v10H3z M12 9.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z M6 10v4 M18 10v4" 20 %}<span class="two-line"><span class="strong">{% trans "Cash from a drawer" %}</span><span class="small muted">{% trans "Recorded against an open drawer" %}</span></span>
+                    </button>
+                </div>
+            </div>
+        </form>
+        <form method="post" action="{% url 'admin_order_refund' o.id %}" class="sheet-foot refund-foot">{% csrf_token %}
+            <input type="hidden" name="mode" value="{{ refund.mode }}"><input type="hidden" name="reason" value="{{ refund.reason }}"><input type="hidden" name="to" value="{{ refund.to }}">
+            {% if refund.mode == "items" %}{% for r in refund.rows %}<input type="hidden" name="q_{{ r.item.id }}" value="{{ r.pick }}">{% endfor %}{% endif %}
+            <div class="grow">
+                <div class="ov muted">{% trans "Refund total" %}</div>
+                <div class="disp num refund-total">{{ refund.amount|money }}</div>
+                <div class="small muted">{% if refund.problem and refund.mode == "items" %}{{ refund.problem }}{% else %}{{ refund.breakdown }}{% endif %}</div>
+            </div>
+            <a class="btn-soft" href="{% url 'admin_order' o.id %}" data-live>{% trans "Cancel" %}</a>
+            <button class="btn-red" {% if not refund.ready %}disabled{% endif %}>{% if refund.amount %}{% blocktrans with amount=refund.amount|money %}Refund {{ amount }}{% endblocktrans %}{% else %}{% trans "Pick something" %}{% endif %}</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+</div>
+{% endwith %}
+{% endblock %}

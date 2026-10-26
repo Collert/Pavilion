@@ -1,0 +1,39 @@
+{% load screens %}
+<section class="screen-card orders orders--{{ params.show }} orders--{{ params.theme }}" aria-label="{{ params.title }}"{% if params.show == "ready" %} aria-live="polite"{% endif %}>
+    <header class="orders-head">
+        {% if params.icon != "none" %}
+        <span class="orders-icon" aria-hidden="true">
+            {% if params.icon == "pot" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"></path><path d="M2 10h20"></path><path d="M9 6.5c0-1.5 1-2 1-3.5M14 6.5c0-1.5 1-2 1-3.5"></path></svg>
+            {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6.5a3 3 0 0 1 6 0V8"></path><path d="m9.5 14 2 2 3.5-4"></path></svg>
+            {% endif %}
+        </span>
+        {% endif %}
+        <div class="orders-titles">
+            <h2>{{ params.title }}</h2>
+            {% if params.subtitle %}<div class="orders-sub">{{ params.subtitle }}</div>{% endif %}
+        </div>
+        <span class="orders-count">{{ data.count }}</span>
+    </header>
+    <div class="orders-grid" style="grid-template-columns: repeat({{ params.columns }}, minmax(0, 1fr))">
+        {% for tile in data.tiles %}
+        <div class="order-tile{% if tile.fresh %} is-fresh{% endif %}{% if tile.entering %} is-entering{% endif %}">
+            <span class="order-main">
+                <span class="order-name">{% if tile.name %}{{ tile.name }}{% else %}#{{ tile.number }}{% endif %}</span>
+                <span class="order-meta">
+                    {% if tile.name %}<span class="order-number">#{{ tile.number }}</span>{% endif %}
+                    {% if tile.fresh %}<span class="order-badge">{{ params.fresh_text }}</span><span hidden data-ends="{{ tile.fresh_until }}"></span>{% endif %}
+                </span>
+            </span>
+            {% if params.show == "preparing" %}
+            <span class="order-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+            {% endif %}
+        </div>
+        {% empty %}
+        {% if params.empty_text %}<p class="orders-empty">{{ params.empty_text }}</p>{% endif %}
+        {% endfor %}
+    </div>
+    {% if data.more %}<div class="orders-more">+ {{ data.more }} {{ params.more_text }}</div>{% endif %}
+    {% if params.footer %}<div class="orders-footer">{{ params.footer|linebreaksbr }}</div>{% endif %}
+</section>

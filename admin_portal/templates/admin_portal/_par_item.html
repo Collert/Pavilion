@@ -1,0 +1,8 @@
+{% load i18n admin_tags %}{% comment %}A par set in the Shift pars list (admin_portal/pars.py: page, item).{% endcomment %}
+<button class="sp-item{% if i.on %} on{% endif %}{% if i.st.0 == 'ended' %} ended{% endif %}" role="option" aria-selected="{{ i.on|yesno:'true,false' }}" name="op" value="pick:{{ i.x.id }}">
+    <span class="sp-tile{% if i.weekly %} weekly{% endif %}">{% if i.weekly %}{% icon "M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4" 18 2.2 %}{% else %}{% icon "M12 3v2 M12 19v2 M5 12H3 M21 12h-2 M6.3 6.3 4.9 4.9 M19.1 19.1l-1.4-1.4 M6.3 17.7l-1.4 1.4 M19.1 4.9l-1.4 1.4 M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" 18 2.2 %}{% endif %}</span>
+    <span class="grow two-line">
+        <span class="sp-name-row"><span class="strong ellipsis">{{ i.name }}</span>{% if i.st %}<span class="sp-st {{ i.st.0 }}">{{ i.st.1 }}</span>{% endif %}</span>
+        <span class="num small muted">{{ i.sub }}</span>
+    </span>
+</button>

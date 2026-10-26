@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from .models import *
 from django.template.loader import render_to_string
@@ -6,14 +7,18 @@ import barcode
 from barcode.writer import ImageWriter
 from io import BytesIO
 import base64
-from payments.models import Transaction
-from misc_tools.funcs import send_template_email
-from misc_tools.classes import SendGridEmailData
+from payments.models import PaymentError, Transaction
+import logging
+
+logger = logging.getLogger(__name__)
+from misc_tools.email import send as send_email
 from django.urls import reverse
-from django.http import HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
+from django.db import transaction as db_transaction
+from django.http import HttpResponseNotAllowed, HttpResponseRedirect, JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotFound
 import json
 from decimal import Decimal
 import os
+from django.core.files.storage import default_storage
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
@@ -38,13 +43,12 @@ def card_display(request, card_number):
     6. Passes the base64-encoded image data and the gift card object to the template context.
     7. Renders the 'gift_cards/card.html' template with the provided context.
     """
-    try:
-        card = GiftCard.objects.get(number=card_number)
-    except:
+    card = GiftCard.find(card_number)
+    if card is None:
         return render(request, 'gift_cards/card.html',)
-    # Create barcode
+    # Create barcode (of the number in the link: only its hash is stored)
     CODE = barcode.get_barcode_class('code128')
-    barcode_instance = CODE(card.number, writer=ImageWriter())
+    barcode_instance = CODE("".join(c for c in card_number if c.isdigit()), writer=ImageWriter())
 
     # Configure the writer with desired options
     options = {
@@ -74,6 +78,14 @@ def card_display(request, card_number):
     }
     return render(request, 'gift_cards/card.html', context)
 
+def balance(request, token):
+    """A gift card's balance from the signed link in a resent email (gift_cards/giftcards.py: balance_link)."""
+    from admin_portal.models import StoreSettings
+    from .giftcards import from_token
+    card = from_token(token)
+    return render(request, "gift_cards/balance.html", {"card": card, "store": StoreSettings.load().name}, status=200 if card else 404)
+
+
 def get_card(request):
     """
     Handle GET and POST requests for gift cards.
@@ -94,78 +106,46 @@ def get_card(request):
     Returns:
         HttpResponse: The rendered HTML response.
     """
-    if request.method == "GET":
-        templates = CardPreset.objects.all()
-        subfolders = ['presets', 'personal']
-        image_urls = []
-        for subfolder in subfolders:
-            folder_path = os.path.join(settings.BASE_DIR, f"files/gift-cards/{subfolder}/")
-            if os.path.exists(folder_path):
-                for file_name in os.listdir(folder_path):
-                    if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
-                        # Construct the URL
-                        image_url = f"/files/gift-cards/{subfolder}/{file_name}"
-                        image_urls.append(image_url)
-        return render(request, "gift_cards/get-card.html", {
-            "route":"get_card",
-            "cards": templates,
-            "card_images":image_urls
-        })
+    if request.method == "GET":  # gift cards are bought on the store's gift card page now
+        from django.shortcuts import redirect
+        return redirect("store_gift_cards")
     elif request.method == "POST":
-        uuid = request.POST["transaction_uuid"]
-        image_path = request.POST["image"]
-        email = request.POST["email"]
-        amount = float(request.POST["amount"])
-        name = request.POST["name"]
-        sender = request.POST["sender"]
-        gifted = request.POST["gifted"] == "true"
+        uuid = request.POST.get("transaction_uuid")
+        image_path = request.POST.get("image", "")
+        email = request.POST.get("email", "")
+        name = request.POST.get("name", "")
+        sender = request.POST.get("sender", "")
+        gifted = request.POST.get("gifted") == "true"
         try:
-            transaction = Transaction.objects.get(uuid=uuid)
-            transaction.delete()
-            card = create_card(request, image_path, email, amount, name, sender, gifted)
-        except:
-            card = GiftCard.objects.filter(email=email, image=image_path, available_balance=amount).first()
+            with db_transaction.atomic():
+                # The card is worth what was actually paid, not what the form says
+                transaction = Transaction.consume(uuid, Decimal("0.01"))
+                card = GiftCard.objects.create(email=email, image=image_path, available_balance=transaction.amount, recipient=name[:60],
+                                               buyer=(sender or name)[:80], source=GiftCard.ONLINE)
+                GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.ISSUE, amount=card.original, balance=card.original,
+                                             note=str(_("Bought online")))
+        except PaymentError as e:
+            return render(request, "gift_cards/card-confirm.html", {"error": str(e)}, status=402)
+        send_card_email(request, card, email, name, sender, gifted)
         return render(request, "gift_cards/card-confirm.html", {
             "card":card
         })
     
-def create_card(request, image_path, email, amount, name, sender, gifted):
+def send_card_email(request, card, email, name, sender, gifted):
     """
-    Creates a new gift card and sends a confirmation email.
-    Args:
-        request (HttpRequest): The HTTP request object.
-        image_path (str): The path to the image associated with the gift card.
-        email (str): The recipient's email address.
-        amount (float): The initial balance of the gift card.
-        name (str): The recipient's name.
-        sender (str): The sender's name (used if the card is gifted).
-        gifted (bool): Indicates whether the card is a gift.
-    Returns:
-        GiftCard: The created GiftCard object.
+    Email the new card's link to the recipient. A failed email is logged, not raised: the customer
+    has paid and the card exists, and the confirmation page shows the link too.
     """
-    card = GiftCard.objects.create(email=email, image=image_path, available_balance=amount)
     # Generate the card link
     card_link = request.build_absolute_uri(reverse('card_display', args=[card.number]))
 
-    email_dynamic_data = {
-        "name":name,
-        "card_url":card_link
-    }
-
-    email_data = SendGridEmailData(
-        template_id="d-be1559e433da4d6eba67b8b9c377b3d4" if gifted else "d-8e41ef2b2f3145838d51e9bf0a40b420",
-        from_email="restaurant@uahelp.ca"
-    )
+    data = {"name": name, "card_url": card_link}
     if gifted:
-        email_dynamic_data["sender"] = sender
-    email_data.add_recipient(
-        email=email,
-        name=name,
-        dynamic_data=email_dynamic_data
-    )
-    # Send confirmation email
-    send_template_email(email_data)
-    return card
+        data["sender"] = sender
+    try:
+        send_email("gift_card_gifted" if gifted else "gift_card", email, data)
+    except Exception:
+        logger.exception("Failed to send gift card email for card •• %s", card.last4)
 
 def special(request):
     return render(request, "gift_cards/special.html", {
@@ -192,15 +172,17 @@ def new_card_confirmation(request):
         "card":card
     })
 
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
 def email_card_confirmation(request):
+    """Preview of the gift card email template."""
     return render(request, "gift_cards/emails/card-confirm.html", {
         "name":"Jane",
         "gifted":False,
         "sender_name":"Joe",
-        "card_link":request.build_absolute_uri(reverse('card_display', "12345"))
+        "card_number":"1234567890123456",
     })
 
-@csrf_exempt
 def card_api(request, card_number):
     """
     Handle API requests for gift card operations.
@@ -214,29 +196,43 @@ def card_api(request, card_number):
         HttpResponseNotFound: If the gift card does not exist.
 
     Methods:
-        GET: Retrieve gift card details including email, image URL, available balance, and card number.
-        POST: Charge the gift card with a specified amount. Returns a message indicating success or insufficient balance.
+        GET: Retrieve the card's image URL, available balance, and number. The owner's email is only
+            included for logged-in staff. Public because customers look up their cards at checkout.
+        POST: Charge the gift card with a specified amount (staff only, CSRF-protected). Orders normally
+            charge cards server-side; this is for manual adjustments.
     """
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+    if request.method == "POST" and not (request.user.is_authenticated and request.user.is_staff):
+        return HttpResponseForbidden()
     try:
-        card = GiftCard.objects.get(number=card_number)
         if request.method == "GET":
-                return JsonResponse({
-                    "email":card.email,
-                    "image":card.image.url,
-                    "available_balance":card.available_balance,
-                    "number":card.number
-                }, status=200)
-        elif request.method == "POST":
-            body = json.loads(request.body)
-            amount = Decimal(body["amount"])
-            response = card.charge_card(amount)
-            if response == 200:
-                return JsonResponse({
-                    "message":f"Card charged ${amount}"
-                }, status=200)
-            elif response == 402:
-                return JsonResponse({
-                    "message":"Insufficient card balance."
-                }, status=402)
+            card = GiftCard.find(card_number)
+            if card is None:
+                raise GiftCard.DoesNotExist
+            data = {
+                "image": card.picture_url() or None,
+                "available_balance": card.available_balance,
+                "last4": card.last4,
+                "frozen": card.frozen,
+            }
+            if request.user.is_authenticated and request.user.is_staff:
+                data["email"] = card.email
+            return JsonResponse(data, status=200)
+        # POST
+        try:
+            amount = Decimal(str(json.loads(request.body)["amount"]))
+        except (ValueError, KeyError, TypeError, ArithmeticError):
+            return JsonResponse({"message":"Invalid amount."}, status=400)
+        if amount <= 0:
+            return JsonResponse({"message":"Invalid amount."}, status=400)
+        with db_transaction.atomic():
+            card = GiftCard.find(card_number, lock=True)
+            if card is None:
+                raise GiftCard.DoesNotExist
+            response = card.charge_card(amount, by=request.user)
+        if response == 200:
+            return JsonResponse({"message":f"Card charged ${amount}"}, status=200)
+        return JsonResponse({"message":"Insufficient card balance."}, status=402)
     except GiftCard.DoesNotExist:
         return HttpResponseNotFound()

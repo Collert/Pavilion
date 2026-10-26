@@ -1,0 +1,580 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Register" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'pos_server/register.css' %}" rel="stylesheet">{% endblock %}
+
+{% block body %}
+<main class="reg-main">
+    <header class="reg-header">
+        <div class="grow">
+            <h1 class="h1">{% trans "Register" %}</h1>
+            <div class="sub" id="drawer-line">{{ drawer_line }}</div>
+        </div>
+        <label class="search">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4-4"></path></svg>
+            <input type="search" id="search" aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search' %}" autocomplete="off">
+        </label>
+        <button class="menu-switch reg-screens-btn" id="screens-open" aria-haspopup="dialog">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v12H3z M8 21h8 M12 17v4"></path></svg>
+            <span class="menu-switch-text">
+                <span class="overline-sm">{% trans "Screen" %}</span>
+                <span class="menu-switch-name"><span class="pair-dot" id="screen-pill-dot" hidden></span><span id="screen-pill-name">{% trans "Not paired" %}</span></span>
+            </span>
+        </button>
+        <button class="menu-switch" id="menu-switch" aria-label="{% trans 'Switch active menu' %}" {% if not can_switch_menu %}disabled{% endif %}>
+            <span class="menu-switch-text">
+                <span class="overline-sm">{% trans "Menu" %}</span>
+                <span class="menu-switch-name">{% if menu %}{{ menu.title }}{% else %}{% trans "None active" %}{% endif %}</span>
+            </span>
+            {% if can_switch_menu %}<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>{% endif %}
+        </button>
+    </header>
+
+    <div role="tablist" aria-label="{% trans 'Menu sections' %}" class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+</main>
+
+<aside class="order-panel" aria-label="{% trans 'Current order' %}">
+    <section class="panel-view swap" id="cart-view">
+        <div class="panel-head">
+            <div>
+                <div class="overline">{% trans "New order" %}</div>
+                <div class="order-no">{% trans "Order" %} #<span class="js-order-no"></span></div>
+            </div>
+            <button class="btn btn-sm" id="clear-cart">{% trans "Clear" %}</button>
+        </div>
+
+        <label class="field overline">
+            {% trans "Customer name" %}
+            <input class="input" type="text" id="customer-name" placeholder="{% trans 'Who is this for?' %}" autocomplete="off" maxlength="140">
+        </label>
+
+        <div role="group" aria-label="{% trans 'Service type' %}" class="seg" id="service">
+            <button aria-pressed="true" data-togo="0">{% trans "For here" %}</button>
+            <button aria-pressed="false" data-togo="1">{% trans "To go" %}</button>
+        </div>
+
+        <div class="lines" id="lines">
+            <div class="empty" id="empty-cart">
+                {% include "pos_server/icons/logo.svg" with size=40 %}
+                {% trans "Tap a dish to start an order" %}
+            </div>
+        </div>
+
+        <div class="gift-lines" id="gift-lines"></div>
+
+        <div class="hint" id="swipe-hint" hidden>{% trans "Swipe right to remove · swipe left or tap an item for more" %}</div>
+
+        <div class="panel-actions">
+            <button class="pill" id="note-btn" aria-pressed="false">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>
+                <span class="js-label">{% trans "Add note" %}</span>
+            </button>
+            <button class="pill" id="order-disc-btn" aria-pressed="false">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"></path><circle cx="7" cy="7" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>
+                <span class="js-label">{% trans "Discount" %}</span>
+            </button>
+            <button class="pill" id="staff-btn" aria-pressed="false">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v10H3z M3 11h18 M7 15h4"></path></svg>
+                <span class="js-label">{% trans "Staff card" %}</span>
+            </button>
+        </div>
+
+        <div class="totals">
+            <div class="total-row"><span>{% trans "Subtotal" %}</span><span class="ink" id="subtotal">$0.00</span></div>
+            <div class="disc-block" id="disc-block" hidden>
+                <button class="disc-toggle" id="disc-toggle" aria-expanded="false">
+                    <span class="disc-toggle-label">{% trans "Discounts" %}
+                        <span class="chev"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
+                    </span>
+                    <span class="brand" id="disc-total"></span>
+                </button>
+                <div class="disc-list line-in" id="disc-list" hidden></div>
+            </div>
+            <div class="total-row" id="tax-row"><span>{% trans "Tax" %}</span><span class="ink" id="tax">$0.00</span></div>
+            <div id="fee-rows"></div>
+            <div class="total-row" id="gift-row" hidden><span>{% trans "Gift cards" %}</span><span class="ink" id="gift-total">$0.00</span></div>
+        </div>
+        <div class="error-line" id="quote-error" hidden></div>
+
+        <button class="btn btn-dark btn-split pay-btn" id="pay-btn" disabled>
+            <span>{% trans "Pay" %}</span>
+            <span class="money" id="pay-total">$0.00</span>
+        </button>
+    </section>
+
+    <section class="panel-view swap" id="pay-view" hidden>
+        <div class="pay-head">
+            <button class="icon-btn" id="back-to-cart" aria-label="{% trans 'Back to order' %}">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m6-6-6 6 6 6"></path></svg>
+            </button>
+            <div>
+                <div class="overline">{% trans "Order" %} #<span class="js-order-no"></span> · <span id="pay-type"></span></div>
+                <div class="pay-name" id="pay-name"></div>
+            </div>
+        </div>
+
+        <div class="due-card">
+            <div class="overline due-label" id="due-label">{% trans "Amount due" %}</div>
+            <div class="due-amount money" id="due-amount"></div>
+            <div class="due-sub" id="due-sub"></div>
+        </div>
+
+        <div class="paid-list" id="paid-list" hidden></div>
+
+        <div role="group" aria-label="{% trans 'Payment method' %}" class="seg" id="methods">
+            <button aria-pressed="true" data-method="cash">{% trans "Cash" %}</button>
+            <button aria-pressed="false" data-method="card">{% trans "Card" %}</button>
+            <button aria-pressed="false" data-method="gift">{% trans "Gift card" %}</button>
+            <button aria-pressed="false" data-method="staff" id="staff-method" hidden>{% trans "Staff" %}</button>
+        </div>
+
+        <div class="method-area">
+            <div class="split-row" id="split-row" hidden>
+                <label class="overline" for="split-amount">{% trans "Pay now" %}</label>
+                <div class="split-input"><span>$</span><input class="input" id="split-amount" inputmode="decimal" autocomplete="off"></div>
+            </div>
+
+            <div class="blocked swap" role="status" id="cash-blocked" hidden>
+                <div class="blocked-icon">
+                    <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"></rect><circle cx="12" cy="12" r="2.6"></circle></svg>
+                </div>
+                <div>
+                    <div class="blocked-title">{% trans "Open the register first" %}</div>
+                    <div class="blocked-text">{% trans "Cash can't be accepted until the drawer is opened with a starting balance." %}</div>
+                </div>
+                <a class="btn btn-md btn-dark" href="{% url 'cash_drawer' %}?next={% url 'pos' %}">{% trans "Open the drawer" %}</a>
+                <div class="sub">{% trans "Card and gift card payments still work." %}</div>
+            </div>
+
+            <div class="cash-ready" id="cash-ready" hidden>
+                <div class="overline">{% trans "Cash received" %}</div>
+                <div class="quick" id="quick-cash"></div>
+                <div class="change-box">
+                    <span>{% trans "Change due" %}</span>
+                    <span class="money" id="change-due">$0.00</span>
+                </div>
+            </div>
+
+            <div class="card-wait" id="card-panel" hidden>
+                <div class="dot"><span class="pulse"></span><span></span></div>
+                <div>
+                    <div class="blocked-title" id="card-title">{% trans "Card on the terminal" %}</div>
+                    <div class="blocked-text" id="card-text">{% trans "Start the payment, then the customer taps, inserts or swipes." %}</div>
+                </div>
+                <div class="card-actions" id="card-actions" hidden>
+                    <button class="btn-link" id="card-check">{% trans "Check with Square" %}</button>
+                    <button class="btn-link" id="card-cancel">{% trans "Cancel" %}</button>
+                </div>
+            </div>
+
+            <div class="gift" id="gift-panel" hidden>
+                <button class="scan-btn" id="scan-btn">
+                    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>
+                    {% trans "Scan the card barcode" %}
+                </button>
+                <label class="field overline">
+                    {% trans "Or type the number" %}
+                    <input class="input" type="text" inputmode="numeric" id="gift-number" placeholder="{% trans 'Gift card number' %}" maxlength="16" autocomplete="off">
+                </label>
+                <div class="gift-found" id="gift-found" hidden></div>
+                <div class="error-line" id="gift-error" hidden></div>
+            </div>
+
+            <div class="gift" id="staff-panel" hidden>
+                <div class="gift-found" id="staff-found"></div>
+                <div class="sub" id="staff-pay-note"></div>
+            </div>
+        </div>
+
+        <div class="pay-foot">
+            <button class="btn-link split-btn" id="split-btn">{% trans "Split payment" %}</button>
+            <button class="btn btn-primary" id="pay-cta" disabled></button>
+        </div>
+    </section>
+</aside>
+
+<!-- Pick a required combo choice -->
+<dialog class="sheet w-sm" id="choice-sheet" aria-labelledby="choice-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline" id="choice-over"></div>
+            <h2 class="h2" id="choice-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="choice-grid" id="choice-options"></div>
+    <div class="sheet-foot">
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary btn-split grow" id="choice-add" disabled>
+            <span>{% trans "Add to order" %}</span><span class="money" id="choice-price"></span>
+        </button>
+    </div>
+</dialog>
+
+<!-- Customize a combo: swap dishes per slot -->
+<dialog class="sheet w-lg" id="combo-sheet" aria-labelledby="combo-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline" id="combo-over"></div>
+            <h2 class="h2" id="combo-title">{% trans "Customize the combo" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body"><div class="chips" id="combo-entries"></div></div>
+    <div class="sheet-foot">
+        <div class="grow">
+            <div class="money foot-total" id="combo-total"></div>
+            <div class="sub" id="combo-delta"></div>
+        </div>
+        <button class="btn-link" id="combo-reset">{% trans "Reset" %}</button>
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary" id="combo-save">{% trans "Save changes" %}</button>
+    </div>
+</dialog>
+
+<!-- Customize a dish -->
+<dialog class="sheet" id="kit-sheet" aria-labelledby="kit-title">
+    <div class="sheet-head">
+        <div class="sheet-head-main">
+            <button class="icon-btn back" id="kit-back" aria-label="{% trans 'Back to the combo' %}" hidden>
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"></path></svg>
+            </button>
+            <div style="min-width:0">
+                <div class="overline" id="kit-over"></div>
+                <h2 class="h2" id="kit-title"></h2>
+                <div class="kit-sub" id="kit-sub"></div>
+            </div>
+        </div>
+        <button class="icon-btn" id="kit-close" aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body">
+        <div class="chips" id="kit-entries"></div>
+        <div class="kit-note">
+            <div class="section-head">
+                <label for="kit-note" class="overline">{% trans "Kitchen note" %}</label>
+                <span class="sub" id="kit-note-count"></span>
+            </div>
+            <input class="input" id="kit-note" type="text" maxlength="140" placeholder="{% trans 'Anything else for this item' %}" autocomplete="off">
+        </div>
+    </div>
+    <div class="sheet-foot">
+        <div class="grow">
+            <div class="overline">{% trans "Adds" %}</div>
+            <div class="money foot-adds" id="kit-adds"></div>
+        </div>
+        <button class="btn-link" id="kit-reset">{% trans "Reset to standard" %}</button>
+        <button class="btn" id="kit-cancel">{% trans "Cancel" %}</button>
+        <button class="btn btn-primary" id="kit-save"></button>
+    </div>
+</dialog>
+
+<!-- Order note -->
+<dialog class="sheet w-md" id="note-sheet" aria-labelledby="note-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline" id="note-scope"></div>
+            <h2 class="h2" id="note-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="stack-10">
+        <div class="overline">{% trans "Quick notes" %}</div>
+        <div role="group" aria-label="{% trans 'Quick notes' %}" class="chips" id="note-chips"
+             data-chips="{% trans 'No onions' %}|{% trans 'Allergy' %}|{% trans 'Extra napkins' %}|{% trans 'Birthday' %}|{% trans 'Rush' %}|{% trans 'Cut in half' %}"></div>
+    </div>
+    <div class="stack-10">
+        <label for="note-text" class="overline">{% trans "Note" %}</label>
+        <div class="note-wrap">
+            <textarea class="textarea" id="note-text" rows="4" maxlength="140" placeholder="{% trans 'Anything the kitchen or the next cashier should know' %}"></textarea>
+            <span class="sub note-count" id="note-count"></span>
+        </div>
+    </div>
+    <div class="toggle-row">
+        <div>
+            <div class="toggle-title">{% trans "Show on the kitchen ticket" %}</div>
+            <div class="sub">{% trans "Cooks see this note with the order" %}</div>
+        </div>
+        <button role="switch" class="switch" id="note-kitchen" aria-checked="true" aria-label="{% trans 'Show on the kitchen ticket' %}"><span></span></button>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn btn-danger-text" id="note-remove" hidden>{% trans "Remove note" %}</button>
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary grow" id="note-save" disabled>{% trans "Save note" %}</button>
+    </div>
+</dialog>
+
+<!-- Sell a gift card (the Gift cards tab): who it's for, and its amount for "Other amount" -->
+<dialog class="sheet w-md" id="giftsale-sheet" aria-labelledby="gs-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Gift card" %}</div>
+            <h2 class="h2" id="gs-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="gs-card" id="gs-card"><span class="gs-store">{{ store_name }}</span><span class="gs-amount" id="gs-card-amount"></span></div>
+    <label class="field overline" id="gs-amount-field">{% trans "Amount" %}
+        <span class="split-input"><span>$</span><input class="input" id="gs-amount" inputmode="numeric" autocomplete="off"></span>
+        <span class="sub" id="gs-range"></span>
+    </label>
+    <label class="field overline">{% trans "Who it’s for" %}
+        <input class="input" type="text" id="gs-to" maxlength="60" autocomplete="off" placeholder="{% trans 'Their name, optional' %}"></label>
+    <label class="field overline">{% trans "Email it to" %}
+        <input class="input" type="email" id="gs-email" maxlength="64" autocomplete="off" placeholder="{% trans 'Optional. Leave empty to print it or read it out' %}"></label>
+    <label class="field overline">{% trans "Message" %}
+        <input class="input" type="text" id="gs-message" maxlength="120" autocomplete="off"></label>
+    <div class="error-line" id="gs-error" hidden></div>
+    <div class="sheet-foot">
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary grow" id="gs-add">{% trans "Add to order" %}</button>
+    </div>
+</dialog>
+
+<!-- The gift cards an order just bought: their numbers, shown once -->
+<dialog class="sheet w-md" id="giftdone-sheet" aria-labelledby="gd-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Paid" %}</div>
+            <h2 class="h2" id="gd-title">{% trans "Gift cards ready" %}</h2>
+        </div>
+    </div>
+    <div class="gd-cards" id="gd-cards" data-print-cards></div>
+    <div class="gd-warn">{% trans "This is the only time the full numbers are shown. Give, print or read them out now: Pavilion keeps just the last four digits." %}</div>
+    <div class="sheet-foot">
+        <button class="btn" id="gd-print">{% trans "Print" %}</button>
+        <button class="btn btn-primary grow" id="gd-done">{% trans "Done, hide the numbers" %}</button>
+    </div>
+</dialog>
+
+<!-- Discount an item or the order -->
+<dialog class="sheet" id="disc-sheet" aria-labelledby="dc-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline" id="dc-scope"></div>
+            <h2 class="h2" id="dc-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body">
+        <div class="dc-grid">
+            <section class="stack-10">
+                <div class="overline">{% trans "Offers" %}</div>
+                <div class="stack-10" id="dc-offers"></div>
+            </section>
+            <section class="stack-22">
+                <div class="stack-10">
+                    <label for="dc-coupon" class="overline">{% trans "Coupon code" %}</label>
+                    <div class="row-8">
+                        <input class="input coupon-input" id="dc-coupon" type="text" placeholder="{% trans 'Enter a code' %}" autocomplete="off">
+                        <button class="btn btn-md btn-dark" id="dc-apply-coupon">{% trans "Apply" %}</button>
+                    </div>
+                    <div class="error-line" id="dc-coupon-err" hidden></div>
+                    <div class="ok-line" id="dc-coupon-ok" hidden></div>
+                </div>
+                <div class="stack-10" id="dc-manual">
+                    <div class="overline">{% trans "Manual discount" %}</div>
+                    <div role="group" aria-label="{% trans 'Discount type' %}" class="seg" id="dc-mode">
+                        <button aria-pressed="true" data-mode="pct">{% trans "Percent" %}</button>
+                        <button aria-pressed="false" data-mode="amt">{% trans "Amount" %}</button>
+                    </div>
+                    <label class="manual-wrap" id="dc-manual-wrap">
+                        <span class="manual-prefix" id="dc-prefix">%</span>
+                        <input type="text" inputmode="decimal" id="dc-manual-value" aria-label="{% trans 'Discount value' %}" placeholder="0" autocomplete="off">
+                    </label>
+                    <div class="row-8" id="dc-quick"></div>
+                    <div class="sub" id="dc-manual-locked" hidden></div>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div class="sheet-foot">
+        <div class="grow" id="dc-saves" hidden>
+            <div class="sub">{% trans "You save" %}</div>
+            <div class="money foot-total" id="dc-saves-amount"></div>
+        </div>
+        <div class="grow" id="dc-saves-spacer"></div>
+        <button class="btn btn-danger-text" id="dc-remove" hidden>{% trans "Remove discount" %}</button>
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary dc-apply" id="dc-apply" disabled>{% trans "Apply discount" %}</button>
+    </div>
+</dialog>
+
+<!-- Staff cards on the order (gift_cards/staff_cards.py): a discount card takes its discount, a balance card pays -->
+<dialog class="sheet w-sm" id="staff-sheet" aria-labelledby="staff-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Staff card" %}</div>
+            <h2 class="h2" id="staff-title">{% trans "Scan a staff card" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body stack-10">
+        <div class="stack-10" id="staff-list"></div>
+        <button class="scan-btn" id="staff-scan">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"></path><circle cx="12" cy="13.5" r="3.2"></circle></svg>
+            {% trans "Scan with the camera" %}
+        </button>
+        <label class="field overline">
+            {% trans "Or scan with the reader, or type the number" %}
+            <span class="row-8">
+                <input class="input coupon-input" type="text" id="staff-number" placeholder="{% trans 'Card number' %}" maxlength="32" autocomplete="off">
+                <button class="btn btn-md btn-dark" id="staff-add">{% trans "Add" %}</button>
+            </span>
+        </label>
+        <div class="error-line" id="staff-error" hidden></div>
+    </div>
+</dialog>
+
+<!-- A manager signs off a typed-in discount (pos_server/approvals.py) -->
+<dialog class="sheet w-sm" id="approve-sheet" aria-labelledby="ap-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Manager approval" %}</div>
+            <h2 class="h2" id="ap-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body ap-body">
+        <div class="sub" id="ap-scope"></div>
+        <div role="group" aria-label="{% trans 'Who is approving' %}" class="ap-staff" id="ap-staff"></div>
+        <div class="ap-prompt" id="ap-prompt"></div>
+        <div class="ap-dots" role="img" id="ap-dots"></div>
+        <div class="ap-error" role="alert" id="ap-error"></div>
+        <div class="keypad ap-keys" id="ap-keys"></div>
+    </div>
+</dialog>
+
+<!-- No Terminal: the customer pays by card on their own phone (payments/views.py: phone_pay) -->
+<dialog class="sheet w-sm" id="phone-sheet" aria-labelledby="phone-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Card on their phone" %}</div>
+            <h2 class="h2" id="phone-title"></h2>
+        </div>
+    </div>
+    <div class="sheet-body phone-body">
+        <img class="phone-qr" id="phone-qr" alt="{% trans 'QR code to pay on a phone' %}">
+        <div class="phone-steps">{% trans "The customer scans it with their phone’s camera and pays by card there." %}</div>
+        <div class="phone-wait"><span class="pulse-dot" aria-hidden="true"></span><span id="phone-wait-text">{% trans "Waiting for the customer…" %}</span></div>
+        <div class="sub phone-url" id="phone-url"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" type="button" id="phone-cancel">{% trans "Cancel" %}</button>
+        <button class="btn grow" type="button" id="phone-check">{% trans "Check payment" %}</button>
+    </div>
+</dialog>
+
+<!-- Type a line's quantity instead of tapping + over and over -->
+<dialog class="sheet w-sm" id="qty-sheet" aria-labelledby="qty-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Quantity" %}</div>
+            <h2 class="h2" id="qty-title"></h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="sheet-body qty-body">
+        <div class="qty-display" id="qty-display" role="status" aria-live="polite"></div>
+        <div class="sub qty-hint" id="qty-hint"></div>
+        <div class="keypad qty-keys" id="qty-keys"></div>
+    </div>
+    <div class="sheet-foot">
+        <button class="btn" data-close>{% trans "Cancel" %}</button>
+        <button class="btn btn-primary grow" id="qty-save"></button>
+    </div>
+</dialog>
+
+<!-- Switch the active menu (managers) -->
+<dialog class="sheet w-sm" id="menu-sheet" aria-labelledby="menu-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Menus on now" %}</div>
+            <h2 class="h2" id="menu-title">{% trans "Ring up from" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <form method="post" action="{% url 'menu_select' %}" class="choice-grid">
+        {% csrf_token %}
+        {% for option in menus %}
+        <button class="choice" name="menu" value="{{ option.id }}" aria-pressed="{% if option.id == menu.id %}true{% else %}false{% endif %}">
+            <span>{{ option.title }}</span>
+        </button>
+        {% endfor %}
+    </form>
+</dialog>
+
+<!-- Screens: announce, pair -->
+<dialog class="sheet w-sm" id="screens-sheet" aria-labelledby="screens-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Register" %}</div>
+            <h2 class="h2" id="screens-title">{% trans "Screen & terminal" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="screens-pair" id="screen-pair">
+        <div class="overline">{% trans "Order summary screen" %}</div>
+        <div class="screens-paired" id="screen-paired" hidden>
+            <span class="grow"><b id="screen-paired-name"></b><span class="sub" id="screen-paired-code"></span></span>
+            <button class="btn btn-sm" type="button" id="screen-unpair">{% trans "Unpair" %}</button>
+        </div>
+        <form class="screens-pair-form" id="screen-pair-form">
+            <input class="input" name="code" maxlength="7" autocomplete="off" autocapitalize="characters" placeholder="{% trans 'Code on the screen, e.g. K7Q-42M' %}" aria-label="{% trans 'Pairing code' %}" required>
+            <button class="btn btn-dark">{% trans "Pair" %}</button>
+        </form>
+        <p class="hint">{% trans "While you take payment, the order shows on the paired screen." %}</p>
+    </div>
+    <div class="screens-pair" id="terminal-pair">
+        <div class="overline">{% trans "Card terminal" %}</div>
+        <div class="screens-paired" id="terminal-paired" hidden>
+            <span class="grow"><b id="terminal-name"></b><span class="sub">{% trans "Card payments on this register go to it." %}</span></span>
+            <button class="btn btn-sm" type="button" id="terminal-unpair">{% trans "Unpair" %}</button>
+        </div>
+        <div class="terminal-code" id="terminal-code" hidden>
+            <span class="grow"><span class="sub">{% trans "On the Terminal, sign in with “Use a device code” and type:" %}</span><b class="terminal-code-text" id="terminal-code-text"></b>
+                <span class="sub" id="terminal-code-sub"></span>
+                <span class="sub">{% trans "If the Terminal is still signed in from before, sign out on it first: it keeps its old code until then." %}</span></span>
+            <button class="btn btn-sm" type="button" id="terminal-check">{% trans "Check" %}</button>
+            <button class="btn btn-sm" type="button" id="terminal-renew" hidden>{% trans "New code" %}</button>
+        </div>
+        <div class="screens-pair-form" id="terminal-none" hidden>
+            <span class="grow sub" id="terminal-none-text"></span>
+            <button class="btn btn-dark" type="button" id="terminal-new">{% trans "Pair a Terminal" %}</button>
+        </div>
+        <div class="screens-pair-form" id="terminal-sandbox" hidden>
+            <select class="input" id="terminal-sandbox-pick" aria-label="{% trans 'Square sandbox test Terminal' %}"></select>
+            <button class="btn btn-sm" type="button" id="terminal-sandbox-use">{% trans "Use test Terminal" %}</button>
+        </div>
+        <p class="hint" id="terminal-sandbox-hint" hidden>{% trans "Square’s sandbox has no real Terminals: pick how the test one answers. Approvals go through up to $25." %}</p>
+    </div>
+    <div class="overline">{% trans "Announcement" %}</div>
+    <form id="announce-form" data-url="{% url 'screens_announce' %}" class="screens-form">
+        <textarea class="input" name="text" rows="3" maxlength="200" required placeholder="{% trans 'e.g. Fresh cardamom buns just came out of the oven' %}" aria-label="{% trans 'Announcement' %}"></textarea>
+        <button class="btn btn-primary">{% trans "Show on screens" %}</button>
+        <p class="hint">{% trans "Screens with the staff announcement pop-up show it." %}</p>
+    </form>
+</dialog>
+
+<!-- Scan a gift card -->
+<dialog class="sheet w-md" id="scan-sheet" aria-labelledby="scan-title">
+    <div class="sheet-head">
+        <div>
+            <div class="overline">{% trans "Gift card" %}</div>
+            <h2 class="h2" id="scan-title">{% trans "Scan the barcode" %}</h2>
+        </div>
+        <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
+    </div>
+    <div class="scanner" id="scanner"></div>
+    <select class="input" id="camera-select" aria-label="{% trans 'Camera' %}"></select>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+
+{{ boot|json_script:"register-boot" }}
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{% static 'pos_server/register.js' %}"></script>
+{% endblock %}

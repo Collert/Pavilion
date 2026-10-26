@@ -1,0 +1,106 @@
+/* The app switcher (see docs/mockups/App switcher-html). Builds on pos_server/staff.css. */
+
+.grow { flex: 1; min-width: 0; }
+
+/* ---------- device overview ---------- */
+
+.overview {
+    position: relative; width: 404px; flex: none; border-radius: 28px; background: var(--ink); color: #fff;
+    display: flex; flex-direction: column; padding: 28px 28px 24px; overflow: hidden;
+}
+.overview > :not(.blob) { position: relative; }
+.blob { position: absolute; border-radius: 50%; }
+.blob.drift { right: -120px; bottom: -150px; width: 340px; height: 340px; background: var(--brand); animation: drift 10s ease-in-out infinite; }
+.blob.dot { right: 46px; top: 120px; width: 44px; height: 44px; background: rgba(255, 255, 255, .07); }
+@keyframes drift { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
+
+.brand-row { display: flex; align-items: center; gap: 12px; }
+.brand-row .rail-logo { margin: 0; }
+.brand-name { font-family: var(--heading); font-size: 22px; line-height: 26px; font-weight: 700; letter-spacing: -.02em; }
+.brand-sub { font-size: 13px; font-weight: 600; color: var(--rail-ink); }
+
+.clock-block { margin-top: 34px; }
+.overline.on-dark { color: var(--rail-ink); }
+.big-clock { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; font-family: var(--heading); font-weight: 700; letter-spacing: -.04em; }
+.big-clock #clock-time { font-size: 88px; line-height: .92; font-variant-numeric: tabular-nums; }
+.big-clock .ampm { font-size: 28px; letter-spacing: -.01em; color: var(--amber); }
+.greeting { font-size: 15px; font-weight: 600; color: #C9D6CF; margin-top: 10px; }
+
+.who { margin-top: 24px; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 20px; background: rgba(255, 255, 255, .08); }
+.who-avatar {
+    width: 44px; height: 44px; border-radius: 22px; background: var(--amber); color: var(--ink); flex: none;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800;
+}
+.who-name { display: block; font-size: 16px; font-weight: 800; }
+.who-sub { display: block; font-size: 13px; font-weight: 600; color: var(--rail-ink); }
+
+.today { margin-top: 22px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stat { padding: 12px 14px; border-radius: 18px; background: rgba(255, 255, 255, .07); min-width: 0; }
+.stat-value { font-family: var(--heading); font-size: 26px; line-height: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rail-ink); margin-top: 2px; }
+
+.grow-space { flex: 1; min-height: 16px; }
+.overview-actions { display: flex; gap: 8px; }
+.overview-actions form { flex: 1; margin: 0; display: flex; }
+.ov-btn {
+    flex: 1; height: 56px; border-radius: 22px; border: none; background: rgba(255, 255, 255, .1); color: #fff;
+    font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.ov-btn.lock { background: var(--amber); color: var(--ink); font-weight: 800; }
+.ov-btn:focus-visible { outline-color: var(--amber); }
+
+/* ---------- apps ---------- */
+
+.apps-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.apps-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 10px 6px 0; flex: none; }
+.apps-title { margin: 4px 0 0; font-family: var(--heading); font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -.02em; }
+.net-pill {
+    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 12px; border-radius: 20px;
+    background: var(--surface); font-size: 13px; font-weight: 700; color: var(--brand);
+}
+.net-dot { width: 10px; height: 10px; border-radius: 5px; background: var(--brand); animation: livePulse 2s ease-out infinite; }
+.net-pill.offline { color: var(--danger); }
+.net-pill.offline .net-dot { background: var(--danger); animation: none; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(31, 74, 58, .45) } 70% { box-shadow: 0 0 0 7px rgba(31, 74, 58, 0) } 100% { box-shadow: 0 0 0 0 rgba(31, 74, 58, 0) } }
+
+.app-grid {
+    flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 14px; padding: 2px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(auto, 1fr);  /* rows fill the screen, never cut a card */
+}
+.app-card {
+    padding: 22px; border-radius: 28px; display: flex; flex-direction: column; text-decoration: none;
+    background: var(--surface); color: var(--ink); transition: transform .16s ease, box-shadow .2s ease;
+}
+.app-card:hover { box-shadow: 0 14px 32px -18px rgba(20, 38, 31, .45); transform: translateY(-2px); }
+.app-card:active { transform: scale(.98); }
+.app-card:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.app-icon { width: 68px; height: 68px; border-radius: 22px; display: flex; align-items: center; justify-content: center; flex: none; }
+.app-name { display: block; margin-top: 18px; font-family: var(--heading); font-size: 24px; line-height: 28px; font-weight: 700; letter-spacing: -.02em; }
+.app-desc { display: block; margin-top: 6px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--muted); }
+@keyframes tileIn { from { opacity: 0; transform: translateY(14px) scale(.98) } to { opacity: 1; transform: none } }
+.tile-in { animation: tileIn .38s cubic-bezier(.2, .8, .2, 1) both; }
+
+@media (max-width: 1100px) {
+    .overview { width: 340px; }
+    .app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Portrait (last, so it wins over the width rules above): the overview on top, apps underneath */
+@media (orientation: portrait) {
+    .overview { width: auto; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 28px; }
+    .brand-row { grid-column: 1 / -1; }
+    .clock-block, .who, .today { margin-top: 0; }
+    .who { grid-column: 1; align-self: start; }
+    .today { grid-column: 2; grid-row: 2 / span 2; }
+    .grow-space { display: none; }
+    .overview-actions { grid-column: 1 / -1; }
+    .big-clock #clock-time { font-size: 72px; }
+    .app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .blob.dot { display: none; }
+}
+@media (orientation: portrait) and (max-width: 640px) {
+    .overview { grid-template-columns: minmax(0, 1fr); }
+    .who, .today { grid-column: 1; grid-row: auto; }
+    .today { display: none; }  /* phones: the apps matter more */
+}

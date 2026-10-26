@@ -1,0 +1,67 @@
+/* The screen canvas and what every widget shares. Widgets size things in design pixels: calc(var(--u) * 24). */
+:root {
+    --ink: #1C2321;
+    --paper: #F4F1EA;
+    --card: #FFFFFF;
+    --muted: #6E7A74;
+    --faint: #9A9F98;
+    --line: #EAE6DC;
+    --accent: #F2C14E;
+    --night: #1C2321;
+    --night-tile: #2A3431;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--screen-bg, var(--paper));
+}
+
+body {
+    font-family: "Sora", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+.screen {
+    box-sizing: border-box;
+    width: 100vw;
+    height: 100vh;
+    padding: var(--screen-pad);
+    display: grid;
+    background: var(--screen-bg, var(--paper));
+}
+
+.screen *, .screen *::before, .screen *::after { box-sizing: border-box; }
+
+/* Every node: fills its slot and never forces it wider or taller */
+.widget {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.widget > * { flex: 1; min-height: 0; }
+
+/* A card, the look most widgets use */
+.screen-card {
+    border-radius: calc(var(--u) * 36);
+    background: var(--card);
+    padding: calc(var(--u) * 30) calc(var(--u) * 28);
+    overflow: hidden;
+}
+
+.widget-missing {
+    border: calc(var(--u) * 3) dashed var(--line);
+    border-radius: calc(var(--u) * 24);
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: calc(var(--u) * 20);
+}
+.widget-missing > p { flex: none; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,26 @@
+{
+  "title": "Now playing",
+  "description": "What's playing on one of the screen's music channels, how far through, and what's up next",
+  "icon": "M9 18V6l10-2v12 M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3z M19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z",
+  "color": "#7A5AC8",
+  "template": "screens/widgets/now_playing.html",
+  "context": "screens.providers.now_playing",
+  "live": ["audio"],
+  "css": [
+    "screens/widgets/now_playing.css"
+  ],
+  "params": {
+    "channel": {
+      "type": "string",
+      "default": "",
+      "source": "audio:music",
+      "label": "Audio channel",
+      "help": "The music channel it shows (from the Audio tab; empty: the first one)"
+    },
+    "show_up_next": {
+      "type": "bool",
+      "default": true,
+      "label": "Show \"Up next\""
+    }
+  }
+}

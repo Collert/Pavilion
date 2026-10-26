@@ -1,0 +1,34 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% trans "Gift card balance" %}</title>
+<style>
+:root { --bg: #E8EDE9; --card: #FFFFFF; --ink: #14261F; --muted: #5B6A62; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0F1A16; --card: #18261F; --ink: #EEF3F0; --muted: #A9BBB2; } }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+       background: var(--bg); color: var(--ink); font: 600 15px/1.45 system-ui, sans-serif; }
+.box { width: 100%; max-width: 420px; background: var(--card); border-radius: 24px; padding: 24px; box-sizing: border-box; }
+.art { aspect-ratio: 1.6; border-radius: 16px; background: #1F4A3A center / cover; color: #FFFFFF; display: flex; flex-direction: column;
+       justify-content: space-between; padding: 14px 16px; box-sizing: border-box; font-weight: 800; }
+.art.dark { color: #14261F; }
+.big { font-size: 34px; font-weight: 800; margin: 16px 0 2px; }
+.muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="box">
+{% if card %}
+    <div class="art{% if card.design.ink == 'dark' %} dark{% endif %}" style="{% if card.picture_url %}background-image: url('{{ card.picture_url }}');{% elif card.design %}background-color: {{ card.design.color }};{% endif %}">
+        <span>{{ store }}</span><span>•••• •••• •••• {{ card.last4 }}</span>
+    </div>
+    <div class="big">${{ card.available_balance|floatformat:2 }}</div>
+    <div class="muted">{% if card.frozen %}{% trans "This card is frozen. Ask the store about it." %}{% else %}{% blocktrans with last4=card.last4 %}Left on gift card •• {{ last4 }}. Show the full card number from your first email at the counter, or type it in at checkout.{% endblocktrans %}{% endif %}</div>
+{% else %}
+    <div class="big">{% trans "Card not found" %}</div>
+    <div class="muted">{% trans "This link doesn’t match a gift card any more. Empty cards are deleted after 30 days." %}</div>
+{% endif %}
+</div>
+</body>
+</html>

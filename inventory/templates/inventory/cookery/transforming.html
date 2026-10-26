@@ -1,0 +1,32 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+{% url 'cookery_transforming' s.id as here %}
+<div class="view swap split">
+    <section class="panel tf-panel" aria-label="{% trans 'Transform' %}" data-region="tf-main" id="tf-main">
+        <a class="pill-btn" href="{% url 'cookery_transforms' %}" data-live>{% icon "back" %}{% trans "Transform" %}</a>
+        <div class="overline gap-top">{% trans "Transform" %}</div>
+        <h1 class="big-title">{{ tf.name }}</h1>
+        {% include "inventory/cookery/flow.html" %}
+        <div class="how-many">
+            <div class="disp running-qty">{{ s.quantity|shown:tf.from_component.unit_of_measurement }}</div>
+            <div class="muted strong">{% blocktrans with time=s.started_at|time:"g:i A" %}{{ verb }} since {{ time }}{% endblocktrans %}{% if not mine %} · {% blocktrans %}started by {{ who }}{% endblocktrans %}{% endif %}</div>
+        </div>
+        <form method="post" action="{{ here }}">{% csrf_token %}
+            <button class="{% if done %}btn-amber{% else %}btn-dark{% endif %} big" name="action" value="done">{% icon "check" 22 2.6 %}{% if done %}{% trans "Mark as done" %}{% else %}{% trans "Mark as done early" %}{% endif %}</button>
+            <button class="danger-link" name="action" value="cancel">{% trans "Cancel and put them back" %}</button>
+        </form>
+    </section>
+    <aside class="panel side-panel tf-side" aria-label="{% trans 'Transform timer' %}" data-region="tf-side" id="tf-side">
+        <div class="scene-frame{% if done %} ring{% endif %}">{% cook_scene tf.scene running 300 %}</div>
+        <div class="overline gap-top">{% if done %}{% trans "Ready" %}{% else %}{% trans "Time left" %}{% endif %}</div>
+        {% if done %}<div class="disp tf-big">{% trans "Done!" %}</div>
+        {% else %}<div class="disp tf-big" data-ends="{{ ends }}" data-done-text="{% trans 'Done!' %}" data-chime>{{ left|clock_left }}</div>{% endif %}
+        <div class="tf-track"><div class="tf-bar"{% if not done %} data-bar-ends="{{ ends }}" data-bar-total="{{ total }}"{% endif %} style="width:{{ pct }}%"></div></div>
+        <div class="brand strong">{% if done %}{% blocktrans with time=s.ends_at|time:"g:i A" %}Ready since {{ time }}{% endblocktrans %}{% else %}{% blocktrans with time=s.ends_at|time:"g:i A" %}Ready at {{ time }}{% endblocktrans %}{% endif %}</div>
+        <div class="grow"></div>
+        {% if tf.instructions %}<div class="how-box">{{ tf.instructions }}</div>{% endif %}
+    </aside>
+</div>
+{% endblock %}

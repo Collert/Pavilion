@@ -38,23 +38,11 @@
         <div id="top">
             <div id="col-1">
                 <h2>{% trans "In progress" %}</h2>
-                <div>
-                    {% for order in in_progress %}
-                    <span data-bar-done="{{order.bar_done}}" data-order-id="{{order.id}}">
-                        <span>{% if order.name %}{{order.name}}{% else %}{% trans "Order #" %}{{order.id}}{% endif %}</span>
-                    </span>
-                    {% endfor %}
-                </div>
+                <div></div>
             </div>
             <div id="col-2">
                 <h2>{% trans "Ready for pickup" %}</h2>
-                <div>
-                    {% for order in ready %}
-                    <span data-bar-done="{{order.bar_done}}" data-dishQty="{{order.dishes.all|length}}" data-dish="{{order.dishes.first.title}}" data-order-id="{{order.id}}">
-                        <span>{% if order.name %}{{order.name}}{% else %}{% trans "Order #" %}{{order.id}}{% endif %}</span>
-                    </span>
-                    {% endfor %}
-                </div>
+                <div></div>
             </div>
             <div id="col-3">
                 
@@ -134,7 +122,7 @@
         }
     </script>
     <script> 
-        const APIKey = "{{weather_API_key}}"
+        const APIKey = "";  // never send a key to a public page; the Screens app has a weather widget
         const checkOrdersLink = "{% url 'active_orders' %}";
         let weatherIcons;
         fetch("{% static 'pos_server/weatherCodes.json' %}").then(response => response.json()).then(data => {weatherIcons = data})

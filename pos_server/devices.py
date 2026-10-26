@@ -1,0 +1,150 @@
+"""
+Server-side enforcement of the registered-device allowlist.
+
+A superuser registers a device (``device_elig`` POST). The device then proves itself with the token kept in
+its localStorage (``device_elig`` PUT), and the server answers with a signed, HttpOnly cookie. Views wrapped in
+``device_required`` check that cookie, so the check no longer depends on client-side JS.
+"""
+import uuid
+from functools import wraps
+
+from django.conf import settings
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.utils.http import urlencode, url_has_allowed_host_and_scheme
+
+from users.access import APPS, can
+
+from .models import EligibleDevice
+
+DEVICE_COOKIE = "pavilion_device"
+DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+
+def set_device_cookie(response, token):
+    response.set_signed_cookie(
+        DEVICE_COOKIE, str(token),
+        max_age=DEVICE_COOKIE_MAX_AGE, httponly=True, samesite="Lax", secure=not settings.DEBUG,
+    )
+    return response
+
+
+def token_is_registered(token) -> bool:
+    try:
+        return EligibleDevice.objects.filter(token=uuid.UUID(str(token))).exists()
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
+def is_registered_device(request) -> bool:
+    if not settings.ENFORCE_DEVICE_CHECK:
+        return True
+    token = request.get_signed_cookie(DEVICE_COOKIE, default=None)
+    return token is not None and token_is_registered(token)
+
+
+def safe_next_url(request, candidate):
+    """Only allow redirects back to this site."""
+    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return candidate
+    return None
+
+
+def device_required(view):
+    """
+    Reject requests from unregistered devices. Page loads are redirected to the registration page,
+    fetch() calls get a 403 JSON response.
+    """
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if is_registered_device(request):
+            return view(request, *args, **kwargs)
+        if request.method == "GET" and "text/html" in request.headers.get("Accept", ""):
+            return redirect(f'{reverse("device_elig")}?{urlencode({"next": request.get_full_path()})}')
+        return JsonResponse({"error": "Device not authorized"}, status=403)
+    return wrapper
+
+
+def staff_required(view):
+    """Logged in *and* staff. Customers can register accounts, so login_required alone isn't enough."""
+    return login_required(user_passes_test(lambda u: u.is_staff)(view))
+
+
+def superuser_required(view):
+    return login_required(user_passes_test(lambda u: u.is_superuser)(view))
+
+
+def no_access(request, code):
+    """What staff see when no group of theirs gives them this app (or action): a page back to the apps, or a 403 for
+    fetch() calls."""
+    name = next((str(label) for c, label, *_rest in APPS if c == code), "")
+    message = (_("You can’t open %(app)s. Ask a manager to add you to a group that can.") % {"app": name} if name
+               else _("You can’t do that. Ask a manager to add you to a group that can."))
+    if request.method == "GET" and "text/html" in request.headers.get("Accept", "text/html"):
+        return render(request, "pos_server/no_access.html", {"message": message, "app": name}, status=403)
+    return JsonResponse({"error": message, "message": message}, status=403)
+
+
+def app_required(code):
+    """Staff in a group that gives them this app (users/access.py, e.g. "app.cookery"); everyone else is told they
+    can't open it. Sign-in works like staff_required."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if can(request.user, code):
+                return view(request, *args, **kwargs)
+            if request.user.is_authenticated and request.user.is_staff:
+                return no_access(request, code)
+            return staff_required(view)(request, *args, **kwargs)  # off to sign in (or refused, for customers)
+        return wrapper
+    return decorator
+
+
+def api_app_required(code):
+    """app_required for fetch() endpoints: 401/403 JSON, never a redirect."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if can(request.user, code):
+                return view(request, *args, **kwargs)
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "Authentication required"}, status=401)
+            if not request.user.is_staff:
+                return JsonResponse({"error": "Staff only"}, status=403)
+            return no_access(request, code)
+        return wrapper
+    return decorator
+
+
+def api_staff_required(view):
+    """For fetch() endpoints: 401/403 JSON instead of a redirect to the login page."""
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+        if not request.user.is_staff:
+            return JsonResponse({"error": "Staff only"}, status=403)
+        return view(request, *args, **kwargs)
+    return wrapper
+
+
+class DeviceTokenMiddleware:
+    """
+    ?device-token=<token> on any Pavilion link makes this browser that device (the signed cookie), then loads the
+    same address without the token. Kiosks that wipe their cookies keep it in their start URL (copied from the
+    admin's Devices page). An unknown token is ignored, and the page asks to set the device up as usual.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        token = request.GET.get("device-token") if request.method == "GET" else None
+        if token and token_is_registered(token):
+            params = request.GET.copy()
+            del params["device-token"]
+            return set_device_cookie(redirect(request.path + (f"?{params.urlencode()}" if params else "")), token)
+        return self.get_response(request)

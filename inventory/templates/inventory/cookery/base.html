@@ -1,0 +1,40 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n cookery_tags %}
+{% comment %}
+Cookery pages (inventory/cookery_views.py). Server-rendered; static/js/live-page.js keeps them current:
+- forms and data-live links load in the background, and only [data-region]s whose HTML changed are swapped in;
+- a different screen replaces #page;
+- SSE "cookery"/"inventory" nudges refetch the page the same way;
+- [data-ends] countdowns tick (ms since the epoch, server time; #page's data-now lets the browser correct its clock).
+{% endcomment %}
+
+{% block title %}{% trans "Cookery" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'inventory/cookery.css' %}" rel="stylesheet">{% endblock %}
+
+{% block rail %}
+<nav class="rail" aria-label="{% trans 'Cookery' %}">
+    <div class="rail-logo">{% icon "make" 24 2 %}</div>
+    <div class="rail-modes" data-region="rail-modes" id="rail-modes">
+        <a class="rail-item" href="{% url 'crafting' %}" data-live {% if home and mode == "make" %}aria-current="page"{% endif %}>{% icon "make" 22 1.8 %}{% trans "Craft" %}</a>
+        <a class="rail-item" href="{% url 'cookery_transforms' %}" data-live {% if home and mode == "transform" %}aria-current="page"{% endif %}>{% icon "swap" 22 1.8 %}{% trans "Transform" %}</a>
+    </div>
+    <div class="rail-spacer"></div>
+    {% include "pos_server/rail_foot.html" %}
+</nav>
+{% endblock %}
+
+{% block body %}
+<main class="cook-main" id="page" data-now="{{ now_ms }}">{% block content %}{% endblock %}</main>
+<div id="toasts" data-region="toasts" data-transient>{% for message in messages %}
+    <div class="toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">
+        <span class="toast-icon">{% if message.level_tag == 'error' %}{% icon "alert" 18 2.2 %}{% else %}{% icon "check" 16 2.6 %}{% endif %}</span>{{ message }}
+    </div>{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { livePage } from "{% static 'js/live-page.js' %}";
+    livePage({ topics: ["cookery", "inventory"] });
+</script>
+{% endblock %}

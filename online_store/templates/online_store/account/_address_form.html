@@ -1,0 +1,20 @@
+{% load i18n %}
+<form method="post" class="acct-address-form">{% csrf_token %}
+    <input type="hidden" name="address_id" value="{{ a.pk|default:'' }}">
+    <div class="acct-two-col">
+        <label><span class="acct-lbl">{% trans "Label" %}</span><input class="acct-field" name="label" value="{{ a.label }}" placeholder="{% trans 'Home, Work…' %}"></label>
+        <label><span class="acct-lbl">{% trans "Unit" %}</span><input class="acct-field" name="unit" value="{{ a.unit }}"></label>
+    </div>
+    <label class="block top10"><span class="acct-lbl">{% trans "Street address" %}</span><input class="acct-field" name="line" value="{{ a.line }}" required autocomplete="address-line1"></label>
+    <div class="acct-two-col top10">
+        <label><span class="acct-lbl">{% trans "City" %}</span><input class="acct-field" name="city" value="{{ a.city }}" autocomplete="address-level2"></label>
+        <label><span class="acct-lbl">{% trans "Postal code" %}</span><input class="acct-field" name="postal" value="{{ a.postal }}" autocomplete="postal-code"></label>
+    </div>
+    <label class="block top10"><span class="acct-lbl">{% trans "Note for the driver" %}</span><input class="acct-field" name="note" value="{{ a.note }}" placeholder="{% trans 'Buzzer, floor, where to leave it' %}"></label>
+    <div class="acct-form-btns">
+        {% if a.pk %}<button class="acct-mini red" name="op" value="address_remove:{{ a.pk }}" formnovalidate>{% trans "Remove" %}</button>{% endif %}
+        <span class="grow"></span>
+        <a class="acct-btn soft" href="?">{% trans "Cancel" %}</a>
+        <button class="acct-btn amber" name="op" value="address_save">{% trans "Save address" %}</button>
+    </div>
+</form>

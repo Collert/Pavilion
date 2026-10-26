@@ -1,73 +1,93 @@
-from django.shortcuts import render
+from decimal import Decimal, InvalidOperation
+
+from django.db import transaction as db_transaction
+import logging
+
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
 from django.http import JsonResponse
-from .square import create_web_payment, capture_payment
+from . import square
+from .square import create_web_payment
 from django.conf import settings
 import json
 from .models import Transaction, PaymentAuthorization
 
+logger = logging.getLogger(__name__)
+
 # Create your views here.
+
+def card_page_context(request, amount, pay_url, extra=None, mode="sheet") -> dict:
+    """What the card form pages need: the store theme's look, and the card form's config (payments/_card_form.html)."""
+    from online_store import themes
+    from .square_oauth import environment
+    cur = themes.current(request)
+    return {
+        # css_vars checks every value against its param (online_store/themes.py), so it's safe in a style tag
+        "fonts": cur.theme.fonts, "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "store_name": cur.store["name"],
+        "config": {"appId": settings.SQUARE_APPLICATION_ID, "locationId": square.location_id(), "sandbox": environment() == "sandbox",
+                   "amountText": f"${amount:,.2f}", "payUrl": pay_url, "extra": extra or {}, "mode": mode, "store": cur.store["name"]},
+    }
+
 
 def web_payment(request):
     """
-    Handles web payment requests for GET, POST, and PUT methods.
-
-    GET:
-        Retrieves the amount from the request, formats it, and creates a transaction.
-        Renders the payment page with necessary details.
-        Query Parameters:
-            - amount (str): The amount for the transaction.
-            - confirmation_needed (bool): Flag indicating if confirmation is needed.
-        Returns:
-            HttpResponse: Rendered payment page with transaction details.
-
-    POST:
-        Marks a transaction as successful based on the provided transaction UUID.
-        Request Body:
-            - transaction_uuid (str): The UUID of the transaction to mark as paid.
-        Returns:
-            JsonResponse: Status of the transaction update.
-
-    PUT:
-        Checks the payment status of a transaction based on the provided transaction UUID.
-        Request Body:
-            - transaction_uuid (str): The UUID of the transaction to check.
-        Returns:
-            JsonResponse: Payment status of the transaction or error if not found.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        HttpResponse or JsonResponse: Depending on the request method.
+    The store's "Pay by card" (payments/templates/payments/square-checkout.html, in a sheet's iframe). GET
+    ?amount=12.50[&confirmation_needed=1]: a Transaction for that amount and the card form, which pays through
+    process_web_payment and then tells the page. POST/PUT {transaction_uuid}: whether it's paid (read-only; only
+    process_web_payment marks a transaction paid).
     """
     if request.method == "GET":
-        amount = request.GET.get('amount', None)
-        if amount:
-            amount = float("{:.2f}".format(float(amount)))
-            transaction = Transaction.objects.create(amount=amount)
-        else:
-            transaction = None
+        try:
+            amount = Decimal(request.GET.get('amount', '')).quantize(Decimal("0.01"))
+            if amount <= 0:
+                raise InvalidOperation
+        except InvalidOperation:
+            amount = None
+        if amount is None:
+            return render(request, "payments/square-checkout.html", {"config": None})
+        transaction = Transaction.objects.create(amount=amount)
         confirmation_needed = bool(request.GET.get('confirmation_needed', False))
-        return render(request, "payments/square-checkout.html", {
-            "location_id":settings.SQUARE_LOCATION_ID,
-            "app_id":settings.SQUARE_APPLICATION_ID,
-            "amount":int(amount * 100) if amount else None,
-            "transaction":transaction,
-            "dev_env": settings.DEBUG,
-            "confirmation_needed":confirmation_needed
-        })
-    elif request.method == "POST":
+        return render(request, "payments/square-checkout.html", card_page_context(
+            request, amount, reverse("process-web-payment"),
+            extra={"transaction_uuid": str(transaction.uuid), "confirmation_needed": confirmation_needed}))
+    elif request.method in ("POST", "PUT"):
+        # Read-only status check. Only process_web_payment can mark a transaction paid.
         data = json.loads(request.body)
-        transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
-        transaction.successful = True
-        transaction.save()
-        return JsonResponse({"status":"marked_paid", "uuid":transaction.uuid})
-    elif request.method == "PUT":
-        data = json.loads(request.body)
-        transaction = Transaction.objects.get(uuid=data.get('transaction_uuid'))
+        transaction = Transaction.objects.filter(uuid=data.get('transaction_uuid')).first()
         if not transaction:
-            return JsonResponse({"error":"transaction not found"})
+            return JsonResponse({"error":"transaction not found"}, status=404)
         return JsonResponse({"paid":transaction.successful, "uuid":transaction.uuid})
+
+
+def phone_pay(request, link):
+    """
+    Paying at the counter on the customer's phone (payments/templates/payments/phone_pay.html): the register shows a
+    QR code for this page when it has no Square Terminal (payments.TerminalCheckout, kind phone). GET: what's being
+    paid for and the card form, or that it's paid or closed. POST {token}: charge exactly the amount the register
+    asked for, once (square.charge_phone); the register hears about it on "checkout".
+    """
+    from admin_portal.models import StoreSettings
+    from .models import TerminalCheckout
+    row = get_object_or_404(TerminalCheckout, kind=TerminalCheckout.PHONE, link=link)
+    if request.method == "POST":
+        try:
+            token = json.loads(request.body or "{}").get("token", "")
+            if not token:
+                raise square.SquareError(_("Enter the card first."))
+            square.charge_phone(row, token)
+        except square.SquareError as e:
+            return JsonResponse({"status": "error", "message": str(e.args[0]) if e.args else _("The payment didn’t go through.")}, status=402)
+        except Exception:
+            logger.exception("A phone payment failed")
+            return JsonResponse({"status": "error", "message": _("The payment didn’t go through. Try again.")}, status=502)
+        return JsonResponse({"status": "success"})
+    closed = row.status == TerminalCheckout.CANCELED or square.phone_expired(row)
+    context = card_page_context(request, row.amount, request.path, mode="page")
+    return render(request, "payments/phone_pay.html", {**context, "row": row, "closed": closed, "store": StoreSettings.load(),
+                                                       "amount_text": f"${row.amount:,.2f}"})
+
 
 def process_web_payment(request):
     """
@@ -91,60 +111,63 @@ def process_web_payment(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         token = data.get('token')
-        amount = int(data.get('amount'))
-        confirmation_needed = bool(data.get('confirmation_needed'))
-        transaction_uuid = data.get('transaction_uuid')
-        transaction = Transaction.objects.get(uuid=transaction_uuid)
-
-        response = create_web_payment(token, float("{:.2f}".format(amount/100)), autocomplete = not confirmation_needed, transaction=transaction)
-
-        if response.is_success():
-            return JsonResponse({'status': 'success', 'payment': response.body})
-        elif response.is_error():
+        confirmation_needed = data.get('confirmation_needed') in (True, "True", "true")
+        with db_transaction.atomic():
+            transaction = Transaction.objects.select_for_update().filter(uuid=data.get('transaction_uuid')).first()
+            if transaction is None:
+                return JsonResponse({'status': 'error', 'errors': ['Unknown transaction']}, status=404)
+            if transaction.successful:
+                return JsonResponse({'status': 'error', 'errors': ['This transaction is already paid']}, status=409)
+            # Charge the amount fixed when the popup opened, never an amount sent by the browser
+            response = create_web_payment(token, transaction.amount, autocomplete = not confirmation_needed, transaction=transaction)
+            if response.is_success():
+                transaction.successful = True
+                transaction.save(update_fields=["successful"])
+                return JsonResponse({'status': 'success', 'payment': response.body})
             return JsonResponse({'status': 'error', 'errors': response.errors})
 
     return JsonResponse({'status': 'method not allowed'}, status=405)
 
-def capture_web_payment(request):
+
+
+def save_card(request):
     """
-    Handle web payment capture and deletion requests.
-
-    Args:
-        request (HttpRequest): The HTTP request object containing the payment data.
-
-    Returns:
-        JsonResponse: A JSON response indicating the status of the operation.
-
-    The function supports two HTTP methods:
-    - POST: Captures a payment based on the provided payment_id.
-    - DELETE: Deletes a payment authorization based on the provided payment_id.
-
-    POST:
-        - Expects a JSON body with a 'payment_id' field.
-        - Attempts to capture the payment and update the authorization status to "del".
-        - Returns a JSON response with the status 'captured' and the captured payment ID.
-        - In case of an error, returns a JSON response with the status 'error' and the error message.
-
-    DELETE:
-        - Expects a JSON body with a 'payment_id' field.
-        - Updates the authorization status to "del".
-        - Returns a JSON response with the status 'deleted' and the authorization ID.
+    Keep a card on file for later (a catering request is charged when it's agreed, weeks after it's sent).
+    GET: Square's card form (payments/save-card.html, in an iframe). POST JSON {"token"} from it: creates the Square
+    customer and card and keeps {"customer", "id", "brand", "last4"} in the session as "saved_card" for the page that
+    asked. In DEBUG, {"demo": true} saves a made-up card ("demo:" ids, never sent to Square).
     """
-    data = json.loads(request.body)
-    if request.method == "POST":
-        payment_id = data.get('payment_id')
-        try:
-            authorization = PaymentAuthorization.objects.get(payment_id=payment_id)
-            if authorization.status == "":
-                captured_payment = capture_payment(payment_id)
-            authorization.status = "del"
-            authorization.save()
-            return JsonResponse({'status': 'captured', 'payment_id': captured_payment['id']})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-    elif request.method == "DELETE":
-        payment_id = data.get('payment_id')
-        authorization = PaymentAuthorization.objects.get(payment_id=payment_id)
-        authorization.status = "del"
-        authorization.save()
-        return JsonResponse({'status': 'deleted', 'payment_id': authorization.id})
+    from . import square
+    if request.method != "POST":
+        return render(request, "payments/save-card.html", {"location_id": square.location_id(),
+                                                           "app_id": settings.SQUARE_APPLICATION_ID, "dev_env": settings.DEBUG})
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"message": "Bad request"}, status=400)
+    if data.get("demo") and settings.DEBUG:
+        import uuid as uuid_
+        card = {"customer": "demo:cust-test", "id": f"demo:card-{uuid_.uuid4().hex[:8]}", "brand": "VISA", "last4": "1111"}
+        _keep(request, card)
+        return JsonResponse({"ok": True})
+    token = str(data.get("token") or "")
+    if not token:
+        return JsonResponse({"message": "No card"}, status=400)
+    user = request.user if request.user.is_authenticated else None
+    known = getattr(getattr(user, "customer_profile", None), "square_customer_id", "") if user else ""
+    try:
+        customer = known or square.create_customer(user.get_full_name() if user else "", user.email if user else "")
+        card = square.save_card(token, customer, user.get_full_name() if user else "")
+    except square.SquareError:
+        return JsonResponse({"message": "The card was declined. Try another one."}, status=400)
+    _keep(request, {"customer": customer, **card})
+    return JsonResponse({"ok": True})
+
+
+def _keep(request, card):
+    """The page that asked uses the session's card; a signed-in customer's account keeps it too."""
+    if request.user.is_authenticated:
+        from online_store.account import save_customer_card
+        saved = save_customer_card(request.user, card)
+        card = {**card, "saved": saved.id}
+    request.session["saved_card"] = card

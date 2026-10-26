@@ -1,0 +1,139 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Email (design: AdminEmail; admin_portal/email_settings.py). The listmonk connection and its buttons act straight
+away; the switches and template picks are a draft (editor.js posts them back) saved with Save changes.
+{% endcomment %}
+{% block title %}{% trans "Email" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="em-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Email" %}</h1>
+    </div>
+    <span class="em-status{% if x.connected and not x.err %} on{% endif %}"><span></span>{% if x.connected and not x.err %}{% trans "Connected" %}{% elif x.connected %}{% trans "Can’t reach listmonk" %}{% else %}{% trans "Not connected" %}{% endif %}</span>
+    <button class="btn-amber" name="op" value="save"{% if not x.dirty %} disabled{% endif %}>{% trans "Save changes" %}</button>
+</header>
+
+<div class="tm-body">
+    <aside class="em-side" id="em-side" data-region>
+        <section class="card tm-card" aria-label="listmonk">
+            <div class="em-brand"><span class="em-brand-ic">{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 22 2.2 %}</span>
+                <div class="grow"><h2 class="disp tm-h2">listmonk</h2><div class="small muted strong">{% trans "Pavilion sends email through your own listmonk." %}</div></div></div>
+            {% if x.connected %}
+            <div class="em-facts">{% for k, v in x.facts %}<div><span>{{ k }}</span><span class="num ellipsis">{{ v }}</span></div>{% endfor %}</div>
+            {% if x.err %}<div class="em-err">{{ x.err }}</div>{% endif %}
+            <div class="em-btns">
+                <button class="em-soft grow" name="op" value="test">{% trans "Send a test email" %}</button>
+                <button class="em-soft em-ico" name="op" value="refresh" aria-label="{% trans 'Reload templates from listmonk' %}" title="{% trans 'Reload templates' %}">{% icon "M20 12a8 8 0 1 1-2.3-5.7 M20 4v4h-4" 16 2.4 %}</button>
+                <button class="em-soft red" name="op" value="disconnect">{% trans "Disconnect" %}</button>
+            </div>
+            {% else %}
+            <label class="block top12"><span class="lbl">{% trans "listmonk URL" %}</span><input class="field" type="url" name="url" value="{{ x.st.url }}" placeholder="https://mail.example.com" data-type-preview autocomplete="off"></label>
+            {% if not x.st.url %}<div class="em-hint">{% trans "Paste the address you use to open listmonk." %}</div>
+            {% elif not x.url_ok %}<div class="em-hint bad">{% trans "That doesn’t look like a web address yet." %}</div>{% endif %}
+            {% if x.url_ok %}
+            <label class="block top12"><span class="lbl">{% trans "API user" %}</span><input class="field" name="user" value="{{ x.st.user }}" placeholder="{% trans 'e.g. pavilion' %}" autocomplete="off"></label>
+            <label class="block top10"><span class="lbl">{% trans "API key" %}</span>
+                <span class="em-key"><input type="{% if x.st.show %}text{% else %}password{% endif %}" name="token" placeholder="{% if x.has_token %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key from listmonk' %}{% endif %}" autocomplete="off" data-no-preview>
+                <button name="op" value="showkey">{% if x.st.show %}{% trans "Hide" %}{% else %}{% trans "Show" %}{% endif %}</button></span></label>
+            <label class="block top10"><span class="lbl">{% trans "Send as" %} <span class="faint">· {% trans "optional" %}</span></span><input class="field" name="from" value="{{ x.st.from }}" placeholder="{% trans 'Corner Kitchen <hello@example.com>' %}" autocomplete="off"></label>
+            <div class="em-hint">{% trans "In listmonk, go to Admin › Users and create an API user whose role can manage templates, lists and subscribers and send transactional mail." %}</div>
+            <button class="em-connect" name="op" value="connect">{% trans "Test and connect" %}</button>
+            {% endif %}
+            {% endif %}
+        </section>
+
+        {% if x.connected %}
+        {% if x.missing %}
+        <section class="em-install">
+            <div class="strong">{% blocktrans count n=x.missing %}{{ n }} template isn’t in listmonk yet{% plural %}{{ n }} templates aren’t in listmonk yet{% endblocktrans %}</div>
+            <div class="small">{% blocktrans with langs=x.langs|join:", " %}Pavilion writes one for each email in each language that’s on ({{ langs }}), plus a newsletter template and a customers list.{% endblocktrans %}</div>
+            <button name="op" value="install">{% trans "Add Pavilion’s templates" %}</button>
+        </section>
+        {% endif %}
+        <nav class="card em-cats" aria-label="{% trans 'Email groups' %}">
+            {% for g in x.groups %}
+            <button class="em-cat{% if g.on %} on{% endif %}" name="op" value="cat:{{ g.key }}"{% if g.on %} aria-current="page"{% endif %}>
+                <span class="em-cat-ic">{% icon g.icon 18 2.2 %}</span>
+                <span class="grow">{{ g.label }}</span>
+                <span class="small muted strong num">{{ g.count }}</span>
+                {% if g.warn %}<span class="em-warn" title="{% trans 'Missing templates' %}">!</span>{% endif %}
+            </button>
+            {% endfor %}
+        </nav>
+        <section class="card tm-card" id="em-people">
+            <div class="ov muted">{% trans "People in listmonk" %}</div>
+            <div class="small muted strong top8">{% trans "Everyone with an account is in the users list, which only gets transactional email: never send it a campaign, so nobody can unsubscribe from receipts and password resets. Customers who ticked “Monthly menu email” are also in the customers list, for newsletters (they can leave that one)." %}</div>
+            {% if x.sync.state == "running" %}<div class="em-sync">{% trans "Adding everyone’s accounts to listmonk…" %}</div>
+            {% elif x.sync.state == "done" %}<div class="em-sync done">{% blocktrans count n=x.sync.count %}{{ n }} account is in listmonk.{% plural %}{{ n }} accounts are in listmonk.{% endblocktrans %}</div>
+            {% elif x.sync.state == "failed" %}<div class="em-err">{{ x.sync.error }}</div>{% endif %}
+            <button class="em-soft wide top8" name="op" value="sync">{% trans "Update everyone now" %}</button>
+        </section>
+        {% endif %}
+    </aside>
+
+    <section class="card em-main" id="em-main" data-region aria-label="{% trans 'Emails' %}">
+        {% if not x.connected %}
+        <div class="em-empty">
+            <span class="em-empty-ic">{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 40 1.8 %}</span>
+            <h2 class="disp">{% trans "No email is going out yet" %}</h2>
+            <p>{% trans "Connect listmonk to send receipts, catering updates, gift cards and staff notices. Until then, customers still get on-screen updates." %}</p>
+            <div class="em-teaser">{% for t in x.teaser %}<span>{{ t }}</span>{% endfor %}</div>
+        </div>
+        {% else %}
+        <div class="em-head"><h2 class="disp grow">{{ x.group.label }}</h2><span class="small muted strong num">{{ x.group.count }}</span></div>
+        <div class="small muted strong">{% trans "One template per language you’ve turned on in Languages. People get the one in their language." %}</div>
+        {% for e in x.emails %}
+        <article class="em-card{% if e.on %} on{% endif %}">
+            <div class="em-card-top">
+                <span class="em-card-ic">{% icon e.k.icon 20 2.1 %}</span>
+                <div class="grow">
+                    <div class="em-name"><span>{{ e.k.label }}</span>{% if e.k.always %}<span class="em-always">{% trans "Always on" %}</span>{% endif %}</div>
+                    <div class="small strong em-when">{{ e.k.when }}</div>
+                    <div class="em-to">{% icon "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0" 14 2.2 %}{{ e.k.to }}</div>
+                </div>
+                <button class="lg-sw" role="switch" aria-checked="{{ e.on|yesno:'true,false' }}" name="op" value="flip:{{ e.k.key }}"{% if e.k.always %} disabled{% endif %}
+                        aria-label="{% if e.on %}{% blocktrans with name=e.k.label %}Stop sending {{ name }}{% endblocktrans %}{% else %}{% blocktrans with name=e.k.label %}Send {{ name }}{% endblocktrans %}{% endif %}"><span></span></button>
+            </div>
+            {% if e.on %}
+            <div class="em-langs">
+                {% for r in e.rows %}
+                <div class="em-lang">
+                    <span class="em-lang-name" lang="{{ r.lang }}">{{ r.name }}</span>
+                    <select class="field{% if r.missing or r.gone %} warn{% endif %}" name="{{ r.field }}" aria-label="{% blocktrans with name=e.k.label lang=r.name %}{{ name }} template in {{ lang }}{% endblocktrans %}">
+                        <option value=""{% if not r.pick %} selected{% endif %}>{% trans "Choose a template…" %}</option>
+                        {% for tid, name in r.options %}<option value="{{ tid }}"{% if tid == r.pick %} selected{% endif %}>{{ name }}</option>{% endfor %}
+                    </select>
+                    <a class="ico" href="{{ x.edit_url }}" target="_blank" rel="noopener" aria-label="{% blocktrans with lang=r.name %}Edit the {{ lang }} template in listmonk{% endblocktrans %}" title="{% trans 'Edit in listmonk' %}">{% icon "M4 20h4L19 9l-4-4L4 16z M13 7l4 4" 17 2.2 %}</a>
+                </div>
+                {% if r.missing %}<div class="em-lang-warn">{% blocktrans with lang=r.name %}No {{ lang }} template picked. People who use {{ lang }} get the default language’s one.{% endblocktrans %}</div>
+                {% elif r.gone %}<div class="em-lang-warn">{% trans "This template isn’t in listmonk any more. Pick another, or reset to default." %}</div>{% endif %}
+                {% endfor %}
+                <div class="em-row">
+                    <button class="em-link" name="op" value="data:{{ e.k.key }}" aria-expanded="{{ e.open|yesno:'true,false' }}"><span class="em-caret{% if e.open %} open{% endif %}">{% icon "m9 6 6 6-6 6" 12 2.8 %}</span>{% trans "Template data" %}</button>
+                    <span class="grow"></span>
+                    <button class="em-link" name="op" value="reset:{{ e.k.key }}">{% icon "M3.5 12a8.5 8.5 0 1 0 2.5-6 M3 4v4h4" 14 2.4 %}{% trans "Reset to default" %}</button>
+                </div>
+                {% if e.open %}
+                <div class="em-data">
+                    <div class="small muted strong">{% trans "Use these in your listmonk template, e.g." %} <code>{{ e.example }}</code></div>
+                    <div class="em-vars">{% for v, d in e.vars %}<span title="{{ d }}">{{ v }}</span>{% endfor %}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </article>
+        {% endfor %}
+        {% endif %}
+    </section>
+</div>
+</form>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% trans "Your refund is on its way" %}</h1>
+<p>{% blocktrans with name=tx.name amount=tx.amount number=tx.number to=tx.to %}Hi {{ name }}, we refunded {{ amount }} from order #{{ number }} to {{ to }}.{% endblocktrans %}</p>
+{% go "if .Tx.Data.reason" %}<div class="pv-box">{% go ".Tx.Data.reason" %}</div>{% go "end" %}
+<p class="pv-muted">{% trans "Card refunds can take a few days to show up." %}</p>
+{% endblock %}

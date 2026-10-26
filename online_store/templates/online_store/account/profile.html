@@ -1,0 +1,103 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}
+Profile and wallet (StoreAccount, profile). The profile is one form with "Save changes" in the header; cards are
+added through Square's form (payments/save-card in an iframe, ?card=1) and addresses edited in place (?address=).
+{% endcomment %}
+{% block title %}{% trans "Profile and wallet" %}{% endblock %}
+{% block heading %}{% trans "Profile and wallet" %}{% endblock %}
+{% block head_tools %}<button class="acct-btn amber" form="acct-profile" name="op" value="save">{% trans "Save changes" %}</button>{% endblock %}
+{% block content %}
+<div class="acct-scroll acct-grid">
+    <form method="post" id="acct-profile" class="acct-card">{% csrf_token %}
+        <h2 class="disp acct-h2">{% trans "Profile" %}</h2>
+        <div class="acct-two-col">
+            <label><span class="acct-lbl">{% trans "First name" %}</span><input class="acct-field" name="first" value="{{ request.user.first_name }}" autocomplete="given-name"></label>
+            <label><span class="acct-lbl">{% trans "Last name" %}</span><input class="acct-field" name="last" value="{{ request.user.last_name }}" autocomplete="family-name"></label>
+        </div>
+        <label class="block top10"><span class="acct-lbl">{% trans "Email" %}</span><input class="acct-field" type="email" name="email" value="{{ request.user.email }}" autocomplete="email"></label>
+        <label class="block top10"><span class="acct-lbl">{% trans "Phone" %}</span><input class="acct-field" name="phone" value="{{ phone }}" autocomplete="tel"></label>
+        {% if not work %}<label class="block top10"><span class="acct-lbl">{% trans "Company" %} <span class="acct-faint">· {% trans "shows on catering invoices" %}</span></span><input class="acct-field" name="org" value="{{ prof.organization }}" autocomplete="organization"></label>{% endif %}
+        <div class="acct-toggles">
+            {% for key, label, desc, on in toggles %}
+            <label class="acct-toggle"><span class="grow acct-two"><span class="strong">{{ label }}</span><span class="acct-meta">{{ desc }}</span></span>
+                <input type="checkbox" name="{{ key }}" value="1" class="visually-hidden" {% if on %}checked{% endif %}><span class="acct-switch"><span></span></span></label>
+            {% endfor %}
+        </div>
+    </form>
+    <div class="acct-stack">
+        {% if work %}
+        <section class="acct-card acct-emergency">
+            <div class="acct-card-head center"><span class="acct-heart"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-9.3-9A5.3 5.3 0 0 1 12 6.4 5.3 5.3 0 0 1 21.3 12C19 16.6 12 21 12 21z"/></svg></span><h2 class="disp acct-h2 grow">{% trans "Emergency contact" %}</h2></div>
+            <div class="acct-meta small top6">{% trans "Only managers can see this. We’ll only call if something happens at work." %}</div>
+            <div class="acct-ec-grid">
+                <label><span class="acct-lbl">{% trans "Name" %}</span><input class="acct-field" form="acct-profile" name="ec_name" maxlength="60" value="{{ work.profile.emergency_name }}"></label>
+                <label><span class="acct-lbl">{% trans "Relationship" %}</span><input class="acct-field" form="acct-profile" name="ec_rel" maxlength="40" value="{{ work.profile.emergency_relation }}"></label>
+            </div>
+            <label class="block top10"><span class="acct-lbl">{% trans "Phone" %}</span><input class="acct-field" form="acct-profile" name="ec_phone" maxlength="20" value="{{ work.profile.emergency_phone }}" autocomplete="off"></label>
+        </section>
+        <section class="acct-card">
+            <h2 class="disp acct-h2">{% trans "Work" %}</h2>
+            {% if work.roles %}<div class="acct-chips">{% for r in work.roles %}<span class="acct-chip"><i style="background: {{ r.color }}"></i>{{ r.name }}</span>{% endfor %}</div>{% endif %}
+            {% for c in work.cards %}
+            <div class="acct-wallet top12"><span class="acct-gift-art staff" style="--c: {{ c.color }}"><span></span></span>
+                <span class="grow acct-two"><span class="strong">{{ c.name }}</span><span class="acct-meta small">{{ c.sub }}</span></span>
+                <span class="disp num acct-staff-amt">{{ c.value }}</span></div>
+            {% endfor %}
+            <div class="acct-meta small faint top10">{% trans "Roles and groups are set by your manager." %}</div>
+        </section>
+        {% endif %}
+        {% get_available_languages as langs %}{% if langs|length > 1 %}{% get_current_language as cur %}{% get_language_info_list for langs as infos %}
+        <section class="acct-card">
+            <h2 class="disp acct-h2">{% trans "Language" %}</h2>
+            <div class="acct-meta">{% trans "What you see here and in the apps, and what our emails to you are written in." %}</div>
+            <form method="post" action="{% url 'set_language' %}" class="acct-langs">{% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% for l in infos %}<button name="language" value="{{ l.code }}" lang="{{ l.code }}" aria-pressed="{% if l.code|lower == cur %}true{% else %}false{% endif %}">{{ l.name_local }}</button>{% endfor %}
+            </form>
+        </section>
+        {% endif %}
+        <section class="acct-card" id="acct-cards" data-region>
+            <div class="acct-card-head"><h2 class="disp acct-h2 grow">{% trans "Saved cards" %}</h2><a class="acct-link" href="?card=1">+ {% trans "Add a card" %}</a></div>
+            <form method="post" class="acct-list">{% csrf_token %}
+                {% for c in cards %}
+                <div class="acct-wallet"><span class="acct-brand-mark">{{ c.brand|default:"CARD"|upper|slice:":4" }}</span><span class="grow acct-two"><span class="strong">{{ c.label }}</span><span class="acct-meta">{% if c.exp_month %}{% blocktrans with m=c.exp_month y=c.exp_year %}Expires {{ m }}/{{ y }}{% endblocktrans %}{% else %}{% trans "On file" %}{% endif %}</span></span>
+                    {% if c.is_default %}<span class="acct-pill done">{% trans "Default" %}</span>{% else %}<button class="acct-mini" name="op" value="card_default:{{ c.id }}">{% trans "Make default" %}</button>{% endif %}
+                    <button class="acct-mini red" name="op" value="card_remove:{{ c.id }}">{% trans "Remove" %}</button></div>
+                {% empty %}
+                <div class="acct-meta">{% trans "No saved cards yet." %}</div>
+                {% endfor %}
+            </form>
+            {% if adding_card %}<iframe class="acct-card-frame" src="{% url 'save-card' %}" title="{% trans 'Add a card' %}"></iframe>{% endif %}
+            <div class="acct-meta top10">{% blocktrans with name=store.name %}Cards are stored by Square. {{ name }} never sees your full card number.{% endblocktrans %}</div>
+        </section>
+        <section class="acct-card">
+            <div class="acct-card-head"><h2 class="disp acct-h2 grow">{% trans "Addresses" %}</h2><a class="acct-link" href="?address=new">+ {% trans "Add an address" %}</a></div>
+            <div class="acct-list">
+                {% for a in addresses %}
+                {% if editing and editing.pk == a.pk %}{% include "online_store/account/_address_form.html" with a=a %}
+                {% else %}
+                <div class="acct-wallet"><span class="acct-pin"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7 M5 10v10h14V10"/></svg></span>
+                    <span class="grow acct-two"><span class="strong">{{ a.label }}</span><span class="acct-meta">{{ a.one_line }}{% if a.note %} · {{ a.note }}{% endif %}</span></span>
+                    <a class="acct-mini" href="?address={{ a.id }}">{% trans "Edit" %}</a></div>
+                {% endif %}
+                {% empty %}
+                {% if not editing %}<div class="acct-meta">{% trans "No saved addresses yet." %}</div>{% endif %}
+                {% endfor %}
+                {% if editing and not editing.pk %}{% include "online_store/account/_address_form.html" with a=editing %}{% endif %}
+            </div>
+        </section>
+        {% for g in gift_cards %}
+        <section class="acct-card acct-gift">
+            <span class="acct-gift-art"><span></span></span>
+            <span class="grow acct-two"><span class="strong">{% blocktrans with last4=g.last4 %}Gift card •• {{ last4 }}{% endblocktrans %}</span><span class="acct-meta">{% trans "Used automatically at checkout" %}</span></span>
+            <span class="disp num acct-gift-amt">${{ g.available_balance|floatformat:2 }}</span>
+        </section>
+        {% endfor %}
+    </div>
+</div>
+<script type="module">
+    // A card saved in Square's form: show the list with it
+    window.addEventListener("message", (event) => { if (event.origin === location.origin && event.data?.action === "cardSaved") location.href = location.pathname; });
+</script>
+{% endblock %}

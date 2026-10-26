@@ -1,0 +1,14 @@
+/* Menu boards (screens/templates/screens/menu_board_frame.html): the frame and the page / slot transitions. */
+
+.widget--menu_board { padding: 0; }
+.menu-board { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.menu-board [hidden] { display: none !important; }
+.menu-board-missing { display: flex; align-items: center; justify-content: center; text-align: center; height: 100%; }
+
+.mb-fx-fade { animation: mbFade .6s ease both; }
+.mb-fx-slide { animation: mbSlide .6s cubic-bezier(.2, .8, .2, 1) both; }
+.mb-fx-rise { animation: mbRise .6s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes mbFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mbSlide { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes mbRise { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mb-fx-fade, .mb-fx-slide, .mb-fx-rise { animation: none; } }

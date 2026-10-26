@@ -1,0 +1,57 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Menus list (design: AdminMenus, list state; admin_portal/menus.py: menu_list). Arrows change the priority; several
+menus can be live at once and the higher one comes first on the register and online store.
+{% endcomment %}
+{% block title %}{% trans "Menus" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/menus.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"menus"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div>
+        <div class="page-kicker">{% trans "Menu" %}</div>
+        <h1 class="disp page-title">{% trans "Menus" %}</h1>
+    </div>
+    <form method="post" action="{% url 'admin_menu_new' %}">{% csrf_token %}
+        <button class="btn-amber">{% icon "plus" 18 2.4 %}{% trans "New menu" %}</button>
+    </form>
+</header>
+
+<section class="live-banner" aria-label="{% trans 'Live now' %}" id="menus-banner" data-region>
+    <span class="pulse"></span>
+    <span class="two-line grow">
+        <span class="small banner-kicker">{% trans "Live right now" %}</span>
+        <span class="disp banner-name">{% if m.banner %}{{ m.banner.name }}{% if m.banner.more %} <span class="banner-more">· {{ m.banner.more }}</span>{% endif %}{% else %}{% trans "No menu is live" %}{% endif %}</span>
+    </span>
+    {% if m.banner.next %}<span class="banner-next">{{ m.banner.next }}</span>{% endif %}
+</section>
+
+<section class="card table-card" aria-label="{% trans 'All menus' %}" id="menus-list" data-region>
+    <div class="thead menu-grid with-arrows">
+        <span>{% trans "Menu · priority" %}</span><span>{% trans "Status" %}</span><span>{% trans "Turns on and off" %}</span><span>{% trans "Display" %}</span><span class="right">{% trans "Items" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for r in m.rows %}
+        <div class="menu-line">
+            <form method="post" action="{% url 'admin_menu_action' r.menu.id %}" class="arrows">{% csrf_token %}
+                <button name="action" value="up" {% if r.first %}disabled{% endif %} aria-label="{% blocktrans with name=r.menu.title %}Move {{ name }} up{% endblocktrans %}">{% icon "M6 15l6-6 6 6" 16 2.6 %}</button>
+                <button name="action" value="down" {% if r.last %}disabled{% endif %} aria-label="{% blocktrans with name=r.menu.title %}Move {{ name }} down{% endblocktrans %}">{% icon "m6 9 6 6 6-6" 16 2.6 %}</button>
+            </form>
+            <a class="trow menu-grid" href="{% url 'admin_menu' r.menu.id %}" aria-label="{% blocktrans with name=r.menu.title status=r.status.label %}Edit {{ name }}, {{ status }}{% endblocktrans %}">
+                <span class="two-line"><span class="strong ellipsis menu-name">{{ r.menu.title }}</span><span class="muted small ellipsis">{{ r.groups|default:_("Nothing on it yet") }}</span></span>
+                <span class="two-line"><span class="menu-status {{ r.status.key }}"><span class="status-dot"></span>{{ r.status.label }}</span><span class="muted small ellipsis status-sub">{{ r.sub }}</span></span>
+                <span class="rule-chips">{% for c in r.rules %}<span class="rule-chip {{ c.kind }}">{% if c.dates %}{% icon "M4 6h16v14H4z M4 10h16 M9 3v4 M15 3v4" 13 2.2 %}{% elif c.kind == "off" %}{% icon "M6 6l12 12M18 6 6 18" 13 2.4 %}{% else %}{% icon "M12 3v8 M6.3 6.3a8 8 0 1 0 11.4 0" 13 2.2 %}{% endif %}{{ c.text }}</span>{% endfor %}</span>
+                <span class="menu-display">{% if r.display %}<span class="tpl-thumb {{ r.display.orientation }}" style="--bg:{{ r.display.look.background }};--fg:{{ r.display.look.text }};--accent:{{ r.display.look.accent }}"><span class="tpl-bar"></span><span class="tpl-lines"></span></span><span class="ellipsis">{{ r.display.name }}</span>{% endif %}</span>
+                <span class="num right strong">{{ r.count }}</span>
+                {% icon "chevron" 16 %}
+            </a>
+        </div>
+        {% empty %}
+        <div class="empty">{% trans "No menus yet." %}</div>
+        {% endfor %}
+    </div>
+    <div class="table-foot">{% trans "Every live menu shows on the register and online. When several are live, the one higher in this list comes first." %}</div>
+</section>
+{% endblock %}

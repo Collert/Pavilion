@@ -1,0 +1,71 @@
+{% load static i18n %}{% comment %}
+Showcase menu template (design: MenuShowcase). Given `b` = screens.menu_boards.board(). Every page is rendered; the
+board script (screens/widgets/menu_board.js) shows one at a time, and turns over slots with more than one screen.
+Sizes are design pixels: calc(var(--u) * N).
+{% endcomment %}
+<div class="mt-showcase" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --accent: {{ b.look.accent }}; --card: {{ b.look.card }}; --dot: {{ b.look.badge_dot }}; --heading: '{{ b.look.heading_font }}', serif; --body: '{{ b.look.body_font }}', sans-serif">
+    <header class="sc-head">
+        <div class="sc-name">{{ b.title }}</div>
+        {% if b.look.badge %}<div class="sc-badge"><span></span>{{ b.look.badge }}</div>{% endif %}
+    </header>
+    <div class="sc-pages">
+        {% for page in b.pages %}
+        <div class="mb-page sc-page" {% if not forloop.first %}hidden{% endif %}>
+            {% if page.featured %}
+            <section class="sc-hero" aria-label="{{ b.look.featured_label }}">
+                <div class="sc-glow" aria-hidden="true"></div>
+                <div class="sc-hero-art">{% if page.featured.image %}<img src="{{ page.featured.image }}" alt="">{% else %}<span class="sc-letter">{{ page.featured.letter }}</span>{% endif %}</div>
+                <div class="sc-hero-text">
+                    <span class="sc-pick">{{ b.look.featured_label }}</span>
+                    <h2>{{ page.featured.title }}</h2>
+                    {% if page.featured.description %}<p>{{ page.featured.description }}</p>{% endif %}
+                    <div class="sc-hero-price">{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price }}{% endif %}</div>
+                </div>
+            </section>
+            {% endif %}
+            {% if b.loved %}
+            <section class="sc-loved" aria-label="{{ b.look.loved_title }}">
+                <h3>{{ b.look.loved_title }}</h3>
+                <div class="sc-cards">
+                    {% for item in b.loved %}
+                    <div class="sc-card">
+                        <div class="sc-card-art">{% if item.image %}<img src="{{ item.image }}" alt="">{% else %}<span class="sc-letter small">{{ item.letter }}</span>{% endif %}</div>
+                        <div class="sc-card-text"><span>{{ item.title }}{% if item.deal %} <span class="sc-deal">{{ item.deal }}</span>{% endif %}</span><span class="sc-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+            <div class="sc-lists sc-lists-{{ page.slots|length }}">
+                {% for slot in page.slots %}
+                {% if slot %}
+                <section class="sc-list{% if forloop.first %} sc-first{% endif %}" aria-label="{{ slot.name }}">
+                    <div class="sc-list-head"><h3>{{ slot.name }}</h3><span class="sc-rule"></span>
+                        {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</div>
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen sc-items" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="sc-item{% if item.out %} out{% endif %}">
+                                <span class="sc-item-name">{{ item.title }}</span>
+                                {% if item.out %}<span class="sc-out">{{ b.look.sold_text }}</span>{% elif item.deal %}<span class="sc-deal">{{ item.deal }}</span>{% endif %}
+                                <span class="sc-fill"></span>
+                                <span class="sc-price">{{ item.price }}</span>
+                            </div>
+                            {% empty %}
+                            <div class="sc-empty">{% trans "Nothing here right now" %}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% else %}
+                <section class="sc-list sc-blank{% if forloop.first %} sc-first{% endif %}"></section>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

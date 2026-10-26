@@ -1,0 +1,39 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+After the link that confirms an email (users.views.verify_email; users/accounts.py). Drawn like the sign-in page.
+{% endcomment %}
+{% block title %}{% trans "Email confirmed" %} · {{ store }}{% endblock %}
+{% block head %}
+<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'users/login.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block body %}
+<section class="lock-status" aria-label="{{ store }}">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">{{ store }}</div>
+    </div>
+</section>
+
+<aside class="lock-panel" aria-label="{% trans 'Your email' %}">
+    <div class="lock-view rise sign-in">
+        <div class="overline">{% trans "Your account" %}</div>
+        {% if valid %}
+        <h1 class="h1 lock-title">{% trans "Email confirmed" %}</h1>
+        <div class="sign-in-sub">{% blocktrans with email=person.email %}You’ll get receipts and order updates at {{ email }}, and sign in with it.{% endblocktrans %}</div>
+        <a class="btn btn-primary submit" href="{% url 'account' %}"><span>{% trans "Go to your account" %}</span></a>
+        {% else %}
+        <h1 class="h1 lock-title">{% trans "This link has run out" %}</h1>
+        <div class="sign-in-sub">{% trans "It was used already, or the email changed since. Ask the store to send a new one." %}</div>
+        <a class="btn btn-primary submit" href="{% url 'store_home' %}"><span>{% trans "Go to the store" %}</span></a>
+        {% endif %}
+    </div>
+</aside>
+{% endblock %}

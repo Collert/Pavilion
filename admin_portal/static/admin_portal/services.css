@@ -1,0 +1,110 @@
+/* Services: list and editor (admin_portal/templates/admin_portal/services.html, service.html). Editor basics are in admin.css. */
+
+.admin-main { gap: 14px; }
+.block { display: block; }
+
+/* ---------- list ---------- */
+.list-search { width: 280px; height: 44px; }
+.cat-dot { width: 8px; height: 8px; border-radius: 4px; flex: none; margin-left: -4px; }
+.service-sections { display: flex; flex-direction: column; gap: 12px; }
+.service-section { padding: 14px 12px 8px; }
+.service-section-head { display: flex; align-items: center; gap: 12px; padding: 0 10px 8px; }
+.service-section-head .hint { font-size: 13px; }
+.section-name { margin: 0; font-size: 19px; }
+.cat-box { width: 36px; height: 36px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; }
+.service-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) 200px minmax(0, 1.2fr) 120px 90px 16px; gap: 14px; align-items: center; }
+.service-row { min-height: 66px; padding: 8px 10px; border-radius: 16px; color: var(--ink); text-decoration: none; }
+.service-row:hover { background: var(--softer); }
+.service-row > svg { color: #9AA8A1; }
+.service-name { font-size: 15px; font-weight: 800; }
+.service-tags { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.service-tag { height: 22px; padding: 0 8px; border-radius: 11px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap; background: var(--soft); color: var(--ink-2); }
+.service-tag.amber { background: #FDEBD0; color: var(--amber-ink); }
+.service-tag.blue { background: var(--blue-soft); color: var(--blue-ink); }
+.service-status { height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; white-space: nowrap; background: #ECEFED; color: var(--muted); }
+.service-status.big { height: 28px; padding: 0 11px; border-radius: 14px; }
+.service-status.active { background: var(--mint); color: var(--brand); }
+
+/* ---------- editor ---------- */
+.block-label { display: block; margin-top: 12px; }
+#service-basics .field, .editor-col select.field { height: 44px; padding: 0 12px; font-weight: 700; }
+#service-basics textarea.field { height: auto; padding: 10px 12px; resize: none; font-weight: 600; line-height: 1.45; }
+select.field { appearance: auto; }
+.cat-label { margin-top: 14px; }
+.cat-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cat-card { position: relative; min-height: 58px; padding: 8px 10px; border-radius: 16px; display: flex; align-items: center; gap: 10px; background: var(--softer); cursor: pointer; }
+.cat-card input { position: absolute; opacity: 0; pointer-events: none; }
+.cat-card:has(input:checked) { background: var(--mint); box-shadow: inset 0 0 0 2px var(--brand); }
+.cat-card:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
+.cat-text { min-width: 0; }
+.cat-text .strong { font-size: 14px; }
+.cat-hint { font-size: 11px; font-weight: 600; color: var(--muted); }
+.mode-seg { margin-top: 12px; }
+.mode-seg.dark { background: #E8EDE9; margin-top: 0; }
+.mode-seg.dark label { height: 36px; }
+.three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.two-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.unit-pre { font-weight: 800; color: var(--muted); }
+.unit-field .unit { font-size: 13px; }
+.unit-field.white { background: var(--surface); }
+.price-line { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-top: 10px; }
+.include-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.include-chip { position: relative; height: 34px; padding: 0 12px; border-radius: 17px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 800; background: var(--soft); color: var(--ink-2); cursor: pointer; }
+.include-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.include-chip:has(input:checked) { background: var(--brand); color: #FFFFFF; }
+.include-chip:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
+.deposit-box { margin-top: 16px; padding: 16px; border-radius: 18px; background: var(--softer); }
+.deposit-top { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+.deposit-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--surface); color: var(--brand); display: flex; align-items: center; justify-content: center; flex: none; }
+.deposit-title { font-size: 15px; }
+.deposit-grid { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; margin-top: 14px; align-items: end; }
+.deposit-line { font-size: 12px; font-weight: 700; color: var(--ink-2); margin-top: 10px; }
+
+/* switches: a label with a hidden checkbox and a .switch */
+.switch-row, .deposit-top { position: relative; }  /* holds the hidden checkbox, or it stretches the page */
+.switch-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: var(--softer); cursor: pointer; }
+.switch-row .strong { font-size: 14px; }
+label:has(> input:checked) > .switch { background: var(--green); }
+label:has(> input:checked) > .switch > span { transform: translateX(16px); }
+label:has(> input:checked) > .switch.big > span { transform: translateX(24px); }
+label:has(> input:focus-visible) > .switch { outline: 3px solid var(--brand); outline-offset: 2px; }
+.channel-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.switch-row.channel { height: 46px; margin: 0; padding: 0 12px; border-radius: 14px; font-size: 14px; font-weight: 700; }
+
+.quote-card { background: var(--ink); color: #FFFFFF; }
+.quote-card > .ov { color: var(--rail-ink); }
+.quote-inputs { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.quote-input { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #C9D6CF; }
+.quote-input input { width: 70px; height: 36px; padding: 0 10px; border: none; border-radius: 12px; background: rgba(255, 255, 255, .1); color: #FFFFFF; text-align: right; font: inherit; font-weight: 700; }
+.quote-input input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.quote-lines { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.quote-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 700; color: #E6EEE9; }
+.quote-line.big { font-family: var(--heading); font-size: 22px; color: #FFFFFF; margin-top: 4px; }
+.quote-line.muted { color: #A9BBB2; }
+.quote-note { margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(244, 169, 59, .16); color: #F4C46B; font-size: 12px; font-weight: 700; }
+
+.booking-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.booking { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.booking .strong { font-size: 14px; }
+.date-tile { width: 44px; height: 44px; border-radius: 12px; background: var(--soft); display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; }
+.date-mon { font-size: 10px; font-weight: 800; color: var(--red); }
+.date-day { font-size: 16px; line-height: 1; }
+.booking-state { height: 24px; padding: 0 9px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap; background: var(--mint); color: var(--brand); flex: none; }
+.booking-state.pending { background: var(--blue-soft); color: var(--blue-ink); }
+
+@media (max-width: 1280px) {
+    .service-grid { grid-template-columns: minmax(0, 1.6fr) 160px 110px 90px 16px; }
+    .service-grid > :nth-child(3) { display: none; }
+    .editor-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+    .cat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1000px) {
+    .editor-grid { grid-template-columns: 1fr; }
+    .three-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 700px) {
+    .service-grid { grid-template-columns: minmax(0, 1fr) 110px 16px; }
+    .service-grid > :nth-child(4), .service-grid > :nth-child(5) { display: none; }
+    .cat-cards, .two-grid, .three-grid, .deposit-grid { grid-template-columns: 1fr; }
+    .list-search { width: auto; flex: 1; }
+}

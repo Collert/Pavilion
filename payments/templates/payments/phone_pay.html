@@ -1,0 +1,53 @@
+{% load i18n static %}<!DOCTYPE html>
+{% comment %}
+Paying for an order at the counter on the customer's own phone (payments/views.py: phone_pay): the register shows a
+QR code for this page when it has no Square Terminal. The store's name and look, what's being paid for, the card
+form, and then a paid page to show the cashier (the register sees it by itself).
+{% endcomment %}
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% blocktrans with name=store.name %}Pay {{ name }}{% endblocktrans %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {% if fonts %}<link href="{{ fonts }}" rel="stylesheet">{% endif %}
+    <link href="{% static 'payments/card-form.css' %}" rel="stylesheet">
+    <style>:root { {{ css_vars }} }</style>
+    <script src="{% url 'javascript-catalog' %}"></script>
+</head>
+<body class="pc-body page">
+    {% csrf_token %}
+    <main class="pc-page">
+        <header class="pc-store">
+            {% if store.logo %}<img class="pc-logo" src="{{ store.logo.url }}" alt="">{% else %}<span class="pc-logo pc-mark" aria-hidden="true">{{ store.name|slice:":1" }}</span>{% endif %}
+            <span class="pc-store-name">{{ store.name }}</span>
+        </header>
+
+        {% if row.status == "COMPLETED" %}
+        <section class="pc-panel pc-state">
+            <div class="pc-check" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></div>
+            <h1 class="pc-title">{% blocktrans with amount=amount_text %}Paid {{ amount }}{% endblocktrans %}</h1>
+            <p class="pc-sub">{% trans "Thank you! The counter already knows. You can close this page." %}</p>
+        </section>
+        {% elif closed %}
+        <section class="pc-panel pc-state">
+            <h1 class="pc-title">{% trans "This payment is closed" %}</h1>
+            <p class="pc-sub">{% trans "It was canceled at the counter or its code ran out. Ask the cashier for a new code." %}</p>
+        </section>
+        {% else %}
+        <section class="pc-panel">
+            <div class="pc-kicker">{% trans "Pay at the counter" %}</div>
+            <h1 class="pc-amount">{{ amount_text }}</h1>
+            {% if row.summary %}
+            <div class="pc-lines">
+                {% for l in row.summary %}<div><span class="pc-qty">{{ l.qty }}×</span><span class="pc-grow">{{ l.title }}</span><span>${{ l.total }}</span></div>{% endfor %}
+            </div>
+            {% endif %}
+            {% include "payments/_card_form.html" %}
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>

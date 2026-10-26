@@ -1,0 +1,46 @@
+/* Condiments: list and editor (admin_portal/templates/admin_portal/condiments.html, condiment.html). Loaded after
+   components.css and ingredients.css, which have the shared stock, cost and allergen pieces. */
+
+/* ---------- list ---------- */
+.cond-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) 130px 76px 170px minmax(0, 1.2fr) 170px 16px; gap: 14px; align-items: center; }
+.comp-group-head.center { align-items: center; gap: 10px; }
+.group-dot { width: 10px; height: 10px; border-radius: 5px; flex: none; }
+
+/* ---------- editor ---------- */
+.cond-basics { display: grid; grid-template-columns: minmax(0, 1fr) 180px 180px; gap: 12px; }
+.src-chip { height: 28px; padding: 0 11px; border-radius: 14px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; white-space: nowrap; background: var(--mint); color: var(--brand); }
+.src-chip.bought { background: var(--blue-soft); color: var(--blue-ink); }
+.stock-chip.ok { background: var(--soft); color: var(--ink-2); }
+.source-head { display: flex; align-items: center; gap: 12px; }
+.source-seg { width: 300px; margin-top: 0; }
+.four-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.diet-dark { height: 26px; padding: 0 10px; border-radius: 13px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; background: rgba(18, 135, 90, .3); color: #A8E5C7; }
+.diet-dark.off { background: rgba(255, 255, 255, .06); color: #6F857A; text-decoration: line-through; }
+.max-row .ink { font-size: 14px; font-weight: 700; color: var(--ink); }
+.price-field { width: 110px; flex: none; }
+.rule-line { font-size: 12px; font-weight: 700; margin-top: 8px; color: var(--ink-2); }
+.ask-row { position: relative; display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--softer); cursor: pointer; }
+.ask-row .strong { font-size: 14px; }
+.ask-row:has(input:checked) .switch { background: var(--green); }
+.ask-row:has(input:checked) .switch > span { transform: translateX(16px); }
+.ask-row:has(input:focus-visible) .switch { outline: 3px solid var(--brand); outline-offset: 2px; }
+.offer-chips.pairs .offer-chip { color: var(--ink-2); text-decoration: none; }
+.offer-chips.pairs .offer-chip:has(input:checked) { color: #FFFFFF; }
+.stat-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stat-tile { padding: 10px 12px; border-radius: 14px; background: var(--softer); min-width: 0; }
+.stat-tile .disp { font-size: 20px; line-height: 24px; }
+
+@media (max-width: 1280px) {
+    .cond-grid { grid-template-columns: minmax(0, 1.5fr) 76px 160px 150px 16px; }
+    .cond-grid > :nth-child(2), .cond-grid > :nth-child(5) { display: none; }
+    .cond-basics { grid-template-columns: 1fr 1fr; }
+    .cond-basics > :first-child { grid-column: 1 / 3; }
+    .four-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 700px) {
+    .cond-grid { grid-template-columns: minmax(0, 1fr) 76px 16px; }
+    .cond-grid > :nth-child(4), .cond-grid > :nth-child(6) { display: none; }
+    .source-head { flex-wrap: wrap; }
+    .source-seg { width: 100%; }
+    .four-grid, .cond-basics { grid-template-columns: 1fr; }
+}

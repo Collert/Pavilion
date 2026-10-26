@@ -1,0 +1,167 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Restock editor (design: AdminRestocks, edit state; admin_portal/restocks.py: editor). One form like the other
+editors. The first save as delivered adds the stock and takes the case prices; after that only prices, dates,
+notes, the fee, tax and the receipt can change. The receipt is kept as soon as it's picked (data-upload).
+{% endcomment %}
+{% block title %}{{ e.title }} · {% trans "Restocks" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/restocks.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=e.d %}
+<form method="post" action="{% url 'admin_restock' e.restock.id %}" enctype="multipart/form-data" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="restock-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Restocks" %}</button>
+        <div class="title-line">
+            <h1 class="disp page-title">{{ e.title }}</h1>
+            <span class="po-supplier ellipsis">{{ e.supplier.name }}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div id="restock-leave" data-region>
+    {% if e.leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this restock." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_restocks' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="editor-grid">
+    <div class="editor-col">
+        <section class="card" aria-label="{% trans 'Status' %}" id="restock-status" data-region>
+            <input type="hidden" name="status" value="{{ d.status }}">
+            <div class="steps" role="radiogroup" aria-label="{% trans 'Status' %}">
+                {% for st in e.steps %}
+                <button class="step {{ st.key }}{% if st.on %} on{% endif %}{% if st.done %} done{% endif %}" role="radio" aria-checked="{% if st.on %}true{% else %}false{% endif %}"
+                        name="op" value="status:{{ st.key }}" {% if st.off %}disabled{% endif %}>
+                    <span class="step-badge">{% icon st.icon 16 2.4 %}</span>
+                    <span class="two-line"><span class="strong">{{ st.label }}</span><span class="small muted ellipsis">{{ st.sub }}</span></span>
+                </button>
+                {% endfor %}
+            </div>
+            <div class="po-fields">
+                <label><span class="lbl">{% trans "Supplier" %}</span>
+                    <select class="field" name="supplier" {% if e.supplier_locked %}disabled{% endif %}>{% for s in e.suppliers %}<option value="{{ s.id }}" {% if s.id|stringformat:"s" == d.supplier %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select>
+                    {% if e.supplier_locked %}<input type="hidden" name="supplier" value="{{ d.supplier }}">{% endif %}</label>
+                {% for f in e.dates %}<label><span class="lbl">{{ f.label }}</span><input type="date" class="field" name="{{ f.name }}" value="{{ f.value }}"></label>{% endfor %}
+                {% for k in e.hidden_dates %}<input type="hidden" name="{{ k }}" value="{% if k == 'created_on' %}{{ d.created_on }}{% elif k == 'placed_on' %}{{ d.placed_on }}{% elif k == 'expected_on' %}{{ d.expected_on }}{% else %}{{ d.delivered_on }}{% endif %}">{% endfor %}
+            </div>
+            <div class="status-note {{ e.note_kind }}">{{ e.note }}</div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Items' %}" id="restock-items" data-region>
+            <input type="hidden" name="line-count" value="{{ d.lines|length }}">
+            <div class="mods-head">
+                <div class="grow">
+                    <h2 class="disp card-title">{% trans "Items" %}</h2>
+                    <div class="card-sub">{% trans "Prices start at what you paid last time. Change them to match the receipt." %}</div>
+                </div>
+                <button class="fill-btn" name="op" value="fill" {% if e.fill_off %}disabled{% endif %}>{% if e.fill_count %}{% blocktrans count n=e.fill_count %}Add {{ n }} under par{% plural %}Add {{ n }} under par{% endblocktrans %}{% else %}{% trans "Nothing under par" %}{% endif %}</button>
+            </div>
+            <div class="po-table">
+                <div class="ov po-line-grid po-head"><span>{% trans "Item" %}</span><span>{% trans "Cases" %}</span><span>{% trans "Price per case" %}</span><span class="right">{% trans "Line total" %}</span><span></span></div>
+                {% for x in e.lines %}
+                <div class="po-line-grid po-line">
+                    <input type="hidden" name="line-{{ x.n }}-id" value="{{ x.l.id }}"><input type="hidden" name="line-{{ x.n }}-ingredient" value="{{ x.l.ingredient }}">
+                    <input type="hidden" name="line-{{ x.n }}-was" value="{{ x.l.was }}"><input type="hidden" name="line-{{ x.n }}-pack" value="{{ x.l.pack }}">
+                    <span class="two-line"><span class="line-name"><span class="strong ellipsis">{{ x.ingredient.title }}</span><span class="kind-mini">{{ x.kind }}</span></span><span class="small muted">{{ x.sub }}</span></span>
+                    <span class="stepper white">
+                        <button class="ico" name="op" value="less:{{ x.n }}" {% if e.locked or x.l.cases == "1" %}disabled{% endif %} aria-label="{% blocktrans with name=x.ingredient.title %}One fewer case of {{ name }}{% endblocktrans %}">{% icon "M5 12h14" 14 2.8 %}</button>
+                        <input type="number" name="line-{{ x.n }}-cases" min="1" class="num cases" value="{{ x.l.cases }}" {% if e.locked %}readonly{% endif %} aria-label="{% blocktrans with name=x.ingredient.title %}Cases of {{ name }}{% endblocktrans %}">
+                        <button class="ico" name="op" value="more:{{ x.n }}" {% if e.locked %}disabled{% endif %} aria-label="{% blocktrans with name=x.ingredient.title %}One more case of {{ name }}{% endblocktrans %}">{% icon "plus" 14 2.8 %}</button>
+                    </span>
+                    <span>
+                        <span class="price-box{% if x.changed %}{% if x.up %} up{% else %} down{% endif %}{% endif %}"><span class="unit-pre">$</span><input type="number" name="line-{{ x.n }}-price" min="0" step="0.05" class="num" value="{{ x.l.price }}" aria-label="{% blocktrans with name=x.ingredient.title %}Price per case of {{ name }}{% endblocktrans %}"></span>
+                        <span class="price-meta"><span class="delta{% if x.changed %}{% if x.up %} up{% else %} down{% endif %}{% endif %}">{{ x.delta }}</span>
+                            {% if x.changed %}<button class="reset-link" name="op" value="reset:{{ x.n }}">{% blocktrans with p=x.was %}was {{ p }}{% endblocktrans %}</button>{% else %}<span class="was">{{ x.was }}</span>{% endif %}</span>
+                    </span>
+                    <span class="num right strong" data-calc>{{ x.total }}</span>
+                    <button class="ico" name="op" value="remove_line:{{ x.n }}" {% if e.locked %}disabled{% endif %} aria-label="{% blocktrans with name=x.ingredient.title %}Remove {{ name }}{% endblocktrans %}">{% icon "close" 14 2.6 %}</button>
+                </div>
+                {% empty %}
+                <div class="po-empty">{% trans "No items yet. Add them below, or fill in what’s under par." %}</div>
+                {% endfor %}
+                {% if not e.locked %}
+                <div class="po-add">
+                    <select name="add_line" aria-label="{% trans 'Add an item' %}">
+                        <option value="">{% trans "+ Add an item" %}</option>
+                        {% for o in e.from_supplier %}<option value="{{ o.id }}">{{ e.supplier.name }} · {{ o.label }}</option>{% endfor %}
+                        {% if e.others %}<option value="" disabled>── {% trans "From other suppliers" %} ──</option>{% endif %}
+                        {% for o in e.others %}<option value="{{ o.id }}">{{ o.label }}</option>{% endfor %}
+                    </select>
+                    <span class="small muted strong">{{ e.add_hint }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Notes' %}">
+            <label><span class="lbl">{% trans "Notes for the supplier or your team" %}</span>
+                <textarea class="field notes" name="notes" rows="2" placeholder="{% trans 'e.g. Leave at the back door before 9 AM' %}">{{ d.notes }}</textarea></label>
+        </section>
+    </div>
+
+    <div class="editor-col side" id="restock-side" data-region>
+        <section class="card cost-card" aria-label="{% trans 'Total' %}">
+            <div class="ov">{% trans "Total" %}</div>
+            <div class="disp num cost-big top6" data-calc>{{ e.total }}</div>
+            <div class="po-totals">
+                <div class="po-total-line" data-calc><span>{{ e.sub_label }}</span><span class="num">{{ e.subtotal }}</span></div>
+                <label class="po-total-line"><span>{% trans "Delivery fee" %}</span><span class="dark-field"><span>$</span><input type="number" name="fee" min="0" step="0.5" class="num" value="{{ d.fee }}" aria-label="{% trans 'Delivery fee' %}"></span></label>
+                <label class="po-total-line"><span>{% trans "Tax on the receipt" %}</span><span class="dark-field"><span>$</span><input type="number" name="tax" min="0" step="0.01" class="num" value="{{ d.tax }}" aria-label="{% trans 'Tax' %}"></span></label>
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Receipt' %}">
+            <div class="ov muted">{% trans "Receipt" %}</div>
+            {% if e.receipt %}
+            <div class="receipt-card">
+                {% if e.receipt.image %}<img src="{{ e.receipt.url }}" alt="{% blocktrans with n=e.title %}Receipt for {{ n }}{% endblocktrans %}" class="receipt-img">
+                {% else %}<a class="receipt-doc" href="{{ e.receipt.url }}" target="_blank" rel="noopener"><span class="doc-page"><span></span><span></span><span></span><span></span><b>PDF</b></span></a>{% endif %}
+                <div class="receipt-foot">
+                    <a class="grow two-line receipt-link" href="{{ e.receipt.url }}" target="_blank" rel="noopener"><span class="strong ellipsis">{{ e.receipt.name }}</span><span class="tiny muted">{{ e.receipt.kind }}{% if e.receipt.size %} · {{ e.receipt.size }}{% endif %}</span></a>
+                    <label class="replace-btn"><input type="file" name="receipt" accept="image/*,application/pdf" data-upload class="visually-hidden">{% trans "Replace" %}</label>
+                    <button class="ico" name="op" value="remove_receipt" aria-label="{% trans 'Remove receipt' %}">{% icon "M5 7h14 M10 7V5h4v2 M7 7l1 12h8l1-12" 14 2.4 %}</button>
+                </div>
+            </div>
+            {% else %}
+            <label class="drop">
+                <input type="file" name="receipt" accept="image/*,application/pdf" data-upload class="visually-hidden">
+                {% icon "M12 16V4 M7 9l5-5 5 5 M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" 26 2 %}
+                <span class="strong">{% trans "Add a photo or PDF" %}</span>
+                <span class="small muted">{% trans "Snap it on delivery, or upload the emailed invoice" %}</span>
+            </label>
+            {% endif %}
+            {% if e.receipt_warn %}<div class="receipt-warn">{{ e.receipt_warn }}</div>{% endif %}
+        </section>
+
+        <section class="card" aria-label="{% trans 'Price changes' %}">
+            <div class="ov muted">{% if e.changes %}{% blocktrans count n=e.changes|length %}{{ n }} price changed{% plural %}{{ n }} prices changed{% endblocktrans %}{% else %}{% trans "Prices" %}{% endif %}</div>
+            <div class="changes">
+                {% for c in e.changes %}
+                <div class="change-row"><span class="arrow{% if c.up %} up{% endif %}">{% if c.up %}▲{% else %}▼{% endif %}</span>
+                    <span class="grow"><span class="strong block">{{ c.name }}</span><span class="num small strong ink-2 block">{{ c.line }}</span><span class="tiny muted block">{{ c.effect }}</span></span></div>
+                {% empty %}
+                <div class="small muted strong">{% trans "Every price matches what you paid last time." %}</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <button class="text-btn{% if e.removable %} danger{% endif %}" name="op" value="delete" {% if not e.removable %}disabled{% endif %}>{{ e.remove_text }}</button>
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

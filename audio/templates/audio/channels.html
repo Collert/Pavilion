@@ -1,0 +1,64 @@
+{% extends "audio/base.html" %}
+{% load i18n admin_tags %}
+{% comment %}All channels (design: AudioChannels; pages.channels_page): music and voice cards, a type filter and a search.{% endcomment %}
+{% block page_title %}{% trans "All channels" %}{% endblock %}
+
+{% block content %}
+<header class="au-head">
+    <div class="grow">
+        <div class="au-kicker num">{{ p.count }}</div>
+        <h1 class="disp au-title">{% trans "All channels" %}</h1>
+    </div>
+    <nav class="au-tabs" aria-label="{% trans 'Type' %}">
+        {% for key, label, n, on in p.tabs %}<a class="au-tab" href="?type={{ key }}{% if p.q %}&q={{ p.q|urlencode }}{% endif %}" data-live{% if on %} aria-current="page"{% endif %}>{{ label }}<span class="au-tab-n">{{ n }}</span></a>{% endfor %}
+    </nav>
+</header>
+<form method="get" class="au-search" data-search role="search">
+    {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 20 2.2 %}
+    <input type="hidden" name="type" value="{{ p.kind }}">
+    <input type="search" name="q" value="{{ p.q }}" placeholder="{% trans 'Find a channel' %}" aria-label="{% trans 'Find a channel' %}">
+</form>
+
+<div class="au-scroll" id="au-cards" data-region>
+    {% for sec in p.sections %}
+    <section aria-label="{{ sec.title }}">
+        <div class="au-sec-head"><h2 class="disp">{{ sec.title }}</h2><span>{{ sec.meta }}</span></div>
+        <div class="au-cards">
+            {% for x in sec.cards %}{% with c=x.c s=x.s %}
+            <div class="au-card{% if s.live %} live{% endif %}">
+                <a class="au-card-link" href="{% if c.kind == 'music' %}{% url 'audio_music' c.id %}{% else %}{% url 'audio_voice' c.id %}{% endif %}" aria-label="{% blocktrans with name=c.name %}Open {{ name }}{% endblocktrans %}"></a>
+                <div class="au-card-top">
+                    <span class="au-card-icon{% if s.playing or s.live %} on{% endif %}">{% if c.kind == 'music' %}{% icon p.icons.music 20 2.2 %}{% else %}{% icon p.icons.voice 20 2.2 %}{% endif %}</span>
+                    <span class="au-card-text"><span class="au-card-name">{{ c.name }}</span><span class="au-card-where">{{ c.notes }}</span></span>
+                    {% if c.kind == 'music' %}<span class="au-pill {{ s.tone }}"><span></span>{{ s.pill }}</span>
+                    {% else %}<span class="au-pill {% if s.live %}live{% else %}on{% endif %}"><span></span>{{ s.pill }}</span>{% endif %}
+                </div>
+                {% if c.kind == 'music' %}
+                <div class="au-card-now">
+                    <span class="au-card-art"{% if s.art %} style="background-image: url('{{ s.art }}')"{% endif %}></span>
+                    <span class="au-card-text"><span class="au-card-song">{{ s.title }}</span><span class="au-card-artist">{{ s.artist }}</span></span>
+                    <form method="post" action="{% url 'audio_music' c.id %}" class="au-card-form">{% csrf_token %}
+                        <input type="hidden" name="back" value="{{ request.get_full_path }}">
+                        <button class="au-card-play" name="op" value="toggle" {% if s.empty %}disabled{% endif %}
+                                aria-label="{% if s.playing %}{% blocktrans with name=c.name %}Pause {{ name }}{% endblocktrans %}{% else %}{% blocktrans with name=c.name %}Play {{ name }}{% endblocktrans %}{% endif %}">
+                            {% if s.playing %}{% icon "M6 4h4v16H6z M14 4h4v16h-4z" 16 0 %}{% else %}{% icon "M7 4v16l13-8z" 16 0 %}{% endif %}
+                        </button>
+                    </form>
+                </div>
+                <div class="au-card-bar"><span class="{% if s.playing %}on{% endif %}" style="width: {{ s.pct }}%"{% if s.playing %} data-bar-ends="{{ s.ends_ms }}" data-bar-total="{{ s.total_ms }}"{% endif %}></span></div>
+                {% if s.playing %}<span hidden data-ends="{{ s.ends_ms }}"></span>{% endif %}
+                {% else %}
+                <div class="au-card-voice{% if s.live %} live{% endif %}">
+                    <span class="au-face"{% if s.live %} style="background: {{ s.face }}"{% endif %}>{% if s.live %}{{ s.who.initials }}{% endif %}</span>
+                    <span class="au-card-text"><span class="au-card-song">{{ s.head }}</span><span class="au-card-artist">{{ s.text }}</span></span>
+                </div>
+                {% endif %}
+            </div>
+            {% endwith %}{% endfor %}
+        </div>
+    </section>
+    {% empty %}
+    <div class="au-none">{% if p.q %}{% blocktrans with q=p.q %}No channels match “{{ q }}”.{% endblocktrans %}{% else %}{% trans "No channels yet. Add them in Admin › Store › Audio channels." %}{% endif %}</div>
+    {% endfor %}
+</div>
+{% endblock %}

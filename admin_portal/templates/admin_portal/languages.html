@@ -1,0 +1,108 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Languages (design: AdminLanguages; admin_portal/languages.py). One form with Save: switches and fields post the draft
+back (editor.js). Saved languages apply after a restart: the restart card does it and languages.js reloads the page
+once Pavilion answers with a new boot id.
+{% endcomment %}
+{% block title %}{% trans "Languages" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/languages.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>
+<script type="module" src="{% static 'admin_portal/languages.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="lg-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Languages" %}</h1>
+    </div>
+    {% if x.dirty %}<button class="btn-light" name="op" value="discard">{% trans "Discard" %}</button>{% endif %}
+    <button class="btn-amber" name="op" value="save"{% if not x.dirty %} disabled{% endif %}>{% trans "Save changes" %}</button>
+</header>
+
+<div class="tm-body">
+    <section class="card lg-list" id="lg-list" data-region aria-label="{% trans 'Available languages' %}">
+        <div class="lg-top">
+            <div class="grow">
+                <h2 class="disp tm-h2">{% trans "Available languages" %}</h2>
+                <div class="small muted strong num">{% blocktrans with n=x.count total=x.total %}{{ n }} of {{ total }} turned on{% endblocktrans %}</div>
+            </div>
+            <label class="tm-search lg-search">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
+                <input class="field" name="q" value="{{ x.st.q }}" placeholder="{% trans 'Find a language' %}" aria-label="{% trans 'Find a language' %}" data-type-preview autocomplete="off"></label>
+            <div class="lg-seg" role="radiogroup" aria-label="{% trans 'Show' %}">
+                <button role="radio" aria-checked="{% if x.st.filter == 'all' %}true{% else %}false{% endif %}" name="op" value="filter:all">{% trans "All" %}</button>
+                <button role="radio" aria-checked="{% if x.st.filter == 'on' %}true{% else %}false{% endif %}" name="op" value="filter:on">{% trans "On" %}</button>
+            </div>
+        </div>
+        <div class="lg-rows" role="list">
+            {% for l in x.rows %}
+            <div class="lg-row{% if not l.on %} off{% endif %}" role="listitem">
+                <span class="lg-code{% if l.on %} on{% endif %}">{{ l.tag }}</span>
+                <div class="grow">
+                    <div class="lg-name"><span lang="{{ l.code }}">{{ l.native }}</span>{% if l.default %}<span class="lg-def">{% trans "Default" %}</span>{% endif %}</div>
+                    <div class="small muted strong">{{ l.english }}</div>
+                </div>
+                <div class="lg-cov">
+                    <div class="lg-cov-top"><span class="num strong">{{ l.pct }}%</span><span class="lg-cov-text {{ l.level }}">{{ l.cov }}</span></div>
+                    <div class="lg-bar"><span class="{{ l.level }}" style="width: {{ l.pct }}%"></span></div>
+                </div>
+                <button class="lg-sw" role="switch" aria-checked="{{ l.on|yesno:'true,false' }}" name="op" value="toggle:{{ l.code }}"{% if l.default %} disabled{% endif %}
+                        aria-label="{% if l.on %}{% blocktrans with name=l.english %}Turn off {{ name }}{% endblocktrans %}{% else %}{% blocktrans with name=l.english %}Turn on {{ name }}{% endblocktrans %}{% endif %}{% if l.default %} {% trans '(the default language can’t be turned off)' %}{% endif %}"><span></span></button>
+            </div>
+            {% empty %}
+            <div class="tm-none">{% blocktrans with q=x.st.q %}No languages match “{{ q }}”.{% endblocktrans %}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <aside class="lg-side" id="lg-side" data-region>
+        {% if restarting %}
+        <div class="lg-restart going" data-restarting data-status="{% url 'admin_languages_status' %}" data-boot="{{ x.boot }}">
+            <div class="strong">{% trans "Restarting Pavilion…" %}</div>
+            <div class="small">{% trans "This page reloads by itself when Pavilion is back, usually within a few seconds." %}</div>
+        </div>
+        {% elif x.pending %}
+        <div class="lg-restart">
+            <div class="strong">{% trans "Restart Pavilion to use these languages" %}</div>
+            <div class="small">{% blocktrans with now=x.running|join:", " %}Running now: {{ now }}. Registers and screens reload when it’s back.{% endblocktrans %}</div>
+            {% if x.can_restart %}<button class="lg-restart-btn" name="op" value="restart">{% trans "Restart now" %}</button>
+            {% else %}<div class="small top8">{% trans "Pavilion can’t restart itself here: restart it the way you started it (for Docker, docker compose restart web)." %}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="card tm-card">
+            <h2 class="disp tm-h2">{% trans "Default language" %}</h2>
+            <div class="small muted strong lg-help">{% trans "What people see first, and what fills in for missing translations." %}</div>
+            <select class="field lg-select" name="default" aria-label="{% trans 'Default language' %}">
+                {% for code, native, english in x.defaults %}<option value="{{ code }}"{% if code == x.st.default %} selected{% endif %}>{{ native }}{% if native != english %} · {{ english }}{% endif %}</option>{% endfor %}
+            </select>
+            <div class="lg-auto">
+                <div class="grow"><div class="strong">{% trans "Match each person’s device" %}</div>
+                    <div class="small muted strong lg-help">{% trans "If their phone or browser uses a language that’s on, start in that one." %}</div></div>
+                <button class="lg-sw" role="switch" aria-checked="{{ x.st.auto|yesno:'true,false' }}" name="op" value="auto" aria-label="{% trans 'Match each person’s device' %}"><span></span></button>
+            </div>
+        </div>
+
+        <div class="card tm-card">
+            <div class="ov muted">{% trans "Language picker preview" %}</div>
+            <div class="small muted strong top4">{% trans "In the online store and on people’s account page." %}</div>
+            <div class="lg-pv">
+                <div class="lg-pill">{% icon "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18" 16 2 %}{{ x.st.default|slice:":2"|upper }}{% icon "m6 9 6 6 6-6" 12 2.6 %}</div>
+                {% if x.preview|length > 1 %}
+                <div class="lg-menu" role="list">
+                    {% for code, native, partial in x.preview %}<div class="lg-opt{% if code == x.st.default %} on{% endif %}" role="listitem"><span lang="{{ code }}" class="grow">{{ native }}</span>{% if partial %}<span class="lg-partial">{% trans "Partial" %}</span>{% endif %}{% if code == x.st.default %}{% icon "check" 14 3 %}{% endif %}</div>{% endfor %}
+                </div>
+                {% else %}
+                <div class="lg-one">{% trans "Only one language is on, so the picker is hidden." %}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="lg-note">{% icon "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v5 M12 8h.01" 18 2.2 %}<span>{% trans "These languages cover Pavilion’s own text. Your menu, dish names and descriptions show as you typed them." %}</span></div>
+    </aside>
+</div>
+</form>
+{% endblock %}

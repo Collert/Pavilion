@@ -1,0 +1,92 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+<div class="view swap home">
+    <header class="cook-head">
+        <div class="grow">
+            <div class="overline">{% trans "Cookery" %}</div>
+            <h1 class="cook-title">{% if mode == "make" %}{% trans "Craft" %}{% else %}{% trans "Transform" %}{% endif %}</h1>
+        </div>
+        <form class="cook-search" method="get" role="search" data-search>
+            {% icon "search" 18 2 %}
+            <input type="search" name="q" value="{{ q }}" placeholder="{% trans 'Search' %}" aria-label="{% trans 'Search' %}">
+        </form>
+    </header>
+
+    <div data-region="ongoing" id="ongoing">{% if ongoing %}
+        <section class="ongoing" aria-label="{% trans 'Ongoing cooking' %}">
+            <div class="section-cap">
+                <span class="overline ink">{% trans "Ongoing" %}</span>
+                <span class="muted">{% blocktrans count n=ongoing|length %}{{ n }} batch · anyone on shift can pick these up{% plural %}{{ n }} batches · anyone on shift can pick these up{% endblocktrans %}</span>
+            </div>
+            <div class="ongoing-row">{% for card in ongoing %}
+                <div class="ongoing-card{% if card.done %} done{% endif %}">
+                    <span class="scene-box">{% cook_scene card.scene card.running 96 %}</span>
+                    <div class="grow">
+                        <div class="ongoing-name">{{ card.name }}</div>
+                        <div class="ongoing-line">{{ card.line }}{% if card.ready_at %} · {% if card.done %}{% trans "ready now" %}{% else %}{% blocktrans with time=card.ready_at|time:"g:i A" %}ready {{ time }}{% endblocktrans %}{% endif %}{% endif %}</div>
+                        <div class="ongoing-sub">{{ card.sub }}</div>
+                    </div>
+                    <div class="ongoing-side">
+                        {% if card.done %}<span class="ongoing-timer done breathe">{% trans "Time's up" %}</span>
+                        {% elif card.running %}<span class="ongoing-timer running" data-ends="{{ card.ends }}" data-done-text="{% trans "Time's up" %}" data-chime>{{ card.left|clock_left }}</span>
+                        {% elif card.has_timer %}<span class="ongoing-timer running">{{ card.left|clock_left }}</span>
+                        {% else %}<span class="ongoing-timer">{% trans "No timer" %}</span>{% endif %}
+                        <form method="post" action="{% url 'cookery_take' card.id %}">{% csrf_token %}
+                            <button class="ongoing-cta{% if card.mine %} mine{% endif %}">{% if card.mine %}{% trans "Resume" %}{% else %}{% trans "Pick up" %}{% endif %}</button>
+                        </form>
+                    </div>
+                </div>{% endfor %}
+            </div>
+        </section>{% endif %}
+    </div>
+
+    <section class="panel cook-panel" aria-label="{% if mode == 'make' %}{% trans 'Components' %}{% else %}{% trans 'Transforms' %}{% endif %}">
+        <div class="section-cap pad">
+            {% if mode == "make" %}
+            <span class="overline ink">{% trans "Components" %}</span><span class="muted">{% trans "Pick what to make. Ones with a recipe cook in batches." %}</span>
+            {% else %}
+            <span class="overline ink">{% trans "Transforms" %}</span><span class="muted">{% trans "Change a component from one state to another, like frozen to fresh." %}</span>
+            {% endif %}
+        </div>
+        <div class="panel-scroll" data-region="panel" id="panel">
+            {% if mode == "make" %}
+                {% if tiles %}<div class="comp-grid">{% for tile in tiles %}
+                    {% if tile.recipe %}<a class="tile comp-tile" href="{% url 'cookery_recipe' tile.c.id %}" data-live>{% else %}
+                    <form class="tile-form" method="post" action="{% url 'cookery_start' tile.c.id %}">{% csrf_token %}<button class="tile comp-tile">{% endif %}
+                        <span class="tile-tags">
+                            {% if tile.recipe %}<span class="tag recipe">{% icon "recipe" 13 2.4 %}{% blocktrans with n=tile.makes %}Recipe · makes {{ n }}{% endblocktrans %}</span>
+                            {% else %}<span class="tag">{% icon "hand" 13 2.4 %}{% trans "One at a time" %}</span>{% endif %}
+                            {% if tile.low %}<span class="tag low">{% trans "Low" %}</span>{% endif %}
+                        </span>
+                        <span class="tile-name">{{ tile.c.title }}</span>
+                        <span class="grow"></span>
+                        <span class="tile-stock">
+                            <span class="strong">{% blocktrans with qty=tile.have %}{{ qty }} on hand{% endblocktrans %}</span>
+                            {% if tile.par %}<span class="muted">{% blocktrans with n=tile.par %}par {{ n }}{% endblocktrans %}</span>{% endif %}
+                        </span>
+                        <span class="bar"><span class="bar-fill{% if tile.low %} low{% endif %}" style="width:{{ tile.pct }}%"></span></span>
+                        <span class="tile-foot">{{ tile.foot }}</span>
+                    {% if tile.recipe %}</a>{% else %}</button></form>{% endif %}
+                {% endfor %}</div>
+                {% elif q %}<div class="empty-line">{% trans "Nothing matches that search." %}</div>
+                {% else %}<div class="empty-line">{% trans "Nothing is set up to be made here yet. Set a component's crafting option to Craftable in Advanced admin." %}</div>{% endif %}
+            {% else %}
+                {% if transforms %}<div class="tf-grid">{% for tf in transforms %}
+                    <a class="tile tf-tile" href="{% url 'cookery_transform' tf.id %}" data-live>
+                        <span class="scene-box lg">{% cook_scene tf.scene False 120 %}</span>
+                        <span class="grow tf-text">
+                            <span class="tf-name">{{ tf.name }}</span>
+                            <span class="tf-flow">{{ tf.from_component.title }}  →  {{ tf.to_component.title }}</span>
+                            <span class="muted">{% blocktrans with qty=tf.from_component.inventory|shown:tf.from_component.unit_of_measurement time=tf.duration.total_seconds|duration %}{{ qty }} available · takes about {{ time }}{% endblocktrans %}</span>
+                        </span>
+                        {% icon "chevron" 22 2.2 %}
+                    </a>{% endfor %}</div>
+                {% elif q %}<div class="empty-line">{% trans "Nothing matches that search." %}</div>
+                {% else %}<div class="empty-line">{% trans "No transforms yet. Add them in Advanced admin." %}</div>{% endif %}
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

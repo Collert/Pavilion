@@ -1,0 +1,32 @@
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+{% comment %}
+The Neighbourhood theme's page shell (online_store/themes/neighbourhood.json; online_store/views.py: theme_page).
+`t` holds the theme's values, `store` the store details; the theme's colours, sizes and fonts are CSS variables
+from themes.css_vars.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ store.name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="{{ theme.fonts }}" rel="stylesheet">
+    {% for css in theme.css %}<link href="{% static css %}" rel="stylesheet">{% endfor %}
+    <style>:root { {{ css_vars }} }</style>
+    {% block head %}{% endblock %}
+</head>
+<body class="nb">
+    {% csrf_token %}
+    {% include "themes/neighbourhood/_header.html" %}
+    <main id="page" data-now="0">{% block content %}{% endblock %}</main>
+    {% include "themes/neighbourhood/_footer.html" %}
+    <div class="nb-toasts" id="nb-toasts" data-region data-transient>{% for message in messages %}<div class="nb-toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{% if message.level_tag == 'error' %}<span class="nb-toast-mark">!</span>{% else %}<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--highlight)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>{% endif %}<span>{{ message }}</span></div>{% endfor %}</div>
+    <script type="module">
+        import { livePage } from "{% static 'js/live-page.js' %}";
+        livePage({ topics: [{% block live_topics %}{% endblock %}] });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,164 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Disposable editor (design: AdminDisposables, edit state; admin_portal/disposables.py: editor). One form like the
+other editors. Buying and stock are the item's ingredient; how it's counted decides what orders take off stock
+(pos_server/pricing.py: disposables_for), and a fee adds its own receipt line.
+{% endcomment %}
+{% block title %}{{ e.title }} · {% trans "Disposables" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/ingredients.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/disposables.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with d=e.d %}
+<form method="post" action="{% url 'admin_disposable' e.disposable.id %}" class="editor-form" data-editor data-queue>
+{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="disposable-head" data-region>
+    <div class="grow">
+        <button class="back-link" name="op" value="leave">{% icon "back" 18 2.4 %}{% trans "Disposables" %}</button>
+        <div class="title-line">
+            <h1 class="disp page-title ellipsis">{{ e.title }}</h1>
+            <span class="bin-chip big {{ d.bin }}">{{ e.bin_label }}</span>
+            <span class="stock-chip {{ e.state }}">{{ e.chip }}</span>
+        </div>
+    </div>
+    <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
+    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
+</header>
+
+<div id="disposable-leave" data-region>
+    {% if e.leave_ask %}
+    <div class="leave-ask" role="alertdialog" aria-label="{% trans 'Unsaved changes' %}">
+        <span class="grow">{% trans "You have unsaved changes to this item." %}</span>
+        <button class="btn-light" name="op" value="preview">{% trans "Keep editing" %}</button>
+        <a class="btn-discard" href="{% url 'admin_disposables' %}">{% trans "Discard changes" %}</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="editor-grid">
+    <div class="editor-col">
+        <section class="card" aria-label="{% trans 'Basics' %}" id="disposable-basics" data-region>
+            <div class="disp-basics">
+                <label><span class="lbl">{% trans "Item name" %}</span><input class="field{% if not d.title.strip %} bad{% endif %}" name="title" value="{{ d.title }}" maxlength="140"></label>
+                <label><span class="lbl">{% trans "Size" %}</span><input class="field" name="size" value="{{ d.size }}" maxlength="40" placeholder="{% trans 'e.g. 16 oz' %}"></label>
+                <label><span class="lbl">{% trans "Category" %}</span>
+                    <select class="field" name="category">{% for key, label in e.categories %}<option value="{{ key }}" {% if key == d.category %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            </div>
+            <div class="material-row">
+                <label><span class="lbl">{% trans "Material" %}</span>
+                    <select class="field" name="material">{% for key, label in e.materials %}<option value="{{ key }}" {% if key == d.material %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                <input type="hidden" name="material_was" value="{{ d.material }}">
+                <div><span class="lbl">{% trans "After use it goes in" %}</span>
+                    <div class="mode-seg bin-seg" role="radiogroup" aria-label="{% trans 'After use it goes in' %}">
+                        {% for b in e.bins %}<label><input type="radio" name="bin" value="{{ b.key }}" {% if b.key == d.bin %}checked{% endif %}><span class="bin-dot" style="background:{{ b.color }}"></span>{{ b.label }}</label>{% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'How it gets used' %}" id="disposable-usage" data-region>
+            <h2 class="disp card-title">{% trans "How it gets used" %}</h2>
+            <div class="card-sub">{% trans "Pavilion counts these off stock as orders go out, so you don’t have to." %}</div>
+            <div class="lbl top14">{% trans "Order types" %}</div>
+            <div class="alg-pick">
+                {% for t in e.types %}<label class="type-toggle"><input type="checkbox" name="order_types" value="{{ t.key }}" {% if t.on %}checked{% endif %}>{{ t.label }}</label>{% endfor %}
+            </div>
+            <div class="lbl top16">{% trans "Counted" %}</div>
+            <div class="mode-cards" role="radiogroup" aria-label="{% trans 'Counted' %}">
+                {% for m in e.modes %}<label class="mode-card"><input type="radio" name="counted" value="{{ m.key }}" {% if m.key == d.counted %}checked{% endif %}>
+                    <span class="strong block">{{ m.label }}</span><span class="tiny muted block">{{ m.hint }}</span></label>{% endfor %}
+            </div>
+            <input type="hidden" name="count" value="{{ d.count }}">
+            {% if d.counted == "dish" %}
+            <div class="lbl top14">{% trans "One goes out with each of these dishes" %}</div>
+            <div class="offer-chips pairs">
+                {% for x in e.dishes %}<label class="offer-chip dish-chip"><input type="checkbox" name="dishes" value="{{ x.dish.id }}" {% if x.on %}checked{% endif %}><span class="dot" style="background:{{ x.dish.station.color }}"></span>{{ x.dish.title }}</label>{% endfor %}
+            </div>
+            {% else %}{% for x in d.dishes %}<input type="hidden" name="dishes" value="{{ x }}">{% endfor %}{% endif %}
+            {% if d.counted == "order" or d.counted == "guest" %}
+            <div class="count-row">
+                <span class="grow strong">{{ e.count_label }}</span>
+                <span class="stepper white">
+                    <button class="ico" name="op" value="count_less" {% if e.less_off %}disabled{% endif %} aria-label="{% trans 'Fewer' %}">{% icon "M5 12h14" 14 2.8 %}</button>
+                    <span class="num">{{ d.count }}</span>
+                    <button class="ico" name="op" value="count_more" {% if e.more_off %}disabled{% endif %} aria-label="{% trans 'More' %}">{% icon "plus" 14 2.8 %}</button>
+                </span>
+            </div>
+            {% endif %}
+            {% if d.counted == "request" %}
+            <div class="request-note">{% blocktrans with ask=e.ask_text %}The register will ask “{{ ask }}” on the order types above, and online ordering will show it as a checkbox. Only what’s asked for is counted. (The register doesn’t ask yet, so these aren’t counted for now.){% endblocktrans %}</div>
+            {% endif %}
+            {% for w in e.warnings %}<div class="note warn">{{ w }}</div>{% endfor %}
+            <input type="hidden" name="fee_was" value="{% if d.fee %}1{% else %}0{% endif %}">
+            <label class="ask-row fee-row">
+                <span class="grow"><span class="strong block">{% trans "Charge the customer for it" %}</span><span class="muted small block">{% trans "For bag fees or paid extras. Shows as its own line on the receipt." %}</span></span>
+                <input type="checkbox" name="fee" value="1" role="switch" class="visually-hidden" {% if d.fee %}checked{% endif %} aria-label="{% trans 'Charge the customer for it' %}">
+                <span class="switch"><span></span></span>
+            </label>
+            {% if d.fee %}
+            <div class="fee-grid">
+                <label><span class="lbl">{% trans "Receipt line" %}</span><input class="field{% if not d.fee_label.strip %} bad{% endif %}" name="fee_label" value="{{ d.fee_label }}" maxlength="60" placeholder="{% trans 'e.g. Paper bag' %}"></label>
+                <label><span class="lbl">{% trans "Price" %}</span><span class="unit-field"><span class="unit-pre">$</span><input type="number" name="fee_price" min="0" step="0.05" class="num" value="{{ d.fee_price }}" aria-label="{% trans 'Fee price' %}"></span></label>
+            </div>
+            {% else %}<input type="hidden" name="fee_label" value="{{ d.fee_label }}"><input type="hidden" name="fee_price" value="{{ d.fee_price }}">{% endif %}
+        </section>
+
+        <section class="card" aria-label="{% trans 'Buying' %}" id="disposable-buying" data-region>
+            <h2 class="disp card-title">{% trans "Buying" %}</h2>
+            <div class="buy-grid">
+                <label><span class="lbl">{% trans "Supplier" %}</span>
+                    <input class="field" name="supplier" value="{{ d.supplier }}" list="supplier-list" maxlength="80" placeholder="{% trans 'Pick or type a supplier' %}">
+                    <datalist id="supplier-list">{% for s in e.suppliers %}<option value="{{ s.name }}">{% endfor %}</datalist></label>
+                <label><span class="lbl">{% trans "Units per case" %}</span><span class="unit-field{% if not d.case_size %} bad{% endif %}"><input type="number" name="case_size" min="1" step="1" class="num" value="{{ d.case_size }}" aria-label="{% trans 'Units per case' %}"></span></label>
+                <label><span class="lbl">{% trans "Case price" %}</span><span class="unit-field"><span class="unit-pre">$</span><input type="number" name="case_price" min="0" step="0.05" class="num" value="{{ d.case_price }}" aria-label="{% trans 'Case price' %}"></span></label>
+            </div>
+            <div class="pack-line" data-calc><span class="grow">{{ e.pack_line }}</span><span class="num">{{ e.cost_line }}</span></div>
+        </section>
+
+        <section class="card" aria-label="{% trans 'Stock' %}" id="disposable-stock" data-region>
+            <h2 class="disp card-title">{% trans "Stock" %}</h2>
+            <div class="three-grid">
+                <label><span class="lbl">{% trans "On hand" %}</span><span class="unit-field"><input type="number" name="inventory" min="0" step="1" class="num" value="{{ d.inventory }}" aria-label="{% trans 'On hand' %}"><span class="unit">{% trans "units" %}</span></span></label>
+                <label><span class="lbl">{% trans "Par level" %}</span><span class="unit-field"><input type="number" name="par" min="0" step="1" class="num" value="{{ d.par }}" aria-label="{% trans 'Par level' %}"><span class="unit">{% trans "units" %}</span></span></label>
+                <label><span class="lbl">{% trans "Stored in" %}</span>
+                    <input class="field" name="storage" value="{{ d.storage }}" list="storage-list" maxlength="60" placeholder="{% trans 'Pick or type a location' %}">
+                    <datalist id="storage-list">{% for p in e.places %}<option value="{{ p.name }}">{% endfor %}</datalist></label>
+            </div>
+            <input type="hidden" name="inventory_was" value="{{ d.inventory_was }}">
+            <div class="top14">
+                <div class="par-line"><span class="num">{{ e.on_hand_line }}</span><span class="par-msg {{ e.state }}">{{ e.stock_msg }}</span></div>
+                <div class="stock-bar big"><span class="fill {{ e.state }}" style="width:{{ e.bar.fill }}%"></span>{% if e.bar.par != None %}<span class="par" style="left:{{ e.bar.par }}%"></span>{% endif %}</div>
+                <div class="hint small top6">{{ e.par_hint }}</div>
+            </div>
+        </section>
+    </div>
+
+    <div class="editor-col side" id="disposable-side" data-region>
+        <section class="card cost-card" aria-label="{% trans 'Cost' %}">
+            <div class="ov">{% trans "Cost each" %}</div>
+            <div class="cost-big-line"><span class="disp num cost-big">{{ e.cost_big }}</span><span class="per">{% trans "each" %}</span></div>
+            <div class="price-change {{ e.change.kind }}">{{ e.change.text }}</div>
+            {% if e.cost_lines %}<div class="cost-lines">{% for l in e.cost_lines %}<div class="cost-line {{ l.kind }}"><span>{{ l.label }}</span><span class="num">{{ l.value }}</span></div>{% endfor %}</div>{% endif %}
+        </section>
+
+        <section class="card" aria-label="{% trans 'Last 30 days' %}">
+            <div class="ov muted">{% trans "Last 30 days" %}</div>
+            <div class="stat-tiles">{% for t in e.stats %}<div class="stat-tile"><div class="disp num">{{ t.value }}</div><div class="tiny muted">{{ t.label }}</div></div>{% endfor %}</div>
+            <div class="hint small top10">{{ e.runway }}</div>
+        </section>
+
+        {% if e.disposable.ingredient.archived %}
+        <button class="text-btn" name="op" value="restore">{% trans "Restore this item" %}</button>
+        {% else %}
+        <button class="text-btn danger" name="op" value="archive">{% trans "Archive this item" %}</button>
+        {% endif %}
+    </div>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

@@ -1,7 +1,62 @@
 from django.contrib import admin
-from .models import *
 
-# Register your models here.
+from .models import (CookingSession, IngredientReservation, Recipe, RecipeIngredient, RecipeStep, StockUpdate, Transformation,
+                     WasteIngredient, YieldEntry)
 
 admin.site.register(StockUpdate)
-admin.site.register(Recipe)
+
+
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 1
+    autocomplete_fields = ["ingredient"]
+
+
+class RecipeStepInline(admin.StackedInline):
+    model = RecipeStep
+    extra = 1
+    fields = (("position", "title"), "text", ("duration", "scene"), "uses")
+    filter_horizontal = ("uses",)
+
+
+@admin.register(Recipe)
+class RecipeAdmin(admin.ModelAdmin):
+    """Recipes for Cookery: save the ingredients first, then the steps can say which ones they use."""
+    list_display = ("__str__", "yield_quantity")
+    inlines = [RecipeIngredientInline, RecipeStepInline]
+
+
+@admin.register(Transformation)
+class TransformationAdmin(admin.ModelAdmin):
+    list_display = ("name", "from_component", "to_component", "ratio", "duration", "scene")
+    autocomplete_fields = ["from_component", "to_component"]
+
+
+class YieldEntryInline(admin.TabularInline):
+    model = YieldEntry
+    extra = 0
+
+
+class ReservationInline(admin.TabularInline):
+    model = IngredientReservation
+    extra = 0
+
+
+class WasteInline(admin.TabularInline):
+    model = WasteIngredient
+    extra = 0
+    readonly_fields = ("date",)
+
+
+@admin.register(WasteIngredient)
+class WasteIngredientAdmin(admin.ModelAdmin):
+    list_display = ("date", "ingredient", "quantity", "session")
+    list_filter = ("ingredient",)
+
+
+@admin.register(CookingSession)
+class CookingSessionAdmin(admin.ModelAdmin):
+    """Batches in Cookery, ongoing and finished (finished ones are the record of what was made)."""
+    list_display = ("__str__", "holder", "started_at", "finished_at", "made", "expected", "cancelled")
+    list_filter = ("kind", "cancelled")
+    inlines = [ReservationInline, YieldEntryInline, WasteInline]

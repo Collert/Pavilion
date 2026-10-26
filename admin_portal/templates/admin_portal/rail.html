@@ -1,0 +1,50 @@
+{% load i18n admin_tags %}{% comment %}
+The admin rail (design: AdminRail; groups and pages in admin_portal/nav.py). The group holding the current page is
+open. Store name on top with "Pavilion" under it; the signed-in person, Apps and the clock (admin.js) at the bottom.
+{% endcomment %}
+<aside class="rail" aria-label="{% trans 'Admin' %}">
+    <svg class="rail-blob" aria-hidden="true" width="320" height="320" viewBox="0 0 320 320"><circle cx="160" cy="160" r="160"></circle></svg>
+    <div class="rail-brand">
+        <span class="rail-logo">{% icon "logo" 24 %}</span>
+        <span class="rail-brand-text">
+            <span class="rail-store">{{ store.name }}</span>
+            <span class="rail-sub">Pavilion</span>
+        </span>
+    </div>
+    <nav class="rail-nav" aria-label="{% trans 'Admin sections' %}" id="rail-nav" data-region>
+        {% for g in rail %}
+        <div class="rail-group{% if g.open %} open{% endif %}">
+            <a class="rail-head" href="{{ g.url }}" aria-expanded="{% if g.open %}true{% else %}false{% endif %}">
+                {% icon g.path 22 %}
+                <span class="rail-label">{{ g.label }}</span>
+                {% if g.badge %}<span class="rail-badge">{{ g.badge }}</span>{% endif %}
+                <span class="rail-chevron">{% icon "chevron-down" 16 2.4 %}</span>
+            </a>
+            {% if g.open %}
+            <div class="rail-items">
+                {% for n in g.items %}
+                <a class="rail-item" href="{{ n.url }}"{% if n.current %} aria-current="page"{% endif %}>
+                    <span class="rail-mark" aria-hidden="true"></span><span class="rail-label">{{ n.label }}</span>
+                    {% if n.badge %}<span class="rail-badge">{{ n.badge }}</span>{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </nav>
+    <div class="rail-me">
+        <span class="rail-avatar" aria-hidden="true">{{ me.initial }}</span>
+        <span class="rail-me-text">
+            <span class="rail-me-name">{{ me.name }}</span>
+            <span class="rail-me-role">{{ me.role }}</span>
+        </span>
+    </div>
+    <div class="rail-foot">
+        <a class="rail-apps" href="{% url 'app_switcher_index' %}">{% icon "apps" 18 %}{% trans "Apps" %}</a>
+        <span class="rail-clock" role="timer">
+            <span class="rail-time" id="admin-time"></span>
+            <span class="rail-day" id="admin-day"></span>
+        </span>
+    </div>
+</aside>

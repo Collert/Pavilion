@@ -1,10 +1,9 @@
 import setClock from "./clock.js";
+import { onLiveUpdate } from "/static/js/live.js";
 // import weatherIcons from "./weatherCodes.json" assert { type: "json" };
 
 const inProgressCol = document.querySelector("#col-1 div");
 const readyCol = document.querySelector("#col-2 div");
-const pollEverySecs = 5;
-const pollEveryMilisecs = pollEverySecs * 1000;
 
 const namedAnnouncements = [
     "${name}, your order is ready to go!",
@@ -47,40 +46,53 @@ getLocation();
 getWeather(window.sessionStorage.getItem("latitude"), window.sessionStorage.getItem("longitude"));
 setClock(clock);
 
-let ordersState;
-getOrdersFirst();
-async function getOrdersFirst() {
-    ordersState = await fetchOrders();
-    console.log(ordersState);
-}
+// An order is ready once every station working on it is done (2) or rejected (3).
+const isReady = order => Object.values(order.stations).every(status => status >= 2);
+// Orders with no stations (e.g. only pre-packaged items) never show up on the board.
+const needsStations = order => Object.keys(order.stations).length > 0;
 
-setInterval(async () => {
-    const newOrders = await fetchOrders()
-    if (newOrders.length >= ordersState.length) {
-        newOrders.forEach(order => {
-            let existingOrder = ordersState.find(item => item.order_id === order.order_id)
-            if (!existingOrder) {
-                appendNewOrder(order);
-            } else if (existingOrder && existingOrder.kitchen_done !== order.kitchen_done) {
-                markOrderReady(order);
-            } else if (existingOrder && existingOrder.picked_up !== order.picked_up) {
-    
-            }
-        })
-    } else {
-        ordersState.forEach(oldOrder => {
-            if (!newOrders.some(item => item.order_id === oldOrder.order_id)) {
-                removeOrder(oldOrder)
-            }
-        })
-    }
-    ordersState = newOrders
-}, pollEveryMilisecs);
+syncOrders(await fetchOrders(), false);
+onLiveUpdate("orders", async () => syncOrders(await fetchOrders(), true));
 
 async function fetchOrders() {
-    const data = await fetch(checkOrdersLink);
-    const array = await data.json()
-    return array.filter(item => item.kitchen_needed);
+    const response = await fetch(checkOrdersLink);
+    const orders = await response.json();
+    return orders.filter(order => needsStations(order) && !order.picked_up);
+}
+
+// Bring the two columns in line with `orders`. Announces orders that just became ready.
+function syncOrders(orders, announce) {
+    const seen = new Set();
+    for (const order of orders) {
+        seen.add(String(order.order_id));
+        const existing = document.querySelector(`span[data-order-id="${order.order_id}"]`);
+        const ready = isReady(order);
+        if (!existing) {
+            (ready ? readyCol : inProgressCol).appendChild(orderChip(order));
+        } else if (ready && existing.parentElement === inProgressCol) {
+            removeChip(existing);
+            readyCol.appendChild(orderChip(order));
+            if (announce) announceOrderReady(order);
+        }
+    }
+    document.querySelectorAll("span[data-order-id]").forEach(chip => {
+        if (!seen.has(chip.dataset.orderId)) removeChip(chip);
+    });
+}
+
+function orderChip(order) {
+    const chip = document.createElement("span");
+    const text = document.createElement("span");
+    text.textContent = order.name ? order.name : `${gettext("Order #")}${order.order_id}`;
+    chip.appendChild(text);
+    chip.dataset.orderId = order.order_id;
+    return chip;
+}
+
+function removeChip(chip) {
+    chip.removeAttribute("data-order-id");
+    chip.classList.add("remove");
+    setTimeout(() => chip.remove(), 500);
 }
 
 function updateWeather(weather) {
@@ -98,7 +110,7 @@ function updateWeather(weather) {
 }
 
 function getWeather(latitude, longitude) {
-    if (latitude && longitude) {
+    if (APIKey && latitude && longitude) {
         const url = `https://api.weatherapi.com/v1/current.json?key=${APIKey}&q=${latitude},${longitude}&aqi=no`
     
         fetch(url)
@@ -208,55 +220,6 @@ function generateAnnouncement(order) {
         announcement = announcement.replace(/\${dishName}/g, order.dishes.length === 1 ? order.dishes[0].name : `${order.dishes[0].name} and more`);
     }
     return announcement;
-}
-
-function appendNewOrder(data) {
-    console.log("recieved")
-    // console.log(data)
-    const newOrder = document.createElement("span");
-    const text = document.createElement("span");
-    text.textContent = data.name ? data.name : `Order #${data.order_id}`;
-    newOrder.appendChild(text)
-    newOrder.dataset.orderId = data.order_id;
-    inProgressCol.appendChild(newOrder);
-}
-
-function markOrderReady(data) {
-    const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
-    if (data.done) {
-        try {
-            console.log("finished")
-            oldOrder.classList.add("remove");
-            setTimeout(() => {
-                readyCol.removeChild(oldOrder)
-            }, 500);
-            return
-        } catch (error) {}
-    }
-    console.log("ready")
-    const newOrder = document.createElement("span");
-    const text = document.createElement("span");
-    text.textContent = data.name ? data.name : `Order #${data.order_id}`;
-    newOrder.appendChild(text)
-    newOrder.dataset.orderId = data.order_id;
-    newOrder.dataset.dishQty = data.dishes.length;
-    newOrder.dataset.dish = data.dishes[0].name;
-    newOrder.dataset.barDone === data.bar_done
-    oldOrder.classList.add("remove");
-    setTimeout(() => {
-        inProgressCol.removeChild(oldOrder)
-    }, 500);
-    readyCol.appendChild(newOrder);
-    announceOrderReady(data)
-}
-
-function removeOrder(data) {
-    if (!data.kitchen_needed) {return}
-    const oldOrder = document.querySelector(`span[data-order-id="${data.order_id}"]`);
-    oldOrder.classList.add("remove");
-    setTimeout(() => {
-        readyCol.removeChild(oldOrder)
-    }, 500);
 }
 
 if (sessionStorage.getItem("fsReminderDone") !== "true") {

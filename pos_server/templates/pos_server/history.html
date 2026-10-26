@@ -1,0 +1,208 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+The register's order history (design: History; pos_server/history.py). Server-rendered and kept current by
+live-page.js: filters and rows are links, the sheets open from the address (?sheet=send|refund), forms post back.
+{% endcomment %}
+{% block title %}{% trans "History" %} · Pavilion{% endblock %}
+{% block head %}<link href="{% static 'pos_server/history.css' %}" rel="stylesheet">{% endblock %}
+
+{% block body %}
+<main class="hist" id="page" data-now="0">
+    <section class="hist-list" aria-label="{% trans 'Past orders' %}">
+        <header class="hist-head">
+            <div class="grow">
+                <h1 class="h1">{% trans "History" %}</h1>
+                <div class="sub hist-head-sub" id="hist-sub" data-region>{{ head_sub }}</div>
+            </div>
+            <form method="get" class="hist-search" data-search role="search">
+                {% for k, v in state.items %}{% if k != "q" and k != "page" and k != "sel" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+                {% icon "M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M20 20l-4-4" 18 %}
+                <input type="search" name="q" value="{{ o.query }}" placeholder="{% trans 'Order #, name or card' %}" aria-label="{% trans 'Search orders' %}" autocomplete="off">
+            </form>
+        </header>
+
+        <div class="hist-filters">
+            <div class="hist-seg" role="group" aria-label="{% trans 'Date' %}">
+                {% for key, label, href in links.dates %}<a href="{{ href }}" data-live aria-pressed="{% if key == date %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}
+            </div>
+            <div class="hist-status" role="group" aria-label="{% trans 'Status' %}" id="hist-status" data-region>
+                {% for key, label, n, href in links.statuses %}<a href="{{ href }}" data-live aria-pressed="{% if key == o.status %}true{% else %}false{% endif %}">{{ label }}<span>{{ n }}</span></a>{% endfor %}
+            </div>
+        </div>
+
+        <div class="hist-table" id="hist-rows" data-region>
+            <div class="hist-row-head" aria-hidden="true">
+                <span class="overline c-num">{% trans "Order" %}</span><span class="overline grow">{% trans "Customer" %}</span>
+                <span class="overline c-pay">{% trans "Payment" %}</span><span class="overline c-total">{% trans "Total" %}</span>
+                <span class="overline c-status">{% trans "Status" %}</span>
+            </div>
+            <div class="hist-rows" role="list">
+                {% for r in o.rows %}
+                <a role="listitem" class="hist-row{% if r.on %} on{% endif %}" href="{{ r.href }}" data-live {% if r.on %}aria-current="true"{% endif %}>
+                    <span class="c-num"><span class="hist-num">#{{ r.order.id }}</span><span class="sub">{% if date == "today" %}{{ r.time }}{% else %}{{ r.day }}{% endif %}</span></span>
+                    <span class="grow hist-two"><span class="hist-name">{{ r.name }}</span><span class="sub ellipsis">{{ r.summary }}</span></span>
+                    <span class="c-pay hist-pay"><span class="hist-pay-icon{% if r.cash %} cash{% endif %}">{% icon r.pay_icon 16 %}</span><span class="ellipsis">{{ r.pay }}</span></span>
+                    <span class="c-total hist-total{% if r.status == 'voided' or r.status == 'refunded' %} struck{% endif %}">{{ r.order.total|money }}</span>
+                    <span class="c-status"><span class="hist-chip {{ r.status }}">{{ r.status_label }}</span></span>
+                </a>
+                {% empty %}
+                <div class="hist-empty"><div class="hist-empty-title">{% trans "No orders match" %}</div><div class="sub">{% trans "Try another date or clear the search." %}</div></div>
+                {% endfor %}
+            </div>
+            <nav class="hist-pages" aria-label="{% trans 'Pages' %}">
+                <span class="sub grow">{% if o.total %}{% blocktrans with a=o.first b=o.last n=o.total %}Showing {{ a }}–{{ b }} of {{ n }}{% endblocktrans %}{% else %}{% trans "No orders" %}{% endif %}</span>
+                {% if links.prev %}<a class="hist-pg" href="{{ links.prev }}" data-live aria-label="{% trans 'Previous page' %}">{% icon "M15 6l-6 6 6 6" 20 2.4 %}</a>{% else %}<span class="hist-pg off" aria-hidden="true">{% icon "M15 6l-6 6 6 6" 20 2.4 %}</span>{% endif %}
+                {% for n, href in links.pages %}{% if href %}<a class="hist-pg num" href="{{ href }}" data-live {% if n == o.page %}aria-current="page"{% endif %} aria-label="{% blocktrans %}Page {{ n }}{% endblocktrans %}">{{ n }}</a>{% else %}<span class="hist-gap">…</span>{% endif %}{% endfor %}
+                {% if links.next %}<a class="hist-pg" href="{{ links.next }}" data-live aria-label="{% trans 'Next page' %}">{% icon "m9 6 6 6-6 6" 20 2.4 %}</a>{% else %}<span class="hist-pg off" aria-hidden="true">{% icon "m9 6 6 6-6 6" 20 2.4 %}</span>{% endif %}
+            </nav>
+        </div>
+    </section>
+
+    <aside class="hist-detail" aria-label="{% trans 'Order details' %}" id="hist-detail" data-region>
+        {% if d %}
+        <div class="hist-d-head">
+            <div class="hist-d-top"><span class="overline">{{ d.over }}</span><span class="hist-chip {{ d.status }}">{{ d.status_label }}</span></div>
+            <h2 class="hist-d-title">{% blocktrans with n=sel.id %}Order #{{ n }}{% endblocktrans %}</h2>
+            <div class="sub hist-d-meta">{{ d.name }} · {{ d.svc }}{% if sel.cashier %} · {% blocktrans with who=sel.cashier.first_name|default:sel.cashier.username %}rung up by {{ who }}{% endblocktrans %}{% endif %}</div>
+        </div>
+        <div class="hist-d-body">
+            <div class="hist-items">
+                {% for it in d.items %}
+                <div class="hist-item">
+                    <span class="hist-qty">{{ it.item.quantity }}×</span>
+                    <span class="grow"><span class="hist-item-name{% if it.refunded >= it.item.quantity and it.refunded %} struck{% endif %}">{{ it.item.title }}</span>
+                        {% if it.mods %}<span class="sub block">{{ it.mods }}</span>{% endif %}
+                        {% if it.refund_text %}<span class="hist-refund-chip">{{ it.refund_text }}</span>{% endif %}</span>
+                    <span class="hist-amt">{{ it.item.line_total|money }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="hist-totals">
+                {% for t in d.totals %}<div class="{% if t.big %}big{% elif t.red %}red{% endif %}"><span>{{ t.label }}</span><span class="num">{{ t.value|money }}</span></div>{% endfor %}
+            </div>
+            <div class="hist-payments">
+                {% for p in d.payments %}
+                <div class="hist-payment {{ p.kind }}"><span class="hist-payment-icon">{% icon p.icon 18 %}</span>
+                    <span class="grow"><span class="strong block">{{ p.label }}</span><span class="sub block">{{ p.sub }}</span></span>
+                    <span class="hist-amt strong">{{ p.amount|money }}</span></div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="hist-d-foot">
+            <form method="post" action="{% url 'register_history_print' sel.id %}" target="_blank">{% csrf_token %}
+                <button class="btn btn-primary hist-print">{% icon "M7 9V4h10v5 M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2 M7 14h10v6H7z" 22 %}{% trans "Print receipt" %}</button>
+            </form>
+            <div class="hist-d-row">
+                <a class="btn hist-send" href="{{ links.send }}" data-live>{% icon "M4 12 20 4l-6 16-3-7z M11 13l9-9" 18 %}{% trans "Send" %}</a>
+                {% if d.can_refund and can_refund %}
+                <a class="btn hist-refund" href="{{ links.refund }}" data-live>{% icon "M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11" 18 %}{% trans "Refund" %}</a>
+                {% else %}
+                <span class="btn hist-refund off" aria-disabled="true" {% if d.can_refund %}title="{% trans 'Refunds need someone whose group allows them.' %}"{% endif %}>{% icon "M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11" 18 %}{% if d.can_refund %}{% trans "Refund" %}{% else %}{{ d.refund_label }}{% endif %}</span>
+                {% endif %}
+            </div>
+            {% if d.can_refund and not can_refund %}<div class="sub hist-note">{% trans "Refunds need someone whose group allows them." %}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="hist-none">{% icon "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6" 40 1.8 %}<div class="strong">{% trans "Pick an order" %}</div><div class="sub">{% trans "Its receipt shows up here." %}</div></div>
+        {% endif %}
+    </aside>
+
+    <div id="hist-sheet" data-region>
+    {% if sheet == "send" and d %}
+    <div class="hist-overlay">
+        <a class="hist-scrim" href="{{ links.close }}" data-live aria-label="{% trans 'Close' %}"></a>
+        <form method="post" class="hist-sheet narrow" role="dialog" aria-modal="true" aria-labelledby="send-title">{% csrf_token %}
+            <input type="hidden" name="op" value="send">{% for k, v in state.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+            {% if not state.sel %}<input type="hidden" name="sel" value="{{ sel.id }}">{% endif %}
+            <div class="sheet-head">
+                <div><div class="overline">{% trans "Send receipt" %}</div><h2 class="h2 hist-sheet-title" id="send-title">{% blocktrans with n=sel.id total=sel.total|money %}Order #{{ n }} · {{ total }}{% endblocktrans %}</h2></div>
+                <a class="icon-btn" href="{{ links.close }}" data-live aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</a>
+            </div>
+            <div class="hist-seg wide" role="group" aria-label="{% trans 'Send by' %}">
+                <span aria-pressed="true">{% trans "Email" %}</span>
+                <span aria-disabled="true" class="off" title="{% trans 'Text messages aren’t set up yet' %}">{% trans "Text message" %}</span>
+            </div>
+            <label class="hist-field">{% icon "M3 6h18v12H3z M3 7l9 6 9-6" 20 %}<input type="email" name="to" value="{{ send.to }}" placeholder="customer@example.com" aria-label="{% trans 'Email address' %}" required autofocus></label>
+            <div class="sheet-foot hist-sheet-btns">
+                <a class="btn" href="{{ links.close }}" data-live>{% trans "Cancel" %}</a>
+                <button class="btn btn-primary">{% trans "Send receipt" %}</button>
+            </div>
+        </form>
+    </div>
+    {% elif sheet == "refund" and refund %}
+    <div class="hist-overlay">
+        <a class="hist-scrim" href="{{ links.close }}" data-live aria-label="{% trans 'Close' %}"></a>
+        <div class="hist-sheet" role="dialog" aria-modal="true" aria-labelledby="refund-title">
+            <form method="get" class="hist-refund-pick">
+                {% for k, v in state.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+                {% if not state.sel %}<input type="hidden" name="sel" value="{{ sel.id }}">{% endif %}
+                <input type="hidden" name="sheet" value="refund"><input type="hidden" name="mode" value="{{ refund.mode }}">
+                <input type="hidden" name="reason" value="{{ refund.reason }}"><input type="hidden" name="to" value="{{ refund.to }}">
+                {% if refund.mode == "items" %}{% for r in refund.rows %}<input type="hidden" name="q_{{ r.item.id }}" value="{{ r.pick }}">{% endfor %}{% endif %}
+                <div class="sheet-head">
+                    <div><div class="overline red">{% trans "Refund" %}</div><h2 class="h2 hist-sheet-title" id="refund-title">{% blocktrans with n=sel.id name=d.name %}Order #{{ n }} · {{ name }}{% endblocktrans %}</h2></div>
+                    <div class="hist-seg" role="group" aria-label="{% trans 'Refund what' %}">
+                        <button name="mode" value="whole" aria-pressed="{% if refund.mode == 'whole' %}true{% else %}false{% endif %}">{% trans "Whole order" %}</button>
+                        <button name="mode" value="items" aria-pressed="{% if refund.mode == 'items' %}true{% else %}false{% endif %}">{% trans "Pick items" %}</button>
+                    </div>
+                </div>
+                <div class="hist-sheet-body">
+                    <div class="overline">{% trans "Items" %}</div>
+                    {% for r in refund.rows %}
+                    <div class="hist-r-row{% if not r.left %} done{% endif %}">
+                        <span class="grow"><span class="strong block">{{ r.item.quantity }}× {{ r.item.title }}</span>
+                            <span class="sub block">{% if not r.left %}{% trans "Already refunded" %}{% else %}{{ r.each|money }} {% trans "each" %}{% if r.done %} · {% blocktrans with n=r.done %}{{ n }} already refunded{% endblocktrans %}{% endif %}{% endif %}</span></span>
+                        {% if refund.mode == "items" and r.left %}
+                        <span class="hist-stepper">
+                            <button name="q_{{ r.item.id }}" value="{{ r.pick|add:-1 }}" {% if r.pick <= 0 %}disabled{% endif %} aria-label="{% blocktrans with item=r.item.title %}Refund one fewer {{ item }}{% endblocktrans %}">{% icon "M5 12h14" 18 2.6 %}</button>
+                            <span>{% blocktrans with p=r.pick l=r.left %}{{ p }} of {{ l }}{% endblocktrans %}</span>
+                            <button name="q_{{ r.item.id }}" value="{{ r.pick|add:1 }}" {% if r.pick >= r.left %}disabled{% endif %} aria-label="{% blocktrans with item=r.item.title %}Refund one more {{ item }}{% endblocktrans %}">{% icon "M12 5v14 M5 12h14" 18 2.6 %}</button>
+                        </span>
+                        {% endif %}
+                        <span class="hist-amt strong">{% if r.amount %}{{ r.amount|money }}{% else %}—{% endif %}</span>
+                    </div>
+                    {% endfor %}
+                    <div class="overline hist-sec">{% trans "Reason" %}</div>
+                    <div class="hist-chips">
+                        {% for reason in refund.reasons %}<button class="hist-reason" name="reason" value="{{ reason }}" aria-pressed="{% if reason == refund.reason %}true{% else %}false{% endif %}">{% trans reason %}</button>{% endfor %}
+                    </div>
+                    <div class="overline hist-sec">{% trans "Refund to" %}</div>
+                    <div class="hist-targets">
+                        <button class="hist-target" name="to" value="original" aria-pressed="{% if refund.to == 'original' %}true{% else %}false{% endif %}" {% if refund.only_cash %}disabled{% endif %}>
+                            {% icon "M3 6h18v12H3z M3 10h18 M7 15h4" 20 %}<span><span class="strong block">{% if refund.only_cash %}{% trans "Original payment" %}{% else %}{{ refund.original_label }}{% endif %}</span><span class="sub block">{% if refund.only_cash %}{% trans "Paid in cash" %}{% else %}{% trans "3–5 business days" %}{% endif %}</span></span>
+                        </button>
+                        <button class="hist-target" name="to" value="cash" aria-pressed="{% if refund.to == 'cash' %}true{% else %}false{% endif %}">
+                            {% icon "M3 7h18v10H3z M12 9.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z M6 10v4 M18 10v4" 20 %}<span><span class="strong block">{% trans "Cash from drawer" %}</span><span class="sub block">{% trans "Hand it back now" %}</span></span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <form method="post" class="sheet-foot hist-refund-foot">{% csrf_token %}
+                <input type="hidden" name="op" value="refund">{% for k, v in state.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+                {% if not state.sel %}<input type="hidden" name="sel" value="{{ sel.id }}">{% endif %}
+                <input type="hidden" name="mode" value="{{ refund.mode }}"><input type="hidden" name="reason" value="{{ refund.reason }}"><input type="hidden" name="to" value="{{ refund.to }}">
+                {% if refund.mode == "items" %}{% for r in refund.rows %}<input type="hidden" name="q_{{ r.item.id }}" value="{{ r.pick }}">{% endfor %}{% endif %}
+                <div class="grow">
+                    <div class="overline">{% trans "Refund total" %}</div>
+                    <div class="hist-refund-total">{{ refund.amount|money }}</div>
+                    <div class="sub">{% if refund.problem and refund.mode == "items" %}{{ refund.problem }}{% else %}{{ refund.breakdown }}{% endif %}</div>
+                </div>
+                <a class="btn" href="{{ links.close }}" data-live>{% trans "Cancel" %}</a>
+                <button class="btn hist-refund-go" {% if not refund.ready %}disabled{% endif %}>{% if refund.amount %}{% blocktrans with amount=refund.amount|money %}Refund {{ amount }}{% endblocktrans %}{% else %}{% trans "Pick something" %}{% endif %}</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    </div>
+
+    <div id="hist-toasts" data-region data-transient>{% for message in messages %}<div class="toast{% if message.level_tag == 'error' %} error{% endif %}" role="status"><span class="toast-icon">{% if message.level_tag == 'error' %}{% icon "M12 8v5 M12 16.5v.01" 18 2.6 %}{% else %}{% icon "m5 12.5 4.5 4.5L19 7.5" 18 2.6 %}{% endif %}</span>{{ message }}</div>{% endfor %}</div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import { livePage } from "{% static 'js/live-page.js' %}";
+    livePage({ topics: ["orders"] });
+</script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Disposables list (design: AdminDisposables, list state; admin_portal/disposables.py: disposable_list), grouped by
+category. Filters are links, search (item or supplier) submits as you type. Refetched on "inventory".
+{% endcomment %}
+{% block title %}{% trans "Disposables" %}{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/ingredients.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/disposables.css' %}" rel="stylesheet">{% endblock %}
+{% block live_topics %}"inventory"{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Inventory" %}</div>
+        <h1 class="disp page-title">{% trans "Disposables" %}</h1>
+    </div>
+    <form class="search list-search" method="get" data-search role="search">
+        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+        <input type="hidden" name="show" value="{{ l.show }}">
+        <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search disposables' %}" placeholder="{% trans 'Search items or suppliers' %}">
+    </form>
+    <form method="post" action="{% url 'admin_disposable_new' %}">{% csrf_token %}
+        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New item" %}</button>
+    </form>
+</header>
+
+<div class="comp-kpis" id="disposables-kpis" data-region>
+    {% for k in l.kpis %}
+    <div class="kpi"><div class="kpi-label">{{ k.label }}</div><div class="disp num kpi-value ellipsis{% if k.bad %} bad{% endif %}{% if k.good %} good{% endif %}">{{ k.value }}</div><div class="kpi-sub ellipsis">{{ k.sub }}</div></div>
+    {% endfor %}
+</div>
+
+<nav class="filter-chips" aria-label="{% trans 'Filter' %}" id="disposables-filters" data-region>
+    {% for f in l.filters %}
+    <a class="filter-chip" data-live href="?show={{ f.key }}&q={{ l.query|urlencode }}"{% if f.key == l.show %} aria-current="page"{% endif %}>{{ f.label }}<span class="filter-count">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
+
+<section class="card table-card" aria-label="{% trans 'Disposables' %}" id="disposables-list" data-region>
+    <div class="thead disp-grid">
+        <span>{% trans "Item" %}</span><span>{% trans "Material" %}</span><span class="right">{% trans "Cost each" %}</span>
+        <span>{% trans "Used" %}</span><span>{% trans "On hand · par" %}</span><span></span>
+    </div>
+    <div class="tbody">
+        {% for g in l.groups %}
+        <div class="comp-group-head"><h2 class="disp">{{ g.name }}</h2><span>{{ g.count }}</span></div>
+        {% for r in g.rows %}
+        <a class="trow disp-grid comp-row" href="{% url 'admin_disposable' r.d.id %}" aria-label="{% blocktrans with name=r.d.title %}Edit {{ name }}{% endblocktrans %}">
+            <span class="two-line"><span class="strong ellipsis comp-name">{{ r.d.title }}</span><span class="muted small ellipsis">{{ r.sub }}</span></span>
+            <span class="two-line"><span class="small strong ink-2 ellipsis">{{ r.material }}</span><span><span class="bin-chip {{ r.bin }}">{{ r.bin_label }}</span></span></span>
+            <span class="right"><span class="num strong block">{{ r.cost }}</span>{% if r.change_text %}<span class="change {% if r.change > 0 %}up{% else %}down{% endif %}">{{ r.change_text }}</span>{% endif %}</span>
+            <span class="two-line"><span class="small strong ink ellipsis">{{ r.rule }}</span>
+                <span class="type-chips">{% for t in r.types %}<span class="type-mini">{{ t }}</span>{% endfor %}{% if r.fee %}<span class="type-mini fee">{{ r.fee }}</span>{% endif %}</span></span>
+            <span class="stock-cell">
+                <span class="stock-line"><span class="num">{{ r.stock }}</span>{% if r.tag %}<span class="stock-tag {{ r.state }}">{{ r.tag }}</span>{% endif %}</span>
+                <span class="stock-bar"><span class="fill {{ r.state }}" style="width:{{ r.bar.fill }}%"></span>{% if r.bar.par != None %}<span class="par" style="left:{{ r.bar.par }}%"></span>{% endif %}</span>
+                <span class="days-left">{{ r.days }}</span>
+            </span>
+            {% icon "chevron" 16 2.4 %}
+        </a>
+        {% endfor %}
+        {% empty %}
+        <div class="empty"><div class="disp empty-title">{% trans "Nothing matches" %}</div><div>{% trans "Try another filter or clear the search." %}</div></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

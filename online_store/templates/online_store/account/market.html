@@ -1,0 +1,51 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}
+Up for grabs (StoreAccount, staff-market; online_store/work.py): what coworkers asked of you, open shifts and shifts
+coworkers gave away. "Only shifts I can work" hides the ones needing a role you don't have (?all=1 shows them).
+{% endcomment %}
+{% block title %}{% trans "Up for grabs" %}{% endblock %}
+{% block heading %}{% trans "Up for grabs" %}{% endblock %}
+{% block live_topics %}"schedule"{% endblock %}
+{% block content %}
+<div class="acct-col acct-scroll" id="work-market" data-region>
+    <div class="acct-bar-card">
+        <span class="grow strong acct-ink2">{% trans "Grab a shift and it’s yours straight away. Swaps and hand-offs need your OK first, then a manager’s." %}</span>
+        <a class="acct-toggle-link" role="switch" aria-checked="{% if only_mine %}true{% else %}false{% endif %}" href="{% if only_mine %}?all=1{% else %}?{% endif %}">
+            <span class="strong">{% trans "Only shifts I can work" %}</span><span class="acct-switch{% if only_mine %} on{% endif %}"><span></span></span></a>
+    </div>
+    {% if asks %}
+    <section>
+        <h2 class="disp acct-h2 acct-sec">{% trans "Asked of you" %}</h2>
+        {% for a in asks %}
+        <form method="post" class="acct-ask">{% csrf_token %}<input type="hidden" name="offer" value="{{ a.o.id }}">{% if not only_mine %}<input type="hidden" name="all" value="1">{% endif %}
+            <span class="acct-face big" style="background: {{ a.by.face }}">{{ a.by.ini }}</span>
+            <div class="grow"><div class="strong acct-ask-head">{{ a.head }}</div><div class="num acct-meta acct-ink2 top3">{{ a.detail }}</div>
+                {% if a.o.note %}<div class="acct-meta italic top4">“{{ a.o.note }}”</div>{% endif %}</div>
+            <button class="acct-sbtn tall" name="op" value="decline">{% trans "Decline" %}</button>
+            <button class="acct-sbtn tall amber" name="op" value="accept">{{ a.accept }}</button>
+        </form>
+        {% endfor %}
+    </section>
+    {% endif %}
+    {% for sec in sections %}
+    <section>
+        <div class="acct-sec-head"><h2 class="disp acct-h2">{{ sec.title }}</h2><span class="acct-meta">{{ sec.meta }}</span></div>
+        <div class="acct-grabs">
+            {% for m in sec.items %}
+            <form method="post" class="acct-grab{% if m.cant %} cant{% endif %}">{% csrf_token %}<input type="hidden" name="shift" value="{{ m.s.id }}">{% if not only_mine %}<input type="hidden" name="all" value="1">{% endif %}
+                <div class="acct-grab-top"><span class="acct-date soft"><span>{{ m.box.dow }}</span><b class="disp num">{{ m.box.day }}</b></span>
+                    <div class="grow"><div class="num strong acct-grab-time">{{ m.time }}</div><div class="acct-grab-meta">{% if m.role.name %}<span class="acct-pill" style="color: {{ m.role.color }}">{{ m.role.name }}</span>{% endif %}<span class="num acct-meta small">{{ m.hours }}</span></div></div></div>
+                <div class="acct-grab-from">{% if m.by %}<span class="acct-face tiny" style="background: {{ m.by.face }}">{{ m.by.ini }}</span>{% endif %}{{ m.from }}</div>
+                {% if m.warn %}<div class="acct-warn{% if m.cant %} cant{% endif %}">{{ m.warn }}</div>{% elif m.note %}<div class="acct-meta small italic top6">“{{ m.note }}”</div>{% endif %}
+                <span class="grow"></span>
+                <button class="acct-grab-btn" name="op" value="grab" {% if m.cant %}disabled{% endif %}>{% if m.cant %}{% trans "Can’t take this one" %}{% else %}{% trans "Grab this shift" %}{% endif %}</button>
+            </form>
+            {% endfor %}
+        </div>
+    </section>
+    {% empty %}
+    {% if not asks %}<div class="acct-card acct-empty">{% trans "Nothing up for grabs right now." %}</div>{% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

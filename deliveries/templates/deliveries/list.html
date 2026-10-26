@@ -1,0 +1,78 @@
+{% extends "deliveries/base.html" %}
+{% load i18n courier_tags %}
+
+{% block content %}
+<div class="c-screen swap">
+    <header class="c-head">
+        <h1 class="c-title-md">{% trans "Orders" %}</h1>
+        <div class="c-bar" id="shift-card" data-region>
+            <span class="c-ibox">{% icon shift.mode 22 2 %}</span>
+            <span class="grow">
+                <span class="c-strong">{% blocktrans trimmed with mode=shift.short_mode %}On shift · {{ mode }}{% endblocktrans %}</span>
+                <span class="c-sub">{{ shift_line }}</span>
+            </span>
+            <span class="c-live" aria-hidden="true"><span class="ping"></span><span></span></span>
+        </div>
+        <div id="current-card" data-region>{% if current %}
+            <a class="c-bar dark" href="{% url 'delivery_current' %}" data-live>
+                <span class="c-ibox amber">{% icon "bag" 22 2 %}</span>
+                <span class="grow">
+                    <span class="c-strong">{% blocktrans trimmed with n=current.order_number %}Current delivery #{{ n }}{% endblocktrans %}</span>
+                    <span class="c-sub">{{ current_text }}</span>
+                </span>
+                {% icon "chevron" 18 2.2 %}
+            </a>{% endif %}
+        </div>
+    </header>
+
+    <section class="c-scroll" id="open-orders" data-region aria-labelledby="open-title">
+        <div class="c-row-head">
+            <span class="ov ink" id="open-title">{% trans "Looking for a courier" %}</span>
+            <span class="c-count">{% blocktrans count n=cards|length %}{{ n }} order{% plural %}{{ n }} orders{% endblocktrans %}</span>
+        </div>
+        {% for card in cards %}
+        <a class="c-card card-in" href="{% url 'delivery_order' id=card.delivery.id %}" data-live style="animation-delay: {{ forloop.counter0 }}00ms">
+            <span class="c-card-top">
+                <span class="c-eta">
+                    {% icon shift.mode 18 2 %}
+                    <span class="disp">{% if card.eta %}{{ card.eta }}{% else %}–{% endif %}</span>
+                    <span class="c-eta-unit">{% trans "MIN" %}</span>
+                </span>
+                <span class="grow">
+                    <span class="c-card-title"><span class="disp">#{{ card.delivery.order_number }}</span><span class="c-name">{{ card.delivery.customer_name }}</span></span>
+                    <span class="c-where">{{ card.delivery.street }}{% if card.delivery.area %} · {{ card.delivery.area }}{% endif %}</span>
+                </span>
+                {% icon "chevron" 18 2.2 %}
+            </span>
+            <span class="c-chips">{% for chip in card.chips %}<span class="c-chip {{ chip.kind }}">{{ chip.text }}</span>{% endfor %}</span>
+        </a>
+        {% empty %}
+        <div class="c-empty">
+            <div class="disp">{% trans "All caught up" %}</div>
+            <div class="c-sub">{% trans "New delivery orders show up here the moment they come in." %}</div>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+{% if end %}
+<div id="end-sheet" data-region>
+    <a class="c-backdrop fade" href="{% url 'delivery_orders' %}" data-live aria-label="{% trans 'Keep going' %}"></a>
+    <div class="c-sheet sheet-in" role="dialog" aria-modal="true" aria-labelledby="end-title">
+        <div class="c-grip" aria-hidden="true"></div>
+        <h2 class="c-title-sm" id="end-title">{% trans "End your shift?" %}</h2>
+        <p class="c-lead sm">{% trans "You'll stop receiving new delivery orders." %}</p>
+        <div class="c-stats soft">{% for value, label in end.stats %}<div><div class="disp">{{ value }}</div><div class="c-stat-label">{{ label }}</div></div>{% endfor %}</div>
+        {% if end.blocked %}<div class="c-alert" role="alert">{% icon "warn" 18 2.2 %}{{ end.blocked }}</div>{% endif %}
+        <div class="c-sheet-actions">
+            <a class="c-btn c-btn-soft" href="{% url 'delivery_orders' %}" data-live>{% trans "Keep going" %}</a>
+            <form method="post" action="{% url 'delivery_shift' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="end">
+                <button class="c-btn c-btn-danger" {% if end.blocked %}disabled{% endif %}>{% trans "End shift" %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

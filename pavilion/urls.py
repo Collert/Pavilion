@@ -2,7 +2,7 @@
 URL configuration for pavilion project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
+    https://docs.djangoproject.com/en/6.1/topics/http/urls/
 Examples:
 Function views
     1. Add an import:  from my_app import views
@@ -19,28 +19,43 @@ from django.urls import include, path
 from django.conf.urls.static import static
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
+from django.views.decorators.cache import cache_control
 from django.views.i18n import JavaScriptCatalog
+from pavilion import realtime
+
+from admin_portal import views as admin_views  # noqa: E402
+from pos_server import views as pos_views  # noqa: E402
 
 urlpatterns = [
-    path('jsi18n/', JavaScriptCatalog.as_view(), name='javascript-catalog')
+    path('events/<str:topic>', realtime.stream_view, name='events'),
+    path('i18n/', include('django.conf.urls.i18n')),  # set_language: the language pickers post here
+    # Square needs fixed addresses, the same in every language: the OAuth redirect URL and the webhook
+    path('square/oauth/callback', admin_views.square_oauth_callback, name='square_oauth_callback'),
+    path('square/webhook', pos_views.square_webhook, name='square_webhook_plain'),
 ]
 
 urlpatterns += i18n_patterns(
+    # The translations for gettext() in our scripts. Under the language prefix so each language has its own address,
+    # which lets browsers keep it for a day instead of fetching it again on every page.
+    path('jsi18n/', cache_control(public=True, max_age=24 * 3600)(JavaScriptCatalog.as_view()), name='javascript-catalog'),
     path('', include("online_store.urls")),
-    path('admin/', include("new_admin.urls")),
+    path("admin/", include("admin_portal.urls")),
     path('advanced-admin/', admin.site.urls),
-    path('webrtc/', include("webrtc.urls")),
     path('restaurant/', include("pos_server.urls")),
     path('deliveries/', include("deliveries.urls")),
     path('utils/', include("misc_tools.urls")),
     path('inventory/', include("inventory.urls")),
     path('gift-cards/', include("gift_cards.urls")),
     path('payments/', include("payments.urls")),
+    path('catering/', include("catering.urls")),
     path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
+    path("screens/", include("screens.urls")),
+    path("audio/", include("audio.urls")),
+    path("team/", include("team.urls")),
 )
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Dev only; in production media lives in the S3 bucket (see settings.STORAGES).
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

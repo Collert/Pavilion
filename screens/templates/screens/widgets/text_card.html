@@ -1,0 +1,9 @@
+<article class="text-card text-card--{{ params.align }}" style="background: {{ params.background }}; color: {{ params.color }}">
+    {% if params.image %}<div class="text-card-image"><img src="{{ params.image }}" alt=""></div>{% endif %}
+    <div class="text-card-body">
+        {% if params.tag %}<span class="text-card-tag">{{ params.tag }}</span>{% endif %}
+        {% if params.title %}<h3>{{ params.title }}</h3>{% endif %}
+        {% if params.text %}<p>{{ params.text|linebreaksbr }}</p>{% endif %}
+        {% if params.footer %}<span class="text-card-footer">{{ params.footer }}</span>{% endif %}
+    </div>
+</article>

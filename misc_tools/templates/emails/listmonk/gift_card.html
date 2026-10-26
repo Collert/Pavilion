@@ -1,0 +1,7 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}Here’s your gift card, {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with amount=tx.amount %}{{ amount }} to spend at {{ store }}, at the counter or online.{% endblocktrans %}</p>
+<p><a class="pv-btn" href="{% go ".Tx.Data.card_url" %}">{% trans "Open your gift card" %}</a></p>
+<p class="pv-muted">{% trans "Keep this email: it’s the only place the full card number is written down." %}</p>
+{% endblock %}

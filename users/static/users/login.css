@@ -1,0 +1,68 @@
+/* Password sign-in (see docs/mockups/Sign in-html). The left panel reuses the lock screen's styles (lock.css). */
+
+.tagline {
+    margin: 0; max-width: 520px; font-family: var(--heading); font-size: clamp(48px, 6vw, 72px); line-height: .98;
+    font-weight: 700; letter-spacing: -.035em;
+}
+.tagline span { color: var(--amber); }
+
+.sign-in .lock-title { font-size: 32px; }
+.sign-in-sub { margin-top: 8px; font-size: 15px; font-weight: 600; color: var(--muted); }
+
+.fields { display: flex; flex-direction: column; gap: 12px; margin-top: 30px; }
+.fields.shake { animation: shake .42s ease both; }
+.field-label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.si-field {
+    height: 60px; border-radius: 20px; display: flex; align-items: center; gap: 12px; padding: 0 18px 0 16px;
+    background: var(--soft); color: var(--muted); transition: box-shadow .2s ease, background-color .2s ease;
+}
+.si-field:focus-within { background: var(--surface); box-shadow: inset 0 0 0 2px var(--brand); }
+.si-field.bad { background: var(--surface); box-shadow: inset 0 0 0 2px var(--danger); }
+.si-field svg { flex: none; }
+.si-field input {
+    flex: 1; min-width: 0; height: 100%; padding: 0; border: none; background: transparent;
+    font: 600 17px 'Manrope', system-ui, sans-serif; color: var(--ink);
+}
+.si-field input::placeholder { color: #7C8A83; }
+.si-field input:focus-visible { outline: none; }
+.eye {
+    width: 44px; height: 44px; margin-right: -10px; flex: none; border-radius: 22px; border: none; background: transparent;
+    color: var(--muted); display: flex; align-items: center; justify-content: center;
+}
+.eye[aria-pressed=true] { color: var(--brand); }
+.field-error { min-height: 20px; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--danger); }
+
+.stay {
+    margin-top: 2px; cursor: pointer; min-height: 64px; padding: 10px 16px; border-radius: 20px; background: var(--soft);
+    display: flex; align-items: center; gap: 14px; position: relative;
+}
+.stay > span:first-child { flex: 1; min-width: 0; }
+.stay .toggle-title { display: block; font-size: 15px; font-weight: 700; }
+.stay .sub { display: block; margin-top: 2px; }
+.switch-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch-track {
+    position: relative; width: 52px; height: 32px; border-radius: 16px; flex: none; background: #C3CDC7;
+    transition: background-color .2s ease;
+}
+.switch-track span {
+    position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 12px; background: #fff;
+    box-shadow: 0 1px 3px rgba(20, 38, 31, .3); transition: left .2s ease;
+}
+.switch-input:checked + .switch-track { background: var(--brand); }
+.switch-input:checked + .switch-track span { left: 24px; }
+.switch-input:focus-visible + .switch-track { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+.form-error { min-height: 24px; margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--danger); }
+.sign-in .submit { width: 100%; margin-top: 6px; font-weight: 800; }
+.submit .spin { display: none; }
+.submit.loading { opacity: .85; cursor: progress; }
+.submit.loading .spin { display: block; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+.sign-in-foot { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; margin-top: 16px; }
+.sign-in-foot a { color: var(--brand); font-weight: 700; }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0) } 18% { transform: translateX(-10px) } 36% { transform: translateX(9px) }
+    54% { transform: translateX(-6px) } 72% { transform: translateX(4px) }
+}

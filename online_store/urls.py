@@ -1,15 +1,25 @@
 from django.urls import path
-from django.views.generic import TemplateView
 
-from . import views
+from . import account, pages, views, work
 
 urlpatterns = [
     path("", views.index, name="store_home"),
-    path("menu", views.menu, name="menu"),
-    path("dish/<int:id>", views.dish, name="dish"),
-    path("submit-order", views.place_order, name="submit_order"),
-    path("order-status/<int:id>", views.order_status, name="order_status"),
-    path("order-status/<int:id>/<str:from_placing>", views.order_status, name="order_status"), 
-    path("order-history", views.order_history, name="order_history"),
-    path('service-worker.js', views.service_worker_view, name='service_worker_serve'),
+    path("menu", pages.menu_page, name="menu"),
+    path("dish/<int:id>", pages.dish_redirect, name="dish"),
+    path("cart", pages.checkout, name="store_cart"),
+    path("services", pages.services_page, name="store_services"),
+    path("gift-cards", pages.gift_cards_page, name="store_gift_cards"),
+    path("order-status/<int:id>", pages.order_page, name="order_status"),
+    path("order-status/<int:id>/<str:from_placing>", pages.order_page, name="order_status"),
+    path("account", account.orders, name="account"),
+    path("account/catering", account.catering, name="account_catering"),
+    path("account/profile", account.profile, name="account_profile"),
+    path("account/shifts", work.shifts, name="account_shifts"),
+    path("account/up-for-grabs", work.market, name="account_market"),
+    path("account/time", work.time_page, name="account_time"),
+    path("account/orders/<int:order_id>/reorder", account.reorder, name="account_reorder"),
+    path("account/orders/<int:order_id>/receipt", account.receipt, name="account_receipt"),
+    path("account/sign-in", account.signin, name="store_signin"),
+    path("account/join", account.join, name="store_join"),
+    path("account/sign-out", account.signout, name="store_signout"),
 ]

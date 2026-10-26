@@ -1,0 +1,13 @@
+{% load i18n %}
+<header class="page-head cater-head" id="cater-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Orders" %}</div>
+        <h1 class="disp page-title">{% trans "Catering" %}</h1>
+    </div>
+    <span class="cater-live{% if c.off %} off{% endif %}"><span class="cater-live-dot"></span>{% if c.off %}{% trans "Catering off" %}{% else %}{% trans "Taking orders" %}{% endif %}</span>
+    <nav class="seg" aria-label="{% trans 'View' %}">
+        <a class="seg-btn" href="{% url 'admin_catering' %}" {% if view == "orders" %}aria-current="page"{% endif %}>{% trans "Orders" %}{% if c.new_count %}<span class="seg-badge">{{ c.new_count }}</span>{% endif %}</a>
+        <a class="seg-btn" href="{% url 'admin_catering_settings' %}" {% if view == "settings" %}aria-current="page"{% endif %}>{% trans "Settings" %}</a>
+    </nav>
+    {% if view == "settings" %}<button class="btn-amber" name="op" value="save" {% if not s.dirty %}disabled{% endif %}>{% trans "Save changes" %}</button>{% endif %}
+</header>

@@ -1,0 +1,26 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}Catering requests (StoreAccount, catering): each request with its last message; waiting ones stand out.{% endcomment %}
+{% block title %}{% trans "Catering requests" %}{% endblock %}
+{% block heading %}{% trans "Catering requests" %}{% endblock %}
+{% block live_topics %}"catering"{% endblock %}
+{% block content %}
+<div class="acct-scroll acct-stack" id="acct-catering" data-region>
+    {% for r in rows %}
+    <div class="acct-card acct-cater{% if r.attention %} attention{% endif %}">
+        <span class="acct-date big {% if r.attention %}live{% elif r.o.status == 'done' %}done{% endif %}"><span>{{ r.mon }}</span><b class="disp">{{ r.day }}</b></span>
+        <div class="grow">
+            <div class="acct-cater-title"><span class="disp">{{ r.o.title }}</span><span class="acct-pill {{ r.o.status }}">{{ r.o.get_status_display }}</span></div>
+            <div class="acct-meta">{{ r.meta }}</div>
+            {% if r.msg %}<div class="acct-msg{% if r.attention %} warm{% endif %}">“{{ r.msg|truncatechars:160 }}” <span class="acct-meta">· {{ r.from }}</span></div>{% endif %}
+        </div>
+        <div class="acct-cater-side">
+            <div class="disp num acct-cater-total">{{ r.total }}</div>
+            <div class="acct-meta strong">{{ r.pay }}</div>
+            <a class="acct-btn {% if r.attention %}amber{% else %}soft{% endif %}" href="{{ r.url }}">{{ r.btn }}</a>
+        </div>
+    </div>
+    {% endfor %}
+    <a class="acct-new" href="{{ links.catering }}">+ {% trans "Start a new catering request" %}</a>
+</div>
+{% endblock %}

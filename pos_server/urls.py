@@ -1,26 +1,29 @@
 from django.urls import path
 
-from . import views
+from . import history, register, views
 
 urlpatterns = [
     path("", views.index, name="index"),
-    # path("login", views.login_view, name="login_view"),
-    # path("logout", views.logout_view, name="logout_view"),
-    path("register", views.pos, name="pos"),
-    path("component-choice", views.component_choice, name="component_choice"),
+    path("register", register.register, name="pos"),
+    path("register/quote", register.quote, name="register_quote"),
+    path("history", history.history, name="register_history"),
+    path("history/<int:order_id>/print", history.history_print, name="register_history_print"),
+    path("register/catalog", register.catalog, name="register_catalog"),
+    path("register/card", register.card_checkout, name="register_card"),
+    path("register/card/<str:checkout_id>", register.card_status, name="register_card_status"),
+    path("register/terminal", register.terminal, name="register_terminal"),
+    path("register/approve", register.approve_discount, name="register_approve"),
+    path("lock", register.lock, name="register_lock"),
+    path("drawer", register.cash_drawer, name="cash_drawer"),
     path("pos-output", views.pos_out_display, name="pos_output"),
     path("order-marking", views.order_marking, name="order_marking"),
     path('menu_select', views.menu_select, name='menu_select'),
     path('create-menu', views.create_menu, name='create_menu'),
-    path('dashboard', views.dashboard, name='dashboard'),
-    path('day_stats', views.day_stats, name='day_stats'),
     path('pair-terminal', views.pair_square_terminal, name='pair-terminal'),
     path('webhook/square', views.square_webhook, name='square_webhook'),
-    path('webhook/square/check_card_status', views.check_card_status, name='check_card_status'),
-    path('check-su', views.check_superuser_status, name='check_su'),
     # path('register-staff', views.register_staff, name='register_staff'),
     path('orders-progress', views.order_progress, name='order_progress'),
     path('active_orders', views.active_orders, name='active_orders'),
-    path('check_inventory', views.check_inventory, name='check_inventory'),
+    path('orders/attention', views.orders_attention, name='orders_attention'),
     path('check-device', views.device_elig, name='device_elig'),
 ]

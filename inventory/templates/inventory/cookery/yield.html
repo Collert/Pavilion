@@ -1,0 +1,62 @@
+{% extends "inventory/cookery/base.html" %}
+{% load i18n cookery_tags %}
+
+{% block content %}
+{% url 'cookery_batch' s.id as here %}
+<div class="view swap split">
+    <section class="panel yield-panel" aria-label="{% trans 'Yield counter' %}">
+        <div class="yield-head">
+            {% if s.recipe %}
+            <form method="post" action="{{ here }}">{% csrf_token %}<button class="circle-btn soft" name="action" value="phase:guided" aria-label="{% trans 'Back to the steps' %}">{% icon "back" 22 %}</button></form>
+            {% else %}
+            <a class="circle-btn soft" href="{% url 'crafting' %}" data-live aria-label="{% trans 'Back to Cookery, keep this in Ongoing' %}">{% icon "back" 22 %}</a>
+            {% endif %}
+            <div class="grow"><div class="overline">{% trans "Recording yield" %}</div><h1 class="cook-title sm">{{ c.title }}</h1></div>
+            <span class="muted right">{% if mine %}{% trans "Started" %}{% else %}{% blocktrans %}{{ who }} started{% endblocktrans %}{% endif %} {{ s.started_at|time:"g:i A" }}{% if s.recipe %} · {% blocktrans with n=s.batch %}batch ×{{ n }}{% endblocktrans %}{% endif %}</span>
+        </div>
+        <div class="yield-count" data-region="yield-count" id="yield-count">
+            <div class="yield-number"><span class="disp yield-total" aria-live="polite">{{ total }}</span><span class="disp yield-unit">{{ unit }}</span></div>
+            <div class="muted strong">{% if s.recipe %}{% if reached %}{% blocktrans with n=expected %}Batch target reached · about {{ n }} expected{% endblocktrans %}{% else %}{% blocktrans with n=expected %}of about {{ n }} expected from this batch{% endblocktrans %}{% endif %}{% else %}{% trans "Made one at a time · no batch target" %}{% endif %}</div>
+            {% if s.recipe %}<div class="yield-track"><div class="yield-bar{% if reached %} full{% endif %}" style="width:{{ pct }}%"></div></div>{% endif %}
+        </div>
+        <form method="post" action="{{ here }}" class="adds">{% csrf_token %}
+            <input type="hidden" name="action" value="count">
+            {% if each %}
+            <button class="big-add" name="amount" value="1">
+                <span class="big-add-icon">{% icon "plus" 44 2.8 %}</span>
+                <span><span class="disp big-add-label">{% trans "Add one" %}</span><span class="big-add-hint">{% trans "Tap each time one goes on the tray" %}</span></span>
+            </button>
+            {% endif %}
+            <div class="quick-row">{% for n, label in quick %}
+                <button class="quick-add" name="amount" value="{{ n }}"><span class="disp">+{{ n }}</span><span class="muted">{{ label }}</span></button>{% endfor %}
+            </div>
+        </form>
+        {% if per_unit %}<div class="muted center gap-sm">{{ per_unit }}</div>{% endif %}
+    </section>
+
+    <aside class="panel side-panel keypad-panel" aria-label="{% trans 'Add an amount' %}">
+        <div class="overline ink">{% trans "Add an amount" %}</div>
+        <form method="post" action="{{ here }}" data-keypad data-reset {% if decimal %}data-decimal{% endif %}>{% csrf_token %}
+            <input type="hidden" name="action" value="count">
+            <label class="entry-box"><input class="disp entry" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" required aria-label="{% trans 'Amount' %}"><span class="muted strong">{{ unit }}</span></label>
+            <div class="keypad cook-keys">
+                {% for k in "123456789" %}<button type="button" class="key" data-key="{{ k }}">{{ k }}</button>{% endfor %}
+                <button type="button" class="key text" data-key="." {% if not decimal %}disabled{% endif %} aria-label="{% trans 'Decimal point' %}">.</button>
+                <button type="button" class="key" data-key="0">0</button>
+                <button type="button" class="key plain" data-key="back" aria-label="{% trans 'Delete last digit' %}">{% icon "backspace" 24 2 %}</button>
+            </div>
+            <button class="btn-amber wide">{% trans "Add" %}</button>
+        </form>
+        <div class="log-area" data-region="yield-log" id="yield-log">
+            <form class="section-cap gap-top" method="post" action="{{ here }}">{% csrf_token %}
+                <span class="overline">{% trans "Added so far" %}</span>
+                <button class="link-btn" name="action" value="uncount" {% if not log %}disabled{% endif %}>{% trans "Undo last" %}</button>
+            </form>
+            <div class="log-chips">{% for entry in log %}<span class="log-chip">+{{ entry.amount }}<span>{{ entry.at|time:"g:i" }}</span></span>{% empty %}<span class="muted">{% trans "Nothing yet. Every add shows up here." %}</span>{% endfor %}</div>
+            <form method="post" action="{{ here }}">{% csrf_token %}
+                <button class="btn-dark wide{% if not has_total %} off{% endif %}" name="action" value="finish" {% if not has_total %}disabled{% endif %}>{% icon "check" 20 2.6 %}{% if has_total %}{% blocktrans %}Finish · {{ total }} {{ unit }}{% endblocktrans %}{% else %}{% trans "Add some first" %}{% endif %}</button>
+            </form>
+        </div>
+    </aside>
+</div>
+{% endblock %}

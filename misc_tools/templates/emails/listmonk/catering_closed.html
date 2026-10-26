@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with name=tx.name %}We can’t do this one, {{ name }}{% endblocktrans %}</h1>
+<p>{% blocktrans with number=tx.number %}Your catering request {{ number }} is closed.{% endblocktrans %}</p>
+{% go "if .Tx.Data.reason" %}<p><b>{% go ".Tx.Data.reason" %}</b></p>{% go "end" %}{% go "if .Tx.Data.message" %}<div class="pv-box">{% go ".Tx.Data.message" %}</div>{% go "end" %}{% go "if .Tx.Data.refunded" %}<p>{% blocktrans with refunded=tx.refunded %}We refunded {{ refunded }} to your card.{% endblocktrans %}</p>{% go "end" %}
+{% endblock %}

@@ -1,0 +1,75 @@
+/* The time clock (team/templates/team/clock.html), on top of the lock screen's styles (pos_server/lock.css). */
+
+.clock-app { flex: 1; min-width: 0; min-height: 0; display: flex; gap: 16px; }
+
+/* The board: the time, who's on the clock, who's due */
+.tc-board { gap: 26px; }
+.tc-now { position: relative; display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.tc-now .clock #clock-time { font-size: clamp(80px, 9vw, 140px); }
+.tc-lists { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; align-content: start; overflow-y: auto; scrollbar-width: none; }
+.tc-who { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.tc-person { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 18px; background: rgba(255, 255, 255, .08); }
+.tc-person.away { opacity: .7; }
+.tc-ini { width: 40px; height: 40px; flex: none; border-radius: 20px; display: flex; align-items: center; justify-content: center; background: var(--amber); color: var(--ink); font-size: 14px; font-weight: 800; }
+.tc-person.away .tc-ini { background: rgba(255, 255, 255, .18); color: #fff; }
+.tc-time { width: 66px; flex: none; font-size: 13px; font-weight: 800; color: var(--amber); font-variant-numeric: tabular-nums; }
+.tc-time.late { color: #FF9A85; }
+.tc-name { display: block; font-size: 15px; font-weight: 700; }
+.tc-sub { display: block; font-size: 12px; font-weight: 600; color: var(--rail-ink); margin-top: 1px; }
+.tc-empty { font-size: 14px; font-weight: 600; color: var(--rail-ink); padding: 4px; }
+
+/* Who's clocking in */
+.tc-tabs { margin-top: 18px; }
+.tc-people { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; max-height: 248px; overflow-y: auto; scrollbar-width: thin; }
+.tc-people .staff-btn { position: relative; }
+.tc-dot { position: absolute; left: 34px; top: 8px; width: 12px; height: 12px; border-radius: 6px; background: var(--green, #12875A); box-shadow: 0 0 0 2px var(--soft); }
+.staff-btn[aria-pressed=true] .tc-dot { box-shadow: 0 0 0 2px var(--brand); }
+.tc-email { display: flex; flex-direction: column; gap: 14px; margin-top: 22px; }
+.tc-email .field { display: flex; flex-direction: column; gap: 8px; }
+.tc-pin .pin-prompt { margin-top: 18px; }
+.tc-pin .lock-keys .key { height: 64px; }
+
+/* Their clock */
+.tc-me { display: flex; align-items: center; gap: 16px; }
+.tc-avatar { width: 64px; height: 64px; flex: none; border-radius: 32px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; background: var(--soft); color: var(--ink); }
+.tc-avatar.in { background: var(--amber); }
+.tc-avatar.break { background: var(--mint); color: var(--brand); }
+.tc-hi { display: block; margin: 0; }
+.tc-status { display: block; margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.tc-status.in { color: var(--brand); }
+.tc-status.break { color: #8A4B00; }
+.tc-card { margin-top: 18px; padding: 14px 16px; border-radius: 20px; background: var(--soft); display: flex; flex-direction: column; gap: 8px; }
+.tc-shift { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.tc-shift .strong { font-weight: 800; }
+.tc-shift .num { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc-role { width: 10px; height: 10px; border-radius: 5px; flex: none; }
+.tc-note { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: #FFF3DD; color: #8A4B00; font-size: 14px; font-weight: 700; line-height: 1.45; }
+.tc-err { margin-top: 12px; }
+.tc-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.tc-big { width: 100%; height: 76px; border-radius: 26px; font-size: 20px; }
+.tc-row-head { display: flex; justify-content: space-between; align-items: baseline; }
+.tc-punch { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
+.tc-punch .num { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc-mark { width: 10px; height: 10px; border-radius: 5px; flex: none; background: var(--brand); }
+.tc-punch.break .tc-mark { background: var(--amber); }
+.tc-punch.out .tc-mark { background: var(--muted); }
+.lock-foot .btn { text-decoration: none; }
+
+/* Done */
+.tc-done.break { background: var(--mint); color: var(--brand); }
+.tc-done.out { background: var(--ink); color: #fff; }
+.welcome form { margin-top: 8px; }
+
+@media (max-width: 960px) {
+    .clock-app { flex-direction: column; }
+    .tc-people { grid-template-columns: 1fr; }
+}
+
+/* Portrait (last): the board on top, the clock underneath */
+@media (orientation: portrait) {
+    .clock-app { flex-direction: column; min-height: 0; }
+    .tc-board { flex: none; padding: 28px 36px; }
+    .tc-now .clock #clock-time { font-size: 88px; }
+    .tc-lists { max-height: 24dvh; }
+    .tc-panel { flex: 1; width: auto; }
+}

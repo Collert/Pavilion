@@ -1,0 +1,45 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}Orders (StoreAccount, orders): the order in progress, every order, and the one picked (?o=).{% endcomment %}
+{% block title %}{% trans "Orders" %}{% endblock %}
+{% block heading %}{% trans "Orders" %}{% endblock %}
+{% block live_topics %}"orders"{% endblock %}
+{% block content %}
+<div class="acct-split" id="acct-orders" data-region>
+    <section class="acct-scroll acct-col">
+        {% if live %}
+        <div class="acct-live">
+            <span class="acct-live-icon"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16 M6 14a6 6 0 0 1 12 0 M3 18h18"/></svg></span>
+            <div class="grow"><div class="ov amber">{% blocktrans with n=live.order.id %}Happening now · #{{ n }}{% endblocktrans %}</div><div class="disp acct-live-text">{{ live.label }}. {{ live.ready }}.</div></div>
+            <a class="acct-btn white" href="{{ live.url }}">{% trans "Track" %}</a>
+        </div>
+        {% endif %}
+        <div class="acct-card list">
+            {% for r in rows %}
+            <a class="acct-row{% if r.on %} on{% endif %}" href="?o={{ r.o.id }}" data-live>
+                <span class="acct-date {% if r.kind == 'live' %}live{% endif %}"><span>{{ r.mon }}</span><b class="disp">{{ r.day }}</b></span>
+                <span class="grow acct-two"><span class="strong">{{ r.what }}</span><span class="acct-meta">{{ r.meta }}</span></span>
+                <span class="num strong acct-amt">${{ r.o.total|floatformat:2 }}</span>
+                <span class="acct-pill {{ r.kind }}">{{ r.state }}</span>
+            </a>
+            {% empty %}
+            <div class="acct-empty">{% trans "No orders yet." %} <a href="{{ links.menu }}">{% trans "Have a look at the menu" %}</a>.</div>
+            {% endfor %}
+        </div>
+    </section>
+    {% if d %}
+    <section class="acct-card acct-detail acct-scroll">
+        <div class="acct-detail-head"><h2 class="disp grow">{{ chosen.what }}</h2><span class="num acct-meta strong">#{{ d.number }}</span></div>
+        <div class="acct-meta">{{ chosen.meta }}</div>
+        <div class="acct-items">{% for it in d.items %}<div class="acct-item"><span class="num strong">{{ it.qty }}×</span><span class="grow"><span class="strong">{{ it.name }}</span>{% if it.mods %}<span class="acct-meta block">{{ it.mods }}</span>{% endif %}</span><span class="num strong">${{ it.total|floatformat:2 }}</span></div>{% endfor %}</div>
+        <div class="acct-totals">
+            {% for label, value in d.totals %}<div><span class="grow">{{ label }}</span><span class="num">{{ value }}</span></div>{% endfor %}
+            <div class="big"><span class="grow">{% trans "Total" %}</span><span class="num">${{ d.order.total|floatformat:2 }}</span></div>
+            <div class="acct-meta">{{ d.paid }}</div>
+        </div>
+        <form method="post" action="{% url 'account_reorder' d.number %}">{% csrf_token %}<button class="acct-btn amber wide">{% trans "Reorder these items" %}</button></form>
+        <a class="acct-btn soft wide" href="{% url 'account_receipt' d.number %}" target="_blank" rel="noopener">{% trans "Download receipt" %}</a>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

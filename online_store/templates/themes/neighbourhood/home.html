@@ -1,0 +1,160 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n %}
+{% comment %}Home (design: StoreHome). Sections are switched on and off in the theme's Homepage settings.{% endcomment %}
+{% block content %}
+<section class="nb-hero">
+    <div class="nb-hero-text">
+        {% if t.kicker %}<div class="nb-kick accent">{{ t.kicker }}</div>{% endif %}
+        <h1 class="nb-serif nb-hero-title">{{ headline.first }}{% if headline.amp %} <em>&amp;</em> {{ headline.rest }}{% endif %}</h1>
+        {% if t.intro %}<p class="nb-hero-intro">{{ t.intro }}</p>{% endif %}
+        <div class="nb-hero-btns">
+            <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.menu }}">{% trans "Order for pickup" %}</a>
+            <a class="nb-btn nb-btn-line nb-btn-big" href="{{ links.menu }}?method=delivery">{% trans "Get it delivered" %}</a>
+        </div>
+        <div class="nb-hero-facts">
+            <span><span class="nb-fact-dot green"></span>{% blocktrans with n=pickup_minutes %}Pickup ready in about {{ n }} min{% endblocktrans %}</span>
+            <span><span class="nb-fact-dot{% if status.open %} gold{% endif %}"></span>{{ status.text }}</span>
+        </div>
+    </div>
+    <div class="nb-hero-art" aria-hidden="true">
+        <div class="nb-hero-sun"></div>
+        {% if hero_url %}<img class="nb-hero-photo" src="{{ hero_url }}" alt="">
+        {% else %}<div class="nb-hero-main">{% include "themes/neighbourhood/_drawing.html" with kind=hero_drawing size=400 %}</div>{% endif %}
+        <div class="nb-hero-bubble left">{% include "themes/neighbourhood/_drawing.html" with kind="fries" size=150 %}</div>
+        <div class="nb-hero-bubble right">{% include "themes/neighbourhood/_drawing.html" with kind="latte" size=120 %}</div>
+        {% if t.stamp %}
+        <div class="nb-stamp">
+            <svg class="nb-stamp-ring" viewBox="0 0 150 150"><defs><path id="nb-ring" d="M75 75m-56 0a56 56 0 1 1 112 0a56 56 0 1 1-112 0"/></defs><circle cx="75" cy="75" r="74" fill="var(--deep)"/><text font-size="13" font-weight="700" letter-spacing="3.2" fill="var(--paper)"><textPath href="#nb-ring">{{ t.stamp|upper }} · {{ t.stamp|upper }} ·</textPath></text></svg>
+            <div class="nb-serif nb-stamp-mid">{% if status.short %}{{ status.short }}<span>{% trans "TODAY" %}</span>{% else %}{{ store.name|slice:":1" }}{% endif %}</div>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if menus_now %}
+<section class="nb-section">
+    <div class="nb-section-head ruled">
+        <div class="nb-grow"><div class="nb-kick deep">{% trans "Today and coming up" %}</div><h2 class="nb-serif nb-h2">{% trans "What’s on the menu" %}</h2></div>
+        <a class="nb-more" href="{{ links.menu }}">{% trans "Order from the menu" %} →</a>
+    </div>
+    <div class="nb-menus">
+        {% for m in menus_now %}
+        <a class="nb-menu-card nb-lift{% if m.state == 'now' %} now{% endif %}" href="{{ links.menu }}?actual={{ m.menu.id }}">
+            <span class="nb-pill {{ m.state }}">{{ m.pill }}</span>
+            <span class="nb-serif nb-menu-name">{{ m.menu.title }}</span>
+            <span class="nb-menu-when">{{ m.when }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if favourites %}
+<section class="nb-section">
+    <div class="nb-section-head">
+        <h2 class="nb-serif nb-h2 nb-grow">{% trans "Most ordered this week" %}</h2>
+    </div>
+    <div class="nb-favs">
+        {% for f in favourites %}
+        <article class="nb-fav nb-lift">
+            <div class="nb-fav-art tone-{{ forloop.counter }}">
+                {% if f.picture.photo %}<img src="{{ f.picture.photo }}" alt="" class="nb-fav-photo">{% else %}{% include "themes/neighbourhood/_drawing.html" with kind=f.picture.drawing size=170 label=f.dish.title %}{% endif %}
+                {% if f.tag %}<span class="nb-fav-tag">{{ f.tag }}</span>{% endif %}
+            </div>
+            <div class="nb-fav-body">
+                <div class="nb-fav-top"><h3 class="nb-serif">{{ f.dish.title }}</h3><span class="nb-price">{{ f.price }}</span></div>
+                {% if f.dish.description %}<p>{{ f.dish.description }}</p>{% endif %}
+                <a class="nb-btn nb-btn-ink" href="{{ f.url|default:links.menu }}">{% trans "Add to order" %}</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if gifts %}
+<section class="nb-section nb-gifts">
+    <div class="nb-gifts-text">
+        <div class="nb-kick accent">{% trans "Gift cards" %}</div>
+        <h2 class="nb-serif nb-h2">{{ t.gift_title }}</h2>
+        {% if t.gift_text %}<p class="nb-gifts-p">{{ t.gift_text }}</p>{% endif %}
+        <div class="nb-hero-btns">
+            <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.giftcards }}">{% trans "Buy a gift card" %}</a>
+            {% if gifts.from %}<span class="muted nb-gifts-from">{% blocktrans with low=gifts.from %}From ${{ low }}{% endblocktrans %}</span>{% endif %}
+        </div>
+    </div>
+    <a class="nb-gifts-art" href="{{ links.giftcards }}" aria-label="{% trans 'Buy a gift card' %}">
+        {% for d in gifts.designs %}
+        <span class="nb-gift-art n{{ forloop.counter }} ink-{{ d.ink }}" style="background-color: {{ d.color }};{% if d.image %} background-image: url('{{ d.image.url }}');{% endif %}">
+            {% if d.show_text %}<span class="nb-serif">{{ store.name }}</span>{% else %}<span></span>{% endif %}<span class="nb-serif nb-gift-amt small">{% if d.amounts %}${{ d.amounts|last }}{% endif %}</span>
+        </span>
+        {% endfor %}
+    </a>
+</section>
+{% endif %}
+
+{% if catering %}
+<section class="nb-catering">
+    <div>
+        <div class="nb-kick gold">{% trans "Catering" %}</div>
+        <h2 class="nb-serif nb-cat-title">{{ t.catering_title }}</h2>
+        {% if t.catering_text %}<p class="nb-cat-text">{{ t.catering_text }}</p>{% endif %}
+        <ul class="nb-ticks">{% for r in catering.rules %}<li><span class="nb-tick"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>{{ r }}</li>{% endfor %}</ul>
+        {% if links.catering %}<a class="nb-btn nb-btn-gold nb-btn-big" href="{{ links.catering }}">{% trans "Start a catering quote" %}</a>{% endif %}
+    </div>
+    <div class="nb-cat-art" aria-hidden="true">
+        <div class="nb-quote">
+            <div class="nb-kick accent small">{% trans "Example quote · for 20" %}</div>
+            <div class="nb-quote-lines">{% for q in catering.quote %}<div><span class="nb-grow">{{ q.name }}</span><span class="muted">{{ q.qty }}</span><span class="nb-quote-price">{{ q.price }}</span></div>{% endfor %}</div>
+            <div class="nb-quote-total"><span class="nb-grow">{% trans "Estimate" %}</span><span>{{ catering.total }}</span></div>
+        </div>
+        <div class="nb-cat-bubble">{% include "themes/neighbourhood/_drawing.html" with kind="bowl" size=170 %}</div>
+    </div>
+</section>
+{% endif %}
+
+{% if services %}
+<section class="nb-section top">
+    <div class="nb-section-head">
+        <div class="nb-grow"><div class="nb-kick accent">{% trans "Events & services" %}</div><h2 class="nb-serif nb-h2">{% trans "More than lunch" %}</h2></div>
+        {% if links.services %}<a class="nb-more" href="{{ links.services }}">{% trans "All services" %} →</a>{% endif %}
+    </div>
+    <div class="nb-events">
+        {% for e in services %}
+        <a class="nb-event nb-lift tone-{{ forloop.counter }}" href="{{ links.services|default:'#' }}">
+            <span class="nb-event-icon"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ e.icon }}"/></svg></span>
+            <span class="nb-serif nb-event-title">{{ e.service.title }}</span>
+            {% if e.service.description %}<span class="nb-event-desc">{{ e.service.description }}</span>{% endif %}
+            <span class="nb-event-price">{{ e.price }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if t.show_visit and store.address %}
+<section class="nb-visit">
+    <div class="nb-map" aria-hidden="true">
+        <svg width="100%" height="100%" viewBox="0 0 760 380" preserveAspectRatio="xMidYMid slice">
+            <rect width="760" height="380" fill="var(--map)"/>
+            <g stroke="var(--card)" stroke-width="18" fill="none"><path d="M0 120h760 M0 280h760 M180 0v380 M420 0v380 M640 0v380"/></g>
+            <g stroke="var(--card)" stroke-width="8" fill="none" opacity=".8"><path d="M0 200h760 M300 0v380 M540 0v380"/></g>
+            <rect x="440" y="140" width="80" height="50" rx="6" fill="var(--sage)"/><rect x="200" y="300" width="90" height="60" rx="6" fill="var(--sage)"/>
+            <path d="M420 0v380" stroke="var(--highlight)" stroke-width="18"/>
+        </svg>
+        <div class="nb-pin"><span>{{ store.name }}</span><i></i><b></b></div>
+    </div>
+    <div class="nb-visit-card">
+        <div class="nb-kick deep">{% trans "Visit us" %}</div>
+        <div class="nb-serif nb-visit-addr">{{ store.address }}</div>
+        {% if store.city %}<div class="nb-visit-city">{{ store.city }}</div>{% endif %}
+        <div class="nb-hours">{% for h in hours %}<span class="{% if h.today %}today{% endif %}">{{ h.day }}</span><span class="{% if h.today %}today{% endif %}">{{ h.time }}{% if h.today %} · {% trans "today" %}{% endif %}{% if h.note %}<small class="nb-hours-note">{{ h.note }}</small>{% endif %}</span>{% endfor %}</div>
+        <span class="nb-grow"></span>
+        <div class="nb-visit-btns">
+            <a class="nb-btn nb-btn-ink" href="{% if store.directions %}{{ store.directions }}{% else %}https://www.google.com/maps/search/?api=1&query={{ store.address|urlencode }}%20{{ store.city|urlencode }}{% endif %}" target="_blank" rel="noopener">{% trans "Get directions" %}</a>
+            {% if store.phone %}<a class="nb-btn nb-btn-line" href="tel:{{ store.phone }}">{{ store.phone }}</a>{% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "emails/listmonk/_layout.html" %}{% load i18n listmonk %}
+{% block content %}
+<h1>{% blocktrans with number=tx.number %}New catering request {{ number }}{% endblocktrans %}</h1>
+<div class="pv-box">{% go ".Tx.Data.customer" %} · {% go ".Tx.Data.title" %}<br>{% go ".Tx.Data.when" %} · {% go ".Tx.Data.total" %}</div>
+<p><a class="pv-btn" href="{% go ".Tx.Data.admin_url" %}">{% trans "Answer it" %}</a></p>
+{% endblock %}

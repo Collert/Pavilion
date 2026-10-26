@@ -1,0 +1,21 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load i18n %}
+{% comment %}
+An app someone's groups don't give them (pos_server/devices.py: app_required; users/access.py).
+{% endcomment %}
+{% block title %}{% if app %}{{ app }}{% else %}{% trans "No access" %}{% endif %} · Pavilion{% endblock %}
+{% block rail %}{% endblock %}
+
+{% block body %}
+<main class="no-access">
+    <div class="no-access-card rise">
+        <span class="no-access-icon"><svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h12v9H6z M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span>
+        <h1 class="h2">{% trans "Not for your groups yet" %}</h1>
+        <p class="sub">{{ message }}</p>
+        <div class="no-access-actions">
+            <a class="btn btn-primary btn-md" href="{% url 'app_switcher_index' %}">{% trans "Back to apps" %}</a>
+            <a class="btn btn-md" href="{% url 'logout_view' %}">{% trans "Sign out" %}</a>
+        </div>
+    </div>
+</main>
+{% endblock %}

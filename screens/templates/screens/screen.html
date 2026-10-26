@@ -1,0 +1,41 @@
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ screen.name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'screens/screens.css' %}" rel="stylesheet">
+    <link href="{% static 'screens/popups.css' %}" rel="stylesheet">
+    {% for path in rendered.css %}<link href="{% static path %}" rel="stylesheet">
+    {% endfor %}
+    {% if preview %}<link href="{% static 'screens/preview.css' %}" rel="stylesheet">{% endif %}
+    <script src="{% url 'javascript-catalog' %}"></script>
+</head>
+<body>
+    {# --u is one design pixel: the canvas is scaled to fit the display, and rows/columns stretch to fill it #}
+    <main id="page" class="screen" data-now="{{ now_ms }}"
+          style="--u: min(100vw / {{ screen.width }}, 100vh / {{ screen.height }}); --screen-bg: {{ screen.background }}; --screen-pad: calc(var(--u) * {{ screen.padding }})">
+        {{ rendered.html }}
+        {% if session %}<div id="session-code" data-region>{% if not session.paired_by %}<div class="session-code">{% blocktrans with n=session.name %}{{ n }} · Pair a register with{% endblocktrans %} <b>{{ session.code }}</b></div>{% endif %}</div>{% endif %}
+    </main>
+    {% if audio %}
+    {{ audio|json_script:"screen-audio" }}
+    <button class="sound-on" id="sound-on" hidden>{% trans "Tap to turn on sound" %}</button>
+    <script type="module" src="{% static 'screens/audio-player.js' %}"></script>
+    {% endif %}
+    {% if preview %}<script type="module" src="{% static 'screens/preview.js' %}"></script>
+    {% else %}
+    {{ topics|json_script:"screen-topics" }}
+    <script type="module">
+        import { livePage } from "{% static 'js/live-page.js' %}";
+        livePage({ topics: JSON.parse(document.getElementById("screen-topics").textContent) });
+    </script>
+    {% endif %}
+    {% for path in rendered.js %}<script type="module" src="{% static path %}"></script>
+    {% endfor %}
+</body>
+</html>

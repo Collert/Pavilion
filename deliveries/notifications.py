@@ -4,7 +4,9 @@ from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
 from django.templatetags.static import static
-from . import globals
+import logging
+
+logger = logging.getLogger(__name__)
 
 # This is a bit weird, I know. But that's the best way I could figure out how to do this without making it too complex and with no circular imports.
 class PushSubscription(models.Model):
@@ -15,6 +17,12 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.endpoint}"
+
+def _contact():
+    """Who push services may write to about these messages: the store's email (Store info), else VAPID_CONTACT_EMAIL."""
+    from admin_portal import store_info
+    return store_info.contact_email()
+
 
 def send_push_notification(subscription_info, message_body):
     """
@@ -47,36 +55,23 @@ def send_push_notification(subscription_info, message_body):
             data=json.dumps(message_body),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={
-                "sub": "mailto:your-email@example.com"
+                "sub": f"mailto:{_contact()}"
             }
         )
         return response
     except WebPushException as ex:
-        print("WebPush error: {}", repr(ex))
-        if ex.response and ex.response.json():
-            extra = ex.response.json()
-            print("Remote service replied with a {}:{}, {}",
-                  extra.code,
-                  extra.errno,
-                  extra.message)
+        logger.warning("Web push failed: %r (response: %s)", ex, getattr(ex.response, "text", None))
 
-def trigger_push_notifications(title, body, action_name, action_endpoint):
+def trigger_push_notifications(title, body, action_name, action_endpoint, user_ids=None):
     """
-    Sends push notifications to active couriers.
-    Args:
-        title (str): The title of the notification.
-        body (str): The body content of the notification.
-        action_name (str): The name of the action button in the notification.
-        action_endpoint (str): The endpoint URL that the action button will link to.
-    Returns:
-        None
+    Push a notification to couriers on shift (or only to `user_ids`), with a button that opens `action_endpoint`.
     """
     HOST = settings.NOTIFICATIONS_HOST
-    active = []
-    for cour in globals.active_couriers:
-        dict_cour = dict(cour)
-        active.append(dict_cour["user"])
-    subscriptions = PushSubscription.objects.filter(user__in=active)
+    from .models import CourierShift
+    active = CourierShift.objects.values_list("user_id", flat=True)
+    if user_ids is not None:
+        active = active.filter(user_id__in=list(user_ids))
+    subscriptions = PushSubscription.objects.filter(user_id__in=list(active))
     message_body = {
         "title": title,
         "body": body,
