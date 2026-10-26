@@ -1992,7 +1992,7 @@ async function chargeCard(amount) {
     if (result.data.phone) {  // no Terminal: the QR code for the customer's phone
         const phone = result.data.phone;
         $("#phone-title").textContent = fmt(amount);
-        $("#phone-qr").src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(phone.qr);
+        $("#phone-qr").src = phone.qr;  // a data: URI (segno svg_data_uri: an SVG with its xmlns, which an <img> needs)
         $("#phone-url").textContent = interpolate(t("Or open %s · works for %s minutes"), [phone.url, phone.minutes]);
         $("#phone-cancel").onclick = cancel;
         $("#phone-sheet").oncancel = (event) => { event.preventDefault(); cancel(); };  // Esc cancels the payment too

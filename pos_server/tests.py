@@ -970,7 +970,8 @@ class RegisterTests(MenuFixture, TestCase):
         body = {"lines": [self.dish(self.burger)], "total": "14.50", "amount": "14.50", "payments": []}
         phone = self.post("register_card", body).json()  # no registered device, so no Terminal: a QR code for the phone
         self.assertTrue(phone["checkoutId"].startswith("phone-"))
-        self.assertIn("<svg", phone["phone"]["qr"])
+        self.assertTrue(phone["phone"]["qr"].startswith("data:image/svg+xml"))
+        self.assertIn("xmlns", phone["phone"]["qr"])  # without it an <img> shows nothing
         checkout.assert_not_called()
         device = EligibleDevice.objects.create(name="Front counter", token=uuid.uuid4())
         self.client.cookies[DEVICE_COOKIE] = set_device_cookie(HttpResponse(), device.token).cookies[DEVICE_COOKIE].value

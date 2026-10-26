@@ -447,7 +447,7 @@ def card_checkout(request):
         url = request.build_absolute_uri(reverse("phone_pay", args=[checkout.link]))
         return JsonResponse({"checkoutId": checkout.checkout_id, "status": checkout.status, "phone": {
             "url": url, "minutes": square.PHONE_MINUTES,
-            "qr": segno.make(url, error="m").svg_inline(scale=8, border=2, dark="#14261F", light="#FFFFFF")}})
+            "qr": segno.make(url, error="m").svg_data_uri(scale=8, border=2, dark="#14261F", light="#FFFFFF")}})  # an <img> src
     try:
         checkout = square.start_checkout(device, amount, request.user)
     except square.SquareError as e:
