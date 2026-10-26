@@ -19,7 +19,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - logs:/app/logs
 
@@ -38,6 +38,8 @@ services:
     depends_on:
       web:
         condition: service_started
+      redis:
+        condition: service_healthy
     command: >
       sh -c "sleep 120; while true; do
       python manage.py catering_deposits; python manage.py gift_cards_cleanup; python manage.py square_refresh;
@@ -59,10 +61,18 @@ services:
       retries: 10
     # Not published to the host on purpose; use `docker compose exec db psql` to get in.
 
+  # The cache every worker shares and the live-update events between them (REDIS_URL). Everything in it is short-lived
+  # (rate limits, PIN lockouts, pop-ups, who's talking; sign-ins are in Postgres), so nothing is saved to disk and the
+  # oldest keys go first when it's full. Not published to the host.
   redis:
     image: redis:7-alpine
     container_name: pavilion_redis
     restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
 
 volumes:
   pg_data:
