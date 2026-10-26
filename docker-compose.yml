@@ -80,6 +80,8 @@ services:
   # GEOCODER_URL above (Store info can point elsewhere). Until they've built, couriers see "–" for travel times.
   # Both build from an OpenStreetMap extract of your area (OSM_EXTRACT, a Geofabrik .osm.pbf link) on their first
   # start, which takes a while (tens of minutes for a province) and a few GB of disk; after that they start at once.
+  # Compose fills in ${OSM_EXTRACT} from the shell or a .env beside this file, not from env_file below: start with
+  # `docker compose --env-file pavilion/.env up -d` to use the one in pavilion/.env (British Columbia otherwise).
   valhalla:
     image: ghcr.io/valhalla/valhalla-scripted:latest
     container_name: pavilion_valhalla
