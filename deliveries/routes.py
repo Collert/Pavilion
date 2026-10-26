@@ -7,9 +7,9 @@ paid API:
   (https://nominatim.openstreetmap.org) allows at most one request a second and asks to be named and cached
   (https://operations.osmfoundation.org/policies/nominatim/): Pavilion sends its name and the store's email, keeps to
   one lookup a second across every worker and only a few per page, and never looks anything up as people type.
-  A self-hosted Nominatim (docker compose --profile geocoding) has no such limit.
+  A self-hosted Nominatim (docker-compose.yml's nominatim service) has no such limit.
 - **Times and distances** from a Valhalla server's matrix (`/sources_to_targets`), one request per travel mode
-  for all the deliveries waiting (docker compose --profile routing runs one).
+  for all the deliveries waiting (docker-compose.yml runs one).
 
 Both addresses are on the admin's Store info page (VALHALLA_URL / GEOCODER_URL fill in). Each delivery's times are
 kept on it (`distance_m`, `travel_seconds`), so it's looked up once. Without the services, or when they fail, times

@@ -483,8 +483,8 @@ Travel times (`deliveries/routes.py`, since 2026-10-26 instead of Google's paid 
 and each delivery address are turned into map points by a Nominatim server (cached 30 days per address), then a Valhalla
 server's matrix (`/sources_to_targets`, costing auto / bicycle / pedestrian) gives one request per mode for all new
 deliveries. Results are stored on the `Delivery` (`distance_m`, `travel_seconds`) so each is looked up once; a failed
-lookup waits 10 minutes. Both servers are set on Store info (`VALHALLA_URL`/`GEOCODER_URL` fill in); docker compose's
-`routing` and `geocoding` profiles run them from an OpenStreetMap extract (`OSM_EXTRACT`, British Columbia by default;
+lookup waits 10 minutes. Both servers are set on Store info (`VALHALLA_URL`/`GEOCODER_URL` fill in); docker-compose.yml's
+`valhalla` and `nominatim` services start with the stack and build from an OpenStreetMap extract (`OSM_EXTRACT`, British Columbia by default;
 the first start builds for a while). OpenStreetMap's public Nominatim may be used within its policy
 (https://operations.osmfoundation.org/policies/nominatim/): Pavilion names itself, sends the store's email, keeps to one
 lookup a second across workers and at most 3 per page, and caches every answer. Without the servers the app shows "–".
@@ -1045,7 +1045,8 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 
 - Python 3.12 slim + ffmpeg, libgl, libpq, gettext. Collects static and compiles translations at build time; the
   container runs `migrate`, then `uvicorn pavilion.asgi:application --workers ${WEB_CONCURRENCY:-3}`.
-- Compose: `web` + `scheduler` (the daily jobs) + `db` (Postgres 16, healthchecked, port not published) + `redis`. Secrets come from `pavilion/.env`.
+- Compose: `web` + `scheduler` (the daily jobs) + `db` (Postgres 16, healthchecked, port not published) + `redis` +
+  `valhalla` and `nominatim` (delivery travel times; they build from `OSM_EXTRACT` on first start). Secrets come from `pavilion/.env`.
   `.dockerignore` keeps `.env`, databases and media out of the image.
 - Media lives in the RustFS bucket, which must allow anonymous reads (images are embedded in emails and cached by the PWA).
 - Put a TLS-terminating proxy in front (nginx, Caddy, Cloudflare). For nginx, don't buffer `/events/`.

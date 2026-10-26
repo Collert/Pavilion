@@ -15,6 +15,8 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
+      VALHALLA_URL: http://valhalla:8002
+      GEOCODER_URL: http://nominatim:8080
     depends_on:
       db:
         condition: service_healthy
@@ -74,16 +76,14 @@ services:
       interval: 5s
       retries: 10
 
-  # Delivery travel times without a paid API (deliveries/routes.py), both optional and off by default:
-  #   docker compose --profile routing --profile geocoding up -d
-  # then set VALHALLA_URL=http://valhalla:8002 and GEOCODER_URL=http://nominatim:8080 (or put them on Store info).
+  # Delivery travel times without a paid API (deliveries/routes.py): web reaches them through VALHALLA_URL and
+  # GEOCODER_URL above (Store info can point elsewhere). Until they've built, couriers see "–" for travel times.
   # Both build from an OpenStreetMap extract of your area (OSM_EXTRACT, a Geofabrik .osm.pbf link) on their first
   # start, which takes a while (tens of minutes for a province) and a few GB of disk; after that they start at once.
   valhalla:
     image: ghcr.io/valhalla/valhalla-scripted:latest
     container_name: pavilion_valhalla
     restart: unless-stopped
-    profiles: ["routing"]
     environment:
       tile_urls: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
       use_tiles_ignore_pbf: "True"
@@ -97,7 +97,6 @@ services:
     image: mediagis/nominatim:5.3
     container_name: pavilion_nominatim
     restart: unless-stopped
-    profiles: ["geocoding"]
     shm_size: 1g
     environment:
       PBF_URL: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}

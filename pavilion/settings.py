@@ -36,8 +36,8 @@ LISTMONK_API_USER = os.getenv('LISTMONK_API_USER', '')
 LISTMONK_API_TOKEN = os.getenv('LISTMONK_API_TOKEN', '')
 LISTMONK_FROM_EMAIL = os.getenv('LISTMONK_FROM_EMAIL', '')
 # Delivery travel times (deliveries/routes.py): usually set on the admin's Store info page; these only fill in
-VALHALLA_URL = os.getenv('VALHALLA_URL', '')    # e.g. http://valhalla:8002 (docker compose --profile routing)
-GEOCODER_URL = os.getenv('GEOCODER_URL', '')    # a Nominatim server, e.g. http://nominatim:8080 (--profile geocoding)
+VALHALLA_URL = os.getenv('VALHALLA_URL', '')    # e.g. http://valhalla:8002 (docker-compose.yml sets it)
+GEOCODER_URL = os.getenv('GEOCODER_URL', '')    # a Nominatim server, e.g. http://nominatim:8080 (docker-compose.yml sets it)
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'admin@example.com')  # push services may contact this address; the store's email (Store info) comes first

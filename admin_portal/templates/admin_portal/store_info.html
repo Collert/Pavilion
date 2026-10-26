@@ -98,11 +98,11 @@ applies after a restart (the card does it, as on Languages; languages.js reloads
                     <input class="field{% if e.geocoder_url %} bad{% endif %}" type="url" name="geocoder_url" value="{{ v.geocoder_url }}" placeholder="{% if x.env_geocoder %}{{ x.env_geocoder }}{% else %}http://nominatim:8080{% endif %}" autocomplete="off"></label>
                 {% if e.geocoder_url %}<div class="em-hint bad">{{ e.geocoder_url }}</div>
                 {% elif x.public_geocoder %}<div class="em-hint bad">{% trans "OpenStreetMap’s public server allows light use only: at most one lookup a second, no heavy use. Pavilion keeps to that and remembers each address, which suits a small store." %} <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">{% trans "Read its usage policy" %}</a></div>
-                {% else %}<div class="em-hint">{% if x.env_geocoder and not v.geocoder_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Nominatim (docker compose --profile geocoding)." %}</div>{% endif %}
+                {% else %}<div class="em-hint">{% if x.env_geocoder and not v.geocoder_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Nominatim (the nominatim service in Docker)." %}</div>{% endif %}
                 <label class="block top12"><span class="lbl">{% trans "Routes (Valhalla)" %}</span>
                     <input class="field{% if e.routing_url %} bad{% endif %}" type="url" name="routing_url" value="{{ v.routing_url }}" placeholder="{% if x.env_routing %}{{ x.env_routing }}{% else %}http://valhalla:8002{% endif %}" autocomplete="off"></label>
                 {% if e.routing_url %}<div class="em-hint bad">{{ e.routing_url }}</div>
-                {% else %}<div class="em-hint">{% if x.env_routing and not v.routing_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Valhalla (docker compose --profile routing)." %}</div>{% endif %}
+                {% else %}<div class="em-hint">{% if x.env_routing and not v.routing_url %}{% trans "Using the server’s setting for now." %} {% endif %}{% trans "Your own Valhalla (the valhalla service in Docker)." %}</div>{% endif %}
             </div>
             <div>
                 <label class="block top12"><span class="lbl">{% trans "Weather API key" %}</span>
