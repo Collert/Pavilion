@@ -1,5 +1,6 @@
 # Production-style stack: app (uvicorn, ASGI) + Postgres + Redis.
-# Secrets and per-site settings come from pavilion/.env (see pavilion/.env.example).
+# Secrets and per-site settings come from the deployment's variables (Dokploy's Environment tab, i.e. a .env beside
+# this file) or pavilion/.env; pavilion/.env.example lists them.
 # Media is stored in a RustFS (S3-compatible) bucket configured with the RUSTFS_* variables.
 services:
   web:
@@ -8,8 +9,11 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - pavilion/.env
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
     environment:
       ENVIRONMENT: production
       DB_HOST: db
@@ -30,8 +34,11 @@ services:
     build: .
     container_name: pavilion_scheduler
     restart: unless-stopped
-    env_file:
-      - pavilion/.env
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
     environment:
       ENVIRONMENT: production
       DB_HOST: db
@@ -53,8 +60,11 @@ services:
     image: postgres:16
     container_name: pavilion_db
     restart: unless-stopped
-    env_file:
-      - pavilion/.env   # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env: POSTGRES_DB/USER/PASSWORD
+      - path: .env
+        required: false
+      - path: pavilion/.env
+        required: false
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -80,8 +90,8 @@ services:
   # GEOCODER_URL above (Store info can point elsewhere). Until they've built, couriers see "–" for travel times.
   # Both build from an OpenStreetMap extract of your area (OSM_EXTRACT, a Geofabrik .osm.pbf link) on their first
   # start, which takes a while (tens of minutes for a province) and a few GB of disk; after that they start at once.
-  # Compose fills in ${OSM_EXTRACT} from the shell or a .env beside this file, not from env_file below: start with
-  # `docker compose --env-file pavilion/.env up -d` to use the one in pavilion/.env (British Columbia otherwise).
+  # Set OSM_EXTRACT with the deployment's variables (Dokploy's Environment tab, or a .env beside this file); British
+  # Columbia otherwise.
   valhalla:
     image: ghcr.io/valhalla/valhalla-scripted:latest
     container_name: pavilion_valhalla
