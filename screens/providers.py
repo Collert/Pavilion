@@ -84,7 +84,8 @@ WEATHER_KINDS = {
 
 
 def _fetch_weather(location):
-    response = requests.get(WEATHER_URL, params={"key": settings.WEATHER_API_KEY, "q": location, "aqi": "no"}, timeout=4)
+    from admin_portal import store_info
+    response = requests.get(WEATHER_URL, params={"key": store_info.weather_key(), "q": location, "aqi": "no"}, timeout=4)
     response.raise_for_status()
     current = response.json()["current"]
     code = current["condition"]["code"]
@@ -96,9 +97,10 @@ def _fetch_weather(location):
 
 
 def weather(request, params):
-    """Current weather from weatherapi.com (WEATHER_API_KEY), fetched on the server and cached for 15 minutes."""
+    """Current weather from weatherapi.com (the key in Store info), fetched on the server and cached for 15 minutes."""
+    from admin_portal import store_info
     location = params["location"].strip()
-    if not settings.WEATHER_API_KEY or not location:
+    if not store_info.weather_key() or not location:
         return {"current": None}
     key = f"screens:weather:{location}"
     entry = cache.get(key)

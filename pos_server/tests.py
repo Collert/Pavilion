@@ -273,7 +273,7 @@ class PricingTests(MenuFixture, TestCase):
         with self.assertRaises(OrderError):
             price_cart([{"type": "dish", "id": self.tea.id, "qty": 0}])
 
-    @override_settings(TAX_RATE="0.05")
+    @mock.patch("admin_portal.store_info.tax_rate", new=lambda: Decimal("0.05"))
     def test_tax_is_charged_after_discounts(self):
         cart = price_cart([self.dish(self.burger)], order_discount={"manual": {"kind": "amt", "value": "4.50"}}, can_manual=True)
         self.assertEqual(cart.tax, Decimal("0.50"))
@@ -1237,7 +1237,7 @@ class GiftCardSaleTests(MenuFixture, TestCase):
     def sale(self, amount="50", **fields):
         return {"design": self.design.id, "amount": amount, **fields}
 
-    @override_settings(TAX_RATE=Decimal("0.05"))
+    @mock.patch("admin_portal.store_info.tax_rate", new=lambda: Decimal("0.05"))
     def test_priced_without_tax_and_issued_once_paid(self):
         from gift_cards.models import GiftCard
         cart = price_cart([self.dish(self.burger)], gift_sales=[self.sale(to="Maya")])

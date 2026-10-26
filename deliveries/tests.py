@@ -258,7 +258,8 @@ class CourierTests(MenuFixture, TestCase):
 
     # ---------- travel times and push ----------
 
-    @override_settings(GOOGLE_API_KEY="key", RESTAURANT_ADDRESS="1200 Main St")
+    @override_settings(GOOGLE_API_KEY="key")
+    @mock.patch("deliveries.routes.origin", new=lambda: "1200 Main St")
     def test_travel_times_are_looked_up_once(self):
         delivery = self.delivery_order()
         self.start()
@@ -273,6 +274,7 @@ class CourierTests(MenuFixture, TestCase):
         self.assertContains(response, "2.6 km")
 
     @override_settings(GOOGLE_API_KEY="key")
+    @mock.patch("deliveries.routes.origin", new=lambda: "1200 Main St")
     def test_a_failed_lookup_is_not_retried_straight_away(self):
         import requests
         self.delivery_order()

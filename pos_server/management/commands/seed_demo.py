@@ -1190,6 +1190,8 @@ class Command(BaseCommand):
         store = StoreSettings.load()
         store.name = "Corner Kitchen"
         store.address, store.city, store.phone = "1200 Main St", "Vancouver, BC V6A 2T9", "604-555-0100"
+        store.email, store.tax_rate, store.time_zone = "hello@cornerkitchen.example", Decimal("5"), "America/Vancouver"  # Store info
+        store.music_storage_gb = Decimal("10")
         store.draft = store.details()
         store.save()
         # The online store's theme: its defaults, drawing the dishes (the demo's photos are placeholders)

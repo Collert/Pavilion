@@ -1,0 +1,16 @@
+/* Store info (admin_portal/templates/admin_portal/store_info.html). Cards from team.css, email.css and payments.css,
+   the restart card from languages.css. */
+.si-form { display: contents; }
+.si-form .pm-card:first-child { grid-row: span 3; }
+.si-wide { grid-column: 1 / -1; }
+.si-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 14px; }
+.si-form .field { width: 100%; }
+.si-form .field.bad, .si-form .unit-field.bad { box-shadow: inset 0 0 0 2px #C4472D; }
+.si-short { max-width: 180px; }
+.si-select { display: block; }
+.si-clear { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+@media (max-width: 1100px) {
+    .si-form .pm-card:first-child { grid-row: auto; }
+    .si-two { grid-template-columns: 1fr; }
+}

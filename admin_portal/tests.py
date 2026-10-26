@@ -246,7 +246,7 @@ class ReportTests(AdminFixture, TestCase):
         self.assertEqual(self.client.get(reverse("admin_report_csv", args=["nope"])).status_code, 404)
 
 
-@override_settings(TAX_RATE="0.05")
+@mock.patch("admin_portal.store_info.tax_rate", new=lambda: Decimal("0.05"))
 class RefundTests(AdminFixture, TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1548,7 +1548,6 @@ def catering_settings_fields(d, **changes):
     return data
 
 
-@override_settings(TAX_RATE="0")
 @mock.patch("catering.flow.send_email")
 class CateringAdminTests(CateringFixture, TestCase):
     @classmethod
@@ -2151,7 +2150,7 @@ class LibraryPageTests(AdminFixture, TestCase):
         from audio.models import Playlist, Track
         self.assertEqual(self.upload("a.mp3", rights="").status_code, 400)
         self.assertEqual(self.upload("menu.jpg").status_code, 400)
-        with self.settings(MUSIC_STORAGE_GB=0.000000001):
+        with mock.patch("admin_portal.store_info.music_limit_bytes", return_value=1):
             self.assertEqual(self.upload("a.mp3").json()["message"], "The library is full. Delete some songs to make room.")
         lunch = Playlist.objects.create(name="Lunch rush")
         response = self.upload("01 Tidepool.mp3", title="Tidepool", artist="Lantern Coast", album="Harbor Lights", year="2023",
@@ -3106,3 +3105,73 @@ class LanguagesTests(AdminFixture, TestCase):
         moved = self.client.post(reverse("set_language"), {"language": "en", "next": "/uk/menu"})
         self.assertEqual(moved.url, "/en/menu")
         self.assertEqual(self.client.get(reverse("profile")).url, reverse("account_profile"))
+
+
+class StoreInfoTests(AdminFixture, TestCase):
+    """Store info (admin_portal/store_info.py): what used to be environment settings, kept on StoreSettings and cached."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_admin()
+
+    def post(self, **fields):
+        data = {"op": "save", "name": "Juniper Lane", "phone": "604 555 0123", "email": "hello@juniper.example",
+                "address": "1200 Main St", "city": "Vancouver, BC V6A 1A1", "directions": "", "tax_rate": "5",
+                "time_zone": "America/Vancouver", "music_storage_gb": "2.5", **fields}
+        return self.client.post(reverse("admin_store_info"), data)
+
+    def test_saving_feeds_tax_music_couriers_and_the_online_store_draft(self):
+        from admin_portal import store_info
+        from admin_portal.models import StoreSettings
+        from audio.library import limit_bytes
+        from deliveries import routes
+        from pos_server.pricing import tax_rate
+        store = StoreSettings.load()
+        store.draft = {"name": "Old name", "logo": "", "address": "1 Old Rd", "city": "", "phone": "", "directions": ""}
+        store.save()
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(reverse("admin_store_info")), "Store info")
+        self.assertRedirects(self.post(google_key="maps-key"), reverse("admin_store_info"))
+        self.assertEqual(tax_rate(), Decimal("0.05"))
+        self.assertEqual(limit_bytes(), 2_500_000_000)
+        self.assertEqual(routes.origin(), "1200 Main St, Vancouver, BC V6A 1A1")
+        self.assertEqual(store_info.google_key(), "maps-key")
+        row = StoreSettings.objects.get()
+        self.assertNotIn("maps-key", row.google_key)  # encrypted
+        self.assertEqual((row.draft["name"], row.draft["address"]), ("Juniper Lane", "1200 Main St"))
+        self.post()  # an empty key field keeps the saved key
+        self.assertEqual(store_info.google_key(), "maps-key")
+        self.post(clear_google_key="1")
+        self.assertEqual(StoreSettings.objects.get().google_key, "")
+
+    def test_mistakes_are_shown_and_nothing_is_saved(self):
+        from admin_portal.models import StoreSettings
+        self.client.force_login(self.owner)
+        response = self.post(name="", tax_rate="105", email="nope", time_zone="Mars/Olympus", music_storage_gb="lots")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(set(response.context["x"]["errors"]), {"name", "tax_rate", "email", "time_zone", "music_storage_gb"})
+        self.assertEqual(StoreSettings.objects.get().tax_rate, Decimal("0"))
+
+    def test_a_new_time_zone_waits_for_a_restart(self):
+        self.client.force_login(self.owner)
+        self.post(time_zone="Europe/Kyiv")
+        self.assertContains(self.client.get(reverse("admin_store_info")), "Restart Pavilion to use this time zone")
+
+    def test_the_row_is_read_from_the_cache_until_it_changes(self):
+        from admin_portal.models import StoreSettings
+        StoreSettings.load()
+        with self.assertNumQueries(0):
+            self.assertEqual(StoreSettings.load().tax_rate, Decimal("0"))
+        row = StoreSettings.objects.get()
+        row.tax_rate = Decimal("7")
+        row.save()
+        self.assertEqual(StoreSettings.load().tax_rate, Decimal("7"))
+
+    def test_only_people_with_the_page_open_it(self):
+        from django.contrib.auth.models import User
+        from users.testing import crew
+        someone = crew(User.objects.create_user("lee", password="x", is_staff=True), "app.admin", "admin.storeinfo.view")
+        self.client.force_login(someone)
+        self.assertEqual(self.client.get(reverse("admin_store_info")).status_code, 200)
+        self.post()  # view only: sent back with a message, nothing saved
+        from admin_portal.models import StoreSettings
+        self.assertNotEqual(StoreSettings.objects.get().name, "Juniper Lane")

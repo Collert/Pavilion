@@ -181,6 +181,7 @@ def ensure_lists() -> dict:
             found = api("POST", "/lists", {"name": name, "type": "private", "optin": "single", "tags": ["pavilion"],
                                            "description": about.format(store=store.name)})["id"]
         StoreSettings.objects.filter(pk=store.pk).update(**{field: found})
+        StoreSettings.forget()  # update() skips save(), which clears the cached row
         out[key] = found
     return out
 

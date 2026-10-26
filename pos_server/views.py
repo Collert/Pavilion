@@ -445,13 +445,11 @@ def order_progress(request):
     Context:
         route (str): The route name for the template.
         menu (Menu): The active menu object.
-        weather_API_key (str): The weather API key from the settings.
     """
     return render(request, "pos_server/orders-status.html", {
         "route":"order-status",
         "menu":Menu.active(),
-        "weather_API_key":settings.WEATHER_API_KEY
-    })
+    })  # no weather key: this is a public page (the Screens app's weather widget fetches it on the server)
         
 @require_POST
 @csrf_exempt  # Square calls it; the signature proves it's Square

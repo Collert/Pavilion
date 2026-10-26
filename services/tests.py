@@ -1,3 +1,4 @@
+from unittest import mock
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
@@ -6,7 +7,7 @@ from .models import Service
 
 
 class QuoteTests(TestCase):
-    @override_settings(TAX_RATE="0.05")
+    @mock.patch("admin_portal.store_info.tax_rate", new=lambda: Decimal("0.05"))
     def test_staff_by_the_hour_with_gratuity_tax_and_minimum(self):
         server = Service(title="Server", category=Service.STAFF, pricing=Service.HOUR, price=Decimal("38"), minimum=4,
                          details={"staff": 2, "gratuity": 15})

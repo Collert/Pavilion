@@ -51,7 +51,7 @@ class PricingTests(CateringFixture, TestCase):
     def setUpTestData(cls):
         cls.build()
 
-    @override_settings(TAX_RATE="0.05")
+    @mock.patch("admin_portal.store_info.tax_rate", new=lambda: Decimal("0.05"))
     def test_order_totals(self):
         t = pricing.order_totals(self.make_order())
         # Food 20 × 12.50; services 2 servers × 4 h × 38 + 3 chafers × 18 + 35 flat; 60 clamshells × 0.75
@@ -73,7 +73,6 @@ class PricingTests(CateringFixture, TestCase):
         self.assertEqual(pricing.suggested_price("disposable", self.clam), Decimal("0.25"))  # 12¢ cost, twice, to the nickel
 
 
-@override_settings(TAX_RATE="0")
 @mock.patch("catering.flow.send_email")
 class FlowTests(CateringFixture, TestCase):
     @classmethod
@@ -159,7 +158,6 @@ class FlowTests(CateringFixture, TestCase):
         self.assertEqual(send.call_args.args[0], "catering_received")
 
 
-@override_settings(TAX_RATE="0")
 @mock.patch("catering.flow.send_email")
 class CustomerPageTests(CateringFixture, TestCase):
     @classmethod
@@ -191,7 +189,6 @@ class CustomerPageTests(CateringFixture, TestCase):
         self.assertFalse(async_to_sync(_can_listen)(request, "checkout"))
 
 
-@override_settings(TAX_RATE="0")
 @mock.patch("catering.flow.send_email")
 class CounterTests(CateringFixture, TestCase):
     @classmethod
@@ -224,7 +221,6 @@ class CounterTests(CateringFixture, TestCase):
         self.assertEqual((order.status, order.charged), (CateringOrder.CANCELLED, Decimal("0")))
 
 
-@override_settings(TAX_RATE="0")
 @mock.patch("catering.flow.send_email")
 class QuoteTests(CateringFixture, TestCase):
     @classmethod

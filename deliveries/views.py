@@ -52,7 +52,8 @@ TRAVEL_TEXT = {CourierShift.WALKING: gettext_lazy("%(m)s min walk"), CourierShif
 # ---------- helpers ----------
 
 def _restaurant():
-    return settings.RESTAURANT_NAME or _("the restaurant")
+    from admin_portal.models import StoreSettings
+    return StoreSettings.load().name or _("the restaurant")
 
 
 def _minutes_since(dt):
@@ -350,7 +351,7 @@ def done(request, id):
         "stats": [(_duration(trip), _("Pickup to door")),
                   (_("%(km)s km") % {"km": km} if km is not None else "–", _("Distance")),
                   (delivered, _("Delivered today"))],
-        "home": routes.maps_link(settings.RESTAURANT_ADDRESS, mode),
+        "home": routes.maps_link(routes.origin(), mode),
         "confetti": [{"left": (k * 41) % 100, "w": 7 + (k % 3) * 3, "h": 10 + (k % 4) * 3, "round": k % 2 == 0,
                       "color": colors[k % len(colors)], "delay": (k % 7) * 0.12} for k in range(22)],
     })

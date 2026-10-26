@@ -37,7 +37,7 @@ LEVELS = [("view", _("View"), _("See the page")), ("edit", _("Edit"), _("Add and
 PAGE_LEVELS = {"home": ("view",), "reports": ("view",), "retail": ("view", "edit"), "catering": ("view", "edit"),
                "branding": ("view", "edit"), "hours": ("view", "edit"), "requests": ("view", "edit"),
                "giftcards": ("view", "edit"), "languages": ("view", "edit"), "email": ("view", "edit"),
-               "payments": ("view", "edit")}
+               "payments": ("view", "edit"), "storeinfo": ("view", "edit")}
 
 
 def page_levels(page) -> tuple:

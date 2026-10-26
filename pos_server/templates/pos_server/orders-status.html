@@ -122,7 +122,7 @@
         }
     </script>
     <script> 
-        const APIKey = "{{weather_API_key}}"
+        const APIKey = "";  // never send a key to a public page; the Screens app has a weather widget
         const checkOrdersLink = "{% url 'active_orders' %}";
         let weatherIcons;
         fetch("{% static 'pos_server/weatherCodes.json' %}").then(response => response.json()).then(data => {weatherIcons = data})

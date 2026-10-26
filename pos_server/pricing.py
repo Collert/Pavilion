@@ -29,7 +29,7 @@ applies by itself (`PricedCart.auto_discount`), next to the order's discount onl
 saves more.
 
 Line prices: dish price (or Combo.unit_price of the picks: set price + upcharges, or percent off) + customizations. An adjustable part
-costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (settings.TAX_RATE) is charged on the
+costs its component's `extra_price` for every step above the standard; options cost their price each time. Tax (Store info's rate, store_info.tax_rate) is charged on the
 total after discounts.
 
 Condiments: an Extra whose component is a Condiment is priced per order, not per line. The first `free_per_order`
@@ -88,7 +88,9 @@ def to_money(value) -> Decimal:
 
 
 def tax_rate() -> Decimal:
-    return Decimal(str(getattr(settings, "TAX_RATE", "0")))
+    """The store's sales tax as a fraction (Store info, admin_portal/store_info.py)."""
+    from admin_portal import store_info
+    return store_info.tax_rate()
 
 
 def _count(value, low, high, what):

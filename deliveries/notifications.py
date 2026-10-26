@@ -18,6 +18,12 @@ class PushSubscription(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.endpoint}"
 
+def _contact():
+    """Who push services may write to about these messages: the store's email (Store info), else VAPID_CONTACT_EMAIL."""
+    from admin_portal import store_info
+    return store_info.contact_email()
+
+
 def send_push_notification(subscription_info, message_body):
     """
     Sends a push notification to a given subscription.
@@ -49,7 +55,7 @@ def send_push_notification(subscription_info, message_body):
             data=json.dumps(message_body),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={
-                "sub": f"mailto:{settings.VAPID_CONTACT_EMAIL}"
+                "sub": f"mailto:{_contact()}"
             }
         )
         return response

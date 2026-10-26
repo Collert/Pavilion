@@ -12,7 +12,7 @@
 **Pavilion** is a Django restaurant-management system for a small community café. It was originally built for the
 café at **Holy Eucharist Ukrainian Catholic Cathedral** in New Westminster, BC. The project was called `heucc_pos`,
 was renamed to `pavilion` on 2025-02-06 (commit `cd409c5`), and has Ukrainian and Cantonese translations.
-`RESTAURANT_ADDRESS` (env, defaults to "501 4th Ave, New Westminster, BC") is where couriers pick up. Emails go
+The store's address on the admin's Store info page is where couriers pick up. Emails go
 through listmonk (2026-10-20, replacing SendGrid); their wording lives in listmonk templates.
 
 | Area | What it is | Status |
@@ -243,7 +243,7 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 
 Carts are lists of lines (`{"type": "dish"|"combo", "id", "qty", "cust", "slots", "discount"}`; the full format is
 in the `pricing.py` docstring). `price_cart()` validates every customization, combo pick and stock, applies at most
-one discount per line and one on the order (after line discounts), then tax (`TAX_RATE`, default 0). It is used by:
+one discount per line and one on the order (after line discounts), then tax (Store info's rate, default 0). It is used by:
 
 - the register's live quote (`register/quote`, lenient: a discount that stops applying is reported, not fatal),
 - the online store's quote (`cart-quote`, coupons only),
@@ -479,9 +479,9 @@ the start button's label and push sign-up.
 6. **Declined:** rejecting the order on the KDS deletes it as usual, but the courier's `Delivery` stays (order empty,
    `declined_reason` from the `RejectedOrder`) until they tap "Back to orders"; they get a push too.
 
-Travel times (`deliveries/routes.py`): Google Distance Matrix from `RESTAURANT_ADDRESS`, one request per mode for all
+Travel times (`deliveries/routes.py`): Google Distance Matrix from the store's address (Store info), one request per mode for all
 new deliveries, stored on the `Delivery` (`distance_m`, `travel_seconds`) so each is looked up once; a failed lookup
-waits 10 minutes. Without `GOOGLE_API_KEY` the app shows "–". `RESTAURANT_NAME` names the restaurant in the app. The
+waits 10 minutes. Without a Google Maps key (Store info) the app shows "–". The store's name names the restaurant in the app. The
 store's checkout estimate (`eta`) is unchanged. The order detail's header is a drawing of streets, not a real map.
 
 ### 6.7 Gift cards (`/gift-cards/`)
@@ -519,8 +519,13 @@ Design canvas's `Admin*` artboards, one page at a time, in the rail's order (`Ad
 `admin_portal/layout.html` (the rail, `<main id="page">`, Django-message toasts) kept current by `live-page.js`;
 shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per page next to it.
 
-- `StoreSettings` (one row, `StoreSettings.load()`): the store's name, shown at the top of the rail with "Pavilion"
-  under it. The Online store page edits it.
+- `StoreSettings` (one row, `StoreSettings.load()`, cached in the shared cache and cleared on save): the store's name,
+  shown at the top of the rail with "Pavilion" under it, and everything on **Store info** (Settings, `store_info.py`):
+  details (name, phone, email, address, city, map link; the Online store page drafts the same ones and Store info keeps
+  that draft in step), the tax rate, the time zone (applied when Pavilion starts, like languages; the page restarts it),
+  the music library's space and the Google Maps and weatherapi.com keys (encrypted with `payments/secrets.py`; the
+  `GOOGLE_API_KEY`/`WEATHER_API_KEY` settings only fill in). Migration `admin_portal 0007` copied `TAX_RATE`,
+  `MUSIC_STORAGE_GB` and `RESTAURANT_NAME/ADDRESS` from the environment once; those settings are gone.
 - **Dashboard home** (`admin_home`, `dashboard.py`): today by hour against the same weekday last week up to the same
   time, or 7/30 days against the period before (calendar: the same weekdays a whole number of weeks earlier; "Open
   days only": days with orders). KPIs, an SVG chart drawn on the server with CSS-only hover tips, "Right now" (open
@@ -588,7 +593,7 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   (venues: what's included; equipment: a security deposit per unit or per booking), booking rules (notice,
   cancellation, needs approval), where it can be booked, a dark quote preview (try hours/guests/days and people/units;
   never saved) and the next three bookings. Duplicate and archive/restore like combos. The design's tax choices
-  (GST, GST + PST) became "store tax rate" or "no tax", since the store has one rate (`TAX_RATE`).
+  (GST, GST + PST) became "store tax rate" or "no tax", since the store has one rate (Store info).
 - **Components** (`admin_components`, `components.py`, 2026-10-21): KPIs (count, stock value at cost, under par, extras
   sold in 30 days with margin), filters (sold as extras, under par, no recipe yet, archived) and rows grouped by
   category with unit cost, the extra's price and margin, on hand against par (bar with a par mark) and dishes using it.
@@ -827,7 +832,7 @@ recorded as approving their own. Off the schedule, a published Shift is added (t
   Cookery, availability, screens, audio, rejecting; Delivery: courier and audio) and put staff who were in no group in
   Front of house, Kitchen and Delivery, so nobody lost an app they had.
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
-  artwork) and playlists, searched and sorted, with a storage bar (`MUSIC_STORAGE_GB`, default 10). The view is in
+  artwork) and playlists, searched and sorted, with a storage bar (Store info's space for music, default 10 GB). The view is in
   the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
   songs); selecting songs shows a bar (add to a playlist, a new playlist with them, remove, delete). Playlists are
   renamed as you type and dragged into order. **Add music** (`_upload_music.html`, `library.js`) reads each file's
@@ -930,7 +935,7 @@ as tabs, what changed, messages); `reject` rejects a new order or cancels a late
 (refund, hold let go); `finish` closes it after the event, letting the deposit hold go or keeping it. Money is in
 `catering/pricing.py` on line dicts: dishes at their catering price for the quantity, services through
 `Service.quote` (with the price kept on the line), condiments and disposables at the price set on the line; tax is
-`TAX_RATE` except no-tax services; deposits are held, never added to the total. **Deposits**: card holds last about
+the store's tax rate except no-tax services; deposits are held, never added to the total. **Deposits**: card holds last about
 7 days, so `manage.py catering_deposits` (run daily by cron) holds them `hold_days` before the event and completes
 past orders with nothing to settle; accepting an order whose hold day has come holds it at once. Cards whose ids
 start with `demo:` (seed_demo's) are never sent to Square.
@@ -1003,7 +1008,7 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 `APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `DATABASE_URL` (a connection string; else `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`),
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
 `ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/APPLICATION_SECRET/LOCATION_ID/WEBHOOK_SIGNATURE_KEY` (Terminals are paired per register; there's no store-wide `SQUARE_DEVICE_ID` any more),
-`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY`, `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`.
+`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `GOOGLE_API_KEY`, `WEATHER_API_KEY` (both only when Store info has none), `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`. The store's name, address, tax, time zone and music space are on the admin's Store info page, not here.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
 
@@ -1057,8 +1062,6 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
   tips aren't recorded on the order yet.
 - Customer order pages use sequential order IDs, so anyone can view any order's dish list and progress (no names, phones or addresses are shown).
 - `card-api` GET is public: the 16-digit card number is the only secret for checking a balance.
-- Receipt name/address are hard-coded for the cathedral café (`RESTAURANT_ADDRESS` is an env
-  setting now, but defaults to the café's address).
 - The store's order status page doesn't show the courier's proof photo yet (waiting for the store redesign), and
   checkout still takes delivery orders when no courier is on shift (they show on the KDS as "No courier").
 - Old migrations were discarded, so `db-old-2026-10-13.sqlite3` can't be migrated forward. Its data would need a manual import.

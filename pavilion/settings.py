@@ -38,7 +38,7 @@ LISTMONK_FROM_EMAIL = os.getenv('LISTMONK_FROM_EMAIL', '')
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'restaurant@uahelp.ca')  # push services may contact this address
+VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'admin@example.com')  # push services may contact this address; the store's email (Store info) comes first
 APP_DOMAIN = os.getenv('APP_DOMAIN')
 
 # Security settings
@@ -88,14 +88,8 @@ STORAGES = {
 # On in production, off in dev unless ENFORCE_DEVICE_CHECK=true.
 ENFORCE_DEVICE_CHECK = os.getenv('ENFORCE_DEVICE_CHECK', 'true' if os.getenv('ENVIRONMENT') == "production" else 'false').lower() == 'true'
 
-# Where couriers pick up (travel times are worked out from here) and what the courier app calls the restaurant.
-RESTAURANT_NAME = os.getenv('RESTAURANT_NAME', '')
-RESTAURANT_ADDRESS = os.getenv('RESTAURANT_ADDRESS', '501 4th Ave, New Westminster, BC V3L 1P3')
-
-# Sales tax charged on orders after discounts, as a fraction (0.05 = 5%). 0 = no tax.
-TAX_RATE = os.getenv('TAX_RATE', '0')
-# How much room the music library may take in the media storage (the admin's Library shows it), in GB
-MUSIC_STORAGE_GB = float(os.getenv('MUSIC_STORAGE_GB', '10'))
+# The store's name, address, tax rate, time zone and music space live on StoreSettings (the admin's Store info page,
+# admin_portal/store_info.py), not here. TIME_ZONE below is replaced by the store's when Pavilion starts.
 
 # Default login redirect
 LOGIN_URL = reverse_lazy('login_view')

@@ -101,7 +101,8 @@ class Service(models.Model):
         quantity = 1 if self.pricing == self.FLAT else max(amount, self.minimum)
         subtotal = ((self.price if price is None else Decimal(price)) * quantity * count).quantize(CENT)
         gratuity = (subtotal * self.detail("gratuity") / 100).quantize(CENT) if self.category == self.STAFF else Decimal("0")
-        rate = Decimal(str(getattr(settings, "TAX_RATE", "0"))) if self.tax == self.STORE_TAX else Decimal("0")
+        from admin_portal import store_info
+        rate = store_info.tax_rate() if self.tax == self.STORE_TAX else Decimal("0")
         tax = ((subtotal + gratuity) * rate).quantize(CENT)
         deposit = Decimal("0")
         if self.category == self.EQUIPMENT and self.deposit:

@@ -1,0 +1,113 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Store info (Settings; admin_portal/store_info.py; no mockup, laid out like the Email and Payments pages): the store's
+details, tax, time zone, music space and the keys of services Pavilion uses. One form with Save; the time zone
+applies after a restart (the card does it, as on Languages; languages.js reloads the page when Pavilion is back).
+{% endcomment %}
+{% block title %}{% trans "Store info" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/languages.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/store_info.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/languages.js' %}"></script>{% endblock %}
+
+{% block content %}
+{% with v=x.v e=x.errors %}
+<form method="post" class="si-form">{% csrf_token %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Store info" %}</h1>
+    </div>
+    <button class="btn-amber" name="op" value="save">{% trans "Save changes" %}</button>
+</header>
+
+<div class="pm-body">
+    <section class="card tm-card pm-card" aria-label="{% trans 'The store' %}">
+        <h2 class="disp tm-h2">{% trans "The store" %}</h2>
+        <div class="small muted strong">{% trans "Shown in the online store, on receipts and to couriers. The Online store page edits these too." %}</div>
+        <label class="block top12"><span class="lbl">{% trans "Store name" %}</span>
+            <input class="field{% if e.name %} bad{% endif %}" name="name" value="{{ v.name }}" maxlength="60" required></label>
+        {% if e.name %}<div class="em-hint bad">{{ e.name }}</div>{% endif %}
+        <div class="si-two">
+            <label class="block top10"><span class="lbl">{% trans "Phone" %}</span>
+                <input class="field{% if e.phone %} bad{% endif %}" type="tel" name="phone" value="{{ v.phone }}" maxlength="40" placeholder="604 555 0123"></label>
+            <label class="block top10"><span class="lbl">{% trans "Email" %}</span>
+                <input class="field{% if e.email %} bad{% endif %}" type="email" name="email" value="{{ v.email }}" placeholder="hello@example.com"></label>
+        </div>
+        {% if e.phone %}<div class="em-hint bad">{{ e.phone }}</div>{% endif %}
+        {% if e.email %}<div class="em-hint bad">{{ e.email }}</div>{% endif %}
+        <label class="block top10"><span class="lbl">{% trans "Street address" %}</span>
+            <input class="field{% if e.address %} bad{% endif %}" name="address" value="{{ v.address }}" maxlength="120" placeholder="{% trans 'e.g. 1200 Main St' %}"></label>
+        <label class="block top10"><span class="lbl">{% trans "City and postal code" %}</span>
+            <input class="field{% if e.city %} bad{% endif %}" name="city" value="{{ v.city }}" maxlength="120" placeholder="{% trans 'e.g. Vancouver, BC V6A 1A1' %}"></label>
+        <div class="em-hint">{% trans "Couriers’ travel times start from this address." %}</div>
+        <label class="block top10"><span class="lbl">{% trans "Map link" %} <span class="faint">· {% trans "optional" %}</span></span>
+            <input class="field{% if e.directions %} bad{% endif %}" type="url" name="directions" value="{{ v.directions }}" placeholder="https://maps.google.com/…"></label>
+        {% if e.directions %}<div class="em-hint bad">{{ e.directions }}</div>{% else %}<div class="em-hint">{% trans "Leave empty to search the map for the address." %}</div>{% endif %}
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Tax' %}">
+        <h2 class="disp tm-h2">{% trans "Tax" %}</h2>
+        <div class="small muted strong">{% trans "Charged on every order after discounts. Services can be set to no tax on the Services page." %}</div>
+        <label class="block top12"><span class="lbl">{% trans "Sales tax" %}</span>
+            <span class="unit-field si-short{% if e.tax_rate %} bad{% endif %}"><input class="num" inputmode="decimal" name="tax_rate" value="{{ v.tax_rate }}" aria-label="{% trans 'Sales tax in percent' %}"><span class="unit">%</span></span></label>
+        {% if e.tax_rate %}<div class="em-hint bad">{{ e.tax_rate }}</div>{% else %}<div class="em-hint">{% trans "0 means no tax." %}</div>{% endif %}
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Time zone' %}">
+        <h2 class="disp tm-h2">{% trans "Time zone" %}</h2>
+        <div class="small muted strong">{% trans "The store’s clock: hours, schedules, order times and reports." %}</div>
+        <select class="field si-select top12{% if e.time_zone %} bad{% endif %}" name="time_zone" aria-label="{% trans 'Time zone' %}">
+            {% for region, items in x.zones %}<optgroup label="{{ region }}">{% for name, label in items %}<option value="{{ name }}"{% if name == v.time_zone %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+        </select>
+        {% if e.time_zone %}<div class="em-hint bad">{{ e.time_zone }}</div>{% endif %}
+        {% if restarting %}
+        <div class="lg-restart going top12" data-restarting data-status="{% url 'admin_store_info_status' %}" data-boot="{{ boot }}">
+            <div class="strong">{% trans "Restarting Pavilion…" %}</div>
+            <div class="small">{% trans "This page reloads by itself when Pavilion is back, usually within a few seconds." %}</div>
+        </div>
+        {% elif x.restart %}
+        <div class="lg-restart top12">
+            <div class="strong">{% trans "Restart Pavilion to use this time zone" %}</div>
+            <div class="small">{% blocktrans with now=x.running_zone %}Running now: {{ now }}.{% endblocktrans %}</div>
+            {% if can_restart %}<button class="lg-restart-btn" name="op" value="restart" formnovalidate>{% trans "Restart now" %}</button>
+            {% else %}<div class="small top8">{% trans "Pavilion can’t restart itself here: restart it the way you started it (for Docker, docker compose restart web)." %}</div>{% endif %}
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Music library' %}">
+        <h2 class="disp tm-h2">{% trans "Music library" %}</h2>
+        <div class="small muted strong">{% trans "How much of the media storage songs may use." %}</div>
+        <label class="block top12"><span class="lbl">{% trans "Space for music" %}</span>
+            <span class="unit-field si-short{% if e.music_storage_gb %} bad{% endif %}"><input class="num" inputmode="decimal" name="music_storage_gb" value="{{ v.music_storage_gb }}" aria-label="{% trans 'Space for music in GB' %}"><span class="unit">GB</span></span></label>
+        {% if e.music_storage_gb %}<div class="em-hint bad">{{ e.music_storage_gb }}</div>
+        {% else %}<div class="em-hint">{% blocktrans with used=x.music_used_gb %}{{ used }} GB used now.{% endblocktrans %}</div>{% endif %}
+    </section>
+
+    <section class="card tm-card pm-card si-wide" aria-label="{% trans 'Services Pavilion uses' %}">
+        <h2 class="disp tm-h2">{% trans "Services Pavilion uses" %}</h2>
+        <div class="small muted strong">{% trans "Keys are kept encrypted and never shown again. Paste a new one to change it." %}</div>
+        <div class="si-two">
+            <div>
+                <label class="block top12"><span class="lbl">{% trans "Google Maps API key" %}</span>
+                    <input class="field" type="password" name="google_key" autocomplete="off" placeholder="{% if x.has_google %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key' %}{% endif %}"></label>
+                <div class="em-hint">{% if x.env_google %}{% trans "Using the key in the server’s settings for now." %} {% endif %}{% trans "Couriers’ travel times and directions (the Distance Matrix API)." %}</div>
+                {% if x.has_google %}<label class="si-clear"><input type="checkbox" name="clear_google_key" value="1"> {% trans "Remove the saved key" %}</label>{% endif %}
+            </div>
+            <div>
+                <label class="block top12"><span class="lbl">{% trans "Weather API key" %}</span>
+                    <input class="field" type="password" name="weather_key" autocomplete="off" placeholder="{% if x.has_weather %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key' %}{% endif %}"></label>
+                <div class="em-hint">{% if x.env_weather %}{% trans "Using the key in the server’s settings for now." %} {% endif %}{% trans "The weather on screens, from weatherapi.com." %}</div>
+                {% if x.has_weather %}<label class="si-clear"><input type="checkbox" name="clear_weather_key" value="1"> {% trans "Remove the saved key" %}</label>{% endif %}
+            </div>
+        </div>
+    </section>
+</div>
+</form>
+{% endwith %}
+{% endblock %}

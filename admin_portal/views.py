@@ -54,6 +54,7 @@ from . import giftcards as giftcards_data
 from . import giftdesigns as giftdesigns_data
 from . import email_settings as email_data
 from . import languages as languages_data
+from . import store_info as store_info_data
 from . import library as library_data
 from . import screens as screens_data
 from . import stations as stations_data
@@ -1135,6 +1136,41 @@ def email(request):
                 messages.error(request, error)
         request.session[email_data.KEY] = st
     return page(request, "admin_portal/email.html", "email", {"x": email_data.page(st, store)})
+
+
+@admin_page("storeinfo", edit={"save", "restart"})
+def store_info(request):
+    """Store info: the store's details, tax, time zone, music space and service keys (admin_portal/store_info.py).
+    One form with Save; a new time zone applies after a restart, which the page can do."""
+    from .models import StoreSettings
+    store = StoreSettings.load()
+    if request.method == "POST":
+        op = request.POST.get("op", "")
+        if op == "restart":
+            if languages_data.restart():
+                return page(request, "admin_portal/store_info.html", "storeinfo",
+                            {"x": store_info_data.page(store), "restarting": True, "boot": languages_data.BOOT_ID})
+            messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
+            return redirect("admin_store_info")
+        v = store_info_data.from_post(request.POST)
+        errors = store_info_data.problems(v)
+        if errors:
+            messages.error(request, _("Fix the fields marked in red first."))
+            return page(request, "admin_portal/store_info.html", "storeinfo", {"x": store_info_data.page(store, v, errors)})
+        saved = store_info_data.save(v)
+        if store_info_data.restart_pending(saved):
+            messages.success(request, _("Store info saved. Restart Pavilion to use the new time zone."))
+        else:
+            messages.success(request, _("Store info saved."))
+        return redirect("admin_store_info")
+    return page(request, "admin_portal/store_info.html", "storeinfo",
+                {"x": store_info_data.page(store), "can_restart": languages_data.restart_method() is not None})
+
+
+@admin_page("storeinfo")
+def store_info_status(request):
+    """Which Pavilion is answering (its BOOT_ID): the page waits for a new one after restarting."""
+    return JsonResponse({"boot": languages_data.BOOT_ID})
 
 
 @admin_page("languages")

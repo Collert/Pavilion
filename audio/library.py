@@ -19,7 +19,9 @@ MAX_ART = 10 * 1024 * 1024
 
 
 def limit_bytes() -> int:
-    return int(float(getattr(settings, "MUSIC_STORAGE_GB", 10)) * 1000 ** 3)
+    """The space songs may use (Store info's "Space for music")."""
+    from admin_portal import store_info
+    return store_info.music_limit_bytes()
 
 
 def used_bytes() -> int:

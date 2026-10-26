@@ -9,7 +9,7 @@ snapshot of the lines before proposed changes all price the same way:
 
 Dishes are charged their catering price for the quantity (Dish.catering_price), services through Service.quote
 (minimums, gratuity, their own tax and deposit), condiments and disposables at the price on the line. Tax is
-settings.TAX_RATE except for services set to no tax. Deposits are held on the card, not charged.
+the store's tax rate (Store info) except for services set to no tax. Deposits are held on the card, not charged.
 """
 from decimal import ROUND_CEILING, Decimal
 
@@ -31,7 +31,8 @@ def money(value) -> str:
 
 
 def tax_rate() -> Decimal:
-    return Decimal(str(getattr(settings, "TAX_RATE", "0") or "0"))
+    from admin_portal import store_info
+    return store_info.tax_rate()
 
 
 def _dec(value) -> Decimal:
