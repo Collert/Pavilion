@@ -557,6 +557,17 @@ class AccountTests(MenuFixture, TestCase):
         disabled.assert_called_once_with("ccof:1")
         self.assertEqual(list(self.user.saved_cards.values_list("square_card_id", flat=True)), ["ccof:2"])
 
+    def test_a_made_up_square_customer_is_replaced_by_a_real_one(self):
+        """seed_demo's customers have "demo:" Square ids; saving a real card under one failed (CUSTOMER_NOT_FOUND)."""
+        from payments.views import square_customer
+        from users.models import Customer
+        Customer.objects.filter(user=self.user).update(square_customer_id="demo:cust-sofia")
+        with mock.patch("payments.square.create_customer", return_value="cust-real") as created:
+            self.assertEqual(square_customer(self.user), "cust-real")
+            self.assertEqual(square_customer(self.user), "cust-real")  # kept: made once
+        created.assert_called_once()
+        self.assertEqual(Customer.objects.get(user=self.user).square_customer_id, "cust-real")
+
 
 class ServicesPageTests(TestCase):
     def test_services_page_and_add_to_a_request(self):

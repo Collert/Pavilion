@@ -123,7 +123,11 @@ def process_web_payment(request):
                 try:
                     _save_and_charge(request.user, token, transaction, autocomplete=not confirmation_needed)
                 except square.SquareError as e:
+                    logger.warning("Saving and charging a card for %s failed: %s", request.user, e.args)
                     return JsonResponse({'status': 'error', 'errors': e.args[0] if e.args and isinstance(e.args[0], list) else []})
+                except Exception:
+                    logger.exception("Saving and charging a card for %s failed", request.user)
+                    return JsonResponse({'status': 'error', 'errors': []}, status=502)
                 transaction.successful = True
                 transaction.save(update_fields=["successful"])
                 return JsonResponse({'status': 'success'})
@@ -139,15 +143,26 @@ def process_web_payment(request):
 
 
 
+def square_customer(user, key=None) -> str:
+    """A signed-in customer's Square customer id, made the first time they keep a card. seed_demo's made-up ids
+    ("demo:") aren't Square's, so a real one replaces them."""
+    from users.models import Customer
+    profile, _created = Customer.objects.get_or_create(user=user)
+    if profile.square_customer_id and not profile.square_customer_id.startswith("demo:"):
+        return profile.square_customer_id
+    profile.square_customer_id = square.create_customer(user.get_full_name(), user.email, key=key)
+    profile.save(update_fields=["square_customer_id"])
+    return profile.square_customer_id
+
+
 def _save_and_charge(user, token, transaction, autocomplete):
     """
     A signed-in customer ticked "Save this card": keep it on their Square customer (a SavedCard here holds its brand
     and last 4), then charge it for the transaction's amount, the same hold or charge as create_web_payment.
     """
     from online_store.account import save_customer_card
-    profile = getattr(user, "customer_profile", None)
     name = user.get_full_name()
-    customer = (profile.square_customer_id if profile else "") or square.create_customer(name, user.email, key=f"cust-{transaction.uuid}")
+    customer = square_customer(user, key=f"cust-{transaction.uuid}")
     card = square.save_card(token, customer, name, key=f"keep-{transaction.uuid}")
     save_customer_card(user, {"customer": customer, **card})
     payment_id = square.charge_card(customer, card["id"], transaction.amount, key=f"web-{transaction.uuid}", note="Online order",
@@ -182,9 +197,8 @@ def save_card(request):
     if not token:
         return JsonResponse({"message": "No card"}, status=400)
     user = request.user if request.user.is_authenticated else None
-    known = getattr(getattr(user, "customer_profile", None), "square_customer_id", "") if user else ""
     try:
-        customer = known or square.create_customer(user.get_full_name() if user else "", user.email if user else "")
+        customer = square_customer(user) if user else square.create_customer("", "")
         card = square.save_card(token, customer, user.get_full_name() if user else "")
     except square.SquareError:
         return JsonResponse({"message": "The card was declined. Try another one."}, status=400)
