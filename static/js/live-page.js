@@ -61,7 +61,14 @@ function syncCalc(live, next) {
     });
 }
 
-const typingIn = (node) => node.contains(document.activeElement) && document.activeElement.matches("input, textarea");
+// (a radio or checkbox isn't typing: its region is swapped, and focus comes back to the same choice)
+const typingIn = (node) => node.contains(document.activeElement)
+    && document.activeElement.matches('input:not([type="radio"], [type="checkbox"]), textarea');
+function refocus(focused) {
+    if (!focused?.name || document.activeElement !== document.body) return;
+    const same = [...document.getElementsByName(focused.name)].find((n) => n.value === focused.value);
+    same?.focus({ preventScroll: true });
+}
 
 // Scrolled boxes in a region (the region itself, or panels inside it) keep their place when the region is swapped:
 // each is found again in the new HTML by its id, or by its classes and position among boxes with the same classes
@@ -93,6 +100,7 @@ function swapRegions(doc, { transient }) {
     const current = [...document.querySelectorAll("[data-region]")];
     const ids = (list) => list.map((n) => n.id).sort().join(" ");
     if (ids(fresh) !== ids(current)) return false;
+    const focused = document.activeElement;
     for (const next of fresh) {
         if (next.hasAttribute("data-transient") && !transient) continue;
         const live = document.getElementById(next.id);
@@ -104,6 +112,7 @@ function swapRegions(doc, { transient }) {
         if (fingerprint(live) === fingerprint(next)) syncCountdowns(live, next);
         else replaceKeepingScroll(live, document.importNode(next, true));
     }
+    refocus(focused);
     return true;
 }
 
