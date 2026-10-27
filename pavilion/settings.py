@@ -147,6 +147,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'users.middleware.LanguageMiddleware',  # a signed-in person's saved language; remembers what they browse in
     'django.middleware.locale.LocaleMiddleware',
+    'users.setup.SetupMiddleware',  # no account yet: every page goes to first-time setup (users/setup.py)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -242,6 +243,11 @@ if os.getenv('ENVIRONMENT') == "production":
                 'class': 'logging.StreamHandler',
                 'formatter': 'verbose',
             },
+            'setup': {
+                'level': 'INFO',
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
             'file': {
                 'level': 'DEBUG',
                 'class': 'logging.FileHandler',
@@ -263,6 +269,11 @@ if os.getenv('ENVIRONMENT') == "production":
             'django.server': {
                 'handlers': ['console', 'file'],
                 'level': 'ERROR',
+                'propagate': False,
+            },
+            'users.setup': {  # the first-time setup code has to reach the server's log (users/setup.py)
+                'handlers': ['setup', 'file'],
+                'level': 'INFO',
                 'propagate': False,
             },
         },

@@ -1027,6 +1027,16 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 
 In Docker, the compose file's `scheduler` service runs all three once a day (same image).
 
+### First start
+
+A server with no accounts sends every page to the first-time setup screen (`/users/setup`, `users/setup.py` +
+`users.views.setup`, drawn like the sign-in page): the store's name, phone, address, time zone and tax, then the first
+owner (name, email as the username, password, an optional register PIN). Outside development it also asks for the setup
+code, so whoever finds a freshly deployed URL first can't claim it: the code is made once (in the shared cache), written
+to the server's log when the screen first opens (`users.setup` logs to the console in production) and shown again by
+`manage.py setup_code` (`docker compose exec web python manage.py setup_code`). Finishing signs the owner in and opens
+the admin (or Store info, to restart for a new time zone).
+
 ### Local dev (Windows)
 
 - Use **`venv/`**. `venv\Scripts\python manage.py runserver` (ASGI via daphne), then `http://127.0.0.1:8000/en/apps/`.

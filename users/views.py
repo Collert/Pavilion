@@ -118,3 +118,131 @@ def verify_email(request, uidb64, token):
         confirm(person)
     return render(request, "users/verified.html", {"valid": valid, "person": person, "store": StoreSettings.load().name},
                   status=200 if valid else 400)
+
+
+# ---------- first-time setup ----------
+
+SETUP_KEY = "first_setup"
+PLACE_FIELDS = ("name", "phone", "address", "city", "time_zone", "tax_rate")
+
+
+def setup(request):
+    """
+    The first-time setup screen (users/setup.py): while there's no account, in two steps. "place": the store's name,
+    phone, address, time zone and tax (kept in the session). "you": the first owner's name, email, password and an
+    optional register PIN, plus the setup code outside development; finishing makes the account and the store
+    settings together, signs them in and opens the admin.
+    """
+    from django.contrib import messages
+    from django.db import transaction
+
+    from admin_portal import store_info
+    from admin_portal.models import StoreSettings
+
+    from . import setup as first_setup
+    if not first_setup.needed():
+        return redirect("login_view")
+    if first_setup.code_required():
+        first_setup.setup_code()  # made (and logged) now, so it's in the log before anyone is asked for it
+    st = request.session.get(SETUP_KEY) or {"step": "place", "place": {
+        "name": "", "phone": "", "address": "", "city": "", "time_zone": store_info.RUNNING["time_zone"], "tax_rate": "0"}}
+    you = {"first": "", "last": "", "email": ""}
+    errors = {}
+    if request.method == "POST":
+        op = request.POST.get("op", "")
+        if st["step"] == "place" or op == "back":
+            if op == "back":
+                st["step"] = "place"
+            else:
+                place = {k: request.POST.get(k, "").strip() for k in PLACE_FIELDS}
+                checked = store_info.problems({**place, "email": "", "directions": "", "music_storage_gb": "10",
+                                               "routing_url": "", "geocoder_url": ""})
+                errors = {k: v for k, v in checked.items() if k in PLACE_FIELDS}
+                st["place"] = place
+                if not errors:
+                    st["step"] = "you"
+            request.session[SETUP_KEY] = st
+        else:
+            you = {"first": request.POST.get("first", "").strip()[:150], "last": request.POST.get("last", "").strip()[:150],
+                   "email": request.POST.get("email", "").strip().lower()[:254]}
+            password, again, pin = request.POST.get("password1", ""), request.POST.get("password2", ""), request.POST.get("pin", "").strip()
+            errors = _setup_problems(you, password, again, pin)
+            if first_setup.code_required() and not first_setup.code_matches(request.POST.get("code")):
+                errors["code"] = _("That’s not the setup code. It’s in the server’s log (or run manage.py setup_code).")
+            if not errors:
+                with transaction.atomic():
+                    if User.objects.exists():  # someone finished first
+                        return redirect("login_view")
+                    user = _make_owner(you, password, pin)
+                    store = _save_place(st["place"], you["email"])
+                first_setup.finished()
+                request.session.pop(SETUP_KEY, None)
+                login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+                if store_info.restart_pending(store):
+                    messages.success(request, _("Pavilion is set up. Restart it to use your time zone."))
+                    return redirect("admin_store_info")
+                messages.success(request, _("Pavilion is set up. Welcome!"))
+                return redirect("admin_home")
+    return render(request, "users/setup.html", {
+        "st": st, "you": you, "errors": errors, "zones": store_info.zones(),
+        "code_required": first_setup.code_required() and st["step"] == "you",
+        "pin_note": first_setup.code_required(),
+    }, status=400 if errors else 200)
+
+
+def _setup_problems(you, password, again, pin) -> dict:
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    out = {}
+    if not you["first"]:
+        out["first"] = _("Your first name, please.")
+    try:
+        validate_email(you["email"])
+    except ValidationError:
+        out["email"] = _("That doesn’t look like an email address.")
+    if not password:
+        out["password1"] = _("Choose a password.")
+    elif password != again:
+        out["password2"] = _("The two passwords don’t match.")
+    else:
+        try:
+            validate_password(password, User(username=you["email"], email=you["email"], first_name=you["first"], last_name=you["last"]))
+        except ValidationError as e:
+            out["password1"] = " ".join(e.messages)
+    if pin and not (len(pin) == 4 and pin.isdigit()):
+        out["pin"] = _("A PIN is 4 digits.")
+    return out
+
+
+def _make_owner(you, password, pin):
+    """The first account: a superuser in the Owners group, with a staff profile (and their register PIN)."""
+    from django.utils import timezone
+
+    from .models import GroupInfo, Staff
+    user = User(username=you["email"], email=you["email"], first_name=you["first"], last_name=you["last"],
+                is_staff=True, is_superuser=True)
+    user.set_password(password)
+    user.save()
+    owners = GroupInfo.objects.filter(owners=True).select_related("group").first()  # made by users 0004
+    if owners:
+        user.groups.add(owners.group)
+    staff, _created = Staff.objects.get_or_create(user=user)
+    staff.since = timezone.localdate()
+    if pin:
+        staff.set_pin(pin)
+    staff.save()
+    return user
+
+
+def _save_place(place, email):
+    from admin_portal import store_info
+    from admin_portal.models import StoreSettings
+    store, _created = StoreSettings.objects.get_or_create(pk=1)
+    store.name, store.phone, store.address, store.city = place["name"], place["phone"], place["address"], place["city"]
+    store.time_zone = place["time_zone"]
+    store.tax_rate = store_info._number(place["tax_rate"], 0, 100, 3)
+    store.email = store.email or email
+    store.draft = {**(store.draft or {}), **{k: place[k] for k in ("name", "phone", "address", "city") if k in (store.draft or {})}}
+    store.save()
+    return store

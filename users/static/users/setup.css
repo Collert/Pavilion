@@ -1,0 +1,32 @@
+/* First-time setup (users/templates/users/setup.html): the sign-in page's look (lock.css, login.css), with more fields. */
+.su-panel { overflow-y: auto; }
+.su-form { padding-bottom: 32px; }
+.su-form .fields { margin-top: 24px; }
+.su-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.su-opt { font-weight: 600; color: var(--muted); }
+.su-hint { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.su-unit { font-weight: 800; color: var(--muted); }
+.si-field select {
+    flex: 1; min-width: 0; height: 100%; padding: 0; border: none; background: transparent;
+    font: 600 17px 'Manrope', system-ui, sans-serif; color: var(--ink);
+}
+.si-field select:focus-visible { outline: none; }
+.su-pin input { letter-spacing: .4em; }
+.top-gap { margin-top: 24px !important; }
+.su-buttons { display: flex; gap: 10px; margin-top: 24px; }
+.su-buttons .submit { flex: 1; margin-top: 0; }
+.su-back { padding: 0 24px; background: var(--soft); color: var(--ink); font-weight: 800; }
+
+.su-steps { list-style: none; margin: 36px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.su-steps li { display: flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 700; opacity: .55; }
+.su-steps li.on, .su-steps li.done { opacity: 1; }
+.su-steps span {
+    width: 34px; height: 34px; border-radius: 17px; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; box-shadow: inset 0 0 0 2px currentColor;
+}
+.su-steps li.on span { background: var(--amber); color: var(--ink); box-shadow: none; }
+.su-steps li.done span { background: rgba(255, 255, 255, .2); box-shadow: none; }
+
+@media (max-width: 560px) {
+    .su-two { grid-template-columns: 1fr; }
+}

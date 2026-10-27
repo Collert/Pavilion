@@ -25,6 +25,10 @@ it when you change how something works.
   one they browse in). Pickers: the store header (`themes/neighbourhood/_language.html`, only with 2+ languages) and the
   account profile page (staff use it too; `/users/profile` redirects there). Language codes: compare with
   `users.models.enabled_language()`, Django lowercases them (`zh-hk` vs `zh-HK`).
+- **First-time setup**: while there's no account, every page goes to `/users/setup` (`users/setup.py`: `SetupMiddleware`, after the
+  locale one): the store's basics, then the first owner (superuser in Owners, staff profile, optional PIN). Outside DEBUG it
+  needs the setup code, logged when the screen first opens (`manage.py setup_code` shows it). The test runner turns the
+  redirect off (`SETUP_REDIRECT`).
 - Fresh DB: `manage.py migrate` then `manage.py seed_demo` (logins admin/admin, cashier/cashier, courier/courier,
   customer/customer; register PINs Alex 0000, Dana 1234, Priya 2468). `seed_demo` refuses to run with DEBUG off or
   on a DB that already has dishes/orders. `manage.py seed_recipes` adds the Cookery mockup's recipes to any DB

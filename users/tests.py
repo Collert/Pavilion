@@ -1,6 +1,8 @@
 """Tests for password sign-in (the register's PIN sign-in is tested in pos_server.tests.LockScreenTests)."""
+from decimal import Decimal
+
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -76,3 +78,56 @@ class AccessTests(TestCase):
         self.assertIn("app.register", perms["Front of house"])
         self.assertNotIn("act.discount", perms["Front of house"])
         self.assertEqual(perms["Delivery"], {"app.courier", "app.audio"})
+
+
+@override_settings(SETUP_REDIRECT=True)
+class SetupTests(TestCase):
+    """First-time setup (users/setup.py, users.views.setup): until there's an account, every page asks for one."""
+    def setUp(self):
+        from django.core.cache import cache
+        from users import setup
+        cache.delete_many([setup.DONE_KEY, setup.CODE_KEY])
+
+    def place(self, **fields):
+        return self.client.post(reverse("first_setup"), {"op": "next", "name": "Juniper Lane", "phone": "604 555 0123",
+                                                         "address": "1200 Main St", "city": "Vancouver, BC",
+                                                         "time_zone": "America/Vancouver", "tax_rate": "5", **fields})
+
+    def you(self, **fields):
+        from users import setup
+        return self.client.post(reverse("first_setup"), {"op": "finish", "first": "Priya", "last": "Shah",
+                                                         "email": "Priya@Example.com", "password1": "a-long-kitchen-pass",
+                                                         "password2": "a-long-kitchen-pass", "pin": "2468",
+                                                         "code": setup.setup_code().lower(), **fields})
+
+    def test_every_page_goes_to_setup_until_there_is_an_account(self):
+        self.assertRedirects(self.client.get("/en/"), reverse("first_setup"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("login_view")), reverse("first_setup"), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse("first_setup")).status_code, 200)
+        self.assertNotEqual(self.client.get("/static/users/setup.css").status_code, 302)  # files aren't sent there
+
+    def test_setting_up_makes_the_owner_and_the_store(self):
+        from admin_portal.models import StoreSettings
+        from users.models import GroupInfo
+        self.assertContains(self.place(name=""), "The store needs a name.", status_code=400)
+        self.assertContains(self.place(), "Your account")
+        self.assertContains(self.you(code="WRONG-CODE"), "not the setup code", status_code=400)
+        self.assertContains(self.you(password2="something-else"), "don’t match", status_code=400)
+        self.assertContains(self.you(pin="12"), "4 digits", status_code=400)
+        self.assertRedirects(self.you(), reverse("admin_home"), fetch_redirect_response=False)
+        owner = User.objects.get()
+        self.assertEqual((owner.username, owner.first_name, owner.is_superuser, owner.is_staff), ("priya@example.com", "Priya", True, True))
+        self.assertTrue(owner.check_password("a-long-kitchen-pass"))
+        self.assertTrue(owner.groups.filter(info__in=GroupInfo.objects.filter(owners=True)).exists())
+        self.assertTrue(owner.staff_profile.check_pin("2468"))
+        store = StoreSettings.objects.get()
+        self.assertEqual((store.name, store.address, store.tax_rate, store.email), ("Juniper Lane", "1200 Main St", Decimal("5"), "priya@example.com"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), owner.id)  # signed in
+        self.assertEqual(self.client.get("/en/").status_code, 200)  # no more setup
+        self.assertRedirects(self.client.get(reverse("first_setup")), reverse("login_view"), fetch_redirect_response=False)
+
+    def test_back_keeps_the_place(self):
+        self.place()
+        response = self.client.post(reverse("first_setup"), {"op": "back"})
+        self.assertContains(response, 'value="Juniper Lane"')
+        self.assertContains(response, "Step 1 of 2")

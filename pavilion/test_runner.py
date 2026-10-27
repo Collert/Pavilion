@@ -15,6 +15,7 @@ class StrictDeprecationRunner(DiscoverRunner):
                 warnings.filterwarnings("error", category=getattr(django.utils.deprecation, name))
         from django.conf import settings
         settings.THROTTLE = False  # tests fire requests faster than anyone could tap; ThrottleTests turn it on
+        settings.SETUP_REDIRECT = False  # many tests open pages before making an account; SetupTests turn it on
         import audio.calls
         audio.calls.background = False  # spoken calls run straight away in tests, not in threads
 

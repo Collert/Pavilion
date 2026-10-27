@@ -1,0 +1,129 @@
+{% extends "pos_server/staff_layout.html" %}
+{% load static i18n %}
+{% comment %}
+First-time setup (users.views.setup, users/setup.py): shown while Pavilion has no account. Two steps, drawn like the
+sign-in page: the place (StoreSettings), then the first owner. No mockup.
+{% endcomment %}
+{% block title %}{% trans "Set up Pavilion" %}{% endblock %}
+{% block head %}
+<link href="{% static 'pos_server/lock.css' %}" rel="stylesheet">
+<link href="{% static 'users/login.css' %}" rel="stylesheet">
+<link href="{% static 'users/setup.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block body %}
+<section class="lock-status" aria-label="Pavilion">
+    <div class="blob drift big" aria-hidden="true"></div>
+    <div class="blob drift2 amber" aria-hidden="true"></div>
+    <div class="blob small" aria-hidden="true"></div>
+    <div class="brand-row">
+        <div class="brand-logo">{% include "pos_server/icons/logo.svg" %}</div>
+        <div class="brand-name">Pavilion</div>
+    </div>
+    <div class="lock-center">
+        <h2 class="tagline">{% trans "Let’s set up" %}<br><span>{% if st.place.name %}{{ st.place.name }}{% else %}{% trans "your place" %}{% endif %}</span></h2>
+        <ol class="su-steps">
+            <li class="{% if st.step == 'place' %}on{% else %}done{% endif %}"><span>1</span>{% trans "Your place" %}</li>
+            <li class="{% if st.step == 'you' %}on{% endif %}"><span>2</span>{% trans "Your account" %}</li>
+        </ol>
+    </div>
+</section>
+
+<aside class="lock-panel su-panel" aria-label="{% trans 'Set up Pavilion' %}">
+    <form method="post" class="lock-view rise sign-in su-form" novalidate>
+        {% csrf_token %}
+        {% if st.step == "place" %}
+        <div class="overline">{% trans "Step 1 of 2" %}</div>
+        <h1 class="h1 lock-title">{% trans "Your place" %}</h1>
+        <div class="sign-in-sub">{% trans "The basics customers see. You can change all of it later in Settings › Store info." %}</div>
+        <div class="fields">
+            <div>
+                <label for="su-name" class="field-label">{% trans "Name" %}</label>
+                <div class="si-field{% if errors.name %} bad{% endif %}"><input id="su-name" name="name" value="{{ st.place.name }}" maxlength="60" placeholder="{% trans 'e.g. Corner Kitchen' %}" autofocus></div>
+                {% if errors.name %}<div class="field-error">{{ errors.name }}</div>{% endif %}
+            </div>
+            <div>
+                <label for="su-phone" class="field-label">{% trans "Phone" %} <span class="su-opt">{% trans "optional" %}</span></label>
+                <div class="si-field{% if errors.phone %} bad{% endif %}"><input id="su-phone" name="phone" type="tel" value="{{ st.place.phone }}" maxlength="40"></div>
+                {% if errors.phone %}<div class="field-error">{{ errors.phone }}</div>{% endif %}
+            </div>
+            <div>
+                <label for="su-address" class="field-label">{% trans "Street address" %} <span class="su-opt">{% trans "optional" %}</span></label>
+                <div class="si-field{% if errors.address %} bad{% endif %}"><input id="su-address" name="address" value="{{ st.place.address }}" maxlength="120" placeholder="{% trans 'e.g. 1200 Main St' %}"></div>
+            </div>
+            <div>
+                <label for="su-city" class="field-label">{% trans "City and postal code" %} <span class="su-opt">{% trans "optional" %}</span></label>
+                <div class="si-field{% if errors.city %} bad{% endif %}"><input id="su-city" name="city" value="{{ st.place.city }}" maxlength="120"></div>
+            </div>
+            <div class="su-two">
+                <div>
+                    <label for="su-tz" class="field-label">{% trans "Time zone" %}</label>
+                    <div class="si-field{% if errors.time_zone %} bad{% endif %}"><select id="su-tz" name="time_zone">
+                        {% for region, items in zones %}<optgroup label="{{ region }}">{% for name, label in items %}<option value="{{ name }}"{% if name == st.place.time_zone %} selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+                    </select></div>
+                    {% if errors.time_zone %}<div class="field-error">{{ errors.time_zone }}</div>{% endif %}
+                </div>
+                <div>
+                    <label for="su-tax" class="field-label">{% trans "Sales tax" %}</label>
+                    <div class="si-field{% if errors.tax_rate %} bad{% endif %}"><input id="su-tax" name="tax_rate" inputmode="decimal" value="{{ st.place.tax_rate }}"><span class="su-unit">%</span></div>
+                    {% if errors.tax_rate %}<div class="field-error">{{ errors.tax_rate }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary submit top-gap" name="op" value="next"><span>{% trans "Next" %}</span></button>
+
+        {% else %}
+        <div class="overline">{% trans "Step 2 of 2" %}</div>
+        <h1 class="h1 lock-title">{% trans "Your account" %}</h1>
+        <div class="sign-in-sub">{% trans "You’ll be the owner: you can do everything and add your team later." %}</div>
+        <div class="fields">
+            <div class="su-two">
+                <div>
+                    <label for="su-first" class="field-label">{% trans "First name" %}</label>
+                    <div class="si-field{% if errors.first %} bad{% endif %}"><input id="su-first" name="first" value="{{ you.first }}" autocomplete="given-name" autofocus></div>
+                    {% if errors.first %}<div class="field-error">{{ errors.first }}</div>{% endif %}
+                </div>
+                <div>
+                    <label for="su-last" class="field-label">{% trans "Last name" %}</label>
+                    <div class="si-field"><input id="su-last" name="last" value="{{ you.last }}" autocomplete="family-name"></div>
+                </div>
+            </div>
+            <div>
+                <label for="su-email" class="field-label">{% trans "Email" %}</label>
+                <div class="si-field{% if errors.email %} bad{% endif %}"><input id="su-email" name="email" type="email" value="{{ you.email }}" autocomplete="email"></div>
+                {% if errors.email %}<div class="field-error">{{ errors.email }}</div>{% else %}<div class="su-hint">{% trans "You sign in with it." %}</div>{% endif %}
+            </div>
+            <div class="su-two">
+                <div>
+                    <label for="su-pass" class="field-label">{% trans "Password" %}</label>
+                    <div class="si-field{% if errors.password1 %} bad{% endif %}"><input id="su-pass" name="password1" type="password" autocomplete="new-password"></div>
+                </div>
+                <div>
+                    <label for="su-pass2" class="field-label">{% trans "Type it again" %}</label>
+                    <div class="si-field{% if errors.password2 %} bad{% endif %}"><input id="su-pass2" name="password2" type="password" autocomplete="new-password"></div>
+                </div>
+            </div>
+            {% if errors.password1 or errors.password2 %}<div class="field-error">{{ errors.password1|default:errors.password2 }}</div>{% endif %}
+            <div>
+                <label for="su-pin" class="field-label">{% trans "Register PIN" %} <span class="su-opt">{% trans "optional" %}</span></label>
+                <div class="si-field su-pin{% if errors.pin %} bad{% endif %}"><input id="su-pin" name="pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"></div>
+                {% if errors.pin %}<div class="field-error">{{ errors.pin }}</div>{% else %}<div class="su-hint">{% trans "4 digits to unlock the register quickly." %}</div>{% endif %}
+            </div>
+            {% if code_required %}
+            <div>
+                <label for="su-code" class="field-label">{% trans "Setup code" %}</label>
+                <div class="si-field{% if errors.code %} bad{% endif %}"><input id="su-code" name="code" autocomplete="off" placeholder="XXXX-XXXX" spellcheck="false"></div>
+                {% if errors.code %}<div class="field-error">{{ errors.code }}</div>{% else %}<div class="su-hint">{% trans "So only whoever runs this server can set it up: it’s in the server’s log, or run python manage.py setup_code." %}</div>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="su-buttons">
+            <button class="btn su-back" name="op" value="back" formnovalidate>{% trans "Back" %}</button>
+            <button class="btn btn-primary submit" name="op" value="finish"><span>{% trans "Set up Pavilion" %}</span></button>
+        </div>
+        {% endif %}
+    </form>
+</aside>
+{% endblock %}
