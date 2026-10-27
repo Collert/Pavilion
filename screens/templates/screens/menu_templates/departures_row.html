@@ -1,0 +1,7 @@
+{% load screens %}{% comment %}
+One row of the Departures board: `item`, `row` (its place, for the flip delay) and `set` (the featured row).
+{% endcomment %}<div class="dp-row{% if item.out %} out{% elif set %} set{% endif %}" style="--row: {{ row }}">
+    <span class="dp-name" aria-label="{{ item.title }}">{% for ch in item.title|cells:23 %}<span class="dp-cell" style="--i: {{ forloop.counter0 }}" aria-hidden="true">{{ ch }}</span>{% endfor %}</span>
+    <span class="dp-price" aria-label="{% if item.out %}{{ b.look.out_text }}{% else %}{{ item.price }}{% endif %}">{% for ch in item.price|slice:"1:"|cells:-5 %}<span class="dp-cell" style="--i: {{ forloop.counter0|add:24 }}" aria-hidden="true">{{ ch }}</span>{% endfor %}</span>
+    <span class="dp-status"><span>{% if item.out %}{{ b.look.out_text }}{% elif set %}{{ b.look.set_text }}{% else %}{{ b.look.on_text }}{% endif %}</span><span class="dp-lamp"></span></span>
+</div>

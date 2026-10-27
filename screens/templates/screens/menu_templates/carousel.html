@@ -1,0 +1,47 @@
+{% load i18n %}{% comment %}
+Carousel menu template (design: MenuCarousel). Given `b` = screens.menu_boards.board(). The cards are the page's
+featured item and the best sellers (`b.loved`); menu_board.js puts one at a time in the spotlight ([data-mb-cycle],
+.on). Slot 1 lists in two columns, slots 2 and 3 in one.
+{% endcomment %}
+<div class="mt-carousel" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --accent: {{ b.look.accent }}; --card: {{ b.look.card }}; --out: {{ b.look.out }}; --sec: {{ b.look.spin_sec }}s; --body: '{{ b.look.body_font }}', sans-serif">
+    <div class="cr-pages">
+        {% for page in b.pages %}
+        <div class="mb-page cr-page" {% if not forloop.first %}hidden{% endif %}>
+            <header class="cr-head">
+                <h1>{{ b.title }}</h1><span class="cr-sub">{{ b.look.subtitle|default:b.menu.title }}</span>
+                <span class="cr-fill"></span>
+                {% if page.featured or b.loved %}<span class="cr-sub strong">{{ b.look.cards_title }}</span>
+                <span class="cr-dots" data-mb-cycle-dots>{% if page.featured %}<span class="mb-dot on"><span></span></span>{% endif %}{% for item in b.loved %}{% if item.key != page.featured.key %}<span class="mb-dot{% if not page.featured and forloop.first %} on{% endif %}"><span></span></span>{% endif %}{% endfor %}</span>{% endif %}
+            </header>
+            {% if page.featured or b.loved %}
+            <section class="cr-cards" aria-label="{{ b.look.cards_title }}" data-mb-cycle data-mb-sec="{{ b.look.spin_sec }}">
+                {% if page.featured %}{% include "screens/menu_templates/carousel_card.html" with item=page.featured tag=b.look.featured_label on=True %}{% endif %}
+                {% for item in b.loved %}{% if item.key != page.featured.key %}{% include "screens/menu_templates/carousel_card.html" with item=item tag=item.deal|default:b.look.loved_label on=False %}{% endif %}{% endfor %}
+            </section>
+            {% endif %}
+            <div class="cr-lists">
+                {% for slot in page.slots %}
+                <section class="cr-list{% if forloop.first %} wide{% endif %}"{% if slot %} aria-label="{{ slot.name }}"{% endif %}>
+                    {% if slot %}
+                    <h3>{{ slot.name }}{% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</h3>
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen cr-items" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="cr-row{% if item.out %} out{% endif %}"><span class="cr-name">{{ item.title }}</span>
+                                {% if item.deal and not item.out %}<span class="cr-deal">{{ item.deal }}</span>{% endif %}<span class="cr-fill"></span>
+                                <span class="cr-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span></div>
+                            {% empty %}<div class="cr-row"><span class="cr-name">{% trans "Nothing here right now" %}</span></div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

@@ -1,0 +1,56 @@
+{% load i18n %}{% comment %}
+Letterboard menu template (design: MenuLetter). Given `b` = screens.menu_boards.board(). Three slots in columns (the
+first wider); sold-out items leave the columns and are listed in the side panel (`page.out`) under the featured item.
+{% endcomment %}
+<div class="mt-letter" style="--frame: {{ b.look.frame }}; --bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --accent: {{ b.look.accent }}; --price: {{ b.look.prices }}; --body: '{{ b.look.body_font }}', 'Arial Narrow', sans-serif">
+    <div class="lb-board">
+        <header class="lb-head">
+            <span class="lb-side">{{ b.look.left|default:b.menu.title }}</span>
+            <h1>{{ b.title }}</h1>
+            {% if b.look.right %}<span class="lb-side">{{ b.look.right }}</span>{% endif %}
+        </header>
+        <div class="lb-dots" aria-hidden="true">· · · · · · · · · · · · · · · ·</div>
+        <div class="lb-pages">
+            {% for page in b.pages %}
+            <div class="mb-page lb-page" {% if not forloop.first %}hidden{% endif %}>
+                {% for slot in page.slots %}
+                <section class="lb-col{% if forloop.first %} wide{% endif %}"{% if slot %} aria-label="{{ slot.name }}"{% endif %}>
+                    {% if slot %}
+                    <h2>{{ slot.name }}{% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</h2>
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen lb-list" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}{% if not item.out %}
+                            <div class="lb-row"><span class="lb-name">{{ item.title }}{% if item.veg %} (V){% endif %}</span><span class="lb-price">{{ item.price|slice:"1:" }}</span></div>
+                            {% endif %}{% empty %}<div class="lb-row"><span class="lb-name">{% trans "Nothing here right now" %}</span></div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+                <aside class="lb-aside">
+                    {% if page.featured %}
+                    <div class="lb-special">
+                        <h2>{{ b.look.featured_label }}</h2>
+                        <div class="lb-big">{{ page.featured.title }}</div>
+                        {% if page.featured.description %}<div class="lb-small">{{ page.featured.description }}</div>{% endif %}
+                        <div class="lb-special-price">{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price|slice:"1:" }}{% endif %}</div>
+                    </div>
+                    {% endif %}
+                    {% if page.out %}
+                    <div class="lb-out">
+                        <h2 class="small">{{ b.look.sold_text }}</h2>
+                        {% for item in page.out|slice:":6" %}<div class="lb-out-name">{{ item.title }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="lb-fill"></div>
+                    {% if b.look.footer %}<div class="lb-foot">{{ b.look.footer }}</div>{% endif %}
+                </aside>
+            </div>
+            {% endfor %}
+        </div>
+        {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+    </div>
+</div>

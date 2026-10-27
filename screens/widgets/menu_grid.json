@@ -1,0 +1,27 @@
+{
+  "kind": "menu_template",
+  "title": "Grid",
+  "description": "Swiss and strict: a huge stacked name, a coloured set bar for the featured item, numbered rows with sideways group names.",
+  "template": "screens/menu_templates/grid.html",
+  "css": ["screens/menu_templates/grid.css"],
+  "orientation": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "groups": 3,
+  "per_group": [8, 7, 7],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name; each word goes on its own line"},
+    "subtitle": {"type": "string", "default": "", "label": "Second info line", "help": "Hours, say; leave empty to hide it"},
+    "featured_label": {"type": "string", "default": "Set", "label": "Featured label"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "footer": {"type": "string", "default": "Allergies: please tell us before ordering.", "label": "Note at the bottom", "help": "Leave empty to hide it"},
+    "legend": {"type": "string", "default": "V = vegetarian", "label": "Bottom right"},
+    "background": {"type": "color", "default": "#EFEEE9", "label": "Background"},
+    "text": {"type": "color", "default": "#111111", "label": "Text and rules"},
+    "muted": {"type": "color", "default": "#5E5E5A", "label": "Descriptions"},
+    "accent": {"type": "color", "default": "#2A46D8", "label": "Accent", "help": "The set bar, numbers and the first group's name"},
+    "heading_font": {"type": "choice", "options": ["Schibsted Grotesk", "Inter", "Archivo"], "default": "Schibsted Grotesk", "label": "Heading font"},
+    "mono_font": {"type": "choice", "options": ["IBM Plex Mono", "JetBrains Mono", "Space Mono"], "default": "IBM Plex Mono", "label": "Numbers font"}
+  }
+}

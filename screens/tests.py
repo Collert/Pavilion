@@ -354,6 +354,54 @@ class MenuBoardTests(TestCase):
         screen.save()
         self.assertIn("Pick a menu for this board", self.client.get(reverse("screen", args=["board"])).content.decode())
 
+    def test_every_template_draws_the_menu(self):
+        from .menu_boards import board
+        templates = registry.menu_templates()
+        self.assertGreaterEqual(set(templates), {"menu_showcase", "menu_chalk", "menu_editorial", "menu_poster", "menu_grid",
+                                                 "menu_letterboard", "menu_triptych", "menu_departures", "menu_carousel", "menu_neon"})
+        for name, template in templates.items():
+            slots = [f"s:{self.kitchen.id}", f"s:{self.bar.id}"] + [""] * (template.layout["groups"] - 2)
+            for featured in (f"d:{self.burger.id}", ""):
+                display = {"template": name, "pages": [{"featured": featured, "slots": slots}, {"featured": "", "slots": slots}],
+                           "look": {"title": "Juniper"}}
+                html = get_template("screens/menu_board_frame.html").render({"b": board(self.menu, display)})
+                self.assertEqual(html.count('class="mb-page '), 2, name)
+                for text in ("Coffee 0", "Burger"):  # Departures spells them out a tile a letter, with the name as its label
+                    self.assertIn(text, html, f"{name} without {text}")
+                self.assertIn(f"/static/{template.css[0]}", html)
+
+    def test_slots_can_fit_different_counts(self):
+        from .menu_boards import board, per_slot
+        chalk = registry.menu_templates()["menu_chalk"]
+        self.assertEqual((per_slot(chalk), chalk.layout["per_group"]), ([8, 10, 10], 10))
+        display = {"template": "menu_chalk", "pages": [{"featured": "", "slots": [f"s:{self.bar.id}", f"s:{self.bar.id}", ""]}]}
+        first, second, _empty = board(self.menu, display)["pages"][0]["slots"]
+        self.assertEqual(([len(s) for s in first["screens"]], [len(s) for s in second["screens"]]), ([8], [8]))
+        display["pages"][0]["slots"] = [f"s:{self.kitchen.id}", f"s:{self.bar.id}", ""]
+        page = board(self.menu, display)["pages"][0]
+        self.assertEqual([i["n"] for s in page["slots"][:2] for i in s["screens"][0]], list(range(1, 10)))  # numbered across the page
+        self.assertEqual([i["title"] for i in page["out"]], ["Tea"])  # what's sold out on the page
+
+    def test_items_know_if_they_are_vegetarian(self):
+        from pos_server.models import Component, DishComponent, Ingredient
+        from .menu_boards import items
+        beef = Component.objects.create(title="Patty", unit_of_measurement="g")
+        beef.componentingredient_set.create(ingredient=Ingredient.objects.create(title="Beef", unit_of_measurement="g", meat=True), quantity=1)
+        milk = Component.objects.create(title="Milk", unit_of_measurement="ml")
+        milk.componentingredient_set.create(ingredient=Ingredient.objects.create(title="Milk", unit_of_measurement="ml", allergens=["Dairy"]), quantity=1)
+        DishComponent.objects.create(dish=self.burger, component=beef, quantity=100)
+        DishComponent.objects.create(dish=self.coffees[0], component=milk, quantity=100)
+        _by_group, by_key = items(self.menu)
+        self.assertEqual((by_key[f"d:{self.burger.id}"]["veg"], by_key[f"d:{self.coffees[0].id}"]["veg"]), (False, True))
+        self.assertFalse(by_key[f"d:{self.coffees[1].id}"]["veg"])  # no recipe: we can't tell
+
+    def test_split_flap_cells(self):
+        from .templatetags.screens import cells
+        self.assertEqual(cells("Tea", 5), ["T", "E", "A", " ", " "])
+        self.assertEqual(cells("Smash burger", 5), list("SMASH"))
+        self.assertEqual(cells("4.50", -5), list(" 4.50"))
+        self.assertEqual(cells("123.50", -5), list("123.50"))  # prices are never cut
+
 
 class PopupTests(TestCase):
     """Pop-ups (screens/popups.py): moments from the cache, scheduled ones from the schedule, each its own region."""

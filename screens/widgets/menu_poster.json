@@ -1,0 +1,26 @@
+{
+  "kind": "menu_template",
+  "title": "Poster",
+  "description": "Loud and bold: a three-word headline, the featured dish in a big circle with a spinning price burst, the first group as tiles and the others in dark panels.",
+  "template": "screens/menu_templates/poster.html",
+  "css": ["screens/menu_templates/poster.css"],
+  "orientation": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "groups": 3,
+  "per_group": [9, 7, 7],
+  "featured": "optional",
+  "params": {
+    "headline": {"type": "string", "default": "Eat. Sip. Snack.", "label": "Headline", "help": "Each word on its own line; the second one in the accent colour"},
+    "title": {"type": "string", "default": "", "label": "Name on the pill", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Next to the name", "help": "Leave empty for the menu's name"},
+    "veg_text": {"type": "string", "default": "Veggie", "label": "Under vegetarian tiles"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "background": {"type": "color", "default": "#F6C443", "label": "Background"},
+    "text": {"type": "color", "default": "#1B1B1B", "label": "Ink", "help": "Text, outlines and the dark panels"},
+    "accent": {"type": "color", "default": "#E2442F", "label": "Accent", "help": "The price burst, price pills and the second headline word"},
+    "card": {"type": "color", "default": "#FFF6E0", "label": "Tiles"},
+    "heading_font": {"type": "choice", "options": ["Archivo Black", "Anton", "Bebas Neue"], "default": "Archivo Black", "label": "Heading font"},
+    "body_font": {"type": "choice", "options": ["Archivo", "Inter", "Manrope"], "default": "Archivo", "label": "Text font"}
+  }
+}

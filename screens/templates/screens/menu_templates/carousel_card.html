@@ -1,0 +1,12 @@
+{% comment %}
+One Carousel card: `item`, its `tag`, and `on` (the first card starts in the spotlight).
+{% endcomment %}<article class="cr-card{% if on %} on{% endif %}{% if item.out %} out{% endif %}" data-mb-card>
+    <div class="cr-art">{% if item.image %}<img src="{{ item.image }}" alt="">{% else %}<span class="cr-letter">{{ item.letter }}</span>{% endif %}</div>
+    <div class="cr-card-text">
+        <span class="cr-tag">{{ tag }}</span>
+        <h2>{{ item.title }}</h2>
+        {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+        <span class="cr-fill"></span>
+        <span class="cr-card-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span>
+    </div>
+</article>

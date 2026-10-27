@@ -1,0 +1,66 @@
+{% load i18n %}{% comment %}
+Poster menu template (design: MenuPoster). Given `b` = screens.menu_boards.board(). The page's featured item fills the
+circle and the spinning price burst; slot 1 is the tiles, slots 2 and 3 the dark panels.
+{% endcomment %}
+<div class="mt-poster" style="--bg: {{ b.look.background }}; --ink: {{ b.look.text }}; --accent: {{ b.look.accent }}; --card: {{ b.look.card }}; --heading: '{{ b.look.heading_font }}', sans-serif; --body: '{{ b.look.body_font }}', sans-serif">
+    <div class="po-pages">
+        {% for page in b.pages %}
+        <div class="mb-page po-page" {% if not forloop.first %}hidden{% endif %}>
+            <header class="po-head">
+                <div class="po-headline">{% for word in b.look.headline.split|slice:":3" %}<div{% if forloop.counter == 2 %} class="po-hot"{% endif %}>{{ word }}</div>{% endfor %}</div>
+                <div class="po-pill">{{ b.title }}<span class="po-dot"></span><span class="po-pill-sub">{{ b.look.subtitle|default:b.menu.title }}</span></div>
+                {% if page.featured %}
+                <div class="po-circle">{% if page.featured.image %}<img src="{{ page.featured.image }}" alt="">{% else %}<span class="po-letter">{{ page.featured.letter }}</span>{% endif %}</div>
+                <div class="po-burst">
+                    <svg aria-hidden="true" viewBox="0 0 220 220"><path d="M216.0 110.0 L191.1 131.7 L201.8 163.0 L169.4 169.4 L163.0 201.8 L131.7 191.1 L110.0 216.0 L88.3 191.1 L57.0 201.8 L50.6 169.4 L18.2 163.0 L28.9 131.7 L4.0 110.0 L28.9 88.3 L18.2 57.0 L50.6 50.6 L57.0 18.2 L88.3 28.9 L110.0 4.0 L131.7 28.9 L163.0 18.2 L169.4 50.6 L201.8 57.0 L191.1 88.3 Z" stroke-width="6" stroke-linejoin="round"/></svg>
+                    <div class="po-burst-text"><span>{{ page.featured.title }}</span><b>{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price }}{% endif %}</b></div>
+                </div>
+                {% endif %}
+            </header>
+            {% with slot=page.slots.0 %}{% if slot %}
+            <section class="po-tiles-wrap" aria-label="{{ slot.name }}">
+                <div class="po-bar"><span class="po-bar-name">{{ slot.name }}</span><span class="po-bar-rule"></span>
+                    {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</div>
+                <div class="mb-screens">
+                    {% for screen in slot.screens %}
+                    <div class="mb-screen po-tiles" {% if not forloop.first %}hidden{% endif %}>
+                        {% for item in screen %}
+                        <div class="po-tile{% if item.out %} out{% endif %}">
+                            <div class="po-art">{% if item.image %}<img src="{{ item.image }}" alt="">{% else %}<span class="po-letter small">{{ item.letter }}</span>{% endif %}</div>
+                            <div class="po-tile-name">{{ item.title }}</div>
+                            <div class="po-tile-sub">{% if item.deal %}{{ item.deal }}{% elif item.veg %}{{ b.look.veg_text }}{% endif %}</div>
+                            <span class="po-price">{{ item.price }}</span>
+                            {% if item.out %}<div class="po-band">{{ b.look.sold_text }}</div>{% endif %}
+                        </div>
+                        {% empty %}<div class="po-empty">{% trans "Nothing here right now" %}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}{% endwith %}
+            <div class="po-panels">
+                {% for slot in page.slots|slice:"1:" %}
+                {% if slot %}
+                <section class="po-panel" aria-label="{{ slot.name }}">
+                    <h2>{{ slot.name }}{% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</h2>
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen po-list" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="po-row{% if item.out %} out{% endif %}"><span class="po-row-name">{{ item.title }}</span>
+                                <span class="po-row-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price }}{% endif %}</span></div>
+                            {% empty %}<div class="po-row">{% trans "Nothing here right now" %}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

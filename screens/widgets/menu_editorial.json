@@ -1,0 +1,29 @@
+{
+  "kind": "menu_template",
+  "title": "Editorial",
+  "description": "Like a printed menu: a big italic name, numbered sections, the first group in two columns with descriptions and the featured item as a pull quote.",
+  "template": "screens/menu_templates/editorial.html",
+  "css": ["screens/menu_templates/editorial.css"],
+  "orientation": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "groups": 3,
+  "per_group": [8, 8, 8],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Top left", "help": "Leave empty for the menu's name"},
+    "top_right": {"type": "string", "default": "", "label": "Top right", "help": "Hours, say; leave empty to hide it"},
+    "tagline": {"type": "string", "default": "Simple food, cooked with care, from the counter to your table.", "label": "Line under the name", "help": "Leave empty to hide it"},
+    "featured_label": {"type": "string", "default": "Today's pick", "label": "Featured label"},
+    "sold_text": {"type": "string", "default": "Sold out today", "label": "Sold-out label"},
+    "footer": {"type": "string", "default": "Tell us about allergies before you order.", "label": "Note at the bottom", "help": "Leave empty to hide it"},
+    "legend": {"type": "string", "default": "(v) vegetarian", "label": "Bottom right"},
+    "background": {"type": "color", "default": "#F3EDE2", "label": "Paper"},
+    "text": {"type": "color", "default": "#1F1A15", "label": "Ink"},
+    "muted": {"type": "color", "default": "#6B5F52", "label": "Descriptions"},
+    "accent": {"type": "color", "default": "#7A2E22", "label": "Accent", "help": "The section numbers and labels"},
+    "heading_font": {"type": "choice", "options": ["Fraunces", "Playfair Display", "DM Serif Display"], "default": "Fraunces", "label": "Heading font"},
+    "body_font": {"type": "choice", "options": ["Libre Franklin", "Inter", "Manrope"], "default": "Libre Franklin", "label": "Text font"}
+  }
+}

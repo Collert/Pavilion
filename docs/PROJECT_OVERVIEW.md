@@ -912,8 +912,14 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
   not placeable directly). The `menu_board` widget shows one menu (its `menu` param) with the template and layout
   from `Menu.display` (`screens/menu_boards.py`: `clean()`, `board()`, `groups()`: a group is a station's dishes on
   the menu or its combos). Every page and every slot screen is rendered; `menu_board.js` shows one at a time from
-  the clock (so boards stay in step across refetches and screens). Showcase (`menu_showcase`, portrait, 3 groups of
-  6 + featured, best sellers as cards) is built; the other nine `Menu*` artboards are next. `seed_demo` adds a
+  the clock (so boards stay in step across refetches and screens). All ten `Menu*` artboards are built (2026-10-27),
+  each a JSON + partial in `screens/templates/screens/menu_templates/` + CSS: Showcase (best sellers as cards),
+  Chalkboard, Editorial, Poster (first group as tiles), Grid (numbered rows, sideways group names), all portrait;
+  Letterboard (sold-out items move to the side panel), Triptych (a coloured panel per group with its first picture),
+  Departures (split-flap tiles via the `cells` filter, a live clock and ticker), Carousel (featured + best sellers
+  taking turns in the spotlight) and Neon, all landscape. Most give the first slot more room (`per_group` as a
+  list; the Display tab's notes and timing checks go slot by slot). Vegetarian marks come from `dish_info`
+  (`items()` prefetches `DISH_PREFETCH`). `seed_demo` adds a
   `menu-board` screen showing Lunch.
 
 - `Screen(name, slug, layout, public, width, height, background, padding)`. `layout` is a JSON tree of widget nodes;

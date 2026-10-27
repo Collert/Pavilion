@@ -1,0 +1,80 @@
+{% load i18n %}{% comment %}
+Grid menu template (design: MenuSwiss). Given `b` = screens.menu_boards.board(). The featured item is the coloured set
+bar; slot 1 has numbered rows with descriptions, slots 2 and 3 short rows side by side. Items are numbered across the
+page (`item.n`); prices drop the dollar sign.
+{% endcomment %}
+<div class="mt-grid" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --muted: {{ b.look.muted }}; --accent: {{ b.look.accent }}; --heading: '{{ b.look.heading_font }}', sans-serif; --mono: '{{ b.look.mono_font }}', monospace">
+    <header class="gr-head">
+        <h1>{% for word in b.title.split %}<span>{{ word }}</span>{% endfor %}</h1>
+        <div class="gr-info">
+            <div class="gr-hot">{% trans "Menu" %} / {{ b.menu.title }}</div>
+            {% if b.look.subtitle %}<div>{{ b.look.subtitle }}</div>{% endif %}
+            <div>{% for slot in b.pages.0.slots %}{% if slot %}{% if not forloop.first %} · {% endif %}{{ slot.name }}{% endif %}{% endfor %}</div>
+        </div>
+    </header>
+    <div class="gr-bar"></div>
+    <div class="gr-pages">
+        {% for page in b.pages %}
+        <div class="mb-page gr-page" {% if not forloop.first %}hidden{% endif %}>
+            {% if page.featured %}
+            <div class="gr-set">
+                <div class="gr-set-box"><span class="gr-set-label">{{ b.look.featured_label }}</span>
+                    <span class="gr-set-text">{{ page.featured.title }}{% if page.featured.description %} — {{ page.featured.description }}{% endif %}</span></div>
+                <div class="gr-set-price">{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price|slice:"1:" }}{% endif %}</div>
+            </div>
+            {% endif %}
+            {% with slot=page.slots.0 %}{% if slot %}
+            <section class="gr-sec gr-main" aria-label="{{ slot.name }}">
+                <div class="gr-side"><h2>{{ slot.name }}</h2></div>
+                <div class="gr-body">
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="gr-row{% if item.out %} out{% endif %}">
+                                <span class="gr-n">{{ item.n|stringformat:"02d" }}</span>
+                                <span class="gr-text"><span class="gr-name">{{ item.title }}{% if item.veg %} (V){% endif %}</span>
+                                    {% if item.description or item.deal %}<span class="gr-desc">{% if item.deal %}<b>{{ item.deal }}</b> {% endif %}{{ item.description }}</span>{% endif %}</span>
+                                <span class="gr-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price|slice:"1:" }}{% endif %}</span>
+                            </div>
+                            {% empty %}<div class="gr-row"><span class="gr-desc">{% trans "Nothing here right now" %}</span></div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}
+                </div>
+            </section>
+            {% endif %}{% endwith %}
+            <div class="gr-cols">
+                {% for slot in page.slots|slice:"1:" %}
+                {% if slot %}
+                <section class="gr-sec gr-col" aria-label="{{ slot.name }}">
+                    <div class="gr-side"><h2>{{ slot.name }}</h2></div>
+                    <div class="gr-body">
+                        <div class="mb-screens">
+                            {% for screen in slot.screens %}
+                            <div class="mb-screen" {% if not forloop.first %}hidden{% endif %}>
+                                {% for item in screen %}
+                                <div class="gr-row small{% if item.out %} out{% endif %}">
+                                    <span class="gr-n">{{ item.n|stringformat:"02d" }}</span>
+                                    <span class="gr-name">{{ item.title }}{% if item.veg %} (V){% endif %}</span>
+                                    <span class="gr-price">{% if item.out %}{{ b.look.sold_text }}{% else %}{{ item.price|slice:"1:" }}{% endif %}</span>
+                                </div>
+                                {% empty %}<div class="gr-row small"><span class="gr-desc">{% trans "Nothing here right now" %}</span></div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}
+                    </div>
+                </section>
+                {% else %}<section class="gr-col"></section>{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <footer class="gr-foot"><span>{{ b.look.footer }}</span><span>{{ b.look.legend }}</span></footer>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

@@ -1,0 +1,27 @@
+{
+  "kind": "menu_template",
+  "title": "Letterboard",
+  "description": "A felt letterboard in a wooden frame: plastic letters slightly askew, three groups in columns, the featured item and what's sold out on the side.",
+  "template": "screens/menu_templates/letterboard.html",
+  "css": ["screens/menu_templates/letterboard.css"],
+  "orientation": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "groups": 3,
+  "per_group": 10,
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name"},
+    "left": {"type": "string", "default": "", "label": "Left of the name", "help": "Leave empty for the menu's name"},
+    "right": {"type": "string", "default": "", "label": "Right of the name", "help": "Hours, say; leave empty to hide it"},
+    "featured_label": {"type": "string", "default": "Special", "label": "Featured heading"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out heading", "help": "Sold-out items leave the columns and are listed under it"},
+    "footer": {"type": "string", "default": "Allergies? Ask us · V = vegetarian", "label": "Note at the bottom", "help": "Leave empty to hide it"},
+    "background": {"type": "color", "default": "#151515", "label": "Felt"},
+    "frame": {"type": "color", "default": "#A57440", "label": "Frame"},
+    "text": {"type": "color", "default": "#F4F1EA", "label": "Letters"},
+    "accent": {"type": "color", "default": "#D9483B", "label": "Headings"},
+    "prices": {"type": "color", "default": "#F2C14E", "label": "Prices"},
+    "body_font": {"type": "choice", "options": ["Oswald", "Bebas Neue", "Barlow Condensed"], "default": "Oswald", "label": "Letters font"}
+  }
+}

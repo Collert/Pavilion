@@ -1,0 +1,31 @@
+{
+  "kind": "menu_template",
+  "title": "Departures",
+  "description": "A split-flap departures board: every name and price on flipping tiles, a status lamp per dish, a clock and a ticker along the bottom.",
+  "template": "screens/menu_templates/departures.html",
+  "css": ["screens/menu_templates/departures.css"],
+  "orientation": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "groups": 3,
+  "per_group": [12, 6, 6],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name; up to 16 letters fit"},
+    "subtitle": {"type": "string", "default": "", "label": "Next to the name", "help": "Leave empty for \"Now serving\" and the menu's name"},
+    "ticker": {"type": "string", "default": "Tell us about allergies before you order", "label": "Ticker", "help": "Scrolls along the bottom; leave empty to hide it"},
+    "item_label": {"type": "string", "default": "Item", "label": "Item column"},
+    "price_label": {"type": "string", "default": "Price", "label": "Price column"},
+    "status_label": {"type": "string", "default": "Status", "label": "Status column"},
+    "on_text": {"type": "string", "default": "On", "label": "Available status"},
+    "out_text": {"type": "string", "default": "Out", "label": "Sold-out status"},
+    "set_text": {"type": "string", "default": "Set", "label": "Featured status", "help": "The featured item is the last row of the first board"},
+    "background": {"type": "color", "default": "#0E0F10", "label": "Background"},
+    "text": {"type": "color", "default": "#F7F3E8", "label": "Letters"},
+    "accent": {"type": "color", "default": "#FFB400", "label": "Accent", "help": "Group names, the ticker and the featured lamp"},
+    "on": {"type": "color", "default": "#3DDC84", "label": "Available lamp"},
+    "out": {"type": "color", "default": "#FF5A4E", "label": "Sold-out lamp"},
+    "tile": {"type": "color", "default": "#1E2022", "label": "Tiles"},
+    "mono_font": {"type": "choice", "options": ["JetBrains Mono", "IBM Plex Mono", "Space Mono"], "default": "JetBrains Mono", "label": "Font"}
+  }
+}

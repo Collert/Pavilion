@@ -1,0 +1,17 @@
+{% load i18n %}{% comment %}
+One group on the Neon board: `slot`, glowing in colour `glow` (1–3).
+{% endcomment %}<section class="ne-sec ne-g{{ glow }}" aria-label="{{ slot.name }}">
+    <h2>{{ slot.name }}{% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</h2>
+    <div class="mb-screens">
+        {% for screen in slot.screens %}
+        <div class="mb-screen ne-items" {% if not forloop.first %}hidden{% endif %}>
+            {% for item in screen %}
+            <div class="ne-row{% if item.out %} out{% endif %}"><span class="ne-name">{{ item.title }}{% if item.veg %} (v){% endif %}</span>
+                {% if item.out %}<span class="ne-out">{{ b.look.sold_text }}</span>{% elif item.deal %}<span class="ne-deal">{{ item.deal }}</span>{% endif %}
+                <span class="ne-fill"></span><span class="ne-price">{% if not item.out %}{{ item.price|slice:"1:" }}{% endif %}</span></div>
+            {% empty %}<div class="ne-row"><span class="ne-name">{% trans "Nothing here right now" %}</span></div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</section>

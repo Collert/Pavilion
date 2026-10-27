@@ -1,0 +1,28 @@
+{
+  "kind": "menu_template",
+  "title": "Chalkboard",
+  "description": "Hand-lettered on a framed chalkboard: today's special in a chalk box, the first group with descriptions, the others in two columns.",
+  "template": "screens/menu_templates/chalk.html",
+  "css": ["screens/menu_templates/chalk.css"],
+  "orientation": "portrait",
+  "width": 1080,
+  "height": 1920,
+  "groups": 3,
+  "per_group": [8, 10, 10],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name at the top", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Line above the name", "help": "Leave empty for the menu's name"},
+    "featured_label": {"type": "string", "default": "Today's special", "label": "Featured label"},
+    "sold_text": {"type": "string", "default": "sold out!", "label": "Sold-out label"},
+    "footer": {"type": "string", "default": "Allergies? Just ask, we're happy to help · v = vegetarian", "label": "Note at the bottom", "help": "Leave empty to hide it"},
+    "background": {"type": "color", "default": "#24312C", "label": "Chalkboard"},
+    "frame": {"type": "color", "default": "#5B3B22", "label": "Frame"},
+    "text": {"type": "color", "default": "#F3EFE4", "label": "Chalk"},
+    "accent": {"type": "color", "default": "#F4C46B", "label": "Accent", "help": "The special's box and the squiggle under the name"},
+    "veg": {"type": "color", "default": "#A9D18E", "label": "Vegetarian mark"},
+    "out": {"type": "color", "default": "#F08A73", "label": "Sold out"},
+    "heading_font": {"type": "choice", "options": ["Caveat Brush", "Permanent Marker", "Yellowtail"], "default": "Caveat Brush", "label": "Heading font"},
+    "body_font": {"type": "choice", "options": ["Kalam", "Caveat Brush", "Barlow Condensed"], "default": "Kalam", "label": "Text font"}
+  }
+}

@@ -1,0 +1,32 @@
+{% load i18n %}{% comment %}
+Neon menu template (design: MenuNeon). Given `b` = screens.menu_boards.board(). The sign and the page's featured item
+sit on the left; slot 1 fills the first column, slots 2 and 3 share the second, each glowing in its own colour.
+{% endcomment %}
+<div class="mt-neon" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --accent: {{ b.look.accent }}; --g1: {{ b.look.glow_1 }}; --g2: {{ b.look.glow_2 }}; --g3: {{ b.look.glow_3 }}; --heading: '{{ b.look.heading_font }}', cursive; --body: '{{ b.look.body_font }}', sans-serif">
+    {% for page in b.pages %}
+    <div class="mb-page ne-page" {% if not forloop.first %}hidden{% endif %}>
+        <aside class="ne-aside">
+            <div class="ne-sign">
+                <h1>{{ b.title }}</h1>
+                <div class="ne-sub">{{ b.look.subtitle|default:b.menu.title }}</div>
+            </div>
+            {% if page.featured %}
+            <div class="ne-feature{% if page.featured.out %} out{% endif %}">
+                <div class="ne-feature-name">{{ page.featured.title }}</div>
+                {% if page.featured.description %}<div class="ne-feature-desc">{{ page.featured.description }}</div>{% endif %}
+                <div class="ne-feature-price">{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price }}{% endif %}</div>
+            </div>
+            {% endif %}
+            <div class="ne-fill"></div>
+            {% if b.look.footer %}<div class="ne-foot">{{ b.look.footer }}</div>{% endif %}
+        </aside>
+        <div class="ne-col">
+            {% with slot=page.slots.0 %}{% if slot %}{% include "screens/menu_templates/neon_group.html" with slot=slot glow=1 %}{% endif %}{% endwith %}
+        </div>
+        <div class="ne-col">
+            {% for slot in page.slots|slice:"1:" %}{% if slot %}{% include "screens/menu_templates/neon_group.html" with slot=slot glow=forloop.counter|add:1 %}{% endif %}{% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

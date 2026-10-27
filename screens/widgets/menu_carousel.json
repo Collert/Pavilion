@@ -1,0 +1,29 @@
+{
+  "kind": "menu_template",
+  "title": "Carousel",
+  "description": "Bright and airy: a row of favourite cards (the featured item and your best sellers) where each takes a turn in the spotlight, the groups listed underneath.",
+  "template": "screens/menu_templates/carousel.html",
+  "css": ["screens/menu_templates/carousel.css"],
+  "orientation": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "groups": 3,
+  "per_group": [12, 6, 6],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Next to the name", "help": "Leave empty for the menu's name"},
+    "cards_title": {"type": "string", "default": "Today's favourites", "label": "Cards heading"},
+    "featured_label": {"type": "string", "default": "Chef's pick", "label": "Featured card's tag"},
+    "loved_label": {"type": "string", "default": "Most ordered", "label": "Best sellers' tag"},
+    "loved_count": {"type": "int", "default": 4, "min": 0, "max": 5, "label": "Best sellers shown", "help": "Your most sold dishes on this menu over the last 30 days, as cards next to the featured one"},
+    "spin_sec": {"type": "int", "default": 6, "min": 3, "max": 30, "label": "Seconds per card", "help": "How long each card stays in the spotlight"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "background": {"type": "color", "default": "#F4F1EA", "label": "Background"},
+    "text": {"type": "color", "default": "#1C2321", "label": "Text", "help": "Also the card in the spotlight"},
+    "accent": {"type": "color", "default": "#F2C14E", "label": "Accent", "help": "The spotlight card's tag and price"},
+    "card": {"type": "color", "default": "#FFFFFF", "label": "Cards"},
+    "out": {"type": "color", "default": "#C2553F", "label": "Sold out"},
+    "body_font": {"type": "choice", "options": ["Sora", "Manrope", "Inter"], "default": "Sora", "label": "Font"}
+  }
+}

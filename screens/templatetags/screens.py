@@ -36,8 +36,8 @@ def tracks(weights, count):
 
 @register.filter
 def cells(value, count):
-    """Split-flap cells: the text in capitals, cut or padded with spaces to `count` characters (negative: pad on the
-    left, for prices). {% for ch in item.title|cells:23 %}"""
+    """Split-flap cells: the text in capitals, cut or padded with spaces to `count` characters. Negative: padded on
+    the left and never cut, for prices. {% for ch in item.title|cells:23 %}"""
     count = int(count)
-    text = str(value or "").upper()[:abs(count)]
-    return list(text.rjust(-count) if count < 0 else text.ljust(count))
+    text = str(value or "").upper()
+    return list(text.rjust(-count) if count < 0 else text[:count].ljust(count))

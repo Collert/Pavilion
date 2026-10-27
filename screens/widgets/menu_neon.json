@@ -1,0 +1,27 @@
+{
+  "kind": "menu_template",
+  "title": "Neon",
+  "description": "After dark: the name as a flickering neon sign, the featured item glowing under it, and the groups in two columns, each in its own neon colour.",
+  "template": "screens/menu_templates/neon.html",
+  "css": ["screens/menu_templates/neon.css"],
+  "orientation": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "groups": 3,
+  "per_group": [14, 6, 6],
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name on the sign", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Under the name", "help": "Leave empty for the menu's name"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "footer": {"type": "string", "default": "Allergies? Ask the crew · (v) vegetarian", "label": "Note at the bottom", "help": "Leave empty to hide it"},
+    "background": {"type": "color", "default": "#2A1B1E", "label": "Wall"},
+    "text": {"type": "color", "default": "#F5EEF2", "label": "Text"},
+    "accent": {"type": "color", "default": "#FFB400", "label": "Featured glow"},
+    "glow_1": {"type": "color", "default": "#FF3DA6", "label": "First group's glow", "help": "Also the name on the sign"},
+    "glow_2": {"type": "color", "default": "#2AE6D6", "label": "Second group's glow", "help": "Also the sign's border"},
+    "glow_3": {"type": "color", "default": "#B28CFF", "label": "Third group's glow"},
+    "heading_font": {"type": "choice", "options": ["Yellowtail", "Pacifico", "Caveat Brush"], "default": "Yellowtail", "label": "Sign font"},
+    "body_font": {"type": "choice", "options": ["Barlow Condensed", "Oswald", "Bebas Neue"], "default": "Barlow Condensed", "label": "Text font"}
+  }
+}

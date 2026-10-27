@@ -1,0 +1,74 @@
+{% load i18n %}{% comment %}
+Editorial menu template (design: MenuEditorial). Given `b` = screens.menu_boards.board(). Slot 1 is section I in two
+columns with descriptions, the featured item a pull quote under it, slots 2 and 3 sections II and III side by side.
+{% endcomment %}
+<div class="mt-editorial" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --muted: {{ b.look.muted }}; --accent: {{ b.look.accent }}; --heading: '{{ b.look.heading_font }}', serif; --body: '{{ b.look.body_font }}', sans-serif">
+    <header class="ed-head">
+        <div class="ed-top"><span>{{ b.look.subtitle|default:b.menu.title }}</span>
+            <span>{% for slot in b.pages.0.slots %}{% if slot %}{% if not forloop.first %} · {% endif %}{{ slot.name }}{% endif %}{% endfor %}</span>
+            <span>{{ b.look.top_right }}</span></div>
+        <div class="ed-double"></div>
+        <h1>{{ b.title }}</h1>
+        {% if b.look.tagline %}<div class="ed-tagline">{{ b.look.tagline }}</div>{% endif %}
+        <div class="ed-rule"></div>
+    </header>
+    <div class="ed-pages">
+        {% for page in b.pages %}
+        <div class="mb-page ed-page" {% if not forloop.first %}hidden{% endif %}>
+            {% with slot=page.slots.0 %}{% if slot %}
+            <section class="ed-main" aria-label="{{ slot.name }}">
+                <div class="ed-title"><span class="ed-num">I.</span><h2>{{ slot.name }}</h2>
+                    {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</div>
+                <div class="mb-screens">
+                    {% for screen in slot.screens %}
+                    <div class="mb-screen ed-grid" {% if not forloop.first %}hidden{% endif %}>
+                        {% for item in screen %}
+                        <div class="ed-item{% if item.out %} out{% endif %}">
+                            <div class="ed-line"><span class="ed-name">{{ item.title }}{% if item.veg %} (v){% endif %}</span><span class="ed-price">{{ item.price|slice:"1:" }}</span></div>
+                            {% if item.description %}<div class="ed-desc">{{ item.description }}</div>{% endif %}
+                            {% if item.out %}<div class="ed-out">{{ b.look.sold_text }}</div>{% elif item.deal %}<div class="ed-out">{{ item.deal }}</div>{% endif %}
+                        </div>
+                        {% empty %}<div class="ed-desc">{% trans "Nothing here right now" %}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}{% endwith %}
+            {% if page.featured %}
+            <figure class="ed-quote">
+                <div class="ed-label">{{ b.look.featured_label }}</div>
+                <div class="ed-quote-line">{{ page.featured.title }} — {% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price|slice:"1:" }}{% endif %}</div>
+                {% if page.featured.description %}<div class="ed-quote-desc">{{ page.featured.description }}</div>{% endif %}
+            </figure>
+            {% endif %}
+            <div class="ed-cols">
+                {% for slot in page.slots|slice:"1:" %}
+                <section class="ed-col"{% if slot %} aria-label="{{ slot.name }}"{% endif %}>
+                    {% if slot %}
+                    <div class="ed-title"><span class="ed-num">{% if forloop.first %}II.{% else %}III.{% endif %}</span><h2>{{ slot.name }}</h2>
+                        {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</div>
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen ed-list" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="ed-line{% if item.out %} out{% endif %}">
+                                <span class="ed-text"><span class="ed-name">{{ item.title }}{% if item.veg %} (v){% endif %}</span>
+                                    <span class="ed-desc">{% if item.out %}{{ b.look.sold_text }}{% elif item.deal %}{{ item.deal }}{% else %}{{ item.description }}{% endif %}</span></span>
+                                <span class="ed-price">{{ item.price|slice:"1:" }}</span>
+                            </div>
+                            {% empty %}<div class="ed-desc">{% trans "Nothing here right now" %}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <footer class="ed-foot"><span>{{ b.look.footer }}</span><span class="ed-legend">{{ b.look.legend }}</span></footer>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

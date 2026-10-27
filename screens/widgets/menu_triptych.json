@@ -1,0 +1,31 @@
+{
+  "kind": "menu_template",
+  "title": "Triptych",
+  "description": "Three colourful panels side by side, one per group, each with its picture in a ring; the featured item rides in a pill at the top.",
+  "template": "screens/menu_templates/triptych.html",
+  "css": ["screens/menu_templates/triptych.css"],
+  "orientation": "landscape",
+  "width": 1920,
+  "height": 1080,
+  "groups": 3,
+  "per_group": 8,
+  "featured": "optional",
+  "params": {
+    "title": {"type": "string", "default": "", "label": "Name", "help": "Leave empty for the store name"},
+    "subtitle": {"type": "string", "default": "", "label": "Next to the name", "help": "Leave empty for the menu's name"},
+    "tag_1": {"type": "string", "default": "", "label": "First panel's line", "help": "Under the group's name; leave empty to hide it"},
+    "tag_2": {"type": "string", "default": "", "label": "Second panel's line"},
+    "tag_3": {"type": "string", "default": "", "label": "Third panel's line"},
+    "sold_text": {"type": "string", "default": "Sold out", "label": "Sold-out label"},
+    "background": {"type": "color", "default": "#FBF6EC", "label": "Background"},
+    "text": {"type": "color", "default": "#2B2118", "label": "Text", "help": "The header and the featured pill"},
+    "accent": {"type": "color", "default": "#F2C14E", "label": "Accent", "help": "The featured price"},
+    "panel_1": {"type": "color", "default": "#C8553D", "label": "First panel"},
+    "panel_1_text": {"type": "color", "default": "#FFF4EA", "label": "First panel's text"},
+    "panel_2": {"type": "color", "default": "#A9BD93", "label": "Second panel"},
+    "panel_2_text": {"type": "color", "default": "#1F2A17", "label": "Second panel's text"},
+    "panel_3": {"type": "color", "default": "#F2D7A0", "label": "Third panel"},
+    "panel_3_text": {"type": "color", "default": "#3A2A14", "label": "Third panel's text"},
+    "body_font": {"type": "choice", "options": ["Rubik", "Sora", "Manrope"], "default": "Rubik", "label": "Font"}
+  }
+}

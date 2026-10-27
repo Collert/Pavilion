@@ -1,0 +1,47 @@
+{% load i18n %}{% comment %}
+Triptych menu template (design: MenuTriptych). Given `b` = screens.menu_boards.board(). One coloured panel per slot,
+with the first picture among its items in a ring (`slot.image`, else the group's initial); the featured item is the
+pill at the top right.
+{% endcomment %}
+<div class="mt-triptych" style="--bg: {{ b.look.background }}; --fg: {{ b.look.text }}; --accent: {{ b.look.accent }}; --p1: {{ b.look.panel_1 }}; --p1-fg: {{ b.look.panel_1_text }}; --p2: {{ b.look.panel_2 }}; --p2-fg: {{ b.look.panel_2_text }}; --p3: {{ b.look.panel_3 }}; --p3-fg: {{ b.look.panel_3_text }}; --body: '{{ b.look.body_font }}', sans-serif">
+    <div class="tp-pages">
+        {% for page in b.pages %}
+        <div class="mb-page tp-page" {% if not forloop.first %}hidden{% endif %}>
+            <header class="tp-head">
+                <h1>{{ b.title }}</h1><span class="tp-dot"></span><span class="tp-sub">{{ b.look.subtitle|default:b.menu.title }}</span>
+                <span class="tp-fill"></span>
+                {% if page.featured %}<span class="tp-pill"><span class="tp-pill-text">{{ page.featured.title }}{% if page.featured.description %} · {{ page.featured.description }}{% endif %}</span>
+                    <span class="tp-pill-price">{% if page.featured.out %}{{ b.look.sold_text }}{% else %}{{ page.featured.price }}{% endif %}</span></span>{% endif %}
+            </header>
+            <div class="tp-panels">
+                {% for slot in page.slots %}
+                <section class="tp-panel tp-p{{ forloop.counter }}"{% if slot %} aria-label="{{ slot.name }}"{% endif %}>
+                    {% if slot %}
+                    <div class="tp-ring"><span class="tp-art">{% if slot.image %}<img src="{{ slot.image }}" alt="">{% else %}<span class="tp-letter">{{ slot.name|slice:":1" }}</span>{% endif %}</span></div>
+                    <h2>{{ slot.name }}</h2>
+                    <div class="tp-tag">{% if forloop.counter == 1 %}{{ b.look.tag_1 }}{% elif forloop.counter == 2 %}{{ b.look.tag_2 }}{% else %}{{ b.look.tag_3 }}{% endif %}</div>
+                    {% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}
+                    <div class="mb-screens">
+                        {% for screen in slot.screens %}
+                        <div class="mb-screen tp-list" {% if not forloop.first %}hidden{% endif %}>
+                            {% for item in screen %}
+                            <div class="tp-row{% if item.out %} out{% endif %}">
+                                <span class="tp-name">{{ item.title }}</span>
+                                {% if item.out %}<span class="tp-chip">{{ b.look.sold_text }}</span>{% elif item.deal %}<span class="tp-chip">{{ item.deal }}</span>{% endif %}
+                                <span class="tp-fill"></span>
+                                <span class="tp-price">{% if not item.out %}{{ item.price }}{% endif %}</span>
+                            </div>
+                            {% empty %}<div class="tp-row"><span class="tp-name">{% trans "Nothing here right now" %}</span></div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </section>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if b.pages|length > 1 %}<div class="mb-page-dots">{% for p in b.pages %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</div>{% endif %}
+</div>

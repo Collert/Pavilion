@@ -476,6 +476,16 @@ class MenuEditorTests(AdminFixture, TestCase):
         menu.refresh_from_db()
         self.assertEqual((len(menu.display["pages"]), menu.display["group_sec"], menu.display["look"]["accent"]), (2, 5, "#123456"))
 
+    def test_display_slots_of_a_template_fit_different_counts(self):
+        menu = self.menu
+        for n in range(10 - menu.dishes.filter(station=self.bar).count()):  # 10 drinks
+            menu.dishes.add(Dish.objects.create(title=f"Drink {n}", price=Decimal("3.00"), station=self.bar))
+        context = self.post(menu, self.open(menu, "display"), "preview", template="menu_chalk", **{"slot-0": f"s:{self.bar.id}", "slot-1": f"s:{self.bar.id}"}).context
+        v = context["v"]
+        self.assertIn("8 / 10 / 10", v["exposes"])
+        self.assertEqual([s["rotates"] for s in v["slots"][:2]], [True, False])  # 10 drinks: two screens in the 8-slot, one in the 10
+        self.assertContains(self.post(menu, context, "preview"), "mt-chalk")
+
     def test_leave_delete_and_priority_arrows(self):
         first = Menu.objects.get()  # the fixture's menu
         second = Menu.objects.create(title="Second", position=1, manual_on=True)

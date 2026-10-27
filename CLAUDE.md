@@ -213,12 +213,17 @@ cache expiring) renders `<span hidden data-ends="<epoch ms>">`. A bad saved para
 missing or failing widget renders a placeholder, so one widget never takes a screen down.
 
 **Menu templates** are a special kind of widget (`"kind": "menu_template"`, `screens/widgets/menu_<name>.json`): a
-menu-board layout from the canvas's `Menu*` artboards (Showcase is built; Chalk, Editorial, Poster, Grid, Letterboard,
-Triptych, Departures, Carousel and Neon are still to do). Screens place the `menu_board` widget (param: a menu id);
+menu-board layout from the canvas's `Menu*` artboards. All ten are built: Showcase, Chalkboard, Editorial, Poster, Grid
+(`MenuSwiss`) portrait; Letterboard (`MenuLetter`), Triptych, Departures (`MenuFlap`), Carousel and Neon landscape.
+Screens place the `menu_board` widget (param: a menu id);
 the template, pages, group slots, timing and the template's params (its look) are set per menu in the admin's Display
 tab and kept on `Menu.display` (`screens/menu_boards.py`). A template's JSON adds `orientation`, `width`/`height`,
-`groups`, `per_group`, `featured` and `fonts`; its partial gets `b` (`menu_boards.board()`), renders every
-`.mb-page` and each slot's `.mb-screen`s, and `screens/widgets/menu_board.js` turns them over.
+`groups`, `per_group` (one number, or a list with one per slot when the first slot is the big one), `featured` and
+`fonts`; its partial gets `b` (`menu_boards.board()`: items carry `veg`, a page-wide number `n`; slots their first
+`image`; pages their sold-out items as `out`), renders every `.mb-page` and each slot's `.mb-screen`s, and
+`screens/widgets/menu_board.js` turns them over (plus `[data-mb-cycle]` highlights and `[data-mb-clock]` clocks). Give
+every template `background`, `text` and `accent` colours (the admin's thumbnails use them) and put fonts in
+`menu_boards.FONT_FAMILIES`.
 
 ## Store themes
 

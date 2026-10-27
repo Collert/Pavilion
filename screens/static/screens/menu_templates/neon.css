@@ -1,0 +1,52 @@
+/* Neon menu template (screens/templates/screens/menu_templates/neon.html). Sizes are design pixels. */
+
+.mt-neon { position: relative; width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; color: var(--fg); font-family: var(--body);
+    background: radial-gradient(ellipse at 22% 40%, color-mix(in srgb, var(--g1) 16%, transparent), transparent 45%),
+                radial-gradient(ellipse at 80% 30%, color-mix(in srgb, var(--g2) 12%, transparent), transparent 45%),
+                repeating-linear-gradient(0deg, rgba(0, 0, 0, .35) 0 calc(var(--u) * 4), transparent calc(var(--u) * 4) calc(var(--u) * 64)),
+                repeating-linear-gradient(90deg, rgba(0, 0, 0, .28) 0 calc(var(--u) * 4), transparent calc(var(--u) * 4) calc(var(--u) * 128)), var(--bg); }
+.mt-neon * { box-sizing: border-box; }
+.ne-page { position: absolute; inset: 0; padding: calc(var(--u) * 48) calc(var(--u) * 64) calc(var(--u) * 40); display: flex; gap: calc(var(--u) * 56); }
+
+.ne-aside { width: calc(var(--u) * 560); flex: none; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 0; }
+.ne-sign { max-width: 100%; padding: calc(var(--u) * 30) calc(var(--u) * 40) calc(var(--u) * 40); border-radius: calc(var(--u) * 30); border: calc(var(--u) * 4) solid var(--g2); margin-top: calc(var(--u) * 20);
+    box-shadow: 0 0 calc(var(--u) * 16) var(--g2), inset 0 0 calc(var(--u) * 16) color-mix(in srgb, var(--g2) 60%, transparent); animation: neHum 3s ease-in-out infinite; }
+.ne-sign h1 { margin: 0; font-family: var(--heading); font-weight: 400; font-size: calc(var(--u) * 120); line-height: 1.1; overflow-wrap: anywhere;
+    color: color-mix(in srgb, var(--g1) 15%, white);
+    text-shadow: 0 0 calc(var(--u) * 6) var(--g1), 0 0 calc(var(--u) * 18) var(--g1), 0 0 calc(var(--u) * 40) var(--g1), 0 0 calc(var(--u) * 80) color-mix(in srgb, var(--g1) 70%, transparent);
+    animation: neFlicker 7s linear infinite; }
+.ne-sub { font-size: calc(var(--u) * 32); font-weight: 600; letter-spacing: .4em; text-transform: uppercase; margin-top: calc(var(--u) * 10);
+    color: color-mix(in srgb, var(--g2) 15%, white); text-shadow: 0 0 calc(var(--u) * 8) var(--g2), 0 0 calc(var(--u) * 20) var(--g2); }
+.ne-feature { margin-top: calc(var(--u) * 56); width: 100%; padding: calc(var(--u) * 28) calc(var(--u) * 30); border-radius: calc(var(--u) * 26); background: rgba(0, 0, 0, .35); }
+.ne-feature-name { font-family: var(--heading); font-size: calc(var(--u) * 64); line-height: 1.05; color: color-mix(in srgb, var(--accent) 22%, white);
+    text-shadow: 0 0 calc(var(--u) * 8) var(--accent), 0 0 calc(var(--u) * 22) var(--accent); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ne-feature-desc { font-size: calc(var(--u) * 28); font-weight: 500; letter-spacing: .06em; margin-top: calc(var(--u) * 10); color: color-mix(in srgb, var(--fg) 75%, transparent);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ne-feature-price { font-size: calc(var(--u) * 88); font-weight: 700; line-height: 1; margin-top: calc(var(--u) * 12); color: color-mix(in srgb, var(--accent) 22%, white);
+    text-shadow: 0 0 calc(var(--u) * 10) var(--accent), 0 0 calc(var(--u) * 30) color-mix(in srgb, var(--accent) 60%, transparent); }
+.ne-feature.out .ne-feature-price { font-size: calc(var(--u) * 56); }
+.ne-fill { flex: 1; }
+.ne-foot { font-size: calc(var(--u) * 24); font-weight: 500; letter-spacing: .08em; color: color-mix(in srgb, var(--fg) 55%, transparent); }
+
+.ne-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * 34); }
+.ne-sec { --glow: var(--g1); }
+.ne-g2 { --glow: var(--g2); }
+.ne-g3 { --glow: var(--g3); }
+.ne-sec h2 { margin: 0; display: flex; align-items: center; gap: calc(var(--u) * 16); font-family: var(--heading); font-weight: 400; font-size: calc(var(--u) * 76); line-height: 1.1; color: #FFFFFF;
+    text-shadow: 0 0 calc(var(--u) * 6) var(--glow), 0 0 calc(var(--u) * 18) var(--glow), 0 0 calc(var(--u) * 40) var(--glow); animation: neHum 3s ease-in-out infinite; }
+.mt-neon .mb-screens { position: relative; margin-top: calc(var(--u) * 12); }
+.ne-items { display: flex; flex-direction: column; }
+.ne-row { display: flex; align-items: baseline; gap: calc(var(--u) * 14); padding: calc(var(--u) * 8) 0; border-bottom: calc(var(--u) * 1) solid color-mix(in srgb, var(--fg) 12%, transparent); font-size: calc(var(--u) * 34); }
+.ne-name { font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ne-price { font-weight: 700; white-space: nowrap; color: #FFFFFF; text-shadow: 0 0 calc(var(--u) * 10) var(--glow); }
+.ne-out, .ne-deal { flex: none; font-size: calc(var(--u) * 20); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #FF6B6B; text-shadow: 0 0 calc(var(--u) * 8) #FF3D3D; }
+.ne-deal { color: color-mix(in srgb, var(--accent) 30%, white); text-shadow: 0 0 calc(var(--u) * 8) var(--accent); }
+.ne-row.out .ne-name { opacity: .4; text-decoration: line-through; }
+.mt-neon .mb-dots { display: inline-flex; gap: calc(var(--u) * 8); }
+.mt-neon .mb-dot { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; background: var(--glow, var(--g2)); box-shadow: 0 0 calc(var(--u) * 8) var(--glow, var(--g2)); opacity: .3; }
+.mt-neon .mb-dot.on { opacity: 1; }
+.mt-neon .mb-page-dots { position: absolute; left: 0; right: 0; bottom: calc(var(--u) * 14); display: flex; justify-content: center; gap: calc(var(--u) * 10); }
+
+@keyframes neFlicker { 0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; } 20%, 24%, 55% { opacity: .35; } }
+@keyframes neHum { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12); } }
+@media (prefers-reduced-motion: reduce) { .mt-neon * { animation: none !important; } }

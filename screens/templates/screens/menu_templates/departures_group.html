@@ -1,0 +1,14 @@
+{% load i18n %}{% comment %}
+One group on the Departures board: its name, then its items a screen at a time.
+{% endcomment %}<div class="dp-group" role="group" aria-label="{{ slot.name }}">
+    <div class="dp-group-name">{{ slot.name }}{% if slot.screens|length > 1 %}<span class="mb-dots">{% for s in slot.screens %}<span class="mb-dot{% if forloop.first %} on{% endif %}"></span>{% endfor %}</span>{% endif %}</div>
+    <div class="mb-screens">
+        {% for screen in slot.screens %}
+        <div class="mb-screen" {% if not forloop.first %}hidden{% endif %}>
+            {% for item in screen %}{% include "screens/menu_templates/departures_row.html" with item=item row=forloop.counter0 set=False %}
+            {% empty %}<div class="dp-row"><span class="dp-empty">{% trans "Nothing here right now" %}</span></div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
