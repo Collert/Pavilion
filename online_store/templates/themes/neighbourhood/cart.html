@@ -95,7 +95,7 @@ order, or first opens Square's card form for what gift cards don't cover (checko
                 </button>
                 <button class="nb-option big{% if delivery %} on{% endif %}" role="radio" aria-checked="{% if delivery %}true{% else %}false{% endif %}" name="op" value="method:delivery" {% if not delivery_open %}disabled{% endif %}>
                     <span class="nb-option-top"><span class="nb-radio"></span><span class="nb-serif">{% trans "Delivery" %}</span></span>
-                    <span class="nb-option-sub">{% if delivery_open %}{% blocktrans with a=pickup_minutes|add:20 b=pickup_minutes|add:30 %}{{ a }}–{{ b }} min{% endblocktrans %}{% else %}{% trans "Not delivering right now" %}{% endif %}</span>
+                    <span class="nb-option-sub">{% if delivery_open %}{% blocktrans with a=delivery_minutes b=delivery_minutes|add:10 %}{{ a }}–{{ b }} min{% endblocktrans %}{% else %}{% trans "Not delivering right now" %}{% endif %}</span>
                 </button>
             </div>
             {% if not delivery %}

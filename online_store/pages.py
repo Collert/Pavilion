@@ -352,7 +352,7 @@ def _schedule(state, cart_items, delivery):
     now = timezone.localtime()
     hours = Hours()
     cfg = hours.cfg
-    lead = storefront.pickup_minutes() + (20 if delivery else 0)
+    lead = storefront.delivery_minutes() if delivery else storefront.pickup_minutes()
     paused = hours.paused_until(now)
     open_now = not paused and hours.current(now, DELIVERY if delivery else PICKUP) is not None
     if state["when"] == "asap" and not open_now and cfg.ahead:
@@ -392,7 +392,7 @@ def _schedule(state, cart_items, delivery):
             state["time"] = f"{minute // 60 % 24:02d}:{minute % 60:02d}"
         h, m = (int(x) for x in (state["time"] or "12:00").split(":"))
         at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(h % 24, m)), timezone.get_current_timezone())
-        earliest = max(now + datetime.timedelta(minutes=cfg.lead + (20 if delivery else 0)), paused or now)
+        earliest = max(now + datetime.timedelta(minutes=cfg.lead + (storefront.drive_minutes() if delivery else 0)), paused or now)
         inside = next(((a, b) for a, b in windows if a <= at <= b - datetime.timedelta(minutes=15)), None)
         if not windows:
             message = _("We’re closed that day.")
@@ -521,6 +521,7 @@ def checkout(request):
         "total": total, "to_pay": to_pay, "lines": lines, "upsell": upsell, "delivery": delivery, "delivery_open": delivery_open,
         "coupon": store_cart.load(request)["coupon"], "gifts": gifts, "pay": pay, "ready": when["ok"] and _contact_ok(request, state)[0],
         "contact_problem": _contact_ok(request, state)[1], "pickup_minutes": storefront.pickup_minutes(),
+        "delivery_minutes": storefront.delivery_minutes(),
         "store_line": ", ".join(filter(None, [themes.current(request).store.get("address")])),
         "dine_open": _dine_ok(when["start"]), "has_account": not user.is_authenticated and account_for(state["email"]),
         "signin_url": reverse("store_signin") + "?" + urlencode({"next": reverse("store_cart"), "email": state["email"]}),

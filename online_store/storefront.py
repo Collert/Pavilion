@@ -6,13 +6,13 @@ online_store/views.py and decide how they look.
 import datetime
 from decimal import Decimal
 
-from django.db.models import Avg, Sum
+from django.db.models import Sum
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
 from events.hours import Hours, ranges_text, week_ranges
-from pos_server import dish_info
+from pos_server import dish_info, estimates
 from pos_server.menu_schedule import Schedule, days_text, minute_of_week
 from pos_server.models import Dish, Menu, Order, OrderItem
 
@@ -202,12 +202,21 @@ def best_sellers(count=4, days=7, pictures="photos") -> list[dict]:
 
 
 def pickup_minutes() -> int:
-    """About how long pickup takes: the last two weeks' average prep time, to the 5 minutes (20 without history)."""
-    since = timezone.now() - datetime.timedelta(days=14)
-    avg = Order.objects.filter(timestamp__gte=since, prep_time__isnull=False).aggregate(a=Avg("prep_time"))["a"]
-    if not avg:
-        return 20
-    return max(5, int(round(avg.total_seconds() / 60 / 5) * 5))
+    """About how long pickup takes: recent orders' median prep time (pos_server/estimates.py), to the 5 minutes
+    (20 without history)."""
+    prep = estimates.prep_minutes()
+    return 20 if prep is None else max(5, int(round(prep / 5) * 5))
+
+
+def drive_minutes() -> int:
+    """About how long a courier takes to the door: recent deliveries' median drive, to the 5 minutes (20 without history)."""
+    drive = estimates.drive_minutes()
+    return 20 if drive is None else max(5, int(round(drive / 5) * 5))
+
+
+def delivery_minutes() -> int:
+    """About how long delivery takes: the kitchen, then the drive."""
+    return pickup_minutes() + drive_minutes()
 
 
 # ---------- gift cards ----------
@@ -345,7 +354,7 @@ def order_card(order, full=False) -> dict:
     delivery = order.channel == "delivery"
     progress = order.progress_status() or 2
     started = timezone.localtime(order.start_time)
-    eta = started + datetime.timedelta(minutes=pickup_minutes() + (20 if delivery else 0))
+    eta = started + datetime.timedelta(minutes=delivery_minutes() if delivery else pickup_minutes())
     scheduled = order.start_time > order.timestamp + datetime.timedelta(minutes=10)
     steps = [(_("Received"), clock(timezone.localtime(order.timestamp).time())),
              (_("Cooking"), _("We’re on it") if progress >= 3 else ""),

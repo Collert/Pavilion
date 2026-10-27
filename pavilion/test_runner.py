@@ -27,5 +27,7 @@ class StrictDeprecationRunner(DiscoverRunner):
             def startTest(self, test):
                 from admin_portal.models import StoreSettings
                 StoreSettings.forget()
+                from pos_server import estimates
+                estimates.forget()
                 super().startTest(test)
         return Result

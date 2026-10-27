@@ -169,7 +169,7 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   `menu_heading` titles the menu section for that station's dishes ("Hot food"). A data migration creates
   Kitchen / Bar / Grab & Go. Edit or add stations in `/advanced-admin/`.
 - `Order` fields: `channel` (`store` POS, `web` online pickup, `delivery`), `start_time` (scheduled time; screens hide
-  orders until it passes), `prep_time` (set when the last station finishes), `name`, `phone`, `special_instructions`
+  orders until it passes), `prep_time` (set when the last station finishes: from when it was placed, or its scheduled time if later; none for a scheduled order done early), `name`, `phone`, `special_instructions`
   (+ `note_for_kitchen`), `to_go_order`, `picked_up`, `subtotal`/`discount`/`tax`/`total` (server-computed),
   `cashier`, `authorization` (Square payment), `gift_cards` (through `GiftCardAuthorization`).
 - `OrderItem`: one per cart line (dish or combo; `unit_price`, `quantity`, line `discount`, `mods` as readable lines,
@@ -402,6 +402,11 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   only used by the pages still on the old layout).
 - **Catering** (`/catering/` and `/catering/<token>`, see §6.12): build a quote and send it with a card on file;
   then the request page with its versions and messages.
+- **Time estimates** (`pos_server/estimates.py`): the store's "ready in about N min" (`storefront.pickup_minutes`)
+  is the median `prep_time` of the last 14 days; delivery (`storefront.delivery_minutes`, shown as N to N+10 min)
+  adds the median drive of the last 30 days' deliveries (picked up → at the door). Anything over 2 hours is left out
+  (a ticket nobody closed), both are rounded to 5 minutes, 20 each without history, and cached 10 minutes. The
+  courier app's kitchen countdown uses the same median.
 - **Checkout** (`/cart`, `checkout`): quantities, "goes well with", then **Your details** (name, phone, email),
   pickup (take out or eat here: `state["eat"]`, `to_go_order` and packaging follow it; eat here only while the
   dining room, the `dine` channel, is open then, `_dine_ok`) or delivery (a signed-in customer picks a saved address, the default

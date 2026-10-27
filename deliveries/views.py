@@ -14,13 +14,11 @@ Steps are Delivery.phase(). Delivery orders reach the kitchen display only once 
 """
 import io
 import json
-import statistics
 import time
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, HttpResponseNotFound, JsonResponse
@@ -29,6 +27,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
+from pos_server import estimates
 from pos_server.devices import app_required
 from pos_server.models import Order
 from . import routes
@@ -78,13 +77,9 @@ def _lines(order):
 
 
 def _typical_prep_minutes():
-    """How long the kitchen usually takes (median of recent orders), 3 to 45 minutes, 10 if there's no history."""
-    value = cache.get("deliveries:typical-prep")
-    if value is None:
-        recent = [d.total_seconds() / 60 for d in Order.objects.exclude(prep_time=None).order_by("-id").values_list("prep_time", flat=True)[:30]]
-        value = min(45, max(3, round(statistics.median(recent)))) if recent else 10
-        cache.set("deliveries:typical-prep", value, 600)
-    return value
+    """How long the kitchen usually takes (pos_server/estimates.py), 3 to 45 minutes, 10 if there's no history."""
+    prep = estimates.prep_minutes()
+    return 10 if prep is None else min(45, max(3, round(prep)))
 
 
 def _page(request, template, context):

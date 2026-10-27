@@ -538,7 +538,11 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if self.pk and not self.prep_time and self.station_statuses.exists() and self.all_stations_done():
-            self.prep_time = timezone.now() - self.timestamp
+            # From when it was placed, or when it was scheduled for if that's later. A scheduled order done before
+            # its time has no prep time to tell.
+            begun = max(self.timestamp, self.start_time or self.timestamp)
+            if timezone.now() > begun:
+                self.prep_time = timezone.now() - begun
         super().save(*args, **kwargs)
         update_active_orders_cache()
 

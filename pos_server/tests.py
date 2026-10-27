@@ -557,6 +557,19 @@ class CreateOrderTests(MenuFixture, TestCase):
         order.set_station_status(["bar"], OrderStation.STATUS_DONE)
         self.assertIsNotNone(Order.objects.get(pk=order.pk).prep_time)
 
+    def test_a_scheduled_order_s_prep_time_counts_from_its_time(self):
+        """Placed at 6:10 for 6:35: the 25 minutes it waited aren't the kitchen's (they used to be counted)."""
+        later = create_order(lines=[self.dish(self.tea)], channel="web", initial_status=1,
+                             start_time=timezone.now() + datetime.timedelta(minutes=25))
+        later.set_station_status(["bar"], OrderStation.STATUS_DONE)  # done early: nothing to tell
+        self.assertIsNone(Order.objects.get(pk=later.pk).prep_time)
+        earlier = create_order(lines=[self.dish(self.tea)], channel="web", initial_status=1)
+        Order.objects.filter(pk=earlier.pk).update(timestamp=timezone.now() - datetime.timedelta(hours=1),
+                                                   start_time=timezone.now() - datetime.timedelta(minutes=12))
+        earlier.refresh_from_db()
+        earlier.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(round(Order.objects.get(pk=earlier.pk).prep_time.total_seconds() / 60), 12)
+
     def test_order_ready_signal_fires_once(self):
         from .signals import order_ready
         received = []
@@ -1420,3 +1433,21 @@ class OrdersAttentionTests(MenuFixture, TestCase):
     def test_the_rail_points_the_orders_button_at_it(self):
         self.client.force_login(self.staff)
         self.assertContains(self.client.get(reverse("pos")), 'data-attention="%s"' % reverse("orders_attention"))
+
+
+class EstimateTests(TestCase):
+    """pos_server/estimates.py: medians of recent orders and deliveries, tickets left open on the KDS left out."""
+    def test_a_forgotten_ticket_doesn_t_move_the_estimates(self):
+        from deliveries.models import Delivery
+        from online_store import storefront
+        from . import estimates
+        self.assertEqual((storefront.pickup_minutes(), storefront.delivery_minutes()), (20, 40))  # no history yet
+        for minutes in (9, 10, 11, 14, 2224):  # 2224: an order nobody closed for 37 hours
+            Order.objects.create(total=Decimal("5"), prep_time=datetime.timedelta(minutes=minutes))
+        now = timezone.now()
+        for minutes in (12, 16, 300):
+            Delivery.objects.create(destination="355 Railway St", phone=6045550110, picked_up_at=now,
+                                    arrived_at=now + datetime.timedelta(minutes=minutes))
+        estimates.forget()
+        self.assertEqual((estimates.prep_minutes(), estimates.drive_minutes()), (10.5, 14))
+        self.assertEqual((storefront.pickup_minutes(), storefront.drive_minutes(), storefront.delivery_minutes()), (10, 15, 25))
