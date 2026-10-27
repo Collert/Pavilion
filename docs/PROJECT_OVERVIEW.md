@@ -402,12 +402,17 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   only used by the pages still on the old layout).
 - **Catering** (`/catering/` and `/catering/<token>`, see §6.12): build a quote and send it with a card on file;
   then the request page with its versions and messages.
-- **Checkout** (`/cart`, `checkout`): quantities, "goes well with", pickup or delivery (address and driver note),
-  as soon as possible (while an event is open) or scheduled up to 14 days ahead inside an open event and while a
-  menu with every dish in the cart is live (`_schedule`), name/phone/email, promo or gift-card code, tip
-  (`Order.tip`, added after fees), and Place order: gift cards first, then Square's card form in a sheet
-  (`payments/web-payment-window`, authorize-only; `checkout.js` places the order once paid). Orders start pending
-  like before. No delivery fee or saved cards yet (saved cards come with the account pages).
+- **Checkout** (`/cart`, `checkout`): quantities, "goes well with", then **Your details** (name, phone, email),
+  pickup (take out or eat here: `state["eat"]`, `to_go_order` and packaging follow it; eat here only while the
+  dining room, the `dine` channel, is open then, `_dine_ok`) or delivery (address and driver note; a signed-in
+  customer's default saved address is filled in), as soon as possible (while an event is open) or scheduled up to
+  14 days ahead inside an open event and while a menu with every dish in the cart is live (`_schedule`), promo or
+  gift-card code, tip (`Order.tip`, added after fees), and Place order: gift cards first, then a saved card or
+  Square's card form in a sheet (`payments/web-payment-window`, authorize-only; `checkout.js` places the order
+  once paid). Orders start pending like before. **Guests whose email has an account** (`pages.account_for`;
+  `checkout.js` posts the form when the email field loses focus) are offered sign-in (`/account/sign-in?email=&next=`,
+  the email filled in); the cart and checkout choices are in the session, so they survive it, and `_state` drops
+  the card and saved address picked by whoever was signed in before (`state["who"]`).
 - **The placed order** (`order-status/<id>`, `order_page`): steps, ETA, where, "need a change", receipt; follows
   the kitchen over SSE.
 
@@ -420,7 +425,12 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   catering emails, newsletter; `users.SavedCard`: Square cards on file, added through `payments/save-card`, a
   default, removed with `square.disable_card`; `users.SavedAddress`; gift cards sent to their email, used
   automatically at checkout). Checkout offers saved cards (authorized like the card form's payments, by
-  `pages._authorize_saved`) and saved addresses; the catering send sheet offers saved cards.
+  `pages._authorize_saved`) and saved addresses; the catering send sheet offers saved cards. A new card paid at
+  checkout is kept when "Save this card for next time" is ticked (signed in only, on by default): the card form gets
+  `save_card`, and `process-web-payment` saves it on the customer's Square customer (`square.save_card`, created
+  with `create_customer` if they have none) and charges the saved card (`views._save_and_charge`) instead of the
+  one-time token. Card numbers stay in Square; `SavedCard` keeps the ids, brand, last 4 and expiry, and the same
+  card saved again replaces the old one (`account.save_customer_card`, the old one disabled in Square).
 - **The staff side of the account** (`online_store/work.py`, StoreAccount's staff views; only `is_staff` people see
   the "Work" group in the side panel). The profile adds their emergency contact (name, relationship, phone; their
   phone is `Staff.phone`), and a Work card with their roles and staff cards; the company field is hidden.

@@ -14,3 +14,10 @@ window.addEventListener("message", (event) => {
     field.value = event.data.uuid;
     form.requestSubmit(form.querySelector('button[value="place"]'));
 });
+
+// Leaving the email field posts the form, so the page can offer to sign in when the email has an account (the
+// answer only redraws the details once nobody is typing there)
+document.addEventListener("change", (event) => {
+    if (!event.target.matches("input[data-account-check]")) return;
+    event.target.form?.requestSubmit();
+});

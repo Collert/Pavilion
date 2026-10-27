@@ -49,6 +49,24 @@ function tick() {
             show(screens, screen, board.dataset.groupFx);
             mark([...(wrap.parentElement.querySelectorAll(".mb-dots .mb-dot") || [])], screen);
         }
+        // A rotating highlight (the Carousel's cards): one [data-mb-card] of the page's [data-mb-cycle] at a time is
+        // .on, for data-mb-sec each, marked by the page's [data-mb-cycle-dots].
+        const cycle = pages[page]?.querySelector("[data-mb-cycle]");
+        if (cycle) {
+            const now = isPreview ? ((Date.now() - preview.start) / 1000) * 5 : Date.now() / 1000;
+            const cards = [...cycle.querySelectorAll("[data-mb-card]")];
+            const on = cards.length ? Math.floor(now / (Number(cycle.dataset.mbSec) || 5)) % cards.length : 0;
+            cards.forEach((card, i) => card.classList.toggle("on", i === on));
+            mark([...pages[page].querySelectorAll("[data-mb-cycle-dots] .mb-dot")], on);
+        }
+    }
+    // Clocks ([data-mb-clock]): each child span shows one character of "h:mm" (12-hour, padded to 5).
+    const d = new Date();
+    const time = `${String(d.getHours() % 12 || 12).padStart(2, " ")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    for (const clock of document.querySelectorAll(".menu-board [data-mb-clock]")) {
+        [...clock.children].forEach((cell, i) => {
+            if (cell.textContent !== (time[i] ?? "")) cell.textContent = time[i] ?? "";
+        });
     }
 }
 

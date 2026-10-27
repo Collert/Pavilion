@@ -443,7 +443,8 @@ def schedule_tab(draft, menu, now=None):
 def display_tab(draft, menu, store_name=""):
     d = draft["display"]
     template = menu_boards.template_of(d)
-    per = template.layout["per_group"] if template else 6
+    pers = menu_boards.per_slot(template)
+    fits = lambda k: pers[k] if k < len(pers) else pers[-1]  # noqa: E731  (items slot k shows at once)
     page_index = min(draft["ui"]["page"], len(d["pages"]) - 1)
     page = d["pages"][page_index]
     preview_menu = _DraftMenu(draft, menu)
@@ -459,6 +460,7 @@ def display_tab(draft, menu, store_name=""):
     slots = []
     for k, key in enumerate(page["slots"]):
         count = len(shown.get(key, []))
+        per = fits(k)
         screens = menu_boards.screens_of(count, per)
         elsewhere = lambda g: [n for n in placed.get(g, []) if not (n == page_index + 1 and key == g)]  # noqa: E731
         options = [{"key": "", "label": _("— Empty —"), "on": not key}] + [
@@ -484,7 +486,7 @@ def display_tab(draft, menu, store_name=""):
         sold_hint = ngettext("%(n)d sold-out item is taken out and the rest close the gap.", "%(n)d sold-out items are taken out and the rest close the gap.", out_count) % {"n": out_count}
 
     multi_page = len(d["pages"]) > 1
-    overflow = any(menu_boards.screens_of(len(shown.get(key, [])), per) > 1 for p in d["pages"] for key in p["slots"] if key)
+    overflow = any(menu_boards.screens_of(len(shown.get(key, [])), fits(k)) > 1 for p in d["pages"] for k, key in enumerate(p["slots"]) if key)
     bad_timing = multi_page and overflow and d["group_sec"] > d["page_sec"]
 
     def timer(kind):
@@ -501,8 +503,8 @@ def display_tab(draft, menu, store_name=""):
                 msgs.append(("warn", _("Under 10 seconds is hard to read. Guests may not finish reading before it changes.")))
             if page_kind and overflow and not bad_timing:
                 for p in d["pages"]:
-                    for key in p["slots"]:
-                        screens = menu_boards.screens_of(len(shown.get(key, [])), per) if key else 1
+                    for k, key in enumerate(p["slots"]):
+                        screens = menu_boards.screens_of(len(shown.get(key, [])), fits(k)) if key else 1
                         if screens > 1 and screens * d["group_sec"] > d["page_sec"]:
                             name = next((n for g, n, _c in groups if g == key), key)
                             msgs.append(("warn", _("%(group)s needs %(s)d × %(g)d s = %(t)d s to show every item, but the page changes after %(p)d s.")
@@ -524,8 +526,9 @@ def display_tab(draft, menu, store_name=""):
                        + ("" if t.layout["featured"] == "none" else " + " + _("featured"))}
                       for n, t in menu_boards.templates().items()],
         "template": template, "d": d, "page": page_index, "pages": list(range(len(d["pages"]))),
-        "exposes": (_("%(name)s takes %(featured)s and %(groups)d groups per page, up to %(per)d items each.")
-                    % {"name": template.title, "groups": template.layout["groups"], "per": per,
+        "exposes": ((_("%(name)s takes %(featured)s and %(groups)d groups per page, up to %(per)d items each.") if len(set(pers)) == 1
+                     else _("%(name)s takes %(featured)s and %(groups)d groups per page, up to %(list)s items, slot by slot."))
+                    % {"name": template.title, "groups": template.layout["groups"], "per": pers[0], "list": " / ".join(map(str, pers)),
                        "featured": _("no featured item") if template.layout["featured"] == "none" else _("an optional featured item")}) if template else "",
         "has_featured": bool(template) and template.layout["featured"] != "none", "featured_options": featured_options,
         "slots": slots, "unplaced": unplaced, "sold_hint": sold_hint, "timers": [timer("page"), timer("group")], "fx": FX,

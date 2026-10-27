@@ -34,8 +34,8 @@ def card_page_context(request, amount, pay_url, extra=None, mode="sheet") -> dic
 def web_payment(request):
     """
     The store's "Pay by card" (payments/templates/payments/square-checkout.html, in a sheet's iframe). GET
-    ?amount=12.50[&confirmation_needed=1]: a Transaction for that amount and the card form, which pays through
-    process_web_payment and then tells the page. POST/PUT {transaction_uuid}: whether it's paid (read-only; only
+    ?amount=12.50[&confirmation_needed=1][&save_card=1]: a Transaction for that amount and the card form, which pays
+    through process_web_payment and then tells the page (save_card: a signed-in customer keeps the card). POST/PUT {transaction_uuid}: whether it's paid (read-only; only
     process_web_payment marks a transaction paid).
     """
     if request.method == "GET":
@@ -49,9 +49,10 @@ def web_payment(request):
             return render(request, "payments/square-checkout.html", {"config": None})
         transaction = Transaction.objects.create(amount=amount)
         confirmation_needed = bool(request.GET.get('confirmation_needed', False))
+        save_card = request.user.is_authenticated and request.GET.get("save_card") == "1"
         return render(request, "payments/square-checkout.html", card_page_context(
             request, amount, reverse("process-web-payment"),
-            extra={"transaction_uuid": str(transaction.uuid), "confirmation_needed": confirmation_needed}))
+            extra={"transaction_uuid": str(transaction.uuid), "confirmation_needed": confirmation_needed, "save_card": save_card}))
     elif request.method in ("POST", "PUT"):
         # Read-only status check. Only process_web_payment can mark a transaction paid.
         data = json.loads(request.body)
@@ -118,6 +119,14 @@ def process_web_payment(request):
                 return JsonResponse({'status': 'error', 'errors': ['Unknown transaction']}, status=404)
             if transaction.successful:
                 return JsonResponse({'status': 'error', 'errors': ['This transaction is already paid']}, status=409)
+            if data.get("save_card") in (True, "true") and request.user.is_authenticated:
+                try:
+                    _save_and_charge(request.user, token, transaction, autocomplete=not confirmation_needed)
+                except square.SquareError as e:
+                    return JsonResponse({'status': 'error', 'errors': e.args[0] if e.args and isinstance(e.args[0], list) else []})
+                transaction.successful = True
+                transaction.save(update_fields=["successful"])
+                return JsonResponse({'status': 'success'})
             # Charge the amount fixed when the popup opened, never an amount sent by the browser
             response = create_web_payment(token, transaction.amount, autocomplete = not confirmation_needed, transaction=transaction)
             if response.is_success():
@@ -128,6 +137,25 @@ def process_web_payment(request):
 
     return JsonResponse({'status': 'method not allowed'}, status=405)
 
+
+
+def _save_and_charge(user, token, transaction, autocomplete):
+    """
+    A signed-in customer ticked "Save this card": keep it on their Square customer (a SavedCard here holds its brand
+    and last 4), then charge it for the transaction's amount, the same hold or charge as create_web_payment.
+    """
+    from online_store.account import save_customer_card
+    profile = getattr(user, "customer_profile", None)
+    name = user.get_full_name()
+    customer = (profile.square_customer_id if profile else "") or square.create_customer(name, user.email, key=f"cust-{transaction.uuid}")
+    card = square.save_card(token, customer, name, key=f"keep-{transaction.uuid}")
+    save_customer_card(user, {"customer": customer, **card})
+    payment_id = square.charge_card(customer, card["id"], transaction.amount, key=f"web-{transaction.uuid}", note="Online order",
+                                    autocomplete=autocomplete)
+    PaymentAuthorization.objects.create(
+        payment_id=payment_id, amount=square.to_cents(transaction.amount), currency="CAD", transaction=transaction,
+        status=PaymentAuthorization.CAPTURED if autocomplete else PaymentAuthorization.AUTHORIZED,
+        card_brand=card.get("brand", ""), card_last4=card.get("last4", ""))
 
 
 def save_card(request):

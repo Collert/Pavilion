@@ -37,7 +37,8 @@ says how it lays a menu out:
     "orientation": "portrait",   // or "landscape"
     "width": 1080, "height": 1920, // the design canvas, in design pixels
     "groups": 3,                  // group slots per page (a group is a station's dishes, or the combos)
-    "per_group": 6,               // items a slot shows at once; more rotate through screens
+    "per_group": 6,               // items a slot shows at once; more rotate through screens. A list gives each slot
+                                  // its own ([8, 10, 10]: the first is the big one); layout["per_slot"] has one per slot
     "featured": "optional",       // or "none": a featured item per page
     "fonts": "https://fonts.googleapis.com/css2?..."  // optional stylesheet for its fonts
 """
@@ -93,7 +94,7 @@ class Widget:
     js: tuple = ()
     slots: str = ""  # name of the int param giving the number of child slots; "" = takes no children
     kind: str = "visible"  # "popup", "audio" or "menu_template"
-    layout: dict = field(default_factory=dict)  # menu templates: orientation, width, height, groups, per_group, featured, fonts
+    layout: dict = field(default_factory=dict)  # menu templates: orientation, width, height, groups, per_slot, per_group (the most), featured, fonts
     icon: str = ""
     color: str = "#3D4D45"
     trigger: str = ""   # popups
@@ -146,11 +147,14 @@ def _load(path):
         raise ImproperlyConfigured(f"{where}: an audio widget needs a channel, music or voice")
     layout = {}
     if kind == "menu_template":
+        groups = int(spec.get("groups", 3))
+        per = spec.get("per_group", 6)
+        per_slot = [int(n) for n in per] if isinstance(per, list) else [int(per)] * groups
         layout = {"orientation": spec.get("orientation", "portrait"), "width": int(spec.get("width", 1080)),
-                  "height": int(spec.get("height", 1920)), "groups": int(spec.get("groups", 3)),
-                  "per_group": int(spec.get("per_group", 6)), "featured": spec.get("featured", "none"), "fonts": spec.get("fonts", "")}
+                  "height": int(spec.get("height", 1920)), "groups": groups, "per_slot": per_slot,
+                  "per_group": max(per_slot, default=0), "featured": spec.get("featured", "none"), "fonts": spec.get("fonts", "")}
         if layout["orientation"] not in ("portrait", "landscape") or layout["featured"] not in ("optional", "none") \
-                or not 1 <= layout["groups"] <= 8 or layout["per_group"] < 1:
+                or not 1 <= groups <= 8 or len(per_slot) != groups or min(per_slot) < 1:
             raise ImproperlyConfigured(f"{where}: check orientation, featured, groups and per_group")
     return Widget(name=name, title=spec["title"], template=spec["template"], description=spec.get("description", ""),
                   params=params, context=spec.get("context", ""), live=tuple(spec.get("live", ())),

@@ -424,6 +424,96 @@ class AccountTests(MenuFixture, TestCase):
         self.assertEqual((line["id"], line["qty"], line["cust"]["options"][self.temp_key]), (self.burger.id, 2, self.well.id))
         self.assertEqual(self.client.get(reverse("account_receipt", args=[order.id])).status_code, 200)
 
+    def add_burger(self):
+        self.client.post(reverse("menu"), {"dish": self.burger.id, "qty": "1", "op": "add", f"g-{self.temp_key}": self.well.id,
+                                           f"g-{self.bun_key}": self.gf.id})
+
+    def test_an_email_with_an_account_offers_to_sign_in_and_the_cart_survives_it(self):
+        from users.models import SavedAddress, SavedCard
+        SavedCard.objects.create(user=self.user, square_customer_id="demo:c", square_card_id="demo:card", brand="VISA", last4="4242", is_default=True)
+        SavedAddress.objects.create(user=self.user, label="Home", line="455 E 8th Ave", city="Vancouver", is_default=True)
+        self.add_burger()
+        url = reverse("store_cart")
+        page = self.client.get(url).content.decode()
+        self.assertLess(page.index('id="co-who"'), page.index('id="co-how"'))  # the details come before pickup or delivery
+        self.assertFalse(self.client.post(url, {"email": "noor@example.com"}).context["has_account"])
+        page = self.client.post(url, {"name": "Sofia", "email": "SOFIA@example.com", "op": "pay:new"})
+        self.assertTrue(page.context["has_account"])
+        signin = page.context["signin_url"]
+        self.assertIn("email=SOFIA%40example.com", signin)
+        self.assertEqual(self.client.get(signin).context["form"]["email"], "SOFIA@example.com")
+        self.assertRedirects(self.client.post(signin, {"email": "sofia@example.com", "password": "juniperlane", "next": url}), url,
+                             fetch_redirect_response=False)
+        page = self.client.post(url, {"op": "method:delivery"}).context
+        self.assertEqual(page["count"], 1)  # the cart came along
+        self.assertFalse(page["has_account"])
+        state = page["state"]
+        self.assertEqual((state["name"], state["email"], state["address"]), ("Sofia", "sofia@example.com", "455 E 8th Ave"))
+        self.assertEqual(state["pay"], f"card:{SavedCard.objects.get().id}")  # the guest's "new card" belonged to nobody
+
+    def test_eat_here_or_take_out(self):
+        from events.models import Event
+        self.client.force_login(self.user)
+        self.add_burger()
+        url = reverse("store_cart")
+        self.assertEqual(self.client.get(url).context["state"]["eat"], "togo")
+        self.assertEqual(self.client.post(url, {"op": "eat:here"}).context["state"]["eat"], "here")
+        Event.objects.filter(title="Open").update(dine_in=False)  # the dining room is closed: take-out only
+        page = self.client.get(url).context
+        self.assertEqual((page["state"]["eat"], page["dine_open"]), ("togo", False))
+        Event.objects.filter(title="Open").update(dine_in=True)
+        self.client.post(url, {"op": "eat:here"})
+        self.client.post(url, {"name": "Sofia", "op": "place", "transaction_uuid": self.paid_transaction()})
+        self.assertFalse(Order.objects.get().to_go_order)
+
+    def paid_transaction(self):
+        from payments.models import PaymentAuthorization, Transaction
+        priced = self.client.get(reverse("store_cart")).context
+        transaction = Transaction.objects.create(amount=priced["to_pay"], successful=True)
+        PaymentAuthorization.objects.create(payment_id="demo:p", amount=0, currency="CAD", transaction=transaction,
+                                            status=PaymentAuthorization.AUTHORIZED)
+        return str(transaction.uuid)
+
+    def test_a_new_card_is_saved_in_square_while_paying(self):
+        from payments.models import PaymentAuthorization, Transaction
+        self.client.force_login(self.user)
+        self.add_burger()
+        url = reverse("store_cart")
+        pay = self.client.post(url, {"name": "Sofia", "op": "place"}).context["pay"]
+        self.assertIn("save_card=1", pay["url"])
+        self.client.post(url, {"op": "save_card"})  # unticked
+        self.assertNotIn("save_card", self.client.post(url, {"name": "Sofia", "op": "place"}).context["pay"]["url"])
+        self.client.post(url, {"op": "save_card"})
+        config = self.client.get(self.client.post(url, {"name": "Sofia", "op": "place"}).context["pay"]["url"]).context["config"]
+        self.assertTrue(config["extra"]["save_card"])
+        card = {"id": "ccof:1", "brand": "VISA", "last4": "1111", "exp_month": 4, "exp_year": 2030}
+        with mock.patch("payments.square.create_customer", return_value="cust-1"), \
+                mock.patch("payments.square.save_card", return_value=card) as saved, \
+                mock.patch("payments.square.charge_card", return_value="pay-1") as charged:
+            answer = self.client.post(reverse("process-web-payment"), json.dumps({"token": "cnon:ok", **config["extra"]}),
+                                      content_type="application/json").json()
+        self.assertEqual(answer["status"], "success")
+        self.assertEqual(saved.call_args.args[:2], ("cnon:ok", "cust-1"))
+        self.assertEqual(charged.call_args.args[:2], ("cust-1", "ccof:1"))
+        self.assertFalse(charged.call_args.kwargs["autocomplete"])  # held until the kitchen accepts
+        kept = self.user.saved_cards.get()
+        self.assertEqual((kept.square_card_id, kept.last4, kept.exp_year, kept.is_default), ("ccof:1", "1111", 2030, True))
+        self.assertEqual(User.objects.get(pk=self.user.pk).customer_profile.square_customer_id, "cust-1")
+        transaction = Transaction.objects.get(uuid=config["extra"]["transaction_uuid"])
+        self.assertTrue(transaction.successful)
+        self.assertEqual(transaction.authorization.get().status, PaymentAuthorization.AUTHORIZED)
+        self.client.post(url, {"name": "Sofia", "op": "place", "transaction_uuid": str(transaction.uuid)})
+        self.assertEqual(Order.objects.get().payments.get(method="card").card_last4, "1111")
+
+    def test_saving_the_same_card_again_replaces_it(self):
+        from online_store.account import save_customer_card
+        card = {"customer": "cust-1", "id": "ccof:1", "brand": "VISA", "last4": "1111", "exp_month": 4, "exp_year": 2030}
+        save_customer_card(self.user, card)
+        with mock.patch("payments.square.disable_card") as disabled:
+            save_customer_card(self.user, {**card, "id": "ccof:2"})
+        disabled.assert_called_once_with("ccof:1")
+        self.assertEqual(list(self.user.saved_cards.values_list("square_card_id", flat=True)), ["ccof:2"])
+
 
 class ServicesPageTests(TestCase):
     def test_services_page_and_add_to_a_request(self):

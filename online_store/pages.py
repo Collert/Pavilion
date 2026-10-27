@@ -11,8 +11,10 @@ after the pickup or delivery cutoffs (events/hours.py) and while a menu with eve
 import datetime
 import logging
 from decimal import ROUND_HALF_UP, Decimal
+from urllib.parse import urlencode
 
 from django.contrib import messages
+from django.contrib.auth.models import User
 from django.db import transaction as db_transaction
 from django.http import Http404
 from django.shortcuts import redirect, render
@@ -21,7 +23,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from deliveries.models import Delivery
-from events.hours import DELIVERY, PICKUP, Hours
+from events.hours import DELIVERY, DINE, PICKUP, Hours
 from gift_cards.models import GiftCard
 from payments.models import PaymentError, Transaction
 from pavilion import throttle
@@ -196,13 +198,41 @@ def _windows(day, delivery=False, hours=None):
 
 
 def _state(request) -> dict:
+    """The checkout's choices (kept in the session). They survive signing in or out halfway through, except the
+    card and saved address picked, which belonged to whoever was signed in (`who`)."""
     user = request.user
     state = request.session.get("checkout") or {}
-    defaults = {"method": "pickup", "when": "asap", "date": timezone.localdate().isoformat(), "time": "",
+    who = user.id if user.is_authenticated else None
+    defaults = {"method": "pickup", "eat": "togo", "when": "asap", "date": timezone.localdate().isoformat(), "time": "",
                 "tip": 15, "name": (user.get_full_name() if user.is_authenticated else ""), "phone": "",
                 "email": user.email if user.is_authenticated else "", "address": "", "unit": "", "city": "",
-                "postal": "", "driver_note": "", "note": "", "pay": "", "address_id": ""}
-    return {**defaults, **{k: v for k, v in state.items() if k in defaults}}
+                "postal": "", "driver_note": "", "note": "", "pay": "", "address_id": "", "save_card": True, "who": who}
+    state = {**defaults, **{k: v for k, v in state.items() if k in defaults}}
+    if state["who"] != who:
+        state.update(who=who, pay="", address_id="")
+        if user.is_authenticated:
+            state["email"] = user.email
+            state["name"] = state["name"] or user.get_full_name()
+        request.session["checkout"] = state
+    return state
+
+
+def account_for(email):
+    """Whether someone signs in with `email` (checkout offers to sign them in)."""
+    email = (email or "").strip()
+    if "@" not in email:
+        return False
+    return User.objects.filter(email__iexact=email, is_active=True).exists()
+
+
+def _use_address(state, saved):
+    state.update(address_id=str(saved.id), address=saved.line, unit=saved.unit, city=saved.city, postal=saved.postal,
+                 driver_note=saved.note)
+
+
+def _dine_ok(start) -> bool:
+    """Whether the dining room is open at `start` (an order to eat here); unknown (no time yet) counts as open."""
+    return start is None or Hours().current(start, DINE) is not None
 
 
 def _from_post(state, post):
@@ -223,6 +253,10 @@ def _apply_op(request, state, op, post):
     cart = store_cart.load(request)
     if name == "method" and arg in ("pickup", "delivery"):
         state["method"] = arg
+    elif name == "eat" and arg in ("here", "togo"):
+        state["eat"] = arg
+    elif name == "save_card":
+        state["save_card"] = not state["save_card"]
     elif name == "when" and arg in ("asap", "later"):
         state["when"] = arg
     elif name == "date":
@@ -238,7 +272,7 @@ def _apply_op(request, state, op, post):
         state["address_id"] = arg
         saved = request.user.saved_addresses.filter(pk=_int(arg)).first() if request.user.is_authenticated else None
         if saved:
-            state.update(address=saved.line, unit=saved.unit, city=saved.city, postal=saved.postal, driver_note=saved.note)
+            _use_address(state, saved)
     elif name == "tip" and _int(arg, -1) in TIPS:
         state["tip"] = _int(arg)
     elif name in ("hup", "hdown", "mup", "mdown", "am", "pm"):
@@ -417,7 +451,11 @@ def checkout(request):
         elif op in ("inc", "dec", "remove") or op.startswith(("inc:", "dec:", "remove:", "upsell:", "code", "drop_")):
             return redirect("store_cart")
     delivery = state["method"] == "delivery"
-    priced, problems = store_cart.priced(request, channel="delivery" if delivery else "web", to_go=True)
+    user = request.user
+    saved_addresses = list(user.saved_addresses.all()) if user.is_authenticated else []
+    if delivery and saved_addresses and not state["address"] and not state["address_id"]:
+        _use_address(state, saved_addresses[0])  # the default one
+    priced, problems, when = _priced(request, state)
     for problem in problems:
         messages.error(request, problem)
     rows = store_cart.rows(request, priced, _picture(pictures))
@@ -425,7 +463,6 @@ def checkout(request):
         return theme_page(request, "cart.html", {"empty": True, "menus_now": storefront.menus_now(limit=2),
                                                  "orders": _recent(request)}, active="")
     cart_dishes = [p.dish for line in priced.lines for p in line.picks]  # for "Goes well with"
-    when = _schedule(state, [line.item for line in priced.lines], delivery)
     base = priced.subtotal - priced.discount
     tip = (base * Decimal(state["tip"]) / 100).quantize(CENT, rounding=ROUND_HALF_UP)
     total = priced.total + tip
@@ -447,13 +484,12 @@ def checkout(request):
     upsell = _upsell(cart_dishes, pictures)
     delivery_open = any(d["open"] for d in _schedule({**state, "when": "later"}, [], True)["days"])
     to_pay = total - gift_total - staff_amount
-    user = request.user
     saved_cards = list(user.saved_cards.all()) if user.is_authenticated else []
     for card in saved_cards:
         card.key = f"card:{card.id}"
-    saved_addresses = list(user.saved_addresses.all()) if user.is_authenticated else []
     if not state["pay"]:
         state["pay"] = f"card:{saved_cards[0].id}" if saved_cards else "new"
+    request.session["checkout"] = state
     return theme_page(request, "cart.html", {
         "saved_cards": saved_cards, "saved_addresses": saved_addresses,
         "empty": False, "rows": rows, "count": sum(r["qty"] for r in rows), "state": state, "when": when,
@@ -462,7 +498,23 @@ def checkout(request):
         "coupon": store_cart.load(request)["coupon"], "gifts": gifts, "pay": pay, "ready": when["ok"] and _contact_ok(request, state)[0],
         "contact_problem": _contact_ok(request, state)[1], "pickup_minutes": storefront.pickup_minutes(),
         "store_line": ", ".join(filter(None, [themes.current(request).store.get("address")])),
+        "dine_open": _dine_ok(when["start"]), "has_account": not user.is_authenticated and account_for(state["email"]),
+        "signin_url": reverse("store_signin") + "?" + urlencode({"next": reverse("store_cart"), "email": state["email"]}),
     }, active="")
+
+
+def _priced(request, state):
+    """The cart priced for how it's being taken (delivery, take-out or eating here: packaging differs), its
+    problems, and when it can be (_schedule). Eating here falls back to take-out while the dining room is closed then."""
+    delivery = state["method"] == "delivery"
+    channel = "delivery" if delivery else "web"
+    to_go = delivery or state["eat"] != "here"
+    priced, problems = store_cart.priced(request, channel=channel, to_go=to_go)
+    when = _schedule(state, [line.item for line in priced.lines] if priced else [], delivery)
+    if not to_go and not _dine_ok(when["start"]):
+        state["eat"] = "togo"
+        priced, problems = store_cart.priced(request, channel=channel, to_go=True)
+    return priced, problems, when
 
 
 def _contact_ok(request, state):
@@ -497,11 +549,10 @@ def _recent(request):
 def _place(request, state):
     """Create the order, or return {"amount", "url"} for the card still to pay (the payment sheet)."""
     delivery = state["method"] == "delivery"
-    priced, problems = store_cart.priced(request, channel="delivery" if delivery else "web", to_go=True)
+    priced, problems, when = _priced(request, state)
     if priced is None:
         messages.error(request, _("Your cart is empty."))
         return None
-    when = _schedule(state, [line.item for line in priced.lines], delivery)
     ok, problem = _contact_ok(request, state)
     if not when["ok"] or not ok:
         messages.error(request, problem if not ok else when["message"])
@@ -532,7 +583,8 @@ def _place(request, state):
             messages.error(request, _("That card was declined. Try another one."))
             return None
     if remaining > 0 and not uuid_:
-        return {"amount": remaining, "url": reverse("web-payment-window") + f"?amount={remaining}&confirmation_needed=1"}
+        save = "&save_card=1" if request.user.is_authenticated and state["save_card"] else ""
+        return {"amount": remaining, "url": reverse("web-payment-window") + f"?amount={remaining}&confirmation_needed=1{save}"}
     cart = store_cart.load(request)
     payment = {}
 
@@ -553,7 +605,7 @@ def _place(request, state):
                 channel="delivery" if delivery else "web", initial_status=OrderStation.STATUS_PENDING,
                 gift_card_payments=[(c, a) for c, a in gifts], verify_payment=verify_payment, tip=tip,
                 staff_cards=cards, staff_card_amount=staff_amount,
-                special_instructions=state["note"] or None, to_go_order=True, phone=int(phone) if phone else None,
+                special_instructions=state["note"] or None, to_go_order=delivery or state["eat"] != "here", phone=int(phone) if phone else None,
                 start_time=when["start"], name=state["name"].strip()[:140], customer=user,
                 email=(user.email if user else state["email"]).strip(),
             )

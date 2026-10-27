@@ -393,7 +393,7 @@ def create_customer(name, email, phone="", company="", key=None):
 
 
 def save_card(token, customer_id, name="", key=None):
-    """Keep the card a Web Payments token stands for on `customer_id`. Returns {id, brand, last4}."""
+    """Keep the card a Web Payments token stands for on `customer_id`. Returns {id, brand, last4, exp_month, exp_year}."""
     result = square_client.cards.create_card({
         "idempotency_key": (key or str(uuid.uuid4()))[:45], "source_id": token,
         "card": {"customer_id": customer_id, "cardholder_name": name[:96]},
@@ -401,7 +401,8 @@ def save_card(token, customer_id, name="", key=None):
     if not result.is_success():
         raise SquareError(result.errors)
     card = result.body["card"]
-    return {"id": card["id"], "brand": card.get("card_brand", ""), "last4": card.get("last_4", "")}
+    return {"id": card["id"], "brand": card.get("card_brand", ""), "last4": card.get("last_4", ""),
+            "exp_month": card.get("exp_month"), "exp_year": card.get("exp_year")}
 
 
 def charge_card(customer_id, card_id, amount, key, note="", autocomplete=True):

@@ -91,23 +91,31 @@ def _money(value):
     return f"${Decimal(value).quantize(Decimal('0.01'))}"
 
 
-def _dish(dish, deals=None):
+def _veg(dish):
+    from pos_server.dish_info import dish_diets
+    return any(d["key"] == "vegetarian" for d in dish_diets(dish))
+
+
+def _dish(dish, deals=None, veg=None):
     return {"key": f"d:{dish.id}", "title": dish.title, "description": dish.description, "price": _money(dish.price),
             "out": not dish.available, "image": dish.image.url if dish.image else "", "letter": dish.title[:1],
-            "deal": badge_for(deals or {}, dish)}
+            "deal": badge_for(deals or {}, dish), "veg": _veg(dish) if veg is None else veg}
 
 
 def _combo(combo, deals=None):
     return {"key": f"c:{combo.id}", "title": combo.title, "description": combo.description,
             "price": _money(combo.standard_price()), "out": not combo.available,
-            "image": combo.image.url if combo.image else "", "letter": combo.title[:1], "deal": badge_for(deals or {}, combo)}
+            "image": combo.image.url if combo.image else "", "letter": combo.title[:1], "deal": badge_for(deals or {}, combo),
+            "veg": False}
 
 
 def items(menu):
     """{group key: [item]} for every group of the menu, and {item key: item} for every item."""
+    from pos_server.dish_info import DISH_PREFETCH
     by_group, by_key = {}, {}
     deals = badges("store")  # automatic discounts running now (the admin's Discounts page)
-    for dish in menu.dishes.filter(archived=False).select_related("station").order_by("station__position", "id"):
+    dishes = menu.dishes.filter(archived=False).select_related("station").prefetch_related(*DISH_PREFETCH)
+    for dish in dishes.order_by("station__position", "id"):
         item = _dish(dish, deals)
         by_group.setdefault(f"s:{dish.station_id}", []).append(item)
         by_key[item["key"]] = item
@@ -126,7 +134,8 @@ def best_sellers(menu, count, days=30):
     since = timezone.now() - datetime.timedelta(days=days)
     top = (OrderItem.objects.filter(dish__in=menu.dishes.filter(archived=False), order__timestamp__gte=since)
            .values("dish").annotate(n=Sum("quantity")).order_by("-n")[:count])
-    dishes = Dish.objects.in_bulk([row["dish"] for row in top])
+    from pos_server.dish_info import DISH_PREFETCH
+    dishes = Dish.objects.prefetch_related(*DISH_PREFETCH).in_bulk([row["dish"] for row in top])
     deals = badges("store")
     return [_dish(dishes[row["dish"]], deals) for row in top if row["dish"] in dishes]
 
@@ -135,30 +144,44 @@ def screens_of(count, per):
     return max(1, -(-count // per))
 
 
+def per_slot(template):
+    """How many items each slot of the template shows at once (the first slot is often the big one)."""
+    return template.layout["per_slot"] if template else [6, 6, 6]
+
+
 def board(menu, display=None, store_name=""):
     """
     Everything a menu template draws: the look, and each page with its featured item and slots, each slot's items
-    split into the screens it turns over through.
+    split into the screens it turns over through. Items on a page are numbered (`n`, across its slots), each slot
+    has the first picture among its items (`image`), and `out` lists the page's sold-out items.
     """
     display = clean(display if display is not None else menu.display, menu)
     template = template_of(display)
-    per = template.layout["per_group"] if template else 6
+    pers = per_slot(template)
     by_group, by_key = items(menu)
     names = {key: name for key, name, _color in groups(menu)}
     pages = []
     for page in display["pages"]:
-        slots = []
-        for key in page["slots"]:
+        slots, out, n = [], [], 0
+        for k, key in enumerate(page["slots"]):
             if not key:
                 slots.append(None)
                 continue
-            shown = [i for i in by_group.get(key, []) if display["sold"] == "show" or not i["out"]]
+            per = pers[k] if k < len(pers) else pers[-1]
+            shown = []
+            for item in by_group.get(key, []):
+                if display["sold"] == "show" or not item["out"]:
+                    n += 1
+                    shown.append({**item, "n": n})
+                    if item["out"]:
+                        out.append(item)
             slots.append({"key": key, "name": names.get(key, ""), "count": len(shown),
-                          "screens": [shown[n:n + per] for n in range(0, len(shown), per)] or [[]]})
+                          "image": next((i["image"] for i in shown if i["image"]), ""),
+                          "screens": [shown[s:s + per] for s in range(0, len(shown), per)] or [[]]})
         featured = by_key.get(page["featured"])
         if featured and featured["out"] and display["sold"] == "hide":
             featured = None
-        pages.append({"featured": featured, "slots": slots})
+        pages.append({"featured": featured, "slots": slots, "out": out})
     look = display["look"]
     return {
         "menu": menu, "display": display, "template": template, "look": look, "pages": pages,
@@ -172,7 +195,13 @@ FONT_FAMILIES = {
     "DM Serif Display": "DM+Serif+Display:ital@0;1", "Fraunces": "Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400",
     "Playfair Display": "Playfair+Display:ital,wght@0,500;0,700;1,500", "Manrope": "Manrope:wght@500;600;700;800",
     "Inter": "Inter:wght@500;600;700;800", "Libre Franklin": "Libre+Franklin:wght@400;500;600;700",
-    "Sora": "Sora:wght@400;600;700;800", "Archivo": "Archivo:wght@500;700;800",
+    "Sora": "Sora:wght@400;500;600;700;800", "Archivo": "Archivo:wght@500;600;700;800",
+    "Caveat Brush": "Caveat+Brush", "Kalam": "Kalam:wght@300;400;700", "Archivo Black": "Archivo+Black",
+    "Schibsted Grotesk": "Schibsted+Grotesk:wght@400;500;700;800;900", "IBM Plex Mono": "IBM+Plex+Mono:wght@400;500;600",
+    "Oswald": "Oswald:wght@400;500;600", "Rubik": "Rubik:wght@400;500;700;800;900",
+    "JetBrains Mono": "JetBrains+Mono:wght@500;700;800", "Yellowtail": "Yellowtail",
+    "Barlow Condensed": "Barlow+Condensed:wght@500;600;700", "Bebas Neue": "Bebas+Neue", "Permanent Marker": "Permanent+Marker",
+    "Space Mono": "Space+Mono:wght@400;700", "Pacifico": "Pacifico", "Anton": "Anton",
 }
 
 
@@ -187,11 +216,10 @@ def _fonts_url(template, look):
 def problems(display, menu):
     """Timing problems the Display tab reports: a group can't take longer to turn over than its page."""
     out = []
-    template = template_of(display)
-    per = template.layout["per_group"] if template else 6
+    pers = per_slot(template_of(display))
     by_group, _by_key = items(menu)
-    overflow = any(screens_of(len([i for i in by_group.get(k, []) if display["sold"] == "show" or not i["out"]]), per) > 1
-                   for p in display["pages"] for k in p["slots"] if k)
+    overflow = any(screens_of(len([i for i in by_group.get(k, []) if display["sold"] == "show" or not i["out"]]), pers[n]) > 1
+                   for p in display["pages"] for n, k in enumerate(p["slots"]) if k and n < len(pers))
     if len(display["pages"]) > 1 and overflow and display["group_sec"] > display["page_sec"]:
         out.append("timing")
     return out

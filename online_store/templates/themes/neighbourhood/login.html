@@ -59,7 +59,7 @@ header. Password only for now: the Apple and Google buttons are shown but not se
             </div>
             <div class="nb-or"><span></span>{% trans "or with email" %}<span></span></div>
             <label class="nb-block"><span class="nb-lbl">{% trans "Email" %}</span><input class="nb-input nb-input-lg" type="text" name="email" value="{{ form.email }}" autocomplete="username" placeholder="you@example.com" required></label>
-            <label class="nb-block"><span class="nb-lbl">{% trans "Password" %}</span><input class="nb-input nb-input-lg" type="password" name="password" autocomplete="current-password" placeholder="{% trans 'Your password' %}" required></label>
+            <label class="nb-block"><span class="nb-lbl">{% trans "Password" %}</span><input class="nb-input nb-input-lg" type="password" name="password" autocomplete="current-password"{% if form.email and not form.failed %} autofocus{% endif %} placeholder="{% trans 'Your password' %}" required></label>
             {% if form.failed %}<div class="nb-login-error" role="alert">{% trans "That email and password don’t match. Try again." %}</div>{% endif %}
             <button class="nb-btn nb-btn-accent nb-login-btn">{% trans "Sign in" %}</button>
             <div class="nb-login-switch">{% trans "New here?" %} <a href="{% url 'store_join' %}{% if next %}?next={{ next|urlencode }}{% endif %}">{% trans "Create an account" %}</a></div>

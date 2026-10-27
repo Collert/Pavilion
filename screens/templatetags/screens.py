@@ -32,3 +32,12 @@ def tracks(weights, count):
     """A grid-template value for `count` tracks sized by `weights` (missing ones are 1fr): [1, "132px"] → ..."""
     weights = list(weights or [])
     return " ".join(_track(weights[n] if n < len(weights) else 1) for n in range(int(count)))
+
+
+@register.filter
+def cells(value, count):
+    """Split-flap cells: the text in capitals, cut or padded with spaces to `count` characters (negative: pad on the
+    left, for prices). {% for ch in item.title|cells:23 %}"""
+    count = int(count)
+    text = str(value or "").upper()[:abs(count)]
+    return list(text.rjust(-count) if count < 0 else text.ljust(count))

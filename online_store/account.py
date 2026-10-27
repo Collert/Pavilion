@@ -45,7 +45,7 @@ def _customer(user) -> Customer:
 
 def signin(request):
     nxt = _next(request)
-    form = {"email": "", "failed": False}
+    form = {"email": request.GET.get("email", "").strip()[:254], "failed": False}  # checkout sends the email typed there
     if request.method == "POST":
         identifier, password = request.POST.get("email", "").strip(), request.POST.get("password", "")
         username = identifier
@@ -333,11 +333,26 @@ def _work_card(user):
 
 
 def save_customer_card(user, card) -> SavedCard:
-    """Keep a card saved through payments/save-card on a signed-in customer (the first one is the default)."""
+    """Keep a card saved through payments/save-card or checkout on a signed-in customer (the first one is the
+    default). The same card saved again replaces the old one, which Square stops charging."""
     prof = _customer(user)
     if card.get("customer") and not prof.square_customer_id:
         prof.square_customer_id = card["customer"]
         prof.save(update_fields=["square_customer_id"])
+    same = None
+    if card.get("last4") and card.get("exp_month") and card.get("exp_year"):
+        same = user.saved_cards.filter(brand=card.get("brand", ""), last4=card["last4"], exp_month=card["exp_month"],
+                                       exp_year=card["exp_year"]).first()
+    if same is not None:
+        old = same.square_card_id
+        same.square_customer_id, same.square_card_id = card["customer"], card["id"]
+        same.save(update_fields=["square_customer_id", "square_card_id"])
+        if old != card["id"] and not old.startswith("demo:"):
+            try:
+                square.disable_card(old)
+            except square.SquareError:
+                logger.warning("Couldn't disable replaced card %s", old)
+        return same
     first = not user.saved_cards.exists()
     return SavedCard.objects.create(user=user, square_customer_id=card["customer"], square_card_id=card["id"],
                                     brand=card.get("brand", ""), last4=card.get("last4", ""), is_default=first,
