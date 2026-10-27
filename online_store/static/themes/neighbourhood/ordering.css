@@ -187,7 +187,7 @@
 .nb-code-row .nb-btn { height: 48px; flex: none; }
 .nb-account-hint { margin-top: 14px; padding: 12px 12px 12px 16px; border-radius: 18px; display: flex; align-items: center; gap: 14px; background: color-mix(in srgb, var(--deep) 10%, var(--card)); font-size: 14px; font-weight: 600; line-height: 1.45; }
 .nb-account-hint .nb-btn { flex: none; }
-#co-pay .nb-check { margin-top: 14px; }
+#co-pay .nb-check, #co-how .nb-check { margin-top: 14px; }
 .nb-applied { margin-top: 8px; font-size: 14px; font-weight: 700; color: var(--deep); display: flex; gap: 10px; align-items: center; }
 .nb-summary { position: sticky; top: 20px; border-radius: calc(var(--radius) * 1.27); background: var(--ink); color: var(--paper); padding: 26px; }
 .nb-summary h2 { margin: 0; font-size: 30px; font-weight: 600; }

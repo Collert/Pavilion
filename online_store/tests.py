@@ -451,6 +451,49 @@ class AccountTests(MenuFixture, TestCase):
         self.assertEqual((state["name"], state["email"], state["address"]), ("Sofia", "sofia@example.com", "455 E 8th Ave"))
         self.assertEqual(state["pay"], f"card:{SavedCard.objects.get().id}")  # the guest's "new card" belonged to nobody
 
+    def test_delivering_to_a_new_address_saves_it(self):
+        from users.models import SavedAddress
+        home = SavedAddress.objects.create(user=self.user, label="Home", line="455 E 8th Ave", city="Vancouver", is_default=True)
+        self.client.force_login(self.user)
+        self.add_burger()
+        url = reverse("store_cart")
+        page = self.client.post(url, {"op": "method:delivery"})
+        self.assertEqual(page.context["state"]["address_id"], str(home.id))
+        self.assertNotContains(page, 'name="address"')  # a saved address shows as its option, not as fields
+        page = self.client.post(url, {"op": "address:new"})
+        self.assertEqual((page.context["state"]["address_id"], page.context["state"]["address"]), ("new", ""))
+        self.assertContains(page, 'name="address"')
+        self.assertContains(page, 'value="save_address"')
+        self.client.post(url, {"address": "355 Railway St", "unit": "200", "city": "Vancouver", "address_label": "Work",
+                               "phone": "604 555 0110", "name": "Sofia"})
+        self.client.post(url, {"op": "place", "transaction_uuid": self.paid_transaction()})
+        self.assertEqual(Order.objects.get().delivery.get().destination, "355 Railway St, Vancouver")
+        work = self.user.saved_addresses.get(label="Work")
+        self.assertEqual((work.line, work.unit, work.is_default), ("355 Railway St", "200", False))
+
+    def test_removing_your_own_gift_card_keeps_it_off(self):
+        """A gift card sent to the customer's email is used by itself; Remove has to stick (it came straight back)."""
+        card = GiftCard.objects.create(available_balance=Decimal("100"), email="sofia@example.com")
+        self.client.force_login(self.user)
+        self.add_burger()
+        url = reverse("store_cart")
+        self.assertEqual([c for c, _a in self.client.get(url).context["gifts"]], [card])
+        self.client.post(url, {"op": f"drop_gift:{card.id}"})
+        self.assertEqual(self.client.get(url).context["gifts"], [])
+        self.client.post(url, {"op": "code", "code": card.number})  # typed in again: back on
+        self.assertEqual([c for c, _a in self.client.get(url).context["gifts"]], [card])
+
+    def test_a_new_address_isn_t_saved_with_the_switch_off(self):
+        self.client.force_login(self.user)
+        self.add_burger()
+        url = reverse("store_cart")
+        self.client.post(url, {"op": "method:delivery"})  # no saved addresses: the fields straight away
+        self.client.post(url, {"op": "save_address"})
+        self.client.post(url, {"address": "355 Railway St", "phone": "604 555 0110", "name": "Sofia"})
+        self.client.post(url, {"op": "place", "transaction_uuid": self.paid_transaction()})
+        self.assertTrue(Order.objects.exists())
+        self.assertFalse(self.user.saved_addresses.exists())
+
     def test_eat_here_or_take_out(self):
         from events.models import Event
         self.client.force_login(self.user)

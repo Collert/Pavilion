@@ -404,10 +404,12 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   then the request page with its versions and messages.
 - **Checkout** (`/cart`, `checkout`): quantities, "goes well with", then **Your details** (name, phone, email),
   pickup (take out or eat here: `state["eat"]`, `to_go_order` and packaging follow it; eat here only while the
-  dining room, the `dine` channel, is open then, `_dine_ok`) or delivery (address and driver note; a signed-in
-  customer's default saved address is filled in), as soon as possible (while an event is open) or scheduled up to
+  dining room, the `dine` channel, is open then, `_dine_ok`) or delivery (a signed-in customer picks a saved address, the default
+  first, or "A new address": the fields, and a switch on by default to save it under a name, `_save_address` once
+  the order is placed; guests just get the fields; a driver note either way), as soon as possible (while an event is open) or scheduled up to
   14 days ahead inside an open event and while a menu with every dish in the cart is live (`_schedule`), promo or
-  gift-card code, tip (`Order.tip`, added after fees), and Place order: gift cards first, then a saved card or
+  gift-card code (a signed-in customer's own gift cards, sent to their email, are used by themselves; Remove keeps
+  one off in `cart["skipped_gifts"]` until its code is typed again), tip (`Order.tip`, added after fees), and Place order: gift cards first, then a saved card or
   Square's card form in a sheet (`payments/web-payment-window`, authorize-only; `checkout.js` places the order
   once paid). Orders start pending like before. **Guests whose email has an account** (`pages.account_for`;
   `checkout.js` posts the form when the email field loses focus) are offered sign-in (`/account/sign-in?email=&next=`,

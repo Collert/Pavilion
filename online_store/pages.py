@@ -32,6 +32,7 @@ from pos_server.menu_schedule import Schedule
 from pos_server.models import Combo, Dish, Menu, Order, OrderPayment, OrderStation
 from pos_server.orders import OrderError, create_order
 from pos_server.pricing import badge_for, badges, price_cart
+from users.models import SavedAddress
 
 from . import cart as store_cart, storefront, themes
 
@@ -206,7 +207,8 @@ def _state(request) -> dict:
     defaults = {"method": "pickup", "eat": "togo", "when": "asap", "date": timezone.localdate().isoformat(), "time": "",
                 "tip": 15, "name": (user.get_full_name() if user.is_authenticated else ""), "phone": "",
                 "email": user.email if user.is_authenticated else "", "address": "", "unit": "", "city": "",
-                "postal": "", "driver_note": "", "note": "", "pay": "", "address_id": "", "save_card": True, "who": who}
+                "postal": "", "driver_note": "", "note": "", "pay": "", "address_id": "", "save_card": True, "save_address": True, "address_label": "",
+                "who": who}
     state = {**defaults, **{k: v for k, v in state.items() if k in defaults}}
     if state["who"] != who:
         state.update(who=who, pay="", address_id="")
@@ -230,6 +232,17 @@ def _use_address(state, saved):
                  driver_note=saved.note)
 
 
+def _save_address(user, state):
+    """Keep the new address a signed-in customer delivered to (unless it's one of theirs already)."""
+    if user.saved_addresses.filter(line__iexact=state["address"], unit__iexact=state["unit"]).exists():
+        return
+    first = not user.saved_addresses.exists()
+    saved = SavedAddress.objects.create(user=user, label=state["address_label"][:40] or _("Home"), line=state["address"][:160],
+                                        unit=state["unit"][:60], city=state["city"][:80], postal=state["postal"][:12],
+                                        note=state["driver_note"][:160], is_default=first)
+    state["address_id"] = str(saved.id)
+
+
 def _dine_ok(start) -> bool:
     """Whether the dining room is open at `start` (an order to eat here); unknown (no time yet) counts as open."""
     return start is None or Hours().current(start, DINE) is not None
@@ -238,7 +251,7 @@ def _dine_ok(start) -> bool:
 def _from_post(state, post):
     if post.get("pay") and (post["pay"] == "new" or post["pay"].startswith("card:")):
         state["pay"] = post["pay"]
-    for key in ("name", "phone", "email", "address", "unit", "city", "postal", "driver_note", "note"):
+    for key in ("name", "phone", "email", "address", "unit", "city", "postal", "driver_note", "note", "address_label"):
         if key in post:
             state[key] = post.get(key, "").strip()[:200]
     if post.get("hour") is not None and post.get("minute") is not None:
@@ -268,11 +281,14 @@ def _apply_op(request, state, op, post):
             pass
     elif name == "pay" and (arg == "new" or arg.startswith("card")):
         state["pay"] = arg
+    elif name == "address" and arg == "new":
+        state.update(address_id="new", address="", unit="", city="", postal="", driver_note="")
     elif name == "address":
-        state["address_id"] = arg
         saved = request.user.saved_addresses.filter(pk=_int(arg)).first() if request.user.is_authenticated else None
         if saved:
             _use_address(state, saved)
+    elif name == "save_address":
+        state["save_address"] = not state["save_address"]
     elif name == "tip" and _int(arg, -1) in TIPS:
         state["tip"] = _int(arg)
     elif name in ("hup", "hdown", "mup", "mdown", "am", "pm"):
@@ -295,6 +311,7 @@ def _apply_op(request, state, op, post):
             else:
                 if gift.id not in cart["gifts"]:
                     cart["gifts"].append(gift.id)
+                cart["skipped_gifts"] = [g for g in cart["skipped_gifts"] if g != gift.id]
                 messages.success(request, _("Gift card added."))
         else:
             priced, _p = store_cart.priced(request)
@@ -314,6 +331,8 @@ def _apply_op(request, state, op, post):
         store_cart.save(request, cart)
     elif name == "drop_gift":
         cart["gifts"] = [g for g in cart["gifts"] if str(g) != arg]
+        if _int(arg) and _int(arg) not in cart["skipped_gifts"]:  # their own cards would come straight back
+            cart["skipped_gifts"].append(_int(arg))
         store_cart.save(request, cart)
     elif name in ("inc", "dec", "remove"):
         store_cart.change(request, arg, delta=1 if name == "inc" else -1, remove=name == "remove")
@@ -406,12 +425,14 @@ def _schedule(state, cart_items, delivery):
 
 def _gift_cover(request, total):
     """[(GiftCard, amount)] the cart's gift cards pay, in order, up to `total`; a signed-in customer's own gift
-    cards (sent to their email) are used too."""
+    cards (sent to their email) are used too, unless they removed them (cart["skipped_gifts"])."""
     out, left = [], total
-    ids = [g for g in store_cart.load(request)["gifts"] if isinstance(g, int)]
+    cart = store_cart.load(request)
+    ids = [g for g in cart["gifts"] if isinstance(g, int)]
     user = request.user
     if user.is_authenticated and user.email:
-        ids += [n for n in GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0).values_list("id", flat=True) if n not in ids]
+        ids += [n for n in GiftCard.objects.filter(email__iexact=user.email, available_balance__gt=0).values_list("id", flat=True)
+                if n not in ids and n not in cart["skipped_gifts"]]
     cards = GiftCard.objects.in_bulk(ids)
     for card_id in ids:
         card = cards.get(card_id)
@@ -453,8 +474,11 @@ def checkout(request):
     delivery = state["method"] == "delivery"
     user = request.user
     saved_addresses = list(user.saved_addresses.all()) if user.is_authenticated else []
-    if delivery and saved_addresses and not state["address"] and not state["address_id"]:
-        _use_address(state, saved_addresses[0])  # the default one
+    if delivery and saved_addresses and not any(str(a.id) == state["address_id"] for a in saved_addresses):
+        if state["address"] and state["address_id"] in ("", "new"):
+            state["address_id"] = "new"  # typed before signing in: keep it
+        elif state["address_id"] != "new":
+            _use_address(state, saved_addresses[0])  # the default one
     priced, problems, when = _priced(request, state)
     for problem in problems:
         messages.error(request, problem)
@@ -619,6 +643,8 @@ def _place(request, state):
                 address = ", ".join(filter(None, [state["address"], state["city"], state["postal"]]))
                 Delivery.objects.create(order=order, destination=address, address_2=state["unit"], phone=int(phone),
                                         instructions=state["driver_note"])
+                if user and state["address_id"] in ("", "new") and state["save_address"]:
+                    _save_address(user, state)
     except OrderError as e:
         messages.error(request, str(e))
         return None

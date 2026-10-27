@@ -115,14 +115,21 @@ order, or first opens Square's card form for what gift cards don't cover (checko
                 {% if saved_addresses %}
                 <div class="nb-options">
                     {% for a in saved_addresses %}<button class="nb-option{% if state.address_id == a.id|stringformat:'s' %} on{% endif %}" role="radio" name="op" value="address:{{ a.id }}" aria-checked="{% if state.address_id == a.id|stringformat:'s' %}true{% else %}false{% endif %}"><span class="nb-radio"></span><span class="nb-grow"><span class="strong">{{ a.label }}</span><span class="nb-option-sub">{{ a.one_line }}</span></span></button>{% endfor %}
+                    <button class="nb-option{% if state.address_id == 'new' %} on{% endif %}" role="radio" name="op" value="address:new" aria-checked="{% if state.address_id == 'new' %}true{% else %}false{% endif %}"><span class="nb-radio"></span><span class="nb-grow strong">{% trans "A new address" %}</span></button>
                 </div>
                 {% endif %}
+                {% if not saved_addresses or state.address_id == "new" %}
                 <div class="nb-field-grid">
                     <label class="wide"><span class="nb-lbl">{% trans "Street address" %}</span><input class="nb-input" name="address" value="{{ state.address }}" autocomplete="address-line1" placeholder="{% trans '355 Railway St' %}"></label>
                     <label><span class="nb-lbl">{% trans "Unit or floor" %}</span><input class="nb-input" name="unit" value="{{ state.unit }}" autocomplete="address-line2"></label>
                     <label><span class="nb-lbl">{% trans "City" %}</span><input class="nb-input" name="city" value="{{ state.city }}" autocomplete="address-level2"></label>
                     <label><span class="nb-lbl">{% trans "Postal code" %}</span><input class="nb-input" name="postal" value="{{ state.postal }}" autocomplete="postal-code"></label>
                 </div>
+                {% if me %}
+                <button class="nb-check" role="switch" aria-checked="{% if state.save_address %}true{% else %}false{% endif %}" name="op" value="save_address"><span class="nb-switch{% if state.save_address %} on{% endif %}"><span></span></span>{% trans "Save to my addresses" %}</button>
+                {% if state.save_address %}<label class="nb-block"><span class="nb-lbl">{% trans "Call it" %}</span><input class="nb-input" name="address_label" value="{{ state.address_label }}" maxlength="40" placeholder="{% trans 'Home, Work…' %}"></label>{% endif %}
+                {% endif %}
+                {% endif %}
                 <label class="nb-block"><span class="nb-lbl">{% trans "Note for the driver" %}</span><input class="nb-input" name="driver_note" value="{{ state.driver_note }}" placeholder="{% trans 'Buzzer, floor, where to leave it' %}"></label>
             </div>
             {% endif %}
