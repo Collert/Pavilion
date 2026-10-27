@@ -181,6 +181,19 @@ class DatabaseSettingsTests(SimpleTestCase):
         self.assertEqual((db["ENGINE"], db["NAME"], db["USER"], db["PASSWORD"], db["HOST"], db["PORT"]),
                          ("django.db.backends.postgresql", "pavilion", "pavilion", "p@ss", "db.example.com", 6543))
 
+    def test_the_bundled_databases_generated_password(self):
+        """docker-compose.yml's db-password file wins over POSTGRES_PASSWORD, so the app and Postgres agree."""
+        import os
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+            f.write("Generated123\n")
+        try:
+            db = self.settings_with(ENVIRONMENT="production", SECRET_KEY="x" * 50, REDIS_URL="redis://r:6379/0", DATABASE_URL="",
+                                    POSTGRES_PASSWORD_FILE=f.name, POSTGRES_PASSWORD="from-the-tab")["DATABASES"]["default"]
+        finally:
+            os.unlink(f.name)
+        self.assertEqual((db["PASSWORD"], db["HOST"]), ("Generated123", "db"))
+
 
 class DevCacheTests(SimpleTestCase):
     """pavilion/cache.py: Windows locks a cache file mid-write; the dev cache tries again, then gives up quietly."""

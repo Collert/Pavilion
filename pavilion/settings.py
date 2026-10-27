@@ -192,6 +192,16 @@ ASGI_APPLICATION = 'pavilion.asgi.application'
 # DATABASE_URL (a connection string such as postgres://user:pass@host:5432/name, parsed by dj-database-url) wins in
 # any environment; without it production builds one from POSTGRES_*/DB_* and development uses SQLite.
 
+def _postgres_password():
+    """The bundled database's password: docker-compose.yml's generated file (POSTGRES_PASSWORD_FILE) first, so the app
+    and Postgres always agree, else POSTGRES_PASSWORD."""
+    path = os.getenv('POSTGRES_PASSWORD_FILE')
+    if path and os.path.exists(path):
+        with open(path) as f:
+            return f.read().strip()
+    return os.getenv('POSTGRES_PASSWORD', '')
+
+
 if os.getenv('DATABASE_URL'):
     import dj_database_url
     DATABASES = {'default': dj_database_url.parse(os.environ['DATABASE_URL'])}
@@ -201,7 +211,7 @@ elif os.getenv('ENVIRONMENT') == "production":
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('POSTGRES_DB', 'pavilion_db'),
             'USER': os.getenv('POSTGRES_USER', 'pavilion_user'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'pavilion_pass'),
+            'PASSWORD': _postgres_password(),
             'HOST': os.getenv('DB_HOST', 'db'),
             'PORT': os.getenv('DB_PORT', '5432'),
         }

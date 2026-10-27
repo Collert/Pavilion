@@ -1,5 +1,6 @@
-# Production-style stack: app (uvicorn, ASGI) + Redis, and Postgres: your own through DATABASE_URL (e.g. a database
-# Dokploy manages), or the bundled `db` below, which only starts with COMPOSE_PROFILES=db (then set POSTGRES_PASSWORD).
+# Production-style stack: app (uvicorn, ASGI) + Postgres + Redis, working with nothing set for the database: its
+# password is made once by db-password and shared through a volume. DATABASE_URL points Pavilion at another database
+# instead (the bundled one then sits idle).
 # Secrets and per-site settings come from the deployment's variables (Dokploy's Environment tab, i.e. a .env beside
 # this file) or pavilion/.env; pavilion/.env.example lists them.
 # Media is stored in a RustFS (S3-compatible) bucket configured with the RUSTFS_* variables.
@@ -19,17 +20,20 @@ services:
       ENVIRONMENT: production
       DB_HOST: db
       DB_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-pavilion_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pavilion_user}
+      POSTGRES_PASSWORD_FILE: /run/pavilion-db/password   # made by db-password (DATABASE_URL, if set, wins)
       REDIS_URL: redis://redis:6379/0
       VALHALLA_URL: http://valhalla:8002
       GEOCODER_URL: http://nominatim:8080
     depends_on:
       db:
         condition: service_healthy
-        required: false   # only there with COMPOSE_PROFILES=db; otherwise DATABASE_URL points elsewhere
       redis:
         condition: service_healthy
     volumes:
       - logs:/app/logs
+      - db_password:/run/pavilion-db:ro
 
   # The daily jobs (docs/PROJECT_OVERVIEW.md §8 "Scheduled jobs"): the same image, once a day after a first run at start
   scheduler:
@@ -45,6 +49,9 @@ services:
       ENVIRONMENT: production
       DB_HOST: db
       DB_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-pavilion_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pavilion_user}
+      POSTGRES_PASSWORD_FILE: /run/pavilion-db/password   # made by db-password (DATABASE_URL, if set, wins)
       REDIS_URL: redis://redis:6379/0
     depends_on:
       web:
@@ -57,21 +64,34 @@ services:
       sleep 86400; done"
     volumes:
       - logs:/app/logs
+      - db_password:/run/pavilion-db:ro
 
-  # The bundled database, off unless COMPOSE_PROFILES=db (with POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD set;
-  # web finds it as host `db` when DATABASE_URL isn't set).
+  # A random database password, made the first time and kept in the db_password volume (like a Dokploy template's
+  # generated secrets). Delete that volume only together with pg_data.
+  db-password:
+    image: busybox:1.37
+    restart: "no"
+    command: ["sh", "-c", "test -s /run/pavilion-db/password || (tr -dc A-Za-z0-9 < /dev/urandom | head -c 40 > /run/pavilion-db/password && chmod 644 /run/pavilion-db/password)"]
+    volumes:
+      - db_password:/run/pavilion-db
+
+  # The bundled database (web finds it as host `db` unless DATABASE_URL is set). Only these settings, not the env
+  # files: Postgres refuses POSTGRES_PASSWORD and POSTGRES_PASSWORD_FILE together. Pinned to 18, which keeps its data
+  # under /var/lib/postgresql; moving to 19 later needs a dump and restore (pg_upgrade), not just a new tag.
   db:
-    image: postgres:latest
+    image: postgres:18
     container_name: pavilion_db
     restart: unless-stopped
-    profiles: ["db"]
-    env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env: POSTGRES_DB/USER/PASSWORD
-      - path: .env
-        required: false
-      - path: pavilion/.env
-        required: false
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pavilion_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pavilion_user}
+      POSTGRES_PASSWORD_FILE: /run/pavilion-db/password
+    depends_on:
+      db-password:
+        condition: service_completed_successfully
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql
+      - db_password:/run/pavilion-db:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-pavilion_user} -d $${POSTGRES_DB:-pavilion_db}"]
       interval: 5s
@@ -124,6 +144,7 @@ services:
 
 volumes:
   pg_data:
+  db_password:
   logs:
   valhalla_data:
   nominatim_data:
