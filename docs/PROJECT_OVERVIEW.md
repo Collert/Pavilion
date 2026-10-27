@@ -1055,7 +1055,8 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 
 - Python 3.12 slim + ffmpeg, libgl, libpq, gettext. Collects static and compiles translations at build time; the
   container runs `migrate`, then `uvicorn pavilion.asgi:application --workers ${WEB_CONCURRENCY:-3}`.
-- Compose: `web` + `scheduler` (the daily jobs) + `db` (Postgres 16, healthchecked, port not published) + `redis` +
+- Compose: `web` + `scheduler` (the daily jobs) + `redis` + the database: your own through `DATABASE_URL` (e.g. one
+  Dokploy manages), or the bundled `db` (healthchecked, port not published), which only starts with `COMPOSE_PROFILES=db` +
   `valhalla` and `nominatim` (delivery travel times; they build from `OSM_EXTRACT` on first start). Secrets come from `pavilion/.env`.
   `.dockerignore` keeps `.env`, databases and media out of the image.
 - Media lives in the RustFS bucket, which must allow anonymous reads (images are embedded in emails and cached by the PWA).

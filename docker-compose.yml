@@ -1,4 +1,5 @@
-# Production-style stack: app (uvicorn, ASGI) + Postgres + Redis.
+# Production-style stack: app (uvicorn, ASGI) + Redis, and Postgres: your own through DATABASE_URL (e.g. a database
+# Dokploy manages), or the bundled `db` below, which only starts with COMPOSE_PROFILES=db (then set POSTGRES_PASSWORD).
 # Secrets and per-site settings come from the deployment's variables (Dokploy's Environment tab, i.e. a .env beside
 # this file) or pavilion/.env; pavilion/.env.example lists them.
 # Media is stored in a RustFS (S3-compatible) bucket configured with the RUSTFS_* variables.
@@ -24,6 +25,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false   # only there with COMPOSE_PROFILES=db; otherwise DATABASE_URL points elsewhere
       redis:
         condition: service_healthy
     volumes:
@@ -56,10 +58,13 @@ services:
     volumes:
       - logs:/app/logs
 
+  # The bundled database, off unless COMPOSE_PROFILES=db (with POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD set;
+  # web finds it as host `db` when DATABASE_URL isn't set).
   db:
     image: postgres:latest
     container_name: pavilion_db
     restart: unless-stopped
+    profiles: ["db"]
     env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env: POSTGRES_DB/USER/PASSWORD
       - path: .env
         required: false
