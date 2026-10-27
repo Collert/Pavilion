@@ -57,7 +57,7 @@ services:
       - logs:/app/logs
 
   db:
-    image: postgres:16
+    image: postgres:latest
     container_name: pavilion_db
     restart: unless-stopped
     env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env: POSTGRES_DB/USER/PASSWORD
