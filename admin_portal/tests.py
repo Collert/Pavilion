@@ -4,7 +4,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -3177,3 +3177,16 @@ class StoreInfoTests(AdminFixture, TestCase):
         self.post()  # view only: sent back with a message, nothing saved
         from admin_portal.models import StoreSettings
         self.assertNotEqual(StoreSettings.objects.get().name, "Juniper Lane")
+
+
+class StartupTests(TransactionTestCase):
+    """admin_portal/startup.py: uvicorn starts Django inside its event loop, where database calls are refused."""
+    def test_the_store_row_is_read_from_async_code(self):
+        import asyncio
+        from admin_portal.models import StoreSettings
+        from admin_portal.startup import store_row
+        StoreSettings.objects.update_or_create(pk=1, defaults={"time_zone": "Europe/Kyiv"})
+
+        async def starting_up():  # what AdminPortalConfig.ready does under uvicorn
+            return store_row("time_zone")
+        self.assertEqual(asyncio.run(starting_up()), {"time_zone": "Europe/Kyiv"})

@@ -17,7 +17,6 @@ Everything else reads these through the functions below, which use StoreSettings
 """
 import re
 import sys
-import warnings
 import zoneinfo
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
@@ -89,16 +88,8 @@ def load_time_zone():
     """Apply the saved time zone. Skipped by tests, and quietly when the table isn't there yet (before migrate)."""
     if "test" in sys.argv[1:2]:
         return
-    from django.db import DatabaseError, connection
-    row = None
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)  # "accessing the database during app initialization"
-            row = StoreSettings.objects.filter(pk=1).values("time_zone").first()
-    except DatabaseError:
-        pass
-    finally:
-        connection.close()
+    from .startup import store_row
+    row = store_row("time_zone")  # on its own thread: uvicorn starts in async code
     if row:
         apply_time_zone(row["time_zone"])
 

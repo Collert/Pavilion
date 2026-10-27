@@ -16,7 +16,6 @@ import signal
 import sys
 import threading
 import uuid
-import warnings
 from pathlib import Path
 
 from django.conf import settings
@@ -59,17 +58,8 @@ def load():
     if "test" in sys.argv[1:2]:
         RUNNING.update(on=[c for c, _n in settings.LANGUAGES], default=settings.LANGUAGE_CODE, auto=True)
         return
-    from django.db import DatabaseError, connection
-    from .models import StoreSettings
-    row = None
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)  # "accessing the database during app initialization"
-            row = StoreSettings.objects.filter(pk=1).values("languages", "default_language", "match_device").first()
-    except DatabaseError:
-        pass
-    finally:
-        connection.close()
+    from .startup import store_row
+    row = store_row("languages", "default_language", "match_device")  # on its own thread: uvicorn starts in async code
     if row:
         apply(row["languages"], row["default_language"], row["match_device"])
     else:
