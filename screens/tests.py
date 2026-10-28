@@ -525,6 +525,7 @@ class SessionTests(TestCase):
         two = ScreenSession.objects.create(screen=self.screen, name="Register 2 display")
         page = self.client.get(reverse("screen_session", args=[self.screen.slug, one.code]))
         self.assertContains(page, one.code)  # until a register pairs
+        self.assertContains(page, 'class="session-code-slot"')  # a corner chip, not a cell of the screen's grid
         self.assertIn("popups", page.context["topics"])
 
         response = self.client.post(reverse("screens_pair"), json.dumps({"code": one.code.replace("-", "").lower()}),

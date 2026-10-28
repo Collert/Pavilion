@@ -20,7 +20,7 @@
     <main id="page" class="screen" data-now="{{ now_ms }}"
           style="--u: min(100vw / {{ screen.width }}, 100vh / {{ screen.height }}); --screen-bg: {{ screen.background }}; --screen-pad: calc(var(--u) * {{ screen.padding }})">
         {{ rendered.html }}
-        {% if session %}<div id="session-code" data-region>{% if not session.paired_by %}<div class="session-code">{% blocktrans with n=session.name %}{{ n }} · Pair a register with{% endblocktrans %} <b>{{ session.code }}</b></div>{% endif %}</div>{% endif %}
+        {% if session %}<div id="session-code" class="session-code-slot" data-region>{% if not session.paired_by %}<div class="session-code">{% blocktrans with n=session.name %}{{ n }} · Pair a register with{% endblocktrans %} <b>{{ session.code }}</b></div>{% endif %}</div>{% endif %}
     </main>
     {% if audio %}
     {{ audio|json_script:"screen-audio" }}

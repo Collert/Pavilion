@@ -39,6 +39,7 @@
 .os-prompt small { display: block; font-size: calc(var(--u) * 22); color: rgba(246, 239, 230, .6); margin-top: calc(var(--u) * 6); }
 
 /* A session's pairing code, until a register pairs with it */
+.session-code-slot { display: contents; } /* its region takes no grid cell: the screen's layout keeps the whole page */
 .session-code { position: fixed; right: calc(var(--u) * 24); bottom: calc(var(--u) * 24); z-index: 40; display: flex; align-items: center; gap: calc(var(--u) * 14); padding: calc(var(--u) * 12) calc(var(--u) * 18); border-radius: calc(var(--u) * 18); background: rgba(20, 38, 31, .88); color: #FFFFFF; font-size: calc(var(--u) * 18); font-weight: 700; }
 .session-code b { padding: calc(var(--u) * 4) calc(var(--u) * 12); border-radius: calc(var(--u) * 8); background: #14261F; color: #F4A93B; font-size: calc(var(--u) * 24); letter-spacing: .12em; }
 
