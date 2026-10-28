@@ -49,7 +49,7 @@
 .image-box { width: 96px; height: 54px; flex: none; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--soft); box-shadow: inset 0 0 0 2px #E1E7E3; font-size: 10px; font-weight: 800; color: #9AA8A1; }
 .image-box.square { width: 54px; }
 .image-box img { width: 100%; height: 100%; object-fit: cover; }
-.upload-btn { position: relative; height: 36px; padding: 0 12px; border-radius: 12px; background: var(--mint); color: var(--brand); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; cursor: pointer; }
+.upload-btn { position: relative; height: 36px; padding: 0 12px; border-radius: 12px; background: var(--mint); color: var(--brand); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .upload-btn:focus-within { outline: 3px solid var(--brand); outline-offset: 2px; }
 .remove-btn { height: 36px; padding: 0 10px; border: none; border-radius: 12px; background: transparent; color: var(--red); font-size: 13px; font-weight: 800; }
 .segs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--soft); }

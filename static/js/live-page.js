@@ -12,7 +12,8 @@
 // - forms with data-keypad get an on-screen keypad ([data-key] buttons) for their amount field; data-reset clears
 //   the form after it's sent; a form with data-search submits itself as you type (a POST one saves as you type: while
 //   you type in a region, only its [data-calc] parts are swapped). A form with data-queue sends its last submit after
-//   one in flight instead of dropping it; a region with data-keep is left alone by background answers.
+//   one in flight instead of dropping it; a region with data-keep is left alone by background answers. The button
+//   that sent a POST is aria-busy until the answer is in (pages style it, e.g. a spinner while a photo uploads).
 // Regions marked data-transient (toasts) are only taken from responses to your own actions. A form with
 // data-navigate is left to the browser (a full page load), for answers that go to another site.
 // Without JavaScript, everything still works as plain forms and links.
@@ -168,17 +169,19 @@ async function load(url, init = {}, { transient = true, history: mode = "push" }
 }
 
 let queued = null;
-async function act(url, init, after, { queue = false } = {}) {
+async function act(url, init, after, { queue = false, button = null } = {}) {
     if (busy) {  // one action at a time: a double tap doesn't send twice
-        if (queue) queued = () => act(url, init, after, { queue });  // but typing that's still saving is sent after
+        if (queue) queued = () => act(url, init, after, { queue, button });  // but typing that's still saving is sent after
         return;
     }
     busy = true;
+    button?.setAttribute("aria-busy", "true");
     try {
         await load(url, init);
         after?.();
     } finally {
         busy = false;
+        button?.removeAttribute("aria-busy");  // (when the answer kept it on the page)
         const next = queued;
         queued = null;
         next?.();
@@ -264,7 +267,7 @@ export function livePage({ topics = [] } = {}) {
             return;
         }
         act(action, { method: "POST", body: data }, () => form.hasAttribute("data-reset") && form.reset(),
-            { queue: form.hasAttribute("data-search") || form.hasAttribute("data-queue") });
+            { queue: form.hasAttribute("data-search") || form.hasAttribute("data-queue"), button: submitter });
     });
 
     document.addEventListener("click", (event) => {

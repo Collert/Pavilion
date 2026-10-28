@@ -10,6 +10,7 @@ document.addEventListener("change", (event) => {
     if (!form || event.target.matches("[data-no-preview]")) return;  // e.g. picking days in a menu sent by its own button
     // Files kept as soon as they're picked (a restock's receipt): send it now, then clear the field
     if (event.target.matches("[data-upload]")) {
+        event.target.closest("label")?.setAttribute("aria-busy", "true");  // a spinner until the answer swaps the region
         form.requestSubmit(form.querySelector("[data-preview]"));
         return;
     }
@@ -57,9 +58,17 @@ document.addEventListener("focusin", (event) => {
     form.requestSubmit(form.querySelector("[data-preview]"));
 });
 
-// Saving sends the photo, so let the answer replace its region again
+// Saving sends the photo, so let the answer replace its region again. Previews leave a chosen photo out (photo_pending
+// tells the server there is one): a big picture was sent again with every change, and a Save pressed meanwhile was
+// dropped. (live-page.js reads the form right after this, so the field is disabled only for that.)
 document.addEventListener("submit", (event) => {
-    if (event.target.matches("form[data-editor]") && SAVES.includes(event.submitter?.value)) {
-        event.target.querySelectorAll("[data-keep]").forEach((node) => node.removeAttribute("data-keep"));
+    const form = event.target;
+    if (!form.matches("form[data-editor]")) return;
+    if (SAVES.includes(event.submitter?.value)) {
+        form.querySelectorAll("[data-keep]").forEach((node) => node.removeAttribute("data-keep"));
+    } else if (event.submitter?.matches("[data-preview]")) {
+        const files = [...form.querySelectorAll('input[type="file"]:not([data-upload], :disabled)')];
+        files.forEach((input) => { input.disabled = true; });
+        setTimeout(() => files.forEach((input) => { input.disabled = false; }));
     }
 }, true);

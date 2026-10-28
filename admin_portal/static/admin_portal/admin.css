@@ -368,6 +368,18 @@ button.back-link { border: none; background: none; font-family: inherit; cursor:
 @keyframes drift { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fadeOut { to { opacity: 0; } }
+/* A button whose form is being sent (live-page.js sets aria-busy until the answer is in; a photo can take a while),
+   or a file's upload label (editor.js, until its region is swapped): its icon turns into a spinner, shown after a moment so quick saves don't flicker */
+:is(button, label)[aria-busy="true"] { cursor: progress; }
+:is(button, label)[aria-busy="true"] > svg { display: none; }
+:is(button, label)[aria-busy="true"]::before {
+    content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; box-sizing: border-box;
+    border: 2.4px solid currentColor; border-right-color: transparent; opacity: 0;
+    animation: busyIn 0s .15s forwards, busySpin .7s linear infinite;
+}
+@keyframes busyIn { to { opacity: 1; } }
+@keyframes busySpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { :is(button, label)[aria-busy="true"]::before { opacity: 1; } }  /* (no animations there: a still ring) */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* ---------- narrow screens: the rail becomes a bar on top ---------- */
