@@ -139,7 +139,7 @@ def _sheet(request, post):
         if not combo or not combo.available:
             return None
         first = next((p.dish for p in combo.default_picks()), None)
-        return {"kind": "combo", "obj": combo, "id": combo.id, "picture": storefront.picture(first or combo, t.get("pictures", "photos")),
+        return {"kind": "combo", "obj": combo, "id": combo.id, "picture": storefront.picture(combo if combo.image or not first else first, t.get("pictures", "photos")),
                 "diets": [], "allergens": "", **store_cart.combo_sheet(combo, post)}
     return None
 

@@ -764,6 +764,24 @@ class ComboTests(AdminFixture, TestCase):
     def post(self, draft, op, **extra):
         return self.client.post(reverse("admin_combo", args=[self.combo.id]), {**combo_fields(draft), "op": op, **extra})
 
+    def test_photo_is_saved_with_the_combo(self):
+        import io
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        picture = io.BytesIO()
+        Image.new("RGB", (4, 4), "orange").save(picture, "PNG")
+        with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media):
+            e = self.post(self.draft(), "preview", photo_pending="1").context["e"]
+            self.assertTrue(e["can_save"])  # a chosen photo is an unsaved change
+            self.assertContains(self.client.get(reverse("admin_combo", args=[self.combo.id])), 'name="photo"')
+            self.post(self.draft(), "save", photo=SimpleUploadedFile("lunch.png", picture.getvalue(), content_type="image/png"))
+            combo = Combo.objects.get(pk=self.combo.pk)
+            self.assertTrue(combo.image.name.startswith("dish_images/lunch"))
+            self.assertIn(combo.image.url, self.client.get(reverse("admin_combo", args=[self.combo.id])).content.decode())
+            self.post(self.draft(), "save", photo=SimpleUploadedFile("bad.png", b"not a picture", content_type="image/png"))
+            self.assertEqual(Combo.objects.get(pk=self.combo.pk).image.name, combo.image.name)
+
     def test_list_kpis_and_filters(self):
         self.place([self.lunch(self.tea)], timezone.now())  # tea is a 0.50 upgrade
         self.place([self.lunch()], timezone.now())

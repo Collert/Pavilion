@@ -607,7 +607,9 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   alone by background answers.
 - **Combos** (`admin_combos`, `combos.py`): 30-day KPIs (sold, average saving against the default picks bought
   separately, upcharge revenue, best seller), All/Active/Hidden(/Archived) filters, search by combo or dish, rows
-  with choices, price, saving, sold and % upgraded. The editor is one form like the dish editor: choices with picks
+  with choices, price, saving, sold and % upgraded. The editor is one form like the dish editor: a photo
+  (`Combo.image`, saved with Save like a dish's; menu boards and the store's combo sheet show it, the sheet falling
+  back to the first default pick's photo), choices with picks
   −/+, required switch, move, remove, default dish and upcharge (or "in combo" price when percent off), the price
   card with the saving bar and warnings, a register preview and the menus with an active switch. Editors share
   `editor.js` (`form[data-editor]`, `[data-preview]`) and the editor styles in `admin.css`.

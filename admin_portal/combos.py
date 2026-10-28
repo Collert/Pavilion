@@ -329,14 +329,14 @@ def combo_list(query="", show="all"):
 
 # ---------- editor ----------
 
-def editor(combo, draft, leave_ask=False):
+def editor(combo, draft, leave_ask=False, photo_pending=False):
     dish_ids = {o["dish"] for s in draft["slots"] for o in s["options"]}
     dishes = {str(d.id): d for d in Dish.objects.filter(pk__in=[i for i in (_int(x) for x in dish_ids) if i]).select_related("station")}
     p = prices(draft, dishes)
     percent = draft["pricing"] == Combo.PERCENT
     off = _dec(draft["percent_off"]) or Decimal("0")
     errors = problems(draft)
-    dirty = is_dirty(draft, combo)
+    dirty = photo_pending or is_dirty(draft, combo)  # a photo chosen but not saved yet
     stations = list(Station.objects.filter(archived=False))
     choices = [d for d in Dish.objects.filter(archived=False).select_related("station").order_by("station__position", "title")]
 

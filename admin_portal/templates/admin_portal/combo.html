@@ -12,7 +12,7 @@ slot-0-opt-1-price...).
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% if e.combo.pk %}{% url 'admin_combo' e.combo.id %}{% else %}{% url 'admin_combo_new' %}{% endif %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.combo.pk %}{% url 'admin_combo' e.combo.id %}{% else %}{% url 'admin_combo_new' %}{% endif %}" enctype="multipart/form-data" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="combo-head" data-region>
@@ -40,13 +40,26 @@ slot-0-opt-1-price...).
 
 <div class="editor-grid">
     <div class="editor-col">
-        <section class="card" aria-label="{% trans 'Basics' %}" id="combo-basics" data-region>
+        <section class="card combo-basics-card" aria-label="{% trans 'Basics' %}">
+            <div class="photo-col" id="combo-photo" data-region>
+                <div class="photo">
+                    <img id="photo-preview" {% if e.combo.image %}src="{{ e.combo.image.url }}"{% else %}hidden{% endif %} alt="{% trans 'Combo photo' %}">
+                    {% if not e.combo.image %}<span class="disp photo-letter">{{ d.title|slice:":1" }}</span>{% endif %}
+                </div>
+                <label class="photo-btn">
+                    <input type="file" name="photo" accept="image/*" class="visually-hidden" aria-label="{% trans 'Upload a photo' %}">
+                    <input type="hidden" name="photo_pending" value="">
+                    {% icon "M4 8h3l2-3h6l2 3h3v11H4z M12 9.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z" 15 2.2 %}<span class="photo-label">{% if e.combo.image %}{% trans "Change photo" %}{% else %}{% trans "Add a photo" %}{% endif %}</span>
+                </label>
+            </div>
+            <div class="combo-fields" id="combo-basics" data-region>
             <div class="basics-grid">
                 <label><span class="lbl">{% trans "Combo name" %}</span><input class="field" name="title" value="{{ d.title }}" maxlength="140"></label>
                 <label><span class="lbl">{% trans "Name on kitchen tickets" %}</span><input class="field ticket" name="ticket_name" value="{{ d.ticket_name }}" maxlength="12"></label>
             </div>
             <label class="block-label"><span class="lbl">{% trans "Description" %}</span><textarea class="field" name="description" rows="2" placeholder="{% trans 'Fills in from the choices below until you write your own' %}">{{ d.description }}</textarea></label>
             <input type="hidden" name="description_auto" value="{{ d.auto }}">
+            </div>
         </section>
 
         <section class="card" aria-label="{% trans 'Choices' %}" id="combo-slots" data-region>
