@@ -68,7 +68,7 @@ class Schedule:
         self.menus = list(menus if menus is not None else Menu.objects.all())
         self.by_id = {m.id: m for m in self.menus}
         self.rules = {}
-        for rule in MenuRule.objects.filter(menu__in=self.menus).order_by("id"):
+        for rule in MenuRule.objects.filter(menu__in=[m for m in self.menus if m.pk]).order_by("id"):  # (a new menu being edited has none)
             self.rules.setdefault(rule.menu_id, []).append(rule)
 
     def segments(self, menu):
@@ -92,7 +92,7 @@ class Schedule:
         return any(a <= minute < b for a, b in self.segments(menu))
 
     def live(self, now=None):
-        return [m for m in sorted(self.menus, key=lambda m: (m.position, m.id)) if self.is_live(m, now)]
+        return [m for m in sorted(self.menus, key=lambda m: (m.position, m.id or 0)) if self.is_live(m, now)]
 
     def next_change(self, menu, now=None):
         """'Turns off today at 9:00 PM' style text for the next weekly change, or ''."""

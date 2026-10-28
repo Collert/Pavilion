@@ -13,7 +13,7 @@ other editors. Buying and stock are the item's ingredient; how it's counted deci
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_disposable' e.disposable.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.disposable.pk %}{% url 'admin_disposable' e.disposable.id %}{% else %}{% url 'admin_disposable_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="disposable-head" data-region>
@@ -26,7 +26,7 @@ other editors. Buying and stock are the item's ingredient; how it's counted deci
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.disposable.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -152,7 +152,8 @@ other editors. Buying and stock are the item's ingredient; how it's counted deci
             <div class="hint small top10">{{ e.runway }}</div>
         </section>
 
-        {% if e.disposable.ingredient.archived %}
+        {% if not e.disposable.pk %}
+        {% elif e.disposable.ingredient.archived %}
         <button class="text-btn" name="op" value="restore">{% trans "Restore this item" %}</button>
         {% else %}
         <button class="text-btn danger" name="op" value="archive">{% trans "Archive this item" %}</button>

@@ -121,7 +121,16 @@ def _plain(number):
     return f"{number:g}" if isinstance(number, float) else str(number)
 
 
+def new_recipe():
+    """An unsaved recipe for the New recipe editor (created on Save); it starts with one empty step."""
+    return Recipe(title="", yield_quantity=10)
+
+
 def draft_from_recipe(recipe):
+    if not recipe.pk:
+        return {"title": recipe.title, "target": "", "yield": _plain(recipe.yield_quantity), "total": str(recipe.total_minutes),
+                "ings": [], "steps": [{"id": "", "title": "", "text": "", "scene": RecipeStep._meta.get_field("scene").default,
+                                       "timer": False, "mins": ""}], "sel": 0}
     target = recipe.target()
     return {
         "title": recipe.title, "target": target_key(*target) if target else "", "yield": _plain(recipe.yield_quantity),

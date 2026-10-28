@@ -19,9 +19,7 @@ combos. Filters are links, search (combo or dish names) submits as you type. Ref
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search combos' %}" placeholder="{% trans 'Search combos or dishes' %}">
     </form>
-    <form method="post" action="{% url 'admin_combo_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New combo" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_combo_new' %}">{% icon "plus" 18 2.4 %}{% trans "New combo" %}</a>
 </header>
 
 <div class="combo-kpis" id="combos-kpis" data-region>

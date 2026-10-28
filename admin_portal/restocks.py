@@ -90,6 +90,12 @@ def line_for(ingredient, cases=None):
 
 # ---------- drafts ----------
 
+def new_restock():
+    """An unsaved restock for the New restock editor (created on Save), or None without a supplier to order from."""
+    supplier = Supplier.objects.order_by("name").first()
+    return Restock(supplier=supplier, expected_on=timezone.localdate() + datetime.timedelta(days=3)) if supplier else None
+
+
 def draft_from_restock(restock):
     iso = lambda d: d.isoformat() if d else ""  # noqa: E731
     return {
@@ -328,7 +334,7 @@ def restock_list(query="", show="all"):
 
 def editor(restock, draft, leave_ask=False):
     issue = problems(draft, restock)
-    dirty = is_dirty(draft, restock)
+    dirty = is_dirty(draft, restock) or not restock.pk  # a new order can be saved as it is
     locked = bool(restock.received_at)
     supplier = Supplier.objects.filter(pk=_int(draft["supplier"])).first()
     type_of = kinds()
@@ -409,7 +415,7 @@ def editor(restock, draft, leave_ask=False):
         receipt = {"name": name, "url": restock.receipt.url, "image": image, "kind": _("Photo") if image else "PDF", "size": size_text}
     removable = restock.status != Restock.DELIVERED
     return {
-        "restock": restock, "d": draft, "title": restock.number, "supplier": supplier, "locked": locked,
+        "restock": restock, "d": draft, "title": restock.number if restock.pk else _("New restock"), "supplier": supplier, "locked": locked,
         "status": issue or (_("Unsaved changes") if dirty else _("All changes saved")),
         "status_kind": "bad" if issue else "dirty" if dirty else "", "can_save": dirty and not issue, "leave_ask": leave_ask,
         "steps": steps, "dates": [{"name": key, "label": label, "value": draft[key]} for key, label in dates],

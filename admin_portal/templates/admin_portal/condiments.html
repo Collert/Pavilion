@@ -21,9 +21,7 @@ bought. Filters are links, search (condiment or supplier) submits as you type. R
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search condiments' %}" placeholder="{% trans 'Search condiments' %}">
     </form>
-    <form method="post" action="{% url 'admin_condiment_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New condiment" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_condiment_new' %}">{% icon "plus" 18 2.4 %}{% trans "New condiment" %}</a>
 </header>
 
 <div class="comp-kpis" id="condiments-kpis" data-region>

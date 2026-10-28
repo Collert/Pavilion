@@ -13,7 +13,7 @@ which changed); Fish/Shellfish and Dairy/Egg lock the fish and animal switches o
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_ingredient' e.ingredient.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.ingredient.pk %}{% url 'admin_ingredient' e.ingredient.id %}{% else %}{% url 'admin_ingredient_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="ingredient-head" data-region>
@@ -25,7 +25,7 @@ which changed); Fish/Shellfish and Dairy/Egg lock the fish and animal switches o
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.ingredient.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -142,7 +142,8 @@ which changed); Fish/Shellfish and Dairy/Egg lock the fish and animal switches o
             </div>
         </section>
 
-        {% if e.ingredient.archived %}
+        {% if not e.ingredient.pk %}
+        {% elif e.ingredient.archived %}
         <button class="text-btn" name="op" value="restore">{% trans "Restore this ingredient" %}</button>
         {% else %}
         <button class="text-btn{% if not e.archive_off %} danger{% endif %}" name="op" value="archive" {% if e.archive_off %}disabled{% endif %}>{{ e.archive_text }}</button>

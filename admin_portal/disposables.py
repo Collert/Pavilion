@@ -93,6 +93,12 @@ def rule_text(disposable, dishes):
 
 # ---------- drafts ----------
 
+def new_disposable():
+    """An unsaved disposable for the New item editor (Save creates it and its ingredient)."""
+    return Disposable(ingredient=Ingredient(title="", unit_of_measurement="ea", category="other", pack_size=100),
+                      order_types=["pickup", "delivery"])
+
+
 def draft_from_disposable(disposable):
     ingredient = disposable.ingredient
     return {

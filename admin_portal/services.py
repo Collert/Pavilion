@@ -116,6 +116,12 @@ def booked_30_days(since=None):
 
 # ---------- drafts ----------
 
+def new_service():
+    """An unsaved service for the New service editor (created on Save)."""
+    return Service(title="", category=Service.STAFF, pricing=Service.HOUR, details=dict(Service.DETAILS[Service.STAFF]),
+                   online=False, active=False)
+
+
 def draft_from_service(service, qa=None, qb=None):
     if qa is None:
         qa = 1 if service.pricing == Service.FLAT else max(service.minimum, 1)

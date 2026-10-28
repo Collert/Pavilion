@@ -15,7 +15,7 @@ preview is the real menu board (screens/menu_board_frame.html) drawn small, turn
 <script type="module" src="{% static 'admin_portal/menu-preview.js' %}"></script>{% endblock %}
 
 {% block content %}
-<form method="post" action="{% url 'admin_menu' menu.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if menu.pk %}{% url 'admin_menu' menu.id %}{% else %}{% url 'admin_menu_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <div id="menu-state" data-region><input type="hidden" name="state" value="{{ state }}"></div>
@@ -29,7 +29,7 @@ preview is the real menu board (screens/menu_board_frame.html) drawn small, turn
         </div>
     </div>
     <span class="saved-text {{ status_kind }}">{{ save_status }}</span>
-    <button class="btn-light danger-text" name="op" value="delete" onclick="return confirm(gettext('Delete this menu?'))">{% trans "Delete" %}</button>
+    {% if menu.pk %}<button class="btn-light danger-text" name="op" value="delete" onclick="return confirm(gettext('Delete this menu?'))">{% trans "Delete" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% if menu.draft %}{% trans "Save and publish" %}{% else %}{% trans "Save" %}{% endif %}</button>
 </header>
 

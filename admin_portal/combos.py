@@ -78,15 +78,26 @@ def prices(draft, dishes):
     return {"ala": ala, "combo": combo, "max": top, "save": ala - combo}
 
 
+def new_combo():
+    """An unsaved combo for the New combo editor (created on Save); its starting slots are in its draft."""
+    return Combo(title="", ticket_name="", active=False)
+
+
 def draft_from_combo(combo):
+    if combo.pk:
+        menus = sorted(m.id for m in combo.menu.all())
+        slots = [{"id": str(s.id), "title": s.title, "picks": str(s.picks), "required": s.required,
+                  "default": next((str(o.dish_id) for o in s.options.all() if o.is_default), ""),
+                  "options": [{"id": str(o.id), "dish": str(o.dish_id), "price": str(o.price)} for o in s.options.all()]}
+                 for s in combo.slots.all()]
+    else:  # a new combo starts with three choices
+        menus = []
+        slots = [{"id": "", "title": str(title), "picks": "1", "required": True, "default": "", "options": []}
+                 for title in (_("Main"), _("Side"), _("Drink"))]
     return {
         "title": combo.title, "ticket_name": combo.ticket_name, "description": combo.description,
         "pricing": combo.pricing, "price": str(combo.price), "percent_off": f"{combo.percent_off.normalize():f}",
-        "active": combo.active, "menus": sorted(m.id for m in combo.menu.all()),
-        "slots": [{"id": str(s.id), "title": s.title, "picks": str(s.picks), "required": s.required,
-                   "default": next((str(o.dish_id) for o in s.options.all() if o.is_default), ""),
-                   "options": [{"id": str(o.id), "dish": str(o.dish_id), "price": str(o.price)} for o in s.options.all()]}
-                  for s in combo.slots.all()],
+        "active": combo.active, "menus": menus, "slots": slots,
     }
 
 

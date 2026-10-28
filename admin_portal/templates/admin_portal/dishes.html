@@ -19,9 +19,8 @@ search submits as you type (data-search). Refetched on "menus" and "inventory" n
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search dishes' %}" placeholder="{% trans 'Search dishes' %}">
     </form>
-    <form method="post" action="{% url 'admin_dish_new' %}">{% csrf_token %}
-        <button class="btn-dark" {% if not has_stations %}disabled{% endif %}>{% icon "plus" 18 2.4 %}{% trans "New dish" %}</button>
-    </form>
+    {% if has_stations %}<a class="btn-dark" href="{% url 'admin_dish_new' %}">{% icon "plus" 18 2.4 %}{% trans "New dish" %}</a>
+    {% else %}<button class="btn-dark" type="button" disabled>{% icon "plus" 18 2.4 %}{% trans "New dish" %}</button>{% endif %}
 </header>
 
 <div class="list-tools" id="dishes-tools" data-region>

@@ -123,22 +123,31 @@ def _plain(number):
     return f"{number:g}" if isinstance(number, float) else str(number)
 
 
+def new_dish():
+    """An unsaved dish for the New dish editor (created on Save), or None without a station to make it at."""
+    station = Station.objects.filter(archived=False).first()
+    return Dish(title="", price=Decimal("12.00"), station=station, prep_minutes=6) if station else None
+
+
 def draft_from_dish(dish):
+    def rows(name):  # a new dish has none yet
+        return getattr(dish, name).all() if dish.pk else []
+
     return {
         "title": dish.title, "price": str(dish.price), "description": dish.description,
         "ticket_name": dish.ticket_name, "prep_minutes": str(dish.prep_minutes), "station": str(dish.station_id),
-        "availability": dish.availability, "menus": sorted(m.id for m in dish.menu.all()),
+        "availability": dish.availability, "menus": sorted(m.id for m in rows("menu")),
         "catering": dish.catering, "catering_min": str(dish.catering_min),
-        "tiers": [{"quantity": str(t.quantity), "price": str(t.price)} for t in dish.catering_prices.all()],
+        "tiers": [{"quantity": str(t.quantity), "price": str(t.price)} for t in rows("catering_prices")],
         "parts": [{"id": str(dc.id), "component": str(dc.component_id), "quantity": _plain(dc.quantity), "adjustable": dc.adjustable,
                    "label": dc.choice_title,
                    "choices": [{"id": str(ch.id), "component": str(ch.component_id), "price": str(ch.price)} for ch in dc.choices.all()]}
-                  for dc in dish.dishcomponent_set.all()],
+                  for dc in rows("dishcomponent_set")],
         "groups": _groups_with_addons([
             {"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required, "addons": g.addons,
              "options": [{"id": str(o.id), "title": o.title, "price": str(o.price), "component": str(o.component_id or ""),
                           "quantity": _plain(o.quantity)} for o in g.options.all()]}
-            for g in dish.option_groups.all()]),
+            for g in rows("option_groups")]),
     }
 
 

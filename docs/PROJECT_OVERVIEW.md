@@ -589,7 +589,11 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   the page's state is a draft (`draft_from_dish` / `draft_from_post`, rows as numbered fields); row buttons (+ break,
   × remove, + option...) and changed fields (`dish-editor.js` posts `op=preview`) re-render the draft with the sums
   worked out, unsaved; Save writes it all (`save_draft`), Back asks when there are unsaved changes, Duplicate saves
-  the edited copy as a new dish, Archive takes it off every menu. Sections: basics and photo (previewed in the
+  the edited copy as a new dish, Archive takes it off every menu. New (`<page>/new`, a link) opens the same editor
+  on an unsaved object with the old starting values (`new_dish()`, `new_combo()`... in each page's module) and
+  posts back to `/new`; nothing is created until Save, and Duplicate, Archive and Delete wait until it's saved
+  (`views._saved_only`). Every editor (menus, dishes, combos, recipes, services, components, ingredients,
+  condiments, disposables, restocks) works this way; a new restock takes its receipt once it's saved. Sections: basics and photo (previewed in the
   browser, sent with Save), catering price breaks with warnings, the recipe (amounts in the smallest unit,
   adjustable, cost), modifier groups (pick one/any, required), availability, menus, allergens and diets from the
   ingredients, and the last 7 days (sold includes combos; sales and profit count it sold on its own).

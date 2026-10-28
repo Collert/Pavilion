@@ -21,9 +21,7 @@ Filters are links, search (order, supplier or item) submits as you type. Refetch
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search restocks' %}" placeholder="{% trans 'Search orders, suppliers, items' %}">
     </form>
-    <form method="post" action="{% url 'admin_restock_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New restock" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_restock_new' %}">{% icon "plus" 18 2.4 %}{% trans "New restock" %}</a>
 </header>
 
 <div class="comp-kpis" id="restocks-kpis" data-region>

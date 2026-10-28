@@ -19,9 +19,7 @@ attached to. Filters are links, search (recipe or what it makes) submits as you 
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search recipes' %}" placeholder="{% trans 'Search recipes' %}">
     </form>
-    <form method="post" action="{% url 'admin_recipe_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New recipe" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_recipe_new' %}">{% icon "plus" 18 2.4 %}{% trans "New recipe" %}</a>
 </header>
 
 <nav class="filter-chips" aria-label="{% trans 'Show' %}" id="recipes-filters" data-region>

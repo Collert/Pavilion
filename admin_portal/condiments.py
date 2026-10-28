@@ -91,6 +91,12 @@ def stats(since=None):
 
 # ---------- drafts ----------
 
+def new_condiment():
+    """An unsaved condiment for the New condiment editor (Save creates it and its component)."""
+    component = Component(title="", unit_of_measurement="ea", category="sauce", crafting_option="craft")
+    return Condiment(component=component, served_as="cup", serving=_("2 oz cup"), price=Decimal("0.50"))
+
+
 def draft_from_condiment(condiment):
     component = condiment.component
     ingredient = bought_ingredient(component)
@@ -105,7 +111,8 @@ def draft_from_condiment(condiment):
         "inventory": _num(component.inventory or 0), "inventory_was": _num(component.inventory or 0), "par": _num(component.par or 0),
         "storage": component.storage.name if component.storage_id else "", "keeps_days": _num(component.keeps_days),
         "free": str(condiment.free_per_order), "price": f"{condiment.price:.2f}", "dine_in": condiment.dine_in,
-        "ask": condiment.ask_on_takeout, "pairs": sorted(str(d) for d in component.extra_uses.filter(dish__isnull=False).values_list("dish_id", flat=True)),
+        "ask": condiment.ask_on_takeout, "pairs": sorted(str(d) for d in component.extra_uses.filter(dish__isnull=False).values_list("dish_id", flat=True))
+                                                    if component.pk else [],
     }
 
 
@@ -196,7 +203,7 @@ def _canonical(draft):
 
 
 def is_dirty(draft, condiment):
-    return _canonical(draft) != _canonical(draft_from_condiment(condiment)) if condiment.pk else True
+    return _canonical(draft) != _canonical(draft_from_condiment(condiment))
 
 
 @transaction.atomic

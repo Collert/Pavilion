@@ -14,9 +14,7 @@ menus can be live at once and the higher one comes first on the register and onl
         <div class="page-kicker">{% trans "Menu" %}</div>
         <h1 class="disp page-title">{% trans "Menus" %}</h1>
     </div>
-    <form method="post" action="{% url 'admin_menu_new' %}">{% csrf_token %}
-        <button class="btn-amber">{% icon "plus" 18 2.4 %}{% trans "New menu" %}</button>
-    </form>
+    <a class="btn-amber" href="{% url 'admin_menu_new' %}">{% icon "plus" 18 2.4 %}{% trans "New menu" %}</a>
 </header>
 
 <section class="live-banner" aria-label="{% trans 'Live now' %}" id="menus-banner" data-region>

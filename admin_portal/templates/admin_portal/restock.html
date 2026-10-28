@@ -12,7 +12,7 @@ notes, the fee, tax and the receipt can change. The receipt is kept as soon as i
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_restock' e.restock.id %}" enctype="multipart/form-data" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.restock.pk %}{% url 'admin_restock' e.restock.id %}{% else %}{% url 'admin_restock_new' %}{% endif %}" enctype="multipart/form-data" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="restock-head" data-region>
@@ -24,7 +24,7 @@ notes, the fee, tax and the receipt can change. The receipt is kept as soon as i
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.restock.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -138,10 +138,11 @@ notes, the fee, tax and the receipt can change. The receipt is kept as soon as i
             </div>
             {% else %}
             <label class="drop">
-                <input type="file" name="receipt" accept="image/*,application/pdf" data-upload class="visually-hidden">
+                <input type="file" name="receipt" accept="image/*,application/pdf" data-upload class="visually-hidden" {% if not e.restock.pk %}disabled{% endif %}>
                 {% icon "M12 16V4 M7 9l5-5 5 5 M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" 26 2 %}
                 <span class="strong">{% trans "Add a photo or PDF" %}</span>
-                <span class="small muted">{% trans "Snap it on delivery, or upload the emailed invoice" %}</span>
+                {% if e.restock.pk %}<span class="small muted">{% trans "Snap it on delivery, or upload the emailed invoice" %}</span>
+                {% else %}<span class="small muted">{% trans "You can add it once the order is saved" %}</span>{% endif %}
             </label>
             {% endif %}
             {% if e.receipt_warn %}<div class="receipt-warn">{{ e.receipt_warn }}</div>{% endif %}
@@ -159,7 +160,7 @@ notes, the fee, tax and the receipt can change. The receipt is kept as soon as i
             </div>
         </section>
 
-        <button class="text-btn{% if e.removable %} danger{% endif %}" name="op" value="delete" {% if not e.removable %}disabled{% endif %}>{{ e.remove_text }}</button>
+        {% if e.restock.pk %}<button class="text-btn{% if e.removable %} danger{% endif %}" name="op" value="delete" {% if not e.removable %}disabled{% endif %}>{{ e.remove_text }}</button>{% endif %}
     </div>
 </div>
 </form>

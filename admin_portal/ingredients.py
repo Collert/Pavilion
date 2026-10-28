@@ -118,6 +118,11 @@ def uses(ingredient):
 
 # ---------- drafts ----------
 
+def new_ingredient():
+    """An unsaved ingredient for the New ingredient editor (created on Save)."""
+    return Ingredient(title="", unit_of_measurement="g", category="produce", pack_size=1000)
+
+
 def draft_from_ingredient(ingredient):
     return {
         "title": ingredient.title, "unit": ingredient.unit_of_measurement, "category": ingredient.category,

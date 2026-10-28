@@ -5,7 +5,6 @@ templates, forms that POST and redirect, static/js/live-page.js to keep them cur
 """
 import datetime
 import time
-from decimal import Decimal
 
 from urllib.parse import quote, urlencode
 
@@ -13,7 +12,6 @@ from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.db.models import Max
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import Http404, HttpResponse, JsonResponse
@@ -27,10 +25,10 @@ from django.utils.translation import gettext as _, gettext_lazy as _lazy, ngette
 from catering import flow as catering_flow
 from catering.models import CateringMessage, CateringOrder
 from catering.payments import PaymentFailed
-from inventory.models import Recipe, RecipeStep, Restock
+from inventory.models import Recipe, Restock
 from misc_tools.email import EmailError, send as send_email
 from pavilion.realtime import publish
-from pos_server.models import Combo, ComboSlot, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station, Supplier
+from pos_server.models import Combo, Component, Condiment, Dish, Disposable, Extra, Ingredient, Menu, Order, ReceiptLog, Refund, Station, Supplier
 from pos_server.refunds import RefundError, refund_order
 from services.models import Service
 
@@ -262,12 +260,10 @@ def menus(request):
     return page(request, "admin_portal/menus.html", "menus", {"m": menus_data.menu_list()})
 
 
-@admin_page("menus", edit="*")
-@require_POST
+@admin_page("menus", edit={"save"})
 def menu_new(request):
-    position = (Menu.objects.aggregate(last=Max("position"))["last"] or 0) + 1
-    menu = Menu.objects.create(title=_("New menu"), draft=True, position=position)
-    return redirect("admin_menu", menu_id=menu.id)
+    """The menu editor for a new one: nothing is created until Save."""
+    return _menu_editor(request, menus_data.new_menu())
 
 
 @admin_page("menus", edit={"save"}, delete={"delete"})
@@ -277,7 +273,10 @@ def menu_edit(request, menu_id):
     field (admin_portal/menus.py); POST merges the fields on screen and applies `op` (tab:…, toggle:…, add_rule:…,
     page:…, preview...) without saving. Save writes it (and publishes a draft); Back asks first when it's unsaved.
     """
-    menu = get_object_or_404(Menu, pk=menu_id)
+    return _menu_editor(request, get_object_or_404(Menu, pk=menu_id))
+
+
+def _menu_editor(request, menu):
     store = StoreSettings.load().name
 
     def show(draft, leave_ask=False):
@@ -296,7 +295,7 @@ def menu_edit(request, menu_id):
         if request.GET.get("tab") in menus_data.TABS:
             draft["ui"]["tab"] = request.GET["tab"]
         return show(draft)
-    op = request.POST.get("op", "")
+    op = _saved_only(request, menu)
     draft = menus_data.merge_post(menus_data.load_state(request.POST, menu), request.POST, menu)
     if op == "delete":
         menu.delete()
@@ -340,6 +339,12 @@ def menu_action(request, menu_id):
     return redirect("admin_menus")
 
 
+def _saved_only(request, obj, ops=("archive", "restore", "duplicate", "delete")):
+    """The posted op, or "preview" for one that needs a saved row (a new item exists only once it's saved)."""
+    op = request.POST.get("op", "")
+    return "preview" if not obj.pk and op in ops else op
+
+
 # ---------- dishes ----------
 
 @admin_page("dishes")
@@ -348,15 +353,14 @@ def dishes(request):
     return page(request, "admin_portal/dishes.html", "dishes", {"l": data, "has_stations": Station.objects.filter(archived=False).exists()})
 
 
-@admin_page("dishes", edit="*")
-@require_POST
+@admin_page("dishes", edit={"save"})
 def dish_new(request):
-    station = Station.objects.filter(archived=False).first()
-    if station is None:
+    """The dish editor for a new one: nothing is created until Save."""
+    dish = dishes_data.new_dish()
+    if dish is None:
         messages.error(request, _("Add a station first: every dish is made at one."))
         return redirect("admin_dishes")
-    dish = Dish.objects.create(title=_("New dish"), price=Decimal("12.00"), station=station, prep_minutes=6)
-    return redirect("admin_dish", dish_id=dish.id)
+    return _dish_editor(request, dish)
 
 
 @admin_page("dishes", edit={"duplicate", "save"}, delete={"archive", "restore"})
@@ -367,11 +371,14 @@ def dish_edit(request, dish_id):
     when there are unsaved changes; anything else (adding or removing rows, a changed field) shows the draft
     again with the sums worked out, without saving.
     """
-    dish = get_object_or_404(dishes_data.editor_queryset(), pk=dish_id)
+    return _dish_editor(request, get_object_or_404(dishes_data.editor_queryset(), pk=dish_id))
+
+
+def _dish_editor(request, dish):
     if request.method != "POST":
         return page(request, "admin_portal/dish.html", "dishes", {"e": dishes_data.editor(dish, dishes_data.draft_from_dish(dish))})
 
-    op = request.POST.get("op", "")
+    op = _saved_only(request, dish)
     draft = dishes_data.draft_from_post(request.POST)
     photo = bool(request.POST.get("photo_pending"))  # a photo chosen but not saved yet
     if op == "archive":
@@ -434,22 +441,22 @@ def combos(request):
     return page(request, "admin_portal/combos.html", "combos", {"l": data})
 
 
-@admin_page("combos", edit="*")
-@require_POST
+@admin_page("combos", edit={"save"})
 def combo_new(request):
-    combo = Combo.objects.create(title=_("New combo"), ticket_name=_("NEW CMB")[:12], active=False)
-    for position, title in enumerate([_("Main"), _("Side"), _("Drink")]):
-        ComboSlot.objects.create(combo=combo, title=title, position=position)
-    return redirect("admin_combo", combo_id=combo.id)
+    """The combo editor for a new one: nothing is created until Save."""
+    return _combo_editor(request, combos_data.new_combo())
 
 
 @admin_page("combos", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def combo_edit(request, combo_id):
     """The combo editor, one form like the dish editor (see dish_edit for the `op`s)."""
-    combo = get_object_or_404(Combo.objects.prefetch_related("menu", "slots__options__dish"), pk=combo_id)
+    return _combo_editor(request, get_object_or_404(Combo.objects.prefetch_related("menu", "slots__options__dish"), pk=combo_id))
+
+
+def _combo_editor(request, combo):
     if request.method != "POST":
         return page(request, "admin_portal/combo.html", "combos", {"e": combos_data.editor(combo, combos_data.draft_from_combo(combo))})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, combo)
     draft = combos_data.draft_from_post(request.POST)
     if op == "archive":
         combo.archived = True
@@ -497,21 +504,22 @@ def recipes(request):
     return page(request, "admin_portal/recipes.html", "recipes", {"l": data})
 
 
-@admin_page("recipes", edit="*")
-@require_POST
+@admin_page("recipes", edit={"save"})
 def recipe_new(request):
-    recipe = Recipe.objects.create(title=_("New recipe"), yield_quantity=10)
-    RecipeStep.objects.create(recipe=recipe, title="")
-    return redirect("admin_recipe", recipe_id=recipe.id)
+    """The recipe editor for a new one: nothing is created until Save."""
+    return _recipe_editor(request, recipes_data.new_recipe())
 
 
 @admin_page("recipes", edit={"save"}, delete={"delete"})
 def recipe_edit(request, recipe_id):
     """The recipe editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    recipe = get_object_or_404(Recipe, pk=recipe_id)
+    return _recipe_editor(request, get_object_or_404(Recipe, pk=recipe_id))
+
+
+def _recipe_editor(request, recipe):
     if request.method != "POST":
         return page(request, "admin_portal/recipe.html", "recipes", {"e": recipes_data.editor(recipe, recipes_data.draft_from_recipe(recipe))})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, recipe)
     draft = recipes_data.apply_op(recipes_data.draft_from_post(request.POST), op, request.POST)
     if op == "leave":
         if not recipes_data.is_dirty(draft, recipe):
@@ -542,21 +550,22 @@ def services(request):
     return page(request, "admin_portal/services.html", "services", {"l": data})
 
 
-@admin_page("services", edit="*")
-@require_POST
+@admin_page("services", edit={"save"})
 def service_new(request):
-    service = Service.objects.create(title=_("New service"), category=Service.STAFF, pricing=Service.HOUR,
-                                     details=dict(Service.DETAILS[Service.STAFF]), online=False, active=False)
-    return redirect("admin_service", service_id=service.id)
+    """The service editor for a new one: nothing is created until Save."""
+    return _service_editor(request, services_data.new_service())
 
 
 @admin_page("services", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def service_edit(request, service_id):
     """The service editor, one form like the combo editor (Save; other buttons post an `op` and show the draft)."""
-    service = get_object_or_404(Service, pk=service_id)
+    return _service_editor(request, get_object_or_404(Service, pk=service_id))
+
+
+def _service_editor(request, service):
     if request.method != "POST":
         return page(request, "admin_portal/service.html", "services", {"e": services_data.editor(service, services_data.draft_from_service(service))})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, service)
     draft = services_data.draft_from_post(request.POST)
     if op in ("archive", "restore"):
         service.archived = op == "archive"
@@ -613,9 +622,7 @@ def _component_editor(request, component):
     if request.method != "POST":
         draft = components_data.draft_from_component(component)
         return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft)})
-    op = request.POST.get("op", "")
-    if not component.pk and op in ("archive", "restore", "duplicate"):
-        op = "preview"
+    op = _saved_only(request, component)
     draft = components_data.apply_op(components_data.draft_from_post(request.POST), op, request.POST, component)
     if op == "archive":
         parts, addons = components_data.usage(component)
@@ -662,21 +669,23 @@ def ingredients(request):
     return page(request, "admin_portal/ingredients.html", "ingredients", {"l": data})
 
 
-@admin_page("ingredients", edit="*")
-@require_POST
+@admin_page("ingredients", edit={"save"})
 def ingredient_new(request):
-    ingredient = Ingredient.objects.create(title=_("New ingredient"), unit_of_measurement="g", category="produce", pack_size=1000)
-    return redirect("admin_ingredient", ingredient_id=ingredient.id)
+    """The ingredient editor for a new one: nothing is created until Save."""
+    return _ingredient_editor(request, ingredients_data.new_ingredient())
 
 
 @admin_page("ingredients", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def ingredient_edit(request, ingredient_id):
     """The ingredient editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    ingredient = get_object_or_404(Ingredient.objects.select_related("supplier"), pk=ingredient_id)
+    return _ingredient_editor(request, get_object_or_404(Ingredient.objects.select_related("supplier"), pk=ingredient_id))
+
+
+def _ingredient_editor(request, ingredient):
     if request.method != "POST":
         draft = ingredients_data.draft_from_ingredient(ingredient)
         return page(request, "admin_portal/ingredient.html", "ingredients", {"e": ingredients_data.editor(ingredient, draft)})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, ingredient)
     draft = ingredients_data.draft_from_post(request.POST)
     if op == "archive":
         if ingredients_data.uses(ingredient):
@@ -725,22 +734,23 @@ def condiments(request):
     return page(request, "admin_portal/condiments.html", "condiments", {"l": data})
 
 
-@admin_page("condiments", edit="*")
-@require_POST
+@admin_page("condiments", edit={"save"})
 def condiment_new(request):
-    component = Component.objects.create(title=_("New condiment"), unit_of_measurement="ea", category="sauce", crafting_option="craft")
-    condiment = Condiment.objects.create(component=component, served_as="cup", serving=_("2 oz cup"), price=Decimal("0.50"))
-    return redirect("admin_condiment", condiment_id=condiment.id)
+    """The condiment editor for a new one: nothing is created until Save."""
+    return _condiment_editor(request, condiments_data.new_condiment())
 
 
 @admin_page("condiments", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def condiment_edit(request, condiment_id):
     """The condiment editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    condiment = get_object_or_404(Condiment.objects.select_related("component__storage", "component__recipe"), pk=condiment_id)
+    return _condiment_editor(request, get_object_or_404(Condiment.objects.select_related("component__storage", "component__recipe"), pk=condiment_id))
+
+
+def _condiment_editor(request, condiment):
     if request.method != "POST":
         draft = condiments_data.draft_from_condiment(condiment)
         return page(request, "admin_portal/condiment.html", "condiments", {"e": condiments_data.editor(condiment, draft)})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, condiment)
     draft = condiments_data.apply_op(condiments_data.draft_from_post(request.POST), op)
     if op in ("archive", "restore"):
         component = condiment.component
@@ -782,22 +792,23 @@ def disposables(request):
     return page(request, "admin_portal/disposables.html", "disposables", {"l": data})
 
 
-@admin_page("disposables", edit="*")
-@require_POST
+@admin_page("disposables", edit={"save"})
 def disposable_new(request):
-    ingredient = Ingredient.objects.create(title=_("New item"), unit_of_measurement="ea", category="other", pack_size=100)
-    disposable = Disposable.objects.create(ingredient=ingredient, order_types=["pickup", "delivery"])
-    return redirect("admin_disposable", disposable_id=disposable.id)
+    """The disposable editor for a new one: nothing is created until Save."""
+    return _disposable_editor(request, disposables_data.new_disposable())
 
 
 @admin_page("disposables", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def disposable_edit(request, disposable_id):
     """The disposable editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    disposable = get_object_or_404(Disposable.objects.select_related("ingredient__supplier", "ingredient__storage"), pk=disposable_id)
+    return _disposable_editor(request, get_object_or_404(Disposable.objects.select_related("ingredient__supplier", "ingredient__storage"), pk=disposable_id))
+
+
+def _disposable_editor(request, disposable):
     if request.method != "POST":
         draft = disposables_data.draft_from_disposable(disposable)
         return page(request, "admin_portal/disposable.html", "disposables", {"e": disposables_data.editor(disposable, draft)})
-    op = request.POST.get("op", "")
+    op = _saved_only(request, disposable)
     draft = disposables_data.apply_op(disposables_data.draft_from_post(request.POST), op)
     if op in ("archive", "restore"):
         ingredient = disposable.ingredient
@@ -839,27 +850,28 @@ def restocks(request):
     return page(request, "admin_portal/restocks.html", "restocks", {"l": data})
 
 
-@admin_page("restocks", edit="*")
-@require_POST
+@admin_page("restocks", edit={"save"})
 def restock_new(request):
-    supplier = Supplier.objects.order_by("name").first()
-    if supplier is None:
+    """The restock editor for a new order: nothing is created until Save (a receipt can be added after)."""
+    restock = restocks_data.new_restock()
+    if restock is None:
         messages.error(request, _("Add a supplier on an ingredient first."))
         return redirect("admin_restocks")
-    restock = Restock.objects.create(supplier=supplier, created_by=request.user,
-                                     expected_on=timezone.localdate() + datetime.timedelta(days=3))
-    return redirect("admin_restock", restock_id=restock.id)
+    return _restock_editor(request, restock)
 
 
 @admin_page("restocks", edit={"duplicate", "remove_receipt", "save"}, delete={"delete"})
 def restock_edit(request, restock_id):
     """The restock editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    restock = get_object_or_404(Restock.objects.select_related("supplier"), pk=restock_id)
+    return _restock_editor(request, get_object_or_404(Restock.objects.select_related("supplier"), pk=restock_id))
+
+
+def _restock_editor(request, restock):
     if request.method != "POST":
         return page(request, "admin_portal/restock.html", "restocks", {"e": restocks_data.editor(restock, restocks_data.draft_from_restock(restock))})
-    op = request.POST.get("op", "")
-    # A receipt is kept as soon as it's picked (it isn't part of the draft)
-    if request.FILES.get("receipt"):
+    op = _saved_only(request, restock, ("delete", "duplicate", "remove_receipt"))
+    # A receipt is kept as soon as it's picked (it isn't part of the draft); a new order takes one once it's saved
+    if request.FILES.get("receipt") and restock.pk:
         upload = request.FILES["receipt"]
         if upload.size > 20 * 1024 * 1024:
             messages.error(request, _("That file is too big (20 MB at most)."))

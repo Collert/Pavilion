@@ -77,7 +77,8 @@ class AccessTests(AdminFixture, TestCase):
         self.assertContains(page, '<body class="admin ro nodel">')
         self.assertContains(page, "View only")
         self.assertEqual(self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "preview", "title": "Changed"}).status_code, 200)
-        refused = self.client.post(reverse("admin_dish_new"), follow=True)
+        new = {**form_fields(dishes.draft_from_dish(dishes.new_dish()), title="New dish"), "op": "save"}
+        refused = self.client.post(reverse("admin_dish_new"), new, follow=True)
         self.assertContains(refused, "your groups don’t let you change it")
         self.assertEqual(Dish.objects.filter(title="New dish").count(), 0)
         self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "archive"})
@@ -85,7 +86,7 @@ class AccessTests(AdminFixture, TestCase):
         self.assertRedirects(self.client.get(reverse("admin_reports")), reverse("admin_dishes"))  # not theirs
 
         crew(self.staff, "admin.dishes.edit")
-        self.client.post(reverse("admin_dish_new"))
+        self.client.post(reverse("admin_dish_new"), new)
         self.assertEqual(Dish.objects.filter(title="New dish").count(), 1)
         self.assertContains(self.client.get(reverse("admin_dishes")), '<body class="admin nodel">')
         self.client.post(reverse("admin_dish", args=[dish.id]), {"op": "archive"})
@@ -404,16 +405,15 @@ class MenuEditorTests(AdminFixture, TestCase):
         return self.client.post(reverse("admin_menu", args=[menu.id]), {"state": context["state"], "op": op, **fields})
 
     def test_new_menus_start_as_drafts_and_publish_on_save(self):
-        response = self.client.post(reverse("admin_menu_new"))
+        count, url = Menu.objects.count(), reverse("admin_menu_new")
+        context = self.client.get(url + "?tab=schedule").context  # nothing is created until Save
+        self.assertEqual((Menu.objects.count(), context["save_status"]), (count, "Give the menu a name"))
+        self.assertRedirects(self.client.post(url, {"state": context["state"], "op": "leave"}), reverse("admin_menus"))
+        context = self.client.post(url, {"state": context["state"], "op": "manual", "title": "Brunch"}).context
+        self.assertEqual((Menu.objects.count(), context["save_status"]), (count, "Unsaved changes"))
+        response = self.client.post(url, {"state": context["state"], "op": "save", "title": "Brunch"})
         menu = Menu.objects.latest("id")
-        self.assertRedirects(response, reverse("admin_menu", args=[menu.id]))
-        self.assertTrue(menu.draft)
-        context = self.open(menu, "schedule")
-        context = self.post(menu, context, "manual").context
-        self.assertFalse(Menu.objects.get(pk=menu.pk).manual_on)  # not saved yet
-        self.assertEqual(context["save_status"], "Unsaved changes")
-        self.post(menu, context, "save", title="Brunch")
-        menu.refresh_from_db()
+        self.assertRedirects(response, reverse("admin_menu", args=[menu.id]) + "?tab=schedule")
         self.assertEqual((menu.title, menu.draft, menu.manual_on), ("Brunch", False, True))
         self.assertTrue(menu.is_live())
 
@@ -685,9 +685,14 @@ class DishTests(AdminFixture, TestCase):
         self.assertEqual(response.context["e"]["status"], "Every add-on needs a component")
 
     def test_new_dish_and_editor_render(self):
-        response = self.client.post(reverse("admin_dish_new"))
+        count, url = Dish.objects.count(), reverse("admin_dish_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Dish.objects.count(), e["status"], e["d"]["price"]), (count, "Needs a name and a price", "12.00"))
+        self.assertRedirects(self.client.post(url, {**form_fields(e["d"]), "op": "leave"}), reverse("admin_dishes"))
+        response = self.client.post(url, {**form_fields(e["d"], title="Soup"), "op": "save"})
         dish = Dish.objects.latest("id")
         self.assertRedirects(response, reverse("admin_dish", args=[dish.id]))
+        self.assertEqual((dish.title, Dish.objects.count()), ("Soup", count + 1))
         for target in (dish, self.burger, self.coffee):
             self.assertEqual(self.client.get(reverse("admin_dish", args=[target.id])).status_code, 200)
 
@@ -798,11 +803,16 @@ class ComboTests(AdminFixture, TestCase):
         self.assertEqual(Combo.objects.get(pk=self.combo.pk).price, Decimal("16.00"))
 
     def test_new_duplicate_leave_and_archive(self):
-        response = self.client.post(reverse("admin_combo_new"))
+        count, url = Combo.objects.count(), reverse("admin_combo_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Combo.objects.count(), [s["title"] for s in e["d"]["slots"]]), (count, ["Main", "Side", "Drink"]))
+        self.assertRedirects(self.client.post(url, {**combo_fields(e["d"]), "op": "leave"}), reverse("admin_combos"))
+        slots = [{**s, "options": [{"id": "", "dish": str(self.burger.id), "price": "0"}], "default": str(self.burger.id)} for s in e["d"]["slots"]]
+        response = self.client.post(url, {**combo_fields({**e["d"], "title": "Kids combo", "price": "9", "slots": slots}), "op": "save"})
         new = Combo.objects.latest("id")
         self.assertRedirects(response, reverse("admin_combo", args=[new.id]))
         self.assertEqual([s.title for s in new.slots.all()], ["Main", "Side", "Drink"])
-        self.assertFalse(new.active)
+        self.assertEqual((new.title, new.active, Combo.objects.count()), ("Kids combo", False, count + 1))
         self.assertRedirects(self.post(self.draft(), "leave"), reverse("admin_combos"))
         self.assertTrue(self.post(self.draft(), "leave", title="Changed").context["e"]["leave_ask"])
         response = self.post(self.draft(), "duplicate")
@@ -920,12 +930,17 @@ class RecipeTests(AdminFixture, TestCase):
 
     def test_new_leave_and_delete(self):
         from inventory.models import Recipe
-        response = self.client.post(reverse("admin_recipe_new"))
+        count, url = Recipe.objects.count(), reverse("admin_recipe_new")
+        page = self.client.get(url)  # nothing is created until Save
+        draft = page.context["e"]["d"]
+        self.assertEqual((Recipe.objects.count(), page.context["e"]["status"], len(draft["steps"])), (count, "Give the recipe a name", 1))
+        self.assertContains(page, "In Cookery")
+        self.assertRedirects(self.client.post(url, {**recipe_fields(draft), "op": "leave"}), reverse("admin_recipes"))
+        steps = [{**draft["steps"][0], "title": "Brine"}]
+        response = self.client.post(url, {**recipe_fields({**draft, "title": "Pickles", "total": "30", "steps": steps}), "op": "save"})
         new = Recipe.objects.latest("id")
         self.assertRedirects(response, reverse("admin_recipe", args=[new.id]))
-        page = self.client.get(reverse("admin_recipe", args=[new.id]))
-        self.assertEqual(page.context["e"]["status"], "Set the total time")
-        self.assertContains(page, "In Cookery")
+        self.assertEqual((new.title, new.steps.count(), Recipe.objects.count()), ("Pickles", 1, count + 1))
         self.assertRedirects(self.post(self.dough, "leave"), reverse("admin_recipes"))
         self.assertTrue(self.post(self.dough, "leave", title="Changed").context["e"]["leave_ask"])
         self.assertRedirects(self.post(new, "delete"), reverse("admin_recipes"))
@@ -1024,10 +1039,14 @@ class ServiceTests(AdminFixture, TestCase):
 
     def test_new_duplicate_leave_and_archive(self):
         from services.models import Service
-        response = self.client.post(reverse("admin_service_new"))
+        count, url = Service.objects.count(), reverse("admin_service_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Service.objects.count(), e["status"]), (count, "Needs a name and a price"))
+        self.assertRedirects(self.client.post(url, {**service_fields(e["d"]), "op": "leave"}), reverse("admin_services"))
+        response = self.client.post(url, {**service_fields(e["d"], title="Server", price="30"), "op": "save"})
         new = Service.objects.latest("id")
         self.assertRedirects(response, reverse("admin_service", args=[new.id]))
-        self.assertEqual(self.client.get(response.url).context["e"]["status"], "Needs a name and a price")
+        self.assertEqual((new.title, new.active, Service.objects.count()), ("Server", False, count + 1))
         self.assertRedirects(self.post(self.urn, "leave"), reverse("admin_services"))
         self.assertTrue(self.post(self.urn, "leave", title="Changed").context["e"]["leave_ask"])
         response = self.post(self.urn, "duplicate")
@@ -1256,8 +1275,14 @@ class IngredientTests(AdminFixture, TestCase):
         self.assertFalse(Ingredient.objects.get(pk=self.beef.pk).archived)  # used in the patty
         self.assertRedirects(self.post(self.saffron, "archive"), reverse("admin_ingredients"))
         self.assertTrue(Ingredient.objects.get(pk=self.saffron.pk).archived)
-        response = self.client.post(reverse("admin_ingredient_new"))
-        self.assertRedirects(response, reverse("admin_ingredient", args=[Ingredient.objects.latest("id").id]))
+        count, url = Ingredient.objects.count(), reverse("admin_ingredient_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Ingredient.objects.count(), e["status"]), (count, "Give it a name"))
+        self.assertRedirects(self.client.post(url, {**ingredient_fields(e["d"]), "op": "leave"}), reverse("admin_ingredients"))
+        response = self.client.post(url, {**ingredient_fields(e["d"], title="Dill"), "op": "save"})
+        new = Ingredient.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_ingredient", args=[new.id]))
+        self.assertEqual((new.title, new.pack_size, Ingredient.objects.count()), ("Dill", 1000, count + 1))
 
 
 def condiment_fields(draft, **changes):
@@ -1331,10 +1356,14 @@ class CondimentTests(AdminFixture, TestCase):
         self.assertEqual((e["bought"], e["status"]), (True, "Set servings per case"))
 
     def test_new_duplicate_and_archive(self):
-        response = self.client.post(reverse("admin_condiment_new"))
+        count, url = Condiment.objects.count(), reverse("admin_condiment_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Condiment.objects.count(), e["status"], e["cost_big"]), (count, "Give it a name", "—"))
+        self.assertRedirects(self.client.post(url, {**condiment_fields(e["d"]), "op": "leave"}), reverse("admin_condiments"))
+        response = self.client.post(url, {**condiment_fields(e["d"], title="Hot sauce"), "op": "save"})
         new = Condiment.objects.latest("id")
         self.assertRedirects(response, reverse("admin_condiment", args=[new.id]))
-        self.assertEqual(self.client.get(response.url).context["e"]["cost_big"], "—")  # no recipe yet
+        self.assertEqual((new.component.title, new.serving, Condiment.objects.count()), ("Hot sauce", "2 oz cup", count + 1))
         self.post(self.ketchup_c, "duplicate")
         copy = Condiment.objects.latest("id")
         self.assertEqual((copy.component.title, copy.free_per_order, copy.component.inventory), ("Ketchup packet (copy)", 3, 0))
@@ -1403,9 +1432,14 @@ class DisposableAdminTests(AdminFixture, TestCase):
                          ("order", ["delivery"], [], Decimal("0.14"), Decimal("0.125")))
 
     def test_new_duplicate_and_archive(self):
-        response = self.client.post(reverse("admin_disposable_new"))
+        count, url = Disposable.objects.count(), reverse("admin_disposable_new")
+        e = self.client.get(url).context["e"]  # nothing is created until Save
+        self.assertEqual((Disposable.objects.count(), e["status"]), (count, "Give it a name"))
+        self.assertRedirects(self.client.post(url, {**disposable_fields(e["d"]), "op": "leave"}), reverse("admin_disposables"))
+        response = self.client.post(url, {**disposable_fields(e["d"], title="Napkin"), "op": "save"})
         new = Disposable.objects.latest("id")
         self.assertRedirects(response, reverse("admin_disposable", args=[new.id]))
+        self.assertEqual((new.ingredient.title, new.ingredient.pack_size, Disposable.objects.count()), ("Napkin", 100, count + 1))
         self.post(self.bag, "duplicate")
         copy = Disposable.objects.latest("id")
         self.assertEqual((copy.ingredient.title, copy.fee, copy.ingredient.inventory), ("Paper bag (copy)", True, 0))
@@ -1488,6 +1522,19 @@ class RestockTests(AdminFixture, TestCase):
     def post(self, op, draft=None, restock=None, **changes):
         restock = restock or self.restock
         return self.client.post(reverse("admin_restock", args=[restock.id]), {**restock_fields(draft or self.draft(restock), **changes), "op": op})
+
+    def test_new_is_created_on_save(self):
+        from inventory.models import Restock
+        count, url = Restock.objects.count(), reverse("admin_restock_new")
+        page = self.client.get(url)  # nothing is created until Save
+        e = page.context["e"]
+        self.assertEqual((Restock.objects.count(), e["title"], e["can_save"]), (count, "New restock", True))
+        self.assertContains(page, "You can add it once the order is saved")
+        self.assertRedirects(self.client.post(url, {**restock_fields(e["d"]), "op": "leave"}), reverse("admin_restocks"))
+        response = self.client.post(url, {**restock_fields(e["d"], notes="Weekly"), "op": "save"})
+        new = Restock.objects.latest("id")
+        self.assertRedirects(response, reverse("admin_restock", args=[new.id]))
+        self.assertEqual((new.notes, new.created_by, Restock.objects.count()), ("Weekly", self.owner, count + 1))
 
     def test_list_suggests_what_is_under_par_and_drafts_it(self):
         l = self.client.get(reverse("admin_restocks")).context["l"]

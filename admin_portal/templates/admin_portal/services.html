@@ -19,9 +19,7 @@ Category chips are links, search (name or description) submits as you type.
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search services' %}" placeholder="{% trans 'Search services' %}">
     </form>
-    <form method="post" action="{% url 'admin_service_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New service" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_service_new' %}">{% icon "plus" 18 2.4 %}{% trans "New service" %}</a>
 </header>
 
 <nav class="filter-chips" aria-label="{% trans 'Category' %}" id="services-filters" data-region>

@@ -20,9 +20,7 @@ category. Filters are links, search (ingredient or supplier) submits as you type
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search ingredients' %}" placeholder="{% trans 'Search ingredients or suppliers' %}">
     </form>
-    <form method="post" action="{% url 'admin_ingredient_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New ingredient" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_ingredient_new' %}">{% icon "plus" 18 2.4 %}{% trans "New ingredient" %}</a>
 </header>
 
 <div class="comp-kpis" id="ingredients-kpis" data-region>

@@ -11,7 +11,7 @@ The quote preview's inputs (qa, qb) only feed the preview and are never saved.
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_service' e.service.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.service.pk %}{% url 'admin_service' e.service.id %}{% else %}{% url 'admin_service_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="service-head" data-region>
@@ -23,7 +23,7 @@ The quote preview's inputs (qa, qb) only feed the preview and are never saved.
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.service.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -175,7 +175,8 @@ The quote preview's inputs (qa, qb) only feed the preview and are never saved.
             </div>
         </section>
 
-        {% if e.service.archived %}
+        {% if not e.service.pk %}
+        {% elif e.service.archived %}
         <button class="text-btn" name="op" value="restore">{% trans "Restore this service" %}</button>
         {% else %}
         <button class="text-btn danger" name="op" value="archive">{% trans "Archive this service" %}</button>

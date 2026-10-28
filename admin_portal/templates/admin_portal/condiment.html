@@ -14,7 +14,7 @@ whole order (pos_server/pricing.py); "Suggest with" picks the dishes the registe
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_condiment' e.condiment.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.condiment.pk %}{% url 'admin_condiment' e.condiment.id %}{% else %}{% url 'admin_condiment_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="condiment-head" data-region>
@@ -27,7 +27,7 @@ whole order (pos_server/pricing.py); "Suggest with" picks the dishes the registe
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.condiment.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -182,7 +182,8 @@ whole order (pos_server/pricing.py); "Suggest with" picks the dishes the registe
             <div class="stat-tiles">{% for t in e.stats %}<div class="stat-tile"><div class="disp num">{{ t.value }}</div><div class="tiny muted">{{ t.label }}</div></div>{% endfor %}</div>
         </section>
 
-        {% if e.component.archived %}
+        {% if not e.condiment.pk %}
+        {% elif e.component.archived %}
         <button class="text-btn" name="op" value="restore">{% trans "Restore this condiment" %}</button>
         {% else %}
         <button class="text-btn danger" name="op" value="archive">{% trans "Archive this condiment" %}</button>

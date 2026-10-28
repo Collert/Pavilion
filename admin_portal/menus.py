@@ -10,6 +10,7 @@ import datetime
 import json
 
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, ngettext
@@ -108,12 +109,19 @@ def _rule_dict(rule):
             "other": rule.other_menu_id or ""}
 
 
+def new_menu():
+    """An unsaved menu for the New menu editor (created on Save), last in priority."""
+    return Menu(title="", draft=True, position=(Menu.objects.aggregate(last=Max("position"))["last"] or 0) + 1)
+
+
 def draft_from_menu(menu):
+    saved = menu.pk is not None  # a new menu has no dishes or rules yet
     return {
         "title": menu.title, "auto": menu.auto, "manual_on": menu.manual_on,
-        "dishes": sorted(menu.dishes.values_list("id", flat=True)), "combos": sorted(menu.combos.values_list("id", flat=True)),
-        "rules": [_rule_dict(r) for r in menu.rules.all()],
-        "display": menu_boards.clean(menu.display, menu),
+        "dishes": sorted(menu.dishes.values_list("id", flat=True)) if saved else [],
+        "combos": sorted(menu.combos.values_list("id", flat=True)) if saved else [],
+        "rules": [_rule_dict(r) for r in menu.rules.all()] if saved else [],
+        "display": menu_boards.clean(menu.display, menu if saved else None),
         "ui": {"tab": "items", "group": "all", "q": "", "page": 0},
     }
 
@@ -291,7 +299,7 @@ def draft_schedule(draft, menu):
     """A Schedule of every menu where this one is the draft: (schedule, the draft as an unsaved Menu)."""
     copy = Menu(pk=menu.pk, title=draft["title"] or menu.title, auto=draft["auto"], manual_on=draft["manual_on"],
                 position=menu.position, draft=menu.draft)
-    menus = [copy if m.pk == menu.pk else m for m in Menu.objects.all()]
+    menus = [copy if m.pk == menu.pk else m for m in Menu.objects.all()] + ([] if menu.pk else [copy])
     schedule = Schedule(menus)
     schedule.rules[menu.pk] = _rules(draft, menu)
     return schedule, copy
