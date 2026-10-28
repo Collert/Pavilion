@@ -30,6 +30,14 @@ document.addEventListener("change", (event) => {
     form.requestSubmit(form.querySelector("[data-preview]"));
 });
 
+// Save turns on as you type: the server only hears of a text field when it loses focus, and that happens on the
+// press of a still-disabled Save, which swallowed the click (the preview is sent first; Save checks the draft again)
+document.addEventListener("input", (event) => {
+    const form = event.target.closest("form[data-editor]");
+    if (!form || event.target.matches('[type="search"], [data-no-preview]')) return;
+    form.querySelectorAll('button[name="op"][value="save"]:disabled').forEach((button) => { button.disabled = false; });
+});
+
 // Search-like fields ([data-type-preview]) show results as you type
 let typing;
 document.addEventListener("input", (event) => {
