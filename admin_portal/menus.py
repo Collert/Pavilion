@@ -194,6 +194,12 @@ def merge_post(draft, post, menu):
         for k in range(len(page["slots"])):
             if f"slot-{k}" in post:
                 page["slots"][k] = post.get(f"slot-{k}", "")
+        for section in d["sections"]:
+            sid = section["id"]
+            if f"section-{sid}-name" in post:
+                section["name"] = post.get(f"section-{sid}-name", "")
+            if f"section-{sid}-present" in post:
+                section["items"] = post.getlist(f"section-{sid}-items")
         for key in ("sold", "page_fx", "group_fx"):
             if key in post:
                 d[key] = post[key]
@@ -265,6 +271,10 @@ def apply_op(draft, op, post, menu):
     elif name == "remove_page" and len(d["pages"]) > 1:
         d["pages"].pop(min(ui["page"], len(d["pages"]) - 1))
         ui["page"] = max(0, ui["page"] - 1)
+    elif name == "add_section" and len(d["sections"]) < menu_boards.MAX_SECTIONS:
+        d["sections"].append({"id": max((s["id"] for s in d["sections"]), default=0) + 1, "name": _("New section"), "items": []})
+    elif name == "remove_section" and args:
+        d["sections"] = [s for s in d["sections"] if str(s["id"]) != args[0]]
     elif name == "sec" and len(args) == 2 and args[0] in ("page", "group"):
         d[f"{args[0]}_sec"] = d[f"{args[0]}_sec"] + (_int(args[1]) or 0)
     draft["display"] = menu_boards.clean(d, _DraftMenu(draft, menu))
@@ -523,6 +533,13 @@ def display_tab(draft, menu, store_name=""):
                 else (_("For groups with more items than their slot fits") if overflow else _("Every group fits its slot, so nothing rotates.")),
                 "active": active, "fx": d[f"{kind}_fx"], "sec": sec, "msgs": msgs, "bad": bad_timing}
 
+    sections = []
+    for section in d["sections"]:
+        picked = set(section["items"])
+        n = len(shown.get(f"m:{section['id']}", []))
+        sections.append({**section, "options": [{"key": key, "title": item["title"], "on": key in picked} for key, item in by_key.items()],
+                         "note": ngettext("%(n)d item", "%(n)d items", n) % {"n": n}})
+
     look = []
     if template:
         for name, param in template.params.items():
@@ -539,7 +556,8 @@ def display_tab(draft, menu, store_name=""):
                     % {"name": template.title, "groups": template.layout["groups"], "per": pers[0], "list": " / ".join(map(str, pers)),
                        "featured": _("no featured item") if template.layout["featured"] == "none" else _("an optional featured item")}) if template else "",
         "has_featured": bool(template) and template.layout["featured"] != "none", "featured_options": featured_options,
-        "slots": slots, "unplaced": unplaced, "sold_hint": sold_hint, "timers": [timer("page"), timer("group")], "fx": FX,
+        "slots": slots, "unplaced": unplaced, "sections": sections, "max_sections": len(sections) >= menu_boards.MAX_SECTIONS,
+        "sold_hint": sold_hint, "timers": [timer("page"), timer("group")], "fx": FX,
         "look": look, "board": board, "bad_timing": bad_timing,
         "portrait": not template or template.layout["orientation"] == "portrait",
         "canvas": (template.layout["width"], template.layout["height"]) if template else (1080, 1920),

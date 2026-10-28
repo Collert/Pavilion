@@ -147,6 +147,16 @@
 .slot-note { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .slot-note.rotates { color: var(--amber-ink); }
 .sold-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid #E3E9E5; }
+.sections-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid #E3E9E5; }
+.sections-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.section-edit { margin: 12px 0 0; padding: 12px; border: 1px solid #E3E9E5; border-radius: 14px; min-width: 0; }
+.section-row { display: flex; align-items: center; gap: 10px; }
+.section-row .field { flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-weight: 700; }
+.section-items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.section-chip { position: relative; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 15px; background: var(--soft); font-size: 12px; font-weight: 800; color: var(--muted); cursor: pointer; }
+.section-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.section-chip:has(input:checked) { background: var(--ink); color: var(--surface); }
+.section-chip:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; }
 .seg-radio { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--soft); margin: 8px 0 6px; }
 .seg-radio label { position: relative; flex: 1; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .seg-radio.fx label { height: 32px; border-radius: 10px; font-size: 12px; }

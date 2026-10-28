@@ -476,6 +476,26 @@ class MenuEditorTests(AdminFixture, TestCase):
         menu.refresh_from_db()
         self.assertEqual((len(menu.display["pages"]), menu.display["group_sec"], menu.display["look"]["accent"]), (2, 5, "#123456"))
 
+    def test_display_menu_sections_fill_slots(self):
+        menu = self.menu
+        context = self.post(menu, self.open(menu, "display"), "add_section").context
+        section = context["d"]["display"]["sections"][0]
+        self.assertEqual((section["id"], section["items"]), (1, []))
+        context = self.post(menu, context, "preview", **{
+            "section-1-name": "Morning picks", "section-1-present": "1",
+            "section-1-items": [f"d:{self.tea.id}", f"d:{self.burger.id}", "d:99999"],  # not on the menu: dropped
+            "slot-2": "m:1"}).context
+        v = context["v"]
+        self.assertEqual(v["sections"][0]["items"], [f"d:{self.tea.id}", f"d:{self.burger.id}"])
+        self.assertIn(("m:1", True), [(o["key"], o["on"]) for o in v["slots"][2]["options"]])
+        slot = v["board"]["pages"][0]["slots"][2]
+        self.assertEqual((slot["name"], [i["title"] for i in slot["screens"][0]]), ("Morning picks", ["Tea", "Burger"]))
+        self.post(menu, context, "save")
+        menu.refresh_from_db()
+        self.assertEqual((menu.display["sections"][0]["name"], menu.display["pages"][0]["slots"][2]), ("Morning picks", "m:1"))
+        context = self.post(menu, self.open(menu, "display"), "remove_section:1").context  # its slot empties
+        self.assertEqual((context["d"]["display"]["sections"], context["d"]["display"]["pages"][0]["slots"][2]), ([], ""))
+
     def test_display_slots_of_a_template_fit_different_counts(self):
         menu = self.menu
         for n in range(10 - menu.dishes.filter(station=self.bar).count()):  # 10 drinks

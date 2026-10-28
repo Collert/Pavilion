@@ -8,6 +8,8 @@ A menu's board is set in its Display tab (admin) and kept on `Menu.display`:
      "look": {"accent": "#E9A64B", ...},          # the template's params (colours, fonts, texts)
      "pages": [{"featured": "d:12",               # a featured dish ("d:<id>") or combo ("c:<id>"), or ""
                 "slots": ["s:3", "combos", ""]}], # one group per slot: a station's dishes and one-station combos ("s:<id>"), the other combos, or empty
+     "sections": [{"id": 1, "name": "Breakfast",  # the menu's own sections ("m:<id>" in slots): picked dishes and
+                   "items": ["d:12", "c:3"]}],    #   combos in this order, also listed with their station
      "sold": "show",                              # sold-out items: "show" (marked) or "hide"
      "page_fx": "fade", "page_sec": 20,           # pages take turns (cut, fade, slide, rise) every page_sec
      "group_fx": "slide", "group_sec": 8}         # a group with more items than its slot fits turns over every group_sec
@@ -53,15 +55,51 @@ def _combo_group(combo):
     return f"s:{own.id}" if own else "combos"
 
 
-def groups(menu):
+SECTION_COLOR = "#5B6A62"
+MAX_SECTIONS, MAX_SECTION_ITEMS = 20, 60
+
+
+def item_keys(menu):
+    """Every dish ("d:<id>") and combo ("c:<id>") key on the menu."""
+    return ({f"d:{i}" for i in menu.dishes.filter(archived=False).values_list("id", flat=True)}
+            | {f"c:{i}" for i in menu.combos.filter(archived=False, active=True).values_list("id", flat=True)})
+
+
+def clean_sections(raw, menu=None):
+    """The menu's own sections ([{"id", "name", "items"}]): items it doesn't have are dropped when `menu` is given."""
+    known = item_keys(menu) if menu is not None else None
+    out, ids = [], set()
+    for section in (raw if isinstance(raw, list) else [])[:MAX_SECTIONS]:
+        if not isinstance(section, dict):
+            continue
+        try:
+            sid = int(section.get("id"))
+        except (TypeError, ValueError):
+            continue
+        if sid <= 0 or sid in ids:
+            continue
+        ids.add(sid)
+        items = [k for k in dict.fromkeys(section.get("items") or []) if isinstance(k, str) and (known is None or k in known)]
+        out.append({"id": sid, "name": str(section.get("name") or "").strip()[:60], "items": items[:MAX_SECTION_ITEMS]})
+    return out
+
+
+def _sections_of(menu, sections):
+    if sections is None:
+        sections = clean_sections((menu.display or {}).get("sections") if isinstance(menu.display, dict) else None, menu)
+    return sections
+
+
+def groups(menu, sections=None):
     """[(key, name, color)] the menu can fill slots with: its stations (in station order, named by their menu
-    heading) and its combos that mix stations."""
+    heading), its combos that mix stations and its own sections ("m:<id>", from the Display tab)."""
     from pos_server.models import Station
     keys = {f"s:{sid}" for sid in menu.dishes.filter(archived=False).values_list("station_id", flat=True)}
     keys |= {_combo_group(combo) for combo in _combos(menu)}
     out = [(f"s:{s.id}", s.heading, s.color) for s in Station.objects.filter(archived=False) if f"s:{s.id}" in keys]
     if "combos" in keys:
         out.append(("combos", _("Combos"), "#14261F"))
+    out += [(f"m:{s['id']}", s["name"] or _("Untitled section"), SECTION_COLOR) for s in _sections_of(menu, sections)]
     return out
 
 
@@ -78,7 +116,8 @@ def clean(raw, menu=None):
     template = template_of(raw)
     name = template.name if template else ""
     slots_per_page = template.layout["groups"] if template else 3
-    known = {key for key, _name, _color in groups(menu)} if menu else None
+    sections = clean_sections(raw.get("sections"), menu)
+    known = {key for key, _name, _color in groups(menu, sections)} if menu else None
     pages = []
     for page in (raw.get("pages") if isinstance(raw.get("pages"), list) else [])[:12]:
         page = page if isinstance(page, dict) else {}
@@ -89,10 +128,10 @@ def clean(raw, menu=None):
             featured = ""
         pages.append({"featured": featured, "slots": slots})
     if not pages:
-        keys = [key for key, _name, _color in groups(menu)] if menu else []
+        keys = [key for key, _name, _color in groups(menu, sections)] if menu else []
         pages = [{"featured": "", "slots": (keys + [""] * slots_per_page)[:slots_per_page]}]
     look = clean_params(template, raw.get("look")) if template else {}
-    return {"template": name, "look": look, "pages": pages,
+    return {"template": name, "look": look, "pages": pages, "sections": sections,
             "sold": "hide" if raw.get("sold") == "hide" else "show",
             "page_fx": raw.get("page_fx") if raw.get("page_fx") in FX else "fade", "page_sec": _sec(raw.get("page_sec"), 20),
             "group_fx": raw.get("group_fx") if raw.get("group_fx") in FX else "slide", "group_sec": _sec(raw.get("group_sec"), 8)}
@@ -122,8 +161,9 @@ def _combo(combo, deals=None):
             "veg": False}
 
 
-def items(menu):
-    """{group key: [item]} for every group of the menu, and {item key: item} for every item."""
+def items(menu, sections=None):
+    """{group key: [item]} for every group of the menu, and {item key: item} for every item. A dish or combo also in
+    one of the menu's own sections is listed there too, in the section's order."""
     from pos_server.dish_info import DISH_PREFETCH
     by_group, by_key = {}, {}
     deals = badges("store")  # automatic discounts running now (the admin's Discounts page)
@@ -136,6 +176,8 @@ def items(menu):
         item = _combo(combo, deals)
         by_group.setdefault(_combo_group(combo), []).append(item)
         by_key[item["key"]] = item
+    for section in _sections_of(menu, sections):
+        by_group[f"m:{section['id']}"] = [by_key[k] for k in section["items"] if k in by_key]
     return by_group, by_key
 
 
@@ -171,8 +213,8 @@ def board(menu, display=None, store_name=""):
     display = clean(display if display is not None else menu.display, menu)
     template = template_of(display)
     pers = per_slot(template)
-    by_group, by_key = items(menu)
-    names = {key: name for key, name, _color in groups(menu)}
+    by_group, by_key = items(menu, display["sections"])
+    names = {key: name for key, name, _color in groups(menu, display["sections"])}
     pages = []
     for page in display["pages"]:
         slots, out, n = [], [], 0
@@ -230,7 +272,7 @@ def problems(display, menu):
     """Timing problems the Display tab reports: a group can't take longer to turn over than its page."""
     out = []
     pers = per_slot(template_of(display))
-    by_group, _by_key = items(menu)
+    by_group, _by_key = items(menu, display["sections"])
     overflow = any(screens_of(len([i for i in by_group.get(k, []) if display["sold"] == "show" or not i["out"]]), pers[n]) > 1
                    for p in display["pages"] for n, k in enumerate(p["slots"]) if k and n < len(pers))
     if len(display["pages"]) > 1 and overflow and display["group_sec"] > display["page_sec"]:

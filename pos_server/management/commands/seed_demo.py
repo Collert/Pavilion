@@ -521,7 +521,7 @@ class Command(BaseCommand):
                        rules=[("on", MenuRule.DATES, {"start_date": datetime.date(year, 12, 1), "end_date": datetime.date(year, 12, 31)})])
         MenuRule.objects.get_or_create(menu=breakfast, kind="off", type=MenuRule.MENU, other_menu=holiday)
 
-        # Menu boards (the Display tab): Lunch turns over two pages, Breakfast has one
+        # Menu boards (the Display tab): Lunch turns over two pages, Breakfast has one with its own "Grab and go" section
         kitchen, bar, bakery = (f"s:{st[code].id}" for code in ("kitchen", "bar", "bakery"))
         timing = {"sold": "show", "page_fx": "fade", "page_sec": 30, "group_fx": "slide", "group_sec": 10}
         if not lunch_menu.display:
@@ -531,7 +531,8 @@ class Command(BaseCommand):
             lunch_menu.save(update_fields=["display"])
         if not breakfast.display:
             breakfast.display = {"template": "menu_showcase", "look": {"badge": "Fresh from the oven", "accent": "#F2B45A"}, **timing,
-                                 "pages": [{"featured": f"d:{bun.id}", "slots": [bar, bakery, ""]}]}
+                                 "sections": [{"id": 1, "name": "Grab and go", "items": [f"d:{d.id}" for d in (croissant, cookie, latte)]}],
+                                 "pages": [{"featured": f"d:{bun.id}", "slots": [bar, bakery, "m:1"]}]}
             breakfast.save(update_fields=["display"])
         self.lunch_menu = lunch_menu
 

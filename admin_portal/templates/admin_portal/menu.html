@@ -214,6 +214,26 @@ preview is the real menu board (screens/menu_board_frame.html) drawn small, turn
                 {% if sl.note %}<span class="slot-note{% if sl.rotates %} rotates{% endif %}">{{ sl.note }}</span>{% endif %}</label>
             {% endfor %}
             {% for u in v.unplaced %}<div class="note warn" role="note">{{ u }}</div>{% endfor %}
+            <div class="sections-box">
+                <div class="sections-head">
+                    <span class="ov muted grow">{% trans "Menu sections" %}</span>
+                    <button class="outline-btn" name="op" value="add_section" {% if v.max_sections %}disabled{% endif %}>{% icon "plus" 13 2.8 %}{% trans "Section" %}</button>
+                </div>
+                <div class="hint small">{% trans "Your own groups for this menu’s board, like Breakfast or Kids’ picks. Put one in a slot like a station. Items stay in their station too." %}</div>
+                {% for s in v.sections %}
+                <fieldset class="section-edit">
+                    <input type="hidden" name="section-{{ s.id }}-present" value="1">
+                    <div class="section-row">
+                        <input class="field" name="section-{{ s.id }}-name" value="{{ s.name }}" maxlength="60" placeholder="{% trans 'Section name' %}" aria-label="{% trans 'Section name' %}">
+                        <button class="text-link danger-text" name="op" value="remove_section:{{ s.id }}">{% trans "Remove" %}</button>
+                    </div>
+                    <div class="section-items" role="group" aria-label="{% blocktrans with name=s.name %}Items in {{ name }}{% endblocktrans %}">
+                        {% for o in s.options %}<label class="section-chip"><input type="checkbox" name="section-{{ s.id }}-items" value="{{ o.key }}" {% if o.on %}checked{% endif %}>{{ o.title }}</label>{% empty %}<span class="hint small">{% trans "Add dishes or combos to the menu first." %}</span>{% endfor %}
+                    </div>
+                    <span class="slot-note">{{ s.note }}</span>
+                </fieldset>
+                {% endfor %}
+            </div>
             <div class="sold-box">
                 <div class="ov muted">{% trans "Sold-out items" %}</div>
                 <div class="seg-radio" role="radiogroup" aria-label="{% trans 'Sold-out items' %}">
