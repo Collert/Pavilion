@@ -364,6 +364,29 @@ class MenuBoardTests(TestCase):
         self.assertIn("Choice of drink", [i["title"] for s in bar["screens"] for i in s])
         self.assertEqual([i["title"] for s in combos["screens"] for i in s], ["Lunch deal"])
 
+    def test_descriptions_and_combo_contents_can_be_hidden(self):
+        from decimal import Decimal
+
+        from pos_server.models import Combo, ComboSlot, ComboSlotOption, combo_contents
+
+        from .menu_boards import clean, items
+        self.assertEqual(combo_contents([("Main", 1, True, ["Plate of Perogies"]), ("Drink", 1, True, ["Coffee", "Tea", "Uzvar"]),
+                                         ("Sides", 2, True, ["Fries", "Salad", "Soup"]), ("Treat", 1, False, ["Cookie"])]),
+                         "Plate of Perogies, choice of drink (Coffee, Tea, Uzvar), choice of 2 sides (Fries, Salad, Soup) and optional Cookie")
+        combo = Combo.objects.create(title="Combo 1", price=Decimal("10.00"), description="Lunch special")
+        ComboSlotOption.objects.create(slot=ComboSlot.objects.create(combo=combo, title="Main"), dish=self.burger)
+        drink = ComboSlot.objects.create(combo=combo, title="Drink", position=1)
+        for dish in (self.tea, self.coffees[0]):
+            ComboSlotOption.objects.create(slot=drink, dish=dish)
+        self.menu.combos.add(combo)
+        key = f"c:{combo.id}"
+        both = items(self.menu, clean({}, self.menu))[1]
+        self.assertEqual(both[key]["description"], "Lunch special · Burger and choice of drink (Tea, Coffee 0)")
+        self.assertEqual(both[f"d:{self.burger.id}"]["description"], "Two patties")
+        bare = items(self.menu, clean({"descriptions": False}, self.menu))[1]
+        self.assertEqual((bare[key]["description"], bare[f"d:{self.burger.id}"]["description"]), ("Burger and choice of drink (Tea, Coffee 0)", ""))
+        self.assertEqual(items(self.menu, clean({"contents": False}, self.menu))[1][key]["description"], "Lunch special")
+
     def test_a_screen_shows_its_menu(self):
         self.menu.display = {"template": "menu_showcase", "look": {"badge": "Open till 8", "loved_count": 0},
                              "pages": [{"featured": f"d:{self.burger.id}", "slots": [f"s:{self.bar.id}", f"s:{self.kitchen.id}", ""]}]}

@@ -10,6 +10,7 @@ A menu's board is set in its Display tab (admin) and kept on `Menu.display`:
                 "slots": ["s:3", "combos", ""]}], # one group per slot: a station's dishes and one-station combos ("s:<id>"), the other combos, or empty
      "sections": [{"id": 1, "name": "Breakfast",  # the menu's own sections ("m:<id>" in slots): picked dishes and
                    "items": ["d:12", "c:3"]}],    #   combos in this order, also listed with their station
+     "descriptions": True, "contents": True,      # show items' descriptions; show what's in each combo
      "sold": "show",                              # sold-out items: "show" (marked) or "hide"
      "page_fx": "fade", "page_sec": 20,           # pages take turns (cut, fade, slide, rise) every page_sec
      "group_fx": "slide", "group_sec": 8}         # a group with more items than its slot fits turns over every group_sec
@@ -132,6 +133,7 @@ def clean(raw, menu=None):
         pages = [{"featured": "", "slots": (keys + [""] * slots_per_page)[:slots_per_page]}]
     look = clean_params(template, raw.get("look")) if template else {}
     return {"template": name, "look": look, "pages": pages, "sections": sections,
+            "descriptions": raw.get("descriptions") is not False, "contents": raw.get("contents") is not False,
             "sold": "hide" if raw.get("sold") == "hide" else "show",
             "page_fx": raw.get("page_fx") if raw.get("page_fx") in FX else "fade", "page_sec": _sec(raw.get("page_sec"), 20),
             "group_fx": raw.get("group_fx") if raw.get("group_fx") in FX else "slide", "group_sec": _sec(raw.get("group_sec"), 8)}
@@ -148,40 +150,45 @@ def _veg(dish):
     return any(d["key"] == "vegetarian" for d in dish_diets(dish))
 
 
-def _dish(dish, deals=None, veg=None):
-    return {"key": f"d:{dish.id}", "title": dish.title, "description": dish.description, "price": _money(dish.price),
-            "out": not dish.available, "image": dish.image.url if dish.image else "", "letter": dish.title[:1],
-            "deal": badge_for(deals or {}, dish), "veg": _veg(dish) if veg is None else veg}
+def _dish(dish, deals=None, veg=None, descriptions=True):
+    return {"key": f"d:{dish.id}", "title": dish.title, "description": dish.description if descriptions else "",
+            "price": _money(dish.price), "out": not dish.available, "image": dish.image.url if dish.image else "",
+            "letter": dish.title[:1], "deal": badge_for(deals or {}, dish), "veg": _veg(dish) if veg is None else veg}
 
 
-def _combo(combo, deals=None):
-    return {"key": f"c:{combo.id}", "title": combo.title, "description": combo.description,
+def _combo(combo, deals=None, descriptions=True, contents=True):
+    """A combo's description is its own and/or what's in it (Combo.contents), once when they're the same."""
+    texts = [combo.description.strip() if descriptions else "", combo.contents() if contents else ""]
+    return {"key": f"c:{combo.id}", "title": combo.title, "description": " · ".join(t for t in dict.fromkeys(texts) if t),
             "price": _money(combo.standard_price()), "out": not combo.available,
             "image": combo.image.url if combo.image else "", "letter": combo.title[:1], "deal": badge_for(deals or {}, combo),
             "veg": False}
 
 
-def items(menu, sections=None):
+def items(menu, display=None):
     """{group key: [item]} for every group of the menu, and {item key: item} for every item. A dish or combo also in
-    one of the menu's own sections is listed there too, in the section's order."""
+    one of the menu's own sections is listed there too, in the section's order. `display` (cleaned) says whether
+    descriptions and combos' contents show (the menu's saved one when it's not given)."""
     from pos_server.dish_info import DISH_PREFETCH
+    display = display if display is not None else clean(menu.display, menu)
+    show = {"descriptions": display["descriptions"]}
     by_group, by_key = {}, {}
     deals = badges("store")  # automatic discounts running now (the admin's Discounts page)
     dishes = menu.dishes.filter(archived=False).select_related("station").prefetch_related(*DISH_PREFETCH)
     for dish in dishes.order_by("station__position", "id"):
-        item = _dish(dish, deals)
+        item = _dish(dish, deals, **show)
         by_group.setdefault(f"s:{dish.station_id}", []).append(item)
         by_key[item["key"]] = item
     for combo in _combos(menu):
-        item = _combo(combo, deals)
+        item = _combo(combo, deals, contents=display["contents"], **show)
         by_group.setdefault(_combo_group(combo), []).append(item)
         by_key[item["key"]] = item
-    for section in _sections_of(menu, sections):
+    for section in display["sections"]:
         by_group[f"m:{section['id']}"] = [by_key[k] for k in section["items"] if k in by_key]
     return by_group, by_key
 
 
-def best_sellers(menu, count, days=30):
+def best_sellers(menu, count, days=30, descriptions=True):
     """The menu's most sold dishes over the last `days` (on their own or in combos)."""
     if count <= 0:
         return []
@@ -192,7 +199,7 @@ def best_sellers(menu, count, days=30):
     from pos_server.dish_info import DISH_PREFETCH
     dishes = Dish.objects.prefetch_related(*DISH_PREFETCH).in_bulk([row["dish"] for row in top])
     deals = badges("store")
-    return [_dish(dishes[row["dish"]], deals) for row in top if row["dish"] in dishes]
+    return [_dish(dishes[row["dish"]], deals, descriptions=descriptions) for row in top if row["dish"] in dishes]
 
 
 def screens_of(count, per):
@@ -213,7 +220,7 @@ def board(menu, display=None, store_name=""):
     display = clean(display if display is not None else menu.display, menu)
     template = template_of(display)
     pers = per_slot(template)
-    by_group, by_key = items(menu, display["sections"])
+    by_group, by_key = items(menu, display)
     names = {key: name for key, name, _color in groups(menu, display["sections"])}
     pages = []
     for page in display["pages"]:
@@ -241,7 +248,7 @@ def board(menu, display=None, store_name=""):
     return {
         "menu": menu, "display": display, "template": template, "look": look, "pages": pages,
         "title": look.get("title") or store_name or menu.title,
-        "loved": best_sellers(menu, look.get("loved_count", 0)) if "loved_count" in look else [],
+        "loved": best_sellers(menu, look.get("loved_count", 0), descriptions=display["descriptions"]) if "loved_count" in look else [],
         "fonts": _fonts_url(template, look),
     }
 
@@ -272,7 +279,7 @@ def problems(display, menu):
     """Timing problems the Display tab reports: a group can't take longer to turn over than its page."""
     out = []
     pers = per_slot(template_of(display))
-    by_group, _by_key = items(menu, display["sections"])
+    by_group, _by_key = items(menu, display)
     overflow = any(screens_of(len([i for i in by_group.get(k, []) if display["sold"] == "show" or not i["out"]]), pers[n]) > 1
                    for p in display["pages"] for n, k in enumerate(p["slots"]) if k and n < len(pers))
     if len(display["pages"]) > 1 and overflow and display["group_sec"] > display["page_sec"]:

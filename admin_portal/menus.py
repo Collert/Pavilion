@@ -271,6 +271,8 @@ def apply_op(draft, op, post, menu):
     elif name == "remove_page" and len(d["pages"]) > 1:
         d["pages"].pop(min(ui["page"], len(d["pages"]) - 1))
         ui["page"] = max(0, ui["page"] - 1)
+    elif name == "show" and args and args[0] in ("descriptions", "contents"):
+        d[args[0]] = not d[args[0]]
     elif name == "add_section" and len(d["sections"]) < menu_boards.MAX_SECTIONS:
         d["sections"].append({"id": max((s["id"] for s in d["sections"]), default=0) + 1, "name": _("New section"), "items": []})
     elif name == "remove_section" and args:
@@ -467,7 +469,7 @@ def display_tab(draft, menu, store_name=""):
     page = d["pages"][page_index]
     preview_menu = _DraftMenu(draft, menu)
     groups = menu_boards.groups(preview_menu)
-    by_group, by_key = menu_boards.items(preview_menu)
+    by_group, by_key = menu_boards.items(preview_menu, d)
     shown = {key: [i for i in by_group.get(key, []) if d["sold"] == "show" or not i["out"]] for key, _n, _c in groups}
     placed = {}
     for n, p in enumerate(d["pages"]):

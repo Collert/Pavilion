@@ -735,6 +735,7 @@ def combo_fields(draft, **changes):
     """The combo editor's POST fields for a draft (admin_portal.combos.draft_from_post reads them back)."""
     draft = {**draft, **changes}
     data = {k: draft[k] for k in ("title", "ticket_name", "description", "pricing", "price", "percent_off")}
+    data["description_auto"] = draft["auto"]
     data["menus"] = [str(m) for m in draft["menus"]]
     if draft["active"]:
         data["active"] = "1"
@@ -776,6 +777,19 @@ class ComboTests(AdminFixture, TestCase):
         Combo.objects.filter(pk=self.combo.pk).update(active=False)
         self.assertEqual(self.client.get(reverse("admin_combos") + "?show=active").context["l"]["rows"], [])
         self.assertEqual(len(self.client.get(reverse("admin_combos") + "?q=tea").context["l"]["rows"]), 1)  # by dish name
+
+    def test_description_fills_in_until_someone_writes_one(self):
+        draft = self.draft()
+        self.assertEqual(draft["description"], "Burger and choice of drink (Coffee, Tea)")
+        self.assertFalse(combos.is_dirty(draft, self.combo))  # filling in an empty one isn't a change
+        e = self.post(draft, "preview", **{"slot-0-add": str(self.tea.id)}).context["e"]
+        self.assertEqual(e["d"]["description"], "Choice of main (Burger, Tea) and choice of drink (Coffee, Tea)")
+        e = self.post(e["d"], "remove_option:1:1", description="Our best seller").context["e"]  # written by hand: left alone
+        self.assertEqual(e["d"]["description"], "Our best seller")
+        e = self.post({**e["d"], "description": ""}, "remove_option:0:1").context["e"]  # cleared: fills in again
+        self.assertEqual(e["d"]["description"], "Burger and Coffee")
+        self.post(e["d"], "save")
+        self.assertEqual(Combo.objects.get(pk=self.combo.pk).description, "Burger and Coffee")
 
     def test_editor_draft_and_save(self):
         draft = self.draft()

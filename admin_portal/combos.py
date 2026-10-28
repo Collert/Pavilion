@@ -1,6 +1,7 @@
 """
 Combos (design: AdminCombos, list + editor). Pricing is Combo.unit_price (set price + upcharges, or percent off the
-picks); the editor works like the dish editor: one form, a draft posted back to show the sums, saved on Save.
+picks); the editor works like the dish editor: one form, a draft posted back to show the sums, saved on Save. The
+description fills itself in from the choices until someone writes their own (`follow_description`).
 """
 import datetime
 from decimal import Decimal, InvalidOperation
@@ -9,7 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
-from pos_server.models import Combo, ComboSlot, ComboSlotOption, Dish, Menu, OrderItem, Station
+from pos_server.models import Combo, ComboSlot, ComboSlotOption, Dish, Menu, OrderItem, Station, combo_contents
 
 TINTS = [("#DCEBE2", "#1F4A3A"), ("#FDEBD0", "#8A4B00"), ("#E3EEF6", "#2D5A84"), ("#FBE9F1", "#9B2C5E"), ("#F6F1E8", "#6B4E1F")]
 CENT = Decimal("0.01")
@@ -94,11 +95,30 @@ def draft_from_combo(combo):
         menus = []
         slots = [{"id": "", "title": str(title), "picks": "1", "required": True, "default": "", "options": []}
                  for title in (_("Main"), _("Side"), _("Drink"))]
-    return {
-        "title": combo.title, "ticket_name": combo.ticket_name, "description": combo.description,
+    draft = {
+        "title": combo.title, "ticket_name": combo.ticket_name, "description": combo.description, "auto": "",
         "pricing": combo.pricing, "price": str(combo.price), "percent_off": f"{combo.percent_off.normalize():f}",
         "active": combo.active, "menus": menus, "slots": slots,
     }
+    return follow_description(draft)
+
+
+def contents(draft) -> str:
+    """The draft's choices in words (pos_server.models.combo_contents)."""
+    ids = {_int(o["dish"]) for s in draft["slots"] for o in s["options"]}
+    titles = dict(Dish.objects.filter(pk__in=ids - {None}).values_list("id", "title"))
+    return combo_contents([(s["title"], _int(s["picks"]) or 1, s["required"],
+                            [titles[_int(o["dish"])] for o in s["options"] if _int(o["dish"]) in titles]) for s in draft["slots"]])
+
+
+def follow_description(draft):
+    """The description writes itself from the choices while it's empty or still what was written for it last time
+    (`auto`, carried in a hidden field); once someone writes their own it's left alone."""
+    written = contents(draft)
+    if draft["description"].strip() in ("", draft["auto"].strip()):
+        draft["description"] = written
+    draft["auto"] = written
+    return draft
 
 
 def draft_from_post(post):
@@ -114,7 +134,7 @@ def draft_from_post(post):
                                    "price": post.get(f"{k}opt-{j}-price", "0")} for j in count(k + "opt-count")]})
     return {
         "title": post.get("title", ""), "ticket_name": post.get("ticket_name", "").upper()[:12],
-        "description": post.get("description", ""),
+        "description": post.get("description", ""), "auto": post.get("description_auto", ""),
         "pricing": Combo.PERCENT if post.get("pricing") == Combo.PERCENT else Combo.FIXED,
         "price": post.get("price", ""), "percent_off": post.get("percent_off", ""),
         "active": bool(post.get("active")), "menus": sorted({m for m in (_int(v) for v in post.getlist("menus")) if m}),
@@ -158,7 +178,7 @@ def apply_op(draft, op, post):
     for slot in slots:
         if slot["required"] and slot["options"] and slot["default"] not in {o["dish"] for o in slot["options"]}:
             slot["default"] = slot["options"][0]["dish"]
-    return draft
+    return follow_description(draft)
 
 
 def slot_errors(slot):

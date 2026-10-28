@@ -217,7 +217,9 @@ menu-board layout from the canvas's `Menu*` artboards. All ten are built: Showca
 (`MenuSwiss`) portrait; Letterboard (`MenuLetter`), Triptych, Departures (`MenuFlap`), Carousel and Neon landscape.
 Screens place the `menu_board` widget (param: a menu id);
 the template, pages, group slots, timing and the template's params (its look) are set per menu in the admin's Display
-tab and kept on `Menu.display` (`screens/menu_boards.py`). A template's JSON adds `orientation`, `width`/`height`,
+tab and kept on `Menu.display` (`screens/menu_boards.py`). A slot holds a station's group (its dishes and the combos
+made only there; titled by `Station.menu_heading`), the combos that mix stations, or one of the menu's own sections
+(`display["sections"]`, `m:<id>`); `descriptions`/`contents` switch item descriptions and what's in combos. A template's JSON adds `orientation`, `width`/`height`,
 `groups`, `per_group` (one number, or a list with one per slot when the first slot is the big one), `featured` and
 `fonts`; its partial gets `b` (`menu_boards.board()`: items carry `veg`, a page-wide number `n`; slots their first
 `image`; pages their sold-out items as `out`), renders every `.mb-page` and each slot's `.mb-screen`s, and

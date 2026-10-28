@@ -235,6 +235,17 @@ preview is the real menu board (screens/menu_board_frame.html) drawn small, turn
                 {% endfor %}
             </div>
             <div class="sold-box">
+                <div class="ov muted">{% trans "On the board" %}</div>
+                <button class="show-row" role="switch" name="op" value="show:descriptions" aria-checked="{% if v.d.descriptions %}true{% else %}false{% endif %}">
+                    <span class="grow two-line"><span class="strong">{% trans "Descriptions" %}</span><span class="hint small">{% trans "Each dish’s and combo’s description under its name" %}</span></span>
+                    <span class="switch{% if v.d.descriptions %} on{% endif %}"><span></span></span>
+                </button>
+                <button class="show-row" role="switch" name="op" value="show:contents" aria-checked="{% if v.d.contents %}true{% else %}false{% endif %}">
+                    <span class="grow two-line"><span class="strong">{% trans "What’s in each combo" %}</span><span class="hint small">{% trans "Like “Plate of Perogies and choice of drink (Coffee, Tea)”" %}</span></span>
+                    <span class="switch{% if v.d.contents %} on{% endif %}"><span></span></span>
+                </button>
+            </div>
+            <div class="sold-box">
                 <div class="ov muted">{% trans "Sold-out items" %}</div>
                 <div class="seg-radio" role="radiogroup" aria-label="{% trans 'Sold-out items' %}">
                     <label><input type="radio" name="sold" value="show" {% if v.d.sold == "show" %}checked{% endif %}>{% trans "Show as sold out" %}</label>

@@ -138,8 +138,13 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
   The register walks through every choice with something to choose when a combo is added (the choice sheet), and
   the combo sheet changes picks and customizes each one; the online store asks for the first required one-pick
   choice. Kitchen tickets call it `ticket_name`; `OrderItem.upcharge` records each pick's upcharge (for the admin's
-  "upgraded" stats). Hidden (`active` off) and archived combos aren't sold. A combo is listed in the menu section of
-  its first slot's default dish. Every picked dish is made at its own station.
+  "upgraded" stats). Hidden (`active` off) and archived combos aren't sold. A combo whose choices are all made at one
+  station is listed in that station's menu section (`Combo.own_station()`; a "Choice of drink" of bar drinks goes
+  with the bar's dishes); one that mixes stations goes under Combos on menu boards and under its first slot's default
+  dish in the store and on the register (`section_station()`). `Combo.contents()` says what's in it in words
+  (`combo_contents`: "Plate of Perogies and choice of drink (Coffee, Tea)"); the combo editor fills the description
+  in with it while it's empty or still the generated text, and stops once someone writes their own. Every picked dish
+  is made at its own station.
 - **Stock:** `Component.save()` recalculates `in_stock` and updates the dishes that use it; adding or removing a
   `DishComponent` re-checks its dish.
 - **Availability** (`availability` on Dish and Component, `AVAILABILITY` in `pos_server/models.py`): **Off** stops
@@ -166,8 +171,8 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 ### 5.2 Stations and orders
 
 - `Station(name, code, icon, menu_heading, position)`. `code` is a unique slug used in KDS filters (`?filter=kitchen`).
-  `menu_heading` titles the menu section for that station's dishes ("Hot food"). A data migration creates
-  Kitchen / Bar / Grab & Go. Edit or add stations in `/advanced-admin/`.
+  `menu_heading` titles the menu section for that station's dishes ("Hot food"; empty = the name) in the store, on the register and on menu boards. A data migration creates
+  Kitchen / Bar / Grab & Go. Edit them on the admin's Stations page ("Menu section" is `menu_heading`).
 - `Order` fields: `channel` (`store` POS, `web` online pickup, `delivery`), `start_time` (scheduled time; screens hide
   orders until it passes), `prep_time` (set when the last station finishes: from when it was placed, or its scheduled time if later; none for a scheduled order done early), `name`, `phone`, `special_instructions`
   (+ `note_for_kitchen`), `to_go_order`, `picked_up`, `subtotal`/`discount`/`tax`/`total` (server-computed),
@@ -919,8 +924,11 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
 
 - **Menu boards** (2026-10-21): menu templates are widgets of kind `menu_template` (`registry.menu_templates()`,
   not placeable directly). The `menu_board` widget shows one menu (its `menu` param) with the template and layout
-  from `Menu.display` (`screens/menu_boards.py`: `clean()`, `board()`, `groups()`: a group is a station's dishes on
-  the menu or its combos). Every page and every slot screen is rendered; `menu_board.js` shows one at a time from
+  from `Menu.display` (`screens/menu_boards.py`: `clean()`, `board()`, `groups()`: a group is a station's dishes (and
+  its one-station combos), the combos that mix stations, or one of the menu's own sections, `display["sections"]`,
+  slot key `m:<id>`, named and filled with dishes/combos in the Display tab, for boards only). The Display tab's "On
+  the board" switches (`display["descriptions"]`, `display["contents"]`) show or hide descriptions and what's in each
+  combo (Poster and Departures never show descriptions). Every page and every slot screen is rendered; `menu_board.js` shows one at a time from
   the clock (so boards stay in step across refetches and screens). All ten `Menu*` artboards are built (2026-10-27),
   each a JSON + partial in `screens/templates/screens/menu_templates/` + CSS: Showcase (best sellers as cards),
   Chalkboard, Editorial, Poster (first group as tiles), Grid (numbered rows, sideways group names), all portrait;

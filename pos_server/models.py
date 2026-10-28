@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.utils import timezone
 from django.utils.timezone import localtime, now
+from django.utils.translation import gettext
 from gift_cards.models import GiftCard
 import datetime
 import json
@@ -184,6 +185,34 @@ class CateringPrice(models.Model):
         return f"{self.dish}: {self.quantity}+ at {self.price}"
 
 
+def combo_contents(slots) -> str:
+    """
+    What's in a combo, in words, from [(slot title, picks, required, [dish title])]: a choice with one dish is that
+    dish, a bigger one "choice of drink (Coffee, Tea)". "Plate of Perogies and choice of drink (Coffee, Tea, Uzvar)".
+    """
+    parts = []
+    for title, picks, required, dishes in slots:
+        if not dishes:
+            continue
+        name = (title or "").strip().lower() or gettext("dish")
+        if len(dishes) == 1 and required:
+            parts.append(dishes[0])
+        elif len(dishes) == 1:
+            parts.append(gettext("optional %(dish)s") % {"dish": dishes[0]})
+        else:
+            if picks > 1:
+                text = gettext("choice of %(n)d %(slot)s") % {"n": picks, "slot": name}
+            elif required:
+                text = gettext("choice of %(slot)s") % {"slot": name}
+            else:
+                text = gettext("optional %(slot)s") % {"slot": name}
+            parts.append(f"{text} ({', '.join(dishes)})")
+    if not parts:
+        return ""
+    text = parts[0] if len(parts) == 1 else gettext("%(list)s and %(last)s") % {"list": ", ".join(parts[:-1]), "last": parts[-1]}
+    return text[:1].upper() + text[1:]
+
+
 class Combo(models.Model):
     """
     A set of dishes sold together, e.g. "Lunch combo" = burger + side + drink.
@@ -211,6 +240,11 @@ class Combo(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def contents(self) -> str:
+        """What's in it, in words (combo_contents)."""
+        return combo_contents([(slot.title, slot.picks, slot.required, [option.dish.title for option in slot.options.all()])
+                               for slot in self.slots.all()])
 
     def own_station(self):
         """The station every choice is made at (a "Choice of drink" combo of bar drinks belongs to the bar), or None

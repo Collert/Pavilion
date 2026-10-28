@@ -147,6 +147,7 @@
 .slot-note { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .slot-note.rotates { color: var(--amber-ink); }
 .sold-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid #E3E9E5; }
+.show-row { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 0; border: none; background: none; text-align: left; cursor: pointer; }
 .sections-box { margin-top: 18px; padding-top: 14px; border-top: 1px solid #E3E9E5; }
 .sections-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .section-edit { margin: 12px 0 0; padding: 12px; border: 1px solid #E3E9E5; border-radius: 14px; min-width: 0; }

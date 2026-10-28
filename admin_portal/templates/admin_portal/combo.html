@@ -45,7 +45,8 @@ slot-0-opt-1-price...).
                 <label><span class="lbl">{% trans "Combo name" %}</span><input class="field" name="title" value="{{ d.title }}" maxlength="140"></label>
                 <label><span class="lbl">{% trans "Name on kitchen tickets" %}</span><input class="field ticket" name="ticket_name" value="{{ d.ticket_name }}" maxlength="12"></label>
             </div>
-            <label class="block-label"><span class="lbl">{% trans "Description" %}</span><textarea class="field" name="description" rows="2">{{ d.description }}</textarea></label>
+            <label class="block-label"><span class="lbl">{% trans "Description" %}</span><textarea class="field" name="description" rows="2" placeholder="{% trans 'Fills in from the choices below until you write your own' %}">{{ d.description }}</textarea></label>
+            <input type="hidden" name="description_auto" value="{{ d.auto }}">
         </section>
 
         <section class="card" aria-label="{% trans 'Choices' %}" id="combo-slots" data-region>
