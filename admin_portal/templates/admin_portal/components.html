@@ -19,9 +19,7 @@ category. Filters are links, search (component or recipe names) submits as you t
         <input type="hidden" name="show" value="{{ l.show }}">
         <input type="search" name="q" value="{{ l.query }}" aria-label="{% trans 'Search components' %}" placeholder="{% trans 'Search components' %}">
     </form>
-    <form method="post" action="{% url 'admin_component_new' %}">{% csrf_token %}
-        <button class="btn-dark">{% icon "plus" 18 2.4 %}{% trans "New component" %}</button>
-    </form>
+    <a class="btn-dark" href="{% url 'admin_component_new' %}">{% icon "plus" 18 2.4 %}{% trans "New component" %}</a>
 </header>
 
 <div class="comp-kpis" id="components-kpis" data-region>

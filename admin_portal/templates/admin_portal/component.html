@@ -4,6 +4,7 @@
 Component editor (design: AdminComponents, edit state; admin_portal/components.py: editor). One form like the other
 editors: Save writes it (and the extra settings on its dishes' parts), editor.js posts op=preview when a field
 changes so costs, stock and margins keep up. inventory_was lets Save leave stock alone unless it was changed here.
+A new component (components/new) is only an unsaved Component until Save creates it.
 {% endcomment %}
 {% block title %}{{ e.title }} · {% trans "Components" %}{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/components.css' %}" rel="stylesheet">
@@ -11,7 +12,7 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
 
 {% block content %}
 {% with d=e.d %}
-<form method="post" action="{% url 'admin_component' e.component.id %}" class="editor-form" data-editor data-queue>
+<form method="post" action="{% if e.component.pk %}{% url 'admin_component' e.component.id %}{% else %}{% url 'admin_component_new' %}{% endif %}" class="editor-form" data-editor data-queue>
 {% csrf_token %}
 <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
 <header class="page-head editor-head" id="component-head" data-region>
@@ -23,7 +24,7 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
         </div>
     </div>
     <span class="saved-text {{ e.status_kind }}">{{ e.status }}</span>
-    <button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>
+    {% if e.component.pk %}<button class="btn-light" name="op" value="duplicate">{% trans "Duplicate" %}</button>{% endif %}
     <button class="btn-amber" name="op" value="save" {% if not e.can_save %}disabled{% endif %}>{% icon "check" 18 2.4 %}{% trans "Save" %}</button>
 </header>
 
@@ -212,7 +213,8 @@ changes so costs, stock and margins keep up. inventory_was lets Save leave stock
             </div>
         </section>
 
-        {% if e.component.archived %}
+        {% if not e.component.pk %}
+        {% elif e.component.archived %}
         <button class="text-btn" name="op" value="restore">{% trans "Restore this component" %}</button>
         {% else %}
         <button class="text-btn{% if not e.archive_off %} danger{% endif %}" name="op" value="archive" {% if e.archive_off %}disabled{% endif %}>{{ e.archive_text }}</button>

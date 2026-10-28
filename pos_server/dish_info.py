@@ -47,7 +47,7 @@ def component_cost(component, _depth=0) -> Decimal:
         batch = sum((Decimal(str(row.quantity)) * ((row.ingredient.cost or 0) if row.ingredient_id else component_cost(row.component, _depth + 1))
                      for row in rows), Decimal("0"))
         return batch / Decimal(str(component.recipe.yield_quantity))
-    per_unit = component.componentingredient_set.all()
+    per_unit = component.componentingredient_set.all() if component.pk else []  # (an unsaved one has none)
     if per_unit:
         return sum((Decimal(str(ci.quantity)) * (ci.ingredient.cost or 0) for ci in per_unit), Decimal("0"))
     transform = made_from(component)
@@ -66,7 +66,7 @@ def component_ingredients(component, _depth=0) -> list:
         for row in rows:
             out += [row.ingredient] if row.ingredient_id else component_ingredients(row.component, _depth + 1)
         return out
-    per_unit = [ci.ingredient for ci in component.componentingredient_set.all()]
+    per_unit = [ci.ingredient for ci in component.componentingredient_set.all()] if component.pk else []
     if per_unit:
         return per_unit
     transform = made_from(component)

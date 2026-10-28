@@ -1148,9 +1148,19 @@ class ComponentTests(AdminFixture, TestCase):
         self.assertEqual((e["status"], e["can_save"]), ("Another component has this name", False))
 
     def test_new_duplicate_and_archive(self):
-        response = self.client.post(reverse("admin_component_new"))
+        count = Component.objects.count()
+        url = reverse("admin_component_new")
+        e = self.client.get(url).context["e"]  # opening the editor creates nothing
+        self.assertEqual((Component.objects.count(), e["d"]["title"], e["can_save"]), (count, "", False))
+        blank = components.draft_from_component(Component(unit_of_measurement="ea", category="other"))
+        self.assertRedirects(self.client.post(url, {**component_fields(blank), "op": "leave"}), reverse("admin_components"))
+        e = self.client.post(url, {**component_fields(blank, title="Pickles"), "op": "preview"}).context["e"]
+        self.assertTrue(e["can_save"])
+        self.assertEqual(Component.objects.count(), count)
+        response = self.client.post(url, {**component_fields(blank, title="Pickles", unit="g"), "op": "save"})
         new = Component.objects.latest("id")
         self.assertRedirects(response, reverse("admin_component", args=[new.id]))
+        self.assertEqual((new.title, new.unit_of_measurement, Component.objects.count()), ("Pickles", "g", count + 1))
         self.assertRedirects(self.post(self.patty, "leave"), reverse("admin_components"))
         self.assertTrue(self.post(self.patty, "leave", title="Changed").context["e"]["leave_ask"])
         self.post(self.patty, "archive")

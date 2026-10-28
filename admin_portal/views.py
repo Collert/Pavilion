@@ -596,21 +596,26 @@ def components(request):
     return page(request, "admin_portal/components.html", "components", {"l": data})
 
 
-@admin_page("components", edit="*")
-@require_POST
+@admin_page("components", edit={"save"})
 def component_new(request):
-    component = Component.objects.create(title=_("New component"), unit_of_measurement="ea", category="other", crafting_option="craft")
-    return redirect("admin_component", component_id=component.id)
+    """The component editor for a new one: nothing is created until Save."""
+    component = Component(title="", unit_of_measurement="ea", category="other", crafting_option="craft")
+    return _component_editor(request, component)
 
 
 @admin_page("components", edit={"duplicate", "save"}, delete={"archive", "restore"})
 def component_edit(request, component_id):
     """The component editor, one form like the dish editor (Save; other buttons post an `op` and show the draft)."""
-    component = get_object_or_404(Component, pk=component_id)
+    return _component_editor(request, get_object_or_404(Component, pk=component_id))
+
+
+def _component_editor(request, component):
     if request.method != "POST":
         draft = components_data.draft_from_component(component)
         return page(request, "admin_portal/component.html", "components", {"e": components_data.editor(component, draft)})
     op = request.POST.get("op", "")
+    if not component.pk and op in ("archive", "restore", "duplicate"):
+        op = "preview"
     draft = components_data.apply_op(components_data.draft_from_post(request.POST), op, request.POST, component)
     if op == "archive":
         parts, addons = components_data.usage(component)

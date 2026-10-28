@@ -415,7 +415,7 @@ def editor(component, draft, leave_ask=False):
         source = "recipe"
         transform = None
     else:
-        per_unit = list(current.componentingredient_set.all())
+        per_unit = list(current.componentingredient_set.all()) if current.pk else []
         for ci in per_unit:
             ingredients.append({"name": ci.ingredient.title, "allergens": [a for a in ALLERGENS if a in (ci.ingredient.allergens or [])],
                                 "qty": fmt_qty(ci.quantity, ci.ingredient.unit_of_measurement),
