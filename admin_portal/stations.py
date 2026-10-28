@@ -1,10 +1,10 @@
 """
 Stations (design: AdminStations): the list in ticket order and the selected station's settings: name, ticket code,
-icon, colour, target ticket time and whether it's taking tickets, the dishes made there, a ticket preview, the last
+menu section (the heading its dishes are listed under in the store, on the register and on menu boards), icon, colour, target ticket time and whether it's taking tickets, the dishes made there, a ticket preview, the last
 30 days and archiving (its dishes move to another station first). One form with Save: every change (archiving
 included) is a draft until it's saved.
 
-    draft = {"rows": [{"id": 3 or "", "name", "tag", "icon", "color", "target", "active"}], "sel": index,
+    draft = {"rows": [{"id": 3 or "", "name", "tag", "heading", "icon", "color", "target", "active"}], "sel": index,
              "gone": [{"id": 4, "to": 3 or "new:<index>"}]}
 """
 import datetime
@@ -32,16 +32,17 @@ def _tag(value):
 
 
 def draft_of() -> dict:
-    rows = [{"id": s.id, "name": s.name, "tag": s.ticket_code, "icon": s.icon, "color": s.color, "target": s.target_minutes,
-             "active": s.taking_tickets} for s in Station.objects.filter(archived=False)]
+    rows = [{"id": s.id, "name": s.name, "tag": s.ticket_code, "heading": s.menu_heading, "icon": s.icon, "color": s.color,
+             "target": s.target_minutes, "active": s.taking_tickets} for s in Station.objects.filter(archived=False)]
     return {"rows": rows, "sel": 0, "gone": []}
 
 
 def from_post(post) -> dict:
     rows = []
     for k in range(min(_int(post.get("count")), 60)):
-        sid, name, tag, icon, color, target, active = (post.get(f"st-{k}-{f}", "") for f in ("id", "name", "tag", "icon", "color", "target", "active"))
-        rows.append({"id": _int(sid) or "", "name": name.strip()[:24], "tag": _tag(tag),
+        sid, name, tag, heading, icon, color, target, active = (post.get(f"st-{k}-{f}", "") for f in (
+            "id", "name", "tag", "heading", "icon", "color", "target", "active"))
+        rows.append({"id": _int(sid) or "", "name": name.strip()[:24], "tag": _tag(tag), "heading": heading.strip()[:80],
                      "icon": icon if icon in station_icons.PATHS else station_icons.DEFAULT,
                      "color": color if len(color) == 7 and color.startswith("#") else station_icons.PALETTE[0][0],
                      "target": min(max(_int(target, 10), TARGET[0]), TARGET[1]), "active": active == "1"})
@@ -78,7 +79,7 @@ def apply_op(draft, op, post) -> tuple[dict, str]:
     elif name == "new":
         used = {r["color"] for r in rows}
         color = next((c for c, _l in station_icons.PALETTE if c not in used), station_icons.PALETTE[0][0])
-        rows.append({"id": "", "name": _("New station"), "tag": "NEW", "icon": "knife", "color": color, "target": 8, "active": True})
+        rows.append({"id": "", "name": _("New station"), "tag": "NEW", "heading": "", "icon": "knife", "color": color, "target": 8, "active": True})
         draft["sel"] = len(rows) - 1
     elif row and name == "icon" and arg in station_icons.PATHS:
         row["icon"] = arg
@@ -168,7 +169,7 @@ def _code_for(name):
 def save(draft):
     saved = {}
     for position, r in enumerate(draft["rows"]):
-        values = {"name": r["name"].strip(), "ticket_code": r["tag"], "icon": r["icon"], "color": r["color"],
+        values = {"name": r["name"].strip(), "ticket_code": r["tag"], "menu_heading": r["heading"], "icon": r["icon"], "color": r["color"],
                   "target_minutes": r["target"], "taking_tickets": r["active"], "position": position}
         station = Station.objects.filter(pk=r["id"], archived=False).first() if r["id"] else None
         if station is None:

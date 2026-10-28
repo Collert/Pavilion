@@ -212,8 +212,18 @@ class Combo(models.Model):
     def __str__(self) -> str:
         return self.title
 
+    def own_station(self):
+        """The station every choice is made at (a "Choice of drink" combo of bar drinks belongs to the bar), or None
+        when its choices come from more than one station."""
+        stations = {option.dish.station_id: option.dish.station for slot in self.slots.all() for option in slot.options.all()}
+        return next(iter(stations.values())) if len(stations) == 1 else None
+
     def section_station(self):
-        """The station whose menu section lists this combo."""
+        """The station whose menu section lists this combo in the store and on the register: its own station, else
+        its first pick's."""
+        own = self.own_station()
+        if own is not None:
+            return own
         slot = self.slots.first()
         option = slot and (slot.default_option() or slot.options.first())
         return option.dish.station if option else None

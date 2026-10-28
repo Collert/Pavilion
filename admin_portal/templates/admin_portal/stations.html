@@ -28,7 +28,7 @@ picking another station or archiving one keeps what's changed until Save.
     {% for g in s.gone %}<input type="hidden" name="gone" value="{{ g }}">{% endfor %}
     <input type="hidden" name="count" value="{{ s.count }}">
     {% for x in s.items %}{% if not x.on %}
-    <input type="hidden" name="st-{{ x.k }}-id" value="{{ x.id }}"><input type="hidden" name="st-{{ x.k }}-name" value="{{ x.name }}"><input type="hidden" name="st-{{ x.k }}-tag" value="{{ x.tag }}">
+    <input type="hidden" name="st-{{ x.k }}-id" value="{{ x.id }}"><input type="hidden" name="st-{{ x.k }}-name" value="{{ x.name }}"><input type="hidden" name="st-{{ x.k }}-tag" value="{{ x.tag }}"><input type="hidden" name="st-{{ x.k }}-heading" value="{{ x.heading }}">
     <input type="hidden" name="st-{{ x.k }}-icon" value="{{ x.icon }}"><input type="hidden" name="st-{{ x.k }}-color" value="{{ x.color }}"><input type="hidden" name="st-{{ x.k }}-target" value="{{ x.target }}">
     <input type="hidden" name="st-{{ x.k }}-active" value="{% if x.active %}1{% endif %}">
     {% endif %}{% endfor %}
@@ -66,6 +66,7 @@ picking another station or archiving one keeps what's changed until Save.
                 <div class="st-names">
                     <label><span class="lbl">{% trans "Station name" %}</span><input class="field" name="st-{{ e.k }}-name" value="{{ e.r.name }}" maxlength="24"></label>
                     <label><span class="lbl">{% trans "Ticket code" %}</span><input class="field st-code-in" name="st-{{ e.k }}-tag" value="{{ e.r.tag }}" maxlength="4"></label>
+                    <label class="st-heading"><span class="lbl">{% trans "Menu section" %}</span><input class="field" name="st-{{ e.k }}-heading" value="{{ e.r.heading }}" maxlength="80" placeholder="{{ e.r.name }}" title="{% trans 'What the store, the register and menu boards call this station’s dishes. Leave empty to use the station name.' %}"></label>
                 </div>
             </div>
             {% if e.problem %}<div class="st-err">{{ e.problem }}</div>{% endif %}

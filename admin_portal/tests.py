@@ -1852,7 +1852,7 @@ class StationsTests(AdminFixture, TestCase):
     def fields(self, s, **changes):
         data = {"count": str(s["count"]), "sel": str(s["d"]["sel"]), "gone": s["gone"]}
         for x in s["items"]:
-            for f in ("id", "name", "tag", "icon", "color", "target"):
+            for f in ("id", "name", "tag", "heading", "icon", "color", "target"):
                 data[f"st-{x['k']}-{f}"] = str(x[f])
             data[f"st-{x['k']}-active"] = "1" if x["active"] else ""
         data.update(changes)
@@ -1865,7 +1865,7 @@ class StationsTests(AdminFixture, TestCase):
         s = self.client.get(self.url).context["s"]
         names = [x["name"] for x in s["items"]]
         self.assertEqual((s["status"], s["e"]["r"]["name"]), ("All changes saved", names[0]))
-        s = self.post(s, "icon:basket", **{"st-0-tag": "grl", "st-0-name": "Grill"}).context["s"]
+        s = self.post(s, "icon:basket", **{"st-0-tag": "grl", "st-0-name": "Grill", "st-0-heading": " Hot food "}).context["s"]
         self.assertEqual((s["items"][0]["tag"], s["items"][0]["icon"], s["status"]), ("GRL", "basket", "Unsaved changes"))
         s = self.post(s, "more").context["s"]
         s = self.post(s, "down:0").context["s"]
@@ -1878,6 +1878,7 @@ class StationsTests(AdminFixture, TestCase):
         self.assertEqual((self.kitchen.name, self.kitchen.ticket_code, self.kitchen.icon, self.kitchen.target_minutes, self.kitchen.position),
                          ("Grill", "GRL", "basket", 11, 1))
         self.assertEqual(self.kitchen.as_dict()["tag"], "GRL")
+        self.assertEqual(self.kitchen.heading, "Hot food")  # the menu section title
 
     def test_new_station_and_taking_tickets(self):
         s = self.client.get(self.url).context["s"]

@@ -39,6 +39,7 @@
 .st-names { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px; }
 .st-names .field { height: 44px; padding: 0 12px; font-weight: 700; }
 .st-code-in { text-transform: uppercase; letter-spacing: .08em; }
+.st-heading { grid-column: 1 / -1; }
 .st-err { font-size: 12px; font-weight: 800; color: var(--red-ink); margin-top: 8px; padding-left: 100px; }
 .st-icons { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
 .st-icons button { height: 48px; border: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--soft); color: var(--ink-2); }

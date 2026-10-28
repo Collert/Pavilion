@@ -7,7 +7,7 @@ A menu's board is set in its Display tab (admin) and kept on `Menu.display`:
     {"template": "menu_showcase",                 # a menu template's name
      "look": {"accent": "#E9A64B", ...},          # the template's params (colours, fonts, texts)
      "pages": [{"featured": "d:12",               # a featured dish ("d:<id>") or combo ("c:<id>"), or ""
-                "slots": ["s:3", "combos", ""]}], # one group per slot: a station's dishes ("s:<id>"), the combos, or empty
+                "slots": ["s:3", "combos", ""]}], # one group per slot: a station's dishes and one-station combos ("s:<id>"), the other combos, or empty
      "sold": "show",                              # sold-out items: "show" (marked) or "hide"
      "page_fx": "fade", "page_sec": 20,           # pages take turns (cut, fade, slide, rise) every page_sec
      "group_fx": "slide", "group_sec": 8}         # a group with more items than its slot fits turns over every group_sec
@@ -42,12 +42,25 @@ def template_of(display):
     return found.get(display.get("template")) or found.get(DEFAULT_TEMPLATE) or next(iter(found.values()), None)
 
 
+def _combos(menu):
+    from pos_server.pricing import combo_queryset
+    return combo_queryset().filter(pk__in=menu.combos.filter(archived=False, active=True).values("pk")).order_by("id")
+
+
+def _combo_group(combo):
+    """A combo whose choices are all made at one station is listed with that station's dishes, the rest under Combos."""
+    own = combo.own_station()
+    return f"s:{own.id}" if own else "combos"
+
+
 def groups(menu):
-    """[(key, name, color)] the menu can fill slots with: its stations (in station order) and its combos."""
+    """[(key, name, color)] the menu can fill slots with: its stations (in station order, named by their menu
+    heading) and its combos that mix stations."""
     from pos_server.models import Station
-    station_ids = set(menu.dishes.filter(archived=False).values_list("station_id", flat=True))
-    out = [(f"s:{s.id}", s.heading or s.name, s.color) for s in Station.objects.filter(archived=False) if s.id in station_ids]
-    if menu.combos.filter(archived=False, active=True).exists():
+    keys = {f"s:{sid}" for sid in menu.dishes.filter(archived=False).values_list("station_id", flat=True)}
+    keys |= {_combo_group(combo) for combo in _combos(menu)}
+    out = [(f"s:{s.id}", s.heading, s.color) for s in Station.objects.filter(archived=False) if f"s:{s.id}" in keys]
+    if "combos" in keys:
         out.append(("combos", _("Combos"), "#14261F"))
     return out
 
@@ -119,9 +132,9 @@ def items(menu):
         item = _dish(dish, deals)
         by_group.setdefault(f"s:{dish.station_id}", []).append(item)
         by_key[item["key"]] = item
-    for combo in menu.combos.filter(archived=False, active=True).prefetch_related("slots__options__dish").order_by("id"):
+    for combo in _combos(menu):
         item = _combo(combo, deals)
-        by_group.setdefault("combos", []).append(item)
+        by_group.setdefault(_combo_group(combo), []).append(item)
         by_key[item["key"]] = item
     return by_group, by_key
 

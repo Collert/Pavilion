@@ -339,6 +339,31 @@ class MenuBoardTests(TestCase):
         slot = board(self.menu, {**display, "sold": "hide"})["pages"][0]["slots"][0]
         self.assertEqual(slot["count"], 7)
 
+    def test_one_station_combos_join_that_station(self):
+        from decimal import Decimal
+
+        from pos_server.models import Combo, ComboSlot, ComboSlotOption
+
+        from .menu_boards import board, groups
+        drinks = Combo.objects.create(title="Choice of drink", price=Decimal("3.00"))
+        slot = ComboSlot.objects.create(combo=drinks, title="Drink")
+        for dish in (self.tea, self.coffees[0]):
+            ComboSlotOption.objects.create(slot=slot, dish=dish)
+        lunch = Combo.objects.create(title="Lunch deal", price=Decimal("15.00"))
+        for title, dish in (("Main", self.burger), ("Drink", self.tea)):
+            ComboSlotOption.objects.create(slot=ComboSlot.objects.create(combo=lunch, title=title), dish=dish)
+        self.menu.combos.set([drinks, lunch])
+        self.bar.menu_heading = "Drinks"
+        self.bar.save()
+        self.assertEqual((drinks.own_station(), lunch.own_station(), drinks.section_station()), (self.bar, None, self.bar))
+        self.assertEqual([(k, n) for k, n, _c in groups(self.menu)],
+                         [(f"s:{self.kitchen.id}", self.kitchen.heading), (f"s:{self.bar.id}", "Drinks"), ("combos", "Combos")])
+        display = {"pages": [{"featured": "", "slots": [f"s:{self.bar.id}", "combos", ""]}]}
+        bar, combos, _empty = board(self.menu, display)["pages"][0]["slots"]
+        self.assertEqual((bar["name"], bar["count"]), ("Drinks", 9))
+        self.assertIn("Choice of drink", [i["title"] for s in bar["screens"] for i in s])
+        self.assertEqual([i["title"] for s in combos["screens"] for i in s], ["Lunch deal"])
+
     def test_a_screen_shows_its_menu(self):
         self.menu.display = {"template": "menu_showcase", "look": {"badge": "Open till 8", "loved_count": 0},
                              "pages": [{"featured": f"d:{self.burger.id}", "slots": [f"s:{self.bar.id}", f"s:{self.kitchen.id}", ""]}]}
