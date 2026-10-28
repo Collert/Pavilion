@@ -3,7 +3,7 @@
 // The page is Django HTML in <main id="page" data-now="<server time, ms>">, with the parts that can change marked
 // data-region (each with an id). This script:
 // - submits forms (and follows links marked data-live) in the background. The server answers as usual (post,
-//   redirect, get); the regions whose HTML changed are swapped in. A different page replaces #page instead.
+//   redirect, get); the regions whose HTML changed are swapped in. A different page replaces #page instead (and loads its stylesheets and scripts).
 // - refetches the page when the server sends a nudge on one of `topics` (SSE), and swaps in what changed. If nothing
 //   changed, nothing on screen is touched (so your own action's echo is invisible).
 // - ticks countdowns: [data-ends="<ms>"] shows the time left (data-done-text once it's up) and [data-bar-ends]
@@ -116,7 +116,26 @@ function swapRegions(doc, { transient }) {
     return true;
 }
 
+// The new page's stylesheets and module scripts that this one didn't load (a module runs once, so loading one again
+// does nothing): without them, an editor opened from its list had no editor.js and never told the server of a change
+function addHeadAssets(doc) {
+    const have = (selector, attr, url) => [...document.querySelectorAll(selector)].some((n) => n[attr] === url);
+    for (const link of doc.head.querySelectorAll('link[rel="stylesheet"][href]')) {
+        const url = new URL(link.getAttribute("href"), location.href).href;
+        if (!have('link[rel="stylesheet"]', "href", url)) document.head.append(document.importNode(link, true));
+    }
+    for (const script of doc.querySelectorAll('script[type="module"][src]')) {
+        const url = new URL(script.getAttribute("src"), location.href).href;
+        if (have("script[src]", "src", url)) continue;
+        const fresh = document.createElement("script");  // (one parsed from HTML would never run)
+        fresh.type = "module";
+        fresh.src = url;
+        document.head.append(fresh);
+    }
+}
+
 function replacePage(doc) {
+    addHeadAssets(doc);
     document.getElementById("page").replaceWith(document.importNode(doc.getElementById("page"), true));
     for (const next of doc.querySelectorAll("[data-region]")) {
         const live = document.getElementById(next.id);
