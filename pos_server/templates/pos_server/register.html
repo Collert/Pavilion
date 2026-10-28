@@ -314,18 +314,20 @@
         </div>
         <button class="icon-btn" data-close aria-label="{% trans 'Close' %}">{% include "pos_server/icons/close.svg" %}</button>
     </div>
-    <div class="gs-card" id="gs-card"><span class="gs-store">{{ store_name }}</span><span class="gs-amount" id="gs-card-amount"></span></div>
-    <label class="field overline" id="gs-amount-field">{% trans "Amount" %}
-        <span class="split-input"><span>$</span><input class="input" id="gs-amount" inputmode="numeric" autocomplete="off"></span>
-        <span class="sub" id="gs-range"></span>
-    </label>
-    <label class="field overline">{% trans "Who it’s for" %}
-        <input class="input" type="text" id="gs-to" maxlength="60" autocomplete="off" placeholder="{% trans 'Their name, optional' %}"></label>
-    <label class="field overline">{% trans "Email it to" %}
-        <input class="input" type="email" id="gs-email" maxlength="64" autocomplete="off" placeholder="{% trans 'Optional. Leave empty to print it or read it out' %}"></label>
-    <label class="field overline">{% trans "Message" %}
-        <input class="input" type="text" id="gs-message" maxlength="120" autocomplete="off"></label>
-    <div class="error-line" id="gs-error" hidden></div>
+    <div class="sheet-body gift-body">
+        <div class="gs-card" id="gs-card"><span class="gs-store">{{ store_name }}</span><span class="gs-amount" id="gs-card-amount"></span></div>
+        <label class="field overline" id="gs-amount-field">{% trans "Amount" %}
+            <span class="split-input"><span>$</span><input class="input" id="gs-amount" inputmode="numeric" autocomplete="off"></span>
+            <span class="sub" id="gs-range"></span>
+        </label>
+        <label class="field overline">{% trans "Who it’s for" %}
+            <input class="input" type="text" id="gs-to" maxlength="60" autocomplete="off" placeholder="{% trans 'Their name, optional' %}"></label>
+        <label class="field overline">{% trans "Email it to" %}
+            <input class="input" type="email" id="gs-email" maxlength="64" autocomplete="off" placeholder="{% trans 'Optional. Leave empty to print it or read it out' %}"></label>
+        <label class="field overline">{% trans "Message" %}
+            <input class="input" type="text" id="gs-message" maxlength="120" autocomplete="off"></label>
+        <div class="error-line" id="gs-error" hidden></div>
+    </div>
     <div class="sheet-foot">
         <button class="btn" data-close>{% trans "Cancel" %}</button>
         <button class="btn btn-primary grow" id="gs-add">{% trans "Add to order" %}</button>
@@ -340,8 +342,10 @@
             <h2 class="h2" id="gd-title">{% trans "Gift cards ready" %}</h2>
         </div>
     </div>
-    <div class="gd-cards" id="gd-cards" data-print-cards></div>
-    <div class="gd-warn">{% trans "This is the only time the full numbers are shown. Give, print or read them out now: Pavilion keeps just the last four digits." %}</div>
+    <div class="sheet-body gift-body">
+        <div class="gd-cards" id="gd-cards" data-print-cards></div>
+        <div class="gd-warn">{% trans "This is the only time the full numbers are shown. Give, print or read them out now: Pavilion keeps just the last four digits." %}</div>
+    </div>
     <div class="sheet-foot">
         <button class="btn" id="gd-print">{% trans "Print" %}</button>
         <button class="btn btn-primary grow" id="gd-done">{% trans "Done, hide the numbers" %}</button>

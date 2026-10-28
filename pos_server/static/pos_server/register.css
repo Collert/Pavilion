@@ -374,7 +374,8 @@
 .gift-line-swatch { width: 44px; height: 28px; flex: none; border-radius: 6px; background: #1F4A3A center / cover; box-shadow: 0 1px 4px rgba(20, 38, 31, .2); }
 .gift-line-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .gift-line-title { font-weight: 800; }
-.gs-card { position: relative; aspect-ratio: 1.6; max-height: 190px; border-radius: 18px; background: #1F4A3A center / cover; color: #FFFFFF;
+.gift-body { display: flex; flex-direction: column; gap: 22px; }
+.gs-card { flex: none; position: relative; aspect-ratio: 1.6; max-height: 190px; border-radius: 18px; background: #1F4A3A center / cover; color: #FFFFFF;
     display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 18px; box-sizing: border-box; }
 .gs-card.ink-dark { color: var(--ink); }
 .gs-store { font-family: var(--heading); font-size: 18px; font-weight: 600; }
