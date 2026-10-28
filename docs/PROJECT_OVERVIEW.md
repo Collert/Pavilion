@@ -633,7 +633,9 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   The editor (one form with Save) has name, unit (g/ml/ea) and category; the prep recipe (pick one; its batch with
   costs, or the per-unit ingredients; a warning when there are neither); stock (where it's kept, how long it
   keeps, on hand; the components its transformations connect to are listed, linked, since each storage state is its
-  own component; par with a bar); a dark cost card with allergens; "Sell as an extra" (label, price, most extras per
+  own component; **Add state** adds a row (name, kept in, keeps for, on hand) that Save turns into a component of its
+  own, "Beef patty, frozen", with a `Transformation` each way, "Beef patty · to frozen" and "· back from frozen", the
+  scene and a placeholder time guessed from the name, for recipes to attach to (`components.add_state`); par with a bar); a dark cost card with allergens; "Sell as an extra" (label, price, most extras per
   dish, margin, which dishes offer it: it sets `adjustable` / `max_extra` on those dishes' parts, `max_extra` 0 when
   not offered); and the dishes using it. Stock is only written when changed in the editor (`inventory_was`), so
   counts made elsewhere survive a save. Archiving is blocked while dishes use it (parts or add-ons); archived

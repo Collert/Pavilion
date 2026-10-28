@@ -1,7 +1,8 @@
 """
 Components (design: AdminComponents, list + editor). Each storage state is its own component (frozen and thawed
 patties), so the editor's Stock card shows this component's stock with the components its transformations move
-stock to and from. Cost and allergens come from pos_server/dish_info.py. "Sell as an extra" edits the dishes' parts:
+stock to and from. Add state adds a row there; Save makes it a component of its own ("Beef patty, frozen") with a
+transformation each way, which recipes then attach to (admin Recipes) for their steps and time. Cost and allergens come from pos_server/dish_info.py. "Sell as an extra" edits the dishes' parts:
 offering it on a dish makes that part adjustable with `max_extra` steps; not offering it sets `max_extra` to 0.
 The editor works like the others: one form, a draft posted back to show the sums, saved on Save.
 """
@@ -150,6 +151,7 @@ def draft_from_component(component):
         "groups": [{"id": str(g.id), "title": g.title, "pick": g.pick, "required": g.required, "note": g.note,
                     "options": [{"id": str(o.id), "title": o.title, "price": f"{o.price:.2f}"} for o in g.options.all()]}
                    for g in (component.option_groups.all() if component.pk else [])],
+        "states": [],
     }
 
 
@@ -172,13 +174,17 @@ def draft_from_post(post):
                                  "price": post.get(f"group-{i}-opt-{j}-price", "0")}
                                 for j in range(min(_int(post.get(f"group-{i}-opt-count")) or 0, 100))]}
                    for i in range(min(_int(post.get("group-count")) or 0, 50))],
+        "states": [{"name": post.get(f"state-{i}-name", "").strip()[:60], "storage": post.get(f"state-{i}-storage", "").strip()[:60],
+                    "keeps_days": post.get(f"state-{i}-keeps_days", "0"), "inventory": post.get(f"state-{i}-inventory", "0")}
+                   for i in range(min(_int(post.get("state-count")) or 0, 10))],
     }
     return draft
 
 
 def apply_op(draft, op, post, component):
     """extra_less / extra_more change the most extras per dish; turning the extra on fills in a label, price and dishes.
-    add_group, remove_group:i, add_option:i and remove_option:i:j edit its modifier groups."""
+    add_group, remove_group:i, add_option:i and remove_option:i:j edit its modifier groups; add_state and
+    remove_state:i the new storage states on the Stock card."""
     name, _sep, arg = (op or "").partition(":")
     args = [_int(a) for a in arg.split(":")] if arg else []
     groups = draft["groups"]
@@ -192,6 +198,10 @@ def apply_op(draft, op, post, component):
         groups[i]["options"].append({"id": "", "title": _("New option"), "price": "0.00"})
     elif name == "remove_option" and i is not None and len(args) == 2 and args[1] is not None and 0 <= args[1] < len(groups[i]["options"]):
         groups[i]["options"].pop(args[1])
+    elif name == "add_state" and len(draft["states"]) < 10:
+        draft["states"].append({"name": "", "storage": "", "keeps_days": "0", "inventory": "0"})
+    elif name == "remove_state" and args and args[0] is not None and 0 <= args[0] < len(draft["states"]):
+        draft["states"].pop(args[0])
     count = min(max(_int(draft["extra_max"]) or 1, 1), MAX_EXTRA)
     if op == "extra_less":
         count = max(1, count - 1)
@@ -207,6 +217,22 @@ def apply_op(draft, op, post, component):
         if not draft["offer"]:
             draft["offer"] = sorted(str(dc.id) for dc in dish_parts(component))
     return draft
+
+
+def state_title(draft, state):
+    """The component a new storage state becomes: "Beef patty" + "Frozen" = "Beef patty, frozen"."""
+    name = state["name"].strip()
+    return f"{draft['title'].strip()}, {name[:1].lower()}{name[1:]}"[:140] if name else ""
+
+
+def _state_moves(state):
+    """(scene, hours) there and back for a new state's transformations; a recipe attached later sets the real time."""
+    name = state["name"].lower()
+    if "froz" in name or "freez" in name:
+        return ("freeze", 2), ("thaw", 12)
+    if "chill" in name or "cold" in name:
+        return ("chill", 2), ("prep", 1)
+    return ("prep", 1), ("prep", 1)
 
 
 def _recipe(draft):
@@ -243,6 +269,12 @@ def problems(draft, component):
     if any(not g["title"].strip() or not g["options"] or any(not o["title"].strip() or _dec(o["price"]) is None for o in g["options"])
            for g in draft["groups"]):
         return _("Every modifier group needs a name and named options")
+    titles = [state_title(draft, st) for st in draft["states"]]
+    if any(not t or _dec(st["keeps_days"]) is None or _dec(st["inventory"]) is None or _dec(st["keeps_days"]) < 0 or _dec(st["inventory"]) < 0
+           for t, st in zip(titles, draft["states"])):
+        return _("Every new state needs a name")
+    if len(set(t.lower() for t in titles)) < len(titles) or any(Component.objects.filter(title__iexact=t).exists() for t in titles):
+        return _("A component with this state's name already exists")
     return None
 
 
@@ -254,7 +286,8 @@ def _canonical(draft, component):
             _dec(draft["extra_price"]), _int(draft["extra_max"]) if draft["offer"] and draft["extra_on"] else None,
             tuple(draft["offer"]) if draft["extra_on"] else (),
             tuple((g["id"], g["title"].strip(), g["pick"], g["required"], g["note"].strip(),
-                   tuple((o["id"], o["title"].strip(), _dec(o["price"])) for o in g["options"])) for g in draft["groups"]))
+                   tuple((o["id"], o["title"].strip(), _dec(o["price"])) for o in g["options"])) for g in draft["groups"]),
+            tuple((st["name"], st["storage"].lower(), _dec(st["keeps_days"]), _dec(st["inventory"])) for st in draft["states"]))
 
 
 def is_dirty(draft, component):
@@ -306,7 +339,27 @@ def save_draft(draft, component, copy_of=None):
             DishComponent.objects.filter(pk=dc.pk).update(adjustable=True, max_extra=count)
         elif offered(dc):
             DishComponent.objects.filter(pk=dc.pk).update(max_extra=0)
+    for st in draft["states"]:
+        add_state(component, st, state_title(draft, st))
     return component
+
+
+def add_state(component, state, title):
+    """A new storage state of `component`: a component of its own that Cookery transforms move stock into and back."""
+    other = Component.objects.create(
+        title=title, unit_of_measurement=component.unit_of_measurement, category=component.category, crafting_option="transform",
+        storage=StorageLocation.named(state["storage"]), keeps_days=float(_dec(state["keeps_days"]) or 0),
+        inventory=float(_dec(state["inventory"]) or 0))
+    (there, hours_there), (back, hours_back) = _state_moves(state)
+    name = state["name"].strip()
+    position = Transformation.objects.count()
+    Transformation.objects.create(name=_("%(name)s · to %(state)s") % {"name": component.title, "state": name.lower()},
+                                  from_component=component, to_component=other, scene=there,
+                                  duration=datetime.timedelta(hours=hours_there), position=position)
+    Transformation.objects.create(name=_("%(name)s · back from %(state)s") % {"name": component.title, "state": name.lower()},
+                                  from_component=other, to_component=component, scene=back,
+                                  duration=datetime.timedelta(hours=hours_back), position=position + 1)
+    return other
 
 
 def usage(component):
@@ -496,7 +549,8 @@ def editor(component, draft, leave_ask=False):
         "units": UNIT_NAMES.items(), "categories": Component.CATEGORIES, "places": StorageLocation.objects.all(),
         "recipes": recipes, "recipe": recipe, "source": source, "ingredients": ingredients, "batch_line": batch_line,
         "cost_each": _("%(price)s each") % {"price": money3(each)} if unit == "ea" else cost_text(each, unit),
-        "others": others, "on_hand_line": _("%(qty)s on hand · worth %(money)s") % {"qty": fmt_qty(on_hand, unit), "money": money(on_hand * each)},
+        "others": others, "new_states": [{"i": n, "st": st, "becomes": state_title(draft, st)} for n, st in enumerate(draft["states"])],
+        "can_add_state": len(draft["states"]) < 10, "on_hand_line": _("%(qty)s on hand · worth %(money)s") % {"qty": fmt_qty(on_hand, unit), "money": money(on_hand * each)},
         "stock_msg": stock_msg, "bar": bar(float(on_hand), float(par)), "par_hint": par_hint,
         "cost_big": money3(shown) if unit == "ea" else money(shown), "per_unit": per,
         "cost_sub": {"recipe": _("Worked out from the %(recipe)s recipe.") % {"recipe": (recipe.title or "").lower() if recipe else ""},

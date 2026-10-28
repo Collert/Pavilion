@@ -1172,6 +1172,33 @@ class ComponentTests(AdminFixture, TestCase):
         e = self.client.get(reverse("admin_component", args=[self.frozen.id])).context["e"]
         self.assertEqual((e["source"], e["cost_big"]), ("transform", "$1.80"))
 
+    def test_add_state_makes_a_component_and_transformations_for_recipes(self):
+        from inventory.models import Transformation
+        draft = self.draft(self.spare)
+        e = self.post(self.spare, "add_state", draft).context["e"]
+        self.assertEqual(len(e["new_states"]), 1)
+        self.assertEqual(e["status"], "Every new state needs a name")
+        state = {"state-count": 1, "state-0-name": "Frozen", "state-0-storage": "Freezer", "state-0-keeps_days": "60", "state-0-inventory": "500"}
+        fields = {**component_fields(draft), **state}
+        self.assertEqual(self.client.post(reverse("admin_component", args=[self.spare.id]), {**fields, "op": "preview"}).context["e"]["status"], "Unsaved changes")
+        e = self.client.post(reverse("admin_component", args=[self.spare.id]), {**fields, "op": "remove_state:0"}).context["e"]
+        self.assertEqual(e["new_states"], [])
+        self.client.post(reverse("admin_component", args=[self.spare.id]), {**fields, "op": "save"})
+        frozen = Component.objects.get(title="Spare sauce, frozen")
+        self.assertEqual((frozen.unit_of_measurement, frozen.crafting_option, frozen.storage.name, frozen.keeps_days, frozen.inventory),
+                         ("ml", "transform", "Freezer", 60, 500))
+        there = Transformation.objects.get(from_component=self.spare, to_component=frozen)
+        back = Transformation.objects.get(from_component=frozen, to_component=self.spare)
+        self.assertEqual((there.name, there.scene, back.name, back.scene),
+                         ("Spare sauce · to frozen", "freeze", "Spare sauce · back from frozen", "thaw"))
+        self.assertEqual([o["c"] for o in self.client.get(reverse("admin_component", args=[self.spare.id])).context["e"]["others"]], [frozen])
+        # Recipes can attach to them now
+        groups = self.client.get(reverse("admin_recipe_new")).context["e"]["groups"]
+        self.assertIn("Spare sauce · to frozen", [o["label"] for g in groups for o in g["options"]])
+        # The same state twice is turned away
+        self.client.post(reverse("admin_component", args=[self.spare.id]), {**component_fields(self.draft(self.spare)), **state, "op": "save"})
+        self.assertEqual(Component.objects.filter(title__iexact="Spare sauce, frozen").count(), 1)
+
     def test_extras_drive_the_dish_parts(self):
         draft = self.draft(self.patty)
         self.assertEqual((draft["extra_on"], draft["offer"], draft["extra_max"]), (True, [str(self.dc_patty.id)], "10"))

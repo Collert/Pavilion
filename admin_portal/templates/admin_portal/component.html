@@ -120,10 +120,16 @@ A new component (components/new) is only an unsaved Component until Save creates
         </section>
 
         <section class="card" aria-label="{% trans 'Stock' %}" id="component-stock" data-region>
-            <h2 class="disp card-title">{% trans "Stock" %}</h2>
-            <div class="card-sub">{% trans "Counted per storage state. Cookery transforms move stock between states." %}</div>
+            <div class="mods-head">
+                <div class="grow">
+                    <h2 class="disp card-title">{% trans "Stock" %}</h2>
+                    <div class="card-sub">{% trans "Counted per storage state. Cookery transforms move stock between states." %}</div>
+                </div>
+                <button class="state-add" name="op" value="add_state" {% if not e.can_add_state %}disabled{% endif %}>{% icon "plus" 16 2.6 %}{% trans "Add state" %}</button>
+            </div>
+            <input type="hidden" name="state-count" value="{{ e.new_states|length }}">
             <div class="state-table">
-                <div class="ov state-grid state-head"><span>{% trans "State" %}</span><span>{% trans "Kept in" %}</span><span>{% trans "Keeps for" %}</span><span>{% trans "On hand" %}</span></div>
+                <div class="ov state-grid state-head"><span>{% trans "State" %}</span><span>{% trans "Kept in" %}</span><span>{% trans "Keeps for" %}</span><span>{% trans "On hand" %}</span><span></span></div>
                 <div class="state-grid state-row">
                     <span class="strong ellipsis">{{ e.title }}</span>
                     <input class="mini-unit" name="storage" value="{{ d.storage }}" list="storage-list" maxlength="60" placeholder="{% trans 'Pick or type' %}" aria-label="{% trans 'Kept in' %}">
@@ -131,13 +137,23 @@ A new component (components/new) is only an unsaved Component until Save creates
                     <span class="mini-unit"><input type="number" name="keeps_days" min="0" step="0.25" class="num" value="{{ d.keeps_days }}" aria-label="{% trans 'Keeps for, days' %}"><span class="unit">{% trans "days" %}</span></span>
                     <span class="mini-unit"><input type="number" name="inventory" min="0" step="any" class="num" value="{{ d.inventory }}" aria-label="{% trans 'On hand' %}"><span class="unit">{{ d.unit }}</span></span>
                     <input type="hidden" name="inventory_was" value="{{ d.inventory_was }}">
+                    <span></span>
                 </div>
                 {% for o in e.others %}
                 <a class="state-grid state-row other" href="{% url 'admin_component' o.c.id %}">
                     <span class="strong ellipsis">{{ o.c.title }}</span><span class="small strong ink-2">{{ o.kept_in }}</span>
                     <span class="small strong ink-2">{% blocktrans with n=o.keeps %}{{ n }} days{% endblocktrans %}</span>
-                    <span class="num small strong">{{ o.qty }}{% icon "chevron" 14 2.4 %}</span>
+                    <span class="num small strong">{{ o.qty }}{% icon "chevron" 14 2.4 %}</span><span></span>
                 </a>
+                {% endfor %}
+                {% for n in e.new_states %}
+                <div class="state-grid state-row">
+                    <input class="mini-unit" name="state-{{ n.i }}-name" value="{{ n.st.name }}" maxlength="60" placeholder="{% trans 'e.g. Frozen' %}" aria-label="{% trans 'State name' %}"{% if n.becomes %} title="{% blocktrans with name=n.becomes %}Saved as {{ name }}{% endblocktrans %}"{% endif %}>
+                    <input class="mini-unit" name="state-{{ n.i }}-storage" value="{{ n.st.storage }}" list="storage-list" maxlength="60" placeholder="{% trans 'Pick or type' %}" aria-label="{% trans 'Kept in' %}">
+                    <span class="mini-unit"><input type="number" name="state-{{ n.i }}-keeps_days" min="0" step="0.25" class="num" value="{{ n.st.keeps_days }}" aria-label="{% trans 'Keeps for, days' %}"><span class="unit">{% trans "days" %}</span></span>
+                    <span class="mini-unit"><input type="number" name="state-{{ n.i }}-inventory" min="0" step="any" class="num" value="{{ n.st.inventory }}" aria-label="{% trans 'On hand' %}"><span class="unit">{{ d.unit }}</span></span>
+                    <button class="x-btn on-white" name="op" value="remove_state:{{ n.i }}" aria-label="{% trans 'Remove state' %}">{% icon "close" 13 2.8 %}</button>
+                </div>
                 {% endfor %}
             </div>
             <div class="par-row">

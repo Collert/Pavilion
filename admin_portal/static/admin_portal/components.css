@@ -58,7 +58,9 @@ select.field { appearance: auto; }
 .unit-pre { font-weight: 800; color: var(--muted); }
 
 .state-table { margin-top: 12px; border-radius: 16px; background: var(--softer); overflow: hidden; padding-bottom: 8px; }
-.state-grid { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 130px; gap: 10px; align-items: center; }
+.state-grid { display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 130px 32px; gap: 10px; align-items: center; }
+.state-add { height: 40px; padding: 0 14px; border-radius: 20px; border: none; background: var(--mint); color: var(--brand); font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.state-add:disabled { opacity: .5; cursor: not-allowed; }
 .state-head { padding: 10px 14px 4px; color: var(--faint); font-size: 11px; }
 .state-row { padding: 5px 14px; min-height: 38px; font-size: 14px; }
 .state-row select, .mini-unit { height: 38px; padding: 0 8px; border: none; border-radius: 10px; background: var(--surface); font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); min-width: 0; }
@@ -143,7 +145,7 @@ label:has(> input:focus-visible) > .switch { outline: 3px solid var(--brand); ou
     .editor-grid { grid-template-columns: minmax(0, 1fr) 320px; }
     .basics-3 { grid-template-columns: 1fr 1fr; }
     .basics-3 > :first-child { grid-column: 1 / 3; }
-    .state-grid { grid-template-columns: minmax(0, 1fr) 130px 110px 120px; }
+    .state-grid { grid-template-columns: minmax(0, 1fr) 130px 110px 120px 32px; }
 }
 @media (max-width: 1000px) {
     .editor-grid { grid-template-columns: 1fr; }
