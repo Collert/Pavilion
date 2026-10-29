@@ -3,8 +3,11 @@ Languages (design: AdminLanguages): which of Pavilion's languages (settings.SUPP
 default and whether people start in their device's language. Saved on StoreSettings and applied when Pavilion starts
 (`load`, from AdminPortalConfig.ready): settings.LANGUAGES, LANGUAGE_CODE and LANGUAGE_MATCH_DEVICE are set for the
 process, so URLs, the language picker and translations follow. Changing them needs a restart (`restart`): Pavilion
-under uvicorn's worker supervisor reloads its workers on SIGHUP, the development server reloads when this file is
-touched; anywhere else the page says to restart it by hand. `BOOT_ID` tells the page the restart happened.
+under uvicorn's worker supervisor reloads its workers on SIGHUP (one at a time; the Dockerfile caps how long an old
+worker waits for its open SSE streams, else it waits forever and the restart never finishes), the development server
+reloads when this file is touched; anywhere else the page says to restart it by hand. The restart is noted in the
+cache (`restarting`), so every worker that hasn't restarted yet shows it as under way; with several workers, the page
+waits until the one answering is running the saved settings.
 
     request.session["admin_languages"] = {"on": [codes], "default", "auto", "q", "filter": "all"|"on"}
 """
@@ -15,14 +18,16 @@ import re
 import signal
 import sys
 import threading
-import uuid
+import time
 from pathlib import Path
 
 from django.conf import settings
+from django.core.cache import cache
 from django.utils.translation import gettext as _, to_locale
 
 KEY = "admin_languages"
-BOOT_ID = uuid.uuid4().hex   # one per process: a new one means Pavilion restarted
+STARTED = time.time()   # when this process started: a restart asked for after it hasn't reached it yet
+RESTART_KEY = "admin:restart"
 RUNNING = {"on": [], "default": "", "auto": True}
 
 
@@ -97,8 +102,15 @@ def restart() -> bool:
         else:
             os.utime(__file__)
 
+    cache.set(RESTART_KEY, time.time(), 120)
     threading.Timer(1.0, go).start()
     return True
+
+
+def restarting() -> bool:
+    """A restart was asked for in the last two minutes and this process is older than it."""
+    at = cache.get(RESTART_KEY)
+    return at is not None and at > STARTED
 
 
 # ---------- translations ----------
@@ -196,5 +208,5 @@ def page(st, store) -> dict:
     return {"st": st, "rows": rows, "dirty": dirty, "count": len(on_list), "total": len(catalog()),
             "defaults": [(c, native(c), dict(catalog())[c]) for c in on_list],
             "preview": [(c, native(c), coverage(c) < 90) for c in on_list],
-            "pending": restart_pending(store), "can_restart": restart_method() is not None, "boot": BOOT_ID,
+            "pending": restart_pending(store), "can_restart": restart_method() is not None,
             "running": [native(c) for c in RUNNING["on"]]}

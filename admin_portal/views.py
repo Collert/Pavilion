@@ -1031,14 +1031,14 @@ def languages(request):
             request.session.pop(languages_data.KEY, None)
             return redirect("admin_languages")
         if op == "restart":
-            if languages_data.restart():
-                return page(request, "admin_portal/languages.html", "languages",
-                            {"x": languages_data.page(st, store), "restarting": True})
-            messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
+            if not languages_data.restart():
+                    messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
             return redirect("admin_languages")
         languages_data.apply_op(st, op)
         request.session[languages_data.KEY] = st
-    return page(request, "admin_portal/languages.html", "languages", {"x": languages_data.page(st, store)})
+    x = languages_data.page(st, store)
+    return page(request, "admin_portal/languages.html", "languages",
+                {"x": x, "restarting": x["pending"] and languages_data.restarting()})
 
 
 @admin_page("devices", edit={"new", "rename", "newcode"}, delete={"delete"})
@@ -1172,10 +1172,8 @@ def store_info(request):
     if request.method == "POST":
         op = request.POST.get("op", "")
         if op == "restart":
-            if languages_data.restart():
-                return page(request, "admin_portal/store_info.html", "storeinfo",
-                            {"x": store_info_data.page(store), "restarting": True, "boot": languages_data.BOOT_ID})
-            messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
+            if not languages_data.restart():
+                messages.error(request, _("Pavilion can’t restart itself here. Restart it the way you started it."))
             return redirect("admin_store_info")
         v = store_info_data.from_post(request.POST)
         errors = store_info_data.problems(v)
@@ -1189,19 +1187,22 @@ def store_info(request):
             messages.success(request, _("Store info saved."))
         return redirect("admin_store_info")
     return page(request, "admin_portal/store_info.html", "storeinfo",
-                {"x": store_info_data.page(store), "can_restart": languages_data.restart_method() is not None})
+                {"x": store_info_data.page(store), "can_restart": languages_data.restart_method() is not None,
+                 "restarting": store_info_data.restart_pending(store) and languages_data.restarting()})
 
 
 @admin_page("storeinfo")
 def store_info_status(request):
-    """Which Pavilion is answering (its BOOT_ID): the page waits for a new one after restarting."""
-    return JsonResponse({"boot": languages_data.BOOT_ID})
+    """Whether the Pavilion answering runs the saved time zone: the page reloads once it does after restarting."""
+    from .models import StoreSettings
+    return JsonResponse({"done": not store_info_data.restart_pending(StoreSettings.load())})
 
 
 @admin_page("languages")
 def languages_status(request):
-    """Which Pavilion is answering (its BOOT_ID): the page waits for a new one after restarting."""
-    return JsonResponse({"boot": languages_data.BOOT_ID})
+    """Whether the Pavilion answering runs the saved languages: the page reloads once it does after restarting."""
+    from .models import StoreSettings
+    return JsonResponse({"done": not languages_data.restart_pending(StoreSettings.load())})
 
 
 @admin_page("hours", edit={"pause", "resume", "save"})

@@ -803,7 +803,10 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   default language, "match each person's device" and a preview of the picker. Saved values apply after a restart:
   the page shows a "Restart now" card (`languages.restart`: SIGHUP to uvicorn's worker supervisor, or touching the
   module under the reloading dev server; otherwise it says to restart by hand) and reloads itself once
-  `languages/status` reports a new boot id.
+  `languages/status` says the worker answering runs the saved languages. The restart is noted in the cache for two
+  minutes (`languages.restarting`), so a worker that hasn't restarted yet shows "Restarting…" again. uvicorn swaps its
+  workers one at a time and an old one waits for its open connections, which SSE streams never close: the Dockerfile's
+  `--timeout-graceful-shutdown 5` cuts them (and `--timeout-worker-healthcheck 60` gives a new worker time to start).
 - **Gift card designs** (`admin_gift_designs`, `giftdesigns.py`, 2026-10-23): the designs in the order buyers see
   them (up and down), each one's picture (kept as soon as it's picked), store name on or off, light or dark text, name,
   default message, amounts and the buyer's own range, where it's sold (online store, register) and when (all year or a

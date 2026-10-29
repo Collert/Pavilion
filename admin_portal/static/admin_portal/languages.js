@@ -1,5 +1,6 @@
-// Languages (admin_portal/languages.html): after "Restart now", ask which Pavilion is answering every two seconds and
-// reload the page once it's a new one (its boot id changed). Errors while it's down are expected.
+// Languages and Store info: while Pavilion restarts, ask every two seconds whether the Pavilion answering runs the saved
+// settings and reload the page once it does (with several workers, one still restarting shows the card again). Errors
+// while it's down are expected.
 const watch = () => {
     const card = document.querySelector("[data-restarting]");
     if (!card || card.dataset.watching) return;
@@ -7,7 +8,7 @@ const watch = () => {
     const check = async () => {
         try {
             const response = await fetch(card.dataset.status, { credentials: "same-origin", cache: "no-store" });
-            if (response.ok && (await response.json()).boot !== card.dataset.boot) {
+            if (response.ok && (await response.json()).done) {
                 location.replace(location.pathname);
                 return;
             }

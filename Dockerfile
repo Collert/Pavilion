@@ -21,5 +21,8 @@ RUN mkdir -p /app/logs \
 EXPOSE 8000
 
 # Migrate, then serve ASGI with several uvicorn workers. Redis (REDIS_URL) shares the cache and the
-# live-update events between workers. WEB_CONCURRENCY sets the worker count.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec uvicorn pavilion.asgi:application --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-3} --proxy-headers --forwarded-allow-ips='*'"]
+# live-update events between workers. WEB_CONCURRENCY sets the worker count. The admin's "Restart now" (SIGHUP) swaps
+# the workers one at a time: a new one gets 60 s to start (uvicorn's 5 s default is too short for Django), and an old one
+# gets 5 s to finish before its SSE streams and voice sockets are cut (they never end by themselves, so without the cap
+# the first old worker waits forever and the restart never finishes). Screens reconnect on their own.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec uvicorn pavilion.asgi:application --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-3} --timeout-graceful-shutdown 5 --timeout-worker-healthcheck 60 --proxy-headers --forwarded-allow-ips='*'"]

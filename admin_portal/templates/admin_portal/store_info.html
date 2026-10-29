@@ -66,7 +66,7 @@ applies after a restart (the card does it, as on Languages; languages.js reloads
         </select>
         {% if e.time_zone %}<div class="em-hint bad">{{ e.time_zone }}</div>{% endif %}
         {% if restarting %}
-        <div class="lg-restart going top12" data-restarting data-status="{% url 'admin_store_info_status' %}" data-boot="{{ boot }}">
+        <div class="lg-restart going top12" data-restarting data-status="{% url 'admin_store_info_status' %}">
             <div class="strong">{% trans "Restarting Pavilion…" %}</div>
             <div class="small">{% trans "This page reloads by itself when Pavilion is back, usually within a few seconds." %}</div>
         </div>

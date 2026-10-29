@@ -3218,7 +3218,29 @@ class LanguagesTests(AdminFixture, TestCase):
         self.assertTrue(x["pending"])
         self.assertFalse(x["can_restart"])  # not under uvicorn or the reloading dev server
         self.assertEqual(self.client.post(url, {"op": "restart"}).status_code, 302)
-        self.assertEqual(self.client.get(reverse("admin_languages_status")).json()["boot"], languages.BOOT_ID)
+        self.assertFalse(self.client.get(reverse("admin_languages_status")).json()["done"])  # still running the old ones
+
+    def test_restarting_under_uvicorn(self):
+        from unittest import mock
+        from admin_portal import languages
+        from admin_portal.models import StoreSettings
+        from django.core.cache import cache
+        self.addCleanup(cache.delete, languages.RESTART_KEY)
+        self.client.force_login(self.owner)
+        store = StoreSettings.load()
+        store.languages, store.default_language = ["uk", "en"], "uk"
+        store.save()
+        url = reverse("admin_languages")
+        self.assertFalse(self.client.get(url).context["restarting"])
+        with mock.patch.object(languages, "restart_method", return_value="uvicorn"),                 mock.patch.object(languages.threading, "Timer") as timer, mock.patch.object(languages.os, "kill") as kill,                 mock.patch.object(languages.signal, "SIGHUP", 1, create=True):  # Windows has no SIGHUP
+            self.assertRedirects(self.client.post(url, {"op": "restart"}), url, fetch_redirect_response=False)
+            timer.call_args.args[1]()  # the second later
+            kill.assert_called_once_with(languages.os.getppid(), 1)
+        self.assertTrue(self.client.get(url).context["restarting"])  # this worker hasn't restarted: it says so
+        self.assertFalse(self.client.get(reverse("admin_languages_status")).json()["done"])
+        with mock.patch.object(languages, "RUNNING", {"on": ["uk", "en"], "default": "uk", "auto": True}),                 mock.patch.object(languages, "STARTED", languages.time.time() + 1):  # a new worker with the saved ones
+            self.assertTrue(self.client.get(reverse("admin_languages_status")).json()["done"])
+            self.assertFalse(self.client.get(url).context["restarting"])
 
     def test_applying_languages(self):
         from django.conf import settings

@@ -3,7 +3,7 @@
 {% comment %}
 Languages (design: AdminLanguages; admin_portal/languages.py). One form with Save: switches and fields post the draft
 back (editor.js). Saved languages apply after a restart: the restart card does it and languages.js reloads the page
-once Pavilion answers with a new boot id.
+once the Pavilion answering runs the saved languages.
 {% endcomment %}
 {% block title %}{% trans "Languages" %}{% endblock %}
 {% block main_class %}tm-main{% endblock %}
@@ -61,7 +61,7 @@ once Pavilion answers with a new boot id.
 
     <aside class="lg-side" id="lg-side" data-region>
         {% if restarting %}
-        <div class="lg-restart going" data-restarting data-status="{% url 'admin_languages_status' %}" data-boot="{{ x.boot }}">
+        <div class="lg-restart going" data-restarting data-status="{% url 'admin_languages_status' %}">
             <div class="strong">{% trans "Restarting Pavilion…" %}</div>
             <div class="small">{% trans "This page reloads by itself when Pavilion is back, usually within a few seconds." %}</div>
         </div>
