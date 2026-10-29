@@ -1,0 +1,11 @@
+{% load i18n %}{% comment %}
+Phones only, above the tab bar (_dock.html): a bar to the cart while there's something in it. It's a region, so
+adding from the dish sheet brings it in. The checkout page, which is the cart, leaves it out (base.html's cartbar block).
+{% endcomment %}<div class="nb-cartbar" id="nb-cartbar" data-region>{% if cart_count %}
+    <a class="nb-cartbar-btn" href="{{ links.cart }}">
+        <span class="nb-cartbar-count">{{ cart_count }}</span>
+        <span class="nb-grow">{% trans "View your order" %}</span>
+        {% if subtotal %}<span>${{ subtotal|floatformat:2 }}</span>{% endif %}
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14 M13 6l6 6-6 6"/></svg>
+    </a>
+{% endif %}</div>

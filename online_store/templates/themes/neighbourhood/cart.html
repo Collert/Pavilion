@@ -8,6 +8,7 @@ order, or first opens Square's card form for what gift cards don't cover (checko
 {% endcomment %}
 {% block title %}{% trans "Checkout" %} · {{ store.name }}{% endblock %}
 {% block scripts %}<script type="module" src="{% static 'themes/neighbourhood/checkout.js' %}"></script>{% endblock %}
+{% block cartbar %}{% endblock %}
 {% block content %}
 {% if empty %}
 <section class="nb-empty">

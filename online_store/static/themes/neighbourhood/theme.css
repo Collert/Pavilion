@@ -40,10 +40,10 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
 .nb-sep { opacity: .5; }
 .nb-dot { width: 8px; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--paper) 45%, transparent); flex: none; }
 .nb-dot.open { background: #8FD19E; }
-.nb-bar { height: 84px; display: flex; align-items: center; gap: 12px; padding: 0 var(--pad); border-bottom: var(--rule); }
+.nb-bar { min-height: 84px; display: flex; align-items: center; gap: 12px; padding: 0 var(--pad); border-bottom: var(--rule); }
 .nb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; min-width: 0; }
 .nb-logo { width: 34px; height: 34px; border-radius: 50%; flex: none; object-fit: cover; }
-.nb-brand-name { font-weight: 700; font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-brand-name { font-weight: 700; font-size: 28px; line-height: 1.05; overflow-wrap: break-word; text-wrap: balance; min-width: 0; }  /* a long name wraps, never cut off */
 .nb-nav { display: flex; gap: 6px; margin-left: 30px; }
 .nb-nav a, .nb-nav-mobile a { height: 40px; padding: 0 14px; border-radius: 20px; display: flex; align-items: center; font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: color .2s ease; }
 .nb-nav a:hover { color: var(--accent); }
@@ -222,7 +222,7 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
     .nb-gifts-art .nb-gift-amt.small { font-size: 30px; }
     .nb-gifts-art .n2 { right: 12%; }
     .nb-gifts-art .n3 { right: 24%; }
-    .nb-bar { height: 68px; gap: 8px; }
+    .nb-bar { min-height: 68px; gap: 8px; }
     .nb-brand-name { font-size: 22px; }
     .nb-order { padding: 0 14px; }
     .nb-order svg, .nb-signin { display: none; }
@@ -230,6 +230,33 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
     .nb-foot-grid { grid-template-columns: 1fr; gap: 28px; }
     .nb-hero-btns .nb-btn { flex: 1; }
     .nb-visit-addr { font-size: 28px; }
+}
+/* ---------- phones: the tab bar and cart bar along the bottom (_dock.html, _cartbar.html) ---------- */
+.nb-dock, .nb-cartbar { display: none; }
+@media (max-width: 760px) {
+    :root { --dock: calc(64px + env(safe-area-inset-bottom)); }
+    body.nb:has(.nb-cartbar-btn) { --dock: calc(130px + env(safe-area-inset-bottom)); }
+    /* the tab bar has these now */
+    .nb-order, .nb-bar .nb-cart, .nb-me, .nb-signin, .nb-nav-mobile .in-dock, .nb-nav-mobile.docked { display: none; }
+    .nb-bar { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
+    .nb-brand-name { font-size: clamp(19px, 5.6vw, 24px); }
+    .nb-footer { padding-bottom: calc(28px + var(--dock)); }
+    .nb-toasts { bottom: calc(var(--dock) + 12px); }
+
+    .nb-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+        padding: 6px 8px env(safe-area-inset-bottom); background: var(--card); border-top: var(--rule); }
+    .nb-dock a { height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none;
+        font-size: 12px; font-weight: 700; color: var(--soft-ink); -webkit-tap-highlight-color: transparent; }
+    .nb-dock-icon { width: 56px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; transition: background-color .2s ease; }
+    .nb-dock-icon .nb-avatar { width: 26px; height: 26px; font-size: 11px; }
+    .nb-dock a[aria-current="page"] { color: var(--ink); }
+    .nb-dock a[aria-current="page"] .nb-dock-icon { background: var(--ink); color: var(--paper); }
+
+    .nb-cartbar { position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 34; display: block; padding: 0 12px 10px; pointer-events: none; }
+    .nb-cartbar-btn { pointer-events: auto; height: 56px; padding: 0 18px 0 10px; border-radius: 28px; background: var(--accent); color: var(--card); text-decoration: none;
+        display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; box-shadow: 0 10px 26px color-mix(in srgb, var(--ink) 28%, transparent);
+        animation: nbToast .26s cubic-bezier(.2, .8, .2, 1) both; }
+    .nb-cartbar-count { min-width: 36px; height: 36px; padding: 0 8px; border-radius: 18px; background: var(--card); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 15px; }
 }
 @media (prefers-reduced-motion: reduce) { .nb *, .nb *::before, .nb *::after { animation: none !important; transition: none !important; } }
 

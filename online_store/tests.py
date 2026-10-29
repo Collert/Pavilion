@@ -272,6 +272,20 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.client.post(reverse("store_cart"), {"op": f"remove:{key}"})
         self.assertTrue(self.client.get(reverse("store_cart")).context["empty"])
 
+    def test_phone_tab_bar_and_cart_bar(self):
+        """Phones get Home, Order, Gift cards and Profile along the bottom, and a bar to the cart above them while it
+        has something in it (not on the checkout page, which is the cart)."""
+        home = self.client.get(reverse("store_home"))
+        self.assertContains(home, 'class="nb-dock"')
+        self.assertContains(home, f'href="{reverse("menu")}"')
+        self.assertNotContains(home, "nb-cartbar-btn")
+        self.add_burger(qty="2")
+        menu = self.client.get(reverse("menu"))
+        self.assertEqual(menu.context["cart_count"], 2)  # items, not lines
+        self.assertContains(menu, "nb-cartbar-btn")
+        self.assertContains(menu, "$32.00")
+        self.assertNotContains(self.client.get(reverse("store_cart")), "nb-cartbar")
+
     def test_gift_card_order_with_a_tip(self):
         card = GiftCard.objects.create(available_balance=Decimal("100"))
         self.add_burger()

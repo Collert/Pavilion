@@ -1,0 +1,25 @@
+{% load i18n %}{% comment %}
+Phones only (theme.css hides it above 760px): the main places as a tab bar along the bottom, within thumb's reach.
+The cart bar above it is _cartbar.html.
+{% endcomment %}
+<nav class="nb-dock" aria-label="{% trans 'Main' %}">
+    <a href="{{ links.home }}"{% if active == "home" %} aria-current="page"{% endif %}>
+        <span class="nb-dock-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg></span>
+        <span>{% trans "Home" %}</span>
+    </a>
+    {% if links.menu %}<a href="{{ links.menu }}"{% if active == "menu" %} aria-current="page"{% endif %}>
+        <span class="nb-dock-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16 M6 14a6 6 0 0 1 12 0 M3 18h18 M12 5v3"/></svg></span>
+        <span>{% trans "Order" %}</span>
+    </a>{% endif %}
+    {% if links.giftcards %}<a href="{{ links.giftcards }}"{% if active == "giftcards" %} aria-current="page"{% endif %}>
+        <span class="nb-dock-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8v12 M3 12h18 M12 8c-1.5-3-5-3.5-5-1.2C7 8 9.5 8 12 8c2.5 0 5 0 5-1.2C17 4.5 13.5 5 12 8"/></svg></span>
+        <span>{% trans "Gift cards" %}</span>
+    </a>{% endif %}
+    {% if me %}<a href="{{ links.account }}">
+        <span class="nb-dock-icon"><span class="nb-avatar">{{ me.initials }}</span></span>
+        <span>{% trans "Profile" %}</span>
+    </a>{% elif links.login %}<a href="{{ links.login }}">
+        <span class="nb-dock-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span>
+        <span>{% trans "Sign in" %}</span>
+    </a>{% endif %}
+</nav>

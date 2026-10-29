@@ -8,7 +8,7 @@ from themes.css_vars.
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}{{ store.name }}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,6 +22,8 @@ from themes.css_vars.
     {% include "themes/neighbourhood/_header.html" %}
     <main id="page" data-now="0">{% block content %}{% endblock %}</main>
     {% include "themes/neighbourhood/_footer.html" %}
+    {% block cartbar %}{% include "themes/neighbourhood/_cartbar.html" %}{% endblock %}
+    {% include "themes/neighbourhood/_dock.html" %}
     <div class="nb-toasts" id="nb-toasts" data-region data-transient>{% for message in messages %}<div class="nb-toast{% if message.level_tag == 'error' %} error{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}">{% if message.level_tag == 'error' %}<span class="nb-toast-mark">!</span>{% else %}<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--highlight)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>{% endif %}<span>{{ message }}</span></div>{% endfor %}</div>
     <script type="module">
         import { livePage } from "{% static 'js/live-page.js' %}";
