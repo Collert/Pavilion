@@ -320,7 +320,7 @@ def live_order(user, ids=()) -> dict | None:
 
 def cart_count(request) -> int:
     cart = request.session.get("cart") or {}
-    return sum(int(line.get("quantity", 1) or 1) for line in cart.get("lines", []) if isinstance(line, dict))
+    return sum(int(line.get("qty", 1) or 1) for line in cart.get("lines", []) if isinstance(line, dict))
 
 
 def initials(user) -> str:
