@@ -32,7 +32,11 @@ a { color: inherit; }
 .acct-logo img { width: 100%; height: 100%; object-fit: cover; }
 .acct-store { font-size: 20px; }
 .acct-me { position: relative; margin-top: 22px; padding: 14px; border-radius: 20px; background: rgba(255, 255, 255, .06); display: flex; align-items: center; gap: 12px; font-size: 15px; }
-.acct-avatar { width: 44px; height: 44px; flex: none; border-radius: 22px; background: var(--amber); color: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+.acct-avatar { position: relative; overflow: hidden; width: 44px; height: 44px; flex: none; border-radius: 22px; background: var(--amber); color: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+.acct-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }  /* storefront.photo: over the initials */
+.acct-avatar.big { width: 64px; height: 64px; border-radius: 32px; font-size: 20px; }
+.acct-photo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; }
+.acct-photo label:focus-within { outline: 3px solid var(--brand); outline-offset: 2px; }
 .acct-nav { position: relative; display: flex; flex-direction: column; gap: 4px; margin-top: 20px; }
 .acct-nav a { height: 48px; padding: 0 14px; border-radius: 16px; display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 700; color: #C9D6CF; text-decoration: none; }
 .acct-nav a[aria-current="page"], .acct-nav a:hover { background: rgba(255, 255, 255, .1); color: #FFFFFF; }

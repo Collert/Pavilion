@@ -400,6 +400,9 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
 - **Home** (`index`): hero, menus on now and coming up from the menu schedule, this week's best sellers, a catering
   teaser from `CateringSettings`, three online services, visit us with this week's hours (with each day's events) from `events/hours.py`; the
   theme's header (open-now banner, the signed-in customer's order in progress, cart count) and footer.
+  Avatars on customer pages (store header, tab bar, account) are `storefront.photo(user)` over the initials: the
+  photo uploaded on the account's Profile (`Customer.profile_picture`), else the staff photo, else their Gravatar
+  (`d=blank`: transparent when they have none, so the initials show).
   On phones (≤760px) the header keeps only the logo, name (wraps, never cut off), language and order-in-progress pill:
   Home, Order, Gift cards and Profile/Sign in sit in a tab bar along the bottom (`_dock.html`), with a "View your order"
   bar above it while the cart has something (`_cartbar.html`, a region; `cart.html` leaves it out). The row of links under
@@ -437,7 +440,7 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   use `users/login`.
 - **The account** (`/account/`, Pavilion's own look like the mockup, not the theme): orders (the one in progress,
   reorder into the cart from each item's saved selection, a printable receipt), catering requests (waiting ones
-  first-class, linked by customer or email), profile and wallet (`users.Customer`: phone, company, order texts,
+  first-class, linked by customer or email), profile and wallet (`users.Customer`: photo, phone, company, order texts,
   catering emails, newsletter; `users.SavedCard`: Square cards on file, added through `payments/save-card`, a
   default, removed with `square.disable_card`; `users.SavedAddress`; gift cards sent to their email, used
   automatically at checkout). Checkout offers saved cards (authorized like the card form's payments, by

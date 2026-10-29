@@ -7,6 +7,7 @@ come from the store settings. Password sign-in only for now (email codes and App
 import datetime
 
 import logging
+from django import forms
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -127,7 +128,7 @@ def _page(request, template, view, context):
     staff = work.side(user) if work.is_worker(user) else None
     return render(request, f"online_store/account/{template}", {
         "store": store, "view": view, "me": {"name": user.get_full_name() or user.username, "email": user.email,
-                                            "initials": storefront.initials(user)}, "staff": staff,
+                                            "initials": storefront.initials(user), "photo": storefront.photo(user)}, "staff": staff,
         "catering_badge": waiting, "links": {"home": reverse("store_home"), "menu": reverse("menu"), "catering": reverse("store_catering")},
         **context})
 
@@ -260,7 +261,13 @@ def profile(request):
             for key in ("order_texts", "catering_emails", "newsletter"):
                 setattr(prof, key, post.get(key) == "1")
             prof.save()
-            messages.success(request, _("Profile saved."))
+            if request.FILES.get("photo") and not _save_photo(prof, request.FILES["photo"]):
+                messages.error(request, _("That file isn’t a photo we can use. Try a JPEG, PNG or WebP under 10 MB."))
+            else:
+                messages.success(request, _("Profile saved."))
+        elif op == "photo_clear" and prof.profile_picture:
+            prof.profile_picture.delete(save=True)
+            messages.success(request, _("Photo removed."))
         elif op.startswith("toggle:") and op[7:] in ("order_texts", "catering_emails", "newsletter"):
             setattr(prof, op[7:], not getattr(prof, op[7:]))
             prof.save()
@@ -306,6 +313,25 @@ def profile(request):
         "toggles": [("order_texts", _("Order texts"), _("When your order is ready or on the way"), prof.order_texts),
                     ("catering_emails", _("Catering updates by email"), _("New messages and proposed changes"), prof.catering_emails),
                     ("newsletter", _("Monthly menu email"), _("New dishes and seasonal menus"), prof.newsletter)]})
+
+
+PHOTO_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def _save_photo(prof, upload) -> bool:
+    """Keep an uploaded picture as the customer's photo (storefront.photo shows it before their Gravatar). Only a
+    real JPEG, PNG or WebP picture up to 10 MB; the old one is deleted."""
+    if upload.size > 10 * 1024 * 1024 or upload.content_type not in PHOTO_TYPES:
+        return False
+    try:
+        forms.ImageField().clean(upload)
+    except ValidationError:
+        return False
+    old = prof.profile_picture.name if prof.profile_picture else ""
+    prof.profile_picture.save(f"{prof.user_id}.{PHOTO_TYPES[upload.content_type]}", upload, save=True)
+    if old and old != prof.profile_picture.name:
+        prof.profile_picture.storage.delete(old)
+    return True
 
 
 def _work_card(user):

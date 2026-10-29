@@ -23,7 +23,7 @@ store theme: a dark side panel with the store, the customer and the sections, an
                 <span class="acct-logo">{% if store.logo %}<img src="{{ store.logo.url }}" alt="">{% else %}<svg aria-hidden="true" width="26" height="26" viewBox="0 0 40 40"><path d="M20 33V10 M20 16l-7-6 M20 16l7-6 M20 23l-8-6 M20 23l8-6 M20 29l-6-5 M20 29l6-5" stroke="#14261F" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg>{% endif %}</span>
                 <span class="acct-two"><span class="disp acct-store">{{ store.name }}</span><span class="acct-muted">{% trans "Your account" %}</span></span>
             </a>
-            <div class="acct-me"><span class="acct-avatar"{% if staff %} style="background: {{ staff.face }}; color: #FFFFFF"{% endif %}>{{ me.initials }}</span><span class="acct-two"><span class="strong">{{ me.name }}</span><span class="acct-muted ellipsis">{% if staff and staff.sub %}{{ staff.sub }}{% else %}{{ me.email }}{% endif %}</span></span></div>
+            <div class="acct-me" id="acct-me" data-region><span class="acct-avatar"{% if staff %} style="background: {{ staff.face }}; color: #FFFFFF"{% endif %}>{{ me.initials }}{% if me.photo %}<img src="{{ me.photo }}" alt="">{% endif %}</span><span class="acct-two"><span class="strong">{{ me.name }}</span><span class="acct-muted ellipsis">{% if staff and staff.sub %}{{ staff.sub }}{% else %}{{ me.email }}{% endif %}</span></span></div>
             {% if staff %}<div class="acct-group">{% trans "You" %}</div>{% endif %}
             <nav class="acct-nav{% if staff %} grouped{% endif %}" aria-label="{% trans 'Account' %}">
                 <a href="{% url 'account' %}" {% if view == "orders" %}aria-current="page"{% endif %}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z M9 8V6a3 3 0 0 1 6 0v2"/></svg><span class="grow">{% trans "Orders" %}</span></a>
@@ -56,5 +56,6 @@ store theme: a dark side panel with the store, the customer and the sections, an
         import { livePage } from "{% static 'js/live-page.js' %}";
         livePage({ topics: [{% block live_topics %}{% endblock %}] });
     </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -16,7 +16,7 @@ The cart bar above it is _cartbar.html.
         <span>{% trans "Gift cards" %}</span>
     </a>{% endif %}
     {% if me %}<a href="{{ links.account }}">
-        <span class="nb-dock-icon"><span class="nb-avatar">{{ me.initials }}</span></span>
+        <span class="nb-dock-icon"><span class="nb-avatar">{{ me.initials }}{% if me.photo %}<img src="{{ me.photo }}" alt="">{% endif %}</span></span>
         <span>{% trans "Profile" %}</span>
     </a>{% elif links.login %}<a href="{{ links.login }}">
         <span class="nb-dock-icon"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span>

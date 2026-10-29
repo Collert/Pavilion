@@ -1,5 +1,5 @@
 {% extends "online_store/account/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% comment %}
 Profile and wallet (StoreAccount, profile). The profile is one form with "Save changes" in the header; cards are
 added through Square's form (payments/save-card in an iframe, ?card=1) and addresses edited in place (?address=).
@@ -7,10 +7,18 @@ added through Square's form (payments/save-card in an iframe, ?card=1) and addre
 {% block title %}{% trans "Profile and wallet" %}{% endblock %}
 {% block heading %}{% trans "Profile and wallet" %}{% endblock %}
 {% block head_tools %}<button class="acct-btn amber" form="acct-profile" name="op" value="save">{% trans "Save changes" %}</button>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'online_store/profile-photo.js' %}"></script>{% endblock %}
 {% block content %}
 <div class="acct-scroll acct-grid">
-    <form method="post" id="acct-profile" class="acct-card">{% csrf_token %}
+    <form method="post" id="acct-profile" class="acct-card" enctype="multipart/form-data">{% csrf_token %}
         <h2 class="disp acct-h2">{% trans "Profile" %}</h2>
+        {# the picture: theirs, else Gravatar's, else their initials (storefront.photo); a new one is kept with Save changes #}
+        <div class="acct-photo" id="acct-photo" data-region>
+            <span class="acct-avatar big" data-photo-preview>{{ me.initials }}{% if me.photo %}<img src="{{ me.photo }}" alt="">{% endif %}</span>
+            <span class="grow acct-two"><span class="strong">{% trans "Photo" %}</span><span class="acct-meta">{% if prof.profile_picture %}{% trans "Shows on your account and in the store." %}{% else %}{% trans "Until you add one, we use your Gravatar if you have one." %}{% endif %}</span></span>
+            <label class="acct-mini">{% if prof.profile_picture %}{% trans "Change" %}{% else %}{% trans "Add a photo" %}{% endif %}<input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="visually-hidden"></label>
+            {% if prof.profile_picture %}<button class="acct-mini red" name="op" value="photo_clear">{% trans "Remove" %}</button>{% endif %}
+        </div>
         <div class="acct-two-col">
             <label><span class="acct-lbl">{% trans "First name" %}</span><input class="acct-field" name="first" value="{{ request.user.first_name }}" autocomplete="given-name"></label>
             <label><span class="acct-lbl">{% trans "Last name" %}</span><input class="acct-field" name="last" value="{{ request.user.last_name }}" autocomplete="family-name"></label>

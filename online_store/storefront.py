@@ -4,8 +4,10 @@ customer's order in progress, and a drawing for dishes without a photo. Themes g
 online_store/views.py and decide how they look.
 """
 import datetime
+import hashlib
 from decimal import Decimal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -326,6 +328,23 @@ def cart_count(request) -> int:
 def initials(user) -> str:
     name = (user.get_full_name() or user.username).split()
     return "".join(w[0] for w in name[:2]).upper()
+
+
+def photo(user, size=96) -> str:
+    """The picture in someone's round avatar, laid over their initials: the one they put on their account, else
+    their staff photo (the admin's Staff page), else their Gravatar. Gravatar answers a transparent image
+    (d=blank) for an email without one, so the initials show through; "" when there's no email either."""
+    for owner, field in (("customer_profile", "profile_picture"), ("staff_profile", "photo")):
+        try:
+            picture = getattr(getattr(user, owner), field)
+        except ObjectDoesNotExist:
+            continue
+        if picture:
+            return picture.url
+    email = (user.email or "").strip().lower()
+    if not email:
+        return ""
+    return f"https://gravatar.com/avatar/{hashlib.sha256(email.encode()).hexdigest()}?s={size}&d=blank&r=g"
 
 
 def hours_summary(week) -> list[dict]:

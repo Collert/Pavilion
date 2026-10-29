@@ -397,6 +397,42 @@ class AccountTests(MenuFixture, TestCase):
         noor = User.objects.get(email="noor@example.com")
         self.assertEqual((noor.customer_profile.phone, noor.customer_profile.newsletter), (6045550171, True))
 
+    def test_avatar_photo_beats_gravatar_beats_initials(self):
+        """storefront.photo: the photo put on the account, else the staff photo, else a Gravatar that's transparent
+        when there's none (the initials show through), else nothing."""
+        import hashlib
+        import io
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+        from online_store import storefront
+        from users.models import Customer, Staff
+        digest = hashlib.sha256(b"sofia@example.com").hexdigest()
+        self.user.email = " Sofia@Example.com "
+        self.assertEqual(storefront.photo(self.user), f"https://gravatar.com/avatar/{digest}?s=96&d=blank&r=g")
+        self.assertEqual(storefront.photo(User(username="noemail")), "")
+        self.user.email = "sofia@example.com"
+        picture = io.BytesIO()
+        Image.new("RGB", (4, 4), "teal").save(picture, "PNG")
+        self.client.force_login(self.user)
+        with tempfile.TemporaryDirectory() as media, self.settings(MEDIA_ROOT=media):
+            self.assertContains(self.client.get(reverse("store_home")), f"gravatar.com/avatar/{digest}")
+            bad = self.client.post(reverse("account_profile"), {"op": "save", "first": "Sofia", "email": "sofia@example.com",
+                                                                "photo": SimpleUploadedFile("me.png", b"not a picture", content_type="image/png")}, follow=True)
+            self.assertContains(bad, "isn’t a photo we can use")
+            self.assertFalse(Customer.objects.get(user=self.user).profile_picture)
+            self.client.post(reverse("account_profile"), {"op": "save", "first": "Sofia", "email": "sofia@example.com",
+                                                          "photo": SimpleUploadedFile("me.png", picture.getvalue(), content_type="image/png")})
+            prof = Customer.objects.get(user=self.user)
+            self.assertEqual(prof.profile_picture.name, f"pfps/{self.user.id}.png")
+            self.assertEqual(storefront.photo(User.objects.get(pk=self.user.pk)), prof.profile_picture.url)
+            self.assertContains(self.client.get(reverse("account_profile")), prof.profile_picture.url)
+            self.client.post(reverse("account_profile"), {"op": "photo_clear"})
+            self.assertFalse(Customer.objects.get(user=self.user).profile_picture)
+            staff = Staff.objects.create(user=self.user)
+            staff.photo.save("sofia.png", SimpleUploadedFile("sofia.png", picture.getvalue()))
+            self.assertEqual(storefront.photo(User.objects.get(pk=self.user.pk)), staff.photo.url)
+
     def test_profile_addresses_and_cards(self):
         from users.models import SavedCard
         self.client.force_login(self.user)
