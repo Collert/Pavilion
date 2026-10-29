@@ -402,8 +402,8 @@ The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the 
   theme's header (open-now banner, the signed-in customer's order in progress, cart count) and footer.
   On phones (≤760px) the header keeps only the logo, name (wraps, never cut off), language and order-in-progress pill:
   Home, Order, Gift cards and Profile/Sign in sit in a tab bar along the bottom (`_dock.html`), with a "View your order"
-  bar above it while the cart has something (`_cartbar.html`, a region; `cart.html` leaves it out). The top row keeps
-  only Catering and Events & services.
+  bar above it while the cart has something (`_cartbar.html`, a region; `cart.html` leaves it out). The row of links under
+  the header is tablets only (phones reach Catering and Events & services from the footer).
 - **Menu** (`online_store/pages.py: menu_page`): menus live now or starting within a day as tabs, sections by
   station, the cart beside them, and the dish sheet (`?dish=` / `?combo=`): a form built from `pricing.DishKit`
   (substitutes, modifier groups, leave off / extra for adjustable parts, condiments on the side, a note) that

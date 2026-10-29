@@ -236,8 +236,8 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
 @media (max-width: 760px) {
     :root { --dock: calc(64px + env(safe-area-inset-bottom)); }
     body.nb:has(.nb-cartbar-btn) { --dock: calc(130px + env(safe-area-inset-bottom)); }
-    /* the tab bar has these now */
-    .nb-order, .nb-bar .nb-cart, .nb-me, .nb-signin, .nb-nav-mobile .in-dock, .nb-nav-mobile.docked { display: none; }
+    /* the tab bar has these now (catering and services are in the footer) */
+    .nb-order, .nb-bar .nb-cart, .nb-me, .nb-signin, .nb-nav-mobile { display: none; }
     .nb-bar { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
     .nb-brand-name { font-size: clamp(19px, 5.6vw, 24px); }
     .nb-footer { padding-bottom: calc(28px + var(--dock)); }

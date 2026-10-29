@@ -34,8 +34,7 @@
         </a></span>
         <a class="nb-btn nb-order" href="{{ links.menu }}">{% trans "Order online" %}<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14 M13 6l6 6-6 6"/></svg></a>
     </div>
-    {# on phones the tab bar (_dock.html) has Home, Menu and Gift cards, so this row keeps only the rest #}
-    <nav class="nb-nav-mobile{% if not links.catering and not links.services %} docked{% endif %}" aria-label="{% trans 'Main' %}">
-        {% for key, label, url in nav %}<a href="{{ url }}"{% if key == "home" or key == "menu" or key == "giftcards" %} class="in-dock"{% endif %}{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    <nav class="nb-nav-mobile" aria-label="{% trans 'Main' %}">{# tablets; phones have the tab bar (_dock.html) instead #}
+        {% for key, label, url in nav %}<a href="{{ url }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
     </nav>
 </header>
