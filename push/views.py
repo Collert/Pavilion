@@ -12,12 +12,17 @@ from . import subscriptions, vapid
 from .models import PushSubscription
 
 
-def service_worker(request, *, app, name, scope, renew, icon, badge="", offline="", precache=(), version="1"):
+def service_worker(request, *, app, name, scope, renew, icon, badge="", offline="", precache=(), version="1",
+                   browse=None):
     """The service worker (push/templates/push/sw.js) for `app`, from the top of `scope`. Its text changes when the
-    keys or the precached files do, which is how browsers know to update it."""
+    keys or the precached files do, which is how browsers know to update it. `offline`: the page shown when one
+    can't load. `browse` instead keeps the last copy of everything the app loads, for browsing offline: {"warm":
+    pages saved straight away, "files": path prefixes outside the scope to keep too (static, media), "forget": paths
+    that empty the copies (signing in and out)}."""
     config = {"app": app, "name": name, "scope": scope, "renew": renew, "icon": icon, "badge": badge,
-              "offline": offline, "precache": list(precache), "key": vapid.public_key(), "version": version}
-    body = render_to_string("push/sw.js", {"app": app, "scope": scope, "offline": offline,
+              "offline": offline, "precache": list(precache), "key": vapid.public_key(), "version": version,
+              "warm": [], "files": [], "forget": [], **(browse or {})}
+    body = render_to_string("push/sw.js", {"app": app, "scope": scope, "offline": offline, "browse": bool(browse),
                                            "config": json.dumps(config).replace("<", "\\u003c")})
     response = HttpResponse(body, content_type="text/javascript; charset=utf-8")
     response["Cache-Control"] = "no-cache"

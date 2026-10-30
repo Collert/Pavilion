@@ -4,6 +4,9 @@ manifest is written per request from the store's name, logo and live theme (its 
 and the icons are drawn from the logo (on its own background colour edge to edge when it comes on a solid one, else on
 the theme's background), or Pavilion's cloche (pavilion/brand.py) without one.
 
+Offline: the service worker keeps the last copy of every page and file the app loads (push/templates/push/sw.js,
+`browse`), so it can be browsed offline; a banner says so and ordering waits (static/online_store/offline.js).
+
 Push (push/): the store's service worker (/store/sw.js) shows order and event notifications. Pages post this
 browser's subscription when they find one (static/online_store/push.js):
 - sync: on every store page while notifications are on, so the row follows the browser (a guest's gets the account
@@ -17,8 +20,10 @@ import io
 import json
 import math
 
+from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
@@ -179,8 +184,11 @@ def icon_maskable(request):
 
 def service_worker(request):
     name, _logo, _colours = _look(request)
+    browse = {"warm": [reverse("store_home"), reverse("menu")],
+              "files": [static(""), settings.MEDIA_URL, "/jsi18n/"],  # (media on another site is kept anyway)
+              "forget": [reverse("store_signin"), reverse("store_signout")]}
     return push_views.service_worker(request, app=PushSubscription.STORE, name=name, scope=reverse("store_home"),
-                                     renew=reverse("store_push_renew"), icon=_icon_url())
+                                     renew=reverse("store_push_renew"), icon=_icon_url(), browse=browse)
 
 
 @csrf_exempt  # a service worker posts it; push.views.renew trusts only the old endpoint

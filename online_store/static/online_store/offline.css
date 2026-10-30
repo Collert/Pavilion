@@ -1,0 +1,11 @@
+/* The offline banner (online_store/_app_script.html, offline.js), on theme and account pages alike: their own colours
+   when they have them. Above the phone dock and cart bar (--dock, theme.css); toasts move up over it. */
+.store-offline { position: fixed; left: 50%; bottom: calc(var(--dock, 0px) + 12px); transform: translateX(-50%); z-index: 61;
+    display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box;
+    padding: 11px 16px; border-radius: 16px; background: var(--ink, #1F2A24); color: var(--paper, #FFFFFF);
+    font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.35; box-shadow: 0 10px 30px rgba(0, 0, 0, .22); }
+.store-offline[hidden] { display: none; }
+.store-offline svg { flex: none; }
+.store-offline.nudge { animation: store-offline-nudge .4s ease; }
+@keyframes store-offline-nudge { 25% { transform: translateX(calc(-50% - 6px)); } 75% { transform: translateX(calc(-50% + 6px)); } }
+body:has(.store-offline:not([hidden])) :is(.nb-toasts, .acct-toasts) { translate: 0 -64px; }

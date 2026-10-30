@@ -1,7 +1,9 @@
 // The service worker of one of Pavilion's installable apps ({{ app }}), served from the top of its scope
 // ({{ scope }}) by push/views.py: service_worker. It shows push notifications (push/send.py) and opens their page on
 // a tap, and keeps the subscription when the browser renews it. {% if offline %}Pages that can't load show the
-// offline page.{% else %}It leaves every request to the network.{% endif %}
+// offline page.{% elif browse %}It keeps the last copy of every page and file the app loads (the network first, always),
+// so the app can still be browsed offline; the page says it's offline (online_store/static/online_store/offline.js).
+{% else %}It leaves every request to the network.{% endif %}
 const CONFIG = {{ config|safe }};
 {% if offline %}const CACHE = "pavilion-" + CONFIG.app + "-" + CONFIG.version;
 
@@ -23,6 +25,59 @@ self.addEventListener("fetch", (event) => {
     } else if (CONFIG.precache.includes(new URL(request.url).pathname)) {
         event.respondWith(fetch(request).catch(() => caches.match(request)));
     }
+});
+{% elif browse %}// Not versioned: what was saved stays through updates, and every visit online replaces it
+const CACHE = "pavilion-" + CONFIG.app + "-pages", LIMIT = 400;
+
+// The first pages saved straight away, so the app opens offline even before they've been visited
+const warm = () => caches.open(CACHE).then((cache) => Promise.all(CONFIG.warm.map((url) =>
+    fetch(url, { credentials: "include" }).then((response) => response.ok && cache.put(url, response)).catch(() => {}))));
+
+self.addEventListener("install", (event) => event.waitUntil(self.skipWaiting()));
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim().then(warm)));
+
+// Saved under the address it came from: a navigation can't be answered with a response marked as redirected
+async function save(url, response) {
+    const copy = response.redirected
+        ? new Response(await response.blob(), { status: response.status, statusText: response.statusText, headers: response.headers })
+        : response;
+    const cache = await caches.open(CACHE);
+    await cache.put(url, copy);
+    const keys = await cache.keys();
+    await Promise.all(keys.slice(0, Math.max(0, keys.length - LIMIT)).map((key) => cache.delete(key)));  // oldest first
+}
+
+const keep = (response) => response.type === "opaque"  // another site's picture or stylesheet
+    || (response.ok && !(response.headers.get("Cache-Control") || "").includes("no-store"));
+
+async function fromNetwork(event) {
+    const request = event.request;
+    try {
+        const response = await fetch(request);
+        if (keep(response)) event.waitUntil(save(response.redirected ? response.url : request.url, response.clone()).catch(() => {}));
+        return response;
+    } catch (error) {
+        const saved = await caches.match(request, { ignoreVary: true, ignoreSearch: false });
+        if (saved) return saved;
+        if (request.mode === "navigate") {  // never opened here: the home page rather than the browser's error
+            const home = await caches.match(CONFIG.scope, { ignoreVary: true });
+            if (home) return home;
+        }
+        throw error;
+    }
+}
+
+self.addEventListener("fetch", (event) => {
+    const request = event.request, url = new URL(request.url);
+    if (url.origin === self.location.origin && CONFIG.forget.includes(url.pathname)) {
+        event.waitUntil(caches.delete(CACHE));  // signing in or out: nothing of the last person's stays on the device
+        return;
+    }
+    if (request.method !== "GET" || !url.protocol.startsWith("http")) return;
+    if (url.origin === self.location.origin && !url.pathname.startsWith(CONFIG.scope)
+        && !CONFIG.files.some((prefix) => url.pathname.startsWith(prefix))) return;  // the live stream, other apps
+    if (request.headers.get("Accept")?.includes("text/event-stream")) return;
+    event.respondWith(fromNetwork(event));
 });
 {% else %}self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));

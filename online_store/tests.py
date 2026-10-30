@@ -2,6 +2,7 @@
 import datetime
 import io
 import json
+import re
 from decimal import Decimal
 from unittest import mock
 
@@ -978,6 +979,20 @@ class StoreAppTests(MenuFixture, TestCase):
         worker = self.client.get(reverse("store_worker"))
         self.assertContains(worker, vapid.public_key())
         self.assertEqual(worker["Service-Worker-Allowed"], "/store/")
+
+    def test_the_app_can_be_browsed_offline(self):
+        worker = self.client.get(reverse("store_worker"))
+        config = json.loads(re.search(r"const CONFIG = (\{.*\});", worker.content.decode()).group(1))
+        self.assertEqual(config["warm"], [reverse("store_home"), reverse("menu")])  # saved straight away
+        self.assertIn("/static/", config["files"])  # its stylesheets and scripts too
+        self.assertEqual(config["forget"], [reverse("store_signin"), reverse("store_signout")])  # emptied for the next person
+        self.assertContains(worker, '"-pages"')  # the copies kept for browsing offline
+        page = self.client.get(reverse("menu"))  # the banner, hidden until the browser goes offline
+        self.assertContains(page, 'id="store-offline" role="status" hidden')
+        self.assertContains(page, "online_store/offline.js")
+        self.assertContains(page, "online_store/offline.css")
+        courier = self.client.get(reverse("delivery_worker"))  # the courier app keeps its offline page instead
+        self.assertNotContains(courier, '"-pages"')
 
     def test_the_install_page(self):
         page = self.client.get(reverse("store_install"))

@@ -1,4 +1,9 @@
-{% load static push_tags %}{% comment %}The store app's service worker and push subscription (online_store/static/online_store/push.js). Not in the admin's preview.{% endcomment %}
+{% load i18n static push_tags %}{% comment %}The store app's service worker and push subscription (online_store/static/online_store/push.js), and the banner shown while offline (offline.js). Not in the admin's preview.{% endcomment %}
+{% if not preview %}<div class="store-offline" id="store-offline" role="status" hidden>
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 4.2-2.6 M10.7 5.1A15 15 0 0 1 22 8.8 M5 12.6a10 10 0 0 1 5.2-2.7 M15.5 10.4A10 10 0 0 1 19 12.6 M8.5 16.4a5 5 0 0 1 7 0 M12 20h.01 M3 3l18 18"/></svg>
+    <span>{% trans "You’re offline. You can look around, but you can’t order until you’re back online." %}</span>
+</div>
+<script type="module" src="{% static 'online_store/offline.js' %}"></script>{% endif %}
 {% if not preview %}<script type="module" src="{% static 'online_store/push.js' %}" id="store-push"
         data-worker="{% url 'store_worker' %}" data-scope="{% url 'store_home' %}" data-key="{% vapid_key %}"
         data-sync="{% url 'store_push_sync' %}" data-forget="{% url 'store_push_forget' %}" data-user="{{ request.user.pk|default:'' }}"></script>{% endif %}

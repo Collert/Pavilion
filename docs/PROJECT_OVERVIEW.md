@@ -1055,7 +1055,16 @@ Two installable apps, each with its own scope, manifest and service worker serve
   richer install sheet are taken by a Gotenberg server (`screenshots` in docker-compose.yml; `SCREENSHOT_URL`,
   `SCREENSHOT_SITE`) after each Publish on the admin's Online store page, in the background (one run at a time, one more
   if published again meanwhile; `online_store/screenshots.py`): new files under `store_app/` in the media storage, then
-  the old set is deleted. `StoreSettings.app_screenshots` lists them.
+  the old set is deleted. `StoreSettings.app_screenshots` lists them. Gotenberg wants multipart forms and is asked to
+  `clip` to the viewport (the result is cropped too): Chrome drops screenshots that aren't the size the manifest says.
+  The logo icon takes the logo's own background colour edge to edge when it comes on a solid one (`app._backdrop`);
+  raise `app.ICON_DRAWING` when the drawing changes so installed apps fetch it again.
+  **Offline**: the store's worker (`browse` in `sw.js`) answers every GET in its scope, plus static, media, `/jsi18n/`
+  and other sites' files (fonts, S3 pictures), from the network first and keeps the last copy (`pavilion-store-pages`,
+  400 entries, not versioned so it survives updates); offline it serves that copy, or the saved home page for a page
+  never opened. Home and the menu are saved when it activates. Signing in or out empties it. The banner
+  (`online_store/_app_script.html`, `offline.js`/`offline.css`, theme and account pages) shows while the browser is
+  offline and holds back every form that posts; back online, the live stream's reconnect refreshes the page.
 - **The courier app** (`/deliveries/`): its manifest's id is `/deliveries/` (the old UUID id matched a stale app record Chrome syncs
   between devices, so installing said "already installed" and opening failed); its service
   worker used to sit in `/static/` (where it never reached the pages) and now has an offline page. Its mark is the bag
