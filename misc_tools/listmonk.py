@@ -266,7 +266,30 @@ def sync_user(user, lists=None):
         api("PUT", "/subscribers/lists", {"ids": [found["id"]], "action": "unsubscribe", "target_list_ids": [lists["customers"]]})
     merged = {**(found.get("attribs") or {}), **attribs}
     if found.get("name") != name or merged != (found.get("attribs") or {}):
-        api("PATCH", f"/subscribers/{found['id']}", {"name": name, "attribs": merged})
+        update_subscriber(found, name, merged)
+
+
+NO_PATCH = "listmonk-no-patch"  # cache: this listmonk has no PATCH /subscribers/<id>
+
+
+def update_subscriber(found, name, attribs):
+    """Change a subscriber's name and attributes, leaving their lists alone. Newer listmonk has PATCH for that; older
+    versions only PUT, which replaces the whole subscriber and drops any list it isn't given, so it gets every list
+    they're in back, whatever their status there (listmonk keeps the status of a subscription it already has, so
+    someone who left the customers list stays out)."""
+    from django.core.cache import cache
+    if not cache.get(NO_PATCH):
+        try:
+            api("PATCH", f"/subscribers/{found['id']}", {"name": name, "attribs": attribs})
+            return
+        except ListmonkError as e:
+            if e.status not in (404, 405):
+                raise
+            cache.set(NO_PATCH, True, 24 * 3600)
+    api("PUT", f"/subscribers/{found['id']}", {
+        "email": found["email"], "name": name, "status": found.get("status") or "enabled", "attribs": attribs,
+        "lists": [row["id"] for row in found.get("lists") or [] if isinstance(row, dict) and "id" in row],
+        "preconfirm_subscriptions": False})
 
 
 def sync_customer(user):  # the name the newsletter switch used

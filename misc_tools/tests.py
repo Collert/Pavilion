@@ -19,10 +19,11 @@ LISTMONK = dict(LISTMONK_URL="https://lists.example.com", LISTMONK_API_USER="pav
 class FakeListmonk:
     """listmonk's API in memory: templates, lists, subscribers and the transactional messages sent."""
 
-    def __init__(self, old=False):
+    def __init__(self, old=False, no_patch=False):
         self.templates, self.lists, self.subscribers, self.sent, self.calls = {}, {}, {}, [], []
         self.campaigns = {}
         self.old = old  # an older listmonk: transactional email only to subscribers
+        self.no_patch = no_patch  # an older listmonk: no PATCH /subscribers/<id>, only PUT (which replaces the lists)
         # listmonk's settings (push/listmonk.py adds a messenger): passwords come back as dots, and one sent empty is kept
         self.settings = {"app.root_url": "https://mail.example.com", "smtp": [{"uuid": "s-1", "host": "smtp.example.com", "password": "hunter2"}],
                          "messengers": []}
@@ -67,7 +68,15 @@ class FakeListmonk:
                     sub["lists"].append({"id": list_id, "subscription_status": "unsubscribed" if payload["action"] == "unsubscribe" else "confirmed"})
             return True
         if path.startswith("/subscribers/") and method == "PATCH":
+            if self.no_patch:
+                raise listmonk.ListmonkError("listmonk returned 404: 404 unknown endpoint", 404)
             self.subscribers[int(path.rsplit("/", 1)[1])].update(payload)
+            return True
+        if path.startswith("/subscribers/") and method == "PUT" and path.rsplit("/", 1)[1].isdigit():
+            sub = self.subscribers[int(path.rsplit("/", 1)[1])]
+            had = {row["id"]: row for row in sub["lists"]}  # listmonk keeps a subscription's status; lists left out go
+            sub.update({k: v for k, v in payload.items() if k != "lists"})
+            sub["lists"] = [had.get(i, {"id": i, "subscription_status": "unconfirmed"}) for i in payload["lists"]]
             return True
         if path == "/campaigns" and method == "POST":
             new = len(self.campaigns) + 1
@@ -179,6 +188,27 @@ class EmailTests(TestCase):
         self.assertEqual((self.fake.in_list("ana@example.com", customers), self.fake.in_list("ana@example.com", users)), (False, True))
         self.assertEqual(listmonk.sync_all(), 2)  # again: nothing doubles up
         self.assertEqual(len(self.fake.subscribers), 2)
+
+    def test_an_older_listmonk_without_patch_still_gets_names_and_attributes(self):
+        from django.core.cache import cache
+        from admin_portal.models import StoreSettings
+        from push.models import PushSubscription
+        cache.delete(listmonk.NO_PATCH)
+        self.fake.no_patch = True  # listmonk before PATCH /subscribers/<id>: "404 unknown endpoint"
+        listmonk.sync_user(self.ana)
+        customers = StoreSettings.load().listmonk_list
+        sub = self.fake.by_email("ana@example.com")
+        sub["lists"].append({"id": customers, "subscription_status": "unsubscribed"})  # she left the newsletter in listmonk
+        phone = PushSubscription.objects.create(app="store", user=self.ana, news_updates=True, endpoint="https://push.example.com/1", p256dh="k", auth="a")
+        self.ana.first_name = "Anastasia"
+        self.ana.save()
+        listmonk.sync_user(self.ana)
+        sub = self.fake.by_email("ana@example.com")
+        self.assertEqual((sub["name"], sub["attribs"]["pavilion_push"]), ("Anastasia", [phone.pk]))  # through PUT
+        self.assertTrue(self.fake.in_list("ana@example.com", StoreSettings.load().listmonk_users_list))  # still in the users list
+        self.assertFalse(self.fake.in_list("ana@example.com", customers))  # and still out of the newsletter
+        self.assertTrue(cache.get(listmonk.NO_PATCH))  # later syncs go straight to PUT
+        cache.delete(listmonk.NO_PATCH)
 
     def test_event_emails_are_campaign_templates_with_every_language(self):
         listmonk.install()
