@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pavilion">
+  <title>Pavilion</title>
+  <rect width="32" height="32" rx="8.5" fill="#1f4a3a"/>
+  <circle cx="16" cy="9.6" r="2" fill="#f4a93b"/>
+  <path d="M5.5 21.5A10.5 10 0 0 1 26.5 21.5Z" fill="#f4a93b"/>
+  <path d="M4 24.5H28" stroke="#f4a93b" stroke-width="2.8" stroke-linecap="round"/>
+</svg>

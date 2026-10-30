@@ -14,6 +14,7 @@
     {% endfor %}
     {% if preview %}<link href="{% static 'screens/preview.css' %}" rel="stylesheet">{% endif %}
     <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
+    {% include "pos_server/_favicon.html" %}
 </head>
 <body>
     {# --u is one design pixel: the canvas is scaled to fit the display, and rows/columns stretch to fill it #}

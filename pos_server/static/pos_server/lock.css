@@ -16,6 +16,9 @@
 .brand-row { position: relative; display: flex; align-items: center; gap: 14px; }
 .brand-logo { width: 48px; height: 48px; border-radius: 16px; background: var(--amber); display: flex; align-items: center; justify-content: center; color: var(--ink); }
 .brand-logo svg { width: 26px; height: 26px; }
+/* Pavilion's mark (pos_server/icons/logo.svg) is its own tile, flipped on the green rail: an amber tile, a green cloche */
+.rail-logo:has(> .pv-mark), .brand-logo:has(> .pv-mark) { background: none; --pv-tile: #f4a93b; --pv-ink: #1f4a3a; }
+.rail-logo > .pv-mark, .brand-logo > .pv-mark { width: 100%; height: 100%; display: block; }
 .brand-name { font-family: var(--heading); font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
 .lock-center { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
 .overline.on-dark { color: var(--rail-ink); }

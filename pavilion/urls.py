@@ -15,7 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.templatetags.static import static as static_url
 from django.urls import include, path, re_path
+from django.views.generic import RedirectView
 from django.conf.urls.static import static
 from django.conf import settings
 from pavilion import realtime, redirects
@@ -26,6 +28,7 @@ from pos_server import views as pos_views  # noqa: E402
 
 # No language prefixes: the language is the cookie the pickers set (i18n/), else the browser's (LocaleMiddleware).
 urlpatterns = [
+    path('favicon.ico', RedirectView.as_view(url=static_url('pavilion/favicon-32.png'), permanent=True)),  # Pavilion's cloche
     path('events/<str:topic>', realtime.stream_view, name='events'),
     path('i18n/', include('django.conf.urls.i18n')),  # set_language: the language pickers post here
     # Square needs fixed addresses: the OAuth redirect URL and the webhook

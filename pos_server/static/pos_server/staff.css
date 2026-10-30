@@ -73,6 +73,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 16px;
 }
+/* Pavilion's mark (pos_server/icons/logo.svg) is its own tile, flipped on the green rail: an amber tile, a green cloche */
+.rail-logo:has(> .pv-mark), .brand-logo:has(> .pv-mark) { background: none; --pv-tile: #f4a93b; --pv-ink: #1f4a3a; }
+.rail-logo > .pv-mark, .brand-logo > .pv-mark { width: 100%; height: 100%; display: block; }
 .rail-item {
     width: 56px; height: 62px; border-radius: 20px; border: none;
     background: transparent; color: var(--rail-ink);

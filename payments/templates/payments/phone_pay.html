@@ -8,6 +8,7 @@ form, and then a paid page to show the cashier (the register sees it by itself).
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
+    {% include "online_store/_favicon.html" %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% blocktrans with name=store.name %}Pay {{ name }}{% endblocktrans %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">

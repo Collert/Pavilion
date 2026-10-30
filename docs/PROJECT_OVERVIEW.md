@@ -1045,7 +1045,7 @@ Two installable apps, each with its own scope, manifest and service worker serve
 `push/renew`, which trusts only the old endpoint):
 
 - **The store** (`/store/`): the manifest is written per request from the store's name and the live theme's `app`
-  colours (`online_store/themes.py`); the icons are drawn with Pillow from the logo (or the store's initial) and cached.
+  colours (`online_store/themes.py`); the icons are drawn with Pillow from the logo (or Pavilion's cloche, `pavilion/brand.py`) and cached.
   `/store/install` explains the app (what it does and doesn't), shows the install button when the browser offers one
   (`beforeinstallprompt`) and walks iPhone people through Share → Add to Home Screen. **Screenshots** for Chrome's
   richer install sheet are taken by a Gotenberg server (`screenshots` in docker-compose.yml; `SCREENSHOT_URL`,

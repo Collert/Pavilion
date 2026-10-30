@@ -6,7 +6,7 @@
   "thumb": {"background": "paper", "text": "ink", "accent": "accent", "card": "card", "band": "deep", "font": "heading_font"},
   "contrast": [["ink", "paper", "Text on the background"], ["ink", "card", "Text on cards"], ["soft_ink", "paper", "Quiet text"],
                ["paper", "deep", "Banner text"], ["card", "accent", "Button text"]],
-  "app": {"theme": "paper", "background": "paper", "icon": "accent", "icon_ink": "card"},
+  "app": {"theme": "paper", "background": "paper"},
   "groups": [
     {"name": "Colours", "params": {
       "paper": {"type": "color", "default": "#F6F0E4", "label": "Background", "presets": ["#F6F0E4", "#FFFFFF", "#F2F5F3", "#FBF3E4"]},

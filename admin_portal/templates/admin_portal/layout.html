@@ -18,6 +18,7 @@ those buttons; the server refuses them either way.
     <link href="{% static 'admin_portal/admin.css' %}" rel="stylesheet">
     {% block head %}{% endblock %}
     <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
+    {% include "pos_server/_favicon.html" %}
 </head>
 <body class="admin{% if perm and not perm.edit %} ro{% endif %}{% if perm and not perm.delete %} nodel{% endif %}">
     {% csrf_token %}

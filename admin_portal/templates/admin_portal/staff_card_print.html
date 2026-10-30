@@ -36,6 +36,7 @@ One staff card to print, at bank-card size (admin_portal/views.py: staff_card_pr
             @page { size: 85.6mm 54mm; margin: 0; }
         }
     </style>
+    {% include "pos_server/_favicon.html" %}
 </head>
 <body>
     <div class="card" style="--c: {{ card.type.color }}">

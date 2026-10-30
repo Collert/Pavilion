@@ -240,3 +240,28 @@ class OldAddressTests(TestCase):
     def test_the_script_translations_have_an_address_per_language(self):
         self.assertContains(self.client.get("/jsi18n/uk/"), "django")
         self.assertEqual(self.client.get("/jsi18n/xx/").status_code, 404)
+
+
+class BrandTests(TestCase):
+    """Pavilion's mark (static/pavilion/, pavilion/brand.py) on its pages, and the store's icon without a logo."""
+
+    def test_pavilion_pages_carry_the_favicon(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_superuser("owner", password="x"))
+        page = self.client.get("/admin/")
+        self.assertContains(page, "pavilion/favicon.svg")
+        self.assertContains(page, 'class="pv-mark"')  # the rail's mark, not the old house
+        self.assertTrue(self.client.get("/favicon.ico").url.endswith("pavilion/favicon-32.png"))
+
+    def test_the_store_icon_is_the_cloche_without_a_logo(self):
+        import io
+        from PIL import Image
+        from pavilion.brand import AMBER, GREEN, draw
+        self.assertContains(self.client.get("/store/menu"), "/store/icon-192.png")  # the store's favicon
+        icon = Image.open(io.BytesIO(self.client.get("/store/icon-192.png").content)).convert("RGBA")
+        self.assertEqual(icon.getpixel((0, 0))[3], 0)  # the tile's rounded corner
+        self.assertEqual("#%02x%02x%02x" % icon.getpixel((96, 20))[:3], GREEN)
+        self.assertEqual("#%02x%02x%02x" % icon.getpixel((96, 120))[:3], AMBER)  # the dome
+        maskable = Image.open(io.BytesIO(self.client.get("/store/icon-maskable.png").content)).convert("RGBA")
+        self.assertEqual(maskable.getpixel((0, 0))[3], 255)  # full bleed
+        self.assertEqual(draw(32).size, (32, 32))

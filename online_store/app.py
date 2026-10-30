@@ -1,7 +1,7 @@
 """
 The installable store app: everything under /store/ (its scope), named, coloured and drawn after the store. The
 manifest is written per request from the store's name, logo and live theme (its `app` colours, online_store/themes.py),
-and the icons are drawn from the logo (on the theme's background), or the store's initial without one.
+and the icons are drawn from the logo (on the theme's background), or Pavilion's cloche (pavilion/brand.py) without one.
 
 Push (push/): the store's service worker (/store/sw.js) shows order and event notifications. Pages post this
 browser's subscription when they find one (static/online_store/push.js):
@@ -35,8 +35,8 @@ APPLE_ICON = 180
 def _look(request=None):
     """(store name, logo media name, {app colour: hex}) for the live theme (the draft in the admin's preview)."""
     cur = themes.current(request)
-    names = {"theme": "paper", "background": "paper", "icon": "accent", "icon_ink": "card", **cur.theme.app}
-    defaults = {"theme": "#FFFFFF", "background": "#FFFFFF", "icon": "#1F4A3A", "icon_ink": "#FFFFFF"}
+    names = {"theme": "paper", "background": "paper", **cur.theme.app}
+    defaults = {"theme": "#FFFFFF", "background": "#FFFFFF"}
     colours = {key: cur.values.get(param) or defaults[key] for key, param in names.items()}
     return cur.store.get("name") or "", cur.store.get("logo") or "", colours
 
@@ -100,27 +100,29 @@ def _hex(colour):
 
 
 def _draw(name, logo, colours, size, maskable) -> bytes:
+    """The logo on the theme's background, or Pavilion's cloche (pavilion/brand.py) while the store has none. Full bleed
+    for maskable icons and Apple's (they round the corners themselves); the plain ones keep the cloche's rounded tile."""
     from django.core.files.storage import default_storage
-    from PIL import Image, ImageDraw, ImageFont, ImageOps
+    from PIL import Image, ImageOps
+    from pavilion import brand
     picture = None
     if logo:
         try:
             with default_storage.open(logo, "rb") as f:
                 picture = ImageOps.exif_transpose(Image.open(f)).convert("RGBA")
-        except Exception:  # missing or not a picture: the initial instead
+        except Exception:  # missing or not a picture: Pavilion's instead
             picture = None
     if picture is not None:
         canvas = Image.new("RGBA", (size, size), _hex(colours["background"]) + (255,))
         room = int(size * (0.62 if maskable else 0.8))  # a maskable icon's safe zone is the middle 80% circle
         picture.thumbnail((room, room), Image.LANCZOS)
         canvas.alpha_composite(picture, ((size - picture.width) // 2, (size - picture.height) // 2))
+        canvas = canvas.convert("RGB")
     else:
-        canvas = Image.new("RGBA", (size, size), _hex(colours["icon"]) + (255,))
-        letter = (name.strip()[:1] or "S").upper()
-        font = ImageFont.load_default(size=int(size * (0.42 if maskable else 0.52)))
-        ImageDraw.Draw(canvas).text((size / 2, size / 2), letter, fill=_hex(colours["icon_ink"]) + (255,), font=font, anchor="mm")
+        full_bleed = maskable or size == APPLE_ICON
+        canvas = brand.draw(size, small=False, rounded=not full_bleed, scale=0.8 if maskable else 1)
     out = io.BytesIO()
-    canvas.convert("RGB").save(out, "PNG", optimize=True)
+    canvas.save(out, "PNG", optimize=True)
     return out.getvalue()
 
 

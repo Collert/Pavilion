@@ -80,6 +80,12 @@ language (`EmailTemplate.ALL`; `{% bylang %}` branches on the subscriber's `lang
 | `app_switcher` | `/apps/` | Tile launcher. |
 | `pavilion` | `/events/` | Project package; `realtime.py` = SSE. |
 
+**Pavilion's mark** (the cloche): `static/pavilion/pavilion.svg` and `favicon.svg`; pages include it as
+`pos_server/icons/logo.svg` (colours from `--pv-tile`/`--pv-ink`: flipped to an amber tile on the green rails) and the
+favicon with `pos_server/_favicon.html` (customer pages use the store's icon, `online_store/_favicon.html`).
+`pavilion/brand.py` draws it as PNGs (`python -m pavilion.brand` rewrites the favicon PNGs) and is the store app's icon
+while the store has no logo.
+
 Frontend: **render with Django templates and keep pages current with SSE**; don't build screens in JS. New screens
 follow Cookery: each screen a template + URL, buttons are POST forms that redirect back, Django messages for toasts,
 `static/js/live-page.js` for background submits, swapping changed `data-region`s and SSE refetches. JS is for what

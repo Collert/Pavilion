@@ -30,6 +30,8 @@ a { color: inherit; }
 .acct-brand { display: flex; align-items: center; gap: 12px; padding: 0 6px; text-decoration: none; color: #FFFFFF; position: relative; }
 .acct-logo { width: 44px; height: 44px; flex: none; border-radius: 14px; background: var(--amber); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .acct-logo img { width: 100%; height: 100%; object-fit: cover; }
+.acct-logo:has(> .pv-mark) { background: none; --pv-tile: #f4a93b; --pv-ink: #1f4a3a; }  /* Pavilion's mark while the store has no logo */
+.acct-logo > .pv-mark { width: 100%; height: 100%; display: block; }
 .acct-store { font-size: 20px; }
 .acct-me { position: relative; margin-top: 22px; padding: 14px; border-radius: 20px; background: rgba(255, 255, 255, .06); display: flex; align-items: center; gap: 12px; font-size: 15px; }
 .acct-avatar { position: relative; overflow: hidden; width: 44px; height: 44px; flex: none; border-radius: 22px; background: var(--amber); color: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
