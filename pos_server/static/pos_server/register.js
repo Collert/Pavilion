@@ -2110,6 +2110,11 @@ function renderTerminal() {
     $("#terminal-code").hidden = !st?.code;
     $("#terminal-none").hidden = !st || !!st.paired || !!st.code;
     if (!st) return;
+    // a Terminal paired (or unpaired) since the page loaded: card payments switch between it and the QR code
+    if (boot.hasTerminal !== !!st.paired) {
+        boot.hasTerminal = !!st.paired;
+        if (ui.mode === "pay" && ui.card === "idle") renderPay();
+    }
     if (st.paired) $("#terminal-name").textContent = st.paired.name;
     if (st.code) {
         $("#terminal-code-text").textContent = st.code.code;
@@ -2149,7 +2154,8 @@ $("#terminal-sandbox-use").addEventListener("click", async () => {
     if (answer?.data && "paired" in answer.data) { terminalState = answer.data; renderTerminal(); }
     if (answer && !answer.ok) toast(answer.data.message || t("That didn't work."), { error: true });
 });
-onLiveUpdate("checkout", () => { if ($("#screens-sheet").open) loadTerminal(); });
+// every nudge, not only while the sheet is open: the pairing usually finishes after it's closed
+onLiveUpdate("checkout", () => loadTerminal());
 
 // Screens: pair with a screen session, and staff announcements (screens/views.py: pair, announce)
 $("#screens-open").addEventListener("click", () => { renderPairing(); loadTerminal(); $("#screens-sheet").showModal(); });
