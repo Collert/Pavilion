@@ -36,6 +36,23 @@
 </main>
 
 <aside class="order-panel" aria-label="{% trans 'Current order' %}">
+    {# Phones only (register.css): the order folds into this bar under the menu, and opens over it when tapped #}
+    <button class="cart-bar" id="cart-bar" aria-expanded="false" aria-controls="cart-view">
+        <span class="cart-bar-closed">
+            <span class="cart-bar-count" id="cart-bar-count">0</span>
+            <span class="cart-bar-text">
+                <span class="cart-bar-title">{% trans "Order" %} #<span class="js-order-no"></span></span>
+                <span class="sub" id="cart-bar-sub"></span>
+            </span>
+            <span class="money cart-bar-total" id="cart-bar-total">$0.00</span>
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"></path></svg>
+        </span>
+        <span class="cart-bar-open">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            {% trans "Back to the menu" %}
+        </span>
+    </button>
+
     <section class="panel-view swap" id="cart-view">
         <div class="panel-head">
             <div>

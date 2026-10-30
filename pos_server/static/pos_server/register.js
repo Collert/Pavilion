@@ -42,6 +42,7 @@ const ui = {
     method: "cash",
     moreKey: null,
     discListOpen: false,
+    cartOpen: false,         // phones: the order is open over the menu
     quote: null,
     quoteFresh: false,
     quoteError: "",
@@ -510,6 +511,7 @@ function clearCart() {
     state = { ...freshCart(), ...keep };
     ui.moreKey = null;
     ui.mode = "cart";
+    ui.cartOpen = false;
     ui.tendered = null;
     ui.gift = null;
     ui.splitOn = false;
@@ -866,7 +868,28 @@ function renderTotals() {
     $("#staff-btn").setAttribute("aria-pressed", String(!!(state.staffCards || []).length));
     $("#staff-btn").querySelector(".js-label").textContent = cards.length
         ? interpolate(t("Staff · %s"), [cards[0].holder.split(" ")[0]]) : t("Staff card");
+    renderCartBar();
 }
+
+// Phones (register.css): the order is a bar under the menu until it's tapped open; paying always shows it
+let barCount = 0;
+function renderCartBar() {
+    const count = state.lines.reduce((n, line) => n + line.qty, 0) + state.giftSales.length;
+    const badge = $("#cart-bar-count");
+    badge.textContent = count;
+    if (count > barCount) { badge.classList.remove("pop"); void badge.offsetWidth; badge.classList.add("pop"); }
+    barCount = count;
+    $("#cart-bar-sub").textContent = count ? interpolate(ngettext("%s item", "%s items", count), [count]) : t("Tap a dish to start");
+    $("#cart-bar-total").textContent = $("#pay-total").textContent;
+    const open = ui.cartOpen || ui.mode === "pay";
+    $(".order-panel").classList.toggle("open", open);
+    $("#cart-bar").setAttribute("aria-expanded", String(open));
+}
+
+$("#cart-bar").addEventListener("click", () => {
+    ui.cartOpen = !ui.cartOpen;
+    renderCartBar();
+});
 
 function discEntry(title, desc, amount) {
     return el("div", { className: "disc-entry" }, [
@@ -946,6 +969,7 @@ function renderAll() {
     $("#pay-view").hidden = ui.mode !== "pay";
     if (ui.mode === "cart") renderCartView();
     else renderPay();
+    renderCartBar();
     broadcast();
     sendSummary(summaryBody());
 }

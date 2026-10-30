@@ -148,7 +148,8 @@
 
 .hint { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
 
-.panel-actions { display: flex; gap: 8px; }
+.panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.panel-actions .pill { flex: 1 1 auto; justify-content: center; }
 .pill {
     height: 40px; padding: 0 14px; border-radius: 20px; font-size: 14px; font-weight: 700;
     display: inline-flex; align-items: center; gap: 8px; color: var(--ink);
@@ -321,15 +322,26 @@
     .dc-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 860px) {
-    .app { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
-    .rail { width: 100%; flex-direction: row; padding: 8px 12px; border-radius: 24px; }
-    .rail-logo { margin: 0 8px 0 0; }
-    .rail-spacer { display: none; }
     .reg-header { flex-wrap: wrap; height: auto; }
-    .grid { overflow: visible; }
-    .order-panel { width: 100%; }
-    .lines { max-height: 50vh; }
     .choice-grid { grid-template-columns: 1fr; }
+}
+/* Landscape phones: menu and order side by side, smaller; the order scrolls as a whole */
+@media (orientation: landscape) and (max-height: 560px) {
+    .reg-main { gap: 8px; }
+    .reg-header { height: 44px; flex-wrap: nowrap; }
+    .reg-header .h1 { font-size: 22px; }
+    .reg-header .sub { display: none; }
+    .search, .menu-switch { height: 44px; }
+    .reg-screens-btn .menu-switch-text { display: none; }
+    .tab { height: 40px; padding: 0 16px; font-size: 15px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: 118px; gap: 10px; }
+    .dish-name { font-size: 16px; }
+    .order-panel { width: 300px; padding: 14px; border-radius: 22px; }
+    .panel-view { overflow-y: auto; gap: 10px; margin: 0 -6px; padding: 0 6px; }
+    .lines { flex: none; overflow: visible; }
+    .empty { padding: 16px 0; }
+    .order-no { font-size: 22px; }
+    .due-amount { font-size: 40px; }
 }
 
 /* Manager approval for a typed-in discount (looks like the lock screen) */
@@ -404,6 +416,80 @@
     .grid { overflow-y: auto; }
     .order-panel { width: auto; height: clamp(560px, 52dvh, 780px); }
     .lines { max-height: none; }
+}
+
+/* The order's bar for phones (below); bigger screens always show the whole order */
+.cart-bar { display: none; }
+.reg-screens-btn:has(.pair-dot:not([hidden])) > svg { color: #12875A; }  /* paired, when the name is hidden */
+
+/* Phones (after the portrait block, so it wins): the menu fills the screen and the order folds into a bar above
+   the rail. Tapping the bar opens the order in the menu's place; paying keeps it open (register.js: renderCartBar). */
+@media (max-width: 640px) and (orientation: portrait) {
+    .reg-main { gap: 10px; }
+    .reg-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; height: auto; }
+    .reg-header > .grow { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+    .reg-header .h1 { font-size: 24px; flex: none; }
+    .reg-header .sub { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search { width: auto; height: 44px; padding: 0 14px; }
+    .menu-switch { height: 44px; padding: 0 12px; gap: 6px; }
+    .menu-switch .overline-sm { display: none; }
+    .menu-switch-name { font-size: 14px; max-width: 30vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reg-screens-btn .menu-switch-text { display: none; }
+
+    .tabs { gap: 6px; margin: 0 -10px; padding: 0 10px; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { height: 40px; padding: 0 16px; font-size: 15px; gap: 8px; }
+    .tab-badge { min-width: 22px; height: 22px; font-size: 12px; }
+
+    .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-rows: 116px; gap: 10px; padding: 2px; }
+    .dish { padding: 10px 10px 10px 12px; border-radius: 20px; }
+    .dish:not(:disabled):hover { transform: none; }
+    .dish-name { font-size: 16px; }
+    .dish-price { font-size: 17px; }
+    .dish-ask { height: 24px; padding: 0 8px; font-size: 11px; }
+    .plus { width: 34px; height: 34px; }
+    .gift-tile-amount { font-size: 24px; }
+
+    .order-panel { width: auto; height: auto; flex: none; padding: 0; border-radius: 22px; }
+    .order-panel:not(.open) > .panel-view { display: none; }
+    .order-panel.open { flex: 1; padding: 0 14px 14px; }
+    .app:has(.order-panel.open) .reg-main { display: none; }
+    .cart-bar {
+        display: flex; width: 100%; min-height: 64px; padding: 10px 14px 10px 10px; border: none; border-radius: 22px;
+        background: transparent; color: var(--ink); text-align: left; font-size: 15px; font-weight: 700;
+    }
+    .cart-bar:not(:disabled):active { transform: none; }
+    .cart-bar > span { display: flex; align-items: center; gap: 12px; width: 100%; }
+    .order-panel.open .cart-bar-closed, .order-panel:not(.open) .cart-bar-open { display: none; }
+    .order-panel.open .cart-bar { min-height: 52px; padding: 8px 0; color: var(--brand); }
+    .order-panel.open .cart-bar-open { justify-content: center; gap: 6px; }
+    .order-panel:has(> #pay-view:not([hidden])) .cart-bar { display: none; }  /* paying: Back goes to the order */
+    .order-panel:has(> #pay-view:not([hidden])) { padding-top: 14px; }
+    .cart-bar-count {
+        min-width: 44px; height: 44px; padding: 0 8px; border-radius: 22px; flex: none; background: var(--brand); color: #fff;
+        display: inline-flex; align-items: center; justify-content: center; font-family: var(--heading); font-size: 19px;
+    }
+    .cart-bar-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .cart-bar-title { font-size: 16px; }
+    .cart-bar-total { font-size: 22px; }
+
+    .panel-view { gap: 12px; }
+    .order-no { font-size: 22px; }
+    .panel-actions .pill { padding: 0 10px; }
+    .pay-btn { height: 60px; }
+    .due-card { padding: 16px 18px; border-radius: 20px; }
+    .due-amount { font-size: 42px; }
+    .split-input { width: 130px; }
+    .quick button, .quick input { height: 48px; }
+    .scan-btn { height: 80px; }
+
+    .dc-grid { gap: 20px; }
+    .dc-apply { min-width: 0; }
+    .choice { height: 60px; padding: 0 16px; font-size: 16px; }
+    .slot-name { font-size: 20px; }
+    .foot-total { font-size: 24px; }
+    .foot-adds { font-size: 22px; }
+    .gd-card-num { font-size: 20px; }
 }
 
 /* Screens sheet: announce (and pair) */

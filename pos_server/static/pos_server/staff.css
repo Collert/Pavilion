@@ -286,3 +286,45 @@ dialog.sheet.w-lg { width: min(820px, calc(100vw - 32px)); }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Phones: a slimmer bottom row whose items share the width (no logo or clock: the phone shows the time), and sheets
+   that rise from the bottom edge */
+@media (max-width: 640px) and (orientation: portrait) {
+    .app { padding: 10px; gap: 10px; }
+    .rail {
+        padding: 4px 6px calc(4px + env(safe-area-inset-bottom) / 2); gap: 2px; border-radius: 22px; bottom: 10px;
+        justify-content: space-between; overflow-x: auto; scrollbar-width: none;
+    }
+    .rail-logo, .rail-spacer, .rail-rule, .rail-clock { display: none; }
+    .rail form { display: contents; }
+    .rail-item { flex: 1 1 0; min-width: 48px; width: auto; height: 52px; border-radius: 16px; font-size: 10px; gap: 3px; }
+    .rail-item svg { width: 20px; height: 20px; }
+
+    .h1 { font-size: 24px; }
+    .h2 { font-size: 26px; }
+    .btn { height: 56px; padding: 0 20px; font-size: 16px; border-radius: 20px; }
+    .btn-primary { font-size: 17px; }
+    .btn-link { height: 56px; padding: 0 12px; }
+    .btn-split { padding: 0 20px; }
+    .key { height: 56px; }
+
+    dialog.sheet, dialog.sheet.w-sm, dialog.sheet.w-md, dialog.sheet.w-lg {
+        width: 100%; max-width: 100%; max-height: 92dvh; margin: auto 0 0; gap: 16px;
+        padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0;
+    }
+    .sheet-foot { flex-wrap: wrap; gap: 8px; }
+    .sheet-foot > div.grow { flex-basis: 100%; }
+    .sheet-foot > .btn, .sheet-foot > .btn-link { flex: 1 1 auto; }
+    .toast { top: 16px; max-width: calc(100vw - 32px); height: auto; min-height: 52px; padding: 8px 18px 8px 8px; }
+}
+
+/* Landscape phones: a narrow rail that scrolls if it has to */
+@media (orientation: landscape) and (max-height: 560px) {
+    .app { padding: 8px; gap: 8px; }
+    .rail { width: 60px; padding: 6px 0; gap: 2px; border-radius: 22px; overflow-y: auto; scrollbar-width: none; }
+    .rail-logo, .rail-rule, .rail-clock { display: none; }
+    .rail-item { width: 50px; height: 46px; flex: none; border-radius: 14px; font-size: 10px; gap: 2px; }
+    .rail-item svg { width: 20px; height: 20px; }
+    dialog.sheet { max-height: calc(100dvh - 16px); padding: 18px 20px; gap: 14px; border-radius: 24px; }
+    .h2 { font-size: 26px; }
+}

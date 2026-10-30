@@ -310,7 +310,11 @@ Every rail ends with `rail_foot.html`: Apps, Lock (register screens only), a div
 "Today on this device" numbers (sales and orders rung up, KDS tickets moved, time since the first screen) live in the
 tab's `sessionStorage` (`device-stats.js`, reset daily), bumped by the register and the KDS.
 In portrait the rail is a row along the bottom (`staff.css`) and each screen stacks its panels: the register's menu
-above the order, the drawer's and lock screen's panels top to bottom, the KDS header above the list.
+above the order, the drawer's and lock screen's panels top to bottom, the KDS header above the list. On phones
+(portrait, 640px wide or less) the rail drops its logo and clock and its items share the row, sheets rise from the
+bottom edge, and the register's order folds into a bar above the rail (count, total; `register.js: renderCartBar`)
+that opens the order in the menu's place; paying keeps it open, and a finished order folds it again. Landscape phones
+(560px tall or less) keep the side-by-side layout with a narrow rail, and the order panel scrolls as a whole.
 
 1. **Lock screen** (`/restaurant/lock`): lists the last 3 staff with a PIN who used this register
    (`RegisterSignIn`, updated whenever someone opens the register on the device). Pick your name, type your 4-digit
