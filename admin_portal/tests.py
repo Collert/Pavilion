@@ -3250,30 +3250,39 @@ class LanguagesTests(AdminFixture, TestCase):
             languages.apply(["zh-HK", "nope"], "uk", False)  # the default has to be on: the first one on instead
             self.assertEqual(([c for c, _n in settings.LANGUAGES], settings.LANGUAGE_CODE, settings.LANGUAGE_MATCH_DEVICE),
                              (["zh-HK"], "zh-HK", False))
-            self.assertEqual(self.client.get("/uk/menu").status_code, 404)  # turned off: no such address
+            self.assertNotIn("django_language", self.client.get("/uk/menu").cookies)  # turned off: the old address doesn't switch to it
+            self.client.cookies["django_language"] = "uk"
+            self.assertEqual(self.client.get(reverse("menu")).wsgi_request.LANGUAGE_CODE, "zh-hk")  # nor does its cookie
         finally:
             settings.LANGUAGES, settings.LANGUAGE_CODE, settings.LANGUAGE_MATCH_DEVICE, _r = before
             languages.apply([c for c, _n in before[0]], before[1], before[2])
 
     def test_people_get_their_language(self):
+        from django.utils.translation import get_language
         from users.models import Preference, language_of, set_language
-        self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/uk/")  # their device's
+        menu = reverse("menu")
+        lang = lambda page: page.wsgi_request.LANGUAGE_CODE
+        self.assertEqual(lang(self.client.get(menu, HTTP_ACCEPT_LANGUAGE="uk")), "uk")  # their device's
         with override_settings(LANGUAGE_MATCH_DEVICE=False):
-            self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/en/")  # the store's default
+            self.assertEqual(lang(self.client.get(menu, HTTP_ACCEPT_LANGUAGE="uk")), "en")  # the store's default
         set_language(self.customer, "zh-HK")
         self.client.force_login(self.customer)
-        self.assertEqual(self.client.get("/", HTTP_ACCEPT_LANGUAGE="uk").url, "/zh-hk/")  # their saved one
-        self.client.get("/uk/menu")  # browsing in another one makes it theirs
+        self.assertEqual(lang(self.client.get(menu, HTTP_ACCEPT_LANGUAGE="uk")), "zh-hk")  # their saved one
+        self.client.post(reverse("set_language"), {"language": "uk", "next": menu})
+        self.client.get(menu)  # picking another one makes it theirs
         self.customer.refresh_from_db()
         self.assertEqual((Preference.objects.get(user=self.customer).language, language_of(User.objects.get(pk=self.customer.pk))), ("uk", "uk"))
-        self.client.get("/zh-hk/menu")
+        moved = self.client.get("/zh-hk/menu")  # an old address with a language in it: that language
+        self.assertEqual((moved.status_code, moved.url), (301, menu))
+        self.client.get(menu)
         self.assertEqual(Preference.objects.get(user=self.customer).language, "zh-HK")
-        self.client.get("/uk/menu")
-        page = self.client.get("/uk/menu")
+        self.client.post(reverse("set_language"), {"language": "uk", "next": menu})
+        page = self.client.get(menu)
         self.assertContains(page, 'name="language" value="zh-hk"')  # the picker
-        moved = self.client.post(reverse("set_language"), {"language": "en", "next": "/uk/menu"})
-        self.assertEqual(moved.url, "/en/menu")
+        moved = self.client.post(reverse("set_language"), {"language": "en", "next": menu})
+        self.assertEqual(moved.url, menu)
         self.assertEqual(self.client.get(reverse("profile")).url, reverse("account_profile"))
+        self.assertEqual(get_language(), "en")
 
 
 class StoreInfoTests(AdminFixture, TestCase):

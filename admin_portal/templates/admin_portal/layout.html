@@ -17,7 +17,7 @@ those buttons; the server refuses them either way.
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'admin_portal/admin.css' %}" rel="stylesheet">
     {% block head %}{% endblock %}
-    <script src="{% url 'javascript-catalog' %}"></script>
+    <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
 </head>
 <body class="admin{% if perm and not perm.edit %} ro{% endif %}{% if perm and not perm.delete %} nodel{% endif %}">
     {% csrf_token %}

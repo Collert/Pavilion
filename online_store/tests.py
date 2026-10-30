@@ -383,7 +383,7 @@ class AccountTests(MenuFixture, TestCase):
         open_hours()
 
     def test_sign_in_join_and_sign_out(self):
-        self.assertRedirects(self.client.get(reverse("account")), reverse("store_signin") + "?next=/en/account", fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("account")), reverse("store_signin") + "?next=/store/account", fetch_redirect_response=False)
         self.assertTrue(self.client.post(reverse("store_signin"), {"email": "sofia@example.com", "password": "nope"}).context["form"]["failed"])
         self.assertRedirects(self.client.post(reverse("store_signin"), {"email": "SOFIA@example.com", "password": "juniperlane"}),
                              reverse("account"), fetch_redirect_response=False)

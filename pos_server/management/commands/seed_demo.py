@@ -1200,7 +1200,7 @@ class Command(BaseCommand):
         for title, tagline, color in [("Lunch combos", "A main, a side and a drink from $18.95", "#1f4a3a"),
                                       ("Gift cards", "Give someone lunch", "#14261f")]:
             promo, created = PromoContent.objects.get_or_create(title=title, defaults={
-                "tagline": tagline, "call_to_action": "Order now", "color": color, "accent": "#ffffff", "link": "/en/menu"})
+                "tagline": tagline, "call_to_action": "Order now", "color": color, "accent": "#ffffff", "link": "/store/menu"})
             if created:
                 promo.image.save(f"{title.lower().replace(' ', '_')}.png", placeholder_image(title, color), save=True)
 

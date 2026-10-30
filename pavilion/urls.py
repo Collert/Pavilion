@@ -15,30 +15,28 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.conf.urls.static import static
 from django.conf import settings
-from django.conf.urls.i18n import i18n_patterns
-from django.views.decorators.cache import cache_control
-from django.views.i18n import JavaScriptCatalog
-from pavilion import realtime
+from pavilion import realtime, redirects
+from pavilion.i18n import javascript_catalog
 
 from admin_portal import views as admin_views  # noqa: E402
 from pos_server import views as pos_views  # noqa: E402
 
+# No language prefixes: the language is the cookie the pickers set (i18n/), else the browser's (LocaleMiddleware).
 urlpatterns = [
     path('events/<str:topic>', realtime.stream_view, name='events'),
     path('i18n/', include('django.conf.urls.i18n')),  # set_language: the language pickers post here
-    # Square needs fixed addresses, the same in every language: the OAuth redirect URL and the webhook
+    # Square needs fixed addresses: the OAuth redirect URL and the webhook
     path('square/oauth/callback', admin_views.square_oauth_callback, name='square_oauth_callback'),
     path('square/webhook', pos_views.square_webhook, name='square_webhook_plain'),
-]
-
-urlpatterns += i18n_patterns(
-    # The translations for gettext() in our scripts. Under the language prefix so each language has its own address,
-    # which lets browsers keep it for a day instead of fetching it again on every page.
-    path('jsi18n/', cache_control(public=True, max_age=24 * 3600)(JavaScriptCatalog.as_view()), name='javascript-catalog'),
-    path('', include("online_store.urls")),
+    # The translations for gettext() in our scripts. The language is in the address so browsers can keep each one for
+    # a day instead of fetching it again on every page.
+    path('jsi18n/<str:lang>/', javascript_catalog, name='javascript-catalog'),
+    # The online store, and catering's customer pages in its look: everything the installed store app opens
+    path('store/', include("online_store.urls")),
+    path('store/catering/', include("catering.urls")),
     path("admin/", include("admin_portal.urls")),
     path('advanced-admin/', admin.site.urls),
     path('restaurant/', include("pos_server.urls")),
@@ -47,15 +45,21 @@ urlpatterns += i18n_patterns(
     path('inventory/', include("inventory.urls")),
     path('gift-cards/', include("gift_cards.urls")),
     path('payments/', include("payments.urls")),
-    path('catering/', include("catering.urls")),
     path('apps/', include("app_switcher.urls")),
     path('users/', include("users.urls")),
     path("screens/", include("screens.urls")),
     path("audio/", include("audio.urls")),
     path("team/", include("team.urls")),
-)
+]
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     # Dev only; in production media lives in the S3 bucket (see settings.STORAGES).
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Last: old addresses (a language prefix, the store at the root) move to where those pages are now (pavilion/redirects.py)
+_prefixes = "|".join(code.lower() for code, _name in settings.SUPPORTED_LANGUAGES)
+urlpatterns += [
+    re_path(rf"^(?P<lang>{_prefixes})(?:/(?P<rest>.*))?$", redirects.old_language_prefix, name="old_language_prefix"),
+    re_path(r"^(?P<rest>.*)$", redirects.old_store_path, name="old_store_path"),
+]

@@ -280,8 +280,8 @@ class WeatherTests(TestCase):
         reply.json.return_value = {"current": {"temp_c": 12.6, "temp_f": 54.7, "is_day": 1,
                                                "condition": {"text": "Light rain", "code": 1183}}}
         with mock.patch("screens.providers.requests.get", return_value=reply) as get:
-            first = self.client.get("/en/screens/weather").content.decode()
-            self.client.get("/en/screens/weather")
+            first = self.client.get("/screens/weather").content.decode()
+            self.client.get("/screens/weather")
         self.assertEqual(get.call_count, 1)
         self.assertIn("13°", first)
         self.assertIn("Light rain", first)
@@ -291,7 +291,7 @@ class WeatherTests(TestCase):
     def test_a_failed_fetch_shows_a_dash(self):
         with mock.patch("screens.providers.requests.get", side_effect=requests.ConnectionError), \
                 self.assertLogs("screens.providers", "WARNING"):
-            html = self.client.get("/en/screens/weather").content.decode()
+            html = self.client.get("/screens/weather").content.decode()
         self.assertIn("—", html)
 
 

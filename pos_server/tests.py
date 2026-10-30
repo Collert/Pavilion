@@ -1072,7 +1072,7 @@ class LockScreenTests(TestCase):
         self.assertEqual(response.json()["name"], "Dana")
         self.assertEqual(self.client.get(reverse("pos")).status_code, 200)
         self.client.post(reverse("register_lock"), {"action": "lock"})
-        self.assertRedirects(self.client.get(reverse("pos")), f'{reverse("register_lock")}?next=%2Fen%2Frestaurant%2Fregister',
+        self.assertRedirects(self.client.get(reverse("pos")), f'{reverse("register_lock")}?next=%2Frestaurant%2Fregister',
                              fetch_redirect_response=False)
 
     def test_pins_are_quick_to_check_and_old_hashes_upgrade(self):
@@ -1133,7 +1133,7 @@ class LockScreenTests(TestCase):
         RegisterSignIn.objects.all().delete()
         page = self.client.get(reverse("register_lock"))
         self.assertEqual(page.context["staff"], [])
-        self.assertContains(page, f'{reverse("login_view")}?next=%2Fen%2Frestaurant%2Fregister')
+        self.assertContains(page, f'{reverse("login_view")}?next=%2Frestaurant%2Fregister')
 
     def test_wrong_pins_lock_the_person_out(self):
         for _ in range(5):

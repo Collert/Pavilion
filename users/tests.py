@@ -33,7 +33,7 @@ class LoginTests(TestCase):
         self.assertContains(response, 'value="dana"', status_code=400)
 
     def test_next_must_be_on_this_site(self):
-        self.assertRedirects(self.sign_in("dana", next="/en/restaurant/drawer"), "/en/restaurant/drawer", fetch_redirect_response=False)
+        self.assertRedirects(self.sign_in("dana", next="/restaurant/drawer"), "/restaurant/drawer", fetch_redirect_response=False)
         self.client.logout()
         self.assertRedirects(self.sign_in("dana", next="https://evil.example/"), reverse("pos"), fetch_redirect_response=False)
 
@@ -101,7 +101,7 @@ class SetupTests(TestCase):
                                                          "code": setup.setup_code().lower(), **fields})
 
     def test_every_page_goes_to_setup_until_there_is_an_account(self):
-        self.assertRedirects(self.client.get("/en/"), reverse("first_setup"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("store_home")), reverse("first_setup"), fetch_redirect_response=False)
         self.assertRedirects(self.client.get(reverse("login_view")), reverse("first_setup"), fetch_redirect_response=False)
         self.assertEqual(self.client.get(reverse("first_setup")).status_code, 200)
         self.assertNotEqual(self.client.get("/static/users/setup.css").status_code, 302)  # files aren't sent there
@@ -123,7 +123,7 @@ class SetupTests(TestCase):
         store = StoreSettings.objects.get()
         self.assertEqual((store.name, store.address, store.tax_rate, store.email), ("Juniper Lane", "1200 Main St", Decimal("5"), "priya@example.com"))
         self.assertEqual(int(self.client.session["_auth_user_id"]), owner.id)  # signed in
-        self.assertEqual(self.client.get("/en/").status_code, 200)  # no more setup
+        self.assertEqual(self.client.get(reverse("store_home")).status_code, 200)  # no more setup
         self.assertRedirects(self.client.get(reverse("first_setup")), reverse("login_view"), fetch_redirect_response=False)
 
     def test_back_keeps_the_place(self):

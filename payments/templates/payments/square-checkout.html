@@ -15,7 +15,7 @@ the order with the transaction.
     {% if fonts %}<link href="{{ fonts }}" rel="stylesheet">{% endif %}
     <link href="{% static 'payments/card-form.css' %}" rel="stylesheet">
     <style>:root { {{ css_vars }} }</style>
-    <script src="{% url 'javascript-catalog' %}"></script>
+    <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
 </head>
 <body class="pc-body sheet">
     {% csrf_token %}

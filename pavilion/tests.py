@@ -133,15 +133,15 @@ class ThrottleTests(TestCase):
         from django.contrib.auth.models import User
         user = User.objects.create_user("dana", is_staff=True)
         self.client.force_login(user)
-        codes = [self.client.get("/en/apps/").status_code for _ in range(6)]
+        codes = [self.client.get("/apps/").status_code for _ in range(6)]
         self.assertEqual(codes[-1], 429)
         self.assertNotIn(429, codes[:5])
-        response = self.client.get("/en/apps/", HTTP_ACCEPT="application/json")
+        response = self.client.get("/apps/", HTTP_ACCEPT="application/json")
         self.assertEqual((response.status_code, int(response["Retry-After"]) > 0), (429, True))
         self.assertIn("retryAfter", response.json())
         other = self.client_class()  # another browser isn't held up
         other.force_login(user)
-        self.assertNotEqual(other.get("/en/apps/").status_code, 429)
+        self.assertNotEqual(other.get("/apps/").status_code, 429)
 
     @mock.patch("pavilion.throttle.time.time", return_value=1000.0)
     def test_a_new_cookie_every_time_still_counts_against_the_address(self, _clock):
@@ -149,7 +149,7 @@ class ThrottleTests(TestCase):
         from django.test import RequestFactory
         codes = []
         for n in range(5 * throttle.ADDRESS_FACTOR + 1):
-            request = RequestFactory().get("/en/apps/")
+            request = RequestFactory().get("/apps/")
             request.COOKIES["sessionid"] = f"fake{n}"
             codes.append(throttle.check(request))
         self.assertTrue(all(c is None for c in codes[:-1]))
@@ -218,3 +218,25 @@ class DevCacheTests(SimpleTestCase):
         from pavilion import throttle
         with override_settings(THROTTLE=True), mock.patch.object(throttle.cache, "add", side_effect=OSError("down")):
             self.assertEqual(throttle.allow("all", "s1", 1, 10), (True, 0))
+
+
+class OldAddressTests(TestCase):
+    """Addresses from before the store moved under /store/ and the language prefixes went (pavilion/redirects.py)."""
+
+    def test_store_pages_at_the_root_move_under_store(self):
+        for old, new in (("/", "/store/"), ("/menu", "/store/menu"), ("/order-status/12", "/store/order-status/12"),
+                         ("/menu?dish=4", "/store/menu?dish=4"), ("/catering/", "/store/catering/"), ("/apps", "/apps/")):
+            response = self.client.get(old)
+            self.assertEqual((response.status_code, response.url), (301, new), old)
+        self.assertEqual(self.client.get("/nothing-here").status_code, 404)
+
+    def test_a_language_prefix_picks_that_language(self):
+        response = self.client.get("/uk/menu")
+        self.assertEqual((response.status_code, response.url, response.cookies["django_language"].value), (301, "/store/menu", "uk"))
+        self.assertEqual(self.client.get("/zh-hk/apps/").url, "/apps/")
+        self.assertEqual(self.client.get("/en").url, "/store/")
+        self.assertEqual(self.client.get("/en/nothing-here").status_code, 404)
+
+    def test_the_script_translations_have_an_address_per_language(self):
+        self.assertContains(self.client.get("/jsi18n/uk/"), "django")
+        self.assertEqual(self.client.get("/jsi18n/xx/").status_code, 404)

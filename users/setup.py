@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 DONE_KEY = "setup:done"
 CODE_KEY = "setup:code"
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I to misread
-EXEMPT = ("/static/", "/media/", "/events/", "/i18n/", "/square/", "/favicon")
+EXEMPT = ("/static/", "/media/", "/events/", "/i18n/", "/jsi18n/", "/square/", "/favicon")
 
 
 def needed() -> bool:
@@ -68,6 +68,6 @@ class SetupMiddleware:
     def __call__(self, request):
         if getattr(settings, "SETUP_REDIRECT", True) and not request.path.startswith(EXEMPT) and needed():
             target = reverse("first_setup")
-            if request.path != target and not request.path.endswith("/jsi18n/"):
+            if request.path != target:
                 return redirect(target)
         return self.get_response(request)

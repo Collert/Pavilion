@@ -203,8 +203,7 @@ class EmailTests(TestCase):
         self.assertEqual(sent["template_id"], EmailTemplate.objects.get(kind="event_open").template_id)  # installed on first send
         self.assertIn("Trivia night at My restaurant", sent["subject"])
         self.assertIn("{{ else }}", sent["subject"])  # every language
-        self.assertIn("http://localhost/uk/menu", sent["body"])
-        self.assertIn("http://localhost/en/menu", sent["body"])
+        self.assertIn("http://localhost/store/menu", sent["body"])
         self.assertIn("Six rounds.<br>Prizes!", sent["body"])
         self.assertIn("7 PM – 10 PM", sent["body"])
 
@@ -215,7 +214,7 @@ class EmailTests(TestCase):
         self.assertEqual(sent["lists"], [StoreSettings.load().listmonk_list])
         self.assertIn("Closed for { { repairs } }", sent["subject"])  # never read as listmonk's code
         self.assertIn("Closed all day", sent["body"])
-        self.assertIn("http://localhost/en/", sent["body"])
+        self.assertIn("http://localhost/store/", sent["body"])
 
         EmailSwitch.objects.filter(kind="event_open").update(enabled=False)
         self.assertEqual(announce_later([self._event()], request), [])

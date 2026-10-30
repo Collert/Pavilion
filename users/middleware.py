@@ -1,12 +1,11 @@
 """
-Language for people who are signed in, around Django's LocaleMiddleware (which picks it from the URL's prefix, then
-the language cookie, then the browser). Before it: someone signed in without a language cookie starts in their saved
-language (users.Preference), and when the store doesn't match devices (the admin's Languages page) the browser's
-language is ignored, so they get the store's default. After it: the language they browse in is saved as theirs, so
-their emails follow it.
+Language for people who are signed in, around Django's LocaleMiddleware (which picks it from the language cookie the
+pickers set, then the browser; addresses have no language prefix). Before it: someone signed in without a language
+cookie starts in their saved language (users.Preference), and when the store doesn't match devices (the admin's
+Languages page) the browser's language is ignored, so they get the store's default. After it: the language they picked
+(the cookie) is saved as theirs, so their emails follow it.
 """
 from django.conf import settings
-from django.utils.translation import get_language_from_path
 
 from .models import enabled_language, set_language
 
@@ -19,13 +18,14 @@ class LanguageMiddleware:
         if not getattr(settings, "LANGUAGE_MATCH_DEVICE", True):
             request.META.pop("HTTP_ACCEPT_LANGUAGE", None)
         user = request.user
-        prefixed = get_language_from_path(request.path_info)  # the URL says which: nothing to look up
-        if not prefixed and user.is_authenticated and settings.LANGUAGE_COOKIE_NAME not in request.COOKIES:
-            saved = enabled_language(getattr(getattr(user, "preference", None), "language", ""))
-            if saved:
-                request.COOKIES[settings.LANGUAGE_COOKIE_NAME] = saved
+        picked = request.COOKIES.get(settings.LANGUAGE_COOKIE_NAME)
+        if not picked and user.is_authenticated:
+            if "language" not in request.session:  # looked up once a session
+                request.session["language"] = enabled_language(getattr(getattr(user, "preference", None), "language", ""))
+            if request.session["language"]:
+                request.COOKIES[settings.LANGUAGE_COOKIE_NAME] = request.session["language"]
         response = self.get_response(request)
-        browsing = enabled_language(prefixed) if prefixed else ""
+        browsing = enabled_language(picked) if picked else ""
         if (browsing and user.is_authenticated and request.method == "GET" and response.status_code == 200
                 and request.session.get("language") != browsing):
             saved = enabled_language(getattr(getattr(user, "preference", None), "language", ""))
