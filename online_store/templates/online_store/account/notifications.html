@@ -39,6 +39,11 @@ has none ([data-push-here]).
                         <span class="grow acct-two"><span class="strong">{% trans "Event updates" %}</span><span class="acct-meta">{% trans "Special hours, events and closures." %}</span></span>
                         <span class="acct-switch{% if d.sub.event_updates %} on{% endif %}"><span></span></span></button>
                     {% endif %}
+                    {% if news_on %}
+                    <button class="acct-toggle as-button" name="op" value="toggle:{{ d.sub.id }}:news" role="switch" aria-checked="{{ d.sub.news_updates|yesno:'true,false' }}">
+                        <span class="grow acct-two"><span class="strong">{% trans "News and offers" %}</span><span class="acct-meta">{% blocktrans with name=store.name %}Now and then, from {{ name }}: specials, new dishes, things worth knowing.{% endblocktrans %}</span></span>
+                        <span class="acct-switch{% if d.sub.news_updates %} on{% endif %}"><span></span></span></button>
+                    {% endif %}
                 </div>
                 {% empty %}
                 <div class="acct-meta">{% trans "No devices yet. Turn notifications on from an order’s page, or here on the device you’re using." %}</div>

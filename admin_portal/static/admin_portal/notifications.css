@@ -7,3 +7,7 @@
 .nt-pv-top { display: flex; gap: 8px; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
 .nt-note { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 18px; background: #EAF0F8; color: #2C4E7C; font-size: 13px; font-weight: 700; line-height: 1.45; }
 .nt-note svg { flex: none; margin-top: 1px; }
+.nt-state { margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--muted); }
+.nt-state span { width: 8px; height: 8px; border-radius: 4px; background: #C9D3CD; flex: none; }
+.nt-state.on { color: var(--ink); }
+.nt-state.on span { background: var(--green); }

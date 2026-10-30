@@ -44,6 +44,28 @@ def background(job):
     threading.Thread(target=run, daemon=True).start()
 
 
+_pool = None
+
+
+def pooled(job):
+    """Run `job` on a small shared pool (listmonk posts a campaign's messages in bursts: a thread each would pile up)."""
+    global _pool
+    from concurrent.futures import ThreadPoolExecutor
+    if _pool is None:
+        _pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pavilion-push")
+
+    def run():
+        close_old_connections()
+        try:
+            job()
+        except Exception:
+            logger.exception("Sending push notifications failed")
+        finally:
+            close_old_connections()
+
+    _pool.submit(run)
+
+
 def deliver(sub, message: dict, *, signer=None, urgency="normal", ttl=24 * 3600) -> bool:
     """Send one notification now. True when the push service took it. Drops subscriptions that are gone."""
     from .models import PushSubscription

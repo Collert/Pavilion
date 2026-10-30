@@ -28,7 +28,8 @@ from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 
-SKIP =("/events/", "/static/", "/media/")  # the live streams hold one request open; files are cheap
+# the live streams hold one request open; files are cheap; listmonk posts a campaign's messages in bursts (it signs in)
+SKIP = ("/events/", "/static/", "/media/", "/push/listmonk")
 ADDRESS_FACTOR = 10
 
 

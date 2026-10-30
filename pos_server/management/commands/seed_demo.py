@@ -1200,7 +1200,7 @@ class Command(BaseCommand):
         # Push notifications (the admin's Notifications page): both on. Devices subscribe from a real browser, so there are
         # none to seed; the app's screenshots are taken once a screenshot server is set up (online_store/screenshots.py).
         from push.models import NotificationSwitch
-        for kind in ("order_updates", "event_updates"):
+        for kind in ("order_updates", "event_updates", "campaigns"):
             NotificationSwitch.objects.update_or_create(kind=kind, defaults={"enabled": True})
         for title, tagline, color in [("Lunch combos", "A main, a side and a drink from $18.95", "#1f4a3a"),
                                       ("Gift cards", "Give someone lunch", "#14261f")]:

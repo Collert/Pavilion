@@ -1164,12 +1164,13 @@ def email(request):
     return page(request, "admin_portal/email.html", "email", {"x": email_data.page(st, store)})
 
 
-@admin_page("notifications", edit={"save", "test"})
+@admin_page("notifications", edit={"save", "test", "messenger", "newpass", "showpass"})
 def notifications(request):
     """Notifications: the push notifications Pavilion sends, each on or off, and a test to your own devices
     (admin_portal/notifications.py)."""
-    st = notifications_data.state(request.session)
+    st = notifications_data.state(request)
     if request.method == "POST":
+        notifications_data.take_post(st, request.POST)
         op = request.POST.get("op", "preview")
         if op == "save":
             notifications_data.save(st)
@@ -1185,7 +1186,7 @@ def notifications(request):
         if error:
             messages.error(request, error)
         request.session[notifications_data.KEY] = st
-    return page(request, "admin_portal/notifications.html", "notifications", {"x": notifications_data.page(st)})
+    return page(request, "admin_portal/notifications.html", "notifications", {"x": notifications_data.page(st, request)})
 
 
 @admin_page("storeinfo", edit={"save", "restart"})

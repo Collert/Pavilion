@@ -10,7 +10,8 @@ campaign template per language for newsletters, and one campaign template (every
 rewrites the ones Pavilion made (Reset to default).
 
 People (below): everyone with an account is a subscriber in the users list; the customers list is the newsletter's.
-They're synced when listmonk is connected and whenever an account, its menu-email choice or its language changes.
+They're synced when listmonk is connected and whenever an account, its menu-email choice or its language changes, and
+when one of their devices turns push news on or off (the `pavilion_push` attribute, push/listmonk.py).
 
 Marketing emails (events) are campaigns: `start_campaign` makes one and starts it.
 
@@ -246,7 +247,10 @@ def sync_user(user, lists=None):
         return
     lists = lists or ensure_lists()
     wants = bool(getattr(getattr(user, "customer_profile", None), "newsletter", False))
-    attribs = {"pavilion_id": user.pk, "language": language_of(user), "staff": bool(user.is_staff)}
+    from push.models import PushSubscription
+    # `pavilion_push`: their store devices that want news, for push campaigns through Pavilion's messenger (push/listmonk.py)
+    devices = list(PushSubscription.objects.filter(user=user, app=PushSubscription.STORE, news_updates=True).order_by("id").values_list("id", flat=True))
+    attribs = {"pavilion_id": user.pk, "language": language_of(user), "staff": bool(user.is_staff), "pavilion_push": devices}
     name = user.get_full_name() or user.username
     found = _subscriber(user.email)
     if found is None:

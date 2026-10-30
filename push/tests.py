@@ -1,3 +1,4 @@
+import base64
 import json
 from unittest import mock
 
@@ -257,6 +258,9 @@ class AccountNotificationsTests(TestCase):
         self.client.post(self.url, {"op": f"toggle:{self.phone.id}:events"})
         self.phone.refresh_from_db()
         self.assertTrue(self.phone.event_updates)
+        self.client.post(self.url, {"op": f"toggle:{self.phone.id}:news"})  # listmonk's push campaigns
+        self.phone.refresh_from_db()
+        self.assertTrue(self.phone.news_updates)
         self.client.post(self.url, {"op": f"toggle:{self.bos.id}:events"})  # someone else's: nothing
         self.bos.refresh_from_db()
         self.assertFalse(self.bos.event_updates)
@@ -268,3 +272,114 @@ class AccountNotificationsTests(TestCase):
     def test_signed_out_people_sign_in_first(self):
         self.client.logout()
         self.assertTrue(self.client.get(self.url).url.startswith(reverse("store_signin")))
+
+
+@override_settings(LISTMONK_URL="https://mail.example.com", LISTMONK_API_USER="pavilion", LISTMONK_API_TOKEN="secret")
+class ListmonkMessengerTests(TestCase):
+    """Push campaigns from listmonk (push/listmonk.py): Pavilion as a listmonk messenger."""
+
+    def setUp(self):
+        from misc_tools.tests import FakeListmonk
+        cache.clear()
+        self.fake = FakeListmonk()
+        patcher = mock.patch("misc_tools.listmonk.api", self.fake)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.ana = User.objects.create_user("ana", email="ana@example.com", password="x")
+        self.url = reverse("listmonk_messenger")
+
+    def phone(self, n=1, user=None, news=True, app="store"):
+        return PushSubscription.objects.create(app=app, user=user or self.ana, news_updates=news, **subscriptions.parse(browser_subscription(n)))
+
+    def post(self, body, auth=True):
+        from push import listmonk as messenger
+        headers = {}
+        if auth:
+            token = base64.b64encode(f"pavilion:{messenger.password()}".encode()).decode()
+            headers["HTTP_AUTHORIZATION"] = f"Basic {token}"
+        return self.client.post(self.url, json.dumps(body), content_type="application/json", **headers)
+
+    def payload(self, attribs, body="Two-for-one tacos tonight, 5 to 7. https://shop.example.com/store/menu@TrackLink", content_type="plain"):
+        return {"subject": "Taco Tuesday", "body": body, "content_type": content_type, "from_email": "",
+                "recipients": [{"uuid": "u-1", "email": "ana@example.com", "name": "Ana", "attribs": attribs, "status": "enabled"}],
+                "campaign": {"uuid": "c-1", "name": "Tacos", "tags": []}}
+
+    def test_a_campaign_message_goes_to_that_accounts_devices_with_news_on(self):
+        mine = self.phone(1)
+        quiet = self.phone(2, news=False)
+        bo = User.objects.create_user("bo", password="x")
+        theirs = self.phone(3, user=bo)
+        attribs = {"pavilion_id": self.ana.pk, "pavilion_push": [mine.pk, quiet.pk, theirs.pk]}  # someone else's id can't sneak in
+        with mock.patch("push.send.webpush") as webpush, mock.patch("push.send.pooled", lambda job: job()):
+            response = self.post(self.payload(attribs))
+        self.assertEqual((response.status_code, response.json()["devices"]), (200, 1))
+        self.assertEqual(webpush.call_args.args[0]["endpoint"], mine.endpoint)
+        message = json.loads(webpush.call_args.args[1])
+        self.assertEqual((message["title"], message["body"], message["url"], message["tag"]),
+                         ("Taco Tuesday", "Two-for-one tacos tonight, 5 to 7.", "https://shop.example.com/store/menu@TrackLink", "campaign-c-1"))
+
+    def test_another_apps_attribute_reaches_nothing(self):
+        mine = self.phone(1)
+        with mock.patch("push.send.webpush") as webpush, mock.patch("push.send.pooled", lambda job: job()):
+            self.assertEqual(self.post(self.payload({"pavilion_id": self.ana.pk, "push": [mine.pk]})).json()["devices"], 0)
+        webpush.assert_not_called()
+
+    def test_html_becomes_text_and_nobody_listed_is_still_fine(self):
+        from push import listmonk as messenger
+        built = messenger.message("Hi", "<p>New <b>pie</b> &amp; coffee</p><p>Come by!</p>", "html", {"uuid": "x"})
+        self.assertEqual((built["body"], built["url"]), ("New pie & coffee Come by!", reverse("store_home")))
+        with mock.patch("push.send.webpush") as webpush, mock.patch("push.send.pooled", lambda job: job()):
+            self.assertEqual(self.post(self.payload({"email_only": True})).status_code, 200)  # 200, or listmonk retries
+        webpush.assert_not_called()
+
+    def test_only_listmonk_signs_in(self):
+        self.assertEqual(self.post(self.payload({}), auth=False).status_code, 401)
+        wrong = base64.b64encode(b"pavilion:nope").decode()
+        self.assertEqual(self.client.post(self.url, "{}", content_type="application/json", HTTP_AUTHORIZATION=f"Basic {wrong}").status_code, 401)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_turned_off_on_the_notifications_page(self):
+        from push.models import NotificationSwitch
+        NotificationSwitch.objects.create(kind="campaigns", enabled=False)
+        mine = self.phone(1)
+        with mock.patch("push.send.webpush") as webpush:
+            self.assertTrue(self.post(self.payload({"pavilion_id": self.ana.pk, "pavilion_push": [mine.pk]})).json()["off"])
+        webpush.assert_not_called()
+
+    def test_setting_it_up_in_listmonk(self):
+        from admin_portal.models import StoreSettings
+        from push import listmonk as messenger
+        messenger.install("https://shop.example.com/push/listmonk")
+        (entry,) = self.fake.settings["messengers"]
+        self.assertEqual((entry["name"], entry["root_url"], entry["username"], entry["password"], entry["enabled"]),
+                         ("pavilion-push", "https://shop.example.com/push/listmonk", "pavilion", messenger.password(), True))
+        self.assertEqual(self.fake.settings["smtp"][0]["password"], "hunter2")  # its other passwords stay as they were
+        template = self.fake.templates[StoreSettings.load().push_messenger_template]
+        self.assertEqual((template["type"], template["body"]), ("campaign", '{{ template "content" . }}'))
+        messenger.install("https://shop.example.com/push/listmonk")  # again: updated, not added twice
+        self.assertEqual((len(self.fake.settings["messengers"]), len(self.fake.templates)), (1, 1))
+        self.assertTrue(messenger.status(force=True)["messenger"])
+
+    def test_devices_with_news_are_a_subscriber_attribute(self):
+        from misc_tools import listmonk
+        with mock.patch("misc_tools.listmonk._background", lambda job: job()), self.captureOnCommitCallbacks(execute=True):
+            mine = self.phone(1)
+        self.assertEqual(self.fake.by_email("ana@example.com")["attribs"]["pavilion_push"], [mine.pk])
+        with mock.patch("misc_tools.listmonk.sync_later") as sync:
+            self.phone(2, news=False)  # nothing for listmonk to know
+            sync.assert_not_called()
+            mine.news_updates = False
+            mine.save()
+            sync.assert_called_once()
+        listmonk.sync_user(self.ana)
+        self.assertEqual(self.fake.by_email("ana@example.com")["attribs"]["pavilion_push"], [])
+
+    def test_the_notifications_page_sets_it_up(self):
+        owner = User.objects.create_superuser("owner", password="x")
+        self.client.force_login(owner)
+        page = self.client.get(reverse("admin_notifications"))
+        self.assertContains(page, "Not set up in listmonk yet")
+        self.assertEqual(page.context["x"]["st"]["url"], "http://testserver/push/listmonk")
+        self.client.post(reverse("admin_notifications"), {"op": "messenger", "messenger_url": "https://shop.example.com/push/listmonk"})
+        self.assertEqual(self.fake.settings["messengers"][0]["root_url"], "https://shop.example.com/push/listmonk")
+        self.assertContains(self.client.get(reverse("admin_notifications")), "Set up in listmonk as")

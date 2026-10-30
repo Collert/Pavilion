@@ -23,6 +23,9 @@ class FakeListmonk:
         self.templates, self.lists, self.subscribers, self.sent, self.calls = {}, {}, {}, [], []
         self.campaigns = {}
         self.old = old  # an older listmonk: transactional email only to subscribers
+        # listmonk's settings (push/listmonk.py adds a messenger): passwords come back as dots, and one sent empty is kept
+        self.settings = {"app.root_url": "https://mail.example.com", "smtp": [{"uuid": "s-1", "host": "smtp.example.com", "password": "hunter2"}],
+                         "messengers": []}
 
     def by_email(self, email_):
         return next((s for s in self.subscribers.values() if s["email"].lower() == email_.lower()), None)
@@ -72,6 +75,19 @@ class FakeListmonk:
             return {"id": new}
         if path.startswith("/campaigns/") and path.endswith("/status"):
             self.campaigns[int(path.split("/")[2])]["status"] = payload["status"]
+            return True
+        if path == "/settings" and method == "GET":
+            import copy
+            shown = copy.deepcopy(self.settings)
+            for row in shown["smtp"] + shown["messengers"]:
+                row["password"] = "•" * len(row.get("password", ""))
+            return shown
+        if path == "/settings" and method == "PUT":
+            for kind in ("smtp", "messengers"):
+                for row in payload[kind]:
+                    if not row.get("password"):
+                        row["password"] = next((r["password"] for r in self.settings[kind] if r.get("uuid") and r.get("uuid") == row.get("uuid")), "")
+            self.settings = payload
             return True
         if path == "/tx":
             if self.old and not all(self.by_email(e) for e in payload["subscriber_emails"]):

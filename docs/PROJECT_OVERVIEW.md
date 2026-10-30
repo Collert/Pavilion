@@ -1078,6 +1078,19 @@ saved (`events/announce.py: notify_later`). The admin's **Notifications** page (
 (`push/kinds.py`, `NotificationSwitch`) and sends you a test; the account's **Notifications** page lists your devices with
 their switches and Remove, marks "This device" and offers turning them on here.
 
+**Push campaigns from listmonk** (`push/listmonk.py`): Pavilion is a listmonk [messenger](https://listmonk.app/docs/messengers/)
+named `pavilion-push`. listmonk posts each campaign message (its postback JSON: subject, body, content_type, recipients
+with their attributes, campaign) to `/push/listmonk` with Basic auth (user `pavilion`, a password Pavilion makes and
+keeps encrypted, `StoreSettings.push_messenger_password`); only HTTP 200 counts as delivered, so a recipient without
+devices still gets a 200. The subject is the title, the body the text (HTML turned into text), the first link where a
+tap goes (with `@TrackLink`, listmonk counts the click). Recipients are matched by their attributes: `pavilion_id` and
+`pavilion_push` (named for Pavilion: other apps on the same listmonk can't reach these devices with an attribute of their own), the ids of that account's store devices with `news_updates` on (`misc_tools/listmonk.py: sync_user` writes them;
+a signal syncs whenever a device's news switch or account changes), and the messenger re-checks both. The Notifications
+page's Push campaigns card sets it up in listmonk (its settings API: the messenger entry, passwords it shows as dots sent
+back empty so they're kept; and a "Pavilion push" campaign template), shows the sign-in and makes a new password; the
+"News from listmonk" switch turns it off. The messenger's address skips the per-address rate limit (`pavilion/throttle.py`)
+and sends on a small pool (`push.send.pooled`). Guests have no subscriber, so campaigns only reach accounts.
+
 **Who sees an order**: a customer's order only shows to them (signed in, any device); a guest's to the browser that
 placed it (a signed cookie, `online_store/guest_orders.py`, a year, the last 20). Everyone else gets "This order isn't
 yours to see" (403).

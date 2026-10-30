@@ -33,6 +33,33 @@ how it looks on a phone.
             <div class="small muted strong top10">{% blocktrans with key=x.key %}Pavilion’s push key ({{ key }}) was made for this store and is kept in its database. Guests turn notifications on from their order’s page; customers from their account, on each device.{% endblocktrans %}</div>
             <button class="em-soft wide top12" name="op" value="test">{% trans "Send me a test notification" %}</button>
         </section>
+        <section class="card tm-card" id="nt-messenger" aria-label="{% trans 'listmonk messenger' %}">
+            <div class="em-brand"><span class="em-brand-ic">{% icon "M3 10v4h3l7 4V6l-7 4z M16 9a4 4 0 0 1 0 6 M6 14l1 5h3l-1-5" 22 2.2 %}</span>
+                <div class="grow"><h2 class="disp tm-h2">{% trans "Push campaigns" %}</h2><div class="small muted strong">{% trans "Send push notifications from listmonk, like a newsletter: Pavilion is its messenger." %}</div></div></div>
+            {% with m=x.messenger %}
+            {% if not m.connected %}
+            <div class="em-hint">{% trans "Connect listmonk on the Email page first." %} <a class="strong" href="{% url 'admin_email' %}">{% trans "Email" %}</a></div>
+            {% else %}
+            <div class="nt-state{% if m.status.messenger and m.status.enabled and m.status.template and not m.moved %} on{% endif %}"><span></span>
+                {% if m.status.error %}{% trans "Can’t reach listmonk" %}{% elif m.status.messenger and m.status.enabled and m.status.template and not m.moved %}{% blocktrans with name=m.name %}Set up in listmonk as “{{ name }}”{% endblocktrans %}{% elif m.status.messenger %}{% trans "In listmonk, but out of date" %}{% else %}{% trans "Not set up in listmonk yet" %}{% endif %}</div>
+            {% if m.status.error %}<div class="em-err">{{ m.status.error }}</div>{% endif %}
+            <label class="block top12"><span class="lbl">{% trans "Address listmonk posts to" %}</span>
+                <input class="field" type="url" name="messenger_url" value="{{ x.st.url }}" data-type-preview autocomplete="off"></label>
+            {% if not m.url_ok %}<div class="em-hint bad">{% trans "That doesn’t look like a web address yet." %}</div>
+            {% else %}<div class="em-hint">{% trans "Where listmonk can reach this Pavilion. On the same Docker network, its internal address works too." %}</div>{% endif %}
+            <div class="em-facts">
+                <div><span>{% trans "User" %}</span><span class="num">{{ m.user }}</span></div>
+                <div><span>{% trans "Password" %}</span><span class="num ellipsis">{% if m.password %}{{ m.password }}{% else %}••••••••••••{% endif %}</span></div>
+            </div>
+            <div class="em-btns">
+                <button class="em-soft grow" name="op" value="showpass">{% if m.password %}{% trans "Hide password" %}{% else %}{% trans "Show password" %}{% endif %}</button>
+                <button class="em-soft" name="op" value="newpass">{% trans "New password" %}</button>
+            </div>
+            <button class="em-connect" name="op" value="messenger"{% if not m.url_ok %} disabled{% endif %}>{% if m.status.messenger %}{% trans "Update it in listmonk" %}{% else %}{% trans "Set it up in listmonk" %}{% endif %}</button>
+            <div class="em-hint">{% blocktrans with name=m.name %}Then in listmonk, make a campaign with the “Pavilion push” template, Plain text, and Messenger “{{ name }}”. Its subject is the title and its text the message; the first link is where a tap goes (end it in @TrackLink to count clicks). It reaches customers with an account who turned on News and offers on a device.{% endblocktrans %}</div>
+            {% endif %}
+            {% endwith %}
+        </section>
         <nav class="card em-cats" aria-label="{% trans 'Notification groups' %}">
             {% for g in x.groups %}
             <button class="em-cat{% if g.on %} on{% endif %}" name="op" value="cat:{{ g.key }}"{% if g.on %} aria-current="page"{% endif %}>

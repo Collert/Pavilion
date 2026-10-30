@@ -34,6 +34,7 @@ urlpatterns = [
     # Square needs fixed addresses: the OAuth redirect URL and the webhook
     path('square/oauth/callback', admin_views.square_oauth_callback, name='square_oauth_callback'),
     path('square/webhook', pos_views.square_webhook, name='square_webhook_plain'),
+    path('push/', include("push.urls")),  # listmonk's messenger posts here (push/listmonk.py)
     # The translations for gettext() in our scripts. The language is in the address so browsers can keep each one for
     # a day instead of fetching it again on every page.
     path('jsi18n/<str:lang>/', javascript_catalog, name='javascript-catalog'),

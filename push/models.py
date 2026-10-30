@@ -28,6 +28,8 @@ class PushSubscription(models.Model):
     # later orders on that browser are linked when they're placed), and new events
     order_updates = models.BooleanField(default=True)
     event_updates = models.BooleanField(default=False)
+    # Campaigns from listmonk (push/listmonk.py): only for accounts, and only on devices that asked
+    news_updates = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     seen_at = models.DateTimeField(default=timezone.now, help_text="When the browser last said it still has it")
     last_success_at = models.DateTimeField(null=True, blank=True)
@@ -42,6 +44,38 @@ class PushSubscription(models.Model):
     def info(self) -> dict:
         """What pywebpush wants."""
         return {"endpoint": self.endpoint, "keys": {"p256dh": self.p256dh, "auth": self.auth}}
+
+
+def _remember(sender, instance, **kwargs):
+    instance._listmonk_was = (instance.user_id, instance.news_updates)
+
+
+def _sync_listmonk(sender, instance, **kwargs):
+    """A device with news on was added, removed or switched: its account's subscriber gets the new `pavilion_push` list."""
+    from django.contrib.auth.models import User
+    from misc_tools import listmonk
+    if instance.app != PushSubscription.STORE:
+        return
+    was_user, was_news = getattr(instance, "_listmonk_was", (None, False))
+    if kwargs.get("created"):
+        if not instance.news_updates:
+            return
+        was_user = None
+    elif "created" in kwargs:  # saved
+        if (was_user, was_news) == (instance.user_id, instance.news_updates) or not (was_news or instance.news_updates):
+            return
+    elif not instance.news_updates:  # deleted, and it had no news to stop
+        return
+    instance._listmonk_was = (instance.user_id, instance.news_updates)
+    for user_id in {instance.user_id, was_user} - {None}:
+        user = User.objects.filter(pk=user_id).first()
+        if user:
+            listmonk.sync_later(user)
+
+
+models.signals.post_init.connect(_remember, sender=PushSubscription, dispatch_uid="push-listmonk-init")
+models.signals.post_save.connect(_sync_listmonk, sender=PushSubscription, dispatch_uid="push-listmonk-save")
+models.signals.post_delete.connect(_sync_listmonk, sender=PushSubscription, dispatch_uid="push-listmonk-delete")
 
 
 class VapidKeys(models.Model):
