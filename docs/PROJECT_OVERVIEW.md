@@ -1052,7 +1052,8 @@ Two installable apps, each with its own scope, manifest and service worker serve
   `SCREENSHOT_SITE`) after each Publish on the admin's Online store page, in the background (one run at a time, one more
   if published again meanwhile; `online_store/screenshots.py`): new files under `store_app/` in the media storage, then
   the old set is deleted. `StoreSettings.app_screenshots` lists them.
-- **The courier app** (`/deliveries/`): its manifest keeps the old id so installed copies stay the same app; its service
+- **The courier app** (`/deliveries/`): its manifest's id is `/deliveries/` (the old UUID id matched a stale app record Chrome syncs
+  between devices, so installing said "already installed" and opening failed); its service
   worker used to sit in `/static/` (where it never reached the pages) and now has an offline page. Its mark is the bag
   (`deliveries/static/deliveries/courier.svg`; PNG icons, maskable and a monochrome status-bar badge drawn by
   `pavilion/brand.py`), and its screenshots for Chrome's richer install sheet are static, the same for every store

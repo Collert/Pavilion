@@ -146,7 +146,7 @@ class CourierPushTests(TestCase):
     def test_the_courier_app_is_installable_and_saves_its_subscription(self):
         from django.contrib.staticfiles import finders
         manifest = self.client.get(reverse("delivery_manifest")).json()
-        self.assertEqual((manifest["scope"], manifest["start_url"]), ("/deliveries/", "/deliveries/"))
+        self.assertEqual((manifest["id"], manifest["scope"], manifest["start_url"]), ("/deliveries/", "/deliveries/", "/deliveries/"))
         self.assertTrue(manifest["description"])  # with screenshots, what Chrome's richer install sheet needs
         self.assertEqual({s["form_factor"] for s in manifest["screenshots"]}, {"narrow", "wide"})
         self.assertIn("maskable", {i["purpose"] for i in manifest["icons"]})

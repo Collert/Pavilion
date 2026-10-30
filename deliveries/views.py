@@ -375,7 +375,9 @@ def manifest(request):
     icons.append({"src": static("deliveries/icon-maskable.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"})
     icons.append({"src": static("deliveries/icon-monochrome.png"), "sizes": "96x96", "type": "image/png", "purpose": "monochrome"})
     return JsonResponse({
-        "id": "7adce38f-5cc1-4957-bcd7-6eb4115712cb",  # what installed copies know it by
+        # Its own id, like the store app's /store/. (The old one, a UUID, matched a stale record Chrome syncs between
+        # devices: it said the app was installed and then couldn't open it.)
+        "id": home,
         "name": _("Pavilion Courier"), "short_name": _("Courier"), "start_url": home, "scope": home,
         "description": _("Take delivery orders on your shift: accept one, follow it from the kitchen to the door, and get notified when new ones come in."),
         "categories": ["business", "food"],
