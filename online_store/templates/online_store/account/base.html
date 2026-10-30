@@ -13,6 +13,7 @@ store theme: a dark side panel with the store, the customer and the sections, an
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'online_store/account.css' %}" rel="stylesheet">
+    {% include "online_store/_app_head.html" %}
 </head>
 <body class="acct">
     {% csrf_token %}
@@ -56,6 +57,7 @@ store theme: a dark side panel with the store, the customer and the sections, an
         import { livePage } from "{% static 'js/live-page.js' %}";
         livePage({ topics: [{% block live_topics %}{% endblock %}] });
     </script>
+    {% include "online_store/_app_script.html" %}
     {% block scripts %}{% endblock %}
 </body>
 </html>

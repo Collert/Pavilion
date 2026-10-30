@@ -10,6 +10,7 @@ installed applications, middleware, and other project-specific settings.
 from pathlib import Path
 import os
 import sys
+from urllib.parse import urlsplit
 import sentry_sdk
 from dotenv import load_dotenv
 from django.urls import reverse_lazy
@@ -43,6 +44,10 @@ GEOCODER_URL = os.getenv('GEOCODER_URL', '')    # a Nominatim server, e.g. http:
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'admin@example.com')  # push services may contact this address; the store's email (Store info) comes first
 APP_DOMAIN = os.getenv('APP_DOMAIN')
+# Screenshots of the online store for its install sheet (online_store/screenshots.py): a Gotenberg server, and the
+# address it opens Pavilion at (docker-compose.yml runs both: http://screenshots:3000 and http://web:8000)
+SCREENSHOT_URL = os.getenv('SCREENSHOT_URL', '')
+SCREENSHOT_SITE = os.getenv('SCREENSHOT_SITE', 'http://web:8000')
 
 # Security settings
 # Generate one with: python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
@@ -102,6 +107,8 @@ LOGIN_URL = reverse_lazy('login_view')
 EXTRA_HOSTS = [host.strip().removeprefix("https://").removeprefix("http://").strip("/")
                for host in os.getenv('EXTRA_HOSTS', '').split(',') if host.strip()]
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] + ([APP_DOMAIN] if APP_DOMAIN else []) + EXTRA_HOSTS
+if SCREENSHOT_URL:  # the screenshot server opens the store at this address
+    ALLOWED_HOSTS.append(urlsplit(SCREENSHOT_SITE).hostname or "web")
 
 # CSRF Trusted Origins (allows cross-origin requests from specified domains)
 CSRF_TRUSTED_ORIGINS = [

@@ -20,6 +20,45 @@
     <a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.menu }}">{% trans "Back to the menu" %}</a>
 </section>
 {% else %}
+{% if notify %}
+{# Push notifications for this order (online_store/static/online_store/push.js sets data-state); left alone by live updates #}
+<div class="nb-notify-wrap" id="nb-notify" data-region data-keep>
+<section class="nb-card nb-notify" data-push-order="{% url 'store_push_order' o.number %}" data-state="none" hidden aria-live="polite">
+    <span class="nb-notify-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z M10 20a2 2 0 0 0 4 0"/></svg></span>
+    <div class="nb-grow">
+        <div data-when="off asking error">
+            <div class="strong">{% trans "Want a heads-up?" %}</div>
+            <div class="muted small">{% if o.delivery %}{% trans "We’ll let you know when the kitchen takes it, when it’s on its way and when it’s at your door." %}{% else %}{% trans "We’ll let you know when the kitchen takes it and when it’s ready to pick up." %}{% endif %}</div>
+            <div class="nb-notify-err small" data-when="error">{% trans "Notifications didn’t turn on. Try again in a moment." %}</div>
+        </div>
+        <div data-when="on">
+            <div class="strong">{% trans "You’ll get notified" %}</div>
+            <div class="muted small">{% trans "We’ll send a notification to this device at each step. You can turn them off in your browser any time." %}</div>
+        </div>
+        <div data-when="blocked" class="nb-notify-blocked" role="alert">
+            <div class="strong">{% trans "Notifications are blocked" %}</div>
+            <div class="small">{% trans "You blocked notifications from this site, so we can’t ask again. To get them, open your browser’s site settings (the icon beside the address), allow notifications, then tap the button again." %}</div>
+        </div>
+        <div data-when="install">
+            <div class="strong">{% trans "Notifications on iPhone" %}</div>
+            <div class="muted small">{% trans "iPhones only send notifications from apps on the Home Screen. Add the store there, open your order from it, and tap the button." %} <a class="strong" href="{{ install_url }}">{% trans "How to add it" %}</a></div>
+        </div>
+    </div>
+    <button type="button" class="nb-btn nb-btn-ink" data-when="off error blocked" data-push-ask>{% trans "Get notified about this order" %}</button>
+    <button type="button" class="nb-btn nb-btn-ink" data-when="asking" disabled aria-busy="true">{% trans "Asking your browser…" %}</button>
+</section>
+<dialog class="nb-notify-sheet" id="nb-notify-sheet" aria-labelledby="nb-notify-title">
+    <span class="nb-notify-ic big" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z M10 20a2 2 0 0 0 4 0"/></svg></span>
+    <h2 class="nb-serif" id="nb-notify-title">{% blocktrans with n=o.number %}Follow order #{{ n }}?{% endblocktrans %}</h2>
+    <p class="muted">{% if o.delivery %}{% trans "Get a notification when the kitchen takes it, when a courier is bringing it, and when it’s at your door. Nothing else, just this order." %}{% else %}{% trans "Get a notification when the kitchen takes it and when it’s ready on the shelf. Nothing else, just this order." %}{% endif %}</p>
+    <p class="muted small">{% trans "Your browser asks next: tap Allow." %}</p>
+    <div class="nb-notify-sheet-btns">
+        <form method="dialog"><button class="nb-btn nb-btn-line">{% trans "Not now" %}</button></form>
+        <button type="button" class="nb-btn nb-btn-accent" data-push-ask>{% trans "Notify me" %}</button>
+    </div>
+</dialog>
+</div>
+{% endif %}
 <section class="nb-placed" id="nb-placed" data-region>
     <div>
         <div class="nb-placed-kick"><span class="nb-placed-check"><svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>

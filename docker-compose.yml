@@ -26,6 +26,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       VALHALLA_URL: http://valhalla:8002
       GEOCODER_URL: http://nominatim:8080
+      SCREENSHOT_URL: http://screenshots:3000   # the store app's install-sheet pictures (online_store/screenshots.py)
+      SCREENSHOT_SITE: http://web:8000
     depends_on:
       db:
         condition: service_healthy
@@ -141,6 +143,19 @@ services:
     volumes:
       - nominatim_data:/var/lib/postgresql/16/main
     # Not published to the host; Pavilion reaches it as http://nominatim:8080
+
+  # Headless Chromium that takes the online store's screenshots for the installed app's install sheet, after each
+  # Publish on the admin's Online store page (online_store/screenshots.py). Only Pavilion can reach it (it isn't
+  # published to the host), and it has to load the store's fonts and pictures from wherever they're hosted.
+  screenshots:
+    image: gotenberg/gotenberg:8
+    container_name: pavilion_screenshots
+    restart: unless-stopped
+    command:
+      - gotenberg
+      - --libreoffice-disable-routes
+      - --api-timeout=90s
+    # Not published to the host; Pavilion reaches it as http://screenshots:3000
 
 volumes:
   pg_data:

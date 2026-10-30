@@ -467,7 +467,7 @@ def checkout(request):
         if op == "place":
             result = _place(request, state)
             if isinstance(result, Order):
-                return redirect("order_status", id=result.id)
+                return redirect(reverse("order_status", args=[result.id]) + "?placed=1")  # the page offers notifications
             pay = result  # card still to pay: the payment sheet
         elif op in ("inc", "dec", "remove") or op.startswith(("inc:", "dec:", "remove:", "upsell:", "code", "drop_")):
             return redirect("store_cart")
@@ -830,7 +830,10 @@ def order_page(request, id, from_placing=None):
         return theme_page(request, "order.html", {"rejected": rejected, "order_id": id})
     if not guest_orders.can_see(request, order.id, order.customer_id):
         return _not_yours(request, id)
-    return theme_page(request, "order.html", {"o": storefront.order_card(order, full=True)})
+    o = storefront.order_card(order, full=True)
+    from push import kinds
+    notify = o["progress"] < 5 and order.channel in ("web", "delivery") and bool(order.station_statuses.exists()) and kinds.enabled("order_updates")
+    return theme_page(request, "order.html", {"o": o, "notify": notify, "install_url": reverse("store_install")})
 
 
 def _not_yours(request, id):

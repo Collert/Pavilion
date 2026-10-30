@@ -77,7 +77,7 @@ class PlaceOrderTests(MenuFixture, TestCase):
         transaction = self.paid_transaction("16.00")
         response = self.place(transaction)
         order = Order.objects.get()
-        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("order_status", args=[order.id]) + "?placed=1", fetch_redirect_response=False)
         self.assertEqual((order.channel, order.total, order.phone), ("web", Decimal("16.00"), 6045550123))
         self.assertEqual(set(order.station_status_map().values()), {OrderStation.STATUS_PENDING})
         self.assertEqual(order.authorization.transaction, transaction)
@@ -322,7 +322,7 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.assertEqual((page["tip"], page["to_pay"]), (Decimal("1.60"), Decimal("0.00")))
         response = self.client.post(url, {"name": "Iryna", "email": "iryna@example.com", "op": "place"})
         order = Order.objects.get()
-        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("order_status", args=[order.id]) + "?placed=1", fetch_redirect_response=False)
         self.assertEqual((order.tip, order.total, order.name, order.email), (Decimal("1.60"), Decimal("17.60"), "Iryna", "iryna@example.com"))
         self.assertEqual(order.stations.count(), 1)
         self.assertEqual(self.client.session["cart"]["lines"], [])
@@ -488,7 +488,7 @@ class AccountTests(MenuFixture, TestCase):
         self.assertTrue(self.client.get(url).context["state"]["pay"].startswith("card:"))
         response = self.client.post(url, {"name": "Sofia", "op": "place"})
         order = Order.objects.get()
-        self.assertRedirects(response, reverse("order_status", args=[order.id]), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("order_status", args=[order.id]) + "?placed=1", fetch_redirect_response=False)
         self.assertEqual(order.customer, self.user)
         self.assertEqual(PaymentAuthorization.objects.get().status, PaymentAuthorization.AUTHORIZED)
         self.assertEqual(order.payments.get(method="card").card_last4, "4242")
@@ -893,3 +893,262 @@ class ComboSheetTests(MenuFixture, TestCase):
         group, on = self.picked(sheet, "Treat")
         self.assertEqual((group["req"], group["required"], on), ("Optional", False, ["No thanks"]))
         self.assertEqual(sheet["unit"], Decimal("16.00"))  # no treat, no upcharge
+
+
+def browser(n=1):
+    return {"endpoint": f"https://fcm.googleapis.com/fcm/send/phone-{n}", "keys": {"p256dh": f"key-{n}", "auth": f"auth-{n}"}}
+
+
+def placed_here(client, order):
+    """`client` placed `order` as a guest (the signed cookie online_store/guest_orders.py keeps)."""
+    from django.http import HttpResponse
+    from online_store import guest_orders
+    response = HttpResponse()
+    response.set_signed_cookie(guest_orders.COOKIE, str(order.id), salt=guest_orders.SALT)
+    client.cookies[guest_orders.COOKIE] = response.cookies[guest_orders.COOKIE].value
+
+
+class StoreAppTests(MenuFixture, TestCase):
+    """The installable store app (online_store/app.py): manifest, icons, service worker, install page, push sign-ups."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def post(self, name, body, *args, client=None):
+        return (client or self.client).post(reverse(name, args=args), json.dumps(body), content_type="application/json")
+
+    def test_the_manifest_follows_the_store_and_its_theme(self):
+        from admin_portal.models import StoreSettings, StoreTheme
+        store = StoreSettings.load()
+        store.name = "Corner Kitchen"
+        store.save()
+        StoreTheme.objects.update_or_create(name="neighbourhood", defaults={"live": {"paper": "#FFFFFF"}, "draft": {}})
+        manifest = self.client.get(reverse("store_manifest")).json()
+        self.assertEqual((manifest["name"], manifest["scope"], manifest["start_url"]), ("Corner Kitchen", "/store/", "/store/"))
+        self.assertEqual((manifest["theme_color"], manifest["background_color"]), ("#FFFFFF", "#FFFFFF"))
+        self.assertEqual([i["purpose"] for i in manifest["icons"]], ["any", "any", "maskable"])
+        icon = self.client.get(manifest["icons"][0]["src"])
+        self.assertEqual((icon.status_code, icon.content[:4]), (200, b"\x89PNG"))
+        self.assertEqual(self.client.get(reverse("store_icon", args=[400])).status_code, 400)
+        self.assertEqual(manifest["screenshots"], [])
+        store.app_screenshots = [{"name": "store_app/narrow-0-1.png", "form": "narrow", "width": 412, "height": 915, "page": "menu"}]
+        store.save()
+        (shot,) = self.client.get(reverse("store_manifest")).json()["screenshots"]
+        self.assertEqual((shot["form_factor"], shot["sizes"], shot["label"]), ("narrow", "412x915", "The menu"))
+
+    def test_store_pages_carry_the_app(self):
+        from push import vapid
+        page = self.client.get(reverse("menu"))
+        self.assertContains(page, reverse("store_manifest"))
+        self.assertContains(page, 'id="store-push"')
+        worker = self.client.get(reverse("store_worker"))
+        self.assertContains(worker, vapid.public_key())
+        self.assertEqual(worker["Service-Worker-Allowed"], "/store/")
+
+    def test_the_install_page(self):
+        page = self.client.get(reverse("store_install"))
+        self.assertContains(page, "Apple’s way")
+        self.assertContains(page, "data-install-button")
+        self.assertContains(page, "What it doesn’t")
+        self.assertContains(self.client.get(reverse("menu")), reverse("store_install"))  # the footer links it
+
+    def guest_order(self):
+        from pos_server.orders import create_order
+        order = create_order(lines=[self.dish(self.burger)], channel="web", initial_status=OrderStation.STATUS_PENDING, name="Iryna")
+        placed_here(self.client, order)
+        return order
+
+    def test_following_an_order_from_its_page(self):
+        from push.models import PushSubscription
+        order = self.guest_order()
+        page = self.client.get(reverse("order_status", args=[order.id]))
+        self.assertContains(page, "Get notified about this order")
+        self.assertContains(page, "nb-notify-sheet")
+        stranger = Client(HTTP_HOST="localhost")
+        self.assertEqual(self.post("store_push_order", {"subscription": browser(2), "auto": False}, order.id, client=stranger).status_code, 403)
+        answer = self.post("store_push_order", {"subscription": browser(), "auto": True}, order.id).json()
+        self.assertTrue(answer["linked"])
+        sub = PushSubscription.objects.get()
+        self.assertEqual((sub.user, list(sub.orders.all())), (None, [order]))
+        # Order updates turned off for this device: the page no longer links it by itself, but a tap does
+        sub.order_updates = False
+        sub.save()
+        sub.orders.clear()
+        self.assertFalse(self.post("store_push_order", {"subscription": browser(), "auto": True}, order.id).json()["linked"])
+        self.assertTrue(self.post("store_push_order", {"subscription": browser(), "auto": False}, order.id).json()["linked"])
+        sub.refresh_from_db()
+        self.assertTrue(sub.order_updates)
+
+    def test_a_guest_subscription_gets_its_account_and_can_be_forgotten(self):
+        from push.models import PushSubscription
+        self.post("store_push_sync", {"subscription": browser()})
+        ana = User.objects.create_user("ana", password="x")
+        self.client.force_login(ana)
+        self.assertTrue(self.post("store_push_sync", {"subscription": browser()}).json()["orders"])
+        self.assertEqual(PushSubscription.objects.get().user, ana)
+        self.post("store_push_forget", {"endpoint": browser()["endpoint"]})
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_a_finished_order_has_no_card(self):
+        order = self.guest_order()
+        Order.objects.filter(pk=order.pk).update(picked_up=True)
+        self.assertNotContains(self.client.get(reverse("order_status", args=[order.id])), "nb-notify-sheet")
+
+
+class OrderPushTests(MenuFixture, TestCase):
+    """Order updates (online_store/order_push.py): each step once, to whoever follows the order."""
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+
+    def setUp(self):
+        from push.models import PushSubscription
+        self.webpush = mock.patch("push.send.webpush").start()
+        mock.patch("push.send.background", lambda job: job()).start()
+        self.addCleanup(mock.patch.stopall)
+        self.ana = User.objects.create_user("ana", first_name="Ana", password="x")
+        self.guest_phone = PushSubscription.objects.create(app="store", endpoint=browser()["endpoint"], p256dh="k", auth="a")
+        self.anas_phone = PushSubscription.objects.create(app="store", user=self.ana, endpoint=browser(2)["endpoint"], p256dh="k", auth="a")
+
+    def sent(self):
+        out = [(call.args[0]["endpoint"], json.loads(call.args[1])) for call in self.webpush.call_args_list]
+        self.webpush.reset_mock()
+        return out
+
+    def order(self, channel="web", **fields):
+        from pos_server.orders import create_order
+        with self.captureOnCommitCallbacks(execute=True):
+            return create_order(lines=[self.dish(self.burger), self.dish(self.coffee)], channel=channel,
+                                initial_status=OrderStation.STATUS_PENDING, name="Iryna", **fields)
+
+    def step(self, order, codes, status):
+        with self.captureOnCommitCallbacks(execute=True):
+            order.set_station_status(codes, status)
+
+    def test_a_pickup_order_step_by_step(self):
+        order = self.order()
+        order.push_subscriptions.add(self.guest_phone)
+        self.step(order, ["kitchen"], OrderStation.STATUS_APPROVED)
+        self.assertEqual(self.sent(), [], order.station_status_map())  # the bar hasn't taken it yet
+        self.step(order, ["bar"], OrderStation.STATUS_APPROVED)
+        ((endpoint, message),) = self.sent()
+        self.assertEqual((endpoint, message["title"], message["url"], message["tag"]),
+                         (self.guest_phone.endpoint, f"Order #{order.id} accepted", reverse("order_status", args=[order.id]), f"order-{order.id}"))
+        with self.captureOnCommitCallbacks(execute=True):
+            order.save()  # nothing new: nothing sent
+        self.assertEqual(self.sent(), [])
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(self.sent()[0][1]["title"], f"Order #{order.id} is ready")
+        with self.captureOnCommitCallbacks(execute=True):
+            order.picked_up = True
+            order.save()
+        self.assertEqual(self.sent()[0][1]["title"], f"Order #{order.id} picked up")
+
+    def test_a_customer_hears_on_their_devices_unless_they_turned_order_updates_off(self):
+        order = self.order(customer=self.ana)
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        self.assertEqual([e for e, _m in self.sent()], [self.anas_phone.endpoint])
+        self.anas_phone.order_updates = False
+        self.anas_phone.save()
+        order = self.order(customer=self.ana)
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        self.assertEqual(self.sent(), [])
+
+    def test_the_admin_can_turn_order_updates_off(self):
+        from push.models import NotificationSwitch
+        NotificationSwitch.objects.create(kind="order_updates", enabled=False)
+        order = self.order()
+        order.push_subscriptions.add(self.guest_phone)
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        self.assertEqual(self.sent(), [])
+
+    def test_a_delivery_on_its_way_and_delivered(self):
+        courier = User.objects.create_user("kai", first_name="Kai", password="x")
+        order = self.order(channel="delivery")
+        order.push_subscriptions.add(self.guest_phone)
+        delivery = Delivery.objects.create(order=order, destination="1 Main St", phone=6045550100, courier=courier)
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        self.assertIn("courier brings it", self.sent()[0][1]["body"])
+        self.step(order, ["kitchen", "bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(self.sent(), [])  # a delivery's "ready" is for the courier
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery.picked_up_at = timezone.now()
+            delivery.save()
+        message = self.sent()[0][1]
+        self.assertEqual((message["title"], message["body"]), (f"Order #{order.id} is on its way", "Kai picked it up and is heading to you."))
+        with self.captureOnCommitCallbacks(execute=True):
+            delivery.delivered_at = timezone.now()
+            delivery.save()
+        self.assertEqual(self.sent()[0][1]["title"], f"Order #{order.id} delivered")
+
+    def test_rejected_and_refunded(self):
+        from online_store import order_push
+        from online_store.models import RejectedOrder
+        order = self.order()
+        order.push_subscriptions.add(self.guest_phone)
+        with self.captureOnCommitCallbacks(execute=True):
+            order_push.refunded(order, mock.Mock(amount=Decimal("4.50")))
+        self.assertEqual(self.sent()[0][1]["body"], "$4.50 is on its way back to you.")
+        order_id = order.id
+        with self.captureOnCommitCallbacks(execute=True):
+            RejectedOrder.objects.create(order_id=order_id, reason="Out of buns")
+            order.delete()
+        ((endpoint, message),) = self.sent()
+        self.assertEqual((endpoint, message["title"], message["body"]), (self.guest_phone.endpoint, f"We couldn’t take order #{order_id}", "Out of buns"))
+
+
+class ScreenshotTests(TestCase):
+    """The store app's screenshots (online_store/screenshots.py): retaken after Publish, the old set deleted."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from django.core.cache import cache
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        override = self.settings(MEDIA_ROOT=media, SCREENSHOT_URL="http://screenshots:3000", SCREENSHOT_SITE="http://web:8000",
+                                 STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+                                           "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
+        override.enable()
+        self.addCleanup(override.disable)
+        cache.clear()
+
+    def answer(self):
+        return mock.Mock(content=b"\x89PNG fake", raise_for_status=lambda: None)
+
+    def test_a_new_set_replaces_the_old_one(self):
+        import requests
+        from django.core.files.storage import default_storage
+        from admin_portal.models import StoreSettings
+        from online_store import screenshots
+        with mock.patch("online_store.screenshots.requests.post", return_value=self.answer()) as post, \
+                mock.patch("online_store.screenshots.time.time", return_value=1000):
+            first = screenshots.refresh()
+        self.assertEqual([s["form"] for s in first], ["narrow", "narrow", "wide"])
+        self.assertEqual(post.call_args_list[0].kwargs["data"]["url"], "http://web:8000/store/")
+        self.assertEqual(post.call_args_list[0].args[0], "http://screenshots:3000/forms/chromium/screenshot/url")
+        with mock.patch("online_store.screenshots.requests.post", return_value=self.answer()), \
+                mock.patch("online_store.screenshots.time.time", return_value=2000):
+            second = screenshots.refresh()
+        self.assertEqual(StoreSettings.load().app_screenshots, second)
+        self.assertTrue(all(default_storage.exists(s["name"]) for s in second))
+        self.assertFalse(any(default_storage.exists(s["name"]) for s in first))  # the old ones are gone
+        with mock.patch("online_store.screenshots.requests.post", side_effect=requests.ConnectionError("down")):
+            self.assertEqual(screenshots.refresh(), second)  # the server's down: the set stays
+        self.assertEqual(sorted(default_storage.listdir("store_app")[1]), sorted(s["name"].split("/")[1] for s in second))
+
+    def test_publishing_retakes_them_in_the_background_one_run_at_a_time(self):
+        from online_store import screenshots
+        with mock.patch("online_store.screenshots.background") as background, self.captureOnCommitCallbacks(execute=True):
+            screenshots.refresh_later()
+            screenshots.refresh_later()  # while the first runs: one more run after it
+        background.assert_called_once()
+        runs = []
+
+        def refresh():
+            runs.append(1)
+            if len(runs) == 1:
+                screenshots.refresh_later()  # published again while this run goes
+        with mock.patch("online_store.screenshots.refresh", refresh), self.captureOnCommitCallbacks(execute=True):
+            screenshots._run()
+        self.assertEqual(len(runs), 2)  # the run, then the one asked for while it ran

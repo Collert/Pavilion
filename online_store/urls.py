@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import account, pages, views, work
+from . import account, app, pages, views, work
 
 urlpatterns = [
     path("", views.index, name="store_home"),
@@ -22,4 +22,14 @@ urlpatterns = [
     path("account/sign-in", account.signin, name="store_signin"),
     path("account/join", account.join, name="store_join"),
     path("account/sign-out", account.signout, name="store_signout"),
+    # The installable store app (online_store/app.py): its scope is this whole URLconf
+    path("install", app.install, name="store_install"),
+    path("manifest.webmanifest", app.manifest, name="store_manifest"),
+    path("icon-<int:size>.png", app.icon, name="store_icon"),
+    path("icon-maskable.png", app.icon_maskable, name="store_icon_maskable"),
+    path("sw.js", app.service_worker, name="store_worker"),
+    path("push/renew", app.renew, name="store_push_renew"),
+    path("push/sync", app.push_sync, name="store_push_sync"),
+    path("push/forget", app.push_forget, name="store_push_forget"),
+    path("push/order/<int:id>", app.push_order, name="store_push_order"),
 ]

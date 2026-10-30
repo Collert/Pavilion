@@ -15,10 +15,6 @@ from django.utils.translation import gettext_lazy as _
 class PushSubscription(models.Model):
     STORE, DELIVERIES = "store", "deliveries"
     APPS = ((STORE, _("Online store")), (DELIVERIES, _("Deliveries")))
-    # What a store subscription gets besides the orders it's linked to: every order of its account (and, for a guest,
-    # its later orders on that browser, linked when they're placed), and new events
-    ORDERS, EVENTS = "orders", "events"
-    TOPICS = ((ORDERS, _("Order updates")), (EVENTS, _("Event updates")))
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
                              related_name="push_subscriptions", help_text="Empty for a guest")
@@ -28,7 +24,10 @@ class PushSubscription(models.Model):
     auth = models.CharField(max_length=255)
     device = models.CharField(max_length=80, blank=True, help_text="e.g. “Chrome on Android”, for the account page")
     language = models.CharField(max_length=10, blank=True, help_text="What its notifications are written in")
-    topics = models.JSONField(default=list, blank=True, help_text="ORDERS and/or EVENTS")
+    # What a store subscription gets besides the orders it's linked to: every order of its account (for a guest, its
+    # later orders on that browser are linked when they're placed), and new events
+    order_updates = models.BooleanField(default=True)
+    event_updates = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     seen_at = models.DateTimeField(default=timezone.now, help_text="When the browser last said it still has it")
     last_success_at = models.DateTimeField(null=True, blank=True)

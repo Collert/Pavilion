@@ -106,10 +106,10 @@ class SubscriptionTests(TestCase):
         return request
 
     def test_a_guest_subscription_gets_its_account_when_they_sign_in(self):
-        guest = subscriptions.save(self.request(), "store", browser_subscription(), topics=["orders"])
-        self.assertEqual((guest.user, guest.device, guest.topics), (None, "Chrome on Android", ["orders"]))
-        mine = subscriptions.save(self.request(self.ana), "store", browser_subscription(), topics=["orders", "events"])
-        self.assertEqual((mine.pk, mine.user, mine.topics), (guest.pk, self.ana, ["orders"]))  # its topics stay
+        guest = subscriptions.save(self.request(), "store", browser_subscription())
+        self.assertEqual((guest.user, guest.device, guest.order_updates, guest.event_updates), (None, "Chrome on Android", True, False))
+        mine = subscriptions.save(self.request(self.ana), "store", browser_subscription(), event_updates=True)
+        self.assertEqual((mine.pk, mine.user, mine.event_updates), (guest.pk, self.ana, False))  # what it gets stays
         self.assertEqual(PushSubscription.objects.count(), 1)
 
     def test_only_its_owner_or_a_guest_can_forget_one(self):

@@ -28,7 +28,7 @@ def service_worker(request, *, app, name, scope, renew, icon, badge="", offline=
 @csrf_exempt
 def renew(request, app):
     """POST {subscription, replaces}: a service worker's renewed subscription. It takes over the old one's row (its
-    account, topics and orders), so nothing here trusts the session: only someone who knew the old endpoint can."""
+    account, what it gets and its orders), so nothing here trusts the session: only someone who knew the old endpoint can."""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     try:

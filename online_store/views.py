@@ -16,7 +16,7 @@ def store_links(request) -> dict:
     signed_in = request.user.is_authenticated
     return {"home": storefront.link("store_home"), "menu": storefront.link("menu"), "catering": storefront.link("store_catering"),
             "services": storefront.link("store_services"), "cart": storefront.link("store_cart") or storefront.link("menu"),
-            "giftcards": storefront.link("store_gift_cards"),
+            "giftcards": storefront.link("store_gift_cards"), "install": storefront.link("store_install"),
             "account": storefront.link("account") if signed_in else "", "login": storefront.link("store_signin")}
 
 
@@ -33,7 +33,7 @@ def theme_page(request, page, context=None, active=""):
     return render(request, cur.theme.template(page), {
         "hours": storefront.week_hours(hours=hours), "footer_hours": storefront.hours_summary(storefront.regular_hours(hours)),
         "theme": cur.theme, "t": cur.values, "store": cur.store, "logo_url": cur.logo_url, "preview": cur.preview,
-        "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "status": storefront.open_now(hours=hours), "event_banner": storefront.event_banner(hours=hours),
+        "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "app_theme_color": cur.values.get(cur.theme.app.get("theme", "paper"), ""), "status": storefront.open_now(hours=hours), "event_banner": storefront.event_banner(hours=hours),
         "cart_count": storefront.cart_count(request), "live_order": storefront.live_order(user, guest_orders.ids(request)), "links": links,
         "nav": nav, "active": active, "me": {"initials": storefront.initials(user), "first": user.first_name or user.username,
                                                "photo": storefront.photo(user)} if user.is_authenticated else None,

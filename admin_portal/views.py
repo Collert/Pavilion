@@ -1885,6 +1885,8 @@ def branding(request):
                 messages.error(request, _("Give the store a name first."))
             else:
                 branding_data.publish(theme, values, store)
+                from online_store import screenshots
+                screenshots.refresh_later()  # the install sheet's pictures, in the background
                 messages.success(request, _("%(name)s is live on your online store") % {"name": theme.title})
         else:
             branding_data.save_draft(theme, values, store)

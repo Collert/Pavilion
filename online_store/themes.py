@@ -13,6 +13,7 @@ The JSON:
       "css": ["themes/neighbourhood/theme.css"],
       "thumb": {"background": "paper", "text": "ink", "accent": "accent", "card": "card", "font": "heading_font"},
       "contrast": [["ink", "paper", "Text on the background"], ...],
+      "app": {"theme": "paper", "background": "paper", "icon": "accent", "icon_ink": "card"},
       "groups": [{"name": "Colours", "params": {
           "paper": {"type": "color", "default": "#F6F0E4", "label": "Background", "presets": ["#F6F0E4", "#FFFFFF"]},
           ...}}]
@@ -22,6 +23,10 @@ Param types: string (one line, `max` = length), text (a paragraph), url, bool (a
 number (`min`, `max`, `step`, `control`: "stepper" or "range", `unit`), choice (`options`, `control`: "select",
 "segments" or "cards"; `labels` names the options), color (#hex, `presets`), image (an uploaded file, a media name
 under branding/). `show_if` names a bool param that has to be on for the field to show.
+
+`app` names the colour params the installed store app uses (online_store/app.py): `theme` its title bar, `background`
+its splash screen and what its icon's logo sits on; without a logo the icon is the store's initial in `icon_ink` on
+`icon`.
 
 Each theme's values live in admin_portal.StoreTheme (live, and a draft the Branding page edits); the store details
 every theme shows (name, logo, address...) are on StoreSettings. `current(request)` is what a store page renders
@@ -112,6 +117,7 @@ class Theme:
     js: tuple = ()
     thumb: dict = field(default_factory=dict)
     contrast: tuple = ()  # ((param, param, "what it is"), ...): colour pairs Branding warns about below 4.5:1
+    app: dict = field(default_factory=dict)  # {"theme", "background", "icon", "icon_ink"}: colour params for the store app
 
     @property
     def params(self) -> dict:
@@ -176,9 +182,12 @@ def _load(path):
     for pair in contrast:
         if len(pair) != 3 or pair[0] not in seen or pair[1] not in seen:
             raise ImproperlyConfigured(f"{where}: contrast pairs are [colour param, colour param, label]")
+    app = spec.get("app", {})
+    if not isinstance(app, dict) or any(k not in ("theme", "background", "icon", "icon_ink") or v not in seen for k, v in app.items()):
+        raise ImproperlyConfigured(f"{where}: app maps theme, background, icon and icon_ink to colour params")
     return Theme(name=path.stem, title=spec["title"], description=spec.get("description", ""), groups=tuple(groups),
                  fonts=spec.get("fonts", ""), css=tuple(spec.get("css", ())), js=tuple(spec.get("js", ())), thumb=spec.get("thumb", {}),
-                 contrast=contrast)
+                 contrast=contrast, app=app)
 
 
 def _read_all():

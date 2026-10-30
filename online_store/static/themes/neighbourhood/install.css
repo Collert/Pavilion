@@ -1,0 +1,52 @@
+/* Get the app (install.html). data-state on .nb-install picks what the action area shows (online_store/install.js). */
+.nb-install [data-when] { display: none; }
+.nb-install[data-state="waiting"] [data-when~="waiting"], .nb-install[data-state="ready"] [data-when~="ready"],
+.nb-install[data-state="installed"] [data-when~="installed"], .nb-install[data-state="ios"] [data-when~="ios"],
+.nb-install[data-state="fallback"] [data-when~="fallback"] { display: flex; }
+
+.nb-install-hero { padding: 64px var(--pad) 56px; display: grid; grid-template-columns: 1fr 360px; gap: 56px; align-items: center; max-width: 1240px; }
+.nb-install-title { margin: 14px 0 0; font-size: clamp(42px, 5vw, 72px); line-height: 1; font-weight: 600; }
+.nb-install-sub { margin: 16px 0 0; font-size: 19px; line-height: 1.55; color: var(--soft-ink); max-width: 600px; }
+.nb-install-act { margin-top: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.nb-install-note { font-size: 15px; color: var(--soft-ink); max-width: 520px; line-height: 1.5; }
+.nb-install-done { align-items: center; gap: 12px; font-size: 16px; font-weight: 700; }
+.nb-install-tick { width: 34px; height: 34px; border-radius: 17px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--deep); color: var(--highlight); }
+.nb-install-small { margin: 18px 0 0; font-size: 13px; color: var(--soft-ink); }
+
+/* A phone with the store on it: its screenshot, or a home screen with its icon */
+.nb-install-phone { justify-self: center; width: 300px; aspect-ratio: 9 / 19; border-radius: 44px; padding: 12px; background: var(--ink);
+    box-shadow: 0 30px 60px color-mix(in srgb, var(--ink) 25%, transparent); transform: rotate(3deg); }
+.nb-install-screen { width: 100%; height: 100%; border-radius: 34px; overflow: hidden; background: var(--sage); }
+.nb-install-screen > img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.nb-install-home { height: 100%; padding: 52px 20px; display: grid; grid-template-columns: repeat(4, 1fr); align-content: start; gap: 22px 14px; }
+.nb-install-ghost { aspect-ratio: 1; border-radius: 14px; background: color-mix(in srgb, var(--paper) 55%, transparent); }
+.nb-install-app { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: var(--ink); text-align: center; animation: nbPop 1.4s cubic-bezier(.2, .8, .2, 1) .3s both; }
+.nb-install-app img { width: 100%; aspect-ratio: 1; border-radius: 14px; display: block; box-shadow: 0 6px 14px color-mix(in srgb, var(--ink) 30%, transparent); }
+@keyframes nbPop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+
+.nb-install-facts { padding: 0 var(--pad) 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1240px; }
+.nb-install-facts h2 { font-size: 28px; }
+.nb-install-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.nb-install-list li { position: relative; padding-left: 36px; font-size: 15px; line-height: 1.5; color: var(--soft-ink); }
+.nb-install-list strong { color: var(--ink); }
+.nb-install-list li::before { position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+.nb-install-list.yes li::before { content: "✓"; background: var(--deep); color: var(--highlight); }
+.nb-install-list.no li::before { content: "✕"; background: color-mix(in srgb, var(--dash) 60%, var(--paper)); color: var(--ink); }
+.nb-install-trust { grid-column: 1 / -1; margin: 4px 0 0; font-size: 15px; color: var(--soft-ink); line-height: 1.55; }
+
+.nb-install-ios { margin: 0 var(--pad) 80px; padding: 44px clamp(22px, 4vw, 52px); border-radius: calc(var(--radius) * 1.4); background: var(--sage); max-width: 1136px; scroll-margin-top: 24px; }
+.nb-install[data-state="ios"] .nb-install-ios { box-shadow: inset 0 0 0 var(--outline) var(--ink); }
+.nb-install-ios h2 { margin: 10px 0 0; font-size: clamp(30px, 3.6vw, 46px); line-height: 1.05; font-weight: 600; }
+.nb-install-steps { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.nb-install-steps li { display: flex; gap: 14px; align-items: flex-start; background: var(--card); border-radius: var(--radius); padding: 20px; }
+.nb-install-steps strong { font-size: 16px; }
+.nb-install-steps p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--soft-ink); }
+.nb-install-n { width: 34px; height: 34px; border-radius: 17px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--paper); font-weight: 800; }
+.nb-install-key { display: inline-flex; vertical-align: middle; margin-left: 6px; width: 28px; height: 28px; border-radius: 8px; align-items: center; justify-content: center; background: var(--paper); color: var(--accent); }
+
+@media (max-width: 960px) {
+    .nb-install-hero { grid-template-columns: 1fr; gap: 36px; padding-top: 40px; }
+    .nb-install-phone { width: 230px; order: -1; }
+    .nb-install-facts, .nb-install-steps { grid-template-columns: 1fr; }
+    .nb-install-act .nb-btn { width: 100%; }
+}

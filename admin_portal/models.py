@@ -48,6 +48,8 @@ class StoreSettings(models.Model):
     routing_url = models.URLField(blank=True, help_text="A Valhalla server, for delivery travel times (deliveries/routes.py)")
     geocoder_url = models.URLField(blank=True, help_text="A Nominatim server, to find delivery addresses on the map")
     weather_key = models.TextField(blank=True, help_text="weatherapi.com key, encrypted (payments/secrets.py)")
+    # The installed store app's screenshots, retaken after each Publish (online_store/screenshots.py)
+    app_screenshots = models.JSONField(default=list, blank=True, help_text="[{name, form, width, height, page}]")
 
     class Meta:
         verbose_name = _("store settings")

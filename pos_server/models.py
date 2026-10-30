@@ -585,6 +585,10 @@ class Order(models.Model):
     push_stage = models.PositiveSmallIntegerField(default=0, help_text="The last step customers were notified of")
 
     def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding and kwargs.get("update_fields") is None:
+            # push_stage is only written by online_store/order_push.py's conditional update: a save from an instance
+            # loaded before it went out mustn't put it back (and send that step again)
+            kwargs["update_fields"] = [f.name for f in self._meta.concrete_fields if not f.primary_key and f.name != "push_stage"]
         if self.pk and not self.prep_time and self.station_statuses.exists() and self.all_stations_done():
             # From when it was placed, or when it was scheduled for if that's later. A scheduled order done before
             # its time has no prep time to tell.

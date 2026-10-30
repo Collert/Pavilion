@@ -1,0 +1,92 @@
+{% extends "themes/neighbourhood/base.html" %}
+{% load i18n static %}
+{% comment %}
+Get the app (online_store/app.py: install). online_store/static/online_store/install.js sets data-state on .nb-install:
+waiting (until the browser says), ready (it offers installing: the button), installed, ios (Apple's three taps), or
+fallback (no offer: already installed, or a browser that can't). Without JavaScript the iPhone steps still read fine.
+{% endcomment %}
+{% block title %}{% blocktrans with name=store.name %}Get the {{ name }} app{% endblocktrans %}{% endblock %}
+{% block head %}<link href="{% static 'themes/neighbourhood/install.css' %}" rel="stylesheet">{% endblock %}
+{% block content %}
+<div class="nb-install" data-install data-state="waiting" data-home="{{ links.home }}">
+<section class="nb-install-hero">
+    <div class="nb-install-copy">
+        <div class="nb-kick accent">{% blocktrans with name=store.name %}{{ name }} on your phone{% endblocktrans %}</div>
+        <h1 class="nb-serif nb-install-title">{% trans "Keep us on your home screen" %}</h1>
+        <p class="nb-install-sub">{% trans "It’s this website, saved as an app: it opens straight to the menu, full screen, and can tell you when your order is ready. No app store, no download to speak of." %}</p>
+
+        <div class="nb-install-act">
+            <div data-when="waiting" class="nb-install-note">{% trans "Checking what your browser can do…" %}</div>
+            <button type="button" class="nb-btn nb-btn-accent nb-btn-big" data-when="ready" data-install-button>
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11 M7 10l5 5 5-5 M5 20h14"/></svg>
+                {% blocktrans with name=store.name %}Add {{ name }} to this device{% endblocktrans %}</button>
+            <div data-when="ready" class="nb-install-note">{% trans "Your browser shows what it’s adding and asks you first." %}</div>
+            <div data-when="installed" class="nb-install-done">
+                <span class="nb-install-tick" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                <span>{% trans "It’s on this device. Find it on your home screen, or keep going here." %}</span>
+            </div>
+            <a class="nb-btn nb-btn-line" data-when="installed" href="{{ links.menu }}">{% trans "See the menu" %}</a>
+            <a class="nb-btn nb-btn-ink nb-btn-big" data-when="ios" href="#iphone">{% trans "Show me the iPhone way" %}</a>
+            <div data-when="fallback" class="nb-install-note">{% trans "No install button here. It may already be on this device (have a look on your home screen), or this browser can’t add apps: open this page in Chrome, Edge or Samsung Internet." %}</div>
+        </div>
+        <p class="nb-install-small">{% trans "Free, and you can remove it like any other app." %}</p>
+    </div>
+
+    <div class="nb-install-phone" aria-hidden="true">
+        <div class="nb-install-screen">
+            {% if screenshot %}<img src="{{ screenshot }}" alt="" loading="lazy">
+            {% else %}
+            <div class="nb-install-home">
+                {% for x in "12345678" %}<span class="nb-install-ghost"></span>{% endfor %}
+                <span class="nb-install-app"><img src="{{ icon }}" alt=""><span>{{ store.name|truncatechars:14 }}</span></span>
+                {% for x in "1234567" %}<span class="nb-install-ghost"></span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="nb-install-facts" aria-label="{% trans 'What the app does' %}">
+    <div class="nb-card">
+        <h2 class="nb-serif">{% trans "What it does" %}</h2>
+        <ul class="nb-install-list yes">
+            <li><strong>{% trans "Opens straight to the menu." %}</strong> {% trans "Full screen, no address bar, one tap from your home screen." %}</li>
+            <li><strong>{% trans "Tells you about your order, if you say so." %}</strong> {% trans "Accepted, ready, on its way. Nothing gets sent until you tap Allow." %}</li>
+            <li><strong>{% trans "Keeps you signed in." %}</strong> {% trans "Ordering your usual takes a few seconds." %}</li>
+            <li><strong>{% trans "Updates itself." %}</strong> {% trans "It’s the website, so it’s always the latest menu." %}</li>
+        </ul>
+    </div>
+    <div class="nb-card">
+        <h2 class="nb-serif">{% trans "What it doesn’t" %}</h2>
+        <ul class="nb-install-list no">
+            <li><strong>{% trans "Ask for your contacts, photos, camera or location." %}</strong> {% trans "It can’t see any of them." %}</li>
+            <li><strong>{% trans "Run in the background or follow you around." %}</strong> {% trans "When it’s closed, it’s closed." %}</li>
+            <li><strong>{% trans "Send ads." %}</strong> {% trans "Notifications are about your orders, and events only if you turn those on." %}</li>
+            <li><strong>{% trans "Cost anything or need an app store account." %}</strong></li>
+        </ul>
+    </div>
+    <p class="nb-install-trust">{% blocktrans %}It’s the same site you’re on now (<strong>{{ host }}</strong>), with the same privacy. Before anything is added, your browser shows you its name and address.{% endblocktrans %}</p>
+</section>
+
+<section class="nb-install-ios" id="iphone">
+    <div class="nb-kick deep">{% trans "iPhone and iPad" %}</div>
+    <h2 class="nb-serif">{% trans "Apple’s way: a little scavenger hunt" %}</h2>
+    <p class="nb-install-sub">{% trans "Other phones get a button. Apple would rather you find it yourself. It’s three taps, and we believe in you." %}</p>
+    <ol class="nb-install-steps">
+        <li><span class="nb-install-n">1</span>
+            <div><strong>{% trans "Tap Share" %}</strong>
+                <span class="nb-install-key"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12 M8 7l4-4 4 4 M6 11H5v10h14V11h-1"/></svg></span>
+                <p>{% trans "In Safari it’s at the bottom of the screen (top right on an iPad). In Chrome, it’s in the address bar." %}</p></div></li>
+        <li><span class="nb-install-n">2</span>
+            <div><strong>{% trans "Scroll down to Add to Home Screen" %}</strong>
+                <span class="nb-install-key"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M12 8v8 M8 12h8"/></svg></span>
+                <p>{% trans "Not in the list? Tap Edit Actions at the very bottom and add it. Yes, really. We didn’t design this." %}</p></div></li>
+        <li><span class="nb-install-n">3</span>
+            <div><strong>{% trans "Tap Add" %}</strong>
+                <p>{% blocktrans with name=store.name %}Then open {{ name }} from your Home Screen. That’s also the only place an iPhone lets us send order notifications, so it’s worth the scavenger hunt.{% endblocktrans %}</p></div></li>
+    </ol>
+    <p class="nb-install-small">{% trans "Your Android friends did this with one tap. Don’t tell them it took you three." %}</p>
+</section>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'online_store/install.js' %}"></script>{% endblock %}

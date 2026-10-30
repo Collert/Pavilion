@@ -1,0 +1,5 @@
+{% comment %}The installable store app (online_store/app.py), in every store page's head: theme and account pages alike.{% endcomment %}
+<link rel="manifest" href="{% url 'store_manifest' %}">
+{% if app_theme_color %}<meta name="theme-color" content="{{ app_theme_color }}">{% endif %}
+<link rel="apple-touch-icon" href="{% url 'store_icon' 180 %}">
+<meta name="apple-mobile-web-app-capable" content="yes">

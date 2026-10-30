@@ -46,10 +46,11 @@ def device_name(user_agent: str) -> str:
     return browser or system
 
 
-def save(request, app, data, topics=None, replaces="") -> PushSubscription:
+def save(request, app, data, replaces="", **wants) -> PushSubscription:
     """
     The row for this browser's subscription (made or brought up to date), with the signed-in person as its user.
-    `topics`: what a new one is for (kept as they are on an existing one). `replaces`: the endpoint it renews.
+    `wants` (order_updates, event_updates): what a new one is for (an existing one keeps its own). `replaces`: the
+    endpoint it renews.
     """
     fields = parse(data)
     user = request.user if request.user.is_authenticated else None
@@ -57,7 +58,7 @@ def save(request, app, data, topics=None, replaces="") -> PushSubscription:
     if sub is None and replaces:
         sub = PushSubscription.objects.filter(endpoint=replaces, app=app).first()
     if sub is None:
-        sub = PushSubscription(app=app, topics=list(topics or []))
+        sub = PushSubscription(app=app, **wants)
     sub.app = app
     sub.endpoint, sub.p256dh, sub.auth = fields["endpoint"], fields["p256dh"], fields["auth"]
     if user is not None:

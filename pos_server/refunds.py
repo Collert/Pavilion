@@ -182,5 +182,7 @@ def refund_order(order, *, picks=None, whole=False, reason, to, user) -> Refund:
     refund.parts = parts
     refund.save(update_fields=["parts"])
     from . import order_emails
+    from online_store import order_push
     order_emails.refunded(order, refund)
+    order_push.refunded(order, refund)
     return refund

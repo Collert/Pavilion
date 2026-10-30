@@ -15,6 +15,7 @@ from themes.css_vars.
     <link href="{{ theme.fonts }}" rel="stylesheet">
     {% for css in theme.css %}<link href="{% static css %}" rel="stylesheet">{% endfor %}
     <style>:root { {{ css_vars }} }</style>
+    {% include "online_store/_app_head.html" %}
     {% block head %}{% endblock %}
 </head>
 <body class="nb">
@@ -29,6 +30,7 @@ from themes.css_vars.
         import { livePage } from "{% static 'js/live-page.js' %}";
         livePage({ topics: [{% block live_topics %}{% endblock %}] });
     </script>
+    {% include "online_store/_app_script.html" %}
     {% block scripts %}{% endblock %}
 </body>
 </html>
