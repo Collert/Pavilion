@@ -11,7 +11,7 @@
     <link href="{% static 'pos_server/staff.css' %}" rel="stylesheet">
     {% block head %}{% endblock %}
     <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
-    {% include "pos_server/_favicon.html" %}
+    {% block favicon %}{% include "pos_server/_favicon.html" %}{% endblock %}
 </head>
 <body class="staff">
     {% csrf_token %}

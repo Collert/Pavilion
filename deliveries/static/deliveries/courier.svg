@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pavilion Courier">
+  <title>Pavilion Courier</title>
+  <rect width="64" height="64" rx="17" fill="#1f4a3a"/>
+  <!-- handle -->
+  <path d="M32 25.2V21.6a7.2 7.2 0 0 1 14.4 0V25.2" fill="none" stroke="#f4a93b" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- bag -->
+  <path d="M24.8 25.2H53.6L51.2 51.6H27.2Z" fill="#f4a93b" stroke="#f4a93b" stroke-width="2" stroke-linejoin="round"/>
+  <!-- speed lines -->
+  <path d="M10.4 32.4H20 M12.8 42H22.4" stroke="#f4a93b" stroke-width="4.8" stroke-linecap="round"/>
+</svg>

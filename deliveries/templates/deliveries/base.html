@@ -7,15 +7,21 @@ changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" n
 {% endcomment %}
 
 {% block title %}{% trans "Courier" %} · Pavilion{% endblock %}
+{% block favicon %}
+<link rel="icon" href="{% static 'deliveries/courier.svg' %}" type="image/svg+xml">
+<link rel="icon" href="{% static 'deliveries/favicon-32.png' %}" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="{% static 'deliveries/apple-touch-icon.png' %}">
+{% endblock %}
 {% block head %}
 <link rel="manifest" href="{% url 'delivery_manifest' %}">
 <meta name="theme-color" content="#14261F">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link href="{% static 'deliveries/courier.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block rail %}
 <nav class="rail courier-rail" aria-label="{% trans 'Courier' %}">
-    <div class="rail-logo" role="img" aria-label="{% trans 'Pavilion Courier' %}">{% icon "logo" 24 2 %}</div>
+    <div class="rail-logo" role="img" aria-label="{% trans 'Pavilion Courier' %}">{% include "deliveries/icons/mark.svg" %}</div>
     {% comment %}Only the buttons are a live region: the clock below is kept ticking by staff-page.js, which holds on to its elements.{% endcomment %}
     <div class="rail-modes" id="courier-nav" data-region>
     {% if shift %}

@@ -359,14 +359,30 @@ def done(request, id):
 
 # ---------- the installable app and web push ----------
 
+# The app's screenshots for Chrome's richer install sheet: the same for every store, so they're static files
+# (deliveries/static/deliveries/screenshots/, taken from the demo data): (file, form factor, size, what it shows)
+SCREENSHOTS = [("list", "narrow", "1080x2340", gettext_lazy("Orders looking for a courier")),
+               ("order", "narrow", "1080x2340", gettext_lazy("An order: travel times, address and what's in the bag")),
+               ("current", "narrow", "1080x2340", gettext_lazy("Your delivery, step by step")),
+               ("done", "narrow", "1080x2340", gettext_lazy("Delivered")),
+               ("wide", "wide", "1280x800", gettext_lazy("Orders on a bigger screen"))]
+
+
 def manifest(request):
     """The courier app's web app manifest: it holds /deliveries/ and opens on the orders list."""
     home = reverse("delivery_orders")
+    icons = [{"src": static(f"deliveries/icon-{n}x{n}.png"), "sizes": f"{n}x{n}", "type": "image/png", "purpose": "any"} for n in (192, 512)]
+    icons.append({"src": static("deliveries/icon-maskable.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"})
+    icons.append({"src": static("deliveries/icon-monochrome.png"), "sizes": "96x96", "type": "image/png", "purpose": "monochrome"})
     return JsonResponse({
         "id": "7adce38f-5cc1-4957-bcd7-6eb4115712cb",  # what installed copies know it by
         "name": _("Pavilion Courier"), "short_name": _("Courier"), "start_url": home, "scope": home,
+        "description": _("Take delivery orders on your shift: accept one, follow it from the kitchen to the door, and get notified when new ones come in."),
+        "categories": ["business", "food"],
         "display": "standalone", "orientation": "portrait", "background_color": "#E8EDE9", "theme_color": "#14261F",
-        "icons": [{"src": static(f"deliveries/icon-{n}x{n}.png"), "sizes": f"{n}x{n}", "type": "image/png"} for n in (192, 512)],
+        "icons": icons,
+        "screenshots": [{"src": static(f"deliveries/screenshots/{name}.webp"), "sizes": size, "type": "image/webp",
+                         "form_factor": form, "label": str(label)} for name, form, size, label in SCREENSHOTS],
     }, content_type="application/manifest+json", json_dumps_params={"ensure_ascii": False})
 
 

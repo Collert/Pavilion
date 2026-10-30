@@ -83,8 +83,10 @@ language (`EmailTemplate.ALL`; `{% bylang %}` branches on the subscriber's `lang
 **Pavilion's mark** (the cloche): `static/pavilion/pavilion.svg` and `favicon.svg`; pages include it as
 `pos_server/icons/logo.svg` (colours from `--pv-tile`/`--pv-ink`: flipped to an amber tile on the green rails) and the
 favicon with `pos_server/_favicon.html` (customer pages use the store's icon, `online_store/_favicon.html`).
-`pavilion/brand.py` draws it as PNGs (`python -m pavilion.brand` rewrites the favicon PNGs) and is the store app's icon
-while the store has no logo.
+`pavilion/brand.py` draws it as PNGs (`python -m pavilion.brand` rewrites the favicon PNGs and the courier app's icons)
+and is the store app's icon while the store has no logo. The courier app's mark is the bag (`deliveries/static/deliveries/
+courier.svg`, `deliveries/icons/mark.svg` in its rail); its install-sheet screenshots are static files in
+`deliveries/static/deliveries/screenshots/` (retake them if its screens change).
 
 Frontend: **render with Django templates and keep pages current with SSE**; don't build screens in JS. New screens
 follow Cookery: each screen a template + URL, buttons are POST forms that redirect back, Django messages for toasts,

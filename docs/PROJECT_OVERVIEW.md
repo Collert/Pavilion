@@ -1053,7 +1053,10 @@ Two installable apps, each with its own scope, manifest and service worker serve
   if published again meanwhile; `online_store/screenshots.py`): new files under `store_app/` in the media storage, then
   the old set is deleted. `StoreSettings.app_screenshots` lists them.
 - **The courier app** (`/deliveries/`): its manifest keeps the old id so installed copies stay the same app; its service
-  worker used to sit in `/static/` (where it never reached the pages) and now has an offline page.
+  worker used to sit in `/static/` (where it never reached the pages) and now has an offline page. Its mark is the bag
+  (`deliveries/static/deliveries/courier.svg`; PNG icons, maskable and a monochrome status-bar badge drawn by
+  `pavilion/brand.py`), and its screenshots for Chrome's richer install sheet are static, the same for every store
+  (`deliveries/static/deliveries/screenshots/`, taken from seed_demo's data with headless Chrome; `views.SCREENSHOTS`).
 
 **Keys**: `push/vapid.py` makes a VAPID pair the first time it's needed and keeps it in `push.VapidKeys` (private key
 encrypted with a key from SECRET_KEY); a deployment that had `VAPID_PRIVATE_KEY` keeps that key. **Sending**
