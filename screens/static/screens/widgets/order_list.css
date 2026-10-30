@@ -31,7 +31,7 @@
 .orders-titles { flex: 1; min-width: 0; }
 .orders h2 {
     margin: 0;
-    font-size: calc(var(--u) * 36);
+    font-size: min(calc(var(--u) * 36), 10cqw);
     line-height: 1.05;
     font-weight: 800;
     letter-spacing: -.03em;
@@ -59,15 +59,19 @@
 }
 .orders--dark .orders-count { background: var(--accent); color: var(--ink); }
 
+/* Up to --cols columns (the widget's Columns), fewer when the slot is too narrow for the names */
 .orders-grid {
+    --gap: calc(var(--u) * 12);
+    --tile: calc(var(--u) * 200);
     margin-top: calc(var(--u) * 24);
     display: grid;
-    gap: calc(var(--u) * 12);
+    grid-template-columns: repeat(auto-fill, minmax(max(min(100%, var(--tile)), (100% - (var(--cols) - 1) * var(--gap)) / var(--cols)), 1fr));
+    gap: var(--gap);
     align-content: start;
     min-height: 0;
     overflow: hidden;
 }
-.orders--ready .orders-grid { gap: calc(var(--u) * 14); }
+.orders--ready .orders-grid { --gap: calc(var(--u) * 14); --tile: calc(var(--u) * 260); }
 
 /* ---------- tiles ---------- */
 
@@ -168,6 +172,11 @@
     color: var(--muted);
 }
 .orders--dark .orders-footer { color: rgba(244, 241, 234, .55); }
+
+/* A narrow slot keeps the title and count on one line */
+@container (aspect-ratio < .5) {
+    .orders-icon, .orders-sub { display: none; }
+}
 
 @keyframes order-dots { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
 @keyframes tile-fresh {

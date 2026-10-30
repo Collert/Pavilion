@@ -16,7 +16,7 @@
         </div>
         <span class="orders-count">{{ data.count }}</span>
     </header>
-    <div class="orders-grid" style="grid-template-columns: repeat({{ params.columns }}, minmax(0, 1fr))">
+    <div class="orders-grid" style="--cols: {{ params.columns }}">
         {% for tile in data.tiles %}
         <div class="order-tile{% if tile.fresh %} is-fresh{% endif %}{% if tile.entering %} is-entering{% endif %}">
             <span class="order-main">

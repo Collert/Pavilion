@@ -1,12 +1,15 @@
+/* The time is as big as the slot lets it be (cq units are the widget's slot): left-aligned in a wide slot, centred
+   in a tall or square one. */
 .clock {
+    --s: min(40cqh, 18cqw);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    border-radius: calc(var(--u) * 32);
-    padding: 0 calc(var(--u) * 32);
+    border-radius: min(calc(var(--u) * 32), 9cqmin);
+    padding: 0 min(calc(var(--u) * 32), 7cqw);
 }
 .clock-time {
-    font-size: calc(var(--u) * 56);
+    font-size: var(--s);
     line-height: 1;
     font-weight: 800;
     letter-spacing: -.04em;
@@ -14,18 +17,23 @@
     white-space: nowrap;
 }
 .clock-ampm {
-    font-size: calc(var(--u) * 24);
+    font-size: .43em;
     font-weight: 700;
     color: var(--muted);
-    margin-left: calc(var(--u) * 6);
+    margin-left: .25em;
     letter-spacing: 0;
 }
 .clock-date {
-    font-size: calc(var(--u) * 18);
+    font-size: calc(var(--s) * .32);
     font-weight: 600;
     color: var(--muted);
-    margin-top: calc(var(--u) * 8);
+    margin-top: .45em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+@container (aspect-ratio < 1.15) {
+    .clock { --s: min(30cqh, 22cqw); align-items: center; text-align: center; }
+    .clock-date { font-size: calc(var(--s) * .3); white-space: normal; }
 }

@@ -184,7 +184,10 @@ topics and swaps the leaf widgets whose HTML changed. Editing a Screen publishes
   `children` (rendered HTML, containers only), `node_id`, `widget`, `request`. One root element; it's wrapped in
   `<div class="widget widget--<name>" data-region>`. Use the `.screen-card` look and the `:root` colours in
   `screens/static/screens/screens.css`. Params are autoescaped; only `color`/`size`/`choice` values go in `style`.
-- `screens/static/screens/widgets/<name>.css` (and `.js` only for what HTML can't do, e.g. the ticking clock).
+- `screens/static/screens/widgets/<name>.css` (and `.js` only for what HTML can't do, e.g. the ticking clock). Each
+  widget is a CSS size container (`screens.css`), so lay it out by its slot, not the screen: it must look right in wide
+  and tall slots (`@container (aspect-ratio < 1.15)` for tall or square ones; cap sizes with `cqw`/`cqh`, e.g.
+  `min(calc(var(--u) * 40), 7cqw)`). A slot sized `auto` gets a fallback size, not its content's.
 - A test in `screens/tests.py` (`WidgetDefinitionTests` already checks every definition's files and defaults).
 
 **Pop-ups** (`kind: popup`) are listed on `Screen.popups` and rendered after the layout, each as its own region that

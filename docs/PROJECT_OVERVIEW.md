@@ -964,6 +964,8 @@ format for adding widgets is in CLAUDE.md ("Screens and widgets").
 - Rendering is server-side: `render_screen()` renders the tree children-first, collects each widget's CSS/JS and
   topics, and wraps every leaf in a `data-region`. `static/js/live-page.js` refetches the page on those topics and
   swaps the leaves that changed; containers aren't regions, so one list updating doesn't restart animations elsewhere.
+  Every leaf is also a CSS size container, so widgets lay themselves out by their slot's shape (side by side in wide
+  slots, stacked and centred in tall or square ones) and cap sizes with `cqw`/`cqh`.
   Node ids include a hash of the layout, so editing a screen (which publishes `screens`) reloads open copies.
 - Sizes are design pixels of `width` × `height`; `--u` scales them to the display (`min(100vw/W, 100vh/H)`). Design
   portrait screens (vertical TVs) as their own 1080×1920 screens. `seed_demo` adds `pickup-portrait` as an example.

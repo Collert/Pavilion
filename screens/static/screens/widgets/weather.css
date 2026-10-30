@@ -1,23 +1,26 @@
+/* The icon beside the temperature in a wide slot, above it in a tall or square one, as big as the slot lets it be
+   (cq units are the widget's slot). */
 .weather {
+    --s: min(34cqh, 12cqw);
     display: flex;
     align-items: center;
-    gap: calc(var(--u) * 16);
-    border-radius: calc(var(--u) * 32);
-    padding: 0 calc(var(--u) * 32);
+    gap: calc(var(--s) * .36);
+    border-radius: min(calc(var(--u) * 32), 9cqmin);
+    padding: 0 min(calc(var(--u) * 32), 7cqw);
 }
-.weather-icon { width: calc(var(--u) * 64); height: calc(var(--u) * 64); flex: none; }
+.weather-icon { width: calc(var(--s) * 1.45); height: calc(var(--s) * 1.45); flex: none; }
 .weather-text { min-width: 0; }
 .weather-temp {
-    font-size: calc(var(--u) * 44);
+    font-size: var(--s);
     line-height: 1;
     font-weight: 800;
     letter-spacing: -.03em;
 }
 .weather-cond {
-    font-size: calc(var(--u) * 18);
+    font-size: calc(var(--s) * .41);
     font-weight: 600;
     color: var(--muted);
-    margin-top: calc(var(--u) * 8);
+    margin-top: .45em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -27,4 +30,10 @@
     0% { transform: translateY(-3px); opacity: 0; }
     30% { opacity: 1; }
     100% { transform: translateY(6px); opacity: 0; }
+}
+
+@container (aspect-ratio < 1.15) {
+    .weather { --s: min(16cqh, 24cqw); flex-direction: column; justify-content: center; text-align: center; }
+    .weather-text { width: 100%; }
+    .weather-cond { white-space: normal; }
 }
