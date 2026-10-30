@@ -9,6 +9,9 @@ page that sent it, falling back to the store's default and then any. Data is ava
 
 Without listmonk connected nothing is sent and the email is logged, so local development works offline. An email
 turned off on the Email page isn't sent either.
+
+Marketing emails (misc_tools/emails.py: `campaign`) go out with `send_campaign` instead: a listmonk campaign to the
+customers list and the lists picked on the Email page, never the users list.
 """
 import logging
 
@@ -89,3 +92,37 @@ def send(kind, to, data, language=None, user=None, fallback=None):
         listmonk.add_address(to)  # older listmonk only sends to subscribers: make one, then try again
         listmonk.api("POST", "/tx", payload)
     return True
+
+
+def campaign_lists(kind) -> list:
+    """The listmonk lists a marketing email goes to: the customers list, then the ones picked for it (the users list
+    never gets campaigns: nobody may unsubscribe from it)."""
+    from .models import EmailSwitch
+    lists = listmonk.ensure_lists()
+    switch = EmailSwitch.objects.filter(kind=kind).first()
+    picked = [i for i in (switch.lists if switch else []) if isinstance(i, int)]
+    return list(dict.fromkeys([lists["customers"]] + [i for i in picked if i != lists["users"]]))
+
+
+def send_campaign(kind, name, subject, body):
+    """
+    Send marketing email `kind` as a listmonk campaign with Pavilion's `body` (listmonk code, every language in it) in
+    its template. Returns the campaign's id, or None when it wasn't sent (listmonk isn't connected, or the email is
+    turned off). Raises EmailError when listmonk refuses or can't be reached.
+    """
+    from .models import EmailTemplate
+    if not BY_KEY[kind].campaign:
+        raise ValueError(f"Not a marketing email: {kind}")
+    if not listmonk.is_configured():
+        logger.info("Campaign not sent (listmonk isn't connected): %s, %s", kind, name)
+        return None
+    if not enabled(kind):
+        logger.info("Campaign not sent (turned off on the Email page): %s, %s", kind, name)
+        return None
+    template = template_for(kind, EmailTemplate.ALL)
+    if template is None:
+        listmonk.install(keys=[kind])
+        template = template_for(kind, EmailTemplate.ALL)
+    if template is None:
+        raise EmailError(f"listmonk has no template for {kind}. Install Pavilion’s templates on the Email page.")
+    return listmonk.start_campaign(name, subject, body, template, campaign_lists(kind))

@@ -3,11 +3,13 @@ Email (design: AdminEmail): connecting listmonk, which sends Pavilion's email (m
 email Pavilion sends (misc_tools/emails.py) by group: on or off, and the listmonk template it uses in each language
 that's on. Pavilion's own templates are put in listmonk with "Add Pavilion’s templates" (one per email and
 language, plus a newsletter campaign template and the customers list); "Reset to default" writes one email's again.
-Connecting, disconnecting, installing, resetting, syncing and test emails happen straight away; the switches and
-template picks are a draft saved with Save changes.
+Marketing emails (the Events group) are listmonk campaigns: one campaign template for every language, and a checklist of
+the other listmonk lists they go to besides the customers list (the users list is never offered).
+Connecting, disconnecting, installing, resetting, syncing and test emails happen straight away; the switches,
+template picks and lists are a draft saved with Save changes.
 
-    request.session["admin_email"] = {"on": {kind: bool}, "tpl": {"kind:lang": id or ""}, "cat", "open": [kinds],
-        "url", "user", "from", "show"}
+    request.session["admin_email"] = {"on": {kind: bool}, "tpl": {"kind:lang": id or ""}, "lists": {kind: [list ids]},
+        "cat", "open": [kinds], "url", "user", "from", "show"}   (a marketing email's lang is EmailTemplate.ALL)
 """
 import re
 
@@ -15,13 +17,14 @@ from django.core.cache import cache
 from django.utils.translation import gettext as _
 
 from misc_tools import listmonk
-from misc_tools.emails import BY_KEY, GROUPS, KINDS
+from misc_tools.emails import BY_KEY, CAMPAIGN_VARS, GROUPS, KINDS
 from misc_tools.models import EmailSwitch, EmailTemplate
 
 from .languages import native
 
 KEY = "admin_email"
 CACHE = "admin-email-templates"
+LISTS_CACHE = "admin-email-lists"
 URL = re.compile(r"^https?://[^\s/]+\.[^\s]+$|^https?://localhost(:\d+)?(/.*)?$")
 
 
@@ -30,10 +33,11 @@ def listed():
 
 
 def saved() -> dict:
-    switches = dict(EmailSwitch.objects.values_list("kind", "enabled"))
+    switches = {kind: (on, lists) for kind, on, lists in EmailSwitch.objects.values_list("kind", "enabled", "lists")}
     picks = {f"{k}:{lang}": tid for k, lang, tid in EmailTemplate.objects.values_list("kind", "language", "template_id")}
-    return {"on": {k.key: (True if k.always else switches.get(k.key, k.default_on)) for k in listed()},
-            "tpl": {f"{k.key}:{lang}": picks.get(f"{k.key}:{lang}", "") for k in listed() for lang in listmonk.languages()}}
+    return {"on": {k.key: (True if k.always else switches.get(k.key, (k.default_on,))[0]) for k in listed()},
+            "tpl": {f"{k.key}:{lang}": picks.get(f"{k.key}:{lang}", "") for k in listed() for lang in listmonk.template_languages(k)},
+            "lists": {k.key: list(switches.get(k.key, (True, []))[1] or []) for k in listed() if k.campaign}}
 
 
 def state(session, store) -> dict:
@@ -41,6 +45,7 @@ def state(session, store) -> dict:
     if not st:
         cfg = listmonk.config(store)
         st = {**saved(), "cat": GROUPS[0][0], "open": [], "url": cfg["url"], "user": cfg["user"], "from": cfg["from"], "show": False}
+    st.setdefault("lists", saved()["lists"])  # a draft from before marketing emails
     return st
 
 
@@ -69,6 +74,20 @@ def listmonk_templates(force=False):
     return found, ""
 
 
+def listmonk_lists(force=False):
+    """(lists, error): listmonk's lists, kept a minute like the templates."""
+    if not listmonk.is_configured():
+        return [], ""
+    found = None if force else cache.get(LISTS_CACHE)
+    if found is None:
+        try:
+            found = listmonk.all_lists()
+        except listmonk.ListmonkError as e:
+            return [], str(e)
+        cache.set(LISTS_CACHE, found, 60)
+    return found, ""
+
+
 def apply_op(st, op, request, store) -> tuple[str, str]:
     """(toast, error) for one button."""
     name, _sep, arg = op.partition(":")
@@ -76,6 +95,11 @@ def apply_op(st, op, request, store) -> tuple[str, str]:
         st["cat"] = arg
     elif name == "flip" and arg in BY_KEY and not BY_KEY[arg].always:
         st["on"][arg] = not st["on"].get(arg, True)
+    elif name == "list":  # list:<kind>:<list id>
+        kind, _sep2, list_id = arg.partition(":")
+        if kind in st["lists"] and list_id.isdigit():
+            picked = st["lists"][kind]
+            st["lists"][kind] = [i for i in picked if i != int(list_id)] if int(list_id) in picked else picked + [int(list_id)]
     elif name == "data" and arg in BY_KEY:
         st["open"] = [k for k in st["open"] if k != arg] if arg in st["open"] else st["open"] + [arg]
     elif name == "showkey":
@@ -105,7 +129,8 @@ def apply_op(st, op, request, store) -> tuple[str, str]:
         return _("Disconnected. Email stops until you connect again."), ""
     elif name == "refresh":
         found, err = listmonk_templates(force=True)
-        return ("", err) if err else (_("Templates reloaded from listmonk."), "")
+        err = err or listmonk_lists(force=True)[1]
+        return ("", err) if err else (_("Templates and lists reloaded from listmonk."), "")
     elif name == "install":
         try:
             done = listmonk.install()
@@ -142,7 +167,10 @@ def apply_op(st, op, request, store) -> tuple[str, str]:
 def save(st):
     for kind, on in st["on"].items():
         if kind in BY_KEY and not BY_KEY[kind].always:
-            EmailSwitch.objects.update_or_create(kind=kind, defaults={"enabled": on})
+            values = {"enabled": on}
+            if BY_KEY[kind].campaign:
+                values["lists"] = [i for i in st["lists"].get(kind, []) if isinstance(i, int)]
+            EmailSwitch.objects.update_or_create(kind=kind, defaults=values)
     current = {f"{k}:{lang}": (tid, managed) for k, lang, tid, managed in EmailTemplate.objects.values_list("kind", "language", "template_id", "managed")}
     for key, tid in st["tpl"].items():
         kind, lang = key.split(":", 1)
@@ -159,41 +187,61 @@ def page(st, store) -> dict:
     cfg = listmonk.config(store)
     connected = listmonk.is_configured(cfg)
     found, err = listmonk_templates()
-    names = dict(found["tx"])
-    dirty = {"on": st["on"], "tpl": st["tpl"]} != saved()
+    dirty = {"on": st["on"], "tpl": st["tpl"], "lists": st["lists"]} != saved()
     langs = listmonk.languages()
     lang_names = {code: native(code) for code in langs}
+    lang_names[EmailTemplate.ALL] = _("All languages")
     groups, missing_total = [], 0
     for key, label, icon in GROUPS:
         kinds = [k for k in listed() if k.group == key]
         on = sum(1 for k in kinds if st["on"].get(k.key))
-        warn = any(st["on"].get(k.key) and not st["tpl"].get(f"{k.key}:{lang}") for k in kinds for lang in langs)
+        warn = any(st["on"].get(k.key) and not st["tpl"].get(f"{k.key}:{lang}") for k in kinds for lang in listmonk.template_languages(k))
         groups.append({"key": key, "label": label, "icon": icon, "count": _("%(on)d of %(n)d on") % {"on": on, "n": len(kinds)},
                        "warn": warn, "on": st["cat"] == key})
-    emails = []
+    emails, campaigns = [], False
     for k in listed():
-        missing_total += sum(1 for lang in langs if st["on"].get(k.key) and not st["tpl"].get(f"{k.key}:{lang}"))
+        missing_total += sum(1 for lang in listmonk.template_languages(k) if st["on"].get(k.key) and not st["tpl"].get(f"{k.key}:{lang}"))
         if k.group != st["cat"]:
             continue
         rows = []
-        for lang in langs:
+        kind_templates = found["campaign"] if k.campaign else found["tx"]
+        names = dict(kind_templates)
+        for lang in listmonk.template_languages(k):
             pick = st["tpl"].get(f"{k.key}:{lang}") or ""
-            options = [(tid, name) for tid, name in found["tx"]]
+            options = list(kind_templates)
             if pick and pick not in names:
                 options.append((pick, _("#%(id)s (missing in listmonk)") % {"id": pick}))
             rows.append({"lang": lang, "name": lang_names.get(lang, lang), "field": f"tpl_{k.key}_{lang}", "pick": pick, "options": options,
                          "missing": not pick, "gone": bool(pick) and bool(names) and pick not in names})
-        emails.append({"k": k, "on": st["on"].get(k.key, True), "rows": rows, "open": k.key in st["open"],
-                       "vars": [("{{ .Tx.Data.%s }}" % f, str(d)) for f, d in k.fields],
-                       "example": "Hi {{ .Tx.Data.%s }}," % (k.fields[0][0] if k.fields else "name")})
+        entry = {"k": k, "on": st["on"].get(k.key, True), "rows": rows, "open": k.key in st["open"],
+                 "vars": [("{{ .Tx.Data.%s }}" % f, str(d)) for f, d in k.fields],
+                 "example": "Hi {{ .Tx.Data.%s }}," % (k.fields[0][0] if k.fields else "name")}
+        if k.campaign:
+            campaigns = True
+            entry.update(vars=[(v, str(d)) for v, d in CAMPAIGN_VARS], example='{{ template "content" . }}', lists=campaign_lists(k, st, store))
+        emails.append(entry)
     group = next(g for g in groups if g["on"])
     return {
+        "campaigns": campaigns,
         "st": st, "connected": connected, "err": err, "dirty": dirty and connected, "groups": groups, "group": group, "emails": emails,
         "langs": [lang_names.get(lang, lang) for lang in langs], "missing": listmonk.missing() if connected else 0, "missing_picks": missing_total,
         "url_ok": bool(URL.match(st["url"])), "has_token": bool(cfg["token"]),
         "facts": [(_("Server"), cfg["url"].split("://", 1)[-1]), (_("API user"), cfg["user"]),
-                  (_("Sends as"), cfg["from"] or _("listmonk’s default")), (_("Templates"), _("%(n)d transactional") % {"n": len(found["tx"])})],
+                  (_("Sends as"), cfg["from"] or _("listmonk’s default")), (_("Templates"), _("%(tx)d transactional, %(c)d campaign") % {"tx": len(found["tx"]), "c": len(found["campaign"])})],
         "edit_url": cfg["url"] + "/admin/campaigns/templates", "list_id": store.listmonk_list, "users_list": store.listmonk_users_list,
         "sync": cache.get(listmonk.SYNC),
         "teaser": [_("Order receipts"), _("Ready for pickup"), _("Catering updates"), _("Gift cards"), _("Password resets"), _("Schedules")],
     }
+
+
+def campaign_lists(k, st, store) -> dict:
+    """The checklist of listmonk lists for marketing email `k`: the customers list (always), then every other list but
+    the users list, ticked when it's picked; and picked lists that are gone from listmonk."""
+    found, err = listmonk_lists()
+    picked = st["lists"].get(k.key, [])
+    rows = [{"id": row["id"], "name": row["name"], "count": row["count"], "on": row["id"] in picked}
+            for row in found if row["id"] not in (store.listmonk_users_list, store.listmonk_list)]
+    have = {row["id"] for row in found}
+    gone = [i for i in picked if i not in have] if found else []
+    customers = next((row for row in found if row["id"] == store.listmonk_list), None)
+    return {"customers": customers, "rows": rows, "gone": gone, "err": err}

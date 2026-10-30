@@ -45,7 +45,7 @@ away; the switches and template picks are a draft (editor.js posts them back) sa
                 <span class="em-key"><input type="{% if x.st.show %}text{% else %}password{% endif %}" name="token" placeholder="{% if x.has_token %}{% trans 'Saved. Paste a new one to change it' %}{% else %}{% trans 'Paste the key from listmonk' %}{% endif %}" autocomplete="off" data-no-preview>
                 <button name="op" value="showkey">{% if x.st.show %}{% trans "Hide" %}{% else %}{% trans "Show" %}{% endif %}</button></span></label>
             <label class="block top10"><span class="lbl">{% trans "Send as" %} <span class="faint">· {% trans "optional" %}</span></span><input class="field" name="from" value="{{ x.st.from }}" placeholder="{% trans 'Corner Kitchen <hello@example.com>' %}" autocomplete="off"></label>
-            <div class="em-hint">{% trans "In listmonk, go to Admin › Users and create an API user whose role can manage templates, lists and subscribers and send transactional mail." %}</div>
+            <div class="em-hint">{% trans "In listmonk, go to Admin › Users and create an API user whose role can manage templates, lists, subscribers and campaigns and send transactional mail." %}</div>
             <button class="em-connect" name="op" value="connect">{% trans "Test and connect" %}</button>
             {% endif %}
             {% endif %}
@@ -90,13 +90,17 @@ away; the switches and template picks are a draft (editor.js posts them back) sa
         </div>
         {% else %}
         <div class="em-head"><h2 class="disp grow">{{ x.group.label }}</h2><span class="small muted strong num">{{ x.group.count }}</span></div>
+        {% if x.campaigns %}
+        <div class="small muted strong">{% trans "Marketing emails, sent as listmonk campaigns when you save a new event on the Events page. One template holds every language; people with an account get theirs, everyone else the store’s default." %}</div>
+        {% else %}
         <div class="small muted strong">{% trans "One template per language you’ve turned on in Languages. People get the one in their language." %}</div>
+        {% endif %}
         {% for e in x.emails %}
         <article class="em-card{% if e.on %} on{% endif %}">
             <div class="em-card-top">
                 <span class="em-card-ic">{% icon e.k.icon 20 2.1 %}</span>
                 <div class="grow">
-                    <div class="em-name"><span>{{ e.k.label }}</span>{% if e.k.always %}<span class="em-always">{% trans "Always on" %}</span>{% endif %}</div>
+                    <div class="em-name"><span>{{ e.k.label }}</span>{% if e.k.always %}<span class="em-always">{% trans "Always on" %}</span>{% endif %}{% if e.k.campaign %}<span class="em-always em-mkt">{% trans "Marketing" %}</span>{% endif %}</div>
                     <div class="small strong em-when">{{ e.k.when }}</div>
                     <div class="em-to">{% icon "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0" 14 2.2 %}{{ e.k.to }}</div>
                 </div>
@@ -117,6 +121,28 @@ away; the switches and template picks are a draft (editor.js posts them back) sa
                 {% if r.missing %}<div class="em-lang-warn">{% blocktrans with lang=r.name %}No {{ lang }} template picked. People who use {{ lang }} get the default language’s one.{% endblocktrans %}</div>
                 {% elif r.gone %}<div class="em-lang-warn">{% trans "This template isn’t in listmonk any more. Pick another, or reset to default." %}</div>{% endif %}
                 {% endfor %}
+                {% if e.lists %}
+                <div class="em-lists" role="group" aria-label="{% blocktrans with name=e.k.label %}Lists {{ name }} goes to{% endblocktrans %}">
+                    <div class="em-lists-head">{% trans "Send to" %}</div>
+                    <div class="em-list fixed">
+                        <span class="em-check on">{% icon "m5 12.5 4.5 4.5L19 7.5" 14 3 %}</span>
+                        <span class="grow"><span class="strong">{% if e.lists.customers %}{{ e.lists.customers.name }}{% else %}{% trans "Customers list" %}{% endif %}</span>
+                            <span class="em-list-sub">{% trans "Customers who ticked “Monthly menu email”" %}</span></span>
+                        {% if e.lists.customers.count is not None %}<span class="em-count num">{% blocktrans count n=e.lists.customers.count %}{{ n }} person{% plural %}{{ n }} people{% endblocktrans %}</span>{% endif %}
+                    </div>
+                    {% for l in e.lists.rows %}
+                    <button class="em-list" role="checkbox" aria-checked="{{ l.on|yesno:'true,false' }}" name="op" value="list:{{ e.k.key }}:{{ l.id }}">
+                        <span class="em-check{% if l.on %} on{% endif %}">{% if l.on %}{% icon "m5 12.5 4.5 4.5L19 7.5" 14 3 %}{% endif %}</span>
+                        <span class="grow strong">{{ l.name }}</span>
+                        {% if l.count is not None %}<span class="em-count num">{% blocktrans count n=l.count %}{{ n }} person{% plural %}{{ n }} people{% endblocktrans %}</span>{% endif %}
+                    </button>
+                    {% empty %}
+                    {% if not e.lists.err %}<div class="em-list-sub">{% trans "No other lists in listmonk yet. Lists you make there (say, for people who want to hear about events) show up here." %}</div>{% endif %}
+                    {% endfor %}
+                    {% if e.lists.gone %}<div class="em-lang-warn">{% blocktrans count n=e.lists.gone|length %}A list you picked isn’t in listmonk any more.{% plural %}{{ n }} lists you picked aren’t in listmonk any more.{% endblocktrans %}</div>{% endif %}
+                    {% if e.lists.err %}<div class="em-err">{{ e.lists.err }}</div>{% endif %}
+                </div>
+                {% endif %}
                 <div class="em-row">
                     <button class="em-link" name="op" value="data:{{ e.k.key }}" aria-expanded="{{ e.open|yesno:'true,false' }}"><span class="em-caret{% if e.open %} open{% endif %}">{% icon "m9 6 6 6-6 6" 12 2.8 %}</span>{% trans "Template data" %}</button>
                     <span class="grow"></span>

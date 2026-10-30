@@ -1272,8 +1272,11 @@ def events(request):
             if any(events_data.errors(x) for x in draft["events"]):
                 messages.error(request, _("Fix the events marked in red first."))
             else:
-                events_data.save(draft)
+                from events.announce import announce_later
+                emailed = announce_later(events_data.save(draft), request)
                 messages.success(request, _("Events saved. Store hours, the online store and the register are updated."))
+                if emailed:
+                    messages.success(request, _("Emailing customers about %(names)s.") % {"names": ", ".join(f"“{c['title']}”" for c in emailed)})
                 return redirect("admin_events")
         else:
             draft, toast = events_data.apply_op(draft, op)

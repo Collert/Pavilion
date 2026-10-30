@@ -1,0 +1,61 @@
+{% load i18n listmonk %}{% comment %}
+A marketing email's campaign template (misc_tools/email_templates.py: render_campaign): the look, with the campaign's
+content (written by Pavilion, events/announce.py) in its middle. Every language that's on is in it ({% bylang %}),
+listmonk picks the subscriber's. Tables and inline styles, so it holds up in Outlook and Gmail; `look` is the palette.
+{% endcomment %}<!doctype html>
+<html lang="{% subscriber_language default %}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>{{ store }}</title>
+<style>
+  body { margin: 0; padding: 0; background: {{ look.page }}; -webkit-text-size-adjust: 100%; }
+  a { color: {{ look.ink }}; }
+  .pv-btn:hover { filter: brightness(1.05); }
+  @media (max-width: 620px) {
+    .pv-wrap { padding: 16px 10px !important; }
+    .pv-hero { padding: 30px 24px 34px !important; }
+    .pv-hero-title { font-size: 30px !important; }
+    .pv-body { padding: 26px 22px 28px !important; }
+    .pv-title { font-size: 26px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:{{ look.page }};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{{ look.page }};">
+<tr><td class="pv-wrap" align="center" style="padding:28px 14px 36px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:Helvetica,Arial,sans-serif;">
+
+  <tr><td style="padding:0 6px 14px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ look.ink }};">{{ store }}</td>
+      <td align="right" style="font-size:12px;"><a href="{% go "MessageURL" %}" style="color:{{ look.muted }};text-decoration:underline;">{% bylang %}{% trans "View in your browser" %}{% endbylang %}</a></td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td class="pv-hero" style="background:{{ look.hero }};border-radius:24px 24px 0 0;padding:38px 40px 42px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="background:{{ look.accent }};border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:{{ look.accent_ink }};">{% block eyebrow %}{% endblock %}</td>
+    </tr></table>
+    <div class="pv-hero-title" style="margin:20px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:1.12;font-weight:700;color:{{ look.hero_text }};">{% block headline %}{% endblock %}</div>
+    <div style="margin:12px 0 0;font-size:16px;line-height:1.55;color:{{ look.hero_soft }};">{% block lede %}{% endblock %}</div>
+    <div style="margin:26px 0 0;height:4px;width:64px;border-radius:2px;background:{{ look.accent }};font-size:0;line-height:0;">&nbsp;</div>
+  </td></tr>
+
+  <tr><td class="pv-body" style="background:#FFFFFF;border-radius:0 0 24px 24px;padding:34px 40px 36px;color:{{ look.ink }};font-size:16px;line-height:1.6;">
+    {% go 'template "content" .' %}
+  </td></tr>
+
+  <tr><td align="center" style="padding:24px 24px 0;font-size:12px;line-height:1.6;color:{{ look.muted }};">
+    <div style="font-weight:700;color:{{ look.ink }};">{{ store }}</div>
+    {% if address %}<div>{{ address }}</div>{% endif %}
+    <div style="margin-top:10px;">{% bylang %}{% blocktrans %}You get this because you signed up for news from {{ store }}.{% endblocktrans %} <a href="{% go "UnsubscribeURL" %}" style="color:{{ look.muted }};text-decoration:underline;">{% trans "Unsubscribe" %}</a>{% endbylang %}</div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+{% go "TrackView" %}
+</body>
+</html>

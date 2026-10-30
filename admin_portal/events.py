@@ -158,15 +158,18 @@ def is_dirty(draft) -> bool:
 
 
 @transaction.atomic
-def save(draft):
+def save(draft) -> list:
+    """Save the draft; returns the events it added (events/announce.py emails customers about them)."""
     Event.objects.filter(pk__in=draft["gone"]).delete()
+    added = []
     for x in draft["events"]:
         values = {"kind": x["kind"], "title": x["name"], "description": x["desc"], "start_date": _date(x["start"]),
                   "end_date": _date(x["end"]), "all_day": x["all_day"] and x["kind"] == Event.CLOSED, "opens": x["from"],
                   "closes": x["to"], "dine_in": x["dine"], "pickup": x["pickup"], "delivery": x["delivery"],
                   "banner": x["banner"], "banner_days": x["lead"]}
         if not (x["id"] and Event.objects.filter(pk=x["id"]).update(**values)):
-            Event.objects.create(**values)
+            added.append(Event.objects.create(**values))
+    return added
 
 
 # ---------- the page ----------

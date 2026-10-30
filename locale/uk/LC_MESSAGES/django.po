@@ -1236,7 +1236,7 @@ msgstr ""
 #: .\online_store\account.py:153
 #: .\online_store\templates\themes\neighbourhood\cart.html:77
 msgid "Pickup"
-msgstr ""
+msgstr "Самовивіз"
 
 #: .\admin_portal\catering.py:607
 msgid "They collect it from the store."
@@ -3999,7 +3999,7 @@ msgstr ""
 #: .\admin_portal\events.py:21 .\admin_portal\hours.py:288
 #: .\admin_portal\templates\admin_portal\condiment.html:166
 msgid "Dine-in"
-msgstr ""
+msgstr "У закладі"
 
 #: .\admin_portal\events.py:22
 msgid "1 day before"
@@ -12590,10 +12590,8 @@ msgstr ""
 
 #: .\admin_portal\templates\admin_portal\events.html:118
 #: .\admin_portal\templates\admin_portal\hours.html:59
-#, fuzzy
-#| msgid "Close drawer"
 msgid "Closed all day"
-msgstr "Закрити касу"
+msgstr "Зачинено весь день"
 
 #: .\admin_portal\templates\admin_portal\events.html:124
 #: .\admin_portal\templates\admin_portal\hours.html:51
@@ -20594,7 +20592,7 @@ msgstr ""
 
 #: .\misc_tools\templates\emails\listmonk\_newsletter.html:3
 msgid "Unsubscribe"
-msgstr ""
+msgstr "Відписатися"
 
 #: .\misc_tools\templates\emails\listmonk\catering_accepted.html:3
 #, python-format
@@ -27359,3 +27357,211 @@ msgstr ""
 
 #~ msgid "Приміщення"
 #~ msgstr "На касі"
+
+#: .\admin_portal\email_settings.py
+msgid "Templates and lists reloaded from listmonk."
+msgstr "Шаблони та списки знову завантажено з listmonk."
+
+#: .\admin_portal\email_settings.py
+msgid "All languages"
+msgstr "Усі мови"
+
+#: .\admin_portal\email_settings.py
+#, python-format
+msgid "%(tx)d transactional, %(c)d campaign"
+msgstr "%(tx)d транзакційних, %(c)d для розсилок"
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "In listmonk, go to Admin › Users and create an API user whose role can manage templates, lists, subscribers and campaigns and send transactional mail."
+msgstr "У listmonk відкрийте Admin › Users і створіть API-користувача, чия роль може керувати шаблонами, списками, підписниками й розсилками та надсилати транзакційні листи."
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "Marketing emails, sent as listmonk campaigns when you save a new event on the Events page. One template holds every language; people with an account get theirs, everyone else the store’s default."
+msgstr "Маркетингові листи: вони йдуть як розсилки listmonk, коли ви зберігаєте нову подію на сторінці «Події». Один шаблон містить усі мови: люди з обліковим записом отримують лист своєю мовою, решта — основною мовою магазину."
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "Marketing"
+msgstr "Маркетинг"
+
+#: .\admin_portal\templates\admin_portal\email.html
+#, python-format
+msgid "Lists %(name)s goes to"
+msgstr "Списки, яким надсилається «%(name)s»"
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "Send to"
+msgstr "Кому надсилати"
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "Customers list"
+msgstr "Список клієнтів"
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "Customers who ticked “Monthly menu email”"
+msgstr "Клієнти, які позначили «Щомісячний лист із меню»"
+
+#: .\admin_portal\templates\admin_portal\email.html
+#, python-format
+msgid "%(n)s person"
+msgid_plural "%(n)s people"
+msgstr[0] "%(n)s особа"
+msgstr[1] "%(n)s особи"
+msgstr[2] "%(n)s осіб"
+msgstr[3] "%(n)s особи"
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "No other lists in listmonk yet. Lists you make there (say, for people who want to hear about events) show up here."
+msgstr "У listmonk ще немає інших списків. Списки, які ви там створите (наприклад, для тих, хто хоче знати про події), з’являться тут."
+
+#: .\admin_portal\templates\admin_portal\email.html
+msgid "A list you picked isn’t in listmonk any more."
+msgid_plural "%(n)s lists you picked aren’t in listmonk any more."
+msgstr[0] "%(n)s вибраного списку вже немає в listmonk."
+msgstr[1] "%(n)s вибраних списків уже немає в listmonk."
+msgstr[2] "%(n)s вибраних списків уже немає в listmonk."
+msgstr[3] "%(n)s вибраних списків уже немає в listmonk."
+
+#: .\admin_portal\views.py
+#, python-format
+msgid "Emailing customers about %(names)s."
+msgstr "Надсилаємо клієнтам лист про %(names)s."
+
+#: .\events\announce.py
+#, python-format
+msgid "Event: %(title)s (%(day)s)"
+msgstr "Подія: %(title)s (%(day)s)"
+
+#: .\misc_tools\emails.py
+msgid "Extra hours"
+msgstr "Додаткові години"
+
+#: .\misc_tools\emails.py
+msgid "You add an event that opens the store (extra hours) on the Events page."
+msgstr "Ви додаєте на сторінці «Події» подію, на яку заклад відкривається (додаткові години)."
+
+#: .\misc_tools\emails.py
+msgid "Customers who get the menu email, and the lists you pick"
+msgstr "Клієнти, які отримують лист із меню, і вибрані вами списки"
+
+#: .\misc_tools\emails.py
+#, python-format
+msgid "%(title)s at %(store)s"
+msgstr "%(title)s у %(store)s"
+
+#: .\misc_tools\emails.py
+msgid "We’re closed"
+msgstr "Ми зачинені"
+
+#: .\misc_tools\emails.py
+msgid "You add an event that closes the store on the Events page."
+msgstr "Ви додаєте на сторінці «Події» подію, на яку заклад зачиняється."
+
+#: .\misc_tools\emails.py
+#, python-format
+msgid "Heads up: %(title)s"
+msgstr "Зверніть увагу: %(title)s"
+
+#: .\misc_tools\emails.py
+msgid "The event: its name, dates, times and a button, written by Pavilion"
+msgstr "Подія: назва, дати, час і кнопка (їх пише Pavilion)"
+
+#: .\misc_tools\emails.py
+msgid "Their language, for people with an account"
+msgstr "Їхня мова (для людей з обліковим записом)"
+
+#: .\misc_tools\emails.py
+msgid "Leave the list"
+msgstr "Відписатися від списку"
+
+#: .\misc_tools\emails.py
+msgid "The email in a browser"
+msgstr "Лист у браузері"
+
+#: .\misc_tools\templates\emails\listmonk\_campaign.html
+msgid "View in your browser"
+msgstr "Відкрити в браузері"
+
+#: .\misc_tools\templates\emails\listmonk\_campaign.html
+#, python-format
+msgid "You get this because you signed up for news from %(store)s."
+msgstr "Ви отримали цей лист, бо підписалися на новини від %(store)s."
+
+#: .\misc_tools\templates\emails\listmonk\event_closed.html
+msgid "Change of hours"
+msgstr "Зміна графіка"
+
+#: .\misc_tools\templates\emails\listmonk\event_closed.html
+msgid "We’re closed for a little while"
+msgstr "Ми ненадовго зачиняємося"
+
+#: .\misc_tools\templates\emails\listmonk\event_closed.html
+#, python-format
+msgid "A heads-up from %(store)s, so you can plan ahead and don’t make the trip for nothing."
+msgstr "Попередження від %(store)s, щоб ви могли все спланувати й не прийшли даремно."
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "Closed all day, every day"
+msgstr "Зачинено весь день, щодня"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+#, python-format
+msgid "%(times)s, each day"
+msgstr "%(times)s, щодня"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "Open for"
+msgstr "Працюємо"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "What’s closed"
+msgstr "Що не працює"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "What’s paused"
+msgstr "Що призупинено"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "Where"
+msgstr "Де"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+#, python-format
+msgid "We’re back to our usual hours on <strong>%(day)s</strong>."
+msgstr "Звичайний графік повертається: <strong>%(day)s</strong>."
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "Outside those hours we’re open as usual."
+msgstr "Поза цими годинами ми працюємо як завжди."
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "Everything else runs as usual."
+msgstr "Усе інше працює як завжди."
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "You can still order ahead online for when we’re open."
+msgstr "Ви й далі можете замовити онлайн наперед — на час, коли ми відкриті."
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "See the menu"
+msgstr "Переглянути меню"
+
+#: .\misc_tools\templates\emails\listmonk\event_content.html
+msgid "See our hours"
+msgstr "Наш графік роботи"
+
+#: .\misc_tools\templates\emails\listmonk\event_open.html
+msgid "Come by, we’re open for something special"
+msgstr "Завітайте до нас — у нас особлива подія"
+
+#: .\misc_tools\templates\emails\listmonk\event_open.html
+#, python-format
+msgid "%(store)s is opening its doors for an event. Here’s everything you need to know."
+msgstr "%(store)s відчиняє двері для особливої події. Ось усе, що варто знати."
+
+#: .\misc_tools\templatetags\listmonk.py
+msgid "l, F j"
+msgstr "l, j E"
+
+#: .\misc_tools\templatetags\listmonk.py
+msgid "D, M j"
+msgstr "D, j E"

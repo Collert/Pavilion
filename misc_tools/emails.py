@@ -4,6 +4,11 @@ admin's Email page, what it says and when, who gets it, whether it can be turned
 (`{{ .Tx.Data.<field> }}` in listmonk) and its subject. The template itself is
 misc_tools/templates/emails/listmonk/<key>.html, put in listmonk once per language (misc_tools/listmonk.py: install).
 Subjects use %(field)s for data and %(store)s for the store's name.
+
+Marketing emails (`campaign`) aren't sent to one person: each is a listmonk campaign to the customers list (people who
+ticked "Monthly menu email") and the other listmonk lists picked for it on the Email page (EmailSwitch.lists), never
+the users list. One campaign template holds every language that's on (listmonk can't pick one per subscriber), and
+Pavilion writes the campaign's content (events/announce.py).
 """
 from dataclasses import dataclass, field
 
@@ -23,6 +28,7 @@ class Kind:
     always: bool = False        # can't be turned off (people need it to get into their account)
     default_on: bool = True
     hidden: bool = False        # not listed (the test email)
+    campaign: bool = False      # marketing: a listmonk campaign to lists, not a transactional email
 
 
 ICONS = {
@@ -42,10 +48,14 @@ ICONS = {
     "cal": "M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4",
     "clock": "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 7v5l3 2",
     "swap": "M7 4 3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7",
+    "spark": "M12 3v4 M12 17v4 M3 12h4 M17 12h4 M6 6l2.5 2.5 M15.5 15.5 18 18 M18 6l-2.5 2.5 M8.5 15.5 6 18",
+    "star": "m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z",
+    "closed": "M4 5h16v15H4z M4 10h16 M9 3v4 M15 3v4 M9.5 13l5 5 M14.5 13l-5 5",
 }
 
 GROUPS = [("accounts", _("Accounts"), ICONS["user"]), ("orders", _("Orders"), ICONS["receipt"]), ("catering", _("Catering"), ICONS["cater"]),
-          ("gifts", _("Gift cards"), ICONS["gift"]), ("team", _("Team"), ICONS["cal"])]
+          ("gifts", _("Gift cards"), ICONS["gift"]), ("team", _("Team"), ICONS["cal"]),
+          ("events", _("Events"), ICONS["star"])]
 
 NAME, STORE, LINK = ("name", _("Their first name")), ("store", _("The store’s name")), ("link", _("The link to press"))
 CATERING = (NAME, ("number", _("Request number")), ("title", _("What the event is")), ("when", _("Event date and time")),
@@ -125,8 +135,18 @@ KINDS = [
     Kind("shift_swap_decided", "team", ICONS["swap"], _("Swap decision"), _("A coworker says no, or a manager decides a swap or hand-off."),
          _("Both people"), _("Your shift swap was %(decision)s"),
          (NAME, ("shift", _("The shift")), ("decision", _("approved or declined")), ("message", _("The manager’s note")), STORE)),
+    # Events (marketing), sent when a new event is saved on the Events page
+    Kind("event_open", "events", ICONS["spark"], _("Extra hours"), _("You add an event that opens the store (extra hours) on the Events page."),
+         _("Customers who get the menu email, and the lists you pick"), _("%(title)s at %(store)s"), campaign=True),
+    Kind("event_closed", "events", ICONS["closed"], _("We’re closed"), _("You add an event that closes the store on the Events page."),
+         _("Customers who get the menu email, and the lists you pick"), _("Heads up: %(title)s"), campaign=True),
     # The admin's "Send a test email"
     Kind("test", "", ICONS["mail"], _("Test email"), "", "", _("Test email from %(store)s"), (NAME, STORE), always=True, hidden=True),
 ]
 
 BY_KEY = {k.key: k for k in KINDS}
+
+# What a campaign template can use (listmonk's own; Pavilion's part is the content)
+CAMPAIGN_VARS = [('{{ template "content" . }}', _("The event: its name, dates, times and a button, written by Pavilion")),
+                 ("{{ .Subscriber.FirstName }}", _("Their first name")), ("{{ .Subscriber.Attribs.language }}", _("Their language, for people with an account")),
+                 ("{{ UnsubscribeURL }}", _("Leave the list")), ("{{ MessageURL }}", _("The email in a browser"))]

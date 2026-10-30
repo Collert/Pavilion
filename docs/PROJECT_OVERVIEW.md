@@ -721,6 +721,7 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   times (moving the start keeps the length), what changes on its next three days against the usual hours, overlap
   warnings, the channels it opens or closes (the same dine-in/pickup/delivery toggles), and the online store's banner (from 1 day to 2 weeks before;
   `storefront.event_banner`). One form with Save; the old `Event` rows were converted (migration `0003_event_layers`).
+  Saving a new event that hasn't ended emails customers about it (Email page, Events group; `events/announce.py`).
   `static/js/live-page.js` keeps scrolled boxes in a swapped region where they were (by id, or classes and position).
 - **Screens** (`admin_screens`, `screens.py`, 2026-10-22): cards with a thumbnail of each layout (`boxes()` lays
   the tree out like the CSS grid), "New screen" (name and landscape or portrait), and the editor: the draft lives in
@@ -798,6 +799,16 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   New emails with this page: ready for pickup (`pos_server/order_emails.py`, when the kitchen finishes an online
   pickup order), refund issued, a new catering request to the staff who answer catering, and the buyer's gift card
   receipt.
+  **Events group (marketing, 2026-10-30)**: "Extra hours" (`event_open`) and "We’re closed" (`event_closed`) are
+  listmonk *campaigns*, not transactional email (`Kind.campaign`). Saving a new event on the Events page that hasn't
+  ended sends one (`events/announce.py: announce_later`, in the background after the save) to the customers list and
+  the other listmonk lists ticked for that email on this page (`EmailSwitch.lists`; the users list is never offered).
+  A campaign has one template for everyone, so each is one campaign template holding every language that's on
+  (`EmailTemplate.ALL`): `{% bylang %}` (`templatetags/listmonk.py`) writes `{{ if eq (or .Subscriber.Attribs.language
+  "en") "uk" }}…` branches, and the subject and Pavilion's content (`event_content.html`: the name, a date tile, times,
+  the channels, a button to the menu or the hours) do the same. People with an account get their language, everyone
+  else the store's default. The look (`_campaign.html`, palettes in `email_templates.LOOKS`) is tables and inline
+  styles. The API user also needs to manage campaigns.
 - **Languages** (`admin_languages`, `languages.py`, 2026-10-23, Settings): every supported language with how much of
   it is translated (from its .po file), on/off switches (the default stays on), search and an All/On filter, the
   default language, "match each person's device" and a preview of the picker. Saved values apply after a restart:

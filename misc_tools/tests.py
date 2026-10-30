@@ -1,4 +1,5 @@
 """Tests for misc_tools: email through listmonk (its API is faked: FakeListmonk)."""
+import datetime
 from decimal import Decimal
 from unittest import mock
 
@@ -20,6 +21,7 @@ class FakeListmonk:
 
     def __init__(self, old=False):
         self.templates, self.lists, self.subscribers, self.sent, self.calls = {}, {}, {}, [], []
+        self.campaigns = {}
         self.old = old  # an older listmonk: transactional email only to subscribers
 
     def by_email(self, email_):
@@ -41,7 +43,7 @@ class FakeListmonk:
             self.templates[int(path.rsplit("/", 1)[1])] = payload
             return True
         if path.startswith("/lists?"):
-            return [{"id": i, "name": n} for i, n in self.lists.items()]
+            return [{"id": i, "name": n, "subscriber_count": 3} for i, n in self.lists.items()]
         if path == "/lists":
             self.lists[len(self.lists) + 1] = payload["name"]
             return {"id": len(self.lists)}
@@ -63,6 +65,13 @@ class FakeListmonk:
             return True
         if path.startswith("/subscribers/") and method == "PATCH":
             self.subscribers[int(path.rsplit("/", 1)[1])].update(payload)
+            return True
+        if path == "/campaigns" and method == "POST":
+            new = len(self.campaigns) + 1
+            self.campaigns[new] = {**payload, "status": "draft"}
+            return {"id": new}
+        if path.startswith("/campaigns/") and path.endswith("/status"):
+            self.campaigns[int(path.split("/")[2])]["status"] = payload["status"]
             return True
         if path == "/tx":
             if self.old and not all(self.by_email(e) for e in payload["subscriber_emails"]):
@@ -91,8 +100,9 @@ class EmailTests(TestCase):
     def test_installing_writes_each_email_in_each_language(self):
         done = listmonk.install()
         langs = len(listmonk.languages())
-        self.assertEqual(done["made"], (len(KINDS) + 1) * langs)  # every email, and the newsletter template
-        self.assertEqual(EmailTemplate.objects.count(), (len(KINDS) + 1) * langs)
+        made = sum(len(listmonk.template_languages(k)) for k in KINDS) + langs  # every email, and the newsletter template
+        self.assertEqual(done["made"], made)
+        self.assertEqual(EmailTemplate.objects.count(), made)
         self.assertEqual(list(self.fake.lists.values()), ["My restaurant users", "My restaurant customers"])
         tid = EmailTemplate.objects.get(kind="password_reset", language="uk").template_id
         made = self.fake.templates[tid]
@@ -154,6 +164,63 @@ class EmailTests(TestCase):
         self.assertEqual(listmonk.sync_all(), 2)  # again: nothing doubles up
         self.assertEqual(len(self.fake.subscribers), 2)
 
+    def test_event_emails_are_campaign_templates_with_every_language(self):
+        listmonk.install()
+        for key in ("event_open", "event_closed"):
+            row = EmailTemplate.objects.get(kind=key)
+            self.assertEqual(row.language, EmailTemplate.ALL)
+            made = self.fake.templates[row.template_id]
+            self.assertEqual(made["type"], "campaign")
+            self.assertIn('{{ template "content" . }}', made["body"])
+            self.assertIn("{{ UnsubscribeURL }}", made["body"])
+            self.assertIn('{{ if eq (or .Subscriber.Attribs.language "en") "uk" }}', made["body"])
+        opened = self.fake.templates[EmailTemplate.objects.get(kind="event_open").template_id]["body"]
+        self.assertIn("Extra hours", opened)
+        self.assertIn("Додаткові години", opened)
+
+    def _event(self, **kw):
+        from django.utils import timezone
+        from events.models import Event
+        day = timezone.localdate() + datetime.timedelta(days=5)
+        values = dict(kind=Event.OPEN, title="Trivia night", description="Six rounds.\nPrizes!", start_date=day, end_date=day,
+                      opens=1140, closes=1320, dine_in=True, pickup=True, delivery=False)
+        return Event.objects.create(**{**values, **kw})
+
+    def test_a_new_event_goes_out_as_a_campaign_to_the_customers_and_the_lists_picked(self):
+        from django.test import RequestFactory
+        from admin_portal.models import StoreSettings
+        from events.announce import announce_later
+        from events.models import Event
+        lists = listmonk.ensure_lists()
+        culinary = self.fake("POST", "/lists", {"name": "Culinary events"})["id"]
+        EmailSwitch.objects.create(kind="event_open", lists=[lists["users"], culinary])  # the users list never gets campaigns
+        request = RequestFactory().get("/", HTTP_HOST="localhost")
+        with mock.patch("misc_tools.listmonk._background", lambda job: job()), self.captureOnCommitCallbacks(execute=True):
+            jobs = announce_later([self._event(), self._event(title="Long ago", start_date=datetime.date(2020, 1, 1), end_date=datetime.date(2020, 1, 1))], request)
+        self.assertEqual([j["title"] for j in jobs], ["Trivia night"])  # only events that haven't ended
+        (sent,) = self.fake.campaigns.values()
+        self.assertEqual((sent["lists"], sent["status"]), ([StoreSettings.load().listmonk_list, culinary], "running"))
+        self.assertEqual(sent["template_id"], EmailTemplate.objects.get(kind="event_open").template_id)  # installed on first send
+        self.assertIn("Trivia night at My restaurant", sent["subject"])
+        self.assertIn("{{ else }}", sent["subject"])  # every language
+        self.assertIn("http://localhost/uk/menu", sent["body"])
+        self.assertIn("http://localhost/en/menu", sent["body"])
+        self.assertIn("Six rounds.<br>Prizes!", sent["body"])
+        self.assertIn("7 PM – 10 PM", sent["body"])
+
+        closed = self._event(kind=Event.CLOSED, title="Closed for {{ repairs }}", all_day=True, delivery=True)
+        with mock.patch("misc_tools.listmonk._background", lambda job: job()), self.captureOnCommitCallbacks(execute=True):
+            announce_later([closed], request)
+        sent = self.fake.campaigns[2]
+        self.assertEqual(sent["lists"], [StoreSettings.load().listmonk_list])
+        self.assertIn("Closed for { { repairs } }", sent["subject"])  # never read as listmonk's code
+        self.assertIn("Closed all day", sent["body"])
+        self.assertIn("http://localhost/en/", sent["body"])
+
+        EmailSwitch.objects.filter(kind="event_open").update(enabled=False)
+        self.assertEqual(announce_later([self._event()], request), [])
+        self.assertIsNone(email.send_campaign("event_open", "x", "s", "b"))
+
     def test_an_older_listmonk_gets_unknown_addresses_added_first(self):
         self.fake.old = True
         listmonk.install()
@@ -185,7 +252,7 @@ class EmailPageTests(TestCase):
         self.assertTrue(self.fake.in_list("owner@example.com", StoreSettings.load().listmonk_users_list))  # everyone synced on connecting
         self.assertEqual(self.client.get(self.url).context["x"]["sync"]["state"], "done")
         self.assertEqual(StoreSettings.load().listmonk_token, "k")
-        self.assertEqual(x["missing"], len(KINDS) * 3)
+        self.assertEqual(x["missing"], sum(len(listmonk.template_languages(k)) for k in KINDS))
         x = self.client.post(self.url, {"op": "install"}).context["x"]
         self.assertEqual(x["missing"], 0)
         x = self.client.post(self.url, {"op": "cat:orders"}).context["x"]
@@ -204,5 +271,16 @@ class EmailPageTests(TestCase):
         self.assertEqual(self.fake.templates[mine]["name"], "My own receipt")  # theirs is left alone
         self.client.post(self.url, {"op": "test"})
         self.assertEqual(self.fake.sent[-1]["subscriber_emails"], ["owner@example.com"])
+        culinary = self.fake("POST", "/lists", {"name": "Culinary events"})["id"]
+        cache.clear()
+        x = self.client.post(self.url, {"op": "cat:events"}).context["x"]
+        self.assertEqual([e["k"].key for e in x["emails"]], ["event_open", "event_closed"])
+        lists = x["emails"][0]["lists"]
+        self.assertEqual(([r["name"] for r in lists["rows"]], lists["customers"]["name"]), (["Culinary events"], "My restaurant customers"))
+        self.assertEqual([r["lang"] for r in x["emails"][0]["rows"]], [EmailTemplate.ALL])
+        x = self.client.post(self.url, {"op": f"list:event_open:{culinary}"}).context["x"]
+        self.assertTrue(x["emails"][0]["lists"]["rows"][0]["on"] and x["dirty"])
+        self.client.post(self.url, {"op": "save"})
+        self.assertEqual(EmailSwitch.objects.get(kind="event_open").lists, [culinary])
         self.client.post(self.url, {"op": "disconnect"})
         self.assertFalse(self.client.get(self.url).context["x"]["connected"])

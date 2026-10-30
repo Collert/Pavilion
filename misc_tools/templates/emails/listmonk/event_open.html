@@ -1,0 +1,4 @@
+{% extends "emails/listmonk/_campaign.html" %}{% load i18n listmonk %}
+{% block eyebrow %}{% bylang %}✦ {% trans "Extra hours" %}{% endbylang %}{% endblock %}
+{% block headline %}{% bylang %}{% trans "Come by, we’re open for something special" %}{% endbylang %}{% endblock %}
+{% block lede %}{% bylang %}{% blocktrans %}{{ store }} is opening its doors for an event. Here’s everything you need to know.{% endblocktrans %}{% endbylang %}{% endblock %}

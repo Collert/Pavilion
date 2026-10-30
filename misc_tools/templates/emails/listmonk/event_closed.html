@@ -1,0 +1,4 @@
+{% extends "emails/listmonk/_campaign.html" %}{% load i18n listmonk %}
+{% block eyebrow %}{% bylang %}{% trans "Change of hours" %}{% endbylang %}{% endblock %}
+{% block headline %}{% bylang %}{% trans "We’re closed for a little while" %}{% endbylang %}{% endblock %}
+{% block lede %}{% bylang %}{% blocktrans %}A heads-up from {{ store }}, so you can plan ahead and don’t make the trip for nothing.{% endblocktrans %}{% endbylang %}{% endblock %}

@@ -6,14 +6,16 @@ customers list for the newsletter.
 `install` renders every email (misc_tools/emails.py) once per language the store has on, from
 misc_tools/templates/emails/listmonk/<key>.html under that language (misc_tools/email_templates.py), creates them as
 listmonk transactional templates, and remembers which is which (misc_tools.models.EmailTemplate). It also makes a
-campaign template per language for newsletters. It only adds what's missing (or gone from listmonk); `overwrite`
+campaign template per language for newsletters, and one campaign template (every language in it) per marketing email. It only adds what's missing (or gone from listmonk); `overwrite`
 rewrites the ones Pavilion made (Reset to default).
 
 People (below): everyone with an account is a subscriber in the users list; the customers list is the newsletter's.
 They're synced when listmonk is connected and whenever an account, its menu-email choice or its language changes.
 
+Marketing emails (events) are campaigns: `start_campaign` makes one and starts it.
+
 The listmonk API user needs a role that can: get and manage templates, send transactional messages, get and manage
-lists, and get and manage subscribers.
+lists, get and manage subscribers, and get and manage campaigns.
 """
 import json
 import logging
@@ -115,17 +117,19 @@ def install(keys=None, overwrite=False) -> dict:
     from .models import EmailTemplate
     have = {tid for rows in templates().values() for tid, _name in rows}
     done = {"made": 0, "updated": 0, "kept": 0}
-    jobs = [(k.key, email_templates.render) for k in KINDS] + [("newsletter", email_templates.render_newsletter)]
+    jobs = [(k.key, email_templates.render_campaign if k.campaign else email_templates.render) for k in KINDS]
+    jobs.append(("newsletter", email_templates.render_newsletter))
     for key, render in jobs:
         if keys and key not in keys:
             continue
-        for lang in languages():
+        campaign = render is email_templates.render_campaign
+        for lang in ([EmailTemplate.ALL] if campaign else languages()):
             row = EmailTemplate.objects.filter(kind=key, language=lang).first()
             there = row is not None and row.template_id in have
             if there and not (overwrite and row.managed):
                 done["kept"] += 1
                 continue
-            payload = render(key, lang) if key != "newsletter" else render(lang)
+            payload = render(key) if campaign else render(key, lang) if key != "newsletter" else render(lang)
             if there:
                 api("PUT", f"/templates/{row.template_id}", payload)
                 done["updated"] += 1
@@ -143,7 +147,33 @@ def missing() -> int:
     from .emails import KINDS
     from .models import EmailTemplate
     have = set(EmailTemplate.objects.values_list("kind", "language"))
-    return sum(1 for k in KINDS for lang in languages() if (k.key, lang) not in have)
+    return sum(1 for k in KINDS for lang in template_languages(k) if (k.key, lang) not in have)
+
+
+def template_languages(kind) -> list:
+    """What an email has a template for: each language that's on, or all of them at once for a marketing email."""
+    from .models import EmailTemplate
+    return [EmailTemplate.ALL] if kind.campaign else languages()
+
+
+# ---------- campaigns (marketing email) ----------
+
+def all_lists(cfg=None) -> list:
+    """[{"id", "name", "count"}] every list in listmonk."""
+    return [{"id": row["id"], "name": row.get("name", ""), "count": row.get("subscriber_count")}
+            for row in _results(api("GET", "/lists?minimal=true&per_page=all", cfg=cfg))]
+
+
+def start_campaign(name, subject, body, template_id, list_ids) -> int:
+    """Make a campaign of Pavilion's content for these lists and send it now. Returns its id."""
+    payload = {"name": name[:200], "subject": subject, "lists": list_ids, "type": "regular", "content_type": "html",
+               "body": body, "template_id": template_id, "messenger": "email", "tags": ["pavilion"]}
+    sender = config()["from"]
+    if sender:
+        payload["from_email"] = sender
+    made = api("POST", "/campaigns", payload)["id"]
+    api("PUT", f"/campaigns/{made}/status", {"status": "running"})
+    return made
 
 
 # ---------- people: the users list and the customers list ----------
