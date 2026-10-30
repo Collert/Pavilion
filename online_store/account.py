@@ -230,6 +230,32 @@ def store_name():
 
 
 @_required
+def notifications(request):
+    """Notifications: each device this account turned them on for (push.PushSubscription), what it gets (order and
+    event updates), and removing it. "This device" and turning them on here are worked out in the browser
+    (online_store/static/online_store/push.js), which knows its own subscription."""
+    import hashlib
+    from push import kinds
+    from push.models import PushSubscription
+    mine = PushSubscription.objects.filter(user=request.user, app=PushSubscription.STORE)
+    if request.method == "POST":
+        op, _sep, rest = request.POST.get("op", "").partition(":")
+        sub = mine.filter(pk=int(rest.split(":")[0])).first() if rest.split(":")[0].isdigit() else None
+        if sub and op == "remove":
+            sub.delete()
+            messages.success(request, _("That device won’t get notifications any more."))
+        elif sub and op == "toggle" and rest.endswith((":orders", ":events")):
+            field = "order_updates" if rest.endswith(":orders") else "event_updates"
+            setattr(sub, field, not getattr(sub, field))
+            sub.save(update_fields=[field])
+        return redirect("account_notifications")
+    devices = [{"sub": s, "hash": hashlib.sha256(s.endpoint.encode()).hexdigest()[:16],
+                "name": s.device or _("A browser")} for s in mine.order_by("-seen_at")]
+    return _page(request, "notifications.html", "notifications", {
+        "devices": devices, "orders_on": kinds.enabled("order_updates"), "events_on": kinds.enabled("event_updates")})
+
+
+@_required
 def profile(request):
     user = request.user
     prof = _customer(user)

@@ -1197,6 +1197,11 @@ class Command(BaseCommand):
         store.save()
         # The online store's theme: its defaults, drawing the dishes (the demo's photos are placeholders)
         StoreTheme.objects.update_or_create(name="neighbourhood", defaults={"live": {"pictures": "drawings"}, "draft": {"pictures": "drawings"}})
+        # Push notifications (the admin's Notifications page): both on. Devices subscribe from a real browser, so there are
+        # none to seed; the app's screenshots are taken once a screenshot server is set up (online_store/screenshots.py).
+        from push.models import NotificationSwitch
+        for kind in ("order_updates", "event_updates"):
+            NotificationSwitch.objects.update_or_create(kind=kind, defaults={"enabled": True})
         for title, tagline, color in [("Lunch combos", "A main, a side and a drink from $18.95", "#1f4a3a"),
                                       ("Gift cards", "Give someone lunch", "#14261f")]:
             promo, created = PromoContent.objects.get_or_create(title=title, defaults={

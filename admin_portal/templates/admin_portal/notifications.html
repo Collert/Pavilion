@@ -1,0 +1,74 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Notifications (no artboard: laid out like Email; admin_portal/notifications.py). The switches are a draft (editor.js
+posts them back) saved with Save changes; "Send me a test" goes straight away. Each notification shows a preview of
+how it looks on a phone.
+{% endcomment %}
+{% block title %}{% trans "Notifications" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/notifications.css' %}" rel="stylesheet">
+<script type="module" src="{% static 'admin_portal/editor.js' %}"></script>{% endblock %}
+
+{% block content %}
+<form method="post" class="editor-form" data-editor data-queue>{% csrf_token %}
+<button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
+<header class="page-head editor-head" id="nt-head" data-region>
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Notifications" %}</h1>
+    </div>
+    {% if x.dirty %}<button class="btn-light" name="op" value="discard">{% trans "Discard" %}</button>{% endif %}
+    <button class="btn-amber" name="op" value="save"{% if not x.dirty %} disabled{% endif %}>{% trans "Save changes" %}</button>
+</header>
+
+<div class="tm-body">
+    <aside class="em-side" id="nt-side" data-region>
+        <section class="card tm-card" aria-label="{% trans 'Web push' %}">
+            <div class="em-brand"><span class="em-brand-ic">{% icon "M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z M10 20a2 2 0 0 0 4 0" 22 2.2 %}</span>
+                <div class="grow"><h2 class="disp tm-h2">{% trans "Web push" %}</h2><div class="small muted strong">{% trans "Straight to people’s phones and computers, from the online store and the courier app. Nothing to set up." %}</div></div></div>
+            <div class="em-facts">{% for k, v in x.facts %}<div><span>{{ k }}</span><span class="num">{{ v }}</span></div>{% endfor %}</div>
+            <div class="small muted strong top10">{% blocktrans with key=x.key %}Pavilion’s push key ({{ key }}) was made for this store and is kept in its database. Guests turn notifications on from their order’s page; customers from their account, on each device.{% endblocktrans %}</div>
+            <button class="em-soft wide top12" name="op" value="test">{% trans "Send me a test notification" %}</button>
+        </section>
+        <nav class="card em-cats" aria-label="{% trans 'Notification groups' %}">
+            {% for g in x.groups %}
+            <button class="em-cat{% if g.on %} on{% endif %}" name="op" value="cat:{{ g.key }}"{% if g.on %} aria-current="page"{% endif %}>
+                <span class="em-cat-ic">{% icon g.icon 18 2.2 %}</span>
+                <span class="grow">{{ g.label }}</span>
+                <span class="small muted strong num">{{ g.count }}</span>
+            </button>
+            {% endfor %}
+        </nav>
+        <div class="nt-note">{% icon "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v5 M12 8h.01" 18 2.2 %}<span>{% trans "Couriers always get theirs: new deliveries, ready for pickup, cancelled. They turn them on when they start a shift." %}</span></div>
+    </aside>
+
+    <section class="card em-main" id="nt-main" data-region aria-label="{% trans 'Notifications' %}">
+        <div class="em-head"><h2 class="disp grow">{{ x.group.label }}</h2><span class="small muted strong num">{{ x.group.count }}</span></div>
+        <div class="small muted strong">{% trans "Each one goes only to people who turned notifications on, in their language." %}</div>
+        {% for n in x.kinds %}
+        <article class="em-card{% if n.on %} on{% endif %}">
+            <div class="em-card-top">
+                <span class="em-card-ic">{% icon n.k.icon 20 2.1 %}</span>
+                <div class="grow">
+                    <div class="em-name"><span>{{ n.k.label }}</span></div>
+                    <div class="small strong em-when">{{ n.k.when }}</div>
+                    <div class="em-to">{% icon "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2.5 20a6.5 6.5 0 0 1 13 0" 14 2.2 %}{{ n.k.to }}</div>
+                    {% if n.reach is not None %}<div class="nt-reach num">{% blocktrans count n=n.reach %}{{ n }} device can get it now{% plural %}{{ n }} devices can get it now{% endblocktrans %}</div>{% endif %}
+                </div>
+                <button class="lg-sw" role="switch" aria-checked="{{ n.on|yesno:'true,false' }}" name="op" value="flip:{{ n.k.key }}"
+                        aria-label="{% if n.on %}{% blocktrans with name=n.k.label %}Stop sending {{ name }}{% endblocktrans %}{% else %}{% blocktrans with name=n.k.label %}Send {{ name }}{% endblocktrans %}{% endif %}"><span></span></button>
+            </div>
+            <div class="nt-preview" aria-label="{% trans 'How it looks' %}">
+                <span class="nt-app">{% icon "M4 9h16l-1-4H5z M5 9v11h14V9 M9 20v-6h6v6" 14 2.4 %}</span>
+                <div class="grow"><div class="nt-pv-top"><span class="strong">{{ store.name }}</span><span class="muted">{% trans "now" %}</span></div>
+                    <div class="strong">{{ n.k.example_title }}</div><div class="muted">{{ n.k.example_body }}</div></div>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+</div>
+</form>
+{% endblock %}

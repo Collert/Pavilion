@@ -167,3 +167,98 @@ class CourierPushTests(TestCase):
         self.assertEqual((old.endpoint, old.user), (browser_subscription(2)["endpoint"], self.courier))
         unknown = {"subscription": browser_subscription(3), "replaces": "https://fcm.googleapis.com/fcm/send/nobody"}
         self.assertFalse(self.client.post(reverse("delivery_push_renew"), json.dumps(unknown), content_type="application/json").json()["saved"])
+
+
+class EventUpdateTests(TestCase):
+    """Event updates (events/announce.py: notify_later) to the store devices that turned them on."""
+
+    def test_a_new_event_goes_to_devices_with_event_updates_on(self):
+        import datetime
+        from django.utils import timezone
+        from events.announce import notify_later
+        from events.models import Event
+        from push.models import NotificationSwitch
+        on = PushSubscription.objects.create(app="store", event_updates=True, **subscriptions.parse(browser_subscription()))
+        PushSubscription.objects.create(app="store", **subscriptions.parse(browser_subscription(2)))  # order updates only
+        day = timezone.localdate() + datetime.timedelta(days=3)
+        trivia = Event.objects.create(kind=Event.OPEN, title="Trivia night", start_date=day, end_date=day, opens=19 * 60, closes=22 * 60)
+        past = Event.objects.create(kind=Event.CLOSED, title="Long ago", start_date=datetime.date(2020, 1, 1), end_date=datetime.date(2020, 1, 1))
+        with mock.patch("push.send.webpush") as webpush, mock.patch("push.send.background", lambda job: job()), \
+                self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(notify_later([trivia, past]), 1)
+        self.assertEqual(webpush.call_count, 1)
+        self.assertEqual(webpush.call_args.args[0]["endpoint"], on.endpoint)
+        message = json.loads(webpush.call_args.args[1])
+        self.assertEqual(message["title"], "Trivia night")
+        self.assertIn("7 PM – 10 PM", message["body"])
+        NotificationSwitch.objects.create(kind="event_updates", enabled=False)
+        self.assertEqual(notify_later([trivia]), 0)
+
+
+class NotificationsPageTests(TestCase):
+    """The admin's Notifications page (admin_portal/notifications.py)."""
+
+    def setUp(self):
+        from users.testing import crew
+        self.owner = User.objects.create_superuser("owner", password="x")
+        self.viewer = crew(User.objects.create_user("vi", password="x", is_staff=True), "app.admin", "admin.notifications.view")
+        self.client.force_login(self.owner)
+        self.url = reverse("admin_notifications")
+
+    def test_switches_are_saved_with_save(self):
+        from push import kinds
+        page = self.client.get(self.url)
+        self.assertContains(page, "Order updates")
+        self.assertContains(page, "Event updates")
+        self.client.post(self.url, {"op": "flip:event_updates"})
+        self.assertTrue(kinds.enabled("event_updates"))  # a draft until Save
+        self.client.post(self.url, {"op": "save"})
+        self.assertFalse(kinds.enabled("event_updates"))
+        self.assertTrue(kinds.enabled("order_updates"))
+
+    def test_a_test_notification_goes_to_your_own_devices(self):
+        page = self.client.post(self.url, {"op": "test"}, follow=True)
+        self.assertContains(page, "None of your devices")
+        PushSubscription.objects.create(app="store", user=self.owner, **subscriptions.parse(browser_subscription()))
+        with mock.patch("push.send.webpush") as webpush:
+            self.assertContains(self.client.post(self.url, {"op": "test"}, follow=True), "Sent to 1 of your devices.")
+        self.assertEqual(json.loads(webpush.call_args.args[1])["title"], "Test notification")
+
+    def test_viewing_isnt_editing(self):
+        self.client.force_login(self.viewer)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+        self.client.post(self.url, {"op": "flip:order_updates"})
+        self.client.post(self.url, {"op": "save"})  # refused: back with a message
+        from push import kinds
+        self.assertTrue(kinds.enabled("order_updates"))
+
+
+class AccountNotificationsTests(TestCase):
+    """The account's Notifications page (online_store/account.py: notifications)."""
+
+    def setUp(self):
+        self.ana = User.objects.create_user("ana", password="x")
+        self.bo = User.objects.create_user("bo", password="x")
+        self.phone = PushSubscription.objects.create(app="store", user=self.ana, device="Chrome on Android", **subscriptions.parse(browser_subscription()))
+        self.bos = PushSubscription.objects.create(app="store", user=self.bo, **subscriptions.parse(browser_subscription(2)))
+        self.client.force_login(self.ana)
+        self.url = reverse("account_notifications")
+
+    def test_devices_what_they_get_and_removing_one(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, "Chrome on Android")
+        self.assertNotContains(page, self.bos.endpoint[:30])
+        self.client.post(self.url, {"op": f"toggle:{self.phone.id}:events"})
+        self.phone.refresh_from_db()
+        self.assertTrue(self.phone.event_updates)
+        self.client.post(self.url, {"op": f"toggle:{self.bos.id}:events"})  # someone else's: nothing
+        self.bos.refresh_from_db()
+        self.assertFalse(self.bos.event_updates)
+        self.client.post(self.url, {"op": f"remove:{self.bos.id}"})
+        self.assertTrue(PushSubscription.objects.filter(pk=self.bos.pk).exists())
+        self.client.post(self.url, {"op": f"remove:{self.phone.id}"})
+        self.assertFalse(PushSubscription.objects.filter(pk=self.phone.pk).exists())
+
+    def test_signed_out_people_sign_in_first(self):
+        self.client.logout()
+        self.assertTrue(self.client.get(self.url).url.startswith(reverse("store_signin")))

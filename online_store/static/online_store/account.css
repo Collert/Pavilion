@@ -308,3 +308,13 @@ a { color: inherit; }
     .acct-hours { margin-right: 0; }
     .acct-avail-txt { width: 90px; }
 }
+
+/* Notifications (account/notifications.html) */
+.acct-device { padding: 12px 14px 4px; border-radius: 16px; background: var(--softer); font-size: 14px; }
+.acct-device-top { display: flex; align-items: center; gap: 12px; padding-bottom: 6px; }
+.acct-device.here { box-shadow: inset 0 0 0 1.5px var(--brand); }
+.acct-toggle.as-button { width: 100%; border: none; border-top: 1px solid var(--soft); background: none; font: inherit; color: inherit; text-align: left; }
+.acct-switch.on { background: var(--green); }
+.acct-switch.on > span { transform: translateX(18px); }
+.acct-toggle.as-button:focus-visible .acct-switch { outline: 3px solid var(--brand); outline-offset: 2px; }
+.acct-blocked { color: var(--red-ink); }

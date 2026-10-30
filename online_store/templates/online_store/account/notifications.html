@@ -1,0 +1,57 @@
+{% extends "online_store/account/base.html" %}
+{% load i18n %}
+{% comment %}
+Notifications (no artboard; StoreAccount's look; online_store/account.py: notifications). One card per device that
+turned them on, with what it gets and Remove (POST buttons, saved straight away). The store's push.js marks this
+device's card ([data-push-device] whose hash matches its subscription) and shows "Turn them on here" when this device
+has none ([data-push-here]).
+{% endcomment %}
+{% block title %}{% trans "Notifications" %}{% endblock %}
+{% block heading %}{% trans "Notifications" %}{% endblock %}
+{% block content %}
+<div class="acct-scroll acct-grid">
+    <div class="acct-stack">
+        <section class="acct-card acct-here" data-push-here hidden>
+            <h2 class="disp acct-h2">{% trans "This device" %}</h2>
+            <div class="acct-meta top6" data-push-here-text>{% trans "Notifications aren’t on here. Turn them on to hear about your orders on this device too." %}</div>
+            <div class="acct-meta acct-blocked top6" data-push-blocked hidden>{% trans "You blocked notifications from this site, so we can’t ask again. Allow them in your browser’s site settings (the icon beside the address), then tap the button again." %}</div>
+            <button type="button" class="acct-btn amber top10" data-push-turn-on>{% trans "Turn them on here" %}</button>
+        </section>
+        <section class="acct-card" id="acct-devices" data-region>
+            <div class="acct-card-head"><h2 class="disp acct-h2 grow">{% trans "Your devices" %}</h2></div>
+            <div class="acct-meta top6">{% trans "Each phone or computer you turned notifications on for. They only ever get what’s switched on here." %}</div>
+            <form method="post" class="acct-list top12">{% csrf_token %}
+                {% for d in devices %}
+                <div class="acct-device" data-push-device="{{ d.hash }}">
+                    <div class="acct-device-top">
+                        <span class="acct-pin"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10v18H7z M11 18h2"/></svg></span>
+                        <span class="grow acct-two"><span class="strong">{{ d.name }} <span class="acct-pill done" data-this-device hidden>{% trans "This device" %}</span></span>
+                            <span class="acct-meta">{% blocktrans with when=d.sub.created_at|date:"M j, Y" %}Since {{ when }}{% endblocktrans %}{% if d.sub.last_success_at %} · {% blocktrans with when=d.sub.last_success_at|timesince %}last notified {{ when }} ago{% endblocktrans %}{% endif %}</span></span>
+                        <button class="acct-mini red" name="op" value="remove:{{ d.sub.id }}">{% trans "Remove" %}</button>
+                    </div>
+                    {% if orders_on %}
+                    <button class="acct-toggle as-button" name="op" value="toggle:{{ d.sub.id }}:orders" role="switch" aria-checked="{{ d.sub.order_updates|yesno:'true,false' }}">
+                        <span class="grow acct-two"><span class="strong">{% trans "Order updates" %}</span><span class="acct-meta">{% trans "Accepted, ready, on its way: each step of your orders." %}</span></span>
+                        <span class="acct-switch{% if d.sub.order_updates %} on{% endif %}"><span></span></span></button>
+                    {% endif %}
+                    {% if events_on %}
+                    <button class="acct-toggle as-button" name="op" value="toggle:{{ d.sub.id }}:events" role="switch" aria-checked="{{ d.sub.event_updates|yesno:'true,false' }}">
+                        <span class="grow acct-two"><span class="strong">{% trans "Event updates" %}</span><span class="acct-meta">{% trans "Special hours, events and closures." %}</span></span>
+                        <span class="acct-switch{% if d.sub.event_updates %} on{% endif %}"><span></span></span></button>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="acct-meta">{% trans "No devices yet. Turn notifications on from an order’s page, or here on the device you’re using." %}</div>
+                {% endfor %}
+            </form>
+        </section>
+    </div>
+    <div class="acct-stack">
+        <section class="acct-card">
+            <h2 class="disp acct-h2">{% trans "How they work" %}</h2>
+            <div class="acct-meta top6">{% blocktrans with name=store.name %}{{ name }} only sends notifications to devices where you said yes. Removing a device here stops them straight away; turning notifications off in your browser does too.{% endblocktrans %}</div>
+            <div class="acct-meta top10">{% trans "On iPhone and iPad, notifications only work from the store’s app on your Home Screen." %} <a class="acct-link" href="{% url 'store_install' %}">{% trans "Get the app" %}</a></div>
+        </section>
+    </div>
+</div>
+{% endblock %}

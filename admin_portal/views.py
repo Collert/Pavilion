@@ -51,6 +51,7 @@ from . import discounts as discounts_data
 from . import giftcards as giftcards_data
 from . import giftdesigns as giftdesigns_data
 from . import email_settings as email_data
+from . import notifications as notifications_data
 from . import languages as languages_data
 from . import store_info as store_info_data
 from . import library as library_data
@@ -1163,6 +1164,30 @@ def email(request):
     return page(request, "admin_portal/email.html", "email", {"x": email_data.page(st, store)})
 
 
+@admin_page("notifications", edit={"save", "test"})
+def notifications(request):
+    """Notifications: the push notifications Pavilion sends, each on or off, and a test to your own devices
+    (admin_portal/notifications.py)."""
+    st = notifications_data.state(request.session)
+    if request.method == "POST":
+        op = request.POST.get("op", "preview")
+        if op == "save":
+            notifications_data.save(st)
+            request.session.pop(notifications_data.KEY, None)
+            messages.success(request, _("Notification settings saved."))
+            return redirect("admin_notifications")
+        if op == "discard":
+            request.session.pop(notifications_data.KEY, None)
+            return redirect("admin_notifications")
+        toast, error = notifications_data.apply_op(st, op, request)
+        if toast:
+            messages.success(request, toast)
+        if error:
+            messages.error(request, error)
+        request.session[notifications_data.KEY] = st
+    return page(request, "admin_portal/notifications.html", "notifications", {"x": notifications_data.page(st)})
+
+
 @admin_page("storeinfo", edit={"save", "restart"})
 def store_info(request):
     """Store info: the store's details, tax, time zone, music space and service keys (admin_portal/store_info.py).
@@ -1272,8 +1297,10 @@ def events(request):
             if any(events_data.errors(x) for x in draft["events"]):
                 messages.error(request, _("Fix the events marked in red first."))
             else:
-                from events.announce import announce_later
-                emailed = announce_later(events_data.save(draft), request)
+                from events.announce import announce_later, notify_later
+                added = events_data.save(draft)
+                emailed = announce_later(added, request)
+                notify_later(added)
                 messages.success(request, _("Events saved. Store hours, the online store and the register are updated."))
                 if emailed:
                     messages.success(request, _("Emailing customers about %(names)s.") % {"names": ", ".join(f"“{c['title']}”" for c in emailed)})

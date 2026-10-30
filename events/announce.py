@@ -81,3 +81,35 @@ def announce_later(events, request):
         from django.db import transaction
         transaction.on_commit(lambda: listmonk._background(job))
     return jobs
+
+
+def notify_later(events) -> int:
+    """Push "Event updates" (push/kinds.py) about each new event that hasn't ended to the store subscriptions that
+    turned them on, after this transaction and in the background. Returns how many events it's about."""
+    from django.urls import reverse
+    from django.utils.formats import date_format
+    from push import kinds, send
+    from push.models import PushSubscription
+    if not kinds.enabled("event_updates"):
+        return 0
+    today = timezone.localdate()
+    fresh = [e for e in events if e.end_date >= today]
+    subs = list(PushSubscription.objects.filter(app=PushSubscription.STORE, event_updates=True))
+    if not fresh or not subs:
+        return 0
+    from online_store.app import _icon_url
+    icon = _icon_url()
+    for event in fresh:
+        def build(event=event):
+            day = date_format(event.start_date, "l, F j")
+            if event.end_date != event.start_date:
+                day = f"{day} – {date_format(event.end_date, 'l, F j')}"
+            if event.kind == Event.OPEN:
+                body = f"{day} · {clock(event.opens)} – {clock(event.closes)}"
+            elif event.all_day:
+                body = gettext("Closed %(day)s") % {"day": day}
+            else:
+                body = gettext("Closed %(day)s, %(from)s – %(to)s") % {"day": day, "from": clock(event.opens), "to": clock(event.closes)}
+            return {"title": event.title, "body": body, "url": reverse("store_home"), "tag": f"event-{event.pk}", "icon": icon}
+        send.notify(subs, build)
+    return len(fresh)

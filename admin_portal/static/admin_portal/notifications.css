@@ -1,0 +1,9 @@
+/* Notifications (notifications.html): Email's layout (email.css) plus how each one looks on a phone */
+.nt-reach { margin-top: 8px; font-size: 12px; font-weight: 800; color: var(--muted); }
+.nt-preview { margin-top: 14px; display: flex; gap: 12px; align-items: flex-start; max-width: 420px; padding: 12px 14px; border-radius: 18px;
+    background: var(--softer); box-shadow: 0 6px 16px rgba(20, 38, 31, .08); font-size: 13px; line-height: 1.4; }
+.em-card:not(.on) .nt-preview { opacity: .5; }
+.nt-app { width: 28px; height: 28px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--amber); }
+.nt-pv-top { display: flex; gap: 8px; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+.nt-note { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 18px; background: #EAF0F8; color: #2C4E7C; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.nt-note svg { flex: none; margin-top: 1px; }

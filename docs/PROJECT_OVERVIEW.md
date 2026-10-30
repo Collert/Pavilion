@@ -64,24 +64,28 @@ through listmonk (2026-10-20, replacing SendGrid); their wording lives in listmo
 - **Integrations:** Square (Terminal API, Web Payments SDK, webhooks) on `squareup==38.x` (later versions replaced
   `square.client.Client`), listmonk transactional email (`misc_tools/email.py`), Valhalla and Nominatim (OpenStreetMap routing and address lookup), weatherapi.com, Web Push (VAPID), gTTS +
   ffmpeg, OpenCV + scikit-learn, python-barcode, QuaggaJS, FullCalendar.
-- **i18n:** `i18n_patterns`, so page URLs carry `/en/`, `/uk/` or `/zh-hk/`. `LANGUAGE_CODE` must be one of `LANGUAGES`
-  (`en`), or `reverse()` outside a request builds 404ing `/en-us/` URLs. JS strings use `gettext()` via `/jsi18n/`.
+- **i18n:** no language prefixes (since 2026-10-30): the language is the cookie the pickers set (`/i18n/setlang/`),
+  else the browser's (`LocaleMiddleware`); a signed-in person's saved one is looked up once a session. Old prefixed
+  addresses (`/uk/menu`) redirect and switch to that language (`pavilion/redirects.py`). `LANGUAGE_CODE` must be one of
+  `LANGUAGES` (`en`). JS strings use `gettext()` via `/jsi18n/<lang>/` (one address per language, cached a day).
 
 ---
 
 ## 4. URL map
 
-All URLs below are under the language prefix (`/en/`) except `/jsi18n/` and `/events/<topic>`.
+No URL has a language prefix. The online store lives under `/store/` so the installed store app can be scoped to it;
+old store addresses at the root (`/menu`, `/order-status/12`, `/`) redirect there for good (`pavilion/redirects.py`,
+last in the URLconf).
 
 | Prefix | App | Key routes |
 | --- | --- | --- |
-| `/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `order-status/<id>`, `account/...`, `catering/` (catering app) |
+| `/store/` | `online_store` | `""` home, `menu`, `dish/<id>`, `cart`, `services`, `gift-cards`, `order-status/<id>` (only for whoever placed it), `account/...` (incl. `account/notifications`), `install` (get the app), `manifest.webmanifest`, `icon-<size>.png`, `icon-maskable.png`, `sw.js`, `push/sync\|forget\|order/<id>\|renew`; `catering/` (catering app) |
 | `/restaurant/` | `pos_server` | `register` (**the POS**), `order-marking` (KDS), `pos-output` (customer display), `orders-progress` (status board), `active_orders` (JSON), `check_inventory` (JSON), `check-device`, `component-choice`, `menu_select`, `create-menu`, `pair-terminal`, `webhook/square`, `register/card/<checkout id>`, `register/terminal`, `check-su` |
 | `/admin/` | `admin_portal` | `""` dashboard home, `reports[/<day>[.csv]]`, `orders[/<id>[/note\|send\|refund\|print\|receipt]]`, `catering[/settings\|/<id>]`, `branding`, `hours`, `stations`, `events`, `screens[/<id>[/preview]]`, `audio`, `library[/upload]`, `staff`, `shifts[/pars]`, `requests`, `roles`, `menus[/new\|/<id>[/action]]`, `dishes[/new\|/<id>]`, `combos[/new\|/<id>]`, `recipes[/new\|/<id>]`, `services[/new\|/<id>]`, `components[/new\|/<id>]`, `ingredients[/new\|/<id>]`, `condiments[/new\|/<id>]`, `disposables[/new\|/<id>]`, `restocks[/new\|/<id>]`. Being rebuilt page by page from the canvas's `Admin*` artboards (see §6.9) |
-| `/catering/` | `catering` | `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
+| `/store/catering/` | `catering` | `""` the quote builder, `<token>`: a customer's catering order (the link in its emails): reply, accept or decline proposed changes |
 | `/advanced-admin/` | Django admin | Dishes, components, stations, devices, everything else |
 | `/inventory/` | `inventory` | `log-shopping`, `shopping-history`, `day-display/<id>`, `crafting` (Cookery), `crafting/data` (its JSON + POST actions), `component-availability` (page), `availability/data` (its JSON + POST changes) |
-| `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `vapid-public-key/`, `save-subscription/` |
+| `/deliveries/` | `deliveries` | `""` start shift / orders looking for a courier (`?end=1` end-shift sheet), `shift` (POST start/end), `order/<id>` (accept/pass), `current` (your delivery), `done/<id>`, `eta` (store checkout), `manifest.webmanifest`, `sw.js`, `push/renew`, `save-subscription/` |
 | `/gift-cards/` | `gift_cards` | `card/<number>`, `get-card`, `special`, `card-confirm`, `card-api/<number>`, `email_card-confirm` (preview) |
 | `/payments/` | `payments` | `web-payment-window` (iframe), `process-web-payment` |
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
@@ -217,7 +221,10 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 - `deliveries.Delivery(order, order_number, customer_name, destination, address_2, instructions, phone, courier,
   passed_by, accepted_at, picked_up_at, arrived_at, delivered_at, handoff, photo, declined_reason, distance_m,
   travel_seconds)`; `phase()` says which step it's at. `CourierShift(user, mode = walking|bicycling|driving,
-  started_at)` (who is on shift), `PushSubscription` (web push, `deliveries/notifications.py`).
+  started_at)` (who is on shift). Couriers' push subscriptions are `push.PushSubscription` (app `deliveries`).
+- `push`: `PushSubscription(user or none for a guest, app = store|deliveries, endpoint, keys, device, language,
+  order_updates, event_updates, seen_at, last_success_at, failures)`, `VapidKeys` (one row, made on first use; the
+  private key encrypted), `NotificationSwitch(kind, enabled)` (the admin's Notifications page). See §6.14.
 - `inventory`: `StockUpdate` + `UpdateIngredient` (shopping trips with a receipt upload), `Recipe` (`yield_quantity`,
   `notes`) with `RecipeIngredient` (per batch) and `RecipeStep` (title, text, optional timer, scene, ingredients it uses),
   `Transformation`, `CookingSession` + `YieldEntry` (§6.10), `Packaging`,
@@ -392,7 +399,7 @@ tile); open it at its URL.
   prices), diffs it into "In progress" / "Ready" (ready = every involved station done), and announces newly ready
   orders by TTS. Clock, weather (OpenWeather) and a YouTube player are on the same screen.
 
-### 6.5 Online ordering (`/`)
+### 6.5 Online ordering (`/store/`)
 
 The store is being moved onto **themes** (CLAUDE.md "Store themes"; design: the canvas's `Store*` artboards, theme
 "Neighbourhood"). Done:
@@ -1031,6 +1038,47 @@ staff member; designs `AudioRail`, `AudioChannels`, `AudioMusic`, `AudioVoice`; 
   the channel too). Recent lists the last hour: who talked and for how long (voices aren't recorded), and order
   calls, which play again on this device only (`voice.recent()`, kept in the cache; `voice.talking()` is who's on).
 
+### 6.14 Web push and the installable apps (`push/`, `online_store/app.py`)
+
+Two installable apps, each with its own scope, manifest and service worker served from the top of its scope
+(`push/templates/push/sw.js`: shows notifications, opens their page on a tap, re-posts a renewed subscription to
+`push/renew`, which trusts only the old endpoint):
+
+- **The store** (`/store/`): the manifest is written per request from the store's name and the live theme's `app`
+  colours (`online_store/themes.py`); the icons are drawn with Pillow from the logo (or the store's initial) and cached.
+  `/store/install` explains the app (what it does and doesn't), shows the install button when the browser offers one
+  (`beforeinstallprompt`) and walks iPhone people through Share → Add to Home Screen. **Screenshots** for Chrome's
+  richer install sheet are taken by a Gotenberg server (`screenshots` in docker-compose.yml; `SCREENSHOT_URL`,
+  `SCREENSHOT_SITE`) after each Publish on the admin's Online store page, in the background (one run at a time, one more
+  if published again meanwhile; `online_store/screenshots.py`): new files under `store_app/` in the media storage, then
+  the old set is deleted. `StoreSettings.app_screenshots` lists them.
+- **The courier app** (`/deliveries/`): its manifest keeps the old id so installed copies stay the same app; its service
+  worker used to sit in `/static/` (where it never reached the pages) and now has an offline page.
+
+**Keys**: `push/vapid.py` makes a VAPID pair the first time it's needed and keeps it in `push.VapidKeys` (private key
+encrypted with a key from SECRET_KEY); a deployment that had `VAPID_PRIVATE_KEY` keeps that key. **Sending**
+(`push/send.py`): after the commit, on a background thread, each subscription in its own language. 404/410 delete the
+subscription at once; three other refusals in a row delete it; 429/5xx are left for next time. Guest subscriptions not
+seen for 180 days are dropped when anyone subscribes. Browsers post their subscription whenever a store page finds one
+(`push/sync`: a guest's gets the account when they sign in on it; notifications turned off → `push/forget`).
+
+**Order updates** (`online_store/order_push.py`): on every save of an online order or its delivery, its stage is worked
+out (accepted when every station took it, ready (pickup only), on its way (courier picked it up), picked up, delivered)
+and a stage past `Order.push_stage` is sent once (a conditional update claims it; `Order.save()` never writes
+`push_stage`). Rejections (pre_delete with the `RejectedOrder`'s reason) and refunds send their own. Recipients: the
+browsers linked to the order (`Order.push_subscriptions`) plus, for a customer's order, their store subscriptions with
+`order_updates`. **The order page** shows a card (`online_store/static/online_store/push.js`): just after placing
+(`?placed=1`) a sheet offers notifications; a browser that already has them links itself (unless order updates are off
+for it); blocked notifications get a red explanation (browsers can't ask again); iPhones outside the Home Screen app
+get a pointer to `/store/install`. **Event updates** go to store subscriptions with `event_updates` when a new event is
+saved (`events/announce.py: notify_later`). The admin's **Notifications** page (Settings) turns each kind on or off
+(`push/kinds.py`, `NotificationSwitch`) and sends you a test; the account's **Notifications** page lists your devices with
+their switches and Remove, marks "This device" and offers turning them on here.
+
+**Who sees an order**: a customer's order only shows to them (signed in, any device); a guest's to the browser that
+placed it (a signed cookie, `online_store/guest_orders.py`, a year, the last 20). Everyone else gets "This order isn't
+yours to see" (403).
+
 ## 7. Real-time: history and current design
 
 **What existed before June 2024:** `pos_server/signals.py` appended orders to module-level Python lists, and views
@@ -1077,7 +1125,7 @@ the KDS stayed up (about 360 ms against 100 ms idle; 820 ms with no throttle). A
 `APP_DOMAIN`, `EXTRA_HOSTS` (comma-separated, e.g. an ngrok domain), `DATABASE_URL` (a connection string; else `POSTGRES_DB/USER/PASSWORD`, `DB_HOST`, `DB_PORT`),
 `REDIS_URL`, `RUSTFS_ENDPOINT_URL/ACCESS_KEY/SECRET_KEY/BUCKET/REGION/PUBLIC_URL/PUBLIC_PROTOCOL`,
 `ENFORCE_DEVICE_CHECK`, `SQUARE_ACCESS_TOKEN/ENVIRONMENT/APPLICATION_ID/APPLICATION_SECRET/LOCATION_ID/WEBHOOK_SIGNATURE_KEY` (Terminals are paired per register; there's no store-wide `SQUARE_DEVICE_ID` any more),
-`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `VALHALLA_URL`, `GEOCODER_URL`, `WEATHER_API_KEY` (all only when Store info has none), `OSM_EXTRACT` (compose), `VAPID_PUBLIC_KEY/PRIVATE_KEY/CONTACT_EMAIL`. The store's name, address, tax, time zone and music space are on the admin's Store info page, not here.
+`LISTMONK_URL/API_USER/API_TOKEN/FROM_EMAIL`, `VALHALLA_URL`, `GEOCODER_URL`, `WEATHER_API_KEY` (all only when Store info has none), `OSM_EXTRACT` (compose), `SCREENSHOT_URL`/`SCREENSHOT_SITE` (the store app's screenshots; compose sets both), `VAPID_PRIVATE_KEY` (only to keep an older deployment's key; Pavilion makes its own) and `VAPID_CONTACT_EMAIL`. The store's name, address, tax, time zone and music space are on the admin's Store info page, not here.
 `BUGSINK_DSN` (error reporting; defaults to the project's public DSN, set empty to disable; not sent during tests) and
 `BUGSINK_SEND_PII` (`true` attaches usernames, emails and IPs to error reports; default off).
 
@@ -1101,7 +1149,7 @@ the admin (or Store info, to restart for a new time zone).
 
 ### Local dev (Windows)
 
-- Use **`venv/`**. `venv\Scripts\python manage.py runserver` (ASGI via daphne), then `http://127.0.0.1:8000/en/apps/`.
+- Use **`venv/`**. `venv\Scripts\python manage.py runserver` (ASGI via daphne), then `http://127.0.0.1:8000/apps/`.
 - Fresh database: `manage.py migrate` then `manage.py seed_demo` (admin/admin, cashier/cashier, courier/courier, customer/customer).
 - Tests: `manage.py test` (Square and listmonk are mocked). `pip install -r requirements-dev.txt` adds `fakeredis` for the Redis broker test.
 - `start.bat` / `start.sh` start ngrok and pass its domain to Django via `EXTRA_HOSTS`. This exposes a DEBUG server; don't leave it running.

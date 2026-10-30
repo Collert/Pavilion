@@ -14,6 +14,7 @@ urlpatterns = [
     path("account", account.orders, name="account"),
     path("account/catering", account.catering, name="account_catering"),
     path("account/profile", account.profile, name="account_profile"),
+    path("account/notifications", account.notifications, name="account_notifications"),
     path("account/shifts", work.shifts, name="account_shifts"),
     path("account/up-for-grabs", work.market, name="account_market"),
     path("account/time", work.time_page, name="account_time"),

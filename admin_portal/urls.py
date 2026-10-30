@@ -42,6 +42,7 @@ urlpatterns = [
     path("languages", views.languages, name="admin_languages"),
     path("languages/status", views.languages_status, name="admin_languages_status"),
     path("email", views.email, name="admin_email"),
+    path("notifications", views.notifications, name="admin_notifications"),
     path("payments", views.payments, name="admin_payments"),
     path("devices", views.devices, name="admin_devices"),
     path("staff-cards/<int:card_id>/print", views.staff_card_print, name="admin_staff_card_print"),
