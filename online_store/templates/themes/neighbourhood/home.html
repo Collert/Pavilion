@@ -16,14 +16,14 @@
             <span><span class="nb-fact-dot{% if status.open %} gold{% endif %}"></span>{{ status.text }}</span>
         </div>
     </div>
-    <div class="nb-hero-art" aria-hidden="true">
-        <div class="nb-hero-sun"></div>
+    <div class="nb-hero-art">
+        <div class="nb-hero-sun" aria-hidden="true"></div>
         {% if hero_url %}<img class="nb-hero-photo" src="{{ hero_url }}" alt="">
-        {% else %}<div class="nb-hero-main">{% include "themes/neighbourhood/_drawing.html" with kind=hero_drawing size=400 %}</div>{% endif %}
-        <div class="nb-hero-bubble left">{% include "themes/neighbourhood/_drawing.html" with kind="fries" size=150 %}</div>
-        <div class="nb-hero-bubble right">{% include "themes/neighbourhood/_drawing.html" with kind="latte" size=120 %}</div>
+        {% else %}<div class="nb-hero-main" aria-hidden="true">{% include "themes/neighbourhood/_drawing.html" with kind=hero_drawing size=400 %}</div>{% endif %}
+        {% include "themes/neighbourhood/_hero_bubble.html" with side="left" featured=side_dish drawing="fries" size=150 %}
+        {% include "themes/neighbourhood/_hero_bubble.html" with side="right" featured=corner_dish drawing="latte" size=120 %}
         {% if t.stamp %}
-        <div class="nb-stamp">
+        <div class="nb-stamp" aria-hidden="true">
             <svg class="nb-stamp-ring" viewBox="0 0 150 150"><defs><path id="nb-ring" d="M75 75m-56 0a56 56 0 1 1 112 0a56 56 0 1 1-112 0"/></defs><circle cx="75" cy="75" r="74" fill="var(--deep)"/><text font-size="13" font-weight="700" letter-spacing="3.2" fill="var(--paper)"><textPath href="#nb-ring">{{ t.stamp|upper }} · {{ t.stamp|upper }} ·</textPath></text></svg>
             <div class="nb-serif nb-stamp-mid">{% if status.short %}{{ status.short }}<span>{% trans "TODAY" %}</span>{% else %}{{ store.name|slice:":1" }}{% endif %}</div>
         </div>

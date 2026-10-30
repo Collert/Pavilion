@@ -13,6 +13,7 @@ from django.core.files.storage import default_storage
 from django.utils.translation import gettext as _
 
 from online_store import themes
+from pos_server.models import Dish
 
 from .models import StoreSettings, StoreTheme
 
@@ -137,6 +138,10 @@ def _field(param, value, prefix, warns):
         shown["more_off"] = param.max is not None and value + param.step > param.max
     if param.type == "choice":
         shown["choices"] = [{"value": v, "label": label, "on": v == value} for v, label in param.choices]
+    if param.type == "dish":
+        shown["choices"] = [{"value": 0, "label": _("None"), "on": not value}] + [
+            {"value": d.id, "label": d.title, "on": d.id == value}
+            for d in Dish.objects.filter(archived=False, visible_in_menu=True).order_by("title")]
     if param.type == "color":
         shown["presets"] = [{"value": c, "on": c.upper() == str(value).upper()} for c in param.presets]
     return shown

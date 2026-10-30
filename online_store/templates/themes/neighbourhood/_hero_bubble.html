@@ -1,0 +1,4 @@
+{% comment %}A small circle beside the hero: the dish picked for it (Homepage settings), opening its sheet, else a drawing of `drawing`.{% endcomment %}
+{% if featured %}<a class="nb-hero-bubble {{ side }}{% if featured.picture.photo %} photo{% endif %}" href="{{ featured.url }}" title="{{ featured.dish.title }}">
+    {% if featured.picture.photo %}<img src="{{ featured.picture.photo }}" alt="{{ featured.dish.title }}">{% else %}{% include "themes/neighbourhood/_drawing.html" with kind=featured.picture.drawing size=size label=featured.dish.title %}{% endif %}
+</a>{% else %}<div class="nb-hero-bubble {{ side }}" aria-hidden="true">{% include "themes/neighbourhood/_drawing.html" with kind=drawing size=size %}</div>{% endif %}

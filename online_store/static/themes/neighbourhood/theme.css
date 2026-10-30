@@ -82,6 +82,10 @@ body.nb { margin: 0; background: var(--paper); color: var(--ink); font-family: v
 .nb-hero-bubble.left { left: 0; top: 59%; width: 31.7%; background: var(--sage); }
 .nb-hero-bubble.right { right: 1.6%; top: 0; width: 28.3%; background: var(--card); }
 .nb-hero-bubble .drawing { width: 78%; }
+a.nb-hero-bubble { transition: transform .25s cubic-bezier(.2, .8, .2, 1); }
+a.nb-hero-bubble:hover { transform: scale(1.05); }
+.nb-hero-bubble.photo { overflow: hidden; box-shadow: 0 0 0 var(--outline) var(--ink); }
+.nb-hero-bubble.photo img { width: 100%; height: 100%; object-fit: cover; }
 .nb-stamp { position: absolute; right: 5%; bottom: 3.5%; width: 25%; aspect-ratio: 1; }
 .nb-stamp-ring { width: 100%; height: 100%; font-family: var(--body-font); animation: nbSpin 24s linear infinite; }
 @keyframes nbSpin { to { transform: rotate(360deg); } }

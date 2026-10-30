@@ -78,6 +78,8 @@ makes it live. Settings come from the theme's JSON (online_store/themes/<name>.j
                         <label class="upload-btn"><input type="file" accept="image/*" name="upload-{% if f.name == 's-logo' %}s.logo{% else %}{{ p.name }}{% endif %}" data-upload class="visually-hidden">{% if f.url %}{% trans "Replace" %}{% else %}{% trans "Upload" %}{% endif %}</label>
                         {% if f.url %}<button class="remove-btn" name="op" value="clear:{% if f.name == 's-logo' %}s.logo{% else %}{{ p.name }}{% endif %}">{% trans "Remove" %}</button>{% endif %}
                     </div>
+                    {% elif p.type == "dish" %}
+                    <select class="field" name="{{ f.name }}" aria-label="{{ p.label }}">{% for c in f.choices %}<option value="{{ c.value }}" {% if c.on %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>
                     {% elif p.type == "choice" and p.control == "select" %}
                     <select class="field" name="{{ f.name }}"{% if p.name|slice:"-5:" == "_font" %} style="font-family: '{{ f.value }}'; font-size: 16px"{% endif %}>{% for c in f.choices %}<option value="{{ c.value }}" {% if c.on %}selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>
                     {% elif p.type == "choice" %}

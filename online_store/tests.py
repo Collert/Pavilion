@@ -247,6 +247,20 @@ class ThemeTests(MenuFixture, TestCase):
         self.assertContains(self.client.get(home), "Live headline")  # a normal visit
         self.assertContains(self.client.get(home, headers={"Sec-Fetch-Dest": "iframe"}), "Draft headline")
 
+    def test_hero_circles_show_the_picked_dishes_and_open_them(self):
+        from admin_portal.models import StoreTheme
+        from online_store import themes
+        from pos_server.models import Dish
+        theme = themes.get("neighbourhood")
+        self.assertEqual(theme.clean({"side_dish": str(self.burger.id), "corner_dish": "-3"})["side_dish"], self.burger.id)
+        self.assertEqual(theme.clean({"corner_dish": "-3"})["corner_dish"], 0)
+        off_menu = Dish.objects.create(title="Secret fries", price=Decimal("4.00"), station=self.kitchen)
+        StoreTheme.objects.create(name="neighbourhood", live={"side_dish": self.burger.id, "corner_dish": off_menu.id})
+        response = self.client.get(reverse("store_home"))
+        self.assertContains(response, f'href="{reverse("dish", args=[self.burger.id])}"')
+        self.assertNotContains(response, reverse("dish", args=[off_menu.id]))  # not on a live menu: the drawing stays
+        self.assertEqual(response.context["corner_dish"], None)
+
     def test_hours_and_open_status(self):
         from online_store import storefront
         now = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)

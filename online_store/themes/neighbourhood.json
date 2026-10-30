@@ -32,6 +32,8 @@
       "headline": {"type": "string", "default": "Smashed, slow-cooked & baked this morning.", "max": 70, "label": "Headline", "help": "An & is drawn in the accent's italic"},
       "intro": {"type": "text", "default": "A neighbourhood kitchen for burgers off the flat-top, twelve-hour pork, big grain bowls and a bakery case that’s empty by two.", "label": "Intro"},
       "hero": {"type": "image", "default": "", "label": "Hero photo", "help": "Square works best. Without one, a drawing of your best seller"},
+      "side_dish": {"type": "dish", "default": 0, "label": "Small circle, bottom left", "help": "A dish to show there; tapping it opens the dish. None keeps the drawing of fries"},
+      "corner_dish": {"type": "dish", "default": 0, "label": "Small circle, top right", "help": "A dish to show there; tapping it opens the dish. None keeps the drawing of a latte"},
       "stamp": {"type": "string", "default": "Fresh daily · Main Street", "max": 30, "label": "Spinning stamp", "help": "Empty to hide it"},
       "show_menus": {"type": "bool", "default": true, "label": "What’s on the menu", "help": "Live and upcoming menus"},
       "show_favourites": {"type": "bool", "default": true, "label": "Most ordered", "help": "This week’s four best sellers"},

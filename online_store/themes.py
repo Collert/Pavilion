@@ -22,7 +22,7 @@ The JSON:
 Param types: string (one line, `max` = length), text (a paragraph), url, bool (a switch; `help` is its line), int /
 number (`min`, `max`, `step`, `control`: "stepper" or "range", `unit`), choice (`options`, `control`: "select",
 "segments" or "cards"; `labels` names the options), color (#hex, `presets`), image (an uploaded file, a media name
-under branding/). `show_if` names a bool param that has to be on for the field to show.
+under branding/), dish (a dish's id, picked from the store's dishes; 0 = none). `show_if` names a bool param that has to be on for the field to show.
 
 `app` names the colour params the installed store app uses (online_store/app.py): `theme` its title bar, `background`
 its splash screen and what its icon's logo sits on (without a logo the icon is Pavilion's cloche).
@@ -45,7 +45,7 @@ from django.core.files.storage import default_storage
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
-TYPES = ("string", "text", "url", "bool", "int", "number", "choice", "color", "image")
+TYPES = ("string", "text", "url", "bool", "int", "number", "choice", "color", "image", "dish")
 CONTROLS = {"int": ("stepper", "range"), "number": ("stepper", "range"), "choice": ("select", "segments", "cards")}
 TEXT_LIMITS = {"string": 120, "text": 600, "url": 500}
 PREVIEW_KEY = "theme_preview"
@@ -97,6 +97,12 @@ class Param:
             return value.upper() if isinstance(value, str) and COLOR_RE.match(value) else None
         if kind == "image":
             return value if isinstance(value, str) and (value == "" or value.startswith("branding/")) else None
+        if kind == "dish":
+            try:
+                value = int(value or 0)
+            except (TypeError, ValueError):
+                return None
+            return value if value >= 0 else None
         return None
 
     @property

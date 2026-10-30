@@ -70,6 +70,8 @@ def index(request):
         "services": storefront.services_teaser() if t.get("show_services") else [],
         "pickup_minutes": storefront.pickup_minutes(),
         "hero_url": themes.media_url(t.get("hero")), "hero_drawing": _hero_drawing(),
+        "side_dish": storefront.featured_dish(t.get("side_dish"), t.get("pictures", "photos")),
+        "corner_dish": storefront.featured_dish(t.get("corner_dish"), t.get("pictures", "photos")),
     }, active="home")
 
 

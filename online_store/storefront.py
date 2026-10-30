@@ -203,6 +203,16 @@ def best_sellers(count=4, days=7, pictures="photos") -> list[dict]:
     return out
 
 
+def featured_dish(dish_id, pictures="photos") -> dict | None:
+    """A dish a theme shows on its own (a hero circle): {"dish", "picture", "url"}, or None unless it's on a live menu."""
+    if not dish_id:
+        return None
+    dish = Dish.objects.filter(id=dish_id, menu__in=Menu.live_menus(), archived=False, visible_in_menu=True).first()
+    if dish is None:
+        return None
+    return {"dish": dish, "picture": picture(dish, pictures), "url": link("dish", dish.id)}
+
+
 def pickup_minutes() -> int:
     """About how long pickup takes: recent orders' median prep time (pos_server/estimates.py), to the 5 minutes
     (20 without history)."""

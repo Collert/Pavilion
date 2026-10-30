@@ -247,7 +247,7 @@ every template `background`, `text` and `accent` colours (the admin's thumbnails
 ## Store themes
 
 The online store is drawn by a theme, built like widgets: `online_store/themes/<name>.json` (title, fonts, css,
-`thumb`, `contrast` pairs and `groups` of params: string, text, url, bool, int, number, choice, color, image, with
+`thumb`, `contrast` pairs and `groups` of params: string, text, url, bool, int, number, choice, color, image, dish (an id picked from the dishes), with
 `control`, `presets`, `show_if`...; see `online_store/themes.py`), templates in
 `online_store/templates/themes/<name>/` (`base.html` + one per page) and CSS in `online_store/static/themes/<name>/`.
 Views render through `online_store.views.theme_page(request, "home.html", context)`; templates get `t` (the theme's
