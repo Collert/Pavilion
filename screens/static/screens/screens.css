@@ -44,6 +44,14 @@ body {
 }
 .widget > * { flex: 1; min-height: 0; }
 
+/* Every widget that draws something is a size container, so its CSS follows its slot, not the screen: a tall slot is
+   @container (aspect-ratio < 1), and sizes can use cqw / cqh / cqmin. A slot sized "auto" can't take its size from
+   the content any more, so it gets this one. */
+.widget[data-region] {
+    container-type: size;
+    contain-intrinsic-size: calc(var(--u) * 480) calc(var(--u) * 200);
+}
+
 /* A card, the look most widgets use */
 .screen-card {
     border-radius: calc(var(--u) * 36);

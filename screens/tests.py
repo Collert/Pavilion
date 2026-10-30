@@ -119,6 +119,9 @@ class NewWidgetTests(TestCase):
         html = self.render(node("qr_code", opens="link", link="https://example.com/review", caption="Leave a review"))
         self.assertIn("<svg", html)
         self.assertIn("example.com/review", html)
+        # A viewBox and no fixed size, so the code scales to its slot instead of being cut off
+        self.assertRegex(html, r'<svg viewBox="0 0 \d+ \d+"')
+        self.assertNotRegex(html, r'<svg[^>]* width=')
         Discount.objects.create(name="Happy hour", note="Weekdays 3 to 5", kind="pct", value=Decimal("15"))
         html = self.render(node("promo_slides", headline="Burger Monday"))
         self.assertIn("Burger Monday", html)

@@ -1,7 +1,25 @@
-.qr { display: flex; align-items: center; gap: calc(var(--u) * 28); padding: calc(var(--u) * 30); border-radius: calc(var(--u) * 36); overflow: hidden; }
-.qr-code { flex: 0 0 auto; height: 100%; max-height: calc(var(--u) * 320); aspect-ratio: 1; }
+/* Side by side in a wide slot, the caption under the code in a tall or square one. The code is as big as the slot
+   lets it be (cq units are the widget's slot). */
+.qr {
+    --pad: min(calc(var(--u) * 30), 7cqmin);
+    display: flex;
+    align-items: center;
+    gap: var(--pad);
+    padding: var(--pad);
+    border-radius: min(calc(var(--u) * 36), 9cqmin);
+    overflow: hidden;
+}
+.qr-code { flex: none; width: min(calc(100cqh - 2 * var(--pad)), 46cqw); aspect-ratio: 1; }
 .qr-code svg { width: 100%; height: 100%; display: block; }
-.qr-text { flex: 1; min-width: 0; }
-.qr h3 { margin: 0; font-size: calc(var(--u) * 40); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
-.qr p { margin: calc(var(--u) * 10) 0 0; font-size: calc(var(--u) * 20); opacity: .6; overflow-wrap: anywhere; }
-.qr-empty { margin: auto; font-size: calc(var(--u) * 22); opacity: .6; }
+.qr-text { flex: 1; min-width: 0; max-height: 100%; overflow: hidden; }
+.qr h3 { margin: 0; font-size: min(calc(var(--u) * 40), 7cqw, 16cqh); line-height: 1.08; font-weight: 800; letter-spacing: -.02em; }
+.qr p { margin: .5em 0 0; font-size: min(calc(var(--u) * 20), 3.6cqw, 8cqh); opacity: .6; overflow-wrap: anywhere; }
+.qr-empty { margin: auto; font-size: min(calc(var(--u) * 22), 6cqw); opacity: .6; text-align: center; }
+
+@container (aspect-ratio < 1.15) {
+    .qr { flex-direction: column; justify-content: center; text-align: center; }
+    .qr-code { width: min(calc(100cqw - 2 * var(--pad)), 62cqh); }
+    .qr-text { flex: none; width: 100%; }
+    .qr h3 { font-size: min(calc(var(--u) * 40), 10cqw, 7cqh); }
+    .qr p { font-size: min(calc(var(--u) * 20), 5cqw, 3.5cqh); }
+}

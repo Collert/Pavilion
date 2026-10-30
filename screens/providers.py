@@ -159,7 +159,7 @@ def qr_code(request, params):
             url = request.build_absolute_uri("/")
     if not url:
         return {"svg": "", "url": ""}
-    svg = segno.make(url, error="m").svg_inline(scale=10, border=0, dark=params["color"], light=None)
+    svg = segno.make(url, error="m").svg_inline(border=0, omitsize=True, dark=params["color"], light=None)
     return {"svg": mark_safe(svg), "url": url.split("://", 1)[-1].rstrip("/")}
 
 
