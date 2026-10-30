@@ -1716,7 +1716,7 @@ class Command(BaseCommand):
                                 distance_m=600, travel_seconds={"walking": 480, "bicycling": 180, "driving": 180})
         order([dish("Cookie", 3)], "store", OrderStation.STATUS_APPROVED, 1, name="Peter")
         RejectedOrder.objects.create(order_id=Order.objects.latest("id").id + 1000, reason="Demo: out of containers.",
-                                     timestamp=now - datetime.timedelta(hours=1))
+                                     timestamp=now - datetime.timedelta(hours=1), customer=User.objects.filter(username="customer").first())
 
     def seed_history(self, order, carts, skip_days=()):
         """

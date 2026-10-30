@@ -303,7 +303,7 @@ def services_teaser(count=3) -> list[dict]:
 
 def live_order(user, ids=()) -> dict | None:
     """The order being made today for this visitor: the signed-in customer's, or one this browser placed as a guest
-    (`ids`: the session's "orders", kept when an order is placed). {"order", "label", "ready", "done", "url"}."""
+    (`ids`: guest_orders.ids, kept when an order is placed). {"order", "label", "ready", "done", "url"}."""
     from django.db.models import Q
     signed_in = bool(user and user.is_authenticated)
     if not signed_in and not ids:

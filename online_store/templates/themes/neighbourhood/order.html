@@ -4,7 +4,15 @@
 {% block title %}{% if o %}{% blocktrans with n=o.number %}Order #{{ n }}{% endblocktrans %}{% else %}{% trans "Order" %}{% endif %} · {{ store.name }}{% endblock %}
 {% block live_topics %}"orders"{% endblock %}
 {% block content %}
-{% if rejected %}
+{% if not_yours %}
+<section class="nb-placed one">
+    <div class="nb-kick accent">{% blocktrans with n=order_id %}Order #{{ n }}{% endblocktrans %}</div>
+    <h1 class="nb-serif nb-page-title">{% trans "This order isn’t yours to see" %}</h1>
+    <p class="nb-placed-sub">{% if request.user.is_authenticated %}{% trans "It looks like someone else placed it, or it was placed on another device without signing in. Orders only show to the person who placed them." %}{% else %}{% trans "It looks like someone else placed it. If it’s yours, sign in to the account you ordered with, or open it on the device you ordered on." %}{% endif %}</p>
+    {% if not request.user.is_authenticated %}<a class="nb-btn nb-btn-accent nb-btn-big" href="{{ signin }}">{% trans "Sign in" %}</a>
+    {% else %}<a class="nb-btn nb-btn-accent nb-btn-big" href="{{ links.menu }}">{% trans "Back to the menu" %}</a>{% endif %}
+</section>
+{% elif rejected %}
 <section class="nb-placed one">
     <div class="nb-kick accent">{% blocktrans with n=order_id %}Order #{{ n }}{% endblocktrans %}</div>
     <h1 class="nb-serif nb-page-title">{% trans "We couldn’t take this order" %}</h1>

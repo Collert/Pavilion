@@ -156,7 +156,7 @@ def order_marking(request):
                 logger.exception("Voiding payment for order %s failed", order.id)
                 return JsonResponse({"error": _("Couldn't refund the card payment, so the order was kept: %(error)s") % {"error": e}}, status=502)
         with transaction.atomic():
-            RejectedOrder.objects.create(order_id=order.id, reason=reason, timestamp=order.timestamp)
+            RejectedOrder.objects.create(order_id=order.id, reason=reason, timestamp=order.timestamp, customer=order.customer)
             refund_gift_cards(order)
             order.delete()
         return JsonResponse({"rejected": True, "reason": reason})

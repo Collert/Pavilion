@@ -143,6 +143,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Manages static files efficiently
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'online_store.guest_orders.GuestOrdersMiddleware',  # the guest orders this browser placed (a signed cookie)
     'pos_server.devices.DeviceTokenMiddleware',  # ?device-token= on any link: this browser is that device (kiosks)
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'users.middleware.LanguageMiddleware',  # a signed-in person's saved language; remembers what they browse in

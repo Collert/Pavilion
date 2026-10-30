@@ -34,7 +34,7 @@ from pos_server.orders import OrderError, create_order
 from pos_server.pricing import badge_for, badges, price_cart
 from users.models import SavedAddress
 
-from . import cart as store_cart, storefront, themes
+from . import cart as store_cart, guest_orders, storefront, themes
 
 logger = logging.getLogger(__name__)
 from .views import menu_sections, theme_page
@@ -567,8 +567,11 @@ def _upsell(cart_dishes, pictures, count=3):
 
 
 def _recent(request):
-    ids = request.session.get("orders", [])[-3:]
-    return [storefront.order_card(o) for o in Order.objects.filter(pk__in=ids).order_by("-id")]
+    """The last three orders this visitor placed: as a guest in this browser, or on their account."""
+    from django.db.models import Q
+    user = request.user
+    mine = Q(pk__in=guest_orders.ids(request)[-3:]) | (Q(customer=user) if user.is_authenticated else Q(pk__in=[]))
+    return [storefront.order_card(o) for o in Order.objects.filter(mine).order_by("-id")[:3]]
 
 
 def _place(request, state):
@@ -650,7 +653,7 @@ def _place(request, state):
         messages.error(request, str(e))
         return None
     store_cart.clear(request)
-    request.session["orders"] = (request.session.get("orders", []) + [order.id])[-20:]
+    guest_orders.remember(request, order)
     return order
 
 
@@ -795,7 +798,7 @@ def _buy_gift(request, st, design):
     if payment.get("authorization"):  # nothing waits on a kitchen: take the money now
         _capture_now(payment["authorization"])
     card, number = order.new_gift_cards[0]
-    request.session["orders"] = (request.session.get("orders", []) + [order.id])[-20:]
+    guest_orders.remember(request, order)
     return order, card, number
 
 
@@ -815,14 +818,26 @@ def _capture_now(authorization):
 # ---------- the placed order ----------
 
 def order_page(request, id, from_placing=None):
+    """A placed order, for whoever placed it (online_store/guest_orders.py): anyone else gets a page saying it isn't theirs."""
     from .models import RejectedOrder
     order = Order.objects.filter(pk=id).prefetch_related("items", "fee_lines").first()
     if order is None:
         rejected = RejectedOrder.objects.filter(order_id=id).first()
         if rejected is None:
             raise Http404
+        if not guest_orders.can_see(request, id, rejected.customer_id):
+            return _not_yours(request, id)
         return theme_page(request, "order.html", {"rejected": rejected, "order_id": id})
+    if not guest_orders.can_see(request, order.id, order.customer_id):
+        return _not_yours(request, id)
     return theme_page(request, "order.html", {"o": storefront.order_card(order, full=True)})
+
+
+def _not_yours(request, id):
+    response = theme_page(request, "order.html", {"not_yours": True, "order_id": id,
+                                                  "signin": reverse("store_signin") + "?" + urlencode({"next": request.get_full_path()})})
+    response.status_code = 403
+    return response
 
 
 # ---------- events and services ----------

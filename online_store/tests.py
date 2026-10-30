@@ -5,7 +5,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -168,6 +168,31 @@ class PlaceOrderTests(MenuFixture, TestCase):
         self.place(self.paid_transaction("16.00"))
         response = self.client.get(reverse("order_status", args=[Order.objects.get().id]))
         self.assertEqual(response.status_code, 200)
+
+    def test_only_whoever_placed_an_order_sees_it(self):
+        from online_store.models import RejectedOrder
+        self.place(self.paid_transaction("16.00"))
+        order = Order.objects.get()
+        url = reverse("order_status", args=[order.id])
+        self.client.cookies.pop("sessionid")  # a new session (signing out) doesn't forget a guest's orders: they're in a cookie
+        self.assertEqual(self.client.get(url).status_code, 200)
+        stranger = Client(HTTP_HOST="localhost")
+        page = stranger.get(url)
+        self.assertEqual(page.status_code, 403)
+        self.assertContains(page, "isn’t yours to see", status_code=403)
+        forged = Client(HTTP_HOST="localhost")
+        forged.cookies["pavilion_orders"] = str(order.id)  # not signed
+        self.assertEqual(forged.get(url).status_code, 403)
+        # A customer's order is theirs on every device, and nobody else's
+        customer = User.objects.create_user("ana", password="x")
+        order.customer = customer
+        order.save()
+        self.assertEqual(self.client.get(url).status_code, 403)  # the browser that placed it, signed out
+        stranger.force_login(customer)
+        self.assertEqual(stranger.get(url).status_code, 200)
+        RejectedOrder.objects.create(order_id=order.id + 1, reason="Out of buns", customer=customer)
+        self.assertContains(stranger.get(reverse("order_status", args=[order.id + 1])), "Out of buns")
+        self.assertEqual(self.client.get(reverse("order_status", args=[order.id + 1])).status_code, 403)
 
 
 class ThemeTests(MenuFixture, TestCase):

@@ -8,7 +8,7 @@ from pos_server.models import Dish
 from pos_server.pricing import combo_queryset
 from pos_server.views import group_by_station
 
-from . import storefront, themes
+from . import guest_orders, storefront, themes
 
 
 def store_links(request) -> dict:
@@ -34,7 +34,7 @@ def theme_page(request, page, context=None, active=""):
         "hours": storefront.week_hours(hours=hours), "footer_hours": storefront.hours_summary(storefront.regular_hours(hours)),
         "theme": cur.theme, "t": cur.values, "store": cur.store, "logo_url": cur.logo_url, "preview": cur.preview,
         "css_vars": mark_safe(themes.css_vars(cur.theme, cur.values)), "status": storefront.open_now(hours=hours), "event_banner": storefront.event_banner(hours=hours),
-        "cart_count": storefront.cart_count(request), "live_order": storefront.live_order(user, request.session.get("orders", [])), "links": links,
+        "cart_count": storefront.cart_count(request), "live_order": storefront.live_order(user, guest_orders.ids(request)), "links": links,
         "nav": nav, "active": active, "me": {"initials": storefront.initials(user), "first": user.first_name or user.username,
                                                "photo": storefront.photo(user)} if user.is_authenticated else None,
         "banner_url": links.get(cur.values.get("banner_link", ""), ""),

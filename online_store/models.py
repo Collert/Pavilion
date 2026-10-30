@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 # Create your models here.
@@ -35,3 +36,5 @@ class RejectedOrder(models.Model):
     order_id = models.PositiveIntegerField(unique=True)
     reason = models.TextField()
     timestamp = models.DateTimeField(null=True)
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                                 help_text="The order's customer: only they see its page (a guest's: the browser that placed it)")
