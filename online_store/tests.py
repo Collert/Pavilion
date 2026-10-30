@@ -1,5 +1,6 @@
 """Tests for the online store: checkout (server-side pricing, payment checks, opening hours), themes, account, services."""
 import datetime
+import io
 import json
 from decimal import Decimal
 from unittest import mock
@@ -949,6 +950,25 @@ class StoreAppTests(MenuFixture, TestCase):
         store.save()
         (shot,) = self.client.get(reverse("store_manifest")).json()["screenshots"]
         self.assertEqual((shot["form_factor"], shot["sizes"], shot["label"]), ("narrow", "412x915", "The menu"))
+
+    def test_a_logo_on_a_solid_background_fills_the_icon(self):
+        from PIL import Image, ImageDraw
+        from online_store import app
+        logo = Image.new("RGBA", (300, 300), (20, 60, 40, 255))  # dark square, light emblem in its middle third
+        ImageDraw.Draw(logo).ellipse((100, 100, 200, 200), fill=(230, 200, 60, 255))
+        with mock.patch("django.core.files.storage.default_storage.open") as opened:
+            opened.return_value.__enter__.return_value = io.BytesIO(self.png(logo))
+            icon = Image.open(io.BytesIO(app._draw("Store", "logo.png", {"background": "#FFFFFF"}, 512, True))).convert("RGB")
+        self.assertEqual(icon.getpixel((0, 0)), (20, 60, 40))  # the logo's background runs to the edge
+        emblem = [x for x in range(512) if icon.getpixel((x, 256))[0] > 150]
+        self.assertGreater(len(emblem), 512 * 0.5)  # was a third of 62%
+        self.assertLess(len(emblem), 512 * 0.8)  # inside the safe zone
+
+    @staticmethod
+    def png(picture):
+        out = io.BytesIO()
+        picture.save(out, "PNG")
+        return out.getvalue()
 
     def test_store_pages_carry_the_app(self):
         from push import vapid

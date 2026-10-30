@@ -1,7 +1,8 @@
 """
 The installable store app: everything under /store/ (its scope), named, coloured and drawn after the store. The
 manifest is written per request from the store's name, logo and live theme (its `app` colours, online_store/themes.py),
-and the icons are drawn from the logo (on the theme's background), or Pavilion's cloche (pavilion/brand.py) without one.
+and the icons are drawn from the logo (on its own background colour edge to edge when it comes on a solid one, else on
+the theme's background), or Pavilion's cloche (pavilion/brand.py) without one.
 
 Push (push/): the store's service worker (/store/sw.js) shows order and event notifications. Pages post this
 browser's subscription when they find one (static/online_store/push.js):
@@ -14,6 +15,7 @@ browser's subscription when they find one (static/online_store/push.js):
 import hashlib
 import io
 import json
+import math
 
 from django.core.cache import cache
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
@@ -30,6 +32,7 @@ from . import guest_orders, themes
 
 ICON_SIZES = (192, 512)
 APPLE_ICON = 180
+ICON_DRAWING = 2  # raise when _draw changes, so installed apps pick up the new icons
 
 
 def _look(request=None):
@@ -44,7 +47,7 @@ def _look(request=None):
 def _version(request) -> str:
     """Changes when the icons would look different, so browsers fetch them again."""
     name, logo, colours = _look(request)
-    return hashlib.sha256(json.dumps([name, logo, colours]).encode()).hexdigest()[:10]
+    return hashlib.sha256(json.dumps([name, logo, colours, ICON_DRAWING]).encode()).hexdigest()[:10]
 
 
 def install(request):
@@ -99,9 +102,31 @@ def _hex(colour):
     return tuple(int(colour[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def _backdrop(picture):
+    """The colour of the background a logo comes on (its edge, opaque and one colour), or None (transparent, or a
+    picture running to its edges)."""
+    width, height = picture.size
+    edge = [picture.getpixel((x, y)) for x in range(0, width, max(1, width // 64)) for y in (0, height - 1)]
+    edge += [picture.getpixel((x, y)) for y in range(0, height, max(1, height // 64)) for x in (0, width - 1)]
+    if any(p[3] < 250 for p in edge):
+        return None
+    colour = tuple(sorted(p[i] for p in edge)[len(edge) // 2] for i in range(3))
+    close = sum(1 for p in edge if sum(abs(p[i] - colour[i]) for i in range(3)) <= 48)
+    return colour if close >= len(edge) * 0.9 else None
+
+
+def _artwork_box(picture, backdrop):
+    """The part of the logo that isn't its background."""
+    from PIL import Image, ImageChops
+    plain = Image.new("RGB", picture.size, backdrop)
+    differs = ImageChops.difference(picture.convert("RGB"), plain).convert("L").point(lambda v: 255 if v > 40 else 0)
+    return differs.getbbox() or (0, 0) + picture.size
+
+
 def _draw(name, logo, colours, size, maskable) -> bytes:
-    """The logo on the theme's background, or Pavilion's cloche (pavilion/brand.py) while the store has none. Full bleed
-    for maskable icons and Apple's (they round the corners themselves); the plain ones keep the cloche's rounded tile."""
+    """The logo on its own background (or the theme's, for a transparent one), or Pavilion's cloche (pavilion/brand.py)
+    while the store has none. Full bleed for maskable icons and Apple's (they round the corners themselves); the plain
+    ones keep the cloche's rounded tile."""
     from django.core.files.storage import default_storage
     from PIL import Image, ImageOps
     from pavilion import brand
@@ -113,9 +138,17 @@ def _draw(name, logo, colours, size, maskable) -> bytes:
         except Exception:  # missing or not a picture: Pavilion's instead
             picture = None
     if picture is not None:
-        canvas = Image.new("RGBA", (size, size), _hex(colours["background"]) + (255,))
-        room = int(size * (0.62 if maskable else 0.8))  # a maskable icon's safe zone is the middle 80% circle
-        picture.thumbnail((room, room), Image.LANCZOS)
+        backdrop = _backdrop(picture)
+        if backdrop:  # a logo on its own solid background: that background fills the icon, the artwork grows
+            picture = picture.crop(_artwork_box(picture, backdrop))
+            width, height = picture.size
+            # a maskable icon's safe zone is the middle 80% circle: the artwork's corners stay inside it
+            room = int(size * 0.8 * max(width, height) / math.hypot(width, height)) if maskable else int(size * 0.8)
+        else:
+            room = int(size * (0.62 if maskable else 0.8))
+        canvas = Image.new("RGBA", (size, size), (backdrop or _hex(colours["background"])) + (255,))
+        scale = room / max(picture.size)  # small logos grow too
+        picture = picture.resize((max(1, round(picture.width * scale)), max(1, round(picture.height * scale))), Image.LANCZOS)
         canvas.alpha_composite(picture, ((size - picture.width) // 2, (size - picture.height) // 2))
         canvas = canvas.convert("RGB")
     else:
