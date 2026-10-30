@@ -35,10 +35,11 @@ def configured() -> bool:
 
 
 def take(url, width, height) -> bytes:
-    """A PNG of `url` at that viewport, from Gotenberg."""
+    """A PNG of `url` at that viewport, from Gotenberg (it only takes multipart forms: `files` makes requests send one)."""
+    fields = {"url": url, "width": str(width), "height": str(height), "format": "png", "waitDelay": "2s",
+              "emulatedMediaType": "screen"}
     response = requests.post(urljoin(settings.SCREENSHOT_URL.rstrip("/") + "/", "forms/chromium/screenshot/url"),
-                             data={"url": url, "width": str(width), "height": str(height), "format": "png",
-                                   "waitDelay": "2s", "emulatedMediaType": "screen"}, timeout=90)
+                             files={name: (None, value) for name, value in fields.items()}, timeout=90)
     response.raise_for_status()
     if not response.content.startswith(b"\x89PNG"):
         raise ValueError("The screenshot server didn't answer with a picture")

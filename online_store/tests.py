@@ -1159,7 +1159,9 @@ class ScreenshotTests(TestCase):
                 mock.patch("online_store.screenshots.time.time", return_value=1000):
             first = screenshots.refresh()
         self.assertEqual([s["form"] for s in first], ["narrow", "narrow", "wide"])
-        self.assertEqual(post.call_args_list[0].kwargs["data"]["url"], "http://web:8000/store/")
+        sent = requests.Request("POST", *post.call_args_list[0].args, files=post.call_args_list[0].kwargs["files"]).prepare()
+        self.assertTrue(sent.headers["Content-Type"].startswith("multipart/form-data"))  # Gotenberg answers 415 to anything else
+        self.assertIn(b'name="url"\r\n\r\nhttp://web:8000/store/\r\n', sent.body)
         self.assertEqual(post.call_args_list[0].args[0], "http://screenshots:3000/forms/chromium/screenshot/url")
         with mock.patch("online_store.screenshots.requests.post", return_value=self.answer()), \
                 mock.patch("online_store.screenshots.time.time", return_value=2000):
