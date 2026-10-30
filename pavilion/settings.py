@@ -38,7 +38,8 @@ LISTMONK_FROM_EMAIL = os.getenv('LISTMONK_FROM_EMAIL', '')
 # Delivery travel times (deliveries/routes.py): usually set on the admin's Store info page; these only fill in
 VALHALLA_URL = os.getenv('VALHALLA_URL', '')    # e.g. http://valhalla:8002 (docker-compose.yml sets it)
 GEOCODER_URL = os.getenv('GEOCODER_URL', '')    # a Nominatim server, e.g. http://nominatim:8080 (docker-compose.yml sets it)
-VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+# Web push keys are made once per deployment and kept in the database (push/vapid.py); a key set here is used for
+# that once instead (deployments from before kept their browsers' subscriptions)
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', 'admin@example.com')  # push services may contact this address; the store's email (Store info) comes first
 APP_DOMAIN = os.getenv('APP_DOMAIN')
@@ -132,6 +133,7 @@ INSTALLED_APPS = [
     'admin_portal',  # /admin/: the store's back office (admin_portal/)
     'screens',  # Screens built from widgets (status boards, signage)
     'audio',  # Music library and audio channels (music in sync, push-to-talk voice)
+    'push',  # Web push: subscriptions of the installable apps (store, courier), keys, sending
     'team',  # Shifts, shift pars, staff availability and time off
     'services',  # Services (staff, rentals, venue...) and their bookings
     'catering',  # Catering orders, their conversation and settings
@@ -224,7 +226,6 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-NOTIFICATIONS_HOST = f"https://{APP_DOMAIN}" if os.getenv('ENVIRONMENT') == "production" else "http://127.0.0.1:8000"
 # Sign-in and CSRF cookies only over HTTPS in production, like the device cookie (pos_server/devices.py)
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
 

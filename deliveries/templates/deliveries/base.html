@@ -1,5 +1,5 @@
 {% extends "pos_server/staff_layout.html" %}
-{% load static i18n courier_tags %}
+{% load static i18n courier_tags push_tags %}
 {% comment %}
 Courier app pages (deliveries/views.py). Server-rendered; static/js/live-page.js keeps them current: forms and data-live
 links load in the background and only the [data-region]s whose HTML changed are swapped in (a region id that
@@ -8,7 +8,7 @@ changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" n
 
 {% block title %}{% trans "Courier" %} · Pavilion{% endblock %}
 {% block head %}
-<link rel="manifest" href="{% static 'deliveries/manifest.json' %}">
+<link rel="manifest" href="{% url 'delivery_manifest' %}">
 <meta name="theme-color" content="#14261F">
 <link href="{% static 'deliveries/courier.css' %}" rel="stylesheet">
 {% endblock %}
@@ -49,6 +49,6 @@ changes, e.g. with the delivery's step, replaces the whole page). SSE "orders" n
     livePage({ topics: ["orders"] });
 </script>
 <script type="module" src="{% static 'deliveries/courier.js' %}" id="courier-js"
-        data-worker="{% static 'deliveries/service-worker.js' %}"
-        data-vapid="{% url 'deliveries_vapid_public_key' %}" data-subscribe="{% url 'deliveries_save_subscription' %}"></script>
+        data-worker="{% url 'delivery_worker' %}" data-scope="{% url 'delivery_orders' %}" data-key="{% vapid_key %}"
+        data-subscribe="{% url 'deliveries_save_subscription' %}"></script>
 {% endblock %}

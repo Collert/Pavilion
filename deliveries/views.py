@@ -12,6 +12,7 @@ can't (the photo preview, push sign-up).
 Steps are Delivery.phase(). Delivery orders reach the kitchen display only once a courier accepts them
 (deliveries.models.hidden_order_ids).
 """
+import hashlib
 import io
 import json
 import time
@@ -23,16 +24,20 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
+from django.templatetags.static import static
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from pos_server import estimates
+from push import subscriptions, views as push_views
+from push.models import PushSubscription
 from pos_server.devices import app_required
 from pos_server.models import Order
 from . import routes
 from .models import CourierShift, Delivery, active_delivery
-from .notifications import PushSubscription
 from .signals import couriers_changed
 
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
@@ -352,10 +357,31 @@ def done(request, id):
     })
 
 
-# ---------- web push ----------
+# ---------- the installable app and web push ----------
 
-def vapid_public_key(request):
-    return JsonResponse({"vapidPublicKey": settings.VAPID_PUBLIC_KEY})
+def manifest(request):
+    """The courier app's web app manifest: it holds /deliveries/ and opens on the orders list."""
+    home = reverse("delivery_orders")
+    return JsonResponse({
+        "id": "7adce38f-5cc1-4957-bcd7-6eb4115712cb",  # what installed copies know it by
+        "name": _("Pavilion Courier"), "short_name": _("Courier"), "start_url": home, "scope": home,
+        "display": "standalone", "orientation": "portrait", "background_color": "#E8EDE9", "theme_color": "#14261F",
+        "icons": [{"src": static(f"deliveries/icon-{n}x{n}.png"), "sizes": f"{n}x{n}", "type": "image/png"} for n in (192, 512)],
+    }, content_type="application/manifest+json", json_dumps_params={"ensure_ascii": False})
+
+
+def service_worker(request):
+    precache = [static("deliveries/courier.css"), static("deliveries/icon-192x192.png")]
+    offline = static("deliveries/offline.html")
+    return push_views.service_worker(
+        request, app=PushSubscription.DELIVERIES, name=_("Pavilion Courier"), scope=reverse("delivery_orders"),
+        renew=reverse("delivery_push_renew"), icon=static("deliveries/icon-192x192.png"), badge=static("deliveries/icon-monochrome.png"),
+        offline=offline, precache=precache, version=hashlib.sha256("|".join([offline, *precache]).encode()).hexdigest()[:10])
+
+
+@csrf_exempt  # a service worker posts it; push.views.renew trusts only the old endpoint
+def renew_subscription(request):
+    return push_views.renew(request, PushSubscription.DELIVERIES)
 
 
 @app_required("app.courier")
@@ -364,10 +390,7 @@ def save_subscription(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
     try:
-        data = json.loads(request.body)
-        endpoint, keys = data["endpoint"], data["keys"]
-        p256dh, auth = keys["p256dh"], keys["auth"]
-    except (ValueError, KeyError, TypeError):
+        subscriptions.save(request, PushSubscription.DELIVERIES, json.loads(request.body))
+    except ValueError:
         return HttpResponseBadRequest("Expected a push subscription")
-    PushSubscription.objects.update_or_create(user=request.user, endpoint=endpoint, defaults={"p256dh": p256dh, "auth": auth})
-    return JsonResponse({"message": "Subscription saved."})
+    return JsonResponse({"saved": True})

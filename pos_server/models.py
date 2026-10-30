@@ -579,6 +579,10 @@ class Order(models.Model):
     staff_note = models.TextField(blank=True, help_text="Only staff see this")
     voided_at = models.DateTimeField(null=True, blank=True)
     voided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # Push notifications about it (online_store/order_push.py): the browsers that asked (a guest's, from the order page),
+    # besides its customer's, and the last step they heard about
+    push_subscriptions = models.ManyToManyField("push.PushSubscription", blank=True, related_name="orders")
+    push_stage = models.PositiveSmallIntegerField(default=0, help_text="The last step customers were notified of")
 
     def save(self, *args, **kwargs):
         if self.pk and not self.prep_time and self.station_statuses.exists() and self.all_stations_done():

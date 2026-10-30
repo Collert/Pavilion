@@ -2,7 +2,6 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from .models import CourierShift, Delivery
-from .notifications import PushSubscription
 
 
 @admin.register(Delivery)
@@ -29,5 +28,3 @@ class DeliveryAdmin(admin.ModelAdmin):
 class CourierShiftAdmin(admin.ModelAdmin):
     list_display = ("user", "mode", "started_at")
 
-
-admin.site.register(PushSubscription)

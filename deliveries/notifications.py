@@ -1,100 +1,22 @@
-import json
-from pywebpush import webpush, WebPushException
-from django.conf import settings
-from django.db import models
-from django.contrib.auth.models import User
+"""Push notifications to couriers (push/: the shared PushSubscription, app "deliveries"), from deliveries/signals.py."""
 from django.templatetags.static import static
-import logging
 
-logger = logging.getLogger(__name__)
+from push import send
+from push.models import PushSubscription
 
-# This is a bit weird, I know. But that's the best way I could figure out how to do this without making it too complex and with no circular imports.
-class PushSubscription(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    endpoint = models.TextField()
-    p256dh = models.TextField()
-    auth = models.TextField()
-
-    def __str__(self):
-        return f"{self.user.username} - {self.endpoint}"
-
-def _contact():
-    """Who push services may write to about these messages: the store's email (Store info), else VAPID_CONTACT_EMAIL."""
-    from admin_portal import store_info
-    return store_info.contact_email()
-
-
-def send_push_notification(subscription_info, message_body):
-    """
-    Sends a push notification to a given subscription.
-
-    Args:
-        subscription_info (dict): The subscription information required to send the push notification.
-        message_body (dict): The message content to be sent in the push notification.
-
-    Returns:
-        Response: The response from the web push service.
-
-    Raises:
-        WebPushException: If there is an error sending the push notification.
-
-    Example:
-        subscription_info = {
-            "endpoint": "https://example.com/...",
-            "keys": {
-                "p256dh": "BNc...",
-                "auth": "..."
-        message_body = {
-            "title": "Notification Title",
-            "body": "Notification Body"
-        send_push_notification(subscription_info, message_body)
-    """
-    try:
-        response = webpush(
-            subscription_info=subscription_info,
-            data=json.dumps(message_body),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": f"mailto:{_contact()}"
-            }
-        )
-        return response
-    except WebPushException as ex:
-        logger.warning("Web push failed: %r (response: %s)", ex, getattr(ex.response, "text", None))
 
 def trigger_push_notifications(title, body, action_name, action_endpoint, user_ids=None):
     """
     Push a notification to couriers on shift (or only to `user_ids`), with a button that opens `action_endpoint`.
+    Called after the change commits (signals.push_later); sent in the background.
     """
-    HOST = settings.NOTIFICATIONS_HOST
     from .models import CourierShift
     active = CourierShift.objects.values_list("user_id", flat=True)
     if user_ids is not None:
         active = active.filter(user_id__in=list(user_ids))
-    subscriptions = PushSubscription.objects.filter(user_id__in=list(active))
-    message_body = {
-        "title": title,
-        "body": body,
-        "icon": static("deliveries/icon-192x192.png"),
-        "badge": static("deliveries/icon-monochrome.png"),
-        "actions": [
-            {
-                "action": "open_url",
-                "title": action_name,
-                "url": HOST + action_endpoint
-            }
-        ],
-        "data": {
-            "url": HOST + action_endpoint
-        }
-    }
-
-    for subscription in subscriptions:
-        subscription_info = {
-            "endpoint": subscription.endpoint,
-            "keys": {
-                "p256dh": subscription.p256dh,
-                "auth": subscription.auth
-            }
-        }
-        send_push_notification(subscription_info, message_body)
+    subscriptions = PushSubscription.objects.filter(app=PushSubscription.DELIVERIES, user_id__in=list(active))
+    message = {"title": title, "body": body, "action": action_name, "url": action_endpoint,
+               "icon": static("deliveries/icon-192x192.png"), "badge": static("deliveries/icon-monochrome.png")}
+    subs = list(subscriptions)
+    if subs:
+        send.background(lambda: send.send_now(subs, lambda: message, urgency="high"))

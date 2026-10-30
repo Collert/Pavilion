@@ -5,6 +5,8 @@
 //   subscription so new orders reach this phone.
 // live-page.js swaps parts of the page in and out, so everything here works by delegation and re-syncs on changes.
 
+import * as push from "../js/push.js";
+
 const me = document.getElementById("courier-js");
 const t = (s) => (window.gettext ? window.gettext(s) : s);
 // Only touch the DOM when something changes: sync() runs on every DOM change, so writing anyway would loop
@@ -61,39 +63,22 @@ sync();
 
 // ---------- web push ----------
 
-function keyBytes(base64) {
-    const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-    return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
-}
+const worker = push.register(me.dataset.worker, me.dataset.scope);
+// The service worker used to sit in /static/, where it couldn't reach these pages: its subscription goes with it
+navigator.serviceWorker?.getRegistrations?.().then((all) => all.filter((r) => r.scope.includes("/static/")).forEach((r) => r.unregister()));
 
-const worker = "serviceWorker" in navigator
-    ? navigator.serviceWorker.register(me.dataset.worker).catch(() => null)
-    : Promise.resolve(null);
-
-async function subscribe() {
-    const registration = await worker;
-    if (!registration || !("PushManager" in window) || Notification.permission !== "granted") return;
-    try {
-        const { vapidPublicKey } = await (await fetch(me.dataset.vapid)).json();
-        if (!vapidPublicKey) return;
-        const subscription = await registration.pushManager.getSubscription()
-            ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(vapidPublicKey) });
-        await fetch(me.dataset.subscribe, {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value },
-            body: JSON.stringify(subscription),
-        });
-    } catch (error) {
-        console.warn(t("Couldn't turn on notifications"), error);
-    }
+async function save(subscription) {
+    if (!subscription || subscription === "blocked") return;
+    if (push.remembered("courier") === subscription.endpoint) return;
+    const response = await push.post(me.dataset.subscribe, subscription.toJSON());
+    if (response.ok) push.remember("courier", subscription.endpoint);
 }
 
 // Starting a shift is a tap, so the browser lets us ask for notifications then
 document.addEventListener("submit", (event) => {
-    if (!event.target.matches("form[data-start]") || !("Notification" in window)) return;
-    if (Notification.permission === "default") Notification.requestPermission().then(subscribe);
-    else subscribe();
+    if (!event.target.matches("form[data-start]") || !push.supported) return;
+    worker.then((registration) => push.subscribe(registration, me.dataset.key)).then(save)
+        .catch((error) => console.warn(t("Couldn't turn on notifications"), error));
 }, true);
 
-if ("Notification" in window && Notification.permission === "granted") subscribe();
+worker.then(push.current).then(save).catch(() => {});
