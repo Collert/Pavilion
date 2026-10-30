@@ -1148,7 +1148,11 @@ class ScreenshotTests(TestCase):
         cache.clear()
 
     def answer(self):
-        return mock.Mock(content=b"\x89PNG fake", raise_for_status=lambda: None)
+        """A whole page, taller than the viewport (what Gotenberg sends without clipping)."""
+        from PIL import Image
+        out = io.BytesIO()
+        Image.new("RGB", (1280, 3000), "white").save(out, "PNG")
+        return mock.Mock(content=out.getvalue(), raise_for_status=lambda: None)
 
     def test_a_new_set_replaces_the_old_one(self):
         import requests
@@ -1162,6 +1166,11 @@ class ScreenshotTests(TestCase):
         sent = requests.Request("POST", *post.call_args_list[0].args, files=post.call_args_list[0].kwargs["files"]).prepare()
         self.assertTrue(sent.headers["Content-Type"].startswith("multipart/form-data"))  # Gotenberg answers 415 to anything else
         self.assertIn(b'name="url"\r\n\r\nhttp://web:8000/store/\r\n', sent.body)
+        self.assertIn(b'name="clip"\r\n\r\ntrue\r\n', sent.body)
+        from PIL import Image
+        for shot in first:  # cropped to the viewport, the size the manifest says (Chrome drops them otherwise)
+            with default_storage.open(shot["name"]) as f:
+                self.assertEqual(Image.open(f).size, (shot["width"], shot["height"]))
         self.assertEqual(post.call_args_list[0].args[0], "http://screenshots:3000/forms/chromium/screenshot/url")
         with mock.patch("online_store.screenshots.requests.post", return_value=self.answer()), \
                 mock.patch("online_store.screenshots.time.time", return_value=2000):

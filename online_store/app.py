@@ -52,12 +52,8 @@ def _version(request) -> str:
 
 def install(request):
     """Get the app: what it is and isn't, the install button where the browser offers one, and Apple's way."""
-    from django.core.files.storage import default_storage
-    from admin_portal.models import StoreSettings
     from .views import theme_page
-    shot = next((s for s in StoreSettings.load().app_screenshots or [] if isinstance(s, dict) and s.get("form") == "narrow" and s.get("name")), None)
     return theme_page(request, "install.html", {"icon": reverse("store_icon", args=[512]) + f"?v={_version(request)}",
-                                                "screenshot": default_storage.url(shot["name"]) if shot else "",
                                                 "host": request.get_host()})
 
 

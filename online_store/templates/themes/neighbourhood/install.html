@@ -34,14 +34,11 @@ fallback (no offer: already installed, or a browser that can't). Without JavaScr
 
     <div class="nb-install-phone" aria-hidden="true">
         <div class="nb-install-screen">
-            {% if screenshot %}<img src="{{ screenshot }}" alt="" loading="lazy">
-            {% else %}
             <div class="nb-install-home">
                 {% for x in "12345678" %}<span class="nb-install-ghost"></span>{% endfor %}
                 <span class="nb-install-app"><img src="{{ icon }}" alt=""><span>{{ store.name|truncatechars:14 }}</span></span>
                 {% for x in "1234567" %}<span class="nb-install-ghost"></span>{% endfor %}
             </div>
-            {% endif %}
         </div>
     </div>
 </section>

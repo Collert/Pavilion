@@ -10,11 +10,13 @@ Each run saves new files (store_app/<form>-<n>-<time>.png in the media storage) 
 so the bucket holds one set and browsers never get a cached old picture under a new name. StoreSettings.app_screenshots
 lists the current set. Without SCREENSHOT_URL (development) nothing is taken and the manifest has no screenshots.
 """
+import io
 import logging
 import time
 from urllib.parse import urljoin
 
 import requests
+from PIL import Image
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.base import ContentFile
@@ -35,15 +37,24 @@ def configured() -> bool:
 
 
 def take(url, width, height) -> bytes:
-    """A PNG of `url` at that viewport, from Gotenberg (it only takes multipart forms: `files` makes requests send one)."""
-    fields = {"url": url, "width": str(width), "height": str(height), "format": "png", "waitDelay": "2s",
-              "emulatedMediaType": "screen"}
+    """A PNG of `url` at that viewport, from Gotenberg (it only takes multipart forms: `files` makes requests send one).
+    Just the viewport: Chrome drops screenshots that aren't the size the manifest says or are over 2.3 times as tall
+    as wide, and Gotenberg shoots the whole page unless told to clip (cropped here too, in case it doesn't)."""
+    fields = {"url": url, "width": str(width), "height": str(height), "clip": "true", "format": "png",
+              "waitDelay": "2s", "emulatedMediaType": "screen"}
     response = requests.post(urljoin(settings.SCREENSHOT_URL.rstrip("/") + "/", "forms/chromium/screenshot/url"),
                              files={name: (None, value) for name, value in fields.items()}, timeout=90)
     response.raise_for_status()
     if not response.content.startswith(b"\x89PNG"):
         raise ValueError("The screenshot server didn't answer with a picture")
-    return response.content
+    picture = Image.open(io.BytesIO(response.content))
+    if picture.size == (width, height):
+        return response.content
+    if picture.width < width or picture.height < height:
+        raise ValueError(f"The screenshot came back {picture.width}x{picture.height}, smaller than {width}x{height}")
+    out = io.BytesIO()
+    picture.crop((0, 0, width, height)).save(out, "PNG", optimize=True)
+    return out.getvalue()
 
 
 def refresh():
