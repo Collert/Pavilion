@@ -109,9 +109,15 @@ class SubscriptionTests(TestCase):
     def test_a_guest_subscription_gets_its_account_when_they_sign_in(self):
         guest = subscriptions.save(self.request(), "store", browser_subscription())
         self.assertEqual((guest.user, guest.device, guest.order_updates, guest.event_updates), (None, "Chrome on Android", True, False))
-        mine = subscriptions.save(self.request(self.ana), "store", browser_subscription(), event_updates=True)
-        self.assertEqual((mine.pk, mine.user, mine.event_updates), (guest.pk, self.ana, False))  # what it gets stays
-        self.assertEqual(PushSubscription.objects.count(), 1)
+        mine = subscriptions.save(self.request(self.ana), "store", browser_subscription())
+        self.assertEqual((mine.pk, mine.user, mine.event_updates, mine.news_updates), (guest.pk, self.ana, True, True))  # what accounts get
+        mine.news_updates = False
+        mine.save()
+        again = subscriptions.save(self.request(self.ana), "store", browser_subscription())
+        self.assertFalse(again.news_updates)  # once it's theirs, their choices stay
+        fresh = subscriptions.save(self.request(self.ana), "store", browser_subscription(2))
+        self.assertTrue(fresh.order_updates and fresh.event_updates and fresh.news_updates)  # an account's new device: everything
+        self.assertEqual(PushSubscription.objects.count(), 2)  # the guest's phone (now Ana's) and her new device
 
     def test_only_its_owner_or_a_guest_can_forget_one(self):
         subscriptions.save(self.request(self.ana), "store", browser_subscription())
@@ -186,7 +192,7 @@ class EventUpdateTests(TestCase):
         from events.models import Event
         from push.models import NotificationSwitch
         on = PushSubscription.objects.create(app="store", event_updates=True, **subscriptions.parse(browser_subscription()))
-        PushSubscription.objects.create(app="store", **subscriptions.parse(browser_subscription(2)))  # order updates only
+        PushSubscription.objects.create(app="store", event_updates=False, **subscriptions.parse(browser_subscription(2)))  # order updates only
         day = timezone.localdate() + datetime.timedelta(days=3)
         trivia = Event.objects.create(kind=Event.OPEN, title="Trivia night", start_date=day, end_date=day, opens=19 * 60, closes=22 * 60)
         past = Event.objects.create(kind=Event.CLOSED, title="Long ago", start_date=datetime.date(2020, 1, 1), end_date=datetime.date(2020, 1, 1))
@@ -255,15 +261,16 @@ class AccountNotificationsTests(TestCase):
         page = self.client.get(self.url)
         self.assertContains(page, "Chrome on Android")
         self.assertNotContains(page, self.bos.endpoint[:30])
+        self.assertTrue(self.phone.event_updates and self.phone.news_updates)  # on until they say otherwise
         self.client.post(self.url, {"op": f"toggle:{self.phone.id}:events"})
         self.phone.refresh_from_db()
-        self.assertTrue(self.phone.event_updates)
+        self.assertFalse(self.phone.event_updates)
         self.client.post(self.url, {"op": f"toggle:{self.phone.id}:news"})  # listmonk's push campaigns
         self.phone.refresh_from_db()
-        self.assertTrue(self.phone.news_updates)
+        self.assertFalse(self.phone.news_updates)
         self.client.post(self.url, {"op": f"toggle:{self.bos.id}:events"})  # someone else's: nothing
         self.bos.refresh_from_db()
-        self.assertFalse(self.bos.event_updates)
+        self.assertTrue(self.bos.event_updates)
         self.client.post(self.url, {"op": f"remove:{self.bos.id}"})
         self.assertTrue(PushSubscription.objects.filter(pk=self.bos.pk).exists())
         self.client.post(self.url, {"op": f"remove:{self.phone.id}"})

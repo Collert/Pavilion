@@ -6,6 +6,9 @@
 // - just placed (?placed=1) and never asked: a little sheet offers them, and its button asks the browser;
 // - otherwise the card's button asks; blocked notifications can't be asked for again, so it says how to unblock them;
 // - iPhones outside the Home Screen app can't have them at all: the card says how to add it.
+// Signed in, anywhere in the store: the browser's own notification question, once a visit, until they answer it
+// (Chromium browsers ask on load; Safari and Firefox only after a tap, so their first tap that isn't a link asks).
+// Already allowed but not subscribed here (cleared, or allowed elsewhere): subscribed without asking.
 // On the account's Notifications page, this device's card is marked ([data-push-device] = a hash of its endpoint), and
 // a device without notifications gets "Turn them on here" ([data-push-here]).
 import * as push from "../js/push.js";
@@ -130,7 +133,44 @@ async function startAccount() {
     });
 }
 
+// ---------- signed in: the browser's question ----------
+
+const ASKED = "pavilion-push-asked";
+
+async function turnOn() {
+    const subscription = await push.subscribe(await worker, me.dataset.key);
+    if (subscription && subscription !== "blocked") {
+        push.remember("store", "");
+        await sync();
+    }
+}
+
+async function askSignedIn() {
+    if (!me.dataset.user || !push.supported) return;
+    const subscription = await sync().catch(() => null);
+    if (subscription) return;
+    if (push.permission() === "granted") {
+        await turnOn();
+        return;
+    }
+    if (push.permission() !== "default") return;  // blocked: their call
+    try {
+        if (sessionStorage.getItem(ASKED)) return;  // once a visit
+        sessionStorage.setItem(ASKED, "1");
+    } catch { /* private window: ask anyway */ }
+    if (navigator.userAgentData) {  // Chromium: the question shows straight away
+        await turnOn();
+        return;
+    }
+    const onTap = (event) => {
+        if (event.target.closest("a[href], [type=submit], label, input, select, textarea")) return;  // that would leave or type
+        document.removeEventListener("click", onTap, true);
+        if (push.permission() === "default") turnOn().catch(() => {});
+    };
+    document.addEventListener("click", onTap, true);
+}
+
 const card = document.querySelector("[data-push-order]");
 if (card) startCard(card);
 else if (document.querySelector("[data-push-here]")) startAccount();
-else sync().catch(() => {});
+else askSignedIn().catch(() => sync().catch(() => {}));

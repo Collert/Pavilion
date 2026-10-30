@@ -34,11 +34,11 @@ KINDS = [
          _("Order #128 is ready"), _("It’s waiting for you on the pickup shelf.")),
     Kind("event_updates", "store", CALENDAR, _("Event updates"),
          _("You save a new event on the Events page: extra hours, or a closure."),
-         _("Customers who turned on event updates in their account."),
+         _("Customers with an account, on every device they turned notifications on (unless they switch event updates off)."),
          _("Open late for trivia night"), _("Friday, November 6 · 7 PM – 10 PM")),
     Kind("campaigns", "store", MEGAPHONE, _("News from listmonk"),
          _("You send a listmonk campaign with the Pavilion push messenger: its subject is the title, its text the message, its first link where a tap goes."),
-         _("Customers with an account, on the devices where they turned on News and offers."),
+         _("Customers with an account, on every device they turned notifications on (unless they switch News and offers off)."),
          _("Two-for-one tacos tonight"), _("Show this at the counter, 5 to 7 PM.")),
 ]
 

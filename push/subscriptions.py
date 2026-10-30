@@ -58,7 +58,10 @@ def save(request, app, data, replaces="", **wants) -> PushSubscription:
     if sub is None and replaces:
         sub = PushSubscription.objects.filter(endpoint=replaces, app=app).first()
     if sub is None:
-        sub = PushSubscription(app=app, **wants)
+        # an account's gets everything; a guest's only its orders (we agreed to ask guests about nothing else)
+        sub = PushSubscription(app=app, **{**({} if user else {"event_updates": False, "news_updates": False}), **wants})
+    elif user is not None and sub.user_id is None:
+        sub.event_updates = sub.news_updates = True  # a guest's device gets an account: what accounts get
     sub.app = app
     sub.endpoint, sub.p256dh, sub.auth = fields["endpoint"], fields["p256dh"], fields["auth"]
     if user is not None:

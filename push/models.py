@@ -25,11 +25,11 @@ class PushSubscription(models.Model):
     device = models.CharField(max_length=80, blank=True, help_text="e.g. “Chrome on Android”, for the account page")
     language = models.CharField(max_length=10, blank=True, help_text="What its notifications are written in")
     # What a store subscription gets besides the orders it's linked to: every order of its account (for a guest, its
-    # later orders on that browser are linked when they're placed), and new events
+    # later orders on that browser are linked when they're placed), new events, and campaigns from listmonk
+    # (push/listmonk.py). All on for an account; a guest's only follows orders (push/subscriptions.py) until it gets one.
     order_updates = models.BooleanField(default=True)
-    event_updates = models.BooleanField(default=False)
-    # Campaigns from listmonk (push/listmonk.py): only for accounts, and only on devices that asked
-    news_updates = models.BooleanField(default=False)
+    event_updates = models.BooleanField(default=True)
+    news_updates = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     seen_at = models.DateTimeField(default=timezone.now, help_text="When the browser last said it still has it")
     last_success_at = models.DateTimeField(null=True, blank=True)

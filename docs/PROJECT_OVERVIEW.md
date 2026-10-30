@@ -1073,7 +1073,10 @@ browsers linked to the order (`Order.push_subscriptions`) plus, for a customer's
 `order_updates`. **The order page** shows a card (`online_store/static/online_store/push.js`): just after placing
 (`?placed=1`) a sheet offers notifications; a browser that already has them links itself (unless order updates are off
 for it); blocked notifications get a red explanation (browsers can't ask again); iPhones outside the Home Screen app
-get a pointer to `/store/install`. **Event updates** go to store subscriptions with `event_updates` when a new event is
+get a pointer to `/store/install`. **Signed-in customers** are asked with the browser's own question once a visit (a browser session) on any store or
+account page until they answer: Chromium browsers on load, Safari and Firefox (which need a tap) on the first tap that
+isn't a link or a field. An account's devices get all three kinds (order, event, news); a guest's only order updates
+until the device gets an account, when the other two turn on. **Event updates** go to store subscriptions with `event_updates` when a new event is
 saved (`events/announce.py: notify_later`). The admin's **Notifications** page (Settings) turns each kind on or off
 (`push/kinds.py`, `NotificationSwitch`) and sends you a test; the account's **Notifications** page lists your devices with
 their switches and Remove, marks "This device" and offers turning them on here.
