@@ -203,7 +203,7 @@ class EmailTests(TestCase):
         self.assertEqual(sent["template_id"], EmailTemplate.objects.get(kind="event_open").template_id)  # installed on first send
         self.assertIn("Trivia night at My restaurant", sent["subject"])
         self.assertIn("{{ else }}", sent["subject"])  # every language
-        self.assertIn("http://localhost/store/menu", sent["body"])
+        self.assertIn("http://localhost/store/menu@TrackLink", sent["body"])  # listmonk counts the clicks
         self.assertIn("Six rounds.<br>Prizes!", sent["body"])
         self.assertIn("7 PM – 10 PM", sent["body"])
 

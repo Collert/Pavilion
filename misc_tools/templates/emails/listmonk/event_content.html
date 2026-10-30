@@ -1,6 +1,7 @@
 {% load i18n listmonk %}{% comment %}
 The content of an event's campaign (events/announce.py), in every language that's on; it sits in the middle of the
-event_open / event_closed campaign template. Inline styles, so it reads well in any template.
+event_open / event_closed campaign template. Inline styles, so it reads well in any template. Links end in @TrackLink,
+so listmonk counts their clicks (its campaign analytics).
 {% endcomment %}{% bylang %}
 <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;font-weight:700;color:{{ look.ink }};margin:0 0 22px;" class="pv-title">{{ e.title }}</div>
 
@@ -42,7 +43,7 @@ event_open / event_closed campaign template. Inline styles, so it reads well in 
 
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
   <td class="pv-btn" style="background:{% if e.open %}{{ look.accent }}{% else %}{{ look.hero }}{% endif %};border-radius:999px;">
-    <a href="{{ base }}{% if e.open %}{% url 'menu' %}{% else %}{% url 'store_home' %}{% endif %}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:800;text-decoration:none;color:{% if e.open %}{{ look.accent_ink }}{% else %}#FFFFFF{% endif %};">{% if e.open %}{% trans "See the menu" %}{% else %}{% trans "See our hours" %}{% endif %} &rarr;</a>
+    <a href="{{ base }}{% if e.open %}{% url 'menu' %}{% else %}{% url 'store_home' %}{% endif %}@TrackLink" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:800;text-decoration:none;color:{% if e.open %}{{ look.accent_ink }}{% else %}#FFFFFF{% endif %};">{% if e.open %}{% trans "See the menu" %}{% else %}{% trans "See our hours" %}{% endif %} &rarr;</a>
   </td>
 </tr></table>
 {% endbylang %}
