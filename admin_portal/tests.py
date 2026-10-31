@@ -2117,6 +2117,7 @@ class ScreensEditorTests(AdminFixture, TestCase):
         preview = self.client.get(reverse("admin_screen_preview", args=[screen.id]) + "?sel=r")
         self.assertContains(preview, 'data-path="r"')  # the empty root, ready for a widget
         self.assertContains(preview, "slot-edit is-selected")
+        self.assertNotContains(preview, 'class="no-cursor"')  # the preview keeps the pointer for picking widgets
         self.client.post(reverse("admin_screen", args=[screen.id]), {"op": "leave"})
         screen.refresh_from_db()
         self.assertEqual(screen.layout, {"widget": "clock"})  # nothing saved

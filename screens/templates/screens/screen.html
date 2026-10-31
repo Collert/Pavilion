@@ -16,7 +16,7 @@
     <script src="{% url 'javascript-catalog' LANGUAGE_CODE %}"></script>
     {% include "pos_server/_favicon.html" %}
 </head>
-<body>
+<body{% if not preview %} class="no-cursor"{% endif %}>
     {# --u is one design pixel: the canvas is scaled to fit the display, and rows/columns stretch to fill it #}
     <main id="page" class="screen" data-now="{{ now_ms }}"
           style="--u: min(100vw / {{ screen.width }}, 100vh / {{ screen.height }}); --screen-bg: {{ screen.background }}; --screen-pad: calc(var(--u) * {{ screen.padding }})">

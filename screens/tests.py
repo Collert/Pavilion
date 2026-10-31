@@ -236,7 +236,7 @@ class OrderBoardTests(TestCase):
 class AccessTests(TestCase):
     def test_public_and_staff_only_screens(self):
         Screen.objects.create(name="Back office", slug="back", layout=node("clock"))
-        self.assertEqual(self.client.get(reverse("screen", kwargs={"slug": "order-board"})).status_code, 200)
+        self.assertContains(self.client.get(reverse("screen", kwargs={"slug": "order-board"})), 'class="no-cursor"')
         response = self.client.get(reverse("screen", kwargs={"slug": "back"}))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login_view"), response.url)
