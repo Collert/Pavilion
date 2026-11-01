@@ -1,8 +1,9 @@
 from django.apps import AppConfig
 
 
-class DonglesConfig(AppConfig):
-    name = "dongles"
+class DevicesConfig(AppConfig):
+    """Devices that pair with Pavilion and talk to it on their own: so far, visual dongles (jester-agent)."""
+    name = "devices"
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):

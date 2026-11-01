@@ -216,7 +216,7 @@ shows, its state and commands). "Add visual dongle" opens a sheet with a pairing
         catch { getSelection().selectAllChildren(document.getElementById(button.dataset.copy)); }
         setTimeout(() => { button.textContent = gettext("Copy"); }, 1600);
     });
-    const LIFE = 15 * 60 * 1000;  // dongles.models.CODE_MINUTES
+    const LIFE = 15 * 60 * 1000;  // devices.models.CODE_MINUTES
     setInterval(() => {
         const box = document.querySelector("[data-expires]");
         if (!box) return;

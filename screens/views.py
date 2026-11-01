@@ -38,7 +38,7 @@ def sessions(request, slug):
 
 
 def _allowed(request, screen):
-    from dongles.pairing import can_see
+    from devices.pairing import can_see
     return screen.public or (request.user.is_authenticated and request.user.is_staff) or can_see(request, screen)
 
 

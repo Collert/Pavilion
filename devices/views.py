@@ -19,7 +19,7 @@ PAIR_ALL_PER_MINUTE = 60  # and for everyone together
 @require_POST
 def pair(request):
     """
-    POST /dongles/pair {"code", "hardware_id", "model", "version", "resolution", "network": {...}} from a dongle in
+    POST /devices/dongles/pair {"code", "hardware_id", "model", "version", "resolution", "network": {...}} from a dongle in
     setup. 200 {"token", "dongle": {"id", "name"}, "store": {"name"}}; else {"error": kind, "message"} with 400
     (bad_request), 404 (bad_code), 410 (expired, used) or 429 (throttled).
     """

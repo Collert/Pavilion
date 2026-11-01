@@ -1458,8 +1458,8 @@ class Command(BaseCommand):
         import secrets
         from datetime import timedelta
 
-        from dongles.models import Dongle
-        from dongles.pairing import hash_secret
+        from devices.models import Dongle
+        from devices.pairing import hash_secret
         owner = User.objects.filter(username="admin").first()
         now = timezone.now()
 

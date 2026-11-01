@@ -5,7 +5,7 @@ Devices (Settings; the canvas's AdminDevices artboard): two groups on the left, 
   Each has a name and a device code (its token). A browser becomes a device on the device setup page or by opening
   any Pavilion link with ?device-token=<code> (pos_server/devices.py), which is how kiosks that wipe their cookies
   stay set up: their start URL is a kiosk link from here. A new code stops old links working.
-- Visual dongles (dongles.Dongle): TVs showing a screen. "Add visual dongle" makes a pairing code and waits for a
+- Visual dongles (devices.Dongle): TVs showing a screen. "Add visual dongle" makes a pairing code and waits for a
   dongle to use it (the page refreshes on the "dongles" topic), then names it and picks its screen. Each dongle's
   screen, name and orientation, its live state (online while its WebSocket is open), and commands: show its name on
   the TV, restart, change Wi-Fi, unpair.
@@ -88,7 +88,7 @@ def dongle_detail(d) -> dict:
 
 def pairing_sheet(request) -> dict | None:
     """The "Add visual dongle" sheet: its code while it waits, or the dongle that used it."""
-    from dongles.models import DonglePairingCode
+    from devices.models import DonglePairingCode
     code = DonglePairingCode.objects.select_related("dongle").filter(pk=request.session.get(PAIR_KEY) or 0).first()
     if code is None:
         return None
@@ -105,7 +105,7 @@ def pairing_sheet(request) -> dict | None:
 
 
 def page(request, sel=None, dongle_sel=None) -> dict:
-    from dongles.models import Dongle
+    from devices.models import Dongle
     from payments.models import SquareTerminal
     from screens.models import Screen
     devices = list(EligibleDevice.objects.all())

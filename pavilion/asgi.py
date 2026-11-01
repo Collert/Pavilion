@@ -1,7 +1,7 @@
 """
 ASGI config for pavilion project: Django for HTTP (pages, and the SSE streams in pavilion/realtime.py), the voice
 channels' WebSockets at /ws/voice/<channel id> (audio/voice.py) and the visual dongles' at /ws/dongle
-(dongles/socket.py). Daphne serves both.
+(devices/socket.py). Daphne serves both.
 """
 
 import os
@@ -23,7 +23,7 @@ async def application(scope, receive, send):
             from audio.voice import voice_socket
             return await voice_socket(scope, receive, send, int(match.group(1)))
         if scope.get("path") == "/ws/dongle":
-            from dongles.socket import dongle_socket
+            from devices.socket import dongle_socket
             return await dongle_socket(scope, receive, send)
         await receive()
         await send({"type": "websocket.close", "code": 4404})

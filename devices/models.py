@@ -11,9 +11,9 @@ CODE_MINUTES = 15  # how long a pairing code works
 class Dongle(models.Model):
     """
     A visual dongle: a Raspberry Pi behind a TV running jester-agent (github.com/collert/jester-agent), showing one
-    Screen. It paired with a DonglePairingCode and keeps a WebSocket open to Pavilion (/ws/dongle, dongles/socket.py):
+    Screen. It paired with a DonglePairingCode and keeps a WebSocket open to Pavilion (/ws/dongle, devices/socket.py):
     Pavilion sends it what to show and commands (show its name, restart, change Wi-Fi), it sends back how it's doing
-    (`info`). Its browser opens the screen through a launch link (dongles/views.py: open_screen), which leaves a
+    (`info`). Its browser opens the screen through a launch link (devices/views.py: open_screen), which leaves a
     signed cookie letting it see that screen without anyone signing in. Edited on the admin's Devices page.
     """
     LANDSCAPE, PORTRAIT, PORTRAIT_FLIPPED = "landscape", "portrait", "portrait_flipped"
@@ -40,7 +40,7 @@ class Dongle(models.Model):
 
     @property
     def online(self) -> bool:
-        """Its WebSocket is open (kept in the cache by dongles/socket.py, so every worker agrees)."""
+        """Its WebSocket is open (kept in the cache by devices/socket.py, so every worker agrees)."""
         from .pairing import is_online
         return is_online(self.pk)
 

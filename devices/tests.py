@@ -162,7 +162,7 @@ class SocketTests(TestCase):
         config = json.loads((await self.next(sent))["text"])
         self.assertEqual(config["name"], "Window TV")
         self.assertEqual(config["screen"]["name"], "Specials")
-        self.assertTrue(config["screen"]["url"].startswith("/dongles/open/"))
+        self.assertTrue(config["screen"]["url"].startswith("/devices/dongles/open/"))
 
         get_broker().publish(pairing.topic(self.dongle.pk), json.dumps({"type": "command", "command": "identify", "id": "c1"}))
         self.assertEqual(json.loads((await self.next(sent))["text"])["command"], "identify")

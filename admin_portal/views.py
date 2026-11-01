@@ -1050,8 +1050,8 @@ def devices(request):
     """Devices: the store's trusted computers (codes, kiosk links) and visual dongles (admin_portal/devices.py)."""
     import uuid
 
-    from dongles import pairing
-    from dongles.models import Dongle
+    from devices import pairing
+    from devices.models import Dongle
     from pos_server.models import EligibleDevice
     from screens.models import Screen
 
@@ -1097,7 +1097,7 @@ def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
     if op in ("dongle_add", "dongle_newcode"):
         old = session.get(devices_data.PAIR_KEY)
         if old and op == "dongle_newcode":  # the old code stops working
-            from dongles.models import DonglePairingCode
+            from devices.models import DonglePairingCode
             DonglePairingCode.objects.filter(pk=old, used_at__isnull=True).update(expires_at=timezone.now())
         session[devices_data.PAIR_KEY] = pairing.new_code(request.user).pk
         return redirect(here)
@@ -1109,7 +1109,7 @@ def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
         return redirect(here)
     dongle = Dongle.objects.select_related("screen").filter(pk=dongle_id).first()
     if op == "dongle_finish":  # the pairing sheet's Done: name it and pick its screen
-        from dongles.models import DonglePairingCode
+        from devices.models import DonglePairingCode
         code = DonglePairingCode.objects.select_related("dongle").filter(pk=session.pop(devices_data.PAIR_KEY, 0) or 0).first()
         dongle = code.dongle if code else None
         if dongle is None:
