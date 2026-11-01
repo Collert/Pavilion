@@ -6,6 +6,7 @@ One staff card to print, at bank-card size (admin_portal/views.py: staff_card_pr
 {% endcomment %}
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
+    {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ card.type.name }} · {{ name }}</title>

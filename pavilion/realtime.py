@@ -177,7 +177,8 @@ def _orders_tick():
 
 def stream_response(topics):
     response = StreamingHttpResponse(event_stream(topics), content_type="text/event-stream")
-    response["Cache-Control"] = "no-cache"
+    # no-transform: Cloudflare (and other proxies) mustn't compress the stream, which holds events back in its buffer
+    response["Cache-Control"] = "no-cache, no-transform"
     response["X-Accel-Buffering"] = "no"  # nginx: don't buffer the stream
     return response
 

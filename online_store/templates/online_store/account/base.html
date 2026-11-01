@@ -6,6 +6,7 @@ store theme: a dark side panel with the store, the customer and the sections, an
 {% endcomment %}
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
+    {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% trans "Your account" %}{% endblock %} · {{ store.name }}</title>

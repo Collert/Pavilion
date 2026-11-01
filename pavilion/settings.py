@@ -190,6 +190,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'users.context_processors.access',
+                'pavilion.context_processors.browser_errors',
             ],
         },
     },
@@ -392,10 +393,13 @@ else:
 # Set BUGSINK_SEND_PII=true on deployments that may attach user data (username, email, IP) to events.
 BUGSINK_DSN = os.getenv('BUGSINK_DSN', 'https://183054b18a2f448aa503ef88e279e13e@bugs.adpit.space/2')
 BUGSINK_SEND_PII = os.getenv('BUGSINK_SEND_PII', 'false').lower() == 'true'
+# Pages send their JavaScript errors (and console.error) to the same project (pavilion/context_processors.py)
+BUGSINK_BROWSER = os.getenv('BUGSINK_BROWSER', 'true').lower() == 'true'
+ENVIRONMENT_NAME = os.getenv('ENVIRONMENT', 'development')
 if BUGSINK_DSN and 'test' not in sys.argv and not DEBUG:
     sentry_sdk.init(
         dsn=BUGSINK_DSN,
-        environment=os.getenv('ENVIRONMENT', 'development'),
+        environment=ENVIRONMENT_NAME,
         send_default_pii=BUGSINK_SEND_PII,
         traces_sample_rate=0,  # Bugsink does not use performance traces
         max_request_body_size='never',  # request bodies can hold PINs, card data and passwords

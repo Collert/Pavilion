@@ -1,0 +1,6 @@
+{% load static %}{% if browser_errors %}{# this page's JavaScript errors go to Bugsink (pavilion/context_processors.py) #}
+    {{ browser_errors|json_script:"pv-browser-errors" }}
+    <script src="{% static 'vendor/sentry/bundle.min.js' %}"></script>
+    <script src="{% static 'vendor/sentry/captureconsole.min.js' %}"></script>
+    <script src="{% static 'js/browser-errors.js' %}"></script>
+{% endif %}

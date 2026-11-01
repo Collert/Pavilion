@@ -2,6 +2,7 @@
 {% comment %}A printable receipt for one order (admin_portal/views.py: order_receipt). print.js opens the print dialog.{% endcomment %}
 <html lang="en">
 <head>
+    {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% blocktrans with n=d.order.id %}Receipt · order #{{ n }}{% endblocktrans %}</title>

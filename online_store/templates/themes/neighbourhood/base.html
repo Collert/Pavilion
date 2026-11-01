@@ -7,6 +7,7 @@ from themes.css_vars.
 {% endcomment %}
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
+    {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}{{ store.name }}{% endblock %}</title>

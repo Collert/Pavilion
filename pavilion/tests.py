@@ -108,6 +108,33 @@ class EventStreamTests(SimpleTestCase):
         with self.assertRaises(Http404):
             async_to_sync(realtime.stream_view)(request, "orders,nope")
 
+    def test_proxies_are_told_not_to_compress_the_stream(self):
+        """Cloudflare compressing text/event-stream holds events (and the heartbeat) back in its buffer."""
+        response = realtime.stream_response(["orders"])
+        self.assertIn("no-transform", response["Cache-Control"])
+        self.assertEqual(response["X-Accel-Buffering"], "no")
+
+
+class BrowserErrorsTests(TestCase):
+    """Pages send their JavaScript errors to Bugsink outside DEBUG (pavilion/context_processors.py)."""
+
+    @override_settings(DEBUG=True)
+    def test_off_in_debug(self):
+        response = self.client.get("/users/login", HTTP_HOST="localhost")
+        self.assertIsNone(response.context["browser_errors"])
+        self.assertNotContains(response, "pv-browser-errors")
+
+    @override_settings(DEBUG=False, BUGSINK_DSN="https://key@bugs.example/2", BUGSINK_BROWSER=True, ALLOWED_HOSTS=["localhost"])
+    def test_pages_load_the_reporter_with_the_dsn(self):
+        response = self.client.get("/users/login", HTTP_HOST="localhost")
+        self.assertEqual(response.context["browser_errors"]["dsn"], "https://key@bugs.example/2")
+        self.assertContains(response, 'id="pv-browser-errors"')
+        self.assertContains(response, "browser-errors.js")
+
+    @override_settings(DEBUG=False, BUGSINK_DSN="https://key@bugs.example/2", BUGSINK_BROWSER=False, ALLOWED_HOSTS=["localhost"])
+    def test_can_be_turned_off(self):
+        self.assertNotContains(self.client.get("/users/login", HTTP_HOST="localhost"), "pv-browser-errors")
+
 
 
 @override_settings(THROTTLE=True, THROTTLE_REQUESTS=5, THROTTLE_WINDOW=10)
