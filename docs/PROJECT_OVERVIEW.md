@@ -362,7 +362,11 @@ that opens the order in the menu's place; paying keeps it open, and a finished o
 Template `order-marking.html` on `staff_layout.html`, JS `order-marking.js`, CSS `order-marking.css`. Design:
 `docs/mockups/Order marking-html` (plus the keyboard and "ready for pickup" changes below). Cards are rendered by JS
 from server data (`json_script`), with `textContent` only. The screen refreshes from `active_orders` on every SSE
-`orders` event (no polling).
+`orders` event. `active_orders` reads the database every time (it used to serve a cached ID list, which a save in a
+concurrent transaction could overwrite with one missing a new order: the KDS kept showing old data until reloaded). A
+feed fetch gives up after 10 s (a hung one used to hold every later refresh behind it), failures retry with backoff, a
+signed-out answer reloads the page, and with nothing fetched for a minute it fetches anyway (a safety net for a lost
+nudge).
 
 - `?filter=` picks the stations the screen works for: repeat it or comma-separate codes; unknown codes are dropped and
   no filter means every station. The filter sheet (rail button, `F`) changes it and rewrites the URL, so the screen can
@@ -1236,7 +1240,14 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
   `valhalla` and `nominatim` (delivery travel times; they build from `OSM_EXTRACT` on first start). Secrets come from `pavilion/.env`.
   `.dockerignore` keeps `.env`, databases and media out of the image.
 - Media lives in the RustFS bucket, which must allow anonymous reads (images are embedded in emails and cached by the PWA).
-- Put a TLS-terminating proxy in front (nginx, Caddy, Cloudflare). For nginx, don't buffer `/events/`.
+- Put a TLS-terminating proxy in front (nginx, Caddy, Cloudflare). For nginx, don't buffer `/events/`. The streams
+  send `Cache-Control: no-cache, no-transform` so Cloudflare doesn't compress (and so buffer) them.
+- No `container_name`s: Compose names containers after the project (the folder, or `-p`), so several Pavilions can
+  run on one machine. Reach one with `docker compose exec web …`.
+- Errors go to Bugsink: the server's through `sentry_sdk` (`BUGSINK_DSN`), and outside DEBUG every page's JavaScript
+  errors and `console.error`s too (the Sentry browser bundle in `static/vendor/sentry/`, started by
+  `static/js/browser-errors.js` from `pos_server/_browser_errors.html`, which every page's `<head>` includes;
+  `BUGSINK_BROWSER=false` turns it off). Kiosk screens have no console anyone reads.
 
 ---
 

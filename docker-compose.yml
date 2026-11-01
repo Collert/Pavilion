@@ -7,7 +7,6 @@
 services:
   web:
     build: .
-    container_name: pavilion_app
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -40,7 +39,6 @@ services:
   # The daily jobs (docs/PROJECT_OVERVIEW.md §8 "Scheduled jobs"): the same image, once a day after a first run at start
   scheduler:
     build: .
-    container_name: pavilion_scheduler
     restart: unless-stopped
     env_file:   # the deployment's variables (Dokploy's Environment tab writes .env), else pavilion/.env
       - path: .env
@@ -82,7 +80,6 @@ services:
   # under /var/lib/postgresql; moving to 19 later needs a dump and restore (pg_upgrade), not just a new tag.
   db:
     image: postgres:18
-    container_name: pavilion_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pavilion_db}
@@ -105,7 +102,6 @@ services:
   # oldest keys go first when it's full. Not published to the host.
   redis:
     image: redis:7-alpine
-    container_name: pavilion_redis
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     healthcheck:
@@ -121,7 +117,6 @@ services:
   # Columbia otherwise.
   valhalla:
     image: ghcr.io/valhalla/valhalla-scripted:latest
-    container_name: pavilion_valhalla
     restart: unless-stopped
     environment:
       tile_urls: ${OSM_EXTRACT:-https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf}
@@ -134,7 +129,6 @@ services:
 
   nominatim:
     image: mediagis/nominatim:5.3
-    container_name: pavilion_nominatim
     restart: unless-stopped
     shm_size: 1g
     environment:
@@ -149,7 +143,6 @@ services:
   # published to the host), and it has to load the store's fonts and pictures from wherever they're hosted.
   screenshots:
     image: gotenberg/gotenberg:8
-    container_name: pavilion_screenshots
     restart: unless-stopped
     command:
       - gotenberg
