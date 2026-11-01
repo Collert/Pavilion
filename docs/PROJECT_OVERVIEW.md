@@ -318,7 +318,7 @@ that opens the order in the menu's place; paying keeps it open, and a finished o
 
 1. **Lock screen** (`/restaurant/lock`): lists the last 3 staff with a PIN who used this register
    (`RegisterSignIn`, updated whenever someone opens the register on the device). Pick your name, type your 4-digit
-   PIN (`Staff.pin`, cheap salted hash; set in `/advanced-admin/` → Users → Staff); only listed people can use a PIN.
+   PIN (`Staff.pin`, cheap salted hash; set on the admin's Staff page, Account card, with the password and a reset link); only listed people can use a PIN.
    Everyone else taps "Someone else? Sign in with a password", which signs them in (`users.login_view`: email or
    username, "stay signed in") and lands them on the register, so they're listed next time. 5 wrong PINs lock that
    person out for a minute on that device. PINs are register-only; other screens use the password sign-in.

@@ -11,6 +11,7 @@ from urllib.parse import quote, urlencode
 from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -1446,7 +1447,7 @@ def library_upload(request):
 
 # ---------- team ----------
 
-@admin_page("staff", edit={"create", "photoclear", "promote", "save"}, delete={"remove"})
+@admin_page("staff", edit={"create", "photoclear", "pin", "pinclear", "promote", "pwreset", "pwset", "save"}, delete={"remove"})
 def staff(request):
     """Staff: the list and the selected profile, one form with Save (admin_portal/staff.py). Adding someone and their
     photo take effect straight away."""
@@ -1473,6 +1474,33 @@ def staff(request):
                     p.photo.storage.delete(p.photo.name)
                     p.photo = ""
                     p.save(update_fields=["photo"])
+            elif person and op in ("pin", "pinclear"):
+                problem = staff_data.set_pin(person, request.POST.get("new_pin", "") if op == "pin" else "")
+                if problem:
+                    messages.error(request, problem)
+                elif op == "pin" and not request.POST.get("new_pin", "").strip():
+                    messages.error(request, _("Type the 4-digit PIN first."))
+                else:
+                    messages.success(request, (_("%(name)s’s register PIN is set.") if op == "pin" else _("%(name)s’s register PIN is removed."))
+                                     % {"name": person.first_name or person.username})
+            elif person and op == "pwset":
+                problem = staff_data.set_password(person, request.POST.get("new_password", ""))
+                if problem:
+                    messages.error(request, problem)
+                else:
+                    if person == request.user:
+                        update_session_auth_hash(request, person)  # changing your own password keeps you signed in
+                    messages.success(request, _("%(name)s’s password is changed.") % {"name": person.first_name or person.username})
+            elif person and op == "pwreset":
+                from users.accounts import send_password_reset
+                if not person.email:
+                    messages.error(request, _("They have no email to send a link to. Set a password here instead."))
+                else:
+                    try:
+                        send_password_reset(request, person)
+                        messages.success(request, _("A link to set a new password was sent to %(email)s.") % {"email": person.email})
+                    except EmailError:
+                        messages.error(request, _("The email couldn’t be sent. Check listmonk, or set a password here instead."))
         msg = st.pop("msg", "")
         if op == "save":
             current = staff_data.rows(st, users)

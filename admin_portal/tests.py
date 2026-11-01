@@ -2416,6 +2416,45 @@ class StaffPageTests(AdminFixture, TestCase):
         self.assertEqual(p.emergency_relation, "Sister")
         self.assertFalse(self.staff.is_superuser)
 
+    def test_register_pin_and_password_are_set_straight_away(self):
+        from unittest import mock
+        s = self.post(self.client.get(self.url).context["s"], f"pick:{self.staff.id}")
+        self.assertFalse(s["p"]["has_pin"])
+        s = self.post(s, "pin", new_pin="12a4")
+        self.assertFalse(staff_data_profile(self.staff).pin)
+        s = self.post(s, "pin", new_pin="2468")
+        self.assertTrue(staff_data_profile(self.staff).check_pin("2468"))
+        self.assertTrue(s["p"]["has_pin"])
+        s = self.post(s, "pinclear")
+        self.assertFalse(staff_data_profile(self.staff).pin)
+        s = self.post(s, "pwset", new_password="short")
+        self.staff.refresh_from_db()
+        self.assertFalse(self.staff.check_password("short"))
+        s = self.post(s, "pwset", new_password="a-much-longer-passphrase")
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.check_password("a-much-longer-passphrase"))
+        self.staff.email = "marco@example.com"
+        self.staff.save()
+        with mock.patch("users.accounts.send") as send:
+            self.post(s, "pwreset")
+        self.assertEqual((send.call_args.args[0], send.call_args.args[1]), ("password_reset", "marco@example.com"))
+
+    def test_only_owners_set_an_owners_pin(self):
+        from django.contrib.auth.models import User
+        other = User.objects.create_user("owner2", "o2@example.com", first_name="Ola", is_staff=True, is_superuser=True)
+        other.groups.add(self.owners)
+        self.owner.groups.remove(self.owners)
+        self.owner.is_superuser = False
+        self.owner.save()
+        from django.contrib.auth.models import Group
+        from users.models import GroupInfo
+        mgr = Group.objects.get_or_create(name="Staff page editors")[0]
+        GroupInfo.objects.update_or_create(group=mgr, defaults={"perms": ["app.admin", "admin.staff.view", "admin.staff.edit"]})
+        self.owner.groups.add(mgr)
+        s = self.post(self.client.get(self.url).context["s"], f"pick:{other.id}")
+        self.post(s, "pin", new_pin="1111")
+        self.assertFalse(staff_data_profile(other).pin)
+
     def test_owners_are_superusers_and_one_always_stays(self):
         s = self.client.get(self.url).context["s"]
         s = self.post(s, f"pick:{self.owner.id}")
@@ -3369,3 +3408,8 @@ class StartupTests(TransactionTestCase):
         async def starting_up():  # what AdminPortalConfig.ready does under uvicorn
             return store_row("time_zone")
         self.assertEqual(asyncio.run(starting_up()), {"time_zone": "Europe/Kyiv"})
+
+
+def staff_data_profile(user):
+    from users.models import Staff
+    return Staff.objects.get_or_create(user=user)[0]

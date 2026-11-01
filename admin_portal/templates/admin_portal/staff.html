@@ -111,6 +111,21 @@ and the photo take effect straight away.
                 <h2 class="disp tm-h2">{% trans "Account" %}</h2>
                 <label class="tm-switch-row"><span class="grow two-line"><span class="strong">{% trans "Can sign in" %}</span><span class="small muted">{{ p.active_hint }}</span></span>
                     <input type="checkbox" name="active" value="1" class="tm-switch"{% if p.r.active %} checked{% endif %}{% if p.you %} disabled{% endif %}>{% if p.you %}<input type="hidden" name="active" value="1">{% endif %}</label>
+                {# PIN and password take effect straight away (their own buttons, not Save) #}
+                <div class="tm-cred">
+                    <div class="two-line"><span class="strong">{% trans "Register PIN" %}</span>
+                        <span class="small muted">{% if p.has_pin %}{% trans "Set. They unlock the register with it." %}{% else %}{% trans "Not set. They can’t unlock the register with a PIN." %}{% endif %}</span></div>
+                    <div class="tm-cred-row"><input class="field" name="new_pin" data-no-preview inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="••••" aria-label="{% trans 'New PIN' %}">
+                        <button class="tm-keep" name="op" value="pin" formnovalidate>{% if p.has_pin %}{% trans "Change PIN" %}{% else %}{% trans "Set PIN" %}{% endif %}</button>
+                        {% if p.has_pin %}<button class="tm-photo-rm" name="op" value="pinclear" formnovalidate>{% trans "Remove" %}</button>{% endif %}</div>
+                </div>
+                <div class="tm-cred">
+                    <div class="two-line"><span class="strong">{% trans "Password" %}</span>
+                        <span class="small muted">{% if p.has_password %}{% trans "Set a new one here, or email them a link to choose their own." %}{% else %}{% trans "None yet. Set one here, or email them a link to choose their own." %}{% endif %}</span></div>
+                    <div class="tm-cred-row"><input class="field" type="password" name="new_password" data-no-preview autocomplete="new-password" placeholder="{% trans 'New password' %}" aria-label="{% trans 'New password' %}">
+                        <button class="tm-keep" name="op" value="pwset" formnovalidate>{% trans "Set" %}</button></div>
+                    <button class="tm-keep tm-cred-link" name="op" value="pwreset" formnovalidate{% if not p.r.email %} disabled{% endif %}>{% trans "Email a reset link" %}</button>
+                </div>
                 <div class="tm-facts">
                     <div><div class="tm-fact-k">{% trans "Staff since" %}</div><div class="num tm-fact-v">{{ p.since }}</div></div>
                     <div><div class="tm-fact-k">{% trans "Last signed in" %}</div><div class="num tm-fact-v">{{ p.seen }}</div></div>

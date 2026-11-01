@@ -2,7 +2,8 @@
 Staff (design: AdminStaff): the store's staff accounts (User.is_staff, with a users.Staff profile). One form with
 Save: the list (search, role filter), the selected person's profile (name, email, phone, roles, groups, emergency
 contact, can sign in, remove from staff). Edits are a draft in the session until Save; adding someone (promoting an
-existing account or making a new one, optionally emailing an invite) and their photo take effect straight away.
+existing account or making a new one, optionally emailing an invite), their photo, register PIN and password (set
+here or a reset link emailed) take effect straight away.
 
 Groups are django.contrib.auth Groups (users.GroupInfo: description, colour); members of the Owners group are made
 superusers. The store always keeps one active owner, and nobody can turn off or remove themselves.
@@ -269,6 +270,34 @@ def invite(request, user):
          fallback=settings.LANGUAGE_CODE)
 
 
+# ---------- sign-in (straight away) ----------
+
+def set_pin(user, raw) -> str:
+    """Give them a register PIN (4 digits, "" removes it). Returns a problem ("" when it's set)."""
+    raw = (raw or "").strip()
+    if raw and not (len(raw) == 4 and raw.isdigit()):
+        return _("A PIN is 4 digits.")
+    p = profile(user)
+    p.set_pin(raw)
+    p.save(update_fields=["pin"])
+    return ""
+
+
+def set_password(user, raw) -> str:
+    """Give them a new password (Django's password rules apply). Returns a problem ("" when it's set)."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+    if not raw:
+        return _("Type the new password first.")
+    try:
+        validate_password(raw, user)
+    except ValidationError as e:
+        return " ".join(e.messages)
+    user.set_password(raw)
+    user.save(update_fields=["password"])
+    return ""
+
+
 # ---------- the page ----------
 
 def _phone_digits(text):
@@ -342,7 +371,7 @@ def page(st, users, me) -> dict:
              "roles": [{"r": x, "on": x.id in r["roles"]} for x in roles],
              "groups": [{"g": g, "desc": getattr(getattr(g, "info", None), "description", ""), "on": g.id in r["groups"],
                          "locked": bool(owners and g.id == owners.id and (is_owner_sole or not me.is_superuser))} for g in groups],
-             "guarded": guarded(me, user),
+             "guarded": guarded(me, user), "has_pin": bool(prof.pin), "has_password": user.has_usable_password(),
              "group_warn": (_("No groups yet, so they can’t open any part of Pavilion.") if not r["groups"]
                             else _("Only owner. Someone else needs Owners before this can be removed.") if is_owner_sole else ""),
              "em_warn": em_warn,

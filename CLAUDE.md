@@ -272,8 +272,8 @@ owner). Customers can register accounts, so **staff pages need `app_required("ap
 `pos_server/devices.py` (or `register_staff_required` in `register.py`, which sends people to the lock screen), never
 bare `login_required`. Admin views use `admin_portal/access.py: admin_page(page, edit={ops}, delete={ops})`**: GET
 needs view, posted ops listed in `edit`/`delete` need those (everything else only changes a draft); a new view must
-list every op that writes. The layout hides Save/Delete-like buttons people can't use (`ro`/`nodel` body classes). On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set in
-`/advanced-admin/` → Users), rate-limited per device; the lock screen lists the device's last 3 users
+list every op that writes. The layout hides Save/Delete-like buttons people can't use (`ro`/`nodel` body classes). On the register only, staff sign in with a hashed 4-digit `Staff.pin` (set on
+the admin's Staff page, which also sets a password or emails a reset link), rate-limited per device; the lock screen lists the device's last 3 users
 (`RegisterSignIn`), and anyone else signs in with their password first. POS/KDS views also use `device_required` (signed cookie
 for a registered `EligibleDevice`; enforced when `ENFORCE_DEVICE_CHECK`, default on in production). A browser becomes a device on the
 device setup page (`/restaurant/check-device`, `views.device_elig`: someone with `admin.devices.edit` names it or picks one, or a device code is

@@ -66,6 +66,13 @@
 .tm-switch:checked { background: var(--green); }
 .tm-switch:checked::after { transform: translateX(18px); }
 .tm-switch:disabled { opacity: .6; cursor: not-allowed; }
+.tm-cred { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--softer); display: flex; flex-direction: column; gap: 8px; }
+.tm-cred .strong { font-size: 14px; }
+.tm-cred-row { display: flex; align-items: center; gap: 8px; }
+.tm-cred-row .field { flex: 1; min-width: 0; height: 40px; }
+.tm-cred-row .tm-keep { flex: none; padding: 0 16px; background: var(--surface); }
+.tm-cred-link { flex: none; background: var(--surface); }
+.tm-cred-link:disabled { color: #9AA8A1; cursor: not-allowed; }
 .tm-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .tm-facts > div { padding: 10px 12px; border-radius: 14px; background: var(--softer); }
 .tm-fact-k { font-size: 11px; font-weight: 700; color: var(--muted); }
