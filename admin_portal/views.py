@@ -1043,20 +1043,31 @@ def languages(request):
                 {"x": x, "restarting": x["pending"] and languages_data.restarting()})
 
 
-@admin_page("devices", edit={"new", "rename", "newcode"}, delete={"delete"})
+@admin_page("devices", edit={"new", "rename", "newcode", "dongle_add", "dongle_newcode", "dongle_finish", "dongle_save",
+                             "dongle_identify", "dongle_restart", "dongle_wifi"},
+            delete={"delete", "dongle_unpair"})
 def devices(request):
-    """Devices: the store's trusted devices, their codes and kiosk links (admin_portal/devices.py)."""
+    """Devices: the store's trusted computers (codes, kiosk links) and visual dongles (admin_portal/devices.py)."""
     import uuid
 
+    from devices import pairing
+    from devices.models import Dongle
     from pos_server.models import EligibleDevice
+    from screens.models import Screen
 
     from . import devices as devices_data
-    try:
-        sel = int(request.POST.get("sel") or request.GET.get("sel") or 0)
-    except ValueError:
-        sel = 0
+
+    def number(name):
+        try:
+            return int(request.POST.get(name) or request.GET.get(name) or 0)
+        except ValueError:
+            return 0
+
+    sel, dongle_sel = number("sel"), number("dongle")
     if request.method == "POST":
-        op = request.POST.get("op")
+        op = request.POST.get("op", "")
+        if op.startswith("dongle_"):
+            return _dongle_op(request, op, dongle_sel, pairing, Dongle, Screen, devices_data)
         device = EligibleDevice.objects.filter(pk=sel).first()
         if op == "new":
             device = EligibleDevice.objects.create(name=request.POST.get("new_name", "").strip()[:140] or _("New device"))
@@ -1076,7 +1087,68 @@ def devices(request):
             messages.success(request, _("%(name)s removed. That device has to be set up again to open staff screens.") % {"name": name})
             return redirect("admin_devices")
         return redirect(f"{reverse('admin_devices')}?sel={sel}")
-    return page(request, "admin_portal/devices.html", "devices", {"x": devices_data.page(request, sel)})
+    return page(request, "admin_portal/devices.html", "devices", {"x": devices_data.page(request, sel, dongle_sel)})
+
+
+def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
+    """The visual dongles' buttons on the Devices page."""
+    session = request.session
+    here = f"{reverse('admin_devices')}?dongle={dongle_id}" if dongle_id else reverse("admin_devices")
+    if op in ("dongle_add", "dongle_newcode"):
+        old = session.get(devices_data.PAIR_KEY)
+        if old and op == "dongle_newcode":  # the old code stops working
+            from devices.models import DonglePairingCode
+            DonglePairingCode.objects.filter(pk=old, used_at__isnull=True).update(expires_at=timezone.now())
+        session[devices_data.PAIR_KEY] = pairing.new_code(request.user).pk
+        return redirect(here)
+    if op == "dongle_closeadd":
+        session.pop(devices_data.PAIR_KEY, None)
+        return redirect(here)
+    if op == "dongle_cancelunpair":
+        session.pop(devices_data.UNPAIR_KEY, None)
+        return redirect(here)
+    dongle = Dongle.objects.select_related("screen").filter(pk=dongle_id).first()
+    if op == "dongle_finish":  # the pairing sheet's Done: name it and pick its screen
+        from devices.models import DonglePairingCode
+        code = DonglePairingCode.objects.select_related("dongle").filter(pk=session.pop(devices_data.PAIR_KEY, 0) or 0).first()
+        dongle = code.dongle if code else None
+        if dongle is None:
+            return redirect(here)
+        dongle.name = request.POST.get("name", "").strip()[:140] or dongle.name
+        dongle.screen = Screen.objects.filter(pk=request.POST.get("screen") or 0).first()
+        dongle.save(update_fields=["name", "screen"])
+        messages.success(request, _("%(name)s is ready.") % {"name": dongle.name})
+        return redirect(f"{reverse('admin_devices')}?dongle={dongle.pk}")
+    if dongle is None:
+        return redirect("admin_devices")
+    if op == "dongle_save":
+        dongle.name = request.POST.get("name", "").strip()[:140] or dongle.name
+        dongle.screen = Screen.objects.filter(pk=request.POST.get("screen") or 0).first()
+        orientation = request.POST.get("orientation")
+        if orientation in dict(Dongle.ORIENTATIONS):
+            dongle.orientation = orientation
+        dongle.save(update_fields=["name", "screen", "orientation"])
+        messages.success(request, _("Saved. The TV picks it up in a few seconds.") if dongle.online else _("Saved. The TV picks it up when it’s back online."))
+    elif op in ("dongle_identify", "dongle_restart", "dongle_wifi"):
+        name = {"dongle_identify": "identify", "dongle_restart": "restart", "dongle_wifi": "change_wifi"}[op]
+        sent = pairing.command(dongle, name, **({"seconds": 10} if name == "identify" else {}))
+        if not sent:
+            messages.error(request, _("%(name)s is offline, so it can’t hear that.") % {"name": dongle.name})
+        elif name == "identify":
+            messages.success(request, _("“%(name)s” is on the TV for 10 seconds.") % {"name": dongle.name})
+        elif name == "restart":
+            messages.success(request, _("%(name)s is restarting. Back in about a minute.") % {"name": dongle.name})
+        else:
+            messages.success(request, _("Setup Wi-Fi is on. Scan the code on %(name)s.") % {"name": dongle.name})
+    elif op == "dongle_askunpair":
+        session[devices_data.UNPAIR_KEY] = dongle.pk
+    elif op == "dongle_unpair":
+        session.pop(devices_data.UNPAIR_KEY, None)
+        name = dongle.name
+        dongle.delete()  # its socket tells the TV, which goes back to "Scan to start"
+        messages.success(request, _("%(name)s is unpaired.") % {"name": name})
+        return redirect("admin_devices")
+    return redirect(here)
 
 
 @admin_page("payments", edit={"connect", "disconnect", "location", "renew"})

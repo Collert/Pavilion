@@ -144,6 +144,7 @@ INSTALLED_APPS = [
     'team',  # Shifts, shift pars, staff availability and time off
     'services',  # Services (staff, rentals, venue...) and their bookings
     'catering',  # Catering orders, their conversation and settings
+    'devices.apps.DevicesConfig',  # Devices that pair with Pavilion: visual dongles (TVs showing a Screen, jester-agent)
 ]
 
 # Middleware - Handles request processing, security, and session management

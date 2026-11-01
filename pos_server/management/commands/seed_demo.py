@@ -101,6 +101,7 @@ class Command(BaseCommand):
             self.seed_team()
             self.seed_time_clock()
             self.seed_screens()
+            self.seed_dongles()
             self.seed_gift_cards()
             self.device, _ = EligibleDevice.objects.get_or_create(token=DEMO_DEVICE_TOKEN, defaults={"name": "Register 1"})
             EligibleDevice.objects.get_or_create(name="Kitchen screen")  # the KDS tablet by the pass (admin's Devices page)
@@ -1450,6 +1451,29 @@ class Command(BaseCommand):
             "popups": [{"widget": "order_summary", "params": {}}],
         })
         ScreenSession.objects.get_or_create(screen=board, name="Register 1 display")
+
+    def seed_dongles(self):
+        """Visual dongles on the admin's Devices page, as in the canvas's AdminDevices: TVs paired before (their
+        tokens are made up, so no real dongle can connect as them; they show offline until one pairs for real)."""
+        import secrets
+        from datetime import timedelta
+
+        from devices.models import Dongle
+        from devices.pairing import hash_secret
+        owner = User.objects.filter(username="admin").first()
+        now = timezone.now()
+
+        def dongle(name, hardware_id, screen_slug, orientation, ssid, signal, ip, resolution, days):
+            return Dongle.objects.get_or_create(hardware_id=hardware_id, defaults={
+                "name": name, "token_hash": hash_secret(secrets.token_urlsafe(32)), "orientation": orientation,
+                "screen": Screen.objects.filter(slug=screen_slug).first() if screen_slug else None,
+                "paired_at": now - timedelta(days=days), "paired_by": owner, "last_seen": now - timedelta(hours=2, minutes=12),
+                "info": {"model": "Raspberry Pi 4 Model B Rev 1.5", "version": "0.1.0", "resolution": resolution,
+                         "network": {"ssid": ssid, "signal": signal, "ip": ip, "wired": False}, "showing": "screen" if screen_slug else "idle"}})
+
+        dongle("Pickup TV", "7F3K", "order-board", Dongle.LANDSCAPE, "Juniper-Staff", 84, "192.168.1.43", "1920x1080", 20)
+        dongle("Menu board, by the till", "Q8MZ", "menu-board", Dongle.PORTRAIT, "Juniper-Staff", 62, "192.168.1.44", "3840x2160", 32)
+        dongle("Front counter TV", "H2RW", None, Dongle.LANDSCAPE, "Juniper-Staff", 91, "192.168.1.42", "1920x1080", 4)
 
     def seed_time_clock(self):
         """Time clock punches for the published shifts so far: a few minutes either side, a half-hour break on long

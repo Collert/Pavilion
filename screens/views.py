@@ -38,7 +38,8 @@ def sessions(request, slug):
 
 
 def _allowed(request, screen):
-    return screen.public or (request.user.is_authenticated and request.user.is_staff)
+    from devices.pairing import can_see
+    return screen.public or (request.user.is_authenticated and request.user.is_staff) or can_see(request, screen)
 
 
 def show(request, slug, code=None):

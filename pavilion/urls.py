@@ -54,6 +54,7 @@ urlpatterns = [
     path("screens/", include("screens.urls")),
     path("audio/", include("audio.urls")),
     path("team/", include("team.urls")),
+    path("devices/", include("devices.urls")),  # devices that pair with Pavilion: a dongle pairs here, its browser opens its screen
 ]
 
 if settings.DEBUG:
