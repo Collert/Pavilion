@@ -1602,7 +1602,7 @@ class Command(BaseCommand):
         cards = [("VISA", "4242"), ("MASTERCARD", "8810"), ("AMERICAN_EXPRESS", "1005"), ("VISA", "7731"), ("INTERAC", "0459")]
 
         def order(lines, channel, status, minutes_ago, method="card", drawer=None, order_discount=None, **fields):
-            payments = ()
+            payments = None  # online orders aren't paid at a register
             if channel == "store":
                 total = price_cart(lines, order_discount=order_discount, to_go=bool(fields.get("to_go_order")), can_manual=True).total
                 payments = [{"method": method, "amount": str(total), "tendered": str(total)}]

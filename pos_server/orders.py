@@ -55,7 +55,7 @@ def _count_discount_uses(cart):
 
 
 @transaction.atomic
-def create_order(*, lines, channel, initial_status, order_discount=None, payments=(), gift_card_payments=(),
+def create_order(*, lines, channel, initial_status, order_discount=None, payments=None, gift_card_payments=(),
                  verify_payment=None, can_manual_discount=False, approve_discount=None, expected_total=None, drawer=None,
                  tip=ZERO, staff_cards=(), staff_card_amount=None, gift_sales=(), **fields):
     """
@@ -69,7 +69,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         order_discount: discount spec for the whole order (see pricing).
         payments: register payments, [{"method": "cash"|"card", "amount": ..., "tendered": ..., "checkoutId": <Square
             Terminal checkout, card only>}]. When given
-            (the register), they plus the gift cards must add up to exactly the total.
+            (the register, even an empty list), they plus the gift and staff cards must add up to exactly the total.
         gift_card_payments: iterable of (card number or GiftCard, amount) to charge to gift cards.
         gift_sales: gift cards being bought (pricing: "Gift cards sold"). They're issued once the order is made:
             `order.new_gift_cards` is [(GiftCard, its full number)], the only time the numbers are known.
@@ -139,7 +139,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
                 gift_total += amount
 
     tenders = []
-    for payment in payments:
+    for payment in payments or ():
         method = payment.get("method") if isinstance(payment, dict) else None
         if method not in (OrderPayment.CASH, OrderPayment.CARD):
             raise OrderError(_("Unknown payment method."))
@@ -153,7 +153,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
                 raise OrderError(_("Not enough cash was handed over."))
         checkout = str(payment.get("checkoutId") or "")[:64] if method == OrderPayment.CARD else ""
         tenders.append((method, amount, tendered, checkout))
-    if payments and gift_total + sum((t[1] for t in tenders), ZERO) != total:
+    if payments is not None and gift_total + sum((t[1] for t in tenders), ZERO) != total:
         raise OrderError(_("The payments don't add up to the total of $%(total)s.") % {"total": total})
     if verify_payment:
         verify_payment(total - gift_total)

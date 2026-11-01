@@ -1662,19 +1662,23 @@ function renderPay() {
     $("#split-btn").disabled = ui.card !== "idle";
 
     const now = dueNow();
-    const cash = ui.method === "cash";
+    const settled = !!quote && left <= 0;  // nothing to pay (a 100% discount) or every payment taken: just send it
+    const cash = ui.method === "cash" && !settled;
     const blocked = cash && !boot.drawerOpen;
     $("#cash-blocked").hidden = !blocked;
     $("#cash-ready").hidden = !(cash && !blocked);
-    $("#card-panel").hidden = ui.method !== "card";
-    $("#gift-panel").hidden = ui.method !== "gift";
+    $("#card-panel").hidden = settled || ui.method !== "card";
+    $("#gift-panel").hidden = settled || ui.method !== "gift";
     const staffCard = balanceCard();
     $("#staff-method").hidden = !staffCard;
-    $("#staff-panel").hidden = ui.method !== "staff";
+    $("#staff-panel").hidden = settled || ui.method !== "staff";
 
     let label = "";
     let disabled = ui.submitting || now <= 0;
-    if (cash) {
+    if (settled) {
+        label = t("Complete sale");
+        disabled = ui.submitting;
+    } else if (cash) {
         const tendered = ui.tendered !== null && ui.tendered >= now ? ui.tendered : now;
         // Exact, then the next round amounts a customer is likely to hand over
         const roundUp = (step) => Math.ceil(now / step) * step;
@@ -1813,6 +1817,7 @@ $("#split-amount").addEventListener("input", renderPay);
 
 $("#pay-cta").addEventListener("click", async () => {
     if ($("#pay-cta").disabled) return;
+    if (remaining() <= 0) { submitOrder(); return; }
     const now = dueNow();
     if (ui.method === "cash") {
         const tendered = ui.tendered !== null && ui.tendered >= now ? ui.tendered : now;

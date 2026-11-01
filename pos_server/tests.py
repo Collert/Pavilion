@@ -916,6 +916,20 @@ class RegisterTests(MenuFixture, TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(sorted(Order.objects.get().payments.values_list("method", flat=True)), ["card", "gift"])
 
+    def test_a_free_order_needs_no_payment(self):
+        crew(self.staff, "app.register", "act.discount")
+        unpaid = self.post("pos", {"lines": [self.dish(self.tea)], "total": "2.00", "payments": []})
+        self.assertEqual(unpaid.status_code, 400)
+        card = GiftCard.objects.create(available_balance=Decimal("1.00"))
+        short = self.post("pos", {"lines": [self.dish(self.tea)], "total": "2.00",
+                                  "payments": [{"method": "gift", "number": card.number, "amount": "1.00"}]})
+        self.assertEqual(short.status_code, 400)  # a gift card alone must cover the order too
+        free = self.post("pos", {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": {"kind": "pct", "value": "100"}},
+                                 "total": "0.00", "payments": []})
+        self.assertEqual(free.status_code, 200, free.content)
+        order = Order.objects.get()
+        self.assertEqual((order.total, order.payments.count()), (Decimal("0.00"), 0))
+
     def test_manual_discount_needs_the_permission(self):
         body = {"lines": [self.dish(self.tea)], "orderDiscount": {"manual": {"kind": "amt", "value": "1.00"}},
                 "total": "1.00", "payments": [terminal_card("1.00")]}

@@ -363,8 +363,6 @@ def place_order(request):
         return JsonResponse({"message": _("The cart is malformed.")}, status=400)
     if any(p.get("method") == "card" and not p.get("checkoutId") for p in payments):
         return JsonResponse({"message": _("Card payments are taken on the Terminal.")}, status=400)
-    if not payments:
-        return JsonResponse({"message": _("Take a payment first.")}, status=400)
     if unknown:
         return JsonResponse({"message": _("A staff card on this order isn’t valid any more.")}, status=400)
     device = current_device(request)
