@@ -91,6 +91,7 @@ last in the URLconf).
 | `/users/` | `users` | `login` (= `LOGIN_URL`), `logout`, `register`, `profile` |
 | `/screens/` | `screens` | `""` list of screens + widget catalogue (staff), `<slug>` a screen (public or staff, per screen) |
 | `/audio/` | `audio` | `""` all channels (staff), `music/<id>` and `voice/<id>` (the Audio app), `channels/<id>/now` (a music channel's song, for screens) and `/control` (JSON), `talk/<id>` (old address of `voice/<id>`); `/ws/voice/<id>` is the voice WebSocket |
+| `/dongles/` | `dongles` | `pair` (a visual dongle sends its pairing code, JSON), `open/<signed>` (its browser's launch link: sets the dongle cookie, shows its screen); `/ws/dongle` is the dongles' WebSocket (§6.8.1) |
 | `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
 | `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders`, `screens` and `catering` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
@@ -553,6 +554,35 @@ signed HttpOnly `pavilion_device` cookie for a registered `EligibleDevice`. Unre
 `check-device`, where a superuser registers them; a browser that already has the token in `localStorage` re-sends it
 automatically and gets the cookie back. `seed_demo` creates a demo device; open any POS page with
 `?device-token=00000000-0000-4000-8000-000000000001` once to register a dev browser.
+
+### 6.8.1 Visual dongles (`dongles/`, November 2026)
+
+A visual dongle is a Raspberry Pi behind a TV running **jester-agent** (Go, its own repo: `collert/jester-agent`;
+its `PROTOCOL.md` is the contract with this app). Designs: the canvas's `Dongle*` (TV), `DonglePortal*` (phone) and
+`AdminDevices` (the dongle panel and the add/paired sheets).
+
+- **Pairing**: the admin's Devices page → *Add visual dongle* makes a `DonglePairingCode` (six digits, once, 15
+  minutes; `pairing.new_code`; *Make a new code* expires the old one) and shows it in a sheet that waits for a dongle
+  (live on the `dongles` topic). The person types the code and Pavilion's address on their phone (the dongle's setup
+  Wi-Fi and captive portal); the dongle posts it to `POST /dongles/pair` (`views.pair`: CSRF-exempt, 10 tries a
+  minute per address and 60 for everyone) and gets a token `<id>.<secret>` (only its SHA-256, `Dongle.token_hash`, is
+  kept). The sheet then names it and picks its screen.
+- **The WebSocket** `/ws/dongle` (`dongles/socket.py`, routed in `pavilion/asgi.py`, `Authorization: Bearer <token>`):
+  Pavilion sends `config` (name, store name, screen with its launch path, orientation) on connecting and whenever the
+  dongle (post_save) or its screen changes, and `command`s from the Devices page (identify, restart, change_wifi;
+  `pairing.command`, refused while offline). Messages go through the broker topic `dongle:<id>` (`pairing.send`), so
+  any worker reaches the one holding the socket; a `config` nudge makes the socket read the config fresh. The dongle
+  sends `status` every 30 s (`Dongle.info`, `last_seen`; online = `dongles:online:<id>` in the cache, 90 s) and acks.
+  Deleting a Dongle (Unpair) sends `unpaired` and closes with 4401: the TV goes back to "Scan to start". A token
+  Pavilion doesn't know gets 4401 too.
+- **Showing a screen**: the config's screen URL is `/dongles/open/<signed>` (`pairing.launch_path`: signed with the
+  dongle, its token hash and the screen, so a new screen is a new address and re-pairing kills old links). Opening it
+  sets the signed `pavilion_dongle` cookie and redirects to `/screens/<slug>`; `screens.views._allowed` lets that
+  browser see that dongle's screen even when it isn't public (`pairing.can_see`).
+- **Devices page**: two groups (Computers, Visual dongles); a dongle opens with `?dongle=<id>`: a preview of what the
+  TV shows, online/offline, *Show name on TV*, *Restart*, *Edit screen*; *What it shows* (name, screen, orientation:
+  landscape/portrait/portrait flipped, turned by the dongle with wlr-randr); Details (Wi-Fi, IP, TV, last seen,
+  software, paired by) with *Change Wi-Fi* and *Unpair* (asks first; needs `admin.devices.delete`).
 
 ### 6.9 Admin
 
@@ -1220,6 +1250,8 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
    in-process broker and a fakeredis test were exercised.
 
 ### Known limits (not bugs, but worth knowing)
+- Visual dongles (§6.8.1) have been run end to end only with jester-agent's fake network on a laptop and Pavilion's dev
+  server; not yet on a Pi with NetworkManager, Cage and Chromium, nor through Redis between workers.
 
 - POS card payments: the server checks the Terminal checkout itself (completed, this register's, that amount, once). Terminal
   tips aren't recorded on the order yet.

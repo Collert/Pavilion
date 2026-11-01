@@ -1,11 +1,14 @@
 {% extends "admin_portal/layout.html" %}
 {% load static i18n admin_tags %}
 {% comment %}
-Devices (Settings; admin_portal/devices.py; no mockup). The devices trusted to run staff screens: pick one on the
-left; its name, device code and kiosk links (any link with ?device-token= sets the browser up) on the right.
+Devices (Settings; admin_portal/devices.py; the canvas's AdminDevices artboard). Two groups on the left: computers
+(trusted to run staff screens: name, device code, kiosk links) and visual dongles (TVs showing a screen: what it
+shows, its state and commands). "Add visual dongle" opens a sheet with a pairing code that waits, live on the
+"dongles" topic, for a dongle to use it, then names it.
 {% endcomment %}
 {% block title %}{% trans "Devices" %}{% endblock %}
 {% block main_class %}tm-main{% endblock %}
+{% block live_topics %}"dongles"{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
 <link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
 <link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">
@@ -18,28 +21,108 @@ left; its name, device code and kiosk links (any link with ?device-token= sets t
         <h1 class="disp page-title">{% trans "Devices" %}</h1>
     </div>
     <form method="post" class="dv-new">{% csrf_token %}
-        <input class="field" name="new_name" maxlength="140" placeholder="{% trans 'e.g. Patio register' %}" aria-label="{% trans 'New device name' %}">
-        <button class="btn-amber" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "Add device" %}</button>
+        <input class="field" name="new_name" maxlength="140" placeholder="{% trans 'e.g. Patio register' %}" aria-label="{% trans 'New computer name' %}">
+        <button class="btn-soft" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "Add computer" %}</button>
+        <button class="btn-amber" name="op" value="dongle_add">{% icon "plus" 18 2.4 %}{% trans "Add visual dongle" %}</button>
     </form>
 </header>
 
 <div class="dv-body">
-    <section class="card dv-list" aria-label="{% trans 'Devices' %}">
-        <div class="card-sub dv-list-sub">{% trans "Computers, tablets and phones that open registers, kitchen screens, the time clock and screens." %}</div>
+    <section class="card dv-list" aria-label="{% trans 'Devices' %}" id="dv-list" data-region>
         <div class="dv-rows">
+            <div class="dv-group">
+                <span class="dv-group-ic" aria-hidden="true">{% icon "M3 4h18v12H3z M8 20h8 M12 16v4" 18 2 %}</span>
+                <span class="grow"><span class="strong block">{% trans "Computers" %}</span><span class="small muted block">{% trans "Registers, kitchen screens, the time clock and the cash drawer only open on these." %}</span></span>
+            </div>
             {% for r in x.rows %}
             <a class="dv-row{% if r.on %} on{% endif %}" href="?sel={{ r.d.id }}" data-live {% if r.on %}aria-current="true"{% endif %}>
                 <span class="dv-ic" aria-hidden="true">{% icon "M3 4h18v12H3z M8 20h8 M12 16v4" 18 2 %}</span>
                 <span class="grow"><span class="strong block">{{ r.d.name }}</span><span class="small muted block">{% blocktrans with when=r.added %}Added {{ when }}{% endblocktrans %}{% if r.terminal %} · {% trans "Square Terminal" %}{% endif %}</span></span>
             </a>
             {% empty %}
-            <div class="small muted dv-empty">{% trans "No devices yet. Add one, or open a staff screen on the device and set it up there." %}</div>
+            <div class="small muted dv-empty">{% trans "None yet. Add one, or open a staff screen on the device and set it up there." %}</div>
+            {% endfor %}
+
+            <div class="dv-group">
+                <span class="dv-group-ic" aria-hidden="true">{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 2 %}</span>
+                <span class="grow"><span class="strong block">{% trans "Visual dongles" %}{% if x.attention %} <span class="dv-count">{{ x.attention }}</span>{% endif %}</span><span class="small muted block">{% trans "Plug into a TV and show one of your screens." %}</span></span>
+            </div>
+            {% for r in x.dongle_rows %}
+            <a class="dv-row{% if r.on %} on{% endif %}" href="?dongle={{ r.d.id }}" data-live {% if r.on %}aria-current="true"{% endif %}>
+                <span class="dv-ic" aria-hidden="true">{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 2 %}<span class="dv-ic-dot{% if r.online %} on{% endif %}"></span></span>
+                <span class="grow"><span class="strong block ellipsis">{{ r.d.name }}</span><span class="small block dv-tone-{{ r.tone }}">{{ r.text }}</span></span>
+            </a>
+            {% empty %}
+            <div class="small muted dv-empty">{% trans "None yet. Plug one into a TV, then pair it with a code." %}</div>
             {% endfor %}
         </div>
     </section>
 
-    {% if x.d %}
-    <div class="dv-detail">
+    {% if x.g %}{% with g=x.g gx=x.gx %}
+    <div class="dv-detail" id="dv-detail" data-region>
+        <section class="card dg-head">
+            <div class="dg-tv{% if gx.portrait %} portrait{% endif %}{% if not gx.online %} off{% endif %}" role="img"
+                 aria-label="{% if not gx.online %}{% trans 'Offline, no picture' %}{% elif g.screen %}{% blocktrans with s=g.screen.name %}Showing {{ s }}{% endblocktrans %}{% else %}{% trans 'TV shows No screen assigned' %}{% endif %}">
+                {% if not gx.online %}
+                <span class="dg-tv-msg">{% icon "M2 9a15 15 0 0 1 20 0 M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 M3 3l18 18" 30 2 %}{% trans "Last picture unknown" %}</span>
+                {% elif g.screen %}
+                <span class="dg-tv-menu"><span class="dg-tv-title">{{ g.screen.name }}</span>{% for w in "12345" %}<span class="dg-tv-row"><span></span><i></i><b></b></span>{% endfor %}</span>
+                {% else %}
+                <span class="dg-tv-msg white"><span class="dg-tv-frame"></span>{% trans "No screen assigned" %}</span>
+                {% endif %}
+                <span class="dg-tv-tag">{{ gx.tag }}</span>
+            </div>
+            <div class="grow dg-head-main">
+                <div class="dg-title-row"><h2 class="disp dg-title ellipsis">{{ g.name }}</h2>
+                    <span class="dg-pill{% if gx.online %} on{% endif %}"><span></span>{% if gx.online %}{% trans "Online" %}{% else %}{% trans "Offline" %}{% endif %}</span></div>
+                <div class="dg-line">{{ gx.line }}</div>
+                {% if not gx.online %}<div class="dg-tip">{% trans "If the TV and dongle have power but stay offline, the Wi-Fi may have changed. After 2 minutes without Wi-Fi, the dongle turns its setup Wi-Fi back on: scan the code on the TV to give it the new network. It stays paired." %}</div>{% endif %}
+                <span class="grow"></span>
+                <form method="post" class="dg-btns">{% csrf_token %}<input type="hidden" name="dongle" value="{{ g.id }}">
+                    <button class="em-soft" name="op" value="dongle_identify"{% if not gx.online %} disabled{% endif %}>{% icon "M3 5h18v12H3z M8 21h8 M9 11h6" 16 2.3 %}{% trans "Show name on TV" %}</button>
+                    <button class="em-soft" name="op" value="dongle_restart"{% if not gx.online %} disabled{% endif %}>{% icon "M20 12a8 8 0 1 1-2.3-5.7 M20 4v4h-4" 16 2.3 %}{% trans "Restart" %}</button>
+                    {% if g.screen %}<a class="em-soft" href="{% url 'admin_screen' g.screen.id %}">{% icon "M4 20h4L19 9l-4-4L4 16z" 16 2.3 %}{% trans "Edit screen" %}</a>{% endif %}
+                </form>
+            </div>
+        </section>
+
+        <section class="card tm-card pm-card">
+            <form method="post" class="dg-form">{% csrf_token %}<input type="hidden" name="dongle" value="{{ g.id }}">
+                <div class="dg-form-head"><h3 class="dg-h3 grow">{% trans "What it shows" %}</h3><button class="btn-amber dg-save" name="op" value="dongle_save">{% trans "Save" %}</button></div>
+                <div class="dg-two">
+                    <label><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ g.name }}" maxlength="140"></label>
+                    <label><span class="lbl">{% trans "Screen" %}</span>
+                        <select class="field{% if not g.screen %} dg-unset{% endif %}" name="screen">
+                            <option value="">{% trans "No screen" %}</option>
+                            {% for s in x.screens %}<option value="{{ s.id }}"{% if s.id == g.screen_id %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                        </select></label>
+                </div>
+                <div class="lbl dg-gap">{% trans "Turn the picture" %}</div>
+                <div class="dg-orient" role="radiogroup" aria-label="{% trans 'Turn the picture' %}">
+                    {% for value, label in x.orientations %}
+                    <label class="dg-or"><input type="radio" name="orientation" value="{{ value }}"{% if g.orientation == value %} checked{% endif %}><span class="dg-or-shape {{ value }}"></span>{{ label }}</label>
+                    {% endfor %}
+                </div>
+                <div class="em-hint">{% trans "Use Portrait when the TV hangs on its side, like a menu board." %}</div>
+            </form>
+        </section>
+
+        <section class="card tm-card pm-card">
+            <h3 class="dg-h3">{% trans "Details" %}</h3>
+            <div class="dg-facts">
+                {% for label, value in gx.facts %}<div><div class="lbl tight">{{ label }}</div><div class="strong ellipsis">{{ value }}</div></div>{% endfor %}
+            </div>
+            <div class="dg-sep"></div>
+            <form method="post" class="dg-actions">{% csrf_token %}<input type="hidden" name="dongle" value="{{ g.id }}">
+                <div><button class="em-soft" name="op" value="dongle_wifi"{% if not gx.online %} disabled{% endif %}>{% icon "M2 9a15 15 0 0 1 20 0 M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01" 16 2.3 %}{% trans "Change Wi-Fi" %}</button>
+                    <div class="em-hint">{% trans "Turns the setup Wi-Fi back on so you can pick a new network from your phone. Stays paired." %}</div></div>
+                <div><button class="em-soft red" name="op" value="dongle_askunpair">{% trans "Unpair" %}</button>
+                    <div class="em-hint">{% trans "The TV goes back to the “Scan to start” screen. It needs a new code to come back." %}</div></div>
+            </form>
+        </section>
+    </div>
+    {% endwith %}{% elif x.d %}
+    <div class="dv-detail" id="dv-detail" data-region>
         <section class="card tm-card pm-card">
             <form method="post" class="dv-name">{% csrf_token %}<input type="hidden" name="sel" value="{{ x.d.id }}">
                 <label class="grow"><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ x.d.name }}" maxlength="140"></label>
@@ -71,11 +154,60 @@ left; its name, device code and kiosk links (any link with ?device-token= sets t
     </div>
     {% endif %}
 </div>
+
+<div id="dv-overlays" data-region>
+{% if x.pairing %}{% with p=x.pairing %}
+<form method="post" class="overlay">{% csrf_token %}{% if x.g %}<input type="hidden" name="dongle" value="{{ x.g.id }}">{% endif %}
+    <button class="scrim" name="op" value="dongle_closeadd" aria-label="{% trans 'Close' %}"></button>
+    <div class="sheet dg-sheet" role="dialog" aria-modal="true" aria-labelledby="dg-add-title">
+        <div class="sheet-head"><div class="grow">
+            <h2 class="disp sheet-title" id="dg-add-title">{% if p.dongle %}{% trans "Name your new dongle" %}{% else %}{% trans "Add a visual dongle" %}{% endif %}</h2>
+            <div class="small muted">{% if p.dongle %}{% trans "It’s online and ready for a screen." %}{% else %}{% trans "Plug it in, then use this code on the setup screen." %}{% endif %}</div></div>
+            <button class="close-btn" name="op" value="dongle_closeadd" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
+        {% if p.dongle %}
+        <div class="dg-paired">
+            <span class="dg-paired-ic">{% icon "check" 24 2.6 %}</span>
+            <div class="grow"><div class="dg-paired-t">{% blocktrans with n=p.dongle.name %}{{ n }} is paired{% endblocktrans %}</div><div class="dg-paired-s">{{ p.facts }}</div></div>
+        </div>
+        <label><span class="lbl">{% trans "Name it after where it hangs" %}</span><input class="field" name="name" value="{{ p.dongle.name }}" maxlength="140" placeholder="{% trans 'e.g. Patio TV' %}"></label>
+        <label><span class="lbl">{% trans "Screen" %}</span>
+            <select class="field" name="screen"><option value="">{% trans "No screen for now" %}</option>{% for s in x.screens %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+        <div class="sheet-foot"><button class="btn-amber" name="op" value="dongle_finish">{% trans "Done" %}</button></div>
+        {% else %}
+        <div class="dg-code{% if p.expired %} expired{% endif %}" data-expires="{{ p.expires_ms }}">
+            <div class="dg-code-head"><span class="grow">{% trans "Pairing code" %}</span><button class="dg-code-new" name="op" value="dongle_newcode">{% trans "Make a new code" %}</button></div>
+            <div class="dg-digits" role="img" aria-label="{% trans 'Pairing code' %} {% for d in p.digits %}{{ d }} {% endfor %}">{% for d in p.digits %}<span>{{ d }}</span>{% endfor %}</div>
+            <div class="dg-bar"><span data-expires-bar></span></div>
+            <div class="dg-code-foot"><span class="grow">{% trans "Works once, for one dongle" %}</span><span data-expires-left>{% if p.expired %}{% trans "Expired" %}{% endif %}</span></div>
+        </div>
+        <ol class="dg-how">
+            <li><span>1</span>{% trans "Plug the dongle into the TV and into power. The TV shows “Scan to start” with a QR code." %}</li>
+            <li><span>2</span>{% trans "Scan the code with your phone. Setup opens and asks for the Pavilion address below and this code." %}</li>
+            <li><span>3</span>{% trans "Pick the Wi-Fi the TV should use. The dongle connects and shows up here." %}</li>
+        </ol>
+        <div class="dg-addr"><span class="lbl tight">{% trans "Pavilion address" %}</span><code class="grow strong" id="dg-addr">{{ p.address }}</code><button type="button" class="em-soft" data-copy="dg-addr">{% trans "Copy" %}</button></div>
+        <div class="dg-wait" role="status">{% if p.expired %}{% icon "critical" 18 %}<span class="grow">{% trans "This code has expired. Make a new one." %}</span>{% else %}<svg class="dg-spin" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg><span class="grow">{% trans "Waiting for a dongle to use this code…" %}</span>{% endif %}</div>
+        {% endif %}
+    </div>
+</form>
+{% endwith %}{% endif %}
+
+{% if x.unpair %}
+<form method="post" class="overlay">{% csrf_token %}<input type="hidden" name="dongle" value="{{ x.unpair.id }}">
+    <button class="scrim" name="op" value="dongle_cancelunpair" aria-label="{% trans 'Close' %}"></button>
+    <div class="sheet dg-confirm" role="alertdialog" aria-modal="true" aria-labelledby="dg-un-title">
+        <h2 class="disp sheet-title" id="dg-un-title">{% blocktrans with n=x.unpair.name %}Unpair {{ n }}?{% endblocktrans %}</h2>
+        <p class="muted strong">{% if x.unpair.screen %}{% blocktrans with s=x.unpair.screen.name %}It stops showing “{{ s }}” and goes back to the setup screen. To use it again, add it with a new code.{% endblocktrans %}{% else %}{% trans "It goes back to the setup screen. To use it again, add it with a new code." %}{% endif %}</p>
+        <div class="sheet-foot"><button class="btn-soft" name="op" value="dongle_cancelunpair">{% trans "Keep it" %}</button><button class="btn-red" name="op" value="dongle_unpair">{% trans "Unpair" %}</button></div>
+    </div>
+</form>
+{% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
-    // Copy a code or link (what HTML can't do)
+    // Copy a code or link, and count the pairing code down (what HTML can't do)
     document.addEventListener("click", async (event) => {
         const button = event.target.closest("[data-copy]");
         if (!button) return;
@@ -84,5 +216,17 @@ left; its name, device code and kiosk links (any link with ?device-token= sets t
         catch { getSelection().selectAllChildren(document.getElementById(button.dataset.copy)); }
         setTimeout(() => { button.textContent = gettext("Copy"); }, 1600);
     });
+    const LIFE = 15 * 60 * 1000;  // dongles.models.CODE_MINUTES
+    setInterval(() => {
+        const box = document.querySelector("[data-expires]");
+        if (!box) return;
+        const left = Math.max(0, Number(box.dataset.expires) - Date.now());
+        const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+        const label = box.querySelector("[data-expires-left]");
+        if (label) label.textContent = left ? interpolate(gettext("Expires in %s"), [`${m}:${String(s).padStart(2, "0")}`]) : gettext("Expired");
+        const bar = box.querySelector("[data-expires-bar]");
+        if (bar) bar.style.width = `${(left / LIFE) * 100}%`;
+        box.classList.toggle("expired", !left);
+    }, 500);
 </script>
 {% endblock %}
