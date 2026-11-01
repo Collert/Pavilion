@@ -548,25 +548,66 @@ function say(text, kind = "ok") {
 
 // ---------- server ----------
 
+// The kitchen must never sit on old orders. A fetch that hangs (a connection that died without the browser noticing)
+// is given up after FETCH_TIMEOUT_MS, so it can't hold every later refresh behind it; a failed one is tried again
+// soon; and with no news for SAFETY_MS the feed is fetched anyway, in case a nudge never arrived.
+const FETCH_TIMEOUT_MS = 10000;
+const SAFETY_MS = 60000;
 let refreshing = null;
+let wanted = false;
+let retryTimer = null;
+let retryMs = 2000;
+let lastFetched = Date.now();
+
+function retryLater(ms = retryMs) {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(refresh, ms);
+    retryMs = Math.min(retryMs * 2, 30000);
+}
+
+async function fetchFeed() {
+    const response = await fetch(FEED_URL, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (response.status === 429) {
+        retryLater(1000 * (Number(response.headers.get("Retry-After")) || 5));
+        return;
+    }
+    if (response.redirected || !(response.headers.get("Content-Type") || "").includes("json")) {
+        window.location.reload();  // signed out or the device was let go: show the page that says so
+        return;
+    }
+    if (!response.ok) throw new Error(`Order feed answered ${response.status}`);
+    const serverDate = Date.parse(response.headers.get("Date"));
+    if (Number.isFinite(serverDate) && Math.abs(serverDate - nowMs()) > 2000) clockOffset = serverDate - Date.now();
+    const orders = await response.json();
+    lastFetched = Date.now();
+    retryMs = 2000;
+    state.orders = new Map(orders.map((order) => [order.order_id, order]));
+    render();
+}
+
 async function refresh() {
-    // One fetch at a time; a refresh asked for during one runs right after it
-    if (refreshing) return refreshing.then(refresh);
+    // One fetch at a time; a refresh asked for during one runs once right after it
+    if (refreshing) {
+        wanted = true;
+        return refreshing;
+    }
+    clearTimeout(retryTimer);
     refreshing = (async () => {
-        try {
-            const response = await fetch(FEED_URL, { headers: { Accept: "application/json" } });
-            if (!response.ok) return;
-            const serverDate = Date.parse(response.headers.get("Date"));
-            if (Number.isFinite(serverDate) && Math.abs(serverDate - nowMs()) > 2000) clockOffset = serverDate - Date.now();
-            const orders = await response.json();
-            state.orders = new Map(orders.map((order) => [order.order_id, order]));
-            render();
-        } catch {
-            /* offline: the live stream reconnects and refreshes */
-        }
+        do {
+            wanted = false;
+            try {
+                await fetchFeed();
+            } catch (error) {
+                console.warn("Order feed failed, trying again", error);
+                retryLater();
+                if (error?.name !== "TimeoutError" && error?.name !== "TypeError") throw error;  // a bug, not the network: report it
+            }
+        } while (wanted);
     })();
     try { await refreshing; } finally { refreshing = null; }
 }
+
+setInterval(() => { if (Date.now() - lastFetched > SAFETY_MS) refresh(); }, SAFETY_MS / 4);
 
 // Do `action` for this screen's stations. The open order stays open (unless it leaves the screen).
 async function act(id, action, extra = {}, { auto = false } = {}) {

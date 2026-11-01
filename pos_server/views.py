@@ -481,26 +481,11 @@ def square_webhook(request):
 
 def active_orders(request):
     """
-    Handle the request to retrieve active orders.
-    This function attempts to retrieve the list of active order IDs from the cache.
-    If the cache is empty or expired, it updates the cache with the latest active orders.
-    It then fetches the active orders from the database using the IDs from the cache,
-    serializes them, and returns them as a JSON response.
-    Args:
-        request (HttpRequest): The HTTP request object.
-    Returns:
-        JsonResponse: A JSON response containing the serialized active orders.
+    The orders on screens, as JSON: what the KDS and status boards refetch on every "orders" nudge. Straight from the
+    database every time. The IDs used to be cached, and a save in one transaction could put back a list from before
+    another's new order committed: the kitchen then didn't see that order until the page was reloaded.
     """
-    # Attempt to get cached active orders
-    active_order_ids = cache.get('active_orders')
-
-    if active_order_ids is None:
-        # Cache miss; update the cache and get the latest list
-        update_active_orders_cache()
-        active_order_ids = cache.get('active_orders')
-
-    # Fetch active orders from database using IDs from the cache
-    active_orders = orders_for_screens(Order.objects.filter(id__in=active_order_ids))
+    active_orders = orders_for_screens(active_orders_queryset())
     serialized_orders = [collect_order(order) for order in active_orders]  # Adjust serialization as needed
     if not (request.user.is_authenticated and request.user.is_staff and is_registered_device(request)):
         # The public status board polls this too: only expose what it displays

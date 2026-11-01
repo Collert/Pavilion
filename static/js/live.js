@@ -68,6 +68,8 @@ setInterval(() => {
 // cached page reconnects, which refreshes it.
 window.addEventListener("pagehide", () => { source?.close(); source = null; });
 window.addEventListener("pageshow", (event) => { if (event.persisted) connect(); });
+// The network came back (Wi-Fi dropped): reconnect now instead of waiting for the stale check
+window.addEventListener("online", () => { if (listeners.size) connect(); });
 
 export function onLiveUpdate(topic, refresh, { debounceMs = 250, refreshOnConnect = true } = {}) {
     let timer = null;

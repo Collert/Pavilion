@@ -1175,6 +1175,15 @@ class ActiveOrdersFeedTests(MenuFixture, TestCase):
         self.assertEqual(data[0]["stations"], {"bar": 0})
         self.assertEqual(data[0]["dishes"], [{"name": "Tea", "quantity": 1}])
 
+    def test_feed_reads_the_database_not_a_snapshot(self):
+        """The feed used to serve a cached list of order IDs, which could miss an order that committed after the list
+        was made, so the kitchen didn't see it until the page was reloaded."""
+        later = timezone.now() + datetime.timedelta(hours=1)
+        order = create_order(lines=[self.dish(self.tea)], channel="web", initial_status=0, start_time=later)
+        self.assertEqual(self.client.get(reverse("active_orders")).json(), [])
+        Order.objects.filter(pk=order.pk).update(start_time=timezone.now() - datetime.timedelta(minutes=1))  # no save()
+        self.assertEqual([o["order_id"] for o in self.client.get(reverse("active_orders")).json()], [order.pk])
+
 
 @override_settings(ENFORCE_DEVICE_CHECK=False)
 class AccessTests(MenuFixture, TestCase):

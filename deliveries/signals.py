@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 
 from pavilion.realtime import publish
-from pos_server.models import Order, update_active_orders_cache
+from pos_server.models import Order
 from pos_server.signals import order_ready
 from .models import CourierShift, Delivery
 from .notifications import trigger_push_notifications
@@ -58,7 +58,6 @@ def order_rejected(sender, instance, **kwargs):
 
 def couriers_changed(sender, **kwargs):
     # Who's on shift and who took or passed on what decides which delivery orders the KDS shows
-    transaction.on_commit(update_active_orders_cache)
     publish("orders")
 
 

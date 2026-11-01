@@ -596,12 +596,6 @@ class Order(models.Model):
             if timezone.now() > begun:
                 self.prep_time = timezone.now() - begun
         super().save(*args, **kwargs)
-        update_active_orders_cache()
-
-    def delete(self, *args, **kwargs):
-        result = super().delete(*args, **kwargs)
-        update_active_orders_cache()
-        return result
 
     def __str__(self) -> str:
         return f"Order {self.id}"
@@ -1336,10 +1330,5 @@ def nudge_started_orders():
     cache.set("orders:started-upto", current, timeout=None)
     if not Order.objects.filter(start_time__gt=since, start_time__lte=current).exists():
         return False
-    update_active_orders_cache()
     publish("orders")
     return True
-
-def update_active_orders_cache():
-    """Cache the IDs of active orders under 'active_orders' (60 s)."""
-    cache.set('active_orders', list(active_orders_queryset().values_list("id", flat=True)), timeout=60)
