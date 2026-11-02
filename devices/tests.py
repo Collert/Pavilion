@@ -36,7 +36,7 @@ class PairingTests(TestCase):
         self.assertEqual(answer.status_code, 200)
         data = answer.json()
         dongle = Dongle.objects.get()
-        self.assertEqual(data["dongle"], {"id": dongle.pk, "name": "Dongle 7F3K"})
+        self.assertEqual(data["dongle"], {"id": dongle.pk, "name": "New visual dongle"})
         self.assertTrue(data["token"].startswith(f"{dongle.pk}."))
         self.assertNotIn(data["token"].split(".", 1)[1], dongle.token_hash)  # only its hash is kept
         self.assertEqual(pairing.check_token(data["token"]), dongle)
@@ -143,7 +143,7 @@ class SocketTests(TestCase):
         inbox, sent, task = await self.connect(self.token)
         self.assertEqual((await self.next(sent))["type"], "websocket.accept")
         config = json.loads((await self.next(sent))["text"])
-        self.assertEqual((config["type"], config["name"], config["screen"]), ("config", "Dongle 7F3K", None))
+        self.assertEqual((config["type"], config["name"], config["screen"]), ("config", "New visual dongle", None))
         self.assertTrue(await sync_to_async(pairing.is_online)(self.dongle.pk))
 
         await inbox.put({"type": "websocket.receive", "text": json.dumps(
@@ -185,7 +185,7 @@ class AdminDevicesTests(TestCase):
         self.client.force_login(self.owner)
         self.url = reverse("admin_devices")
 
-    def test_add_a_dongle_then_name_it(self):
+    def test_add_a_dongle_then_pick_its_screen(self):
         self.client.post(self.url, {"op": "dongle_add"})
         code = DonglePairingCode.objects.filter(used_at__isnull=True).get()
         page = self.client.get(self.url)
@@ -197,12 +197,13 @@ class AdminDevicesTests(TestCase):
         fresh = DonglePairingCode.objects.filter(used_at__isnull=True).latest("created_at")
         dongle, _token = pairing.pair(fresh.code, {**DEVICE, "hardware_id": "Q8MZ"})
         page = self.client.get(self.url)
-        self.assertContains(page, "Name your new dongle")
-        self.assertContains(page, "Dongle Q8MZ is paired")
-        self.client.post(self.url, {"op": "dongle_finish", "name": "Patio TV", "screen": self.screen.pk})
+        self.assertContains(page, "Your new dongle is paired")
+        self.assertContains(page, "New visual dongle is paired")
+        self.assertNotContains(page, "Name it after where it hangs")  # renamed later, in its settings
+        self.client.post(self.url, {"op": "dongle_finish", "screen": self.screen.pk})
         dongle.refresh_from_db()
-        self.assertEqual((dongle.name, dongle.screen), ("Patio TV", self.screen))
-        self.assertNotContains(self.client.get(self.url), "Name your new dongle")
+        self.assertEqual((dongle.name, dongle.screen), ("New visual dongle", self.screen))
+        self.assertNotContains(self.client.get(self.url), "Your new dongle is paired")
 
     def test_what_it_shows_and_commands(self):
         page = self.client.get(self.url, {"dongle": self.dongle.pk})

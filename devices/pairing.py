@@ -112,7 +112,7 @@ def pair(code: str, body: dict) -> tuple[Dongle, str]:
         if found.expires_at <= timezone.now():
             raise PairError("expired", _("That code has expired."))
         secret = secrets.token_urlsafe(32)
-        dongle = Dongle.objects.create(name=_("Dongle %(id)s") % {"id": hardware_id}, hardware_id=hardware_id,
+        dongle = Dongle.objects.create(name=_("New visual dongle"), hardware_id=hardware_id,
                                        token_hash=hash_secret(secret), info=clean_info(body),
                                        paired_by=found.created_by, last_seen=timezone.now())
         found.used_at, found.dongle = timezone.now(), dongle

@@ -572,7 +572,7 @@ its `PROTOCOL.md` is the contract with this app). Designs: the canvas's `Dongle*
   (live on the `dongles` topic). The person types the code and Pavilion's address on their phone (the dongle's setup
   Wi-Fi and captive portal); the dongle posts it to `POST /devices/dongles/pair` (`views.pair`: CSRF-exempt, 10 tries a
   minute per address and 60 for everyone) and gets a token `<id>.<secret>` (only its SHA-256, `Dongle.token_hash`, is
-  kept). The sheet then names it and picks its screen.
+  kept). It's named "New visual dongle" (renamed in its settings); the sheet then picks its screen.
 - **The WebSocket** `/ws/dongle` (`devices/socket.py`, routed in `pavilion/asgi.py`, `Authorization: Bearer <token>`):
   Pavilion sends `config` (name, store name, screen with its launch path, orientation) on connecting and whenever the
   dongle (post_save) or its screen changes, and `command`s from the Devices page (identify, restart, change_wifi;

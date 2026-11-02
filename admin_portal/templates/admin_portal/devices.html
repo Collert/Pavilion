@@ -3,8 +3,9 @@
 {% comment %}
 Devices (Settings; admin_portal/devices.py; the canvas's AdminDevices artboard). Two groups on the left: computers
 (trusted to run staff screens: name, device code, kiosk links) and visual dongles (TVs showing a screen: what it
-shows, its state and commands). "Add visual dongle" opens a sheet with a pairing code that waits, live on the
-"dongles" topic, for a dongle to use it, then names it.
+shows, its state and commands). Each group's Add button sits under its heading: "Add computer" makes one named
+"New computer"; "Add visual dongle" opens a sheet with a pairing code that waits, live on the "dongles" topic, for a
+dongle to use it ("New visual dongle"), then picks its screen.
 {% endcomment %}
 {% block title %}{% trans "Devices" %}{% endblock %}
 {% block main_class %}tm-main{% endblock %}
@@ -20,11 +21,6 @@ shows, its state and commands). "Add visual dongle" opens a sheet with a pairing
         <div class="page-kicker">{% trans "Settings" %}</div>
         <h1 class="disp page-title">{% trans "Devices" %}</h1>
     </div>
-    <form method="post" class="dv-new">{% csrf_token %}
-        <input class="field" name="new_name" maxlength="140" placeholder="{% trans 'e.g. Patio register' %}" aria-label="{% trans 'New computer name' %}">
-        <button class="btn-soft" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "Add computer" %}</button>
-        <button class="btn-amber" name="op" value="dongle_add">{% icon "plus" 18 2.4 %}{% trans "Add visual dongle" %}</button>
-    </form>
 </header>
 
 <div class="dv-body">
@@ -34,6 +30,7 @@ shows, its state and commands). "Add visual dongle" opens a sheet with a pairing
                 <span class="dv-group-ic" aria-hidden="true">{% icon "M3 4h18v12H3z M8 20h8 M12 16v4" 18 2 %}</span>
                 <span class="grow"><span class="strong block">{% trans "Computers" %}</span><span class="small muted block">{% trans "Registers, kitchen screens, the time clock and the cash drawer only open on these." %}</span></span>
             </div>
+            <form method="post" class="dv-add">{% csrf_token %}<button class="dv-add-btn" name="op" value="new">{% icon "plus" 18 2.4 %}{% trans "Add computer" %}</button></form>
             {% for r in x.rows %}
             <a class="dv-row{% if r.on %} on{% endif %}" href="?sel={{ r.d.id }}" data-live {% if r.on %}aria-current="true"{% endif %}>
                 <span class="dv-ic" aria-hidden="true">{% icon "M3 4h18v12H3z M8 20h8 M12 16v4" 18 2 %}</span>
@@ -47,6 +44,7 @@ shows, its state and commands). "Add visual dongle" opens a sheet with a pairing
                 <span class="dv-group-ic" aria-hidden="true">{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 2 %}</span>
                 <span class="grow"><span class="strong block">{% trans "Visual dongles" %}{% if x.attention %} <span class="dv-count">{{ x.attention }}</span>{% endif %}</span><span class="small muted block">{% trans "Plug into a TV and show one of your screens." %}</span></span>
             </div>
+            <form method="post" class="dv-add">{% csrf_token %}<button class="dv-add-btn" name="op" value="dongle_add">{% icon "plus" 18 2.4 %}{% trans "Add visual dongle" %}</button></form>
             {% for r in x.dongle_rows %}
             <a class="dv-row{% if r.on %} on{% endif %}" href="?dongle={{ r.d.id }}" data-live {% if r.on %}aria-current="true"{% endif %}>
                 <span class="dv-ic" aria-hidden="true">{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 2 %}<span class="dv-ic-dot{% if r.online %} on{% endif %}"></span></span>
@@ -161,15 +159,14 @@ shows, its state and commands). "Add visual dongle" opens a sheet with a pairing
     <button class="scrim" name="op" value="dongle_closeadd" aria-label="{% trans 'Close' %}"></button>
     <div class="sheet dg-sheet" role="dialog" aria-modal="true" aria-labelledby="dg-add-title">
         <div class="sheet-head"><div class="grow">
-            <h2 class="disp sheet-title" id="dg-add-title">{% if p.dongle %}{% trans "Name your new dongle" %}{% else %}{% trans "Add a visual dongle" %}{% endif %}</h2>
-            <div class="small muted">{% if p.dongle %}{% trans "It’s online and ready for a screen." %}{% else %}{% trans "Plug it in, then use this code on the setup screen." %}{% endif %}</div></div>
+            <h2 class="disp sheet-title" id="dg-add-title">{% if p.dongle %}{% trans "Your new dongle is paired" %}{% else %}{% trans "Add a visual dongle" %}{% endif %}</h2>
+            <div class="small muted">{% if p.dongle %}{% trans "It’s online and ready for a screen. Rename it in its settings." %}{% else %}{% trans "Plug it in, then use this code on the setup screen." %}{% endif %}</div></div>
             <button class="close-btn" name="op" value="dongle_closeadd" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
         {% if p.dongle %}
         <div class="dg-paired">
             <span class="dg-paired-ic">{% icon "check" 24 2.6 %}</span>
             <div class="grow"><div class="dg-paired-t">{% blocktrans with n=p.dongle.name %}{{ n }} is paired{% endblocktrans %}</div><div class="dg-paired-s">{{ p.facts }}</div></div>
         </div>
-        <label><span class="lbl">{% trans "Name it after where it hangs" %}</span><input class="field" name="name" value="{{ p.dongle.name }}" maxlength="140" placeholder="{% trans 'e.g. Patio TV' %}"></label>
         <label><span class="lbl">{% trans "Screen" %}</span>
             <select class="field" name="screen"><option value="">{% trans "No screen for now" %}</option>{% for s in x.screens %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
         <div class="sheet-foot"><button class="btn-amber" name="op" value="dongle_finish">{% trans "Done" %}</button></div>

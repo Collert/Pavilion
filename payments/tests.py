@@ -360,8 +360,8 @@ class DeviceTests(TestCase):
         page = self.client.get(url, {"sel": self.device.id})
         self.assertContains(page, str(self.device.token))
         self.assertContains(page, f"?device-token={self.device.token}")  # kiosk links
-        self.client.post(url, {"op": "new", "new_name": "Kitchen screen"})
-        added = EligibleDevice.objects.get(name="Kitchen screen")
+        self.client.post(url, {"op": "new"})
+        added = EligibleDevice.objects.get(name="New computer")
         self.client.post(url, {"op": "rename", "sel": added.id, "name": "Pass screen"})
         old = added.token
         self.client.post(url, {"op": "newcode", "sel": added.id})

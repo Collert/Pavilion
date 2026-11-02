@@ -1070,7 +1070,7 @@ def devices(request):
             return _dongle_op(request, op, dongle_sel, pairing, Dongle, Screen, devices_data)
         device = EligibleDevice.objects.filter(pk=sel).first()
         if op == "new":
-            device = EligibleDevice.objects.create(name=request.POST.get("new_name", "").strip()[:140] or _("New device"))
+            device = EligibleDevice.objects.create(name=_("New computer"))
             messages.success(request, _("%(name)s added. Open its link on the device, or use its code on the setup page.") % {"name": device.name})
             return redirect(f"{reverse('admin_devices')}?sel={device.pk}")
         if device and op == "rename":
@@ -1108,15 +1108,14 @@ def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
         session.pop(devices_data.UNPAIR_KEY, None)
         return redirect(here)
     dongle = Dongle.objects.select_related("screen").filter(pk=dongle_id).first()
-    if op == "dongle_finish":  # the pairing sheet's Done: name it and pick its screen
+    if op == "dongle_finish":  # the pairing sheet's Done: pick its screen
         from devices.models import DonglePairingCode
         code = DonglePairingCode.objects.select_related("dongle").filter(pk=session.pop(devices_data.PAIR_KEY, 0) or 0).first()
         dongle = code.dongle if code else None
         if dongle is None:
             return redirect(here)
-        dongle.name = request.POST.get("name", "").strip()[:140] or dongle.name
         dongle.screen = Screen.objects.filter(pk=request.POST.get("screen") or 0).first()
-        dongle.save(update_fields=["name", "screen"])
+        dongle.save(update_fields=["screen"])
         messages.success(request, _("%(name)s is ready.") % {"name": dongle.name})
         return redirect(f"{reverse('admin_devices')}?dongle={dongle.pk}")
     if dongle is None:

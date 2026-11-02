@@ -6,7 +6,7 @@ Devices (Settings; the canvas's AdminDevices artboard): two groups on the left, 
   any Pavilion link with ?device-token=<code> (pos_server/devices.py), which is how kiosks that wipe their cookies
   stay set up: their start URL is a kiosk link from here. A new code stops old links working.
 - Visual dongles (devices.Dongle): TVs showing a screen. "Add visual dongle" makes a pairing code and waits for a
-  dongle to use it (the page refreshes on the "dongles" topic), then names it and picks its screen. Each dongle's
+  dongle to use it (the page refreshes on the "dongles" topic; it arrives as "New visual dongle"), then picks its screen. Each dongle's
   screen, name and orientation, its live state (online while its WebSocket is open), and commands: show its name on
   the TV, restart, change Wi-Fi, unpair.
 """
