@@ -262,5 +262,18 @@
     .lib-album { display: none; }
     .up-body { flex-direction: column; overflow-y: auto; }
     .up-queue { width: auto; }
-    .up-foot { flex-wrap: wrap; }
+    .up-head { padding: 18px 18px 0; }
+    .up-body { padding: 14px 18px 0; }
+    .up-error { margin: 12px 18px 0; }
+    /* the footer stacks: playlist picker, then the rights box, then the two buttons side by side */
+    .up-foot { flex-wrap: wrap; gap: 12px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom)); }
+    .up-pl { flex: 1 1 100%; }
+    .up-pl .field { flex: 1; min-width: 0; width: auto; }
+    .up-rights { flex: 1 1 100%; }
+    .up-foot > button { flex: 1 1 0; min-width: 0; justify-content: center; }
+}
+@media (max-width: 560px) {
+    .up { max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 24px; }
+    .up-grid .s3 { grid-column: span 6; }
+    .up-art { width: 88px; height: 88px; }
 }
