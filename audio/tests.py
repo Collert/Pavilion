@@ -54,6 +54,17 @@ class LibraryTests(TestCase):
             self.assertFalse(any(default_storage.exists(name) for name in files))
             self.assertFalse(playlist.entries.exists())
 
+    def test_genres_are_split_cleaned_and_spelled_like_the_library(self):
+        self.assertEqual(library.genres_of("Jazz; Soul, jazz | R&B"), ["Jazz", "Soul", "R&B"])
+        self.assertEqual(library.genres_of(["  Indie   pop ", "", "Pop/Funk"]), ["Indie pop", "Pop/Funk"])
+        self.assertEqual(library.genres_of("Rock / Blues"), ["Rock", "Blues"])
+        self.assertEqual(library.genres_of(None), [])
+        self.assertEqual(len(library.genres_of(",".join(f"g{n}" for n in range(20)))), library.MAX_GENRES)
+        Track.objects.create(file="music/a.mp3", title="A", genres=["Lo-fi", "Jazz"])
+        Track.objects.create(file="music/b.mp3", title="B", genres=["Jazz"])
+        self.assertEqual(library.genres_of("lo-FI, Ambient"), ["Lo-fi", "Ambient"])
+        self.assertEqual(library.all_genres(), [("Jazz", 2), ("Lo-fi", 1)])
+
     def test_playlist_append_and_reorder(self):
         a, b, c = (Track.objects.create(file=f"music/{n}.mp3", title=n) for n in "ABC")
         playlist = library.new_playlist([b.id, a.id])

@@ -1,7 +1,7 @@
 {% extends "admin_portal/layout.html" %}
 {% load static i18n admin_tags %}
 {% comment %}
-Library (design: AdminLibrary; admin_portal/library.py). The view is in the address: ?view=all|needs|p<id>, q, sort,
+Library (design: AdminLibrary; admin_portal/library.py). The view is in the address: ?view=all|needs|p<id>, q, sort, g (genre),
 song=<id> opens the song's details, add=1 the "Add songs" dialog of a playlist. Every button posts an op with the view
 in hidden fields and comes back to it. library.js adds what HTML can't: the selection's count, previews, dragging a
 playlist into order, and the Add music dialog (tags read in the browser, then each file uploaded as is).
@@ -19,7 +19,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
         <h1 class="disp page-title">{% trans "Library" %}</h1>
     </div>
     <form method="post" class="head-tools" id="lib-head">{% csrf_token %}
-        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
         <input type="hidden" name="n" value="" data-up-n><input type="hidden" name="pl" value="" data-up-pl>
         <button name="op" value="uploaded" hidden data-up-done tabindex="-1"></button>
         <button class="btn-light" name="op" value="newpl">{% icon "plus" 18 2.4 %}{% trans "New playlist" %}</button>
@@ -38,7 +38,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
             {% endfor %}
         </nav>
         <form method="post" class="lib-pl-head">{% csrf_token %}
-            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
             <span class="ov muted grow">{% trans "Playlists" %}</span>
             <button class="lib-ico" name="op" value="newpl" aria-label="{% trans 'New playlist' %}">{% icon "plus" 16 2.6 %}</button>
         </form>
@@ -61,7 +61,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
     <section class="lib-list card" id="lib-list" data-region aria-label="{{ l.v.title }}">
         {% if l.v.is_pl %}
         <form method="post" class="lib-pl-top" data-search>{% csrf_token %}
-            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
             <input type="hidden" name="op" value="plsave">
             {% include "admin_portal/_mosaic.html" with tiles=l.v.tiles cls="lib-mos big" %}
             <div class="grow">
@@ -83,7 +83,14 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
             </div>
             <input type="hidden" name="view" value="{{ st.view }}">
             <label class="lib-search">{% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 16 2.4 %}
-                <input class="field" type="search" name="q" value="{{ st.q }}" placeholder="{% trans 'Search title, artist, album' %}" aria-label="{% trans 'Search songs' %}"></label>
+                <input class="field" type="search" name="q" value="{{ st.q }}" placeholder="{% trans 'Search title, artist, album, genre' %}" aria-label="{% trans 'Search songs' %}"></label>
+            {% if l.genres or l.genre_off %}
+            <select class="field lib-sort lib-genre" name="g" aria-label="{% trans 'Genre' %}">
+                <option value="">{% trans "All genres" %}</option>
+                {% if l.genre_off %}<option value="{{ st.g }}" selected>{{ st.g }}</option>{% endif %}
+                {% for name, n, on in l.genres %}<option value="{{ name }}"{% if on %} selected{% endif %}>{{ name }} ({{ n }})</option>{% endfor %}
+            </select>
+            {% endif %}
             <select class="field lib-sort" name="sort" aria-label="{% trans 'Sort' %}">
                 {% for key, label, on in l.sorts %}<option value="{{ key }}"{% if on %} selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
@@ -91,7 +98,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
         {% endif %}
 
         <form method="post" class="lib-rows-form{% if l.v.is_pl %} in-pl{% endif %}" id="lib-rows">{% csrf_token %}
-            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+            <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
             <input type="hidden" name="order" value="" data-order><button name="op" value="reorder" hidden data-reorder tabindex="-1"></button>
             <div class="lib-bar-wrap">
                 <div class="lib-bulk">
@@ -132,7 +139,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
                         <span class="lib-art-eq"><span></span><span></span><span></span></span>
                     </button>
                     <a class="lib-open" href="{{ r.song_href }}" data-live{% if l.v.is_pl %} draggable="false"{% endif %}>
-                        <span class="grow two-line"><span class="strong ellipsis lib-row-title">{{ r.title }}</span><span class="small ellipsis{% if r.artist %} muted{% else %} lib-missing{% endif %}">{{ r.artist|default:_("Unknown artist") }}</span></span>
+                        <span class="grow two-line"><span class="strong ellipsis lib-row-title">{{ r.title }}</span><span class="small ellipsis lib-row-sub"><span class="{% if r.artist %}muted{% else %}lib-missing{% endif %}">{{ r.artist|default:_("Unknown artist") }}</span>{% if r.genres %}<span class="lib-genres"> · {{ r.genres }}</span>{% endif %}</span></span>
                         <span class="lib-album ellipsis{% if not r.album %} lib-missing{% endif %}">{{ r.album|default:_("No album") }}</span>
                         {% if not l.v.is_pl %}<span class="lib-pls-col{% if r.pls == '—' %} faint{% endif %}">{{ r.pls }}</span><span class="lib-added">{{ r.added }}</span>{% endif %}
                         <span class="lib-time num">{{ r.dur }}</span>
@@ -160,7 +167,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
 <div id="lib-drawer" data-region>{% with d=l.drawer %}{% if d %}
     <a class="lib-scrim" href="{{ d.close }}" data-live aria-label="{% trans 'Close' %}" data-close></a>
     <form method="post" enctype="multipart/form-data" class="lib-drawer" role="dialog" aria-modal="true" aria-label="{% trans 'Edit song' %}" data-dirty-form>{% csrf_token %}
-        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+        <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
         <input type="hidden" name="song" value="{{ d.t.id }}"><input type="hidden" name="art_clear" value="" data-art-clear>
         <button name="op" value="track" hidden tabindex="-1"></button>
         <div class="lib-drawer-head"><h2 class="disp grow">{% trans "Song details" %}</h2>
@@ -181,8 +188,9 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
                 <label><span class="lbl">{% trans "Artist" %}</span><input class="field" name="artist" value="{{ d.t.artist }}" maxlength="200" placeholder="{% trans 'Who performs it' %}"></label>
                 <label><span class="lbl">{% trans "Album" %}</span><input class="field" name="album" value="{{ d.t.album }}" maxlength="200" placeholder="{% trans 'Album or single' %}"></label>
                 <label><span class="lbl">{% trans "Year" %}</span><input class="field" name="year" value="{{ d.year }}" maxlength="4" inputmode="numeric" placeholder="{% trans 'e.g. 2024' %}"></label>
-                <label><span class="lbl">{% trans "Genre" %}</span><input class="field" name="genre" value="{{ d.t.genre }}" maxlength="80" placeholder="{% trans 'e.g. Jazz' %}"></label>
+                <label><span class="lbl">{% trans "Genres" %}</span><input class="field" name="genres" value="{{ d.t.genre_text }}" maxlength="200" placeholder="{% trans 'e.g. Jazz, Soul' %}"></label>
             </div>
+            <div class="small muted lib-hint">{% trans "Separate genres with commas." %}</div>
             {% if d.pls %}
             <div class="lbl top18">{% trans "Playlists" %}</div>
             <div class="lib-chips">
@@ -215,7 +223,7 @@ playlist into order, and the Add music dialog (tags read in the browser, then ea
                 <input class="field" type="search" name="aq" value="{{ a.aq }}" placeholder="{% trans 'Search title, artist, album' %}" aria-label="{% trans 'Search songs' %}">
             </form>
             <form method="post" class="lib-add-form" data-add-form>{% csrf_token %}
-                <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}">
+                <input type="hidden" name="view" value="{{ st.view }}"><input type="hidden" name="q" value="{{ st.q }}"><input type="hidden" name="sort" value="{{ st.sort }}"><input type="hidden" name="g" value="{{ st.g }}">
                 <div class="lib-add-rows">
                     {% for r in a.rows %}
                     <label class="lib-add-row"><span class="lib-box"><input type="checkbox" name="sel" value="{{ r.t.id }}" data-secs="{{ r.secs }}"><span></span></span>

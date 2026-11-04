@@ -1391,9 +1391,9 @@ class Command(BaseCommand):
                                        for i in range(seconds * rate)))
             return buffer.getvalue()
 
-        songs = [("Lighthouse Keeper", "Lantern Coast", "Harbor Lights", 2023, "Indie pop", 392),
+        songs = [("Lighthouse Keeper", "Lantern Coast", "Harbor Lights", 2023, "Indie pop, Folk", 392),
                  ("Sea Glass", "Lantern Coast", "Harbor Lights", 2023, "Indie pop", 440),
-                 ("Velvet Hour", "Juno Hale", "Paper Moons", 2024, "Soul", 330),
+                 ("Velvet Hour", "Juno Hale", "Paper Moons", 2024, "Soul; R&B", 330),
                  ("Café Crème", "Odile Brun", "Rue Basse", 2020, "Jazz", 294),
                  ("Steam Buns", "Saltwater Radio", "Night Market", 2024, "Lo-fi", 523),
                  ("track_07", "", "", None, "", 262)]
@@ -1401,7 +1401,7 @@ class Command(BaseCommand):
         for title, artist, album, year, genre, freq in songs:
             upload = ContentFile(tone(freq), name=f"{title}.wav")
             made[title] = library.add_track(upload, {"title": title, "artist": artist, "album": album, "year": year or "",
-                                                     "genre": genre, "duration": 20, "bitrate": 128})
+                                                     "genres": genre, "duration": 20, "bitrate": 128})
         lunch = library.new_playlist([made[t].id for t in ("Steam Buns", "Sea Glass", "Lighthouse Keeper")])
         lunch.name, lunch.description = "Lunch rush", "Upbeat, keeps the line moving"
         lunch.save()

@@ -1501,7 +1501,7 @@ def library(request):
         toast, go = library_data.apply(request.POST, request.FILES)
         if toast:
             messages.success(request, toast)
-        st = {**library_data.state(request.POST), **{k: v for k, v in go.items() if k in ("view", "q", "sort")}}
+        st = {**library_data.state(request.POST), **{k: v for k, v in go.items() if k in ("view", "q", "sort", "g")}}
         return redirect(reverse("admin_library") + library_data.url(st))
     st = library_data.state(request.GET)
     data = library_data.page(st, song=request.GET.get("song"), add=request.GET.get("add") == "1", aq=request.GET.get("aq", ""))

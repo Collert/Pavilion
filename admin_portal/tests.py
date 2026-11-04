@@ -2302,10 +2302,12 @@ class LibraryPageTests(AdminFixture, TestCase):
             self.assertEqual(self.upload("a.mp3").json()["message"], "The library is full. Delete some songs to make room.")
         lunch = Playlist.objects.create(name="Lunch rush")
         response = self.upload("01 Tidepool.mp3", title="Tidepool", artist="Lantern Coast", album="Harbor Lights", year="2023",
-                               genre="Indie pop", duration="215.4", bitrate="320", pl=str(lunch.id))
+                               genres="Indie pop; folk, Indie Pop", duration="215.4", bitrate="320", pl=str(lunch.id))
         track = Track.objects.get(pk=response.json()["id"])
-        self.assertEqual((track.title, track.artist, track.year, track.duration, track.bitrate, track.format),
-                         ("Tidepool", "Lantern Coast", 2023, 215.4, 320, "MP3"))
+        self.assertEqual((track.title, track.artist, track.year, track.duration, track.bitrate, track.format, track.genres),
+                         ("Tidepool", "Lantern Coast", 2023, 215.4, 320, "MP3", ["Indie pop", "folk"]))
+        other = Track.objects.get(pk=self.upload("02.mp3", genres="FOLK / Pop/Funk").json()["id"])
+        self.assertEqual(other.genres, ["folk", "Pop/Funk"])  # the library's spelling; "Pop/Funk" is one genre
         self.assertEqual(list(lunch.entries.values_list("track_id", flat=True)), [track.id])
         self.client.logout()
         self.assertEqual(self.upload("b.mp3").status_code, 302)  # superusers only
@@ -2322,6 +2324,21 @@ class LibraryPageTests(AdminFixture, TestCase):
         l = self.client.get(self.url, {"q": "juno", "sort": "title"}).context["l"]
         self.assertEqual(([r["title"] for r in l["rows"]], l["v"]["sub"]), (["Velvet Hour"], "1 match for “juno”"))
         self.assertEqual(self.client.get(self.url, {"view": "needs", "q": "zzz"}).context["l"]["empty"]["btn"], "Clear search")
+
+    def test_genres_filter_and_search(self):
+        from audio.models import Track
+        Track.objects.create(file="music/a.mp3", title="Velvet Hour", genres=["Soul", "R&B"], duration=232)
+        Track.objects.create(file="music/b.mp3", title="Café Crème", genres=["Jazz"], duration=190)
+        Track.objects.create(file="music/c.mp3", title="Night Bus", genres=["Jazz", "Soul"], duration=200)
+        l = self.client.get(self.url).context["l"]
+        self.assertEqual(l["genres"], [("Jazz", 2, False), ("R&B", 1, False), ("Soul", 2, False)])
+        l = self.client.get(self.url, {"g": "soul", "sort": "title"}).context["l"]
+        self.assertEqual(([r["title"] for r in l["rows"]], l["v"]["sub"]), (["Night Bus", "Velvet Hour"], "2 songs in Soul"))
+        self.assertEqual([r["genres"] for r in l["rows"]], ["Jazz, Soul", "Soul, R&B"])
+        self.assertEqual([r["title"] for r in self.client.get(self.url, {"q": "r&b"}).context["l"]["rows"]], ["Velvet Hour"])
+        self.assertTrue(self.client.get(self.url, {"g": "Polka"}).context["l"]["genre_off"])
+        response = self.client.post(self.url, {"view": "all", "q": "", "sort": "added", "g": "Jazz", "op": "nothing"})
+        self.assertRedirects(response, self.url + "?view=all&g=Jazz", fetch_redirect_response=False)  # the filter stays
 
     def test_playlists_bulk_actions_and_song_details(self):
         from audio.models import Playlist, Track
@@ -2344,9 +2361,9 @@ class LibraryPageTests(AdminFixture, TestCase):
         drawer = self.client.get(self.url, {"song": b.id}).context["l"]["drawer"]
         self.assertEqual((drawer["del"], [p["on"] for p in drawer["pls"]]), ("Delete from library and 1 playlist", [True]))
         self.client.post(self.url, {**back, "op": "track", "song": b.id, "title": "Gulls", "artist": "The Quiet Ferries",
-                                    "album": "", "year": "2022", "genre": "Acoustic"})  # its playlist chip unticked
+                                    "album": "", "year": "2022", "genres": "Acoustic, Folk"})  # its playlist chip unticked
         b.refresh_from_db()
-        self.assertEqual((b.artist, b.year, b.genre), ("The Quiet Ferries", 2022, "Acoustic"))
+        self.assertEqual((b.artist, b.year, b.genres), ("The Quiet Ferries", 2022, ["Acoustic", "Folk"]))
         self.assertEqual([t.title for t in playlist.ordered_tracks()], ["Long Wire"])
         with self.captureOnCommitCallbacks(execute=True):
             self.client.post(self.url, {**back, "op": "delete", "sel": [c.id]})

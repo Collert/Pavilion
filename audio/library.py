@@ -1,10 +1,11 @@
 """
 The music library: songs uploaded in the admin's Library (design: AdminLibrary). The browser reads each file's tags
-(title, artist, album, year, genre, artwork, length: admin_portal/static/admin_portal/library.js with audio/tags.js)
+(title, artist, album, year, genres, artwork, length: admin_portal/static/admin_portal/library.js with audio/tags.js)
 before it uploads, so the server never opens a song: the file is stored as is under music/ in the media storage
 and what the tags said is kept on the Track. Screens play songs straight from the storage.
 """
 import posixpath
+import re
 
 from django.conf import settings
 from django.db import transaction
@@ -16,6 +17,8 @@ EXTENSIONS = {".mp3": "MP3", ".m4a": "M4A", ".aac": "AAC", ".flac": "FLAC", ".og
 MAX_SIZE = 200 * 1024 * 1024  # bytes, per song
 ART_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 MAX_ART = 10 * 1024 * 1024
+MAX_GENRES, GENRE_LEN = 8, 40
+GENRE_SPLIT = re.compile(r"[,;|\0]|\s/\s")  # "Jazz; Soul", "Jazz, Soul", "Jazz / Soul" (but "Pop/Funk", "R&B" stay whole)
 
 
 def limit_bytes() -> int:
@@ -41,9 +44,37 @@ def _year(value):
     return int(text) if text.isdigit() and 1000 <= int(text) <= 2999 else None
 
 
+def genres_of(value) -> list:
+    """A song's genres from what the tags or the admin gave: a list, or text like "Jazz, Soul". Blank and repeated
+    ones are dropped (ignoring case), and a genre the library already has keeps the library's spelling ("jazz" ->
+    "Jazz"), so the genre filter doesn't split one genre in two."""
+    parts = value if isinstance(value, (list, tuple)) else GENRE_SPLIT.split(str(value or ""))
+    known = {}
+    for genres in Track.objects.exclude(genres=[]).values_list("genres", flat=True):
+        for g in genres or []:
+            known.setdefault(str(g).casefold(), g)
+    out = {}
+    for part in parts:
+        name = " ".join(str(part or "").split())[:GENRE_LEN]
+        if name and name.casefold() not in out:
+            out[name.casefold()] = known.get(name.casefold(), name)
+    return list(out.values())[:MAX_GENRES]
+
+
+def all_genres(tracks=None) -> list:
+    """Every genre in the library (or among `tracks`), with how many songs have it: [(name, count)] by name."""
+    if tracks is None:
+        tracks = Track.objects.only("genres")
+    counts = {}
+    for track in tracks:
+        for g in track.genres or []:
+            counts[g] = counts.get(g, 0) + 1
+    return sorted(counts.items(), key=lambda item: item[0].casefold())
+
+
 def add_track(upload, meta, artwork=None, playlist=None) -> Track:
     """Keep an uploaded song: the file as it came, with the tags the browser read (`meta`: title, artist, album,
-    year, genre, duration in seconds, bitrate in kbps). A song without a title is named after its file."""
+    year, genres (a list or "Jazz, Soul"), duration in seconds, bitrate in kbps). A song without a title is named after its file."""
     stem = posixpath.splitext(posixpath.basename(upload.name))[0]
     try:
         duration = max(0.0, float(meta.get("duration") or 0))
@@ -54,7 +85,7 @@ def add_track(upload, meta, artwork=None, playlist=None) -> Track:
     except (TypeError, ValueError):
         bitrate = 0
     track = Track(title=_text(meta.get("title"), 200) or stem[:200], artist=_text(meta.get("artist"), 200),
-                  album=_text(meta.get("album"), 200), year=_year(meta.get("year")), genre=_text(meta.get("genre"), 80),
+                  album=_text(meta.get("album"), 200), year=_year(meta.get("year")), genres=genres_of(meta.get("genres")),
                   duration=duration, bitrate=bitrate, format=format_of(upload.name), size=upload.size or 0,
                   original_name=posixpath.basename(upload.name)[:255])
     track.file.save(posixpath.basename(upload.name), upload, save=False)

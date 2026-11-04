@@ -1,6 +1,6 @@
 """
 Library (design: AdminLibrary): the store's songs and playlists (audio.Track, audio.Playlist). What's shown lives in
-the address (?view=all|needs|p<id>, q, sort, song=<id> for the details drawer, add=1 for "Add songs" on a
+the address (?view=all|needs|p<id>, q, sort, g = a genre, song=<id> for the details drawer, add=1 for "Add songs" on a
 playlist, aq to search it); buttons post an op and come back to the same view. Songs arrive through the Add music
 dialog (static/admin_portal/library.js reads their tags in the browser and uploads them to `upload`).
 """
@@ -32,7 +32,8 @@ def state(data) -> dict:
     if view not in ("all", "needs") and not (view.startswith("p") and _int(view[1:])):
         view = "all"
     sort = data.get("sort", "added")
-    return {"view": view, "q": data.get("q", "").strip()[:80], "sort": sort if sort in dict(SORTS) else "added"}
+    return {"view": view, "q": data.get("q", "").strip()[:80], "sort": sort if sort in dict(SORTS) else "added",
+            "g": data.get("g", "").strip()[:library.GENRE_LEN]}
 
 
 def url(st, **extra) -> str:
@@ -41,6 +42,8 @@ def url(st, **extra) -> str:
         params["q"] = st["q"]
     if st["sort"] != "added":
         params["sort"] = st["sort"]
+    if st.get("g"):
+        params["g"] = st["g"]
     params.update({k: v for k, v in extra.items() if v not in (None, "")})
     return "?" + urlencode(params)
 
@@ -64,6 +67,11 @@ def clock(seconds) -> str:
 
 def songs(n) -> str:
     return ngettext("%(n)d song", "%(n)d songs", n) % {"n": n}
+
+
+def words(t) -> str:
+    """What a search looks through."""
+    return f"{t.title} {t.artist} {t.album} {' '.join(t.genres or [])}".lower()
 
 
 def needs_info(t) -> bool:
@@ -105,6 +113,7 @@ def page(st, song=None, add=False, aq="") -> dict:
     nav = [{"id": p.id, "name": p.name or _("Untitled playlist"), "on": pl is not None and p.id == pl.id,
             "sub": f"{songs(len(pl_tracks[p.id]))} · {mins(sum(t.duration for t in pl_tracks[p.id]))}",
             "tiles": mosaic(pl_tracks[p.id]), "href": url({"view": f"p{p.id}", "q": "", "sort": st["sort"]})} for p in playlists]
+    genres = library.all_genres(tracks)
 
     used, limit = library.used_bytes(), library.limit_bytes()
     storage = {"text": _("%(used)s GB of %(limit)s GB") % {"used": f"{used / 1000 ** 3:.2f}", "limit": f"{limit / 1000 ** 3:g}"},
@@ -120,7 +129,10 @@ def page(st, song=None, add=False, aq="") -> dict:
         rows = [t for t in tracks if needs_info(t)] if view == "needs" else list(tracks)
         q = st["q"].lower()
         if q:
-            rows = [t for t in rows if q in f"{t.title} {t.artist} {t.album}".lower()]
+            rows = [t for t in rows if q in words(t)]
+        g = st["g"].casefold()
+        if g:
+            rows = [t for t in rows if g in (x.casefold() for x in t.genres or [])]
         last = "~"  # blanks sort last
         keys = {"added": lambda t: (-t.added_at.timestamp(), t.title.lower()), "title": lambda t: t.title.lower(),
                 "artist": lambda t: ((t.artist or last).lower(), t.title.lower()), "album": lambda t: ((t.album or last).lower(), t.title.lower()),
@@ -131,10 +143,14 @@ def page(st, song=None, add=False, aq="") -> dict:
         else:
             v.update(title=_("All songs"), sub=" · ".join((songs(len(tracks)), mins(sum(t.duration for t in tracks)),
                                                           ngettext("%(n)d playlist", "%(n)d playlists", len(playlists)) % {"n": len(playlists)})))
+        if g and not q:
+            name = next((name for name, _n in genres if name.casefold() == g), st["g"])
+            v["sub"] = ngettext("%(n)d song in %(genre)s", "%(n)d songs in %(genre)s", len(rows)) % {"n": len(rows), "genre": name}
         if q:
             v["sub"] = ngettext("%(n)d match for “%(q)s”", "%(n)d matches for “%(q)s”", len(rows)) % {"n": len(rows), "q": st["q"]}
 
     out_rows = [{"t": t, "n": k + 1, "title": t.title or _("Untitled"), "artist": t.artist, "album": t.album, "dur": clock(t.duration),
+                 "genres": ", ".join(t.genres or []),
                  "art": t.artwork.url if t.artwork else "", "src": t.file.url,
                  "pls": ngettext("%(n)d playlist", "%(n)d playlists", t.n_pls) % {"n": t.n_pls} if t.n_pls else "—",
                  "added": date_format(timezone.localtime(t.added_at), "M j"),
@@ -146,6 +162,9 @@ def page(st, song=None, add=False, aq="") -> dict:
     elif st["q"]:
         empty = {"head": _("No matches"), "text": _("Nothing in this list matches “%(q)s”.") % {"q": st["q"]},
                  "btn": _("Clear search"), "href": url({**st, "q": ""})}
+    elif st["g"]:
+        empty = {"head": _("No matches"), "text": _("No songs in this list are tagged %(genre)s.") % {"genre": st["g"]},
+                 "btn": _("All genres"), "href": url({**st, "g": ""})}
     elif view == "needs":
         empty = {"head": _("Everything’s tagged"), "text": _("Every song has an artist, album and artwork."),
                  "btn": _("Back to all songs"), "href": url({**st, "view": "all"})}
@@ -174,11 +193,13 @@ def page(st, song=None, add=False, aq="") -> dict:
         adding = {"title": _("Add songs to %(name)s") % {"name": pl.name or _("this playlist")}, "aq": aq, "close": url(st),
                   "rows": [{"t": t, "artist": t.artist or _("Unknown artist"), "dur": clock(t.duration), "art": t.artwork.url if t.artwork else "",
                             "secs": round(t.duration)} for t in tracks
-                           if t.id not in have and (not aql or aql in f"{t.title} {t.artist} {t.album}".lower())]}
+                           if t.id not in have and (not aql or aql in words(t))]}
 
     return {"st": st, "view": view, "smart": smart, "nav": nav, "storage": storage, "v": v, "rows": out_rows,
             "sorts": [(k, label, k == st["sort"]) for k, label in SORTS], "empty": empty, "targets": targets,
-            "drawer": drawer, "adding": adding, "pl_opts": [(p.id, p.name or _("Untitled playlist")) for p in playlists],
+            "drawer": drawer, "adding": adding,
+            "genres": [(name, n, name.casefold() == st["g"].casefold()) for name, n in genres],
+            "genre_off": bool(st["g"]) and not any(name.casefold() == st["g"].casefold() for name, _n in genres), "pl_opts": [(p.id, p.name or _("Untitled playlist")) for p in playlists],
             "limit_left": max(0, limit - used), "max_size": library.MAX_SIZE}
 
 
@@ -255,7 +276,7 @@ def save_track(post, files) -> tuple[str, dict]:
     track.title = post.get("title", "").strip()[:200] or track.title
     track.artist = post.get("artist", "").strip()[:200]
     track.album = post.get("album", "").strip()[:200]
-    track.genre = post.get("genre", "").strip()[:80]
+    track.genres = library.genres_of(post.get("genres", ""))
     track.year = library._year(post.get("year"))
     art = files.get("artwork")
     if art and art.content_type in library.ART_TYPES and art.size <= library.MAX_ART:

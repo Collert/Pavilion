@@ -1,9 +1,9 @@
 // What a song's file says about itself, read in the browser before it's uploaded (the admin's Add music dialog), so
-// the server never has to open a song: title, artist, album, year, genre and the cover picture, from
+// the server never has to open a song: title, artist, album, year, genres and the cover picture, from
 // ID3v2 / ID3v1 (MP3, AAC), MP4 atoms (M4A), FLAC and Ogg (Vorbis, Opus) comments, and RIFF INFO (WAV).
 // Only the parts of the file that hold tags are read (Blob.slice), never the whole song.
 //
-//   readTags(file) -> {title, artist, album, year, genre, picture: Blob | null}   (missing ones are "" / null)
+//   readTags(file) -> {title, artist, album, year, genres: [names], picture: Blob | null}   (missing: "" / [] / null)
 //   probe(file)    -> length in seconds, or null when the browser can't play it
 
 const MAX_TAG = 32 * 1024 * 1024;  // never read more than this for one block of tags (big cover pictures)
@@ -32,11 +32,25 @@ const syncsafe = (b, at) => (b[at] << 21) | (b[at + 1] << 14) | (b[at + 2] << 7)
 const clean = (s) => String(s || "").replace(/\0.*$/s, "").trim();
 const utf8 = (b) => new TextDecoder("utf-8").decode(b);
 
-function genreName(value) {
-    const text = clean(value);
-    const m = /^\(?(\d{1,3})\)?/.exec(text);  // ID3 "(17)", "17" or "(17)Rock"
-    if (m && (m[0] === text || text.startsWith("("))) return GENRES[Number(m[1])] ?? text.replace(/^\(\d+\)/, "").trim();
-    return text;
+// Every genre in a tag's text: ID3v2.4 and Vorbis keep several as separate values, ID3v2.3 as "(17)(9)" or
+// "(17)Rock" references to the ID3v1 list, and people type "Jazz; Soul" or "Jazz, Soul" ("Pop/Funk" stays whole).
+function genreNames(value) {
+    const out = [];
+    for (let part of String(value || "").split(/[\0;,|]|\s\/\s/)) {
+        part = part.trim();
+        if (/^\d{1,3}$/.test(part)) {  // ID3 "17"
+            out.push(GENRES[Number(part)] ?? part);
+            continue;
+        }
+        let refs = 0;
+        part = part.replace(/^(\((\d{1,3})\))+/, (all) => {  // ID3 "(17)(9)" and "(17)Rock"
+            for (const m of all.matchAll(/\((\d{1,3})\)/g)) if (GENRES[Number(m[1])]) { out.push(GENRES[Number(m[1])]); refs++; }
+            return "";
+        }).replace(/^\(\(/, "(").trim();  // "((" is a literal "("
+        if (part && !(refs && out.some((g) => g.toLowerCase() === part.toLowerCase()))) out.push(part);
+    }
+    const seen = new Set();
+    return out.filter((g) => g && !seen.has(g.toLowerCase()) && seen.add(g.toLowerCase()));
 }
 
 function picture(data, mime) {
@@ -46,7 +60,8 @@ function picture(data, mime) {
 }
 
 function fill(out, values) {
-    for (const key of ["title", "artist", "album", "genre"]) if (!out[key] && values[key]) out[key] = clean(values[key]);
+    for (const key of ["title", "artist", "album"]) if (!out[key] && values[key]) out[key] = clean(values[key]);
+    if (!out.genres.length && values.genres?.length) out.genres = genreNames(values.genres.map(clean).join("\0"));
     if (!out.artist && values.albumartist) out.artist = clean(values.albumartist);
     if (!out.year && values.year) out.year = (/\d{4}/.exec(String(values.year)) || [""])[0];
     if (!out.picture && values.picture) out.picture = values.picture;
@@ -102,10 +117,12 @@ function id3Frames(tag) {
         if (frameFlags & 0x02) data = unsync(data);
         if (!data.length) continue;
         const key = { TIT2: "title", TT2: "title", TPE1: "artist", TP1: "artist", TPE2: "albumartist", TP2: "albumartist",
-            TALB: "album", TAL: "album", TYER: "year", TYE: "year", TDRC: "year", TDOR: "year", TCON: "genre", TCO: "genre" }[id];
-        if (key) {
+            TALB: "album", TAL: "album", TYER: "year", TYE: "year", TDRC: "year", TDOR: "year", TCON: "genres", TCO: "genres" }[id];
+        if (key === "genres") {
+            if (!values.genres) values.genres = genreNames(decodeText(data.subarray(1), data[0]));
+        } else if (key) {
             const text = decodeText(data.subarray(1), data[0]).split("\0").find((s) => s.trim()) || "";
-            if (!values[key]) values[key] = key === "genre" ? genreName(text) : text;
+            if (!values[key]) values[key] = text;
         } else if (id === "APIC" || id === "PIC") {
             const enc = data[0];
             let mime, i;
@@ -138,7 +155,7 @@ async function id3v1(file, out) {
     const b = await bytes(file, file.size - 128, file.size);
     if (ascii(b, 0, 3) !== "TAG") return;
     const text = (at, n) => clean(new TextDecoder("windows-1252").decode(b.subarray(at, at + n)));
-    fill(out, { title: text(3, 30), artist: text(33, 30), album: text(63, 30), year: text(93, 4), genre: GENRES[b[127]] || "" });
+    fill(out, { title: text(3, 30), artist: text(33, 30), album: text(63, 30), year: text(93, 4), genres: GENRES[b[127]] ? [GENRES[b[127]]] : [] });
 }
 
 // ---------- MP4 / M4A ----------
@@ -158,13 +175,16 @@ function* atoms(b, start, end) {
 
 function ilst(b, list) {
     const values = {};
-    const names = { "\xA9nam": "title", "\xA9ART": "artist", aART: "albumartist", "\xA9alb": "album", "\xA9day": "year", "\xA9gen": "genre" };
+    const names = { "\xA9nam": "title", "\xA9ART": "artist", aART: "albumartist", "\xA9alb": "album", "\xA9day": "year" };
     for (const item of atoms(b, list.start, list.end)) {
         for (const data of atoms(b, item.start, item.end)) {
             if (data.type !== "data") continue;
             const kind = be32(b, data.start) & 0xFFFFFF, payload = b.subarray(data.start + 8, data.end);
             if (names[item.type] && !values[names[item.type]]) values[names[item.type]] = utf8(payload);
-            else if (item.type === "gnre" && payload.length >= 2 && !values.genre) values.genre = GENRES[((payload[0] << 8) | payload[1]) - 1] || "";
+            else if (item.type === "\xA9gen") values.genres = [...(values.genres || []), ...genreNames(utf8(payload))];
+            else if (item.type === "gnre" && payload.length >= 2 && GENRES[((payload[0] << 8) | payload[1]) - 1]) {
+                values.genres = [...(values.genres || []), GENRES[((payload[0] << 8) | payload[1]) - 1]];
+            }
             else if (item.type === "covr" && !values.picture) values.picture = picture(payload, kind === 14 ? "image/png" : kind === 13 ? "image/jpeg" : "");
         }
     }
@@ -210,7 +230,7 @@ async function mp4(file, out) {
 
 function vorbisComments(b, at) {
     const values = {};
-    const keys = { TITLE: "title", ARTIST: "artist", ALBUMARTIST: "albumartist", "ALBUM ARTIST": "albumartist", ALBUM: "album", DATE: "year", YEAR: "year", GENRE: "genre" };
+    const keys = { TITLE: "title", ARTIST: "artist", ALBUMARTIST: "albumartist", "ALBUM ARTIST": "albumartist", ALBUM: "album", DATE: "year", YEAR: "year" };
     at += 4 + le32(b, at);  // vendor
     const count = le32(b, at);
     at += 4;
@@ -221,6 +241,7 @@ function vorbisComments(b, at) {
         const eq = text.indexOf("=");
         const key = text.slice(0, eq).toUpperCase(), value = text.slice(eq + 1);
         if (keys[key] && !values[keys[key]]) values[keys[key]] = value;
+        else if (key === "GENRE") values.genres = [...(values.genres || []), ...genreNames(value)];  // one GENRE= each
         else if (key === "METADATA_BLOCK_PICTURE" && !values.picture) {
             try {
                 values.picture = flacPicture(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)));
@@ -297,11 +318,12 @@ async function riff(file, out) {
         const id = ascii(head, 0, 4), len = le32(head, 4);
         if (id === "LIST" && ascii(head, 8, 4) === "INFO") {
             const b = await bytes(file, at + 12, at + 8 + Math.min(len, MAX_TAG));
-            const keys = { INAM: "title", IART: "artist", IPRD: "album", ICRD: "year", IGNR: "genre" };
+            const keys = { INAM: "title", IART: "artist", IPRD: "album", ICRD: "year", IGNR: "genres" };
             const values = {};
             for (let i = 0; i + 8 <= b.length;) {
                 const sub = ascii(b, i, 4), size = le32(b, i + 4);
-                if (keys[sub]) values[keys[sub]] = new TextDecoder("windows-1252").decode(b.subarray(i + 8, i + 8 + size));
+                const text = new TextDecoder("windows-1252").decode(b.subarray(i + 8, i + 8 + size));
+                if (keys[sub]) values[keys[sub]] = keys[sub] === "genres" ? genreNames(clean(text)) : text;
                 i += 8 + size + (size & 1);
             }
             fill(out, values);
@@ -315,7 +337,7 @@ async function riff(file, out) {
 // ---------- ----------
 
 export async function readTags(file) {
-    const out = { title: "", artist: "", album: "", year: "", genre: "", picture: null };
+    const out = { title: "", artist: "", album: "", year: "", genres: [], picture: null };
     try {
         const head = await bytes(file, 0, 12);
         if (ascii(head, 0, 3) === "ID3") await id3v2(file, out);

@@ -28,7 +28,7 @@ then the file is uploaded as is to admin_library_upload with what was read. Noth
             <div class="up-wait" data-pane="wait" hidden>
                 <span class="up-spin"></span>
                 <div class="strong" data-wait-text></div>
-                <div class="small muted">{% trans "Title, artist, album, year, genre and artwork" %}</div>
+                <div class="small muted">{% trans "Title, artist, album, year, genres and artwork" %}</div>
             </div>
             <div class="up-cur" data-pane="ready" hidden>
                 <div class="up-art-row">
@@ -51,8 +51,8 @@ then the file is uploaded as is to admin_library_upload with what was read. Noth
                         <input class="field" data-f="album" maxlength="200" placeholder="{% trans 'Album or single' %}"></label>
                     <label class="s2"><span class="lbl"><span>{% trans "Year" %}</span><span class="up-tag" data-tag="year"></span></span>
                         <input class="field" data-f="year" maxlength="4" inputmode="numeric" placeholder="{% trans 'e.g. 2024' %}"></label>
-                    <label class="s4"><span class="lbl"><span>{% trans "Genre" %}</span><span class="up-tag" data-tag="genre"></span></span>
-                        <input class="field" data-f="genre" maxlength="80" placeholder="{% trans 'e.g. Jazz' %}"></label>
+                    <label class="s4"><span class="lbl"><span>{% trans "Genres" %}</span><span class="up-tag" data-tag="genres"></span><span class="grow"></span><button type="button" class="up-act" data-act="genres" hidden></button></span>
+                        <input class="field" data-f="genres" maxlength="200" placeholder="{% trans 'e.g. Jazz, Soul' %}"></label>
                 </div>
                 <div class="up-facts" data-facts></div>
                 <div class="small up-note" data-note></div>

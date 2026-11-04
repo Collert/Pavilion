@@ -19,7 +19,7 @@ class Track(models.Model):
     artist = models.CharField(max_length=200, blank=True)
     album = models.CharField(max_length=200, blank=True)
     year = models.PositiveSmallIntegerField(null=True, blank=True)
-    genre = models.CharField(max_length=80, blank=True)
+    genres = models.JSONField(default=list, blank=True, help_text='["Jazz", "Soul"]: from the tags, or typed in (audio.library.genres_of)')
     duration = models.FloatField(default=0, help_text="Seconds")
     artwork = models.ImageField(upload_to="music/artwork/", blank=True, max_length=300)
     format = models.CharField(max_length=10, blank=True, help_text="MP3, M4A, FLAC...")
@@ -33,6 +33,10 @@ class Track(models.Model):
 
     def __str__(self):
         return f"{self.title} · {self.artist}" if self.artist else self.title
+
+    @property
+    def genre_text(self) -> str:
+        return ", ".join(self.genres or [])
 
 
 class Playlist(models.Model):

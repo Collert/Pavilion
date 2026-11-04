@@ -179,7 +179,7 @@ document.addEventListener("submit", (event) => {
 // ---------- Add music ----------
 
 const FORMATS = { mp3: "MP3", m4a: "M4A", aac: "AAC", flac: "FLAC", ogg: "OGG", oga: "OGG", opus: "OPUS", wav: "WAV" };
-const KEYS = ["title", "artist", "album", "year", "genre"];
+const KEYS = ["title", "artist", "album", "year", "genres"];  // genres: "Jazz, Soul" (the server splits them)
 let U = null;  // {files, cur, over, busy}
 let seq = 0;
 const dlg = () => document.getElementById("upload-music");
@@ -207,7 +207,7 @@ function addFiles(list) {
         const ext = file.name.split(".").pop().toLowerCase();
         const fmt = FORMATS[ext] || "";
         const f = { id: ++seq, file, size: file.size, fmt, dur: 0, kbps: 0, progress: 0, tags: {}, art: null, artUrl: "", tagArt: false,
-            title: "", artist: "", album: "", year: "", genre: "", status: "reading", reason: "" };
+            title: "", artist: "", album: "", year: "", genres: "", status: "reading", reason: "" };
         if (!fmt) Object.assign(f, { status: "error", reason: gettext("Not an audio file, will be skipped") });
         else if (file.size > max) Object.assign(f, { status: "error", reason: gettext("Over 200 MB, will be skipped") });
         U.files.push(f);
@@ -226,7 +226,7 @@ async function read(f) {
     } else {
         f.dur = dur;
         f.kbps = dur ? Math.round((f.size * 8) / dur / 1000) : 0;
-        f.tags = Object.fromEntries(KEYS.map((k) => [k, tags[k] || ""]));
+        f.tags = Object.fromEntries(KEYS.map((k) => [k, k === "genres" ? tags.genres.join(", ") : tags[k] || ""]));
         Object.assign(f, f.tags, { status: "ready", progress: 100 });
         if (tags.picture) setArt(f, tags.picture, true);
     }

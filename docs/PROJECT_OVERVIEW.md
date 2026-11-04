@@ -938,12 +938,16 @@ recorded as approving their own. Off the schedule, a published Shift is added (t
   Front of house, Kitchen and Delivery, so nobody lost an app they had.
 - **Library** (`admin_library`, `library.py`, 2026-10-22): the songs (All songs, Missing info: no artist, album or
   artwork) and playlists, searched and sorted, with a storage bar (Store info's space for music, default 10 GB). The view is in
-  the address (`?view=all|needs|p<id>&q&sort`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
+  the address (`?view=all|needs|p<id>&q&sort&g`, `song=<id>` opens a song's details drawer, `add=1` a playlist's Add
   songs); selecting songs shows a bar (add to a playlist, a new playlist with them, remove, delete). Playlists are
   renamed as you type and dragged into order. **Add music** (`_upload_music.html`, `library.js`) reads each file's
   tags in the browser (`audio/static/audio/tags.js`: ID3, MP4, FLAC/Ogg comments, RIFF INFO; length from an
   `<audio>` element), lets you check and fill them in, and uploads the file untouched with what was read
-  (`library/upload` → `audio.library.add_track`): the server never opens a song.
+  (`library/upload` → `audio.library.add_track`): the server never opens a song. A song has several **genres**
+  (`Track.genres`, a JSON list, 2026-11-04): every genre in the tags is read (ID3v2.4/Vorbis multi-values, ID3v2.3
+  `(17)(9)` references, "Jazz; Soul"), typed as "Jazz, Soul" in the dialog and the drawer, and cleaned by
+  `audio.library.genres_of` (split on `,` `;` `|` and " / " but not "Pop/Funk", at most 8, a genre the library has keeps
+  its spelling). The list shows them after the artist, the search looks through them and `?g=<genre>` filters by one.
 - **Catering** (`admin_catering`, `catering.py`, 2026-10-21): an inbox by status (New, Waiting on customer,
   Upcoming, Past; the rail badge counts new ones) and the open order: event facts, notice against the settings,
   kitchen time, the customer's note, the lines (tagged against the lines before proposed changes), totals and the
