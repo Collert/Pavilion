@@ -11,7 +11,7 @@ CODE_MINUTES = 15  # how long a pairing code works
 class Dongle(models.Model):
     """
     A visual dongle: a Raspberry Pi behind a TV running jester-agent (github.com/collert/jester-agent), showing one
-    Screen. It paired with a DonglePairingCode and keeps a WebSocket open to Pavilion (/ws/dongle, devices/socket.py):
+    Screen, or any web address (`url`, which wins over the screen). It paired with a DonglePairingCode and keeps a WebSocket open to Pavilion (/ws/dongle, devices/socket.py):
     Pavilion sends it what to show and commands (show its name, restart, change Wi-Fi), it sends back how it's doing
     (`info`). Its browser opens the screen through a launch link (devices/views.py: open_screen), which leaves a
     signed cookie letting it see that screen without anyone signing in. Edited on the admin's Devices page.
@@ -24,6 +24,9 @@ class Dongle(models.Model):
     token_hash = models.CharField(max_length=64, help_text=_("SHA-256 of the secret part of its token"))
     screen = models.ForeignKey("screens.Screen", verbose_name=_("screen"), null=True, blank=True,
                                on_delete=models.SET_NULL, related_name="dongles")
+    url = models.CharField(_("web address"), max_length=2000, blank=True, help_text=_(
+        "Shown instead of a screen: any https:// or http:// page, or a path on this Pavilion (/store/). "
+        "Checked by devices.pairing.clean_url."))
     orientation = models.CharField(_("turn the picture"), max_length=20, choices=ORIENTATIONS, default=LANDSCAPE)
     info = models.JSONField(default=dict, blank=True, help_text=_(
         "What it last said about itself: model, version, resolution, network {ssid, signal, ip, wired}, showing"))
@@ -37,6 +40,14 @@ class Dongle(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def showing(self) -> str:
+        """What the TV shows, for people: the screen's name, the web address's site, or "" for nothing."""
+        if self.url:
+            from .pairing import url_label
+            return url_label(self.url)
+        return self.screen.name if self.screen_id else ""
 
     @property
     def online(self) -> bool:

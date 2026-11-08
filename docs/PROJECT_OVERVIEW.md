@@ -585,6 +585,12 @@ its `PROTOCOL.md` is the contract with this app). Designs: the canvas's `Dongle*
   dongle, its token hash and the screen, so a new screen is a new address and re-pairing kills old links). Opening it
   sets the signed `pavilion_dongle` cookie and redirects to `/screens/<slug>`; `screens.views._allowed` lets that
   browser see that dongle's screen even when it isn't public (`pairing.can_see`).
+- **Showing a web address instead**: the Screen list's last choice, *A web address…*, shows a field for any
+  `https://`/`http://` page or a path on Pavilion (`/store/`); it's kept on `Dongle.url` (checked by
+  `pairing.clean_url`: no `javascript:`, `file:` or `//host`; a bare `example.com/x` gets `https://`) and wins over
+  the screen (picking a screen clears it). The config then sends `{"name": <its site>, "url": <the address>}` as it
+  is: jester-agent opens full URLs directly and joins paths to the Pavilion it paired with. No cookie is set, so
+  Pavilion pages that need someone signed in won't open. `Dongle.showing` is what the Devices page calls it.
 - **Devices page**: two groups (Computers, Visual dongles); a dongle opens with `?dongle=<id>`: a preview of what the
   TV shows, online/offline, *Show name on TV*, *Restart*, *Edit screen*; *What it shows* (name, screen, orientation:
   landscape/portrait/portrait flipped, turned by the dongle with wlr-randr); Details (Wi-Fi, IP, TV, last seen,

@@ -1090,6 +1090,21 @@ def devices(request):
     return page(request, "admin_portal/devices.html", "devices", {"x": devices_data.page(request, sel, dongle_sel)})
 
 
+def _dongle_shows(request, dongle, Screen, pairing) -> bool:
+    """Set what a dongle shows from the form's Screen list: a screen, nothing, or "url" = the web address typed in.
+    False (with a message, nothing changed) when that address isn't one."""
+    choice = request.POST.get("screen") or ""
+    if choice == "url":
+        url = pairing.clean_url(request.POST.get("url"))
+        if not url:
+            messages.error(request, _("Type a web address that starts with https://, or a path on Pavilion such as /store/."))
+            return False
+        dongle.screen, dongle.url = None, url
+    else:
+        dongle.screen, dongle.url = Screen.objects.filter(pk=choice if choice.isdigit() else 0).first(), ""
+    return True
+
+
 def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
     """The visual dongles' buttons on the Devices page."""
     session = request.session
@@ -1114,19 +1129,22 @@ def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
         dongle = code.dongle if code else None
         if dongle is None:
             return redirect(here)
-        dongle.screen = Screen.objects.filter(pk=request.POST.get("screen") or 0).first()
-        dongle.save(update_fields=["screen"])
+        if not _dongle_shows(request, dongle, Screen, pairing):
+            session[devices_data.PAIR_KEY] = code.pk  # keep the sheet open to fix the address
+            return redirect(here)
+        dongle.save(update_fields=["screen", "url"])
         messages.success(request, _("%(name)s is ready.") % {"name": dongle.name})
         return redirect(f"{reverse('admin_devices')}?dongle={dongle.pk}")
     if dongle is None:
         return redirect("admin_devices")
     if op == "dongle_save":
+        if not _dongle_shows(request, dongle, Screen, pairing):
+            return redirect(here)
         dongle.name = request.POST.get("name", "").strip()[:140] or dongle.name
-        dongle.screen = Screen.objects.filter(pk=request.POST.get("screen") or 0).first()
         orientation = request.POST.get("orientation")
         if orientation in dict(Dongle.ORIENTATIONS):
             dongle.orientation = orientation
-        dongle.save(update_fields=["name", "screen", "orientation"])
+        dongle.save(update_fields=["name", "screen", "url", "orientation"])
         messages.success(request, _("Saved. The TV picks it up in a few seconds.") if dongle.online else _("Saved. The TV picks it up when it’s back online."))
     elif op in ("dongle_identify", "dongle_restart", "dongle_wifi"):
         name = {"dongle_identify": "identify", "dongle_restart": "restart", "dongle_wifi": "change_wifi"}[op]

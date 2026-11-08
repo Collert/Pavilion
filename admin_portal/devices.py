@@ -51,8 +51,8 @@ def dongle_line(d) -> tuple[str, str]:
     """(what the list and the card say about a dongle, its tone: bad, warn or muted)."""
     if not d.online:
         return _("Offline since %(when)s") % {"when": _when(d.last_seen)} if d.last_seen else _("Offline"), "bad"
-    if d.screen_id:
-        return _("Showing %(screen)s") % {"screen": d.screen.name}, "muted"
+    if d.showing:
+        return _("Showing %(screen)s") % {"screen": d.showing}, "muted"
     return _("No screen assigned"), "warn"
 
 
@@ -67,9 +67,9 @@ def dongle_detail(d) -> dict:
     online = d.online
     if not online:
         line = _("Hasn’t checked in since %(when)s, when it was showing %(screen)s.") % {
-            "when": _when(d.last_seen) or _("it was paired"), "screen": d.screen.name if d.screen_id else _("nothing")}
-    elif d.screen_id:
-        line = (_("Showing %(screen)s, turned to portrait.") if portrait else _("Showing %(screen)s.")) % {"screen": d.screen.name}
+            "when": _when(d.last_seen) or _("it was paired"), "screen": d.showing or _("nothing")}
+    elif d.showing:
+        line = (_("Showing %(screen)s, turned to portrait.") if portrait else _("Showing %(screen)s.")) % {"screen": d.showing}
     else:
         line = _("Paired, but nothing to show yet. The TV says “No screen assigned”.")
     paired = date_format(timezone.localtime(d.paired_at), "M j")
