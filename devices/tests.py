@@ -115,6 +115,34 @@ class ScreenAccessTests(TestCase):
         self.assertEqual(pairing.launch_path(self.dongle), before)  # same screen: same address (no reload)
 
 
+class WebAddressTests(TestCase):
+    """A dongle can show any web address instead of one of Pavilion's screens."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.screen = Screen.objects.create(name="Kitchen board", slug="kitchen-board", public=False)
+        cls.dongle, _token = pairing.pair(pairing.new_code().code, DEVICE)
+
+    def test_addresses_that_work(self):
+        self.assertEqual(pairing.clean_url(""), "")
+        self.assertEqual(pairing.clean_url(" https://example.com/menu?a=1 "), "https://example.com/menu?a=1")
+        self.assertEqual(pairing.clean_url("http://192.168.1.50:8080/"), "http://192.168.1.50:8080/")
+        self.assertEqual(pairing.clean_url("example.com/specials"), "https://example.com/specials")
+        self.assertEqual(pairing.clean_url("/store/"), "/store/")
+        for bad in ("javascript:alert(1)", "file:///etc/passwd", "ftp://example.com", "//evil.com", "https://exa mple.com",
+                    "not a url", "data:text/html,hi"):
+            self.assertIsNone(pairing.clean_url(bad), bad)
+
+    def test_the_address_wins_over_the_screen(self):
+        self.dongle.screen, self.dongle.url = self.screen, "https://www.example.com/tv"
+        self.assertEqual(pairing.config(self.dongle)["screen"], {"name": "example.com", "url": "https://www.example.com/tv"})
+        self.assertEqual(self.dongle.showing, "example.com")
+        self.dongle.url = "/store/"
+        self.assertEqual(pairing.config(self.dongle)["screen"], {"name": "/store/", "url": "/store/"})
+        self.dongle.url = ""
+        self.assertTrue(pairing.config(self.dongle)["screen"]["url"].startswith("/devices/dongles/open/"))
+
+
 class SocketTests(TestCase):
     """The WebSocket at /ws/dongle, driven by hand."""
 
@@ -224,6 +252,31 @@ class AdminDevicesTests(TestCase):
                 done = self.client.post(self.url, {"op": "dongle_restart", "dongle": self.dongle.pk}, follow=True)
         self.assertContains(done, "is restarting")
         self.assertIn((pairing.topic(self.dongle.pk), "restart"), [(t, m.get("command")) for t, m in sent])
+
+    def test_show_a_web_address(self):
+        here = {"op": "dongle_save", "dongle": self.dongle.pk, "name": "Window TV", "orientation": "landscape"}
+        self.client.post(self.url, {**here, "screen": "url", "url": "https://example.com/specials"})
+        self.dongle.refresh_from_db()
+        self.assertEqual((self.dongle.url, self.dongle.screen), ("https://example.com/specials", None))
+        page = self.client.get(self.url, {"dongle": self.dongle.pk})
+        self.assertContains(page, '<option value="url" selected>')
+        self.assertContains(page, 'value="https://example.com/specials"')
+        bad = self.client.post(self.url, {**here, "name": "Changed", "screen": "url", "url": "javascript:alert(1)"}, follow=True)
+        self.assertContains(bad, "Type a web address")
+        self.dongle.refresh_from_db()
+        self.assertEqual((self.dongle.name, self.dongle.url), ("Window TV", "https://example.com/specials"))  # nothing saved
+        self.client.post(self.url, {**here, "screen": self.screen.pk, "url": "https://example.com/specials"})
+        self.dongle.refresh_from_db()
+        self.assertEqual((self.dongle.url, self.dongle.screen), ("", self.screen))  # a screen clears the address
+
+    def test_pick_a_web_address_when_pairing(self):
+        self.client.post(self.url, {"op": "dongle_add"})
+        dongle, _token = pairing.pair(DonglePairingCode.objects.filter(used_at__isnull=True).get().code, {**DEVICE, "hardware_id": "H2RW"})
+        self.client.post(self.url, {"op": "dongle_finish", "screen": "url", "url": "nope"})
+        self.assertContains(self.client.get(self.url), "Your new dongle is paired")  # still open to fix it
+        self.client.post(self.url, {"op": "dongle_finish", "screen": "url", "url": "https://example.com"})
+        dongle.refresh_from_db()
+        self.assertEqual(dongle.url, "https://example.com")
 
     def test_unpair_asks_first(self):
         self.client.post(self.url, {"op": "dongle_askunpair", "dongle": self.dongle.pk})

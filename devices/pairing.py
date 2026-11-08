@@ -8,16 +8,20 @@ Pairing visual dongles, their tokens, what they're told to show, and talking to 
   whichever worker holds it, passes the message on. A {"type": "config"} message makes the socket send the dongle
   what to show, freshly read from the database (config()).
 - The dongle's browser opens its screen through a launch link (launch_path → views.open_screen), which leaves a
-  signed cookie: screens.views lets that browser see that dongle's screen (can_see).
+  signed cookie: screens.views lets that browser see that dongle's screen (can_see). A dongle can show any web
+  address instead (Dongle.url, clean_url): the config then carries that address as it is.
 """
 import hashlib
 import hmac
 import json
 import logging
 import secrets
+from urllib.parse import urlsplit
 
 from django.core import signing
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -154,11 +158,41 @@ def read_launch(value):
     return dongle
 
 
+def clean_url(value) -> str | None:
+    """A web address a dongle may show: a full http(s) URL, or a path on this Pavilion ("/store/"), which the agent
+    joins to the address it paired with. "" for none, None when it isn't one."""
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    if len(value) > 2000 or any(ch.isspace() or ord(ch) < 32 for ch in value):
+        return None
+    if value.startswith("/"):
+        return None if value.startswith("//") or "\\" in value else value
+    if "://" not in value and "." in value.split("/")[0]:
+        value = "https://" + value  # "example.com/menu"
+    try:
+        URLValidator(schemes=["http", "https"])(value)
+    except ValidationError:
+        return None
+    return value
+
+
+def url_label(url: str) -> str:
+    """How a web address is named on the Devices page and the TV: its site ("example.com"), or the path."""
+    if url.startswith("/"):
+        return url
+    host = urlsplit(url).hostname or url
+    return host.removeprefix("www.")
+
+
 def config(dongle) -> dict:
-    """The config message: the dongle's name, the store's, what to show (a path on this Pavilion) and how to turn it."""
+    """The config message: the dongle's name, the store's, what to show (a launch path on this Pavilion for a screen,
+    or the dongle's own web address, which wins) and how to turn it."""
     from admin_portal.models import StoreSettings
     screen = None
-    if dongle.screen_id:
+    if dongle.url:
+        screen = {"name": url_label(dongle.url), "url": dongle.url}
+    elif dongle.screen_id:
         screen = {"name": dongle.screen.name, "url": launch_path(dongle)}
     return {"type": "config", "name": dongle.name, "store": StoreSettings.load().name, "screen": screen,
             "orientation": dongle.orientation}

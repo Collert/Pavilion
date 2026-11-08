@@ -42,7 +42,7 @@ dongle to use it ("New visual dongle"), then picks its screen.
 
             <div class="dv-group">
                 <span class="dv-group-ic" aria-hidden="true">{% icon "M3 5h18v12H3z M8 21h8 M12 17v4" 18 2 %}</span>
-                <span class="grow"><span class="strong block">{% trans "Visual dongles" %}{% if x.attention %} <span class="dv-count">{{ x.attention }}</span>{% endif %}</span><span class="small muted block">{% trans "Plug into a TV and show one of your screens." %}</span></span>
+                <span class="grow"><span class="strong block">{% trans "Visual dongles" %}{% if x.attention %} <span class="dv-count">{{ x.attention }}</span>{% endif %}</span><span class="small muted block">{% trans "Plug into a TV and show one of your screens, or any web page." %}</span></span>
             </div>
             <form method="post" class="dv-add">{% csrf_token %}<button class="dv-add-btn" name="op" value="dongle_add">{% icon "plus" 18 2.4 %}{% trans "Add visual dongle" %}</button></form>
             {% for r in x.dongle_rows %}
@@ -60,11 +60,11 @@ dongle to use it ("New visual dongle"), then picks its screen.
     <div class="dv-detail" id="dv-detail" data-region>
         <section class="card dg-head">
             <div class="dg-tv{% if gx.portrait %} portrait{% endif %}{% if not gx.online %} off{% endif %}" role="img"
-                 aria-label="{% if not gx.online %}{% trans 'Offline, no picture' %}{% elif g.screen %}{% blocktrans with s=g.screen.name %}Showing {{ s }}{% endblocktrans %}{% else %}{% trans 'TV shows No screen assigned' %}{% endif %}">
+                 aria-label="{% if not gx.online %}{% trans 'Offline, no picture' %}{% elif g.showing %}{% blocktrans with s=g.showing %}Showing {{ s }}{% endblocktrans %}{% else %}{% trans 'TV shows No screen assigned' %}{% endif %}">
                 {% if not gx.online %}
                 <span class="dg-tv-msg">{% icon "M2 9a15 15 0 0 1 20 0 M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 M3 3l18 18" 30 2 %}{% trans "Last picture unknown" %}</span>
-                {% elif g.screen %}
-                <span class="dg-tv-menu"><span class="dg-tv-title">{{ g.screen.name }}</span>{% for w in "12345" %}<span class="dg-tv-row"><span></span><i></i><b></b></span>{% endfor %}</span>
+                {% elif g.showing %}
+                <span class="dg-tv-menu"><span class="dg-tv-title">{{ g.showing }}</span>{% for w in "12345" %}<span class="dg-tv-row"><span></span><i></i><b></b></span>{% endfor %}</span>
                 {% else %}
                 <span class="dg-tv-msg white"><span class="dg-tv-frame"></span>{% trans "No screen assigned" %}</span>
                 {% endif %}
@@ -79,7 +79,7 @@ dongle to use it ("New visual dongle"), then picks its screen.
                 <form method="post" class="dg-btns">{% csrf_token %}<input type="hidden" name="dongle" value="{{ g.id }}">
                     <button class="em-soft" name="op" value="dongle_identify"{% if not gx.online %} disabled{% endif %}>{% icon "M3 5h18v12H3z M8 21h8 M9 11h6" 16 2.3 %}{% trans "Show name on TV" %}</button>
                     <button class="em-soft" name="op" value="dongle_restart"{% if not gx.online %} disabled{% endif %}>{% icon "M20 12a8 8 0 1 1-2.3-5.7 M20 4v4h-4" 16 2.3 %}{% trans "Restart" %}</button>
-                    {% if g.screen %}<a class="em-soft" href="{% url 'admin_screen' g.screen.id %}">{% icon "M4 20h4L19 9l-4-4L4 16z" 16 2.3 %}{% trans "Edit screen" %}</a>{% endif %}
+                    {% if g.screen and not g.url %}<a class="em-soft" href="{% url 'admin_screen' g.screen.id %}">{% icon "M4 20h4L19 9l-4-4L4 16z" 16 2.3 %}{% trans "Edit screen" %}</a>{% endif %}
                 </form>
             </div>
         </section>
@@ -90,11 +90,15 @@ dongle to use it ("New visual dongle"), then picks its screen.
                 <div class="dg-two">
                     <label><span class="lbl">{% trans "Name" %}</span><input class="field" name="name" value="{{ g.name }}" maxlength="140"></label>
                     <label><span class="lbl">{% trans "Screen" %}</span>
-                        <select class="field{% if not g.screen %} dg-unset{% endif %}" name="screen">
+                        <select class="field{% if not g.showing %} dg-unset{% endif %}" name="screen">
                             <option value="">{% trans "No screen" %}</option>
-                            {% for s in x.screens %}<option value="{{ s.id }}"{% if s.id == g.screen_id %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                            {% for s in x.screens %}<option value="{{ s.id }}"{% if s.id == g.screen_id and not g.url %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                            <option value="url"{% if g.url %} selected{% endif %}>{% trans "A web address…" %}</option>
                         </select></label>
                 </div>
+                <label class="dg-url"><span class="lbl">{% trans "Web address" %}</span>
+                    <input class="field" name="url" value="{{ g.url }}" maxlength="2000" inputmode="url" placeholder="https://" spellcheck="false" autocapitalize="off"></label>
+                <div class="em-hint dg-url">{% trans "Any page on the web, or a path on Pavilion such as /store/. Pages that need someone signed in won’t open on their own." %}</div>
                 <div class="lbl dg-gap">{% trans "Turn the picture" %}</div>
                 <div class="dg-orient" role="radiogroup" aria-label="{% trans 'Turn the picture' %}">
                     {% for value, label in x.orientations %}
@@ -168,7 +172,9 @@ dongle to use it ("New visual dongle"), then picks its screen.
             <div class="grow"><div class="dg-paired-t">{% blocktrans with n=p.dongle.name %}{{ n }} is paired{% endblocktrans %}</div><div class="dg-paired-s">{{ p.facts }}</div></div>
         </div>
         <label><span class="lbl">{% trans "Screen" %}</span>
-            <select class="field" name="screen"><option value="">{% trans "No screen for now" %}</option>{% for s in x.screens %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></label>
+            <select class="field" name="screen"><option value="">{% trans "No screen for now" %}</option>{% for s in x.screens %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}<option value="url">{% trans "A web address…" %}</option></select></label>
+        <label class="dg-url"><span class="lbl">{% trans "Web address" %}</span>
+            <input class="field" name="url" maxlength="2000" inputmode="url" placeholder="https://" spellcheck="false" autocapitalize="off"></label>
         <div class="sheet-foot"><button class="btn-amber" name="op" value="dongle_finish">{% trans "Done" %}</button></div>
         {% else %}
         <div class="dg-code{% if p.expired %} expired{% endif %}" data-expires="{{ p.expires_ms }}">
@@ -194,7 +200,7 @@ dongle to use it ("New visual dongle"), then picks its screen.
     <button class="scrim" name="op" value="dongle_cancelunpair" aria-label="{% trans 'Close' %}"></button>
     <div class="sheet dg-confirm" role="alertdialog" aria-modal="true" aria-labelledby="dg-un-title">
         <h2 class="disp sheet-title" id="dg-un-title">{% blocktrans with n=x.unpair.name %}Unpair {{ n }}?{% endblocktrans %}</h2>
-        <p class="muted strong">{% if x.unpair.screen %}{% blocktrans with s=x.unpair.screen.name %}It stops showing “{{ s }}” and goes back to the setup screen. To use it again, add it with a new code.{% endblocktrans %}{% else %}{% trans "It goes back to the setup screen. To use it again, add it with a new code." %}{% endif %}</p>
+        <p class="muted strong">{% if x.unpair.showing %}{% blocktrans with s=x.unpair.showing %}It stops showing “{{ s }}” and goes back to the setup screen. To use it again, add it with a new code.{% endblocktrans %}{% else %}{% trans "It goes back to the setup screen. To use it again, add it with a new code." %}{% endif %}</p>
         <div class="sheet-foot"><button class="btn-soft" name="op" value="dongle_cancelunpair">{% trans "Keep it" %}</button><button class="btn-red" name="op" value="dongle_unpair">{% trans "Unpair" %}</button></div>
     </div>
 </form>

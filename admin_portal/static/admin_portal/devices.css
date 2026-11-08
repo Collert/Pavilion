@@ -70,6 +70,11 @@
 .dg-save { height: 40px; padding: 0 18px; font-size: 14px; }
 .dg-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
 .dg-two .field, .dg-sheet .field { height: 48px; padding: 0 14px; }
+/* the web address field shows only while "A web address…" is picked in the Screen list */
+.dg-url { display: none; }
+label.dg-url { margin-top: 14px; }
+.dg-url .field { width: 100%; height: 48px; padding: 0 14px; }
+form:has(select[name="screen"] option[value="url"]:checked) .dg-url { display: block; }
 select.field.dg-unset { box-shadow: inset 0 0 0 2px var(--amber); background: #FFF8EC; }
 .dg-gap { margin: 16px 0 6px; }
 .dg-orient { display: flex; gap: 8px; flex-wrap: wrap; }
