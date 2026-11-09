@@ -16,7 +16,20 @@ django_application = get_asgi_application()
 VOICE_PATH = re.compile(r"^/ws/voice/(\d+)$")
 
 
+async def _lifespan(receive, send):
+    """Uvicorn announces startup and shutdown; Django's handler only does HTTP, so answer here (nothing to set up)."""
+    while True:
+        message = await receive()
+        if message["type"] == "lifespan.startup":
+            await send({"type": "lifespan.startup.complete"})
+        elif message["type"] == "lifespan.shutdown":
+            await send({"type": "lifespan.shutdown.complete"})
+            return
+
+
 async def application(scope, receive, send):
+    if scope["type"] == "lifespan":
+        return await _lifespan(receive, send)
     if scope["type"] == "websocket":
         match = VOICE_PATH.match(scope.get("path", ""))
         if match:

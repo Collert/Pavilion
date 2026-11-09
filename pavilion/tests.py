@@ -309,3 +309,20 @@ class BrandTests(TestCase):
         maskable = Image.open(io.BytesIO(self.client.get("/store/icon-maskable.png").content)).convert("RGBA")
         self.assertEqual(maskable.getpixel((0, 0))[3], 255)  # full bleed
         self.assertEqual(draw(32).size, (32, 32))
+
+
+class AsgiLifespanTests(SimpleTestCase):
+    def test_lifespan_is_answered_instead_of_raising(self):
+        """Uvicorn sends a lifespan scope at startup; Django's ASGI handler raises ValueError for it."""
+        from pavilion import asgi
+        incoming = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
+        sent = []
+
+        async def receive():
+            return incoming.pop(0)
+
+        async def send(message):
+            sent.append(message["type"])
+
+        asyncio.run(asgi.application({"type": "lifespan"}, receive, send))
+        self.assertEqual(sent, ["lifespan.startup.complete", "lifespan.shutdown.complete"])
