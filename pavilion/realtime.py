@@ -87,9 +87,12 @@ class RedisBroker:
                     data = item["data"]
                     yield data if raw else data.decode() if isinstance(data, bytes) else data
         finally:
-            await pubsub.unsubscribe()
-            await pubsub.aclose()
-            await client.aclose()
+            # Redis may be the very thing that failed: closing must not raise a second error over the first.
+            for close in (pubsub.unsubscribe, pubsub.aclose, client.aclose):
+                try:
+                    await close()
+                except Exception:
+                    logger.debug("Closing a Redis subscription failed", exc_info=True)
 
 
 _broker = None
@@ -147,7 +150,16 @@ async def event_stream(topics):
                 continue
             for future in done:
                 topic = pending.pop(future)
-                yield f"event: {topic}\ndata: {future.result()}\n\n"
+                try:
+                    message = future.result()
+                except StopAsyncIteration:
+                    return
+                except Exception:
+                    # The broker (Redis) went away: end the stream quietly. The browser reconnects after `retry`
+                    # and refetches, so nothing is lost; raising here only filled the error log.
+                    logger.warning("Event stream for %s ended: broker unavailable", topics, exc_info=True)
+                    return
+                yield f"event: {topic}\ndata: {message}\n\n"
                 pending[asyncio.ensure_future(readers[topic].__anext__())] = topic
     finally:
         # The browser went away. Stop the pending reads and let them actually finish before closing the
@@ -160,8 +172,13 @@ async def event_stream(topics):
                 await future
             except (asyncio.CancelledError, StopAsyncIteration):
                 pass
+            except Exception:
+                logger.debug("Event stream read failed while closing", exc_info=True)
         for reader in readers.values():
-            await reader.aclose()
+            try:
+                await reader.aclose()
+            except Exception:
+                logger.debug("Closing an event stream reader failed", exc_info=True)
 
 
 @sync_to_async

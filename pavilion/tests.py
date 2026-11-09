@@ -75,6 +75,23 @@ class EventStreamTests(SimpleTestCase):
         asyncio.run(run())
         self.assertEqual(broker._subscribers, set())
 
+    def test_broker_failure_ends_the_stream_quietly(self):
+        """Redis going away mid-stream ends the stream (the browser reconnects) instead of raising."""
+        class DeadBroker:
+            async def subscribe(self, topic, raw=False):
+                raise ConnectionError("Connection refused")
+                yield  # pragma: no cover
+
+        async def run():
+            with mock.patch.object(realtime, "get_broker", return_value=DeadBroker()):
+                stream = realtime.event_stream(["inventory", "orders"])
+                return [chunk async for chunk in stream]
+
+        with self.assertLogs("pavilion.realtime", level="WARNING"):
+            chunks = asyncio.run(run())
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("event: ready", chunks[0])
+
     def test_one_stream_carries_several_topics(self):
         """A page listens to all its topics on one connection (browsers allow six per server over HTTP/1.1)."""
         broker = realtime.LocalBroker()
