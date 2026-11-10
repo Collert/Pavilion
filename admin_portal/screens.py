@@ -649,6 +649,7 @@ def editor_page(screen, state) -> dict:
         chans.append({"i": i, "c": c, "w": w, "p": params, "n": i + 1, "top": i == 0, "last": i == len(channels) - 1,
                       "name": _channel_name(c), "options": options[f"channels:{w.channel}"],
                       "keep_example": _("%(name)s at %(n)d%% means it’s still there, just softer, while an order is called.") % {"name": _channel_name(c), "n": params["keep"]}
+                      # xgettext:no-python-format
                       if w.channel == "music" else _("At 100% it keeps playing at full volume."),
                       "used": (_("Used by %(what)s") % {"what": ", ".join(used)}) if used else _("Not used by any widget or pop-up yet.")})
 

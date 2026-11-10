@@ -45,6 +45,7 @@ class Service(models.Model):
     CANCELLATION = [
         (FLEXIBLE, _("Flexible · free until 24 h before")),
         (MODERATE, _("Moderate · free until 3 days before")),
+        # xgettext:no-python-format
         (STRICT, _("Strict · 50% fee within 14 days")),
     ]
     PER_UNIT, PER_BOOKING = "unit", "booking"

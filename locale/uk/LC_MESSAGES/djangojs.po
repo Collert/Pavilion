@@ -3,535 +3,550 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: Pavilion\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-09 23:23-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"Last-Translator: Pavilion\n"
+"Language-Team: Ukrainian\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
-"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
-"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
-"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #: admin_portal/static/admin_portal/editor.js:26
 msgid "Change photo"
-msgstr ""
+msgstr "Змінити фото"
 
 #: admin_portal/static/admin_portal/library.js:13
 #, javascript-format
 msgid "%s song"
 msgid_plural "%s songs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s пісня"
+msgstr[1] "%s пісні"
+msgstr[2] "%s пісень"
+msgstr[3] "%s пісні"
 
 #: admin_portal/static/admin_portal/library.js:17
 #, javascript-format
 msgid "%s hr %s min"
-msgstr ""
+msgstr "%s год %s хв"
 
 #: admin_portal/static/admin_portal/library.js:17
 #, javascript-format
 msgid "%s min"
-msgstr ""
+msgstr "%s хв"
 
 #: admin_portal/static/admin_portal/library.js:29
 #, javascript-format
 msgid "%s song selected"
 msgid_plural "%s songs selected"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Вибрано %s пісню"
+msgstr[1] "Вибрано %s пісні"
+msgstr[2] "Вибрано %s пісень"
+msgstr[3] "Вибрано %s пісні"
 
 #: admin_portal/static/admin_portal/library.js:38
 msgid "Already in"
-msgstr ""
+msgstr "Уже є"
 
 #: admin_portal/static/admin_portal/library.js:48
 msgid "Pick songs to add"
-msgstr ""
+msgstr "Виберіть пісні, щоб додати"
 
 #: admin_portal/static/admin_portal/library.js:51
 #: admin_portal/static/admin_portal/library.js:377
 #, javascript-format
 msgid "Add %s song"
 msgid_plural "Add %s songs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Додати %s пісню"
+msgstr[1] "Додати %s пісні"
+msgstr[2] "Додати %s пісень"
+msgstr[3] "Додати %s пісні"
 
 #: admin_portal/static/admin_portal/library.js:51
 #: admin_portal/static/admin_portal/library.js:377
 msgid "Add songs"
-msgstr ""
+msgstr "Додати пісні"
 
 #: admin_portal/static/admin_portal/library.js:158
 msgid "Replace artwork"
-msgstr ""
+msgstr "Замінити обкладинку"
 
 #: admin_portal/static/admin_portal/library.js:170
 msgid "Upload artwork"
-msgstr ""
+msgstr "Завантажити обкладинку"
 
 #: admin_portal/static/admin_portal/library.js:211
 msgid "Not an audio file, will be skipped"
-msgstr ""
+msgstr "Не аудіофайл, буде пропущено"
 
 #: admin_portal/static/admin_portal/library.js:212
 msgid "Over 200 MB, will be skipped"
-msgstr ""
+msgstr "Понад 200 МБ, буде пропущено"
 
 #: admin_portal/static/admin_portal/library.js:225
 msgid "This browser can’t play it, will be skipped"
-msgstr ""
+msgstr "Цей браузер не може його відтворити, буде пропущено"
 
 #: admin_portal/static/admin_portal/library.js:250
 msgid "Too big"
-msgstr ""
+msgstr "Завеликий"
 
 #: admin_portal/static/admin_portal/library.js:250
 msgid "Not audio"
-msgstr ""
+msgstr "Не аудіо"
 
 #: admin_portal/static/admin_portal/library.js:251
 msgid "Reading"
-msgstr ""
+msgstr "Читання"
 
 #: admin_portal/static/admin_portal/library.js:252
 msgid "Uploading"
-msgstr ""
+msgstr "Завантаження"
 
 #: admin_portal/static/admin_portal/library.js:253
 msgid "Added"
-msgstr ""
+msgstr "Додано"
 
 #: admin_portal/static/admin_portal/library.js:254
 msgid "Failed"
-msgstr ""
+msgstr "Помилка"
 
 #: admin_portal/static/admin_portal/library.js:256
 msgid "No tags"
-msgstr ""
+msgstr "Без тегів"
 
 #: admin_portal/static/admin_portal/library.js:257
 msgid "Some info"
-msgstr ""
+msgstr "Частина даних"
 
 #: admin_portal/static/admin_portal/library.js:258
 msgid "All found"
-msgstr ""
+msgstr "Усе знайдено"
 
 #: admin_portal/static/admin_portal/library.js:278
 msgid "Reading tags…"
-msgstr ""
+msgstr "Читаємо теги…"
 
 #: admin_portal/static/admin_portal/library.js:278
 msgid "No title yet"
-msgstr ""
+msgstr "Ще без назви"
 
 #: admin_portal/static/admin_portal/library.js:288
 #, javascript-format
 msgid "Remove %s"
-msgstr ""
+msgstr "Прибрати %s"
 
 #: admin_portal/static/admin_portal/library.js:301
 msgid "From file"
-msgstr ""
+msgstr "З файлу"
 
 #: admin_portal/static/admin_portal/library.js:301
 msgid "Edited"
-msgstr ""
+msgstr "Змінено"
 
 #: admin_portal/static/admin_portal/library.js:302
 msgid "Added by you"
-msgstr ""
+msgstr "Додано вами"
 
 #: admin_portal/static/admin_portal/library.js:302
 msgid "Not in file"
-msgstr ""
+msgstr "Немає у файлі"
 
 #: admin_portal/static/admin_portal/library.js:319
 msgid "Pick a file on the left to check its details."
-msgstr ""
+msgstr "Виберіть файл ліворуч, щоб переглянути його дані."
 
 #: admin_portal/static/admin_portal/library.js:319
 msgid ""
 "Add some audio files to get started. We’ll read their tags as they upload."
 msgstr ""
+"Додайте аудіофайли, щоб почати. Ми прочитаємо їхні теги під час завантаження."
 
 #: admin_portal/static/admin_portal/library.js:322
 #, javascript-format
 msgid "Reading tags from %s"
-msgstr ""
+msgstr "Читаємо теги з %s"
 
 #: admin_portal/static/admin_portal/library.js:336
 msgid "Use file name"
-msgstr ""
+msgstr "Взяти назву файлу"
 
 #: admin_portal/static/admin_portal/library.js:339
 #, javascript-format
 msgid "Use for all %s"
-msgstr ""
+msgstr "Застосувати до всіх (%s)"
 
 #: admin_portal/static/admin_portal/library.js:346
 msgid "Shows on the Music player widget and Now playing."
-msgstr ""
+msgstr "Показується у віджеті музичного плеєра та в «Зараз грає»."
 
 #: admin_portal/static/admin_portal/library.js:346
 msgid ""
 "This file has no embedded artwork. Add a square image, or leave it blank."
 msgstr ""
+"У цьому файлі немає вбудованої обкладинки. Додайте квадратне зображення або "
+"залиште порожнім."
 
 #: admin_portal/static/admin_portal/library.js:347
 msgid "Replace"
-msgstr ""
+msgstr "Замінити"
 
 #: admin_portal/static/admin_portal/library.js:347
 msgid "Upload image"
-msgstr ""
+msgstr "Завантажити зображення"
 
 #: admin_portal/static/admin_portal/library.js:350
 msgid "Format"
-msgstr ""
+msgstr "Формат"
 
 #: admin_portal/static/admin_portal/library.js:350
 msgid "Quality"
-msgstr ""
+msgstr "Якість"
 
 #: admin_portal/static/admin_portal/library.js:350
 msgid "Lossless"
-msgstr ""
+msgstr "Без втрат"
 
 #: admin_portal/static/admin_portal/library.js:351
 msgid "Length"
-msgstr ""
+msgstr "Тривалість"
 
 #: admin_portal/static/admin_portal/library.js:351
 msgid "Size"
-msgstr ""
+msgstr "Розмір"
 
 #: admin_portal/static/admin_portal/library.js:362
 msgid ""
-"This file has no tags (common for WAV). Fill in what you know; a song "
-"without a title uses its file name."
+"This file has no tags (common for WAV). Fill in what you know; a song without"
+" a title uses its file name."
 msgstr ""
+"У цьому файлі немає тегів (так часто буває з WAV). Заповніть те, що знаєте; "
+"пісня без назви отримає назву файлу."
 
 #: admin_portal/static/admin_portal/library.js:363
 msgid ""
 "Fields marked “Not in file” weren’t in the tags. Leave them blank if you "
 "don’t know them."
 msgstr ""
+"Полів із позначкою «Немає у файлі» не було в тегах. Залиште їх порожніми, "
+"якщо не знаєте."
 
 #: admin_portal/static/admin_portal/library.js:364
 msgid ""
 "Everything was found in the file’s tags. Change anything that looks off."
-msgstr ""
+msgstr "Усе знайдено в тегах файлу. Виправте, якщо щось не так."
 
 #: admin_portal/static/admin_portal/library.js:375
 #, javascript-format
 msgid "Uploading %s of %s…"
-msgstr ""
+msgstr "Завантаження %s з %s…"
 
 #: admin_portal/static/admin_portal/library.js:376
 #, javascript-format
 msgid "Reading %s file…"
 msgid_plural "Reading %s files…"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Читання %s файлу…"
+msgstr[1] "Читання %s файлів…"
+msgstr[2] "Читання %s файлів…"
+msgstr[3] "Читання %s файлу…"
 
 #: admin_portal/static/admin_portal/library.js:381
 msgid "Drop to add"
-msgstr ""
+msgstr "Відпустіть, щоб додати"
 
 #: admin_portal/static/admin_portal/library.js:381
 msgid "Add more files"
-msgstr ""
+msgstr "Додати ще файли"
 
 #: admin_portal/static/admin_portal/library.js:381
 msgid "Drop audio files here, or click to browse"
-msgstr ""
+msgstr "Перетягніть аудіофайли сюди або натисніть, щоб вибрати"
 
 #: admin_portal/static/admin_portal/library.js:385
 msgid ""
 "There isn’t room in the library for all of these. Remove some files, or "
 "delete songs you don’t play."
 msgstr ""
+"У бібліотеці не вистачає місця для всіх цих файлів. Приберіть кілька файлів "
+"або видаліть пісні, які ви не вмикаєте."
 
 #: admin_portal/static/admin_portal/library.js:423
 msgid "The upload didn’t go through. Try again."
-msgstr ""
+msgstr "Не вдалося завантажити. Спробуйте ще раз."
 
 #: admin_portal/static/admin_portal/library.js:425
 msgid "The upload didn’t go through. Check the connection and try again."
-msgstr ""
+msgstr "Не вдалося завантажити. Перевірте з'єднання і спробуйте ще раз."
 
 #: admin_portal/static/admin_portal/menu-preview.js:13
 msgid "Pause preview"
-msgstr ""
+msgstr "Призупинити перегляд"
 
 #: admin_portal/static/admin_portal/menu-preview.js:13
 msgid "Play preview"
-msgstr ""
+msgstr "Запустити перегляд"
 
 #: admin_portal/static/admin_portal/menu-preview.js:16
 msgid "5× speed"
-msgstr ""
+msgstr "Швидкість 5×"
 
 #: admin_portal/static/admin_portal/menu-preview.js:16
 #, javascript-format
 msgid "Paused · page %s"
-msgstr ""
+msgstr "Пауза · сторінка %s"
 
 #: app_switcher/static/app_switcher/apps.js:14
 #, javascript-format
 msgid "%sh %sm"
-msgstr ""
+msgstr "%s год %s хв"
 
 #: app_switcher/static/app_switcher/apps.js:14
 #, javascript-format
 msgid "%sm"
-msgstr ""
+msgstr "%s хв"
 
 #: app_switcher/static/app_switcher/apps.js:24
 #, javascript-format
 msgid "Good morning, %s."
-msgstr ""
+msgstr "Доброго ранку, %s."
 
 #: app_switcher/static/app_switcher/apps.js:24
 #, javascript-format
 msgid "Good afternoon, %s."
-msgstr ""
+msgstr "Добрий день, %s."
 
 #: app_switcher/static/app_switcher/apps.js:24
 #, javascript-format
 msgid "Good evening, %s."
-msgstr ""
+msgstr "Добрий вечір, %s."
 
 #: app_switcher/static/app_switcher/apps.js:25
 msgid "Pick up where you left off."
-msgstr ""
+msgstr "Продовжуйте з того місця, де зупинилися."
 
 #: app_switcher/static/app_switcher/apps.js:29
 msgid "Sales rung up here"
-msgstr ""
+msgstr "Продажі, пробиті тут"
 
 #: app_switcher/static/app_switcher/apps.js:30
 msgid "Orders rung up"
-msgstr ""
+msgstr "Пробито замовлень"
 
 #: app_switcher/static/app_switcher/apps.js:31
 msgid "Tickets moved along"
-msgstr ""
+msgstr "Просунуто чеків"
 
 #: app_switcher/static/app_switcher/apps.js:32
 msgid "Since the first screen today"
-msgstr ""
+msgstr "Від першого екрана сьогодні"
 
 #: app_switcher/static/app_switcher/apps.js:51
 msgid "Online"
-msgstr ""
+msgstr "У мережі"
 
 #: app_switcher/static/app_switcher/apps.js:51
 msgid "Offline"
-msgstr ""
+msgstr "Не в мережі"
 
 #: audio/static/audio/voice.js:52
 msgid "Channel is clear"
-msgstr ""
+msgstr "Канал вільний"
 
 #: audio/static/audio/voice.js:52
 msgid "Hold the button to talk."
-msgstr ""
+msgstr "Утримуйте кнопку, щоб говорити."
 
 #: audio/static/audio/voice.js:53 audio/static/audio/voice.js:90
 msgid "You’re live"
-msgstr ""
+msgstr "Ви в ефірі"
 
 #: audio/static/audio/voice.js:53
 #, javascript-format
 msgid "Everyone on %s can hear you. Let go to stop."
-msgstr ""
+msgstr "Вас чують усі на %s. Відпустіть, щоб зупинити."
 
 #: audio/static/audio/voice.js:54
 #, javascript-format
 msgid "%s is talking"
-msgstr ""
+msgstr "%s говорить"
 
 #: audio/static/audio/voice.js:54
 msgid "You can talk once they let go."
-msgstr ""
+msgstr "Ви зможете говорити, коли вони відпустять кнопку."
 
 #: audio/static/audio/voice.js:55
 msgid "Order call playing"
-msgstr ""
+msgstr "Звучить виклик замовлення"
 
 #: audio/static/audio/voice.js:56
 #, javascript-format
 msgid "Replaying %s"
-msgstr ""
+msgstr "Повтор: %s"
 
 #: audio/static/audio/voice.js:56
 msgid "the last call"
-msgstr ""
+msgstr "останній виклик"
 
 #: audio/static/audio/voice.js:56
 msgid "Only on this device. Nobody else hears it."
-msgstr ""
+msgstr "Лише на цьому пристрої. Ніхто інший не почує."
 
 #: audio/static/audio/voice.js:57
 msgid "Chime playing"
-msgstr ""
+msgstr "Звучить сигнал"
 
 #: audio/static/audio/voice.js:57
 msgid "A quick tone so people look up before you talk."
-msgstr ""
+msgstr "Короткий сигнал, щоб люди звернули увагу, перш ніж ви заговорите."
 
 #: audio/static/audio/voice.js:58
 msgid "Not connected"
-msgstr ""
+msgstr "Немає з'єднання"
 
 #: audio/static/audio/voice.js:58
 msgid "Reconnecting…"
-msgstr ""
+msgstr "Повторне з'єднання…"
 
 #: audio/static/audio/voice.js:88
 msgid "Release to stop"
-msgstr ""
+msgstr "Відпустіть, щоб зупинити"
 
 #: audio/static/audio/voice.js:88 audio/static/audio/voice.js:92
 msgid "Channel busy"
-msgstr ""
+msgstr "Канал зайнятий"
 
 #: audio/static/audio/voice.js:89
 msgid "Please wait"
-msgstr ""
+msgstr "Зачекайте"
 
 #: audio/static/audio/voice.js:89 audio/static/audio/voice.js:92
 msgid "Hold to talk"
-msgstr ""
+msgstr "Утримуйте, щоб говорити"
 
 #: audio/static/audio/voice.js:90
 msgid "Someone else is talking"
-msgstr ""
+msgstr "Говорить хтось інший"
 
 #: audio/static/audio/voice.js:91
 msgid "Something is playing"
-msgstr ""
+msgstr "Щось відтворюється"
 
 #: audio/static/audio/voice.js:91
 msgid "Opening the microphone…"
-msgstr ""
+msgstr "Вмикаємо мікрофон…"
 
 #: audio/static/audio/voice.js:91
 msgid "or hold the space bar"
-msgstr ""
+msgstr "або утримуйте пробіл"
 
 #: audio/static/audio/voice.js:92
 msgid "Talking. Release to stop."
-msgstr ""
+msgstr "Ви говорите. Відпустіть, щоб зупинити."
 
 #: audio/static/audio/voice.js:183
 msgid "Someone"
-msgstr ""
+msgstr "Хтось"
 
 #: audio/static/audio/voice.js:194
 msgid "Sign in as staff to talk."
-msgstr ""
+msgstr "Щоб говорити, увійдіть як працівник."
 
 #: audio/static/audio/voice.js:209
 msgid "This browser can’t send voice. Use Chrome."
-msgstr ""
+msgstr "Цей браузер не може надсилати голос. Скористайтеся Chrome."
 
 #: audio/static/audio/voice.js:217
 msgid "The microphone isn’t allowed (it needs https)."
-msgstr ""
+msgstr "Мікрофон заборонено (потрібен https)."
 
 #: deliveries/static/deliveries/courier.js:81
 msgid "Couldn't turn on notifications"
-msgstr ""
+msgstr "Не вдалося ввімкнути сповіщення"
 
 #: inventory/static/inventory/availability.js:15
 msgid "Dishes"
-msgstr ""
+msgstr "Страви"
 
 #: inventory/static/inventory/availability.js:15
 msgid "Components & add-ons"
-msgstr ""
+msgstr "Компоненти й добавки"
 
 #: inventory/static/inventory/availability.js:15
 msgid "Condiments"
-msgstr ""
+msgstr "Додатки"
 
 #: inventory/static/inventory/availability.js:23
 #: inventory/static/inventory/availability.js:36
 msgid "Off"
-msgstr ""
+msgstr "Вимк."
 
 #: inventory/static/inventory/availability.js:23
 msgid "Stop selling now, whatever the count says"
-msgstr ""
+msgstr "Зупинити продаж зараз, незалежно від залишку"
 
 #: inventory/static/inventory/availability.js:24
 msgid "Auto"
-msgstr ""
+msgstr "Авто"
 
 #: inventory/static/inventory/availability.js:24
 msgid "Follow inventory: sells until the count hits zero"
-msgstr ""
+msgstr "За залишками: продається, доки кількість не дійде до нуля"
 
 #: inventory/static/inventory/availability.js:25
 msgid "Always"
-msgstr ""
+msgstr "Завжди"
 
 #: inventory/static/inventory/availability.js:25
 msgid "Keep selling even at zero; inventory goes negative"
-msgstr ""
+msgstr "Продавати навіть при нулі; залишок стає від'ємним"
 
 #: inventory/static/inventory/availability.js:36
 msgid "Hidden on the register"
-msgstr ""
+msgstr "Приховано на касі"
 
 #: inventory/static/inventory/availability.js:38
 msgid "Unavailable"
-msgstr ""
+msgstr "Недоступно"
 
 #: inventory/static/inventory/availability.js:38
 #, javascript-format
 msgid "%s is off"
 msgid_plural "%s are off"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s вимкнено"
+msgstr[1] "%s вимкнено"
+msgstr[2] "%s вимкнено"
+msgstr[3] "%s вимкнено"
 
 #: inventory/static/inventory/availability.js:40
 #: inventory/static/inventory/availability.js:43
 #: inventory/static/inventory/availability.js:47
 msgid "Selling"
-msgstr ""
+msgstr "У продажу"
 
 #: inventory/static/inventory/availability.js:40
 msgid "Always on · not counted"
-msgstr ""
+msgstr "Завжди ввімкнено · не враховується"
 
 #: inventory/static/inventory/availability.js:40
 msgid "Not counted"
-msgstr ""
+msgstr "Не враховується"
 
 #: inventory/static/inventory/availability.js:42
 msgid "Selling past zero"
-msgstr ""
+msgstr "Продаж нижче нуля"
 
 #: inventory/static/inventory/availability.js:42
 msgid "Inventory is going negative"
-msgstr ""
+msgstr "Залишок стає від'ємним"
 
 #: inventory/static/inventory/availability.js:43
 msgid "Keeps selling past zero"
-msgstr ""
+msgstr "Продається й нижче нуля"
 
 #: inventory/static/inventory/availability.js:45
 #: pos_server/static/pos_server/register.js:607
@@ -542,70 +557,74 @@ msgstr ""
 #: pos_server/static/pos_server/register.js:1151
 #: pos_server/static/pos_server/register.js:1284
 msgid "Sold out"
-msgstr ""
+msgstr "Розпродано"
 
 #: inventory/static/inventory/availability.js:45
 msgid "Back on when restocked"
-msgstr ""
+msgstr "Повернеться після поповнення"
 
 #: inventory/static/inventory/availability.js:46
 msgid "Running low"
-msgstr ""
+msgstr "Закінчується"
 
 #: inventory/static/inventory/availability.js:46
 #: inventory/static/inventory/availability.js:47
 msgid "Turns off at zero"
-msgstr ""
+msgstr "Вимкнеться при нулі"
 
 #: inventory/static/inventory/availability.js:89
 msgid "That didn't save. Try again."
-msgstr ""
+msgstr "Не збережено. Спробуйте ще раз."
 
 #: inventory/static/inventory/availability.js:98
 #, javascript-format
 msgid "%s dish unavailable"
 msgid_plural "%s dishes unavailable"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s страва недоступна"
+msgstr[1] "%s страви недоступні"
+msgstr[2] "%s страв недоступні"
+msgstr[3] "%s страви недоступні"
 
 #: inventory/static/inventory/availability.js:116
 #, javascript-format
 msgid "%s item back on Auto"
 msgid_plural "%s items back on Auto"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s позицію повернуто на «Авто»"
+msgstr[1] "%s позиції повернуто на «Авто»"
+msgstr[2] "%s позицій повернуто на «Авто»"
+msgstr[3] "%s позиції повернуто на «Авто»"
 
 #: inventory/static/inventory/availability.js:123
 msgid "Undone"
-msgstr ""
+msgstr "Скасовано"
 
 #: inventory/static/inventory/availability.js:137
 msgid "Undo"
-msgstr ""
+msgstr "Скасувати"
 
 #: inventory/static/inventory/availability.js:199
 msgid "Everything else follows inventory."
-msgstr ""
+msgstr "Усе інше відповідає залишкам."
 
 #: inventory/static/inventory/availability.js:199
 msgid "Everything here follows inventory."
-msgstr ""
+msgstr "Усе тут відповідає залишкам."
 
 #: inventory/static/inventory/availability.js:217
 msgid "No overrides here"
-msgstr ""
+msgstr "Тут немає ручних налаштувань"
 
 #: inventory/static/inventory/availability.js:217
 msgid "Nothing matches"
-msgstr ""
+msgstr "Нічого не знайдено"
 
 #: inventory/static/inventory/availability.js:218
 msgid "Everything in this tab is following inventory."
-msgstr ""
+msgstr "Усе в цій вкладці відповідає залишкам."
 
 #: inventory/static/inventory/availability.js:218
 msgid "Try a different search."
-msgstr ""
+msgstr "Спробуйте інший запит."
 
 #: inventory/static/inventory/availability.js:224
 #: pos_server/static/pos_server/order-marking.js:374
@@ -614,20 +633,22 @@ msgstr ""
 #, javascript-format
 msgid "%s item"
 msgid_plural "%s items"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s позиція"
+msgstr[1] "%s позиції"
+msgstr[2] "%s позицій"
+msgstr[3] "%s позиції"
 
 #: online_store/static/online_store/account-work.js:19
 msgid "The end date is before the start date."
-msgstr ""
+msgstr "Дата завершення раніше за дату початку."
 
 #: online_store/static/online_store/account-work.js:21
 msgid "Pick a date after today."
-msgstr ""
+msgstr "Виберіть дату після сьогоднішньої."
 
 #: online_store/static/online_store/account-work.js:23
 msgid "Check the times."
-msgstr ""
+msgstr "Перевірте час."
 
 #: online_store/static/online_store/account-work.js:28
 #, javascript-format
@@ -635,208 +656,231 @@ msgid "You have %s shift then: %s. If approved, they go to Up for grabs."
 msgid_plural ""
 "You have %s shifts then: %s. If approved, they go to Up for grabs."
 msgstr[0] ""
+"У цей час у вас %s зміна: %s. Якщо запит схвалять, її буде передано у «Вільні"
+" зміни»."
 msgstr[1] ""
+"У цей час у вас %s зміни: %s. Якщо запит схвалять, їх буде передано у «Вільні"
+" зміни»."
+msgstr[2] ""
+"У цей час у вас %s змін: %s. Якщо запит схвалять, їх буде передано у «Вільні "
+"зміни»."
+msgstr[3] ""
+"У цей час у вас %s зміни: %s. Якщо запит схвалять, їх буде передано у «Вільні"
+" зміни»."
 
 #: online_store/static/online_store/account-work.js:32
 msgid ""
 "No shifts on your schedule then yet. Your manager won’t schedule you if it’s "
 "approved."
 msgstr ""
+"На цей час у вашому графіку ще немає змін. Якщо запит схвалять, менеджер не "
+"ставитиме вас у графік."
 
 #: online_store/static/online_store/account-work.js:66
 #, javascript-format
 msgid "Send availability change · %s day"
 msgid_plural "Send availability change · %s days"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Надіслати зміну доступності · %s день"
+msgstr[1] "Надіслати зміну доступності · %s дні"
+msgstr[2] "Надіслати зміну доступності · %s днів"
+msgstr[3] "Надіслати зміну доступності · %s дня"
 
 #: online_store/static/online_store/account-work.js:67
 msgid "Change a day to send"
-msgstr ""
+msgstr "Змініть день, щоб надіслати"
 
 #: payments/static/payments/card-form.js:13
 msgid "The card was declined. Try another card."
-msgstr ""
+msgstr "Картку відхилено. Спробуйте іншу картку."
 
 #: payments/static/payments/card-form.js:14
 msgid "The security code (CVV) doesn’t match."
-msgstr ""
+msgstr "Код безпеки (CVV) не збігається."
 
 #: payments/static/payments/card-form.js:15
 msgid "The postal code doesn’t match the card."
-msgstr ""
+msgstr "Поштовий індекс не збігається з карткою."
 
 #: payments/static/payments/card-form.js:16
 msgid "The expiry date isn’t right."
-msgstr ""
+msgstr "Неправильний термін дії."
 
 #: payments/static/payments/card-form.js:17
 msgid "The card was declined: not enough funds."
-msgstr ""
+msgstr "Картку відхилено: недостатньо коштів."
 
 #: payments/static/payments/card-form.js:18
 msgid "This card has expired."
-msgstr ""
+msgstr "Термін дії цієї картки минув."
 
 #: payments/static/payments/card-form.js:52
 msgid "Paying…"
-msgstr ""
+msgstr "Оплата…"
 
 #: payments/static/payments/card-form.js:56
 #: payments/static/payments/card-form.js:77
 #: payments/static/payments/card-form.js:92
 #, javascript-format
 msgid "Pay %s"
-msgstr ""
+msgstr "Сплатити %s"
 
 #: payments/static/payments/card-form.js:67
 msgid "The payment didn’t go through. Try again."
-msgstr ""
+msgstr "Платіж не пройшов. Спробуйте ще раз."
 
 #: payments/static/payments/card-form.js:69
 msgid "Paid"
-msgstr ""
+msgstr "Сплачено"
 
 #: payments/static/payments/card-form.js:84
 msgid "The card form couldn’t load. Check the connection and reload."
 msgstr ""
+"Не вдалося завантажити форму картки. Перевірте з'єднання й перезавантажте "
+"сторінку."
 
 #: payments/static/payments/card-form.js:96
 msgid "The card form couldn’t load. Reload to try again."
 msgstr ""
+"Не вдалося завантажити форму картки. Перезавантажте, щоб спробувати ще раз."
 
 #: pos_server/static/pos_server/drawer.js:12
 #, javascript-format
 msgid "Today, %s"
-msgstr ""
+msgstr "Сьогодні, %s"
 
 #: pos_server/static/pos_server/drawer.js:13
 #, javascript-format
 msgid "Yesterday, %s"
-msgstr ""
+msgstr "Учора, %s"
 
 #: pos_server/static/pos_server/drawer.js:41
 msgid "Drawer closed"
-msgstr ""
+msgstr "Шухляду закрито"
 
 #: pos_server/static/pos_server/drawer.js:42
 #, javascript-format
 msgid "Open since %s"
-msgstr ""
+msgstr "Відкрито з %s"
 
 #: pos_server/static/pos_server/drawer.js:43
 msgid "Counting the cash"
-msgstr ""
+msgstr "Перерахунок готівки"
 
 #: pos_server/static/pos_server/drawer.js:44
 #, javascript-format
 msgid "Closed at %s"
-msgstr ""
+msgstr "Закрито о %s"
 
 #: pos_server/static/pos_server/drawer.js:50
 msgid "Closing count"
-msgstr ""
+msgstr "Підсумковий перерахунок"
 
 #: pos_server/static/pos_server/drawer.js:50
 msgid "Starting cash"
-msgstr ""
+msgstr "Початкова готівка"
 
 #: pos_server/static/pos_server/drawer.js:51
 msgid "How much is in the drawer?"
-msgstr ""
+msgstr "Скільки грошей у шухляді?"
 
 #: pos_server/static/pos_server/drawer.js:51
 #: pos_server/static/pos_server/drawer.js:67
 msgid "Open the drawer"
-msgstr ""
+msgstr "Відкрити шухляду"
 
 #: pos_server/static/pos_server/drawer.js:67
 msgid "Close the drawer"
-msgstr ""
+msgstr "Закрити шухляду"
 
 #: pos_server/static/pos_server/drawer.js:70
 msgid "Before you close"
-msgstr ""
+msgstr "Перш ніж закрити"
 
 #: pos_server/static/pos_server/drawer.js:70
 msgid "Before you start"
-msgstr ""
+msgstr "Перш ніж почати"
 
 #: pos_server/static/pos_server/drawer.js:71
 msgid "Count first, then see how you did."
-msgstr ""
+msgstr "Спершу перерахуйте, потім подивіться результат."
 
 #: pos_server/static/pos_server/drawer.js:71
 msgid "Count the float, then start selling."
-msgstr ""
+msgstr "Перерахуйте розмінну готівку й починайте продавати."
 
 #: pos_server/static/pos_server/drawer.js:73
 msgid ""
 "The expected amount stays hidden until you close, so the count is honest. "
 "You'll see the difference right after."
 msgstr ""
+"Очікувану суму приховано до закриття, щоб перерахунок був чесним. Різницю ви "
+"побачите одразу після цього."
 
 #: pos_server/static/pos_server/drawer.js:74
 msgid ""
-"Cash payments are blocked until the drawer is open. The starting cash is "
-"what you leave in the drawer to make change."
+"Cash payments are blocked until the drawer is open. The starting cash is what"
+" you leave in the drawer to make change."
 msgstr ""
+"Оплата готівкою заблокована, доки шухляда не відкрита. Початкова готівка — це"
+" гроші, які ви залишаєте в шухляді для решти."
 
 #: pos_server/static/pos_server/drawer.js:76
 msgid "Opened with"
-msgstr ""
+msgstr "Відкрито з сумою"
 
 #: pos_server/static/pos_server/drawer.js:76
 msgid "Opened at"
-msgstr ""
+msgstr "Відкрито о"
 
 #: pos_server/static/pos_server/drawer.js:77
 msgid "Last close"
-msgstr ""
+msgstr "Останнє закриття"
 
 #: pos_server/static/pos_server/drawer.js:77
 msgid "Left in the drawer"
-msgstr ""
+msgstr "Залишено в шухляді"
 
 #: pos_server/static/pos_server/drawer.js:96
 #: pos_server/static/pos_server/drawer.js:127
 msgid "Cash sales"
-msgstr ""
+msgstr "Продажі готівкою"
 
 #: pos_server/static/pos_server/drawer.js:96
 #: pos_server/static/pos_server/drawer.js:97
 #, javascript-format
 msgid "%s payment"
 msgid_plural "%s payments"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s платіж"
+msgstr[1] "%s платежі"
+msgstr[2] "%s платежів"
+msgstr[3] "%s платежу"
 
 #: pos_server/static/pos_server/drawer.js:97
 msgid "Card sales"
-msgstr ""
+msgstr "Продажі карткою"
 
 #: pos_server/static/pos_server/drawer.js:98
 msgid "Paid in and out"
-msgstr ""
+msgstr "Внесення й видача"
 
 #: pos_server/static/pos_server/drawer.js:98
 #, javascript-format
 msgid "%s in · %s out"
-msgstr ""
+msgstr "%s внесено · %s видано"
 
 #: pos_server/static/pos_server/drawer.js:99
 #: pos_server/static/pos_server/staff-page.js:41
 msgid "Orders"
-msgstr ""
+msgstr "Замовлення"
 
 #: pos_server/static/pos_server/drawer.js:99
 #, javascript-format
 msgid "Average %s"
-msgstr ""
+msgstr "У середньому %s"
 
 #: pos_server/static/pos_server/drawer.js:99
 msgid "None yet"
-msgstr ""
+msgstr "Поки немає"
 
 #: pos_server/static/pos_server/drawer.js:107
 #, javascript-format
@@ -844,63 +888,69 @@ msgid ""
 "Opened at %s by %s. When the shift ends, count what is in the drawer and "
 "close it."
 msgstr ""
+"Відкрито о %s, відкрив(-ла) %s. Наприкінці зміни перерахуйте вміст шухляди й "
+"закрийте її."
 
 #: pos_server/static/pos_server/drawer.js:118
 msgid "Balanced. The drawer matches."
-msgstr ""
+msgstr "Збігається. Шухляда в балансі."
 
 #: pos_server/static/pos_server/drawer.js:118
 msgid "Over"
-msgstr ""
+msgstr "Надлишок"
 
 #: pos_server/static/pos_server/drawer.js:118
 msgid "Short"
-msgstr ""
+msgstr "Нестача"
 
 #: pos_server/static/pos_server/drawer.js:120
 msgid "Every dollar is accounted for."
-msgstr ""
+msgstr "Кожен долар на місці."
 
 #: pos_server/static/pos_server/drawer.js:121
 msgid ""
 "There is more cash in the drawer than the register expected. Check for a "
 "missed sale or a miscount."
 msgstr ""
+"У шухляді більше готівки, ніж очікувала каса. Перевірте, чи не пропущено "
+"продаж або чи не помилилися під час рахунку."
 
 #: pos_server/static/pos_server/drawer.js:122
 msgid ""
 "There is less cash in the drawer than the register expected. Recount, and "
 "check for unrecorded change or a payout."
 msgstr ""
+"У шухляді менше готівки, ніж очікувала каса. Перерахуйте й перевірте, чи не "
+"було незаписаної решти або виплати."
 
 #: pos_server/static/pos_server/drawer.js:124
 #, javascript-format
 msgid "%s · closed at %s"
-msgstr ""
+msgstr "%s · закрито о %s"
 
 #: pos_server/static/pos_server/drawer.js:126
 msgid "Opening balance"
-msgstr ""
+msgstr "Початковий баланс"
 
 #: pos_server/static/pos_server/drawer.js:129
 msgid "Paid in"
-msgstr ""
+msgstr "Внесено"
 
 #: pos_server/static/pos_server/drawer.js:130
 msgid "Paid out"
-msgstr ""
+msgstr "Видано"
 
 #: pos_server/static/pos_server/drawer.js:131
 msgid "Expected in drawer"
-msgstr ""
+msgstr "Очікується в шухляді"
 
 #: pos_server/static/pos_server/drawer.js:131
 msgid "You counted"
-msgstr ""
+msgstr "Ви нарахували"
 
 #: pos_server/static/pos_server/drawer.js:134
 msgid "Difference"
-msgstr ""
+msgstr "Різниця"
 
 #: pos_server/static/pos_server/drawer.js:144
 #: pos_server/static/pos_server/lock.js:55
@@ -908,883 +958,898 @@ msgstr ""
 #: pos_server/static/pos_server/register.js:1596
 #: pos_server/static/pos_server/register.js:1869
 msgid "The register is offline. Check the connection."
-msgstr ""
+msgstr "Каса офлайн. Перевірте з'єднання."
 
 #: pos_server/static/pos_server/drawer.js:147
 #: pos_server/static/pos_server/drawer.js:202
 #: pos_server/static/pos_server/order-marking.js:621
 msgid "That didn't work. Try again."
-msgstr ""
+msgstr "Не вдалося. Спробуйте ще раз."
 
 #: pos_server/static/pos_server/drawer.js:162
 #, javascript-format
 msgid "Drawer opened with %s"
-msgstr ""
+msgstr "Шухляду відкрито з %s"
 
 #: pos_server/static/pos_server/drawer.js:199
 msgid "Enter an amount."
-msgstr ""
+msgstr "Введіть суму."
 
 #: pos_server/static/pos_server/drawer.js:205
 #, javascript-format
 msgid "Put %s in the drawer"
-msgstr ""
+msgstr "Внесено %s у шухляду"
 
 #: pos_server/static/pos_server/drawer.js:205
 #, javascript-format
 msgid "Took %s out of the drawer"
-msgstr ""
+msgstr "Видано %s із шухляди"
 
 #: pos_server/static/pos_server/lock.js:37
 #: pos_server/static/pos_server/register.js:1577
 #, javascript-format
 msgid "Enter your 4-digit PIN, %s"
-msgstr ""
+msgstr "Введіть свій 4-значний PIN, %s"
 
 #: pos_server/static/pos_server/lock.js:40
 #: pos_server/static/pos_server/register.js:1580 team/static/team/clock.js:31
 #, javascript-format
 msgid "%s of 4 digits entered"
-msgstr ""
+msgstr "Введено %s з 4 цифр"
 
 #: pos_server/static/pos_server/lock.js:60
 #, javascript-format
 msgid "Welcome back, %s"
-msgstr ""
+msgstr "З поверненням, %s"
 
 #: pos_server/static/pos_server/lock.js:62
 #, javascript-format
 msgid "%s is open. The drawer has %s in it."
-msgstr ""
+msgstr "%s відкрито. У шухляді %s."
 
 #: pos_server/static/pos_server/lock.js:63
 #, javascript-format
 msgid "%s is open. The drawer is closed."
-msgstr ""
+msgstr "%s відкрито. Шухляда закрита."
 
 #: pos_server/static/pos_server/lock.js:67
 #: pos_server/static/pos_server/register.js:1605
 msgid "That PIN didn't match. Try again."
-msgstr ""
+msgstr "PIN не збігається. Спробуйте ще раз."
 
 #: pos_server/static/pos_server/order-marking.js:153
 #: pos_server/static/pos_server/order-marking.js:501
 msgid "Not confirmed"
-msgstr ""
+msgstr "Не підтверджено"
 
 #: pos_server/static/pos_server/order-marking.js:154
 msgid "Confirmed · waiting"
-msgstr ""
+msgstr "Підтверджено · очікує"
 
 #: pos_server/static/pos_server/order-marking.js:155
 #: pos_server/static/pos_server/order-marking.js:503
 msgid "In progress"
-msgstr ""
+msgstr "Готується"
 
 #: pos_server/static/pos_server/order-marking.js:156
 msgid "Ready · waiting"
-msgstr ""
+msgstr "Готово · очікує"
 
 #: pos_server/static/pos_server/order-marking.js:157
 msgid "Waiting for courier"
-msgstr ""
+msgstr "Чекає на кур'єра"
 
 #: pos_server/static/pos_server/order-marking.js:157
 #: pos_server/static/pos_server/order-marking.js:504
 msgid "Ready for pickup"
-msgstr ""
+msgstr "Готово до видачі"
 
 #: pos_server/static/pos_server/order-marking.js:216
 #, javascript-format
 msgid "Auto ready in %s"
-msgstr ""
+msgstr "Автоготовність через %s"
 
 #: pos_server/static/pos_server/order-marking.js:216
 #, javascript-format
 msgid "Auto pickup in %s"
-msgstr ""
+msgstr "Автовидача через %s"
 
 #: pos_server/static/pos_server/order-marking.js:240
 msgid "Combo"
-msgstr ""
+msgstr "Комбо"
 
 #: pos_server/static/pos_server/order-marking.js:277
 msgid "In person"
-msgstr ""
+msgstr "Особисто"
 
 #: pos_server/static/pos_server/order-marking.js:280
 msgid "Online pickup"
-msgstr ""
+msgstr "Онлайн-самовивіз"
 
 #: pos_server/static/pos_server/order-marking.js:282
 msgid "Delivery"
-msgstr ""
+msgstr "Доставка"
 
 #: pos_server/static/pos_server/order-marking.js:285
 msgid "Courier"
-msgstr ""
+msgstr "Кур'єр"
 
 #: pos_server/static/pos_server/order-marking.js:286
 msgid "No courier"
-msgstr ""
+msgstr "Немає кур'єра"
 
 #: pos_server/static/pos_server/order-marking.js:286
 msgid ""
 "Every courier on shift passed, or nobody's on shift. Reject it or call the "
 "customer."
 msgstr ""
+"Усі кур'єри на зміні відмовилися, або на зміні нікого немає. Відхиліть "
+"замовлення або зателефонуйте клієнтові."
 
 #: pos_server/static/pos_server/order-marking.js:288
 #: pos_server/static/pos_server/register.js:1639
 msgid "To go"
-msgstr ""
+msgstr "З собою"
 
 #: pos_server/static/pos_server/order-marking.js:288
 msgid "Customer is waiting"
-msgstr ""
+msgstr "Клієнт чекає"
 
 #: pos_server/static/pos_server/order-marking.js:288
 msgid "Pack for travel"
-msgstr ""
+msgstr "Запакувати з собою"
 
 #: pos_server/static/pos_server/order-marking.js:289
 #: pos_server/static/pos_server/register.js:1639
 msgid "For here"
-msgstr ""
+msgstr "Тут"
 
 #: pos_server/static/pos_server/order-marking.js:289
 msgid "Dine in"
-msgstr ""
+msgstr "У закладі"
 
 #: pos_server/static/pos_server/order-marking.js:290
 msgid "Phone"
-msgstr ""
+msgstr "Телефон"
 
 #: pos_server/static/pos_server/order-marking.js:309
 msgid "Waiting for the courier"
-msgstr ""
+msgstr "Чекає на кур'єра"
 
 #: pos_server/static/pos_server/order-marking.js:310
 msgid "Every station is done. The courier marks it picked up in their app."
-msgstr ""
+msgstr "Усі станції завершили. Кур'єр позначить отримання у своєму застосунку."
 
 #: pos_server/static/pos_server/order-marking.js:316
 msgid "Cooking starts once every station is in."
-msgstr ""
+msgstr "Приготування почнеться, коли підтвердять усі станції."
 
 #: pos_server/static/pos_server/order-marking.js:317
 msgid "It's ready for pickup once every station is done."
-msgstr ""
+msgstr "Замовлення буде готове до видачі, коли всі станції завершать."
 
 #: pos_server/static/pos_server/order-marking.js:320
 msgid "Waiting on other stations"
-msgstr ""
+msgstr "Чекає на інші станції"
 
 #: pos_server/static/pos_server/order-marking.js:321
 msgid "You confirmed"
-msgstr ""
+msgstr "Ви підтвердили"
 
 #: pos_server/static/pos_server/order-marking.js:321
 msgid "You marked it ready"
-msgstr ""
+msgstr "Ви позначили як готове"
 
 #: pos_server/static/pos_server/order-marking.js:330
 msgid "Every station is done"
-msgstr ""
+msgstr "Усі станції завершили"
 
 #: pos_server/static/pos_server/order-marking.js:336
 msgid "Reject"
-msgstr ""
+msgstr "Відхилити"
 
 #: pos_server/static/pos_server/order-marking.js:338
 msgid "Confirm"
-msgstr ""
+msgstr "Підтвердити"
 
 #: pos_server/static/pos_server/order-marking.js:341
 msgid "Mark ready"
-msgstr ""
+msgstr "Позначити готовим"
 
 #: pos_server/static/pos_server/order-marking.js:344
 msgid "Picked up"
-msgstr ""
+msgstr "Видано"
 
 #: pos_server/static/pos_server/order-marking.js:366
 #: pos_server/static/pos_server/order-marking.js:713
 #: pos_server/static/pos_server/register.js:1348
 #: pos_server/static/pos_server/register.js:1640
 msgid "No name"
-msgstr ""
+msgstr "Без імені"
 
 #: pos_server/static/pos_server/order-marking.js:376
 msgid "Allergy"
-msgstr ""
+msgstr "Алергія"
 
 #: pos_server/static/pos_server/order-marking.js:389
 msgid "Allergy alert"
-msgstr ""
+msgstr "Увага: алергія"
 
 #: pos_server/static/pos_server/order-marking.js:395
 msgid "Stations"
-msgstr ""
+msgstr "Станції"
 
 #: pos_server/static/pos_server/order-marking.js:401
 msgid "Order note"
-msgstr ""
+msgstr "Примітка до замовлення"
 
 #: pos_server/static/pos_server/order-marking.js:472
 #: pos_server/static/pos_server/order-marking.js:766
 msgid "All caught up"
-msgstr ""
+msgstr "Усе опрацьовано"
 
 #: pos_server/static/pos_server/order-marking.js:491
 msgid "All stations"
-msgstr ""
+msgstr "Усі станції"
 
 #: pos_server/static/pos_server/order-marking.js:502
 msgid "Waiting"
-msgstr ""
+msgstr "Очікує"
 
 #: pos_server/static/pos_server/order-marking.js:514
 msgid "No open orders"
-msgstr ""
+msgstr "Немає відкритих замовлень"
 
 #: pos_server/static/pos_server/order-marking.js:699
 msgid "Pick a reason or write one"
-msgstr ""
+msgstr "Виберіть причину або напишіть свою"
 
 #: pos_server/static/pos_server/order-marking.js:766
 #, javascript-format
 msgid "%s open order"
 msgid_plural "%s open orders"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s відкрите замовлення"
+msgstr[1] "%s відкриті замовлення"
+msgstr[2] "%s відкритих замовлень"
+msgstr[3] "%s відкритого замовлення"
 
 #: pos_server/static/pos_server/order-marking.js:828
 msgid "Auto: off"
-msgstr ""
+msgstr "Авто: вимк."
 
 #: pos_server/static/pos_server/orders-status.js:86
 msgid "Order #"
-msgstr ""
+msgstr "Замовлення №"
 
 #: pos_server/static/pos_server/orders-status.js:226
 msgid ""
 "\n"
-"    Don't forget to put your browser in fullscreen mode (default key is F11, "
-"or in ... settings in Chrome)\n"
+"    Don't forget to put your browser in fullscreen mode (default key is F11, or in ... settings in Chrome)\n"
 "    Controls:\n"
 "    \n"
 "    Press 1 to open the music player controls\n"
 "    "
 msgstr ""
+"\n"
+"    Не забудьте перевести браузер у повноекранний режим (за замовчуванням клавіша F11, або в налаштуваннях … у Chrome)\n"
+"    Керування:\n"
+"    \n"
+"    Натисніть 1, щоб відкрити керування музичним плеєром\n"
+"    "
 
 #: pos_server/static/pos_server/pos-output-screen.js:31
 msgid "Discounts"
-msgstr ""
+msgstr "Знижки"
 
 #: pos_server/static/pos_server/pos-output-screen.js:32
 msgid "Tax"
-msgstr ""
+msgstr "Податок"
 
 #: pos_server/static/pos_server/pos-output-screen.js:43
 #, javascript-format
 msgid "Thank you, %s!"
-msgstr ""
+msgstr "Дякуємо, %s!"
 
 #: pos_server/static/pos_server/pos-output-screen.js:43
 msgid "Thank you!"
-msgstr ""
+msgstr "Дякуємо!"
 
 #: pos_server/static/pos_server/register.js:68
 msgid "Unavailable item"
-msgstr ""
+msgstr "Недоступна позиція"
 
 #: pos_server/static/pos_server/register.js:123
 #: pos_server/static/pos_server/register.js:255
 #: pos_server/static/pos_server/register.js:1265
 #, javascript-format
 msgid "No %s"
-msgstr ""
+msgstr "Без %s"
 
 #: pos_server/static/pos_server/register.js:144
 #, javascript-format
 msgid "Allergy: %s"
-msgstr ""
+msgstr "Алергія: %s"
 
 #: pos_server/static/pos_server/register.js:188
 msgid "%(n)s free per order, then +%(price)s"
-msgstr ""
+msgstr "%(n)s безкоштовно на замовлення, далі +%(price)s"
 
 #: pos_server/static/pos_server/register.js:357
 msgid "The order can't be priced."
-msgstr ""
+msgstr "Не вдається розрахувати ціну замовлення."
 
 #: pos_server/static/pos_server/register.js:394
 #, javascript-format
 msgid "%s · %s"
-msgstr ""
+msgstr "%s · %s"
 
 #: pos_server/static/pos_server/register.js:482
 #, javascript-format
 msgid "Up to %s"
-msgstr ""
+msgstr "До %s"
 
 #: pos_server/static/pos_server/register.js:485
 msgid "Remove from order"
-msgstr ""
+msgstr "Прибрати із замовлення"
 
 #: pos_server/static/pos_server/register.js:485
 msgid "Set quantity"
-msgstr ""
+msgstr "Вказати кількість"
 
 #: pos_server/static/pos_server/register.js:624
 #: pos_server/static/pos_server/register.js:1689
 msgid "Other amount"
-msgstr ""
+msgstr "Інша сума"
 
 #: pos_server/static/pos_server/register.js:654
 msgid "No dishes match your search."
-msgstr ""
+msgstr "Немає страв за вашим запитом."
 
 #: pos_server/static/pos_server/register.js:654
 msgid "Nothing on the menu here yet."
-msgstr ""
+msgstr "У цьому меню поки нічого немає."
 
 #: pos_server/static/pos_server/register.js:684
 msgid "Printed or read out"
-msgstr ""
+msgstr "Роздруковано або прочитано вголос"
 
 #: pos_server/static/pos_server/register.js:691
 #: pos_server/static/pos_server/register.js:1897
 #, javascript-format
 msgid "%s gift card"
-msgstr ""
+msgstr "Подарункова картка %s"
 
 #: pos_server/static/pos_server/register.js:695
 msgid "Remove gift card"
-msgstr ""
+msgstr "Прибрати подарункову картку"
 
 #: pos_server/static/pos_server/register.js:721
 #, javascript-format
 msgid "More options for %s"
-msgstr ""
+msgstr "Більше опцій для %s"
 
 #: pos_server/static/pos_server/register.js:731
 msgid "Remove one"
-msgstr ""
+msgstr "Мінус один"
 
 #: pos_server/static/pos_server/register.js:733
 #, javascript-format
 msgid "Quantity %s. Type a new one"
-msgstr ""
+msgstr "Кількість %s. Введіть нову"
 
 #: pos_server/static/pos_server/register.js:734
 msgid "Add one"
-msgstr ""
+msgstr "Плюс один"
 
 #: pos_server/static/pos_server/register.js:742
 #: pos_server/static/pos_server/register.js:791
 msgid "Remove"
-msgstr ""
+msgstr "Прибрати"
 
 #: pos_server/static/pos_server/register.js:743
 #: pos_server/static/pos_server/register.js:792
 msgid "More"
-msgstr ""
+msgstr "Більше"
 
 #: pos_server/static/pos_server/register.js:752
 #: pos_server/static/pos_server/register.js:866
 msgid "Discount"
-msgstr ""
+msgstr "Знижка"
 
 #: pos_server/static/pos_server/register.js:753
 msgid "Offers & codes"
-msgstr ""
+msgstr "Пропозиції та коди"
 
 #: pos_server/static/pos_server/register.js:759
 #: pos_server/static/pos_server/register.js:1062
 #: pos_server/static/pos_server/register.js:1270
 msgid "Customize"
-msgstr ""
+msgstr "Налаштувати"
 
 #: pos_server/static/pos_server/register.js:761
 #, javascript-format
 msgid "Edited · %s change"
 msgid_plural "Edited · %s changes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Змінено · %s зміна"
+msgstr[1] "Змінено · %s зміни"
+msgstr[2] "Змінено · %s змін"
+msgstr[3] "Змінено · %s зміни"
 
 #: pos_server/static/pos_server/register.js:762
 msgid "Swap & customize"
-msgstr ""
+msgstr "Замінити й налаштувати"
 
 #: pos_server/static/pos_server/register.js:762
 msgid "Parts & add-ons"
-msgstr ""
+msgstr "Складники та добавки"
 
 #: pos_server/static/pos_server/register.js:791
 msgid "Release to remove"
-msgstr ""
+msgstr "Відпустіть, щоб прибрати"
 
 #: pos_server/static/pos_server/register.js:792
 msgid "Release for more"
-msgstr ""
+msgstr "Відпустіть, щоб побачити більше"
 
 #: pos_server/static/pos_server/register.js:836
 msgid "Applied by itself"
-msgstr ""
+msgstr "Застосовується автоматично"
 
 #: pos_server/static/pos_server/register.js:839
 #: pos_server/static/pos_server/register.js:1450
 msgid "Whole order"
-msgstr ""
+msgstr "Усе замовлення"
 
 #: pos_server/static/pos_server/register.js:843
 #: pos_server/static/pos_server/register.js:870
 msgid "Staff card"
-msgstr ""
+msgstr "Картка працівника"
 
 #: pos_server/static/pos_server/register.js:862
 msgid "Add note"
-msgstr ""
+msgstr "Додати примітку"
 
 #: pos_server/static/pos_server/register.js:870
 #, javascript-format
 msgid "Staff · %s"
-msgstr ""
+msgstr "Персонал · %s"
 
 #: pos_server/static/pos_server/register.js:882
 msgid "Tap a dish to start"
-msgstr ""
+msgstr "Торкніться страви, щоб почати"
 
 #: pos_server/static/pos_server/register.js:954
 msgid "Not paired"
-msgstr ""
+msgstr "Не під'єднано"
 
 #: pos_server/static/pos_server/register.js:956
 #, javascript-format
 msgid "Screen: paired with %s"
-msgstr ""
+msgstr "Екран: під'єднано до %s"
 
 #: pos_server/static/pos_server/register.js:956
 msgid "Screen: not paired. Pair one"
-msgstr ""
+msgstr "Екран: не під'єднано. Під'єднайте"
 
 #: pos_server/static/pos_server/register.js:993
 #, javascript-format
 msgid "Add up to %s %s?"
-msgstr ""
+msgstr "Додати до %s: %s?"
 
 #: pos_server/static/pos_server/register.js:993
 #, javascript-format
 msgid "Add a %s?"
-msgstr ""
+msgstr "Додати %s?"
 
 #: pos_server/static/pos_server/register.js:994
 #, javascript-format
 msgid "Choose %s %s"
-msgstr ""
+msgstr "Виберіть %s: %s"
 
 #: pos_server/static/pos_server/register.js:994
 #, javascript-format
 msgid "Choose a %s"
-msgstr ""
+msgstr "Виберіть: %s"
 
 #: pos_server/static/pos_server/register.js:1001
 #, javascript-format
 msgid "%s · step %s of %s"
-msgstr ""
+msgstr "%s · крок %s з %s"
 
 #: pos_server/static/pos_server/register.js:1029
 #: pos_server/static/pos_server/register.js:1924
 msgid "Add to order"
-msgstr ""
+msgstr "Додати до замовлення"
 
 #: pos_server/static/pos_server/register.js:1029
 msgid "Skip"
-msgstr ""
+msgstr "Пропустити"
 
 #: pos_server/static/pos_server/register.js:1029
 msgid "Next"
-msgstr ""
+msgstr "Далі"
 
 #: pos_server/static/pos_server/register.js:1064
 msgid "Changes to this part of the combo"
-msgstr ""
+msgstr "Зміни в цій частині комбо"
 
 #: pos_server/static/pos_server/register.js:1065
 #, javascript-format
 msgid "Applies to all %s on this line"
-msgstr ""
+msgstr "Застосовується до всіх %s у цьому рядку"
 
 #: pos_server/static/pos_server/register.js:1065
 msgid "One item on this line"
-msgstr ""
+msgstr "Одна позиція в цьому рядку"
 
 #: pos_server/static/pos_server/register.js:1066
 msgid "Done"
-msgstr ""
+msgstr "Готово"
 
 #: pos_server/static/pos_server/register.js:1066
 msgid "Save changes"
-msgstr ""
+msgstr "Зберегти зміни"
 
 #: pos_server/static/pos_server/register.js:1083
 #, javascript-format
 msgid "Fewer %s"
-msgstr ""
+msgstr "Менше: %s"
 
 #: pos_server/static/pos_server/register.js:1085
 #, javascript-format
 msgid "More %s"
-msgstr ""
+msgstr "Більше: %s"
 
 #: pos_server/static/pos_server/register.js:1103
 #: pos_server/static/pos_server/register.js:1127
 msgid "Pick one"
-msgstr ""
+msgstr "Виберіть одне"
 
 #: pos_server/static/pos_server/register.js:1115
 msgid "Components"
-msgstr ""
+msgstr "Компоненти"
 
 #: pos_server/static/pos_server/register.js:1115
 msgid "Set how many of each"
-msgstr ""
+msgstr "Вкажіть кількість кожного"
 
 #: pos_server/static/pos_server/register.js:1127
 msgid "Pick any"
-msgstr ""
+msgstr "Виберіть будь-які"
 
 #: pos_server/static/pos_server/register.js:1128
 msgid "Required"
-msgstr ""
+msgstr "Обов'язково"
 
 #: pos_server/static/pos_server/register.js:1159
 msgid "On the side"
-msgstr ""
+msgstr "Окремо"
 
 #: pos_server/static/pos_server/register.js:1159
 msgid "Free"
-msgstr ""
+msgstr "Безкоштовно"
 
 #: pos_server/static/pos_server/register.js:1170
 msgid "Allergies"
-msgstr ""
+msgstr "Алергії"
 
 #: pos_server/static/pos_server/register.js:1170
 msgid "Tell the kitchen"
-msgstr ""
+msgstr "Повідомити кухню"
 
 #: pos_server/static/pos_server/register.js:1191
 #, javascript-format
 msgid "+%s each"
-msgstr ""
+msgstr "+%s за шт."
 
 #: pos_server/static/pos_server/register.js:1191
 #, javascript-format
 msgid "%s each"
-msgstr ""
+msgstr "%s за шт."
 
 #: pos_server/static/pos_server/register.js:1191
 msgid "No extra charge"
-msgstr ""
+msgstr "Без доплати"
 
 #: pos_server/static/pos_server/register.js:1196
 #, javascript-format
 msgid "Pick %s first"
-msgstr ""
+msgstr "Спершу виберіть %s"
 
 #: pos_server/static/pos_server/register.js:1226
 msgid "Item customized"
-msgstr ""
+msgstr "Позицію змінено"
 
 #: pos_server/static/pos_server/register.js:1261
 #, javascript-format
 msgid "Pick %s"
-msgstr ""
+msgstr "Виберіть %s"
 
 #: pos_server/static/pos_server/register.js:1261
 msgid "Optional"
-msgstr ""
+msgstr "Необов'язково"
 
 #: pos_server/static/pos_server/register.js:1312
 msgid "As added"
-msgstr ""
+msgstr "Як додано"
 
 #: pos_server/static/pos_server/register.js:1312
 #, javascript-format
 msgid "%s from when it was added"
-msgstr ""
+msgstr "%s порівняно з початковим"
 
 #: pos_server/static/pos_server/register.js:1336
 msgid "Combo updated"
-msgstr ""
+msgstr "Комбо оновлено"
 
 #: pos_server/static/pos_server/register.js:1348
 msgid "Order"
-msgstr ""
+msgstr "Замовлення"
 
 #: pos_server/static/pos_server/register.js:1349
 msgid "Edit the note"
-msgstr ""
+msgstr "Редагувати примітку"
 
 #: pos_server/static/pos_server/register.js:1349
 msgid "Add a note"
-msgstr ""
+msgstr "Додати примітку"
 
 #: pos_server/static/pos_server/register.js:1383
 msgid "Note saved"
-msgstr ""
+msgstr "Примітку збережено"
 
 #: pos_server/static/pos_server/register.js:1404
 msgid ""
 "Typed-in discounts need a manager, and nobody who can approve them has a "
 "register PIN yet."
 msgstr ""
+"Введені вручну знижки потребують менеджера, але ніхто з тих, хто може їх "
+"схвалити, ще не має PIN для каси."
 
 #: pos_server/static/pos_server/register.js:1405
 msgid "A manager approves typed-in discounts with their PIN."
-msgstr ""
+msgstr "Менеджер схвалює введені вручну знижки своїм PIN."
 
 #: pos_server/static/pos_server/register.js:1434
 #: pos_server/static/pos_server/register.js:1437
 msgid "Manual"
-msgstr ""
+msgstr "Вручну"
 
 #: pos_server/static/pos_server/register.js:1449
 msgid "Discount this item"
-msgstr ""
+msgstr "Знижка на позицію"
 
 #: pos_server/static/pos_server/register.js:1449
 msgid "Discount the order"
-msgstr ""
+msgstr "Знижка на замовлення"
 
 #: pos_server/static/pos_server/register.js:1466
 msgid "No offers right now."
-msgstr ""
+msgstr "Зараз немає пропозицій."
 
 #: pos_server/static/pos_server/register.js:1472
 #, javascript-format
 msgid "%s applied · %s"
-msgstr ""
+msgstr "%s застосовано · %s"
 
 #: pos_server/static/pos_server/register.js:1491
 msgid "Ask a manager"
-msgstr ""
+msgstr "Покликати менеджера"
 
 #: pos_server/static/pos_server/register.js:1491
 msgid "Apply discount"
-msgstr ""
+msgstr "Застосувати знижку"
 
 #: pos_server/static/pos_server/register.js:1520
 msgid "That code isn't valid."
-msgstr ""
+msgstr "Цей код недійсний."
 
 #: pos_server/static/pos_server/register.js:1556
 #, javascript-format
 msgid "Approve %s"
-msgstr ""
+msgstr "Схвалити %s"
 
 #: pos_server/static/pos_server/register.js:1558
 #, javascript-format
 msgid "On %s"
-msgstr ""
+msgstr "На %s"
 
 #: pos_server/static/pos_server/register.js:1558
 msgid "On the whole order"
-msgstr ""
+msgstr "На все замовлення"
 
 #: pos_server/static/pos_server/register.js:1559
 #, javascript-format
 msgid "rung up by %s"
-msgstr ""
+msgstr "пробив(-ла) %s"
 
 #: pos_server/static/pos_server/register.js:1577
 msgid "Who's approving? Pick your name."
-msgstr ""
+msgstr "Хто схвалює? Виберіть своє ім'я."
 
 #: pos_server/static/pos_server/register.js:1602
 #, javascript-format
 msgid "%s approved by %s"
-msgstr ""
+msgstr "%s схвалив(-ла) %s"
 
 #: pos_server/static/pos_server/register.js:1642
 msgid "Left to pay"
-msgstr ""
+msgstr "Залишилось сплатити"
 
 #: pos_server/static/pos_server/register.js:1642
 msgid "Amount due"
-msgstr ""
+msgstr "До сплати"
 
 #: pos_server/static/pos_server/register.js:1645
 #, javascript-format
 msgid "includes %s tax"
-msgstr ""
+msgstr "включно з податком %s"
 
 #: pos_server/static/pos_server/register.js:1651
 msgid "Remove this payment"
-msgstr ""
+msgstr "Видалити цей платіж"
 
 #: pos_server/static/pos_server/register.js:1661
 msgid "Pay the full amount"
-msgstr ""
+msgstr "Сплатити всю суму"
 
 #: pos_server/static/pos_server/register.js:1661
 msgid "Split payment"
-msgstr ""
+msgstr "Розділити оплату"
 
 #: pos_server/static/pos_server/register.js:1679
 #: pos_server/static/pos_server/register.js:1699
 msgid "Complete sale"
-msgstr ""
+msgstr "Завершити продаж"
 
 #: pos_server/static/pos_server/register.js:1686
 msgid "Exact"
-msgstr ""
+msgstr "Без решти"
 
 #: pos_server/static/pos_server/register.js:1689
 msgid "Other"
-msgstr ""
+msgstr "Інша"
 
 #: pos_server/static/pos_server/register.js:1698
 msgid "Open the drawer to take cash"
-msgstr ""
+msgstr "Відкрийте касову шухляду, щоб приймати готівку"
 
 #: pos_server/static/pos_server/register.js:1699
 #, javascript-format
 msgid "Take %s cash"
-msgstr ""
+msgstr "Прийняти %s готівкою"
 
 #: pos_server/static/pos_server/register.js:1705
 msgid "Waiting for card"
-msgstr ""
+msgstr "Очікуємо картку"
 
 #: pos_server/static/pos_server/register.js:1705
 msgid "Card on their phone"
-msgstr ""
+msgstr "Карткою на телефоні клієнта"
 
 #: pos_server/static/pos_server/register.js:1705
 msgid "Card on the terminal"
-msgstr ""
+msgstr "Карткою на терміналі"
 
 #: pos_server/static/pos_server/register.js:1706
 msgid "The customer is paying on their phone."
-msgstr ""
+msgstr "Клієнт оплачує на своєму телефоні."
 
 #: pos_server/static/pos_server/register.js:1706
 msgid "The terminal is ready. Tap, insert or swipe."
-msgstr ""
+msgstr "Термінал готовий. Прикладіть, вставте або проведіть картку."
 
 #: pos_server/static/pos_server/register.js:1707
 #, javascript-format
 msgid "Show a QR code: the customer pays %s by card on their own phone."
-msgstr ""
+msgstr "Покажіть QR-код: клієнт сплатить %s карткою на своєму телефоні."
 
 #: pos_server/static/pos_server/register.js:1708
 #, javascript-format
 msgid "Charge %s on the terminal, then the customer taps, inserts or swipes."
 msgstr ""
+"Виставте %s на терміналі, потім клієнт прикладає, вставляє або проводить "
+"картку."
 
 #: pos_server/static/pos_server/register.js:1710
 msgid "Waiting for payment…"
-msgstr ""
+msgstr "Очікуємо оплату…"
 
 #: pos_server/static/pos_server/register.js:1710
 msgid "Waiting for terminal…"
-msgstr ""
+msgstr "Очікуємо термінал…"
 
 #: pos_server/static/pos_server/register.js:1711
 #, javascript-format
 msgid "Show QR code · %s"
-msgstr ""
+msgstr "Показати QR-код · %s"
 
 #: pos_server/static/pos_server/register.js:1711
 #, javascript-format
 msgid "Charge %s"
-msgstr ""
+msgstr "Списати %s"
 
 #: pos_server/static/pos_server/register.js:1717
 #, javascript-format
 msgid "%s · %s x%s"
-msgstr ""
+msgstr "%s · %s x%s"
 
 #: pos_server/static/pos_server/register.js:1720
 msgid "It can't pay for everything on this order (alcohol isn't covered)."
-msgstr ""
+msgstr "Нею не можна оплатити все замовлення (алкоголь не покривається)."
 
 #: pos_server/static/pos_server/register.js:1721
 #, javascript-format
 msgid "Take %s from %s"
-msgstr ""
+msgstr "Списати %s з: %s"
 
 #: pos_server/static/pos_server/register.js:1721
 msgid "Nothing left on the card"
-msgstr ""
+msgstr "На картці нічого не залишилось"
 
 #: pos_server/static/pos_server/register.js:1728
 #: pos_server/static/pos_server/register.js:1770
 #, javascript-format
 msgid "Card x%s"
-msgstr ""
+msgstr "Картка x%s"
 
 #: pos_server/static/pos_server/register.js:1731
 #, javascript-format
 msgid "Use %s from the gift card"
-msgstr ""
+msgstr "Використати %s з подарункової картки"
 
 #: pos_server/static/pos_server/register.js:1731
 msgid "Look up the card"
-msgstr ""
+msgstr "Знайти картку"
 
 #: pos_server/static/pos_server/register.js:1734
 msgid "Sending…"
-msgstr ""
+msgstr "Надсилання…"
 
 #: pos_server/static/pos_server/register.js:1749
 msgid "A card payment was taken. Finish this order first."
-msgstr ""
+msgstr "Оплату карткою вже прийнято. Спершу завершіть це замовлення."
 
 #: pos_server/static/pos_server/register.js:1770
 #, javascript-format
 msgid "Card x%s · %s left"
-msgstr ""
+msgstr "Картка x%s · залишок %s"
 
 #: pos_server/static/pos_server/register.js:1772
 msgid "Take this card off the order"
-msgstr ""
+msgstr "Прибрати цю картку із замовлення"
 
 #: pos_server/static/pos_server/register.js:1782
 msgid "Ring up the order first, then scan the card."
-msgstr ""
+msgstr "Спершу пробийте замовлення, потім скануйте картку."
 
 #: pos_server/static/pos_server/register.js:1824
 msgid "Cash"
-msgstr ""
+msgstr "Готівка"
 
 #: pos_server/static/pos_server/register.js:1825
 #, javascript-format
 msgid "Give %s change"
-msgstr ""
+msgstr "Видати решту %s"
 
 #: pos_server/static/pos_server/register.js:1832
 #, javascript-format
 msgid "%s x%s"
-msgstr ""
+msgstr "%s x%s"
 
 #: pos_server/static/pos_server/register.js:1835
 #, javascript-format
 msgid "Gift card x%s"
-msgstr ""
+msgstr "Подарункова картка x%s"
 
 #: pos_server/static/pos_server/register.js:1852
 #, javascript-format
 msgid "%s left to pay"
-msgstr ""
+msgstr "Залишилось сплатити %s"
 
 #: pos_server/static/pos_server/register.js:1876
 msgid "The order was not sent. Please try again."
-msgstr ""
+msgstr "Замовлення не надіслано. Спробуйте ще раз."
 
 #: pos_server/static/pos_server/register.js:1877
 #, javascript-format
@@ -1792,161 +1857,165 @@ msgid ""
 "%s The card was charged %s: fix the order and try again, or refund it on the "
 "terminal."
 msgstr ""
+"%s З картки списано %s: виправте замовлення й спробуйте ще раз або поверніть "
+"кошти на терміналі."
 
 #: pos_server/static/pos_server/register.js:1886
 #, javascript-format
 msgid "Order #%s paid"
-msgstr ""
+msgstr "Замовлення №%s оплачено"
 
 #: pos_server/static/pos_server/register.js:1904
 #, javascript-format
 msgid "Between %s and %s"
-msgstr ""
+msgstr "Від %s до %s"
 
 #: pos_server/static/pos_server/register.js:1924
 #, javascript-format
 msgid "Add %s gift card"
-msgstr ""
+msgstr "Додати подарункову картку на %s"
 
 #: pos_server/static/pos_server/register.js:1932
 msgid "Check the email address."
-msgstr ""
+msgstr "Перевірте адресу ел. пошти."
 
 #: pos_server/static/pos_server/register.js:1946
 msgid "Gift card ready"
-msgstr ""
+msgstr "Подарункова картка готова"
 
 #: pos_server/static/pos_server/register.js:1946
 #, javascript-format
 msgid "%s gift cards ready"
-msgstr ""
+msgstr "Подарункових карток готово: %s"
 
 #: pos_server/static/pos_server/register.js:1956
 #, javascript-format
 msgid "Emailed to %s."
-msgstr ""
+msgstr "Надіслано на %s."
 
 #: pos_server/static/pos_server/register.js:1957
 #, javascript-format
 msgid "The email to %s didn't go out. Give them the number."
-msgstr ""
+msgstr "Лист на %s не надіслано. Дайте клієнту номер."
 
 #: pos_server/static/pos_server/register.js:1958
 #, javascript-format
 msgid "For %s. Print it or read it out."
-msgstr ""
+msgstr "Для: %s. Роздрукуйте або прочитайте вголос."
 
 #: pos_server/static/pos_server/register.js:1958
 msgid "Print it or read it out."
-msgstr ""
+msgstr "Роздрукуйте або прочитайте вголос."
 
 #: pos_server/static/pos_server/register.js:1985
 msgid "The terminal didn't start the payment."
-msgstr ""
+msgstr "Термінал не розпочав оплату."
 
 #: pos_server/static/pos_server/register.js:1999
 msgid "Card"
-msgstr ""
+msgstr "Картка"
 
 #: pos_server/static/pos_server/register.js:2000
 msgid "The card payment was canceled."
-msgstr ""
+msgstr "Оплату карткою скасовано."
 
 #: pos_server/static/pos_server/register.js:2006
 #: pos_server/static/pos_server/register.js:2014
 msgid "Square didn't answer. Try again."
-msgstr ""
+msgstr "Square не відповів. Спробуйте ще раз."
 
 #: pos_server/static/pos_server/register.js:2018
 msgid "Canceling on the terminal…"
-msgstr ""
+msgstr "Скасування на терміналі…"
 
 #: pos_server/static/pos_server/register.js:2025
 #, javascript-format
 msgid "Or open %s · works for %s minutes"
-msgstr ""
+msgstr "Або відкрийте %s · діє %s хв"
 
 #: pos_server/static/pos_server/register.js:2042
 #, javascript-format
 msgid "Card #%s wasn't found."
-msgstr ""
+msgstr "Картку №%s не знайдено."
 
 #: pos_server/static/pos_server/register.js:2042
 msgid "The card couldn't be looked up."
-msgstr ""
+msgstr "Не вдалося знайти картку."
 
 #: pos_server/static/pos_server/register.js:2050
 msgid "This gift card is frozen."
-msgstr ""
+msgstr "Цю подарункову картку заморожено."
 
 #: pos_server/static/pos_server/register.js:2098
 #, javascript-format
 msgid "Camera %s"
-msgstr ""
+msgstr "Камера %s"
 
 #: pos_server/static/pos_server/register.js:2113
 msgid "The camera couldn't be started. Type the number instead."
-msgstr ""
+msgstr "Не вдалося увімкнути камеру. Введіть номер вручну."
 
 #: pos_server/static/pos_server/register.js:2151
 msgid "This code expired (they last 5 minutes). Make a new one."
-msgstr ""
+msgstr "Термін дії коду минув (він діє 5 хвилин). Створіть новий."
 
 #: pos_server/static/pos_server/register.js:2152
 #, javascript-format
 msgid "Use it by %s."
-msgstr ""
+msgstr "Використайте до %s."
 
 #: pos_server/static/pos_server/register.js:2156
 msgid "Register this device first: Terminals belong to a register."
-msgstr ""
+msgstr "Спершу зареєструйте цей пристрій: термінали належать касі."
 
 #: pos_server/static/pos_server/register.js:2157
 msgid ""
 "No Terminal yet: card payments are paid on the customer's phone (a QR code)."
 msgstr ""
+"Термінала ще немає: оплата карткою відбувається на телефоні клієнта (через "
+"QR-код)."
 
 #: pos_server/static/pos_server/register.js:2184
 msgid "That didn't work."
-msgstr ""
+msgstr "Не вдалося."
 
 #: pos_server/static/pos_server/register.js:2196
 msgid "That screen couldn't be paired."
-msgstr ""
+msgstr "Не вдалося під'єднати цей екран."
 
 #: pos_server/static/pos_server/register.js:2204
 #, javascript-format
 msgid "Paired with %s"
-msgstr ""
+msgstr "Під'єднано до %s"
 
 #: pos_server/static/pos_server/register.js:2213
 msgid "Unpaired"
-msgstr ""
+msgstr "Від'єднано"
 
 #: pos_server/static/pos_server/register.js:2220
 msgid "The announcement wasn't sent."
-msgstr ""
+msgstr "Оголошення не надіслано."
 
 #: pos_server/static/pos_server/register.js:2225
 msgid "Announcement sent to the screens"
-msgstr ""
+msgstr "Оголошення надіслано на екрани"
 
 #: pos_server/static/pos_server/staff-page.js:41
 msgid "Orders: new orders"
-msgstr ""
+msgstr "Замовлення: нові замовлення"
 
 #: pos_server/static/pos_server/staff-ui.js:89
 msgid "Clear"
-msgstr ""
+msgstr "Очистити"
 
 #: pos_server/static/pos_server/staff-ui.js:91
 msgid "Delete last digit"
-msgstr ""
+msgstr "Стерти останню цифру"
 
 #: screens/static/screens/widgets/clock.js:26
 msgid "Time"
-msgstr ""
+msgstr "Час"
 
 #: team/static/team/clock.js:43
 msgid "Pick your name first."
-msgstr ""
+msgstr "Спершу виберіть своє ім'я."
