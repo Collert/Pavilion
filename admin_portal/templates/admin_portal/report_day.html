@@ -42,6 +42,7 @@ between business days; Export CSV downloads the same numbers.
     <a class="chip" href="#sec-stations">{% trans "Station mix" %}</a>
     <a class="chip" href="#sec-occasions">{% trans "Customer occasions" %}</a>
     <a class="chip" href="#sec-prep">{% trans "Prep times" %}</a>
+    {% if r.attributions %}<a class="chip" href="#sec-attributions">{% trans "Attributions" %}</a>{% endif %}
 </nav>
 
 {% if not r.orders %}
@@ -135,5 +136,23 @@ between business days; Export CSV downloads the same numbers.
         {% endfor %}
     </section>
 </div>
+{% endif %}
+
+{% if r.attributions %}
+<section class="card section" id="sec-attributions" aria-label="{% trans 'Attributions' %}">
+    <div class="card-head base">
+        <h2 class="disp card-title">{% trans "Attributions" %}</h2>
+        <span class="card-sub">{% blocktrans count n=r.attributed %}{{ n }} order{% plural %}{{ n }} orders{% endblocktrans %} · {{ r.attributed_sales|money }}</span>
+    </div>
+    <div class="card-sub">{% trans "Orders that came through a link with a code (?attr=…), retail and catering. Catering counts on the day it was placed, at its current quote." %}</div>
+    <div class="mini-head attr-grid"><span>{% trans "Code" %}</span><span class="right">{% trans "Orders" %}</span><span class="right">{% trans "Sales" %}</span></div>
+    {% for a in r.attributions %}
+    <div class="mini-row attr-grid">
+        <span class="ellipsis strong">{{ a.code }}{% if a.catering %} <span class="muted small">· {% blocktrans count n=a.catering %}{{ n }} catering{% plural %}{{ n }} catering{% endblocktrans %}</span>{% endif %}</span>
+        <span class="num right strong">{{ a.orders }}</span>
+        <span class="num right">{{ a.sales|money }}</span>
+    </div>
+    {% endfor %}
+</section>
 {% endif %}
 {% endblock %}

@@ -4,6 +4,10 @@ Reports (design: AdminReports): a month of business days as a table or a calenda
 A business day is a day with at least one order (until store hours exist, that's the only record of being open).
 Components and ingredients used are worked out from the dishes made and their standard recipes (DishComponent,
 ComponentIngredient); customizations such as extra portions aren't counted.
+
+Attributions are the codes orders came in with (?attr= on a link to the store, online_store/attribution.py): the
+day's retail orders, plus the catering orders placed that day at what they're quoted at now (rejected and cancelled
+ones left out). Catering is counted nowhere else in the report.
 """
 import calendar
 import csv
@@ -18,6 +22,8 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _, ngettext
 
+from catering import pricing as catering_pricing
+from catering.models import CateringOrder
 from pos_server.models import Order, Station
 
 from .units import split_qty
@@ -187,6 +193,28 @@ def month_report(year: int, month: int, now=None):
 
 # ---------- one day ----------
 
+def attributions(day, orders) -> list[dict]:
+    """[{code, orders, sales, catering}] for a day, biggest sales first: `orders` (its retail orders) and the
+    catering orders placed on it. `catering` is how many of the orders are catering ones."""
+    found = {}
+
+    def add(code, amount, catering=0):
+        row = found.setdefault(code, {"code": code, "orders": 0, "sales": Decimal("0"), "catering": 0})
+        row["orders"] += 1
+        row["sales"] += amount
+        row["catering"] += catering
+
+    for order in orders:
+        if order.attribution:
+            add(order.attribution, order.total)
+    placed = (CateringOrder.objects.filter(placed_at__gte=day_start(day), placed_at__lt=day_start(day + datetime.timedelta(days=1)))
+              .exclude(attribution="").exclude(status__in=[CateringOrder.REJECTED, CateringOrder.CANCELLED]).prefetch_related("lines"))
+    for order in placed:
+        lines = catering_pricing.lines_of(order)
+        add(order.attribution, catering_pricing.totals(lines, catering_pricing.Catalog(lines))["total"], 1)
+    return sorted(found.values(), key=lambda row: (-row["sales"], -row["orders"], row["code"].lower()))
+
+
 def neighbours(day):
     """The business days just before and after `day` (None at either end of history; today isn't over yet)."""
     today = timezone.localdate()
@@ -321,6 +349,7 @@ def day_report(day: datetime.date):
     avg_prep = sum(all_preps) / len(all_preps) if all_preps else None
     over_slots = sum(1 for v in preps.values() if v > PREP_TARGET)
 
+    attribution_rows = attributions(day, orders)
     count = len(orders)
     kpis = [
         {"label": _("Net sales"), "value": sales, "money0": True, "sub_money": sales},
@@ -338,6 +367,8 @@ def day_report(day: datetime.date):
         "dishes": dishes, "components": comp_rows, "ingredients": ing_rows,
         "stations": station_rows, "donut": donut, "slots": slot_rows, "prep": prep_rows,
         "target_pct": round(PREP_TARGET / prep_scale * 100, 2), "target": mmss(PREP_TARGET),
+        "attributions": attribution_rows, "attributed": sum(row["orders"] for row in attribution_rows),
+        "attributed_sales": sum((row["sales"] for row in attribution_rows), Decimal("0")),
         "donut_aria": ", ".join(f"{s['name']} {round(s['share'])}%" for s in station_rows),
         # raw numbers for the CSV
         "_components": components, "_ingredients": ingredients, "_slots": (span, slots, slot_sales, preps),
@@ -375,4 +406,9 @@ def day_csv(report) -> str:
     for m in span:
         w.writerow([slot_range_label(m), slots.get(m, 0), f"{slot_sales.get(m, Decimal('0')):.2f}",
                     round(preps[m]) if m in preps else ""])
+    w.writerow([])
+    w.writerow(["Attributions"])
+    w.writerow(["Code", "Orders", "Sales"])
+    for a in report["attributions"]:
+        w.writerow([a["code"], a["orders"], f"{a['sales']:.2f}"])
     return out.getvalue()

@@ -937,12 +937,13 @@ class Command(BaseCommand):
             """Date the steps a flow call just added (they were stamped now)."""
             CateringMessage.objects.filter(order=order, at__gte=now).update(at=when)
 
-        def order(name, title, days, time, fulfilment, placed, card, lines, org="", address="", note="", phone="604-555-0100"):
+        def order(name, title, days, time, fulfilment, placed, card, lines, org="", address="", note="", phone="604-555-0100",
+                  attribution=""):
             brand, last4 = card.split()
             o = CateringOrder.objects.create(
                 name=name, organization=org, email=name.lower().replace(" ", ".") + "@example.com", phone=phone, title=title,
                 event_date=today + datetime.timedelta(days=days), event_time=datetime.time(*time), fulfilment=fulfilment,
-                address=address, note=note, placed_at=placed, square_customer_id=f"demo:cust-{last4}",
+                address=address, note=note, attribution=attribution, placed_at=placed, square_customer_id=f"demo:cust-{last4}",
                 square_card_id=f"demo:card-{last4}", card_brand=brand, card_last4=last4)
             for position, (kind, ref, quantity, *more) in enumerate(lines):
                 item = {"dish": dish, "service": service, "condiment": condiment, "disposable": disposable}[kind][ref]
@@ -958,7 +959,7 @@ class Command(BaseCommand):
         order("Ben Carter", "Office lunch", 10, (12, 0), CateringOrder.DELIVERY, at(-1, 15, 42), "VISA 4242",
               [(D, "Smash burger", 20), (D, "Halloumi grain bowl", 20), (D, "Fries", 40), (D, "Fresh lemonade", 40), (D, "Brownie", 40),
                (S, "Catering delivery", 1), (S, "Setup and teardown", 1, 2), (S, "Chafing dish set", 4)],
-              org="Hartley & Co.", address="1100 Melville St, 14th floor", phone="604-555-0142",
+              org="Hartley & Co.", address="1100 Melville St, 14th floor", phone="604-555-0142", attribution="newsletter",
               note="Three people are gluten-free, please label their bowls. Use the loading bay elevator.")
         order("Anjali Rao", "Rao–Mehta wedding brunch", 25, (10, 30), CateringOrder.DELIVERY, at(0, 9, 12), "MASTERCARD 8810",
               [(D, "Cardamom bun", 120), (D, "Almond croissant", 120), (D, "Halloumi grain bowl", 60), (D, "Pulled pork plate", 60),
@@ -969,7 +970,7 @@ class Command(BaseCommand):
               note="Two tiers for the cake if possible, ivory and gold. The hall opens at 8:30.")
         order("Noor Haddad", "Leo’s 7th birthday", 4, (14, 0), CateringOrder.PICKUP, at(0, 8, 40), "VISA 0019",
               [(D, "Kids cheeseburger", 12), (D, "Fries", 25), (D, "Fresh lemonade", 25), (D, "Brownie", 25), (S, "Custom celebration cake", 1)],
-              phone="604-555-0171", note="Sorry for the short notice, our other plan fell through. Could the cake be dinosaur themed?")
+              phone="604-555-0171", attribution="instagram", note="Sorry for the short notice, our other plan fell through. Could the cake be dinosaur themed?")
 
         # Waiting: corn is off for winter, so fries instead, and clamshells for 60 delivered meals
         lumen = order("Sofia Moreau", "Holiday party", 53, (18, 0), CateringOrder.DELIVERY, at(-5, 11, 20), "AMEX 1007",
@@ -1634,9 +1635,12 @@ class Command(BaseCommand):
                 payments = [{"method": method, "amount": str(total), "tendered": str(total)}]
             if channel == "store":
                 fields.setdefault("device", self.device)
-            elif random.random() < 0.4:  # some online orders come from the signed-in demo customer
-                fields.setdefault("customer", shopper)
-                fields.setdefault("email", shopper.email)
+            else:
+                if random.random() < 0.4:  # some online orders come from the signed-in demo customer
+                    fields.setdefault("customer", shopper)
+                    fields.setdefault("email", shopper.email)
+                if random.random() < 0.6:  # and most through a link with a code (?attr=, online_store/attribution.py)
+                    fields.setdefault("attribution", random.choice(["instagram", "spring-flyer", "newsletter"]))
             created = create_order(
                 lines=lines, channel=channel, initial_status=status, payments=payments, drawer=drawer,
                 order_discount=order_discount, can_manual_discount=True,

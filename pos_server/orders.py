@@ -85,7 +85,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
             takes its discount; a balance card pays `staff_card_amount` (None: as much as it can), counted with the
             gift cards; with "own order" the order goes under the holder's name.
         **fields: other Order fields (name, phone, special_instructions, to_go_order, start_time, authorization, cashier,
-            device, customer, email).
+            device, customer, email, attribution).
 
     Returns the saved Order. Raises OrderError (and rolls everything back) if anything is wrong.
     """

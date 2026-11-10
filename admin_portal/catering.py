@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.db.models import Count, Q
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils import timezone
 from django.utils.translation import gettext as _, ngettext
 
@@ -85,14 +86,19 @@ def tab_of(status) -> str:
 
 # ---------- inbox ----------
 
-def inbox(tab, selected=None) -> dict:
-    """The tabs, the rows in `tab`, and which order is open (`selected`, else the tab's first)."""
+def inbox(tab, selected=None, attribution="") -> dict:
+    """The tabs, the rows in `tab`, and which order is open (`selected`, else the tab's first). `attribution` keeps
+    only the orders that came in with that code (online_store/attribution.py)."""
     cfg = CateringSettings.load()
-    counts = dict(CateringOrder.objects.values_list("status").annotate(n=Count("id")))
+    attribution = (attribution or "").strip()
+    found = CateringOrder.objects.filter(attribution=attribution) if attribution else CateringOrder.objects.all()
+    keep = "&" + urlencode({"attribution": attribution}) if attribution else ""
+    new_count = CateringOrder.objects.filter(status=CateringOrder.NEW).count()  # the page head's badge: every new order
+    counts = dict(found.values_list("status").annotate(n=Count("id")))
     tabs = [{"key": key, "label": label, "count": sum(counts.get(s, 0) for s in statuses), "on": key == tab,
-             "url": reverse("admin_catering") + f"?tab={key}"} for key, label, statuses in TABS]
+             "url": reverse("admin_catering") + f"?tab={key}{keep}"} for key, label, statuses in TABS]
     statuses = next(statuses for key, _l, statuses in TABS if key == tab)
-    orders = list(CateringOrder.objects.filter(status__in=statuses).prefetch_related("lines"))
+    orders = list(found.filter(status__in=statuses).prefetch_related("lines"))
     orders.sort(key=lambda o: (o.event_date, o.event_time), reverse=tab == "past")
     today = timezone.localdate()
     rows = []
@@ -114,12 +120,14 @@ def inbox(tab, selected=None) -> dict:
                      "mon": f"{o.event_date:%b}".upper(), "day": o.event_date.day,
                      "meta": f"{o.event_date:%a} {clock(o.event_time)} · {o.get_fulfilment_display()}",
                      "total": t["total"], "flag": flag, "flag_kind": flag_kind,
-                     "url": reverse("admin_catering_order", args=[o.id]) + f"?tab={tab}"})
+                     "url": reverse("admin_catering_order", args=[o.id]) + f"?tab={tab}{keep}"})
     if selected is None and rows:
         selected = rows[0]["o"]
         rows[0]["on"] = True
     return {"tabs": tabs, "tab": tab, "rows": rows, "empty": EMPTY[tab], "selected": selected, "off": not cfg.on,
-            "new_count": counts.get(CateringOrder.NEW, 0)}
+            "new_count": new_count, "attribution": attribution, "keep": keep,
+            "attributions": sorted({*CateringOrder.objects.exclude(attribution="").values_list("attribution", flat=True),
+                                    *([attribution] if attribution else [])}, key=str.lower)}
 
 
 # ---------- the edit draft ----------
@@ -390,6 +398,8 @@ def detail(order, me, draft=None, sheet="") -> dict:
         {"label": _("Contact"), "value": order.phone or "—", "sub": order.email},
         {"label": _("Card on file"), "value": order.card, "sub": card_sub},
     ]
+    if order.attribution:
+        facts.append({"label": _("Attribution"), "value": order.attribution, "sub": _("the link they came from")})
     ahead = order.days_ahead
     extra = cfg.extra_days(t["minutes"])
     need = cfg.notice_days(t["minutes"])

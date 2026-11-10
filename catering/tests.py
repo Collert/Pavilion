@@ -255,6 +255,23 @@ class QuoteTests(CateringFixture, TestCase):
         self.assertEqual((order.title, order.fulfilment, order.event_date, order.card_last4, order.lines.count()), ("Lunch", "delivery", day, "1111", 2))
         self.assertEqual(order.versions.count(), 1)
         self.assertNotIn("catering_quote", self.client.session)
+        self.assertEqual(order.attribution, "")
+
+    def test_attribution_code_is_saved_on_the_request(self, send):
+        url = reverse("store_catering")
+        day = timezone.localdate() + datetime.timedelta(days=10)
+        self.client.get(url + "?attr=wedding-fair")
+        self.client.post(url, {"op": "ful:delivery"})
+        self.client.post(url, {"op": f"date:{day.isoformat()}"})
+        self.client.post(url, {"op": f"add:{self.burger.id}", "hour": "12", "minute": "00", "ampm": "PM", "address": "1 Main St",
+                               "name": "Ben", "email": "ben@example.com", "title": "Lunch"})
+        self.client.post(url, {"op": f"inc:{self.burger.id}"})
+        session = self.client.session
+        session["saved_card"] = {"customer": "demo:cust", "id": "demo:card", "brand": "VISA", "last4": "1111"}
+        session.save()
+        self.client.post(url, {"op": "agree"})
+        self.client.post(url, {"op": "send"})
+        self.assertEqual(CateringOrder.objects.get().attribution, "wedding-fair")
 
     def test_delivery_adds_the_delivery_service(self, send):
         url = reverse("store_catering")

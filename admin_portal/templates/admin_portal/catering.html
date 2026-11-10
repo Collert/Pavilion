@@ -4,6 +4,7 @@
 Catering orders (design: AdminCatering; admin_portal/catering.py). The inbox on the left, one order on the right.
 ?edit=1 turns the order card into the editing draft (form#cater-edit, posted on every change like the other
 editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=reject open the sheets.
+?attribution=<code> keeps only the orders that came in with it (c.keep carries it on the links).
 {% endcomment %}
 {% block title %}{% trans "Catering" %}{% endblock %}
 {% block main_class %}cater-main{% endblock %}
@@ -21,6 +22,15 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
                 <a class="cater-tab" href="{{ t.url }}" data-live {% if t.on %}aria-current="page"{% endif %}>{{ t.label }}<span class="cater-tab-count{% if t.key == 'new' and t.count %} hot{% endif %}">{{ t.count }}</span></a>
                 {% endfor %}
             </nav>
+            {% if c.attributions %}
+            <form method="get" action="{% url 'admin_catering' %}" data-search>
+                <input type="hidden" name="tab" value="{{ c.tab }}">
+                <select class="attr-filter" name="attribution" aria-label="{% trans 'Attribution' %}">
+                    <option value="">{% trans "Any attribution" %}</option>
+                    {% for code in c.attributions %}<option value="{{ code }}"{% if code == c.attribution %} selected{% endif %}>{{ code }}</option>{% endfor %}
+                </select>
+            </form>
+            {% endif %}
             {% if c.off %}<div class="cater-off">{% trans "Catering is off, so customers can’t place new orders. Orders already here still need you." %}</div>{% endif %}
         </div>
         <div class="cater-rows">
@@ -70,7 +80,7 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
         </div>
 
         <div id="cater-order" data-region>
-        {% if d.editing %}<form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" id="cater-edit" data-editor data-queue>{% csrf_token %}
+        {% if d.editing %}<form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" id="cater-edit" data-editor data-queue>{% csrf_token %}
             <button type="submit" name="op" value="preview" hidden data-preview tabindex="-1"></button>
             <input type="hidden" name="line-count" value="{{ d.draft.lines|length }}">
             {% for l in d.draft.lines %}
@@ -181,7 +191,7 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
                 {% endfor %}
             </ol>
             {% if not d.closed and not d.editing %}
-            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="reply" data-reset>{% csrf_token %}
+            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" class="reply" data-reset>{% csrf_token %}
                 <textarea class="area" name="text" rows="2" maxlength="600" required placeholder="{{ d.reply_ph }}" aria-label="{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %}"></textarea>
                 <button class="send-btn" name="op" value="reply">{% trans "Send" %}</button>
             </form>
@@ -193,9 +203,9 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
             {% if b.kind == "new" %}
             <div class="cater-bar dark">
                 <span class="num grow bar-text">{{ b.text }}</span>
-                <a class="bar-btn ghost-red" href="?tab={{ c.tab }}&sheet=reject" data-live>{% trans "Reject" %}</a>
-                <a class="bar-btn white" href="?tab={{ c.tab }}&edit=1" data-live>{% trans "Propose changes" %}</a>
-                <a class="bar-btn amber" href="?tab={{ c.tab }}&sheet=accept" data-live>{% trans "Accept and charge" %}</a>
+                <a class="bar-btn ghost-red" href="?tab={{ c.tab }}{{ c.keep }}&sheet=reject" data-live>{% trans "Reject" %}</a>
+                <a class="bar-btn white" href="?tab={{ c.tab }}{{ c.keep }}&edit=1" data-live>{% trans "Propose changes" %}</a>
+                <a class="bar-btn amber" href="?tab={{ c.tab }}{{ c.keep }}&sheet=accept" data-live>{% trans "Accept and charge" %}</a>
             </div>
             {% elif b.kind == "edit" %}
             <div class="cater-bar dark">
@@ -203,11 +213,11 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
                     <span class="bar-edit-head"><span class="strong">{{ d.edit.head }}</span><span class="num strong amber-text">{{ d.edit.total }}</span></span>
                     <span class="small bar-hint">{{ d.edit.hint }}</span>
                 </div>
-                <a class="bar-btn ghost" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Cancel" %}</a>
+                <a class="bar-btn ghost" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" data-live>{% trans "Cancel" %}</a>
                 <button class="bar-btn amber" form="cater-edit" name="op" value="send" {% if not d.edit.can_send %}disabled{% endif %}>{% blocktrans with name=d.first %}Send to {{ name }}{% endblocktrans %}</button>
             </div>
             {% else %}
-            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="cater-bar light">{% csrf_token %}
+            <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" class="cater-bar light">{% csrf_token %}
                 <span class="bar-icon {{ b.tone }}">{% if b.icon == "wait" %}{% icon "M12 7v5l3 2 M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" 16 2.6 %}{% elif b.icon == "ok" %}{% icon "check" 16 2.6 %}{% else %}{% icon "close" 16 2.6 %}{% endif %}</span>
                 <div class="grow two-line"><span class="num strong small-13">{{ b.head }}</span><span class="num small muted">{{ b.sub }}</span></div>
                 {% for btn in b.buttons %}
@@ -230,9 +240,9 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
 <div id="cater-sheet" data-region>
 {% if d.sheet %}{% with o=d.o sh=d.sheet %}
 <div class="overlay">
-    <a class="scrim" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live aria-label="{% trans 'Close' %}"></a>
+    <a class="scrim" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" data-live aria-label="{% trans 'Close' %}"></a>
     {% if sh.kind == "accept" %}
-    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="sheet cater-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Accept order' %}">{% csrf_token %}
+    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" class="sheet cater-sheet" role="dialog" aria-modal="true" aria-label="{% trans 'Accept order' %}">{% csrf_token %}
         <div><h2 class="disp sheet-title">{% blocktrans with name=d.first %}Accept and charge {{ name }}?{% endblocktrans %}</h2><div class="small muted strong top4">{{ sh.sub }}</div></div>
         <div class="sheet-amounts">
             <div class="amount-row warm"><div class="grow two-line"><span class="strong small-13">{% trans "Charge now" %}</span><span class="num small muted">{{ o.card }}</span></div><span class="disp num amount-big">{{ d.t.total|money }}</span></div>
@@ -241,12 +251,12 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
         <label><span class="lbl">{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %} <span class="opt">· {% trans "optional, goes with the confirmation" %}</span></span>
             <textarea class="area" name="message" rows="2" maxlength="400" placeholder="{% trans 'e.g. All set! We’ll arrive 30 minutes early to set up.' %}"></textarea></label>
         <div class="sheet-btns">
-            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Not yet" %}</a>
+            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" data-live>{% trans "Not yet" %}</a>
             <button class="sheet-btn amber" name="op" value="accept">{% blocktrans with total=d.t.total|money %}Accept and charge {{ total }}{% endblocktrans %}</button>
         </div>
     </form>
     {% else %}
-    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" class="sheet cater-sheet reject" role="dialog" aria-modal="true" aria-label="{{ sh.title }}">{% csrf_token %}
+    <form method="post" action="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" class="sheet cater-sheet reject" role="dialog" aria-modal="true" aria-label="{{ sh.title }}">{% csrf_token %}
         <div><h2 class="disp sheet-title">{{ sh.title }}</h2><div class="small muted strong top4">{{ sh.sub }}</div></div>
         <fieldset class="reasons"><legend class="lbl">{% trans "Reason" %}</legend>
             {% for r in sh.reasons %}<label class="reason"><input type="radio" name="reason" value="{{ r }}" required {% if r == sh.default %}checked{% endif %} class="visually-hidden"><span>{{ r }}</span></label>{% endfor %}
@@ -254,7 +264,7 @@ editors; the action bar's Send button belongs to it), ?sheet=accept / ?sheet=rej
         <label><span class="lbl">{% blocktrans with name=d.first %}Message to {{ name }}{% endblocktrans %} <span class="req">· {% trans "required" %}</span></span>
             <textarea class="area" name="message" rows="3" maxlength="600" required placeholder="{% trans 'Let them know why, and what might work instead.' %}"></textarea></label>
         <div class="sheet-btns">
-            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}" data-live>{% trans "Keep order" %}</a>
+            <a class="sheet-btn soft" href="{% url 'admin_catering_order' o.id %}?tab={{ c.tab }}{{ c.keep }}" data-live>{% trans "Keep order" %}</a>
             <button class="sheet-btn red" name="op" value="reject">{{ sh.button }}</button>
         </div>
     </form>

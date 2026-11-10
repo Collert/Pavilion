@@ -279,7 +279,7 @@ def state(q) -> dict:
             "delivery_fee": fee, "min_pct": min(100, int(totals["subtotal"] / cfg.min_subtotal * 100)) if cfg.min_subtotal else 100}
 
 
-def create(q, card, user=None) -> CateringOrder:
+def create(q, card, user=None, attribution="") -> CateringOrder:
     """The order from a quote that's ready, with the saved card; catering.flow.place takes it from there."""
     cfg = CateringSettings.load()
     h, m = (int(x) for x in q["time"].split(":"))
@@ -287,7 +287,7 @@ def create(q, card, user=None) -> CateringOrder:
         customer=user, name=q["name"].strip()[:120], organization=q["org"].strip()[:120], email=q["email"].strip()[:254],
         phone=q["phone"].strip()[:40], title=(q["title"].strip() or _("Catering order"))[:140],
         event_date=_parse_date(q["date"]), event_time=datetime.time(h, m), fulfilment=q["ful"],
-        address=q["address"].strip()[:240] if q["ful"] != CateringOrder.PICKUP else "", note=q["note"].strip(),
+        address=q["address"].strip()[:240] if q["ful"] != CateringOrder.PICKUP else "", note=q["note"].strip(), attribution=attribution,
         square_customer_id=card["customer"], square_card_id=card["id"], card_brand=card.get("brand", ""), card_last4=card.get("last4", ""))
     for position, line in enumerate(lines(q)):
         CateringLine.objects.create(order=order, kind=line["kind"], quantity=line["quantity"], amount=line["amount"],

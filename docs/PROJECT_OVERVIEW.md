@@ -497,6 +497,16 @@ form again with `transaction_uuid`. `create_order` runs with `initial_status=PEN
 paid, unused transaction covering what's left and links its `PaymentAuthorization` to the order. Delivery orders get
 a `Delivery`. The session keeps the last 20 order ids (`session["orders"]`).
 
+**Order attribution** (`online_store/attribution.py`): a link to the store can carry a code, `?attr=spring-flyer`, on
+any store page (old addresses keep it through their redirect). `AttributionMiddleware` keeps it in the visitor's
+session (trimmed, 25 characters at most, the newest wins, and it stays for later orders from that session) and the
+checkout, the gift card page and the catering quote save it on what they place (`Order.attribution`,
+`CateringOrder.attribution`; register orders have none). In the admin: the retail order's Details and the catering
+order's facts show it, both lists filter by it (`?attribution=`, a picker listing every code seen; the retail search
+matches it too), and the day report's Attributions card lists each code with its orders and sales (that day's retail
+orders plus the catering orders placed that day at their current quote, rejected and cancelled ones left out; also in
+the CSV).
+
 ### 6.6 Deliveries (`/deliveries/`)
 
 Staff-only courier PWA for phones (design: the Courier screens of the "Pavilion POS Register" Claude Design canvas).

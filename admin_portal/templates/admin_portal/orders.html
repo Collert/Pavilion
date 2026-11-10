@@ -2,7 +2,7 @@
 {% load static i18n admin_tags %}
 {% comment %}
 Retail orders list (design: AdminOrders, list state; admin_portal/orders.py: order_list). Date and status are links,
-search submits as you type (data-search). Refetched on "orders" nudges.
+search submits as you type and the attribution filter as it's picked (data-search). Refetched on "orders" nudges.
 {% endcomment %}
 {% block title %}{% trans "Retail orders" %}{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/orders.css' %}" rel="stylesheet">{% endblock %}
@@ -14,20 +14,28 @@ search submits as you type (data-search). Refetched on "orders" nudges.
         <div class="page-kicker">{% trans "Orders" %}</div>
         <h1 class="disp page-title">{% trans "Retail orders" %}</h1>
     </div>
-    <form class="search" method="get" data-search role="search">
-        {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+    <form class="head-filters" method="get" data-search role="search">
         <input type="hidden" name="date" value="{{ o.date }}"><input type="hidden" name="status" value="{{ o.status }}">
-        <input type="search" name="q" value="{{ o.query }}" aria-label="{% trans 'Search orders' %}" placeholder="{% trans 'Order #, customer, card or cashier' %}">
+        {% if o.attributions %}
+        <select class="attr-filter" name="attribution" aria-label="{% trans 'Attribution' %}">
+            <option value="">{% trans "Any attribution" %}</option>
+            {% for code in o.attributions %}<option value="{{ code }}"{% if code == o.attribution %} selected{% endif %}>{{ code }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <label class="search">
+            {% icon "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-4-4" 18 2.2 %}
+            <input type="search" name="q" value="{{ o.query }}" aria-label="{% trans 'Search orders' %}" placeholder="{% trans 'Order #, customer, card or cashier' %}">
+        </label>
     </form>
 </header>
 
 <div class="filters" id="orders-filters" data-region>
     <nav class="seg" aria-label="{% trans 'Date' %}">
-        {% for key, label in o.dates %}<a class="seg-btn" data-live href="?date={{ key }}&status={{ o.status }}&q={{ o.query|urlencode }}"{% if key == o.date %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        {% for key, label in o.dates %}<a class="seg-btn" data-live href="?date={{ key }}&status={{ o.status }}&q={{ o.query|urlencode }}&attribution={{ o.attribution|urlencode }}"{% if key == o.date %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
     </nav>
     <nav class="tabs" aria-label="{% trans 'Status' %}">
         {% for key, label, count in o.statuses %}
-        <a class="tab" data-live href="?date={{ o.date }}&status={{ key }}&q={{ o.query|urlencode }}"{% if key == o.status %} aria-current="page"{% endif %}>
+        <a class="tab" data-live href="?date={{ o.date }}&status={{ key }}&q={{ o.query|urlencode }}&attribution={{ o.attribution|urlencode }}"{% if key == o.status %} aria-current="page"{% endif %}>
             {{ label }}<span class="tab-count">{{ count }}</span>
         </a>
         {% endfor %}
@@ -58,10 +66,10 @@ search submits as you type (data-search). Refetched on "orders" nudges.
     </div>
     <nav class="pages" aria-label="{% trans 'Pages' %}">
         <span class="page-text">{% if o.total %}{% blocktrans with first=o.first last=o.last total=o.total net=o.net|money %}Showing {{ first }}–{{ last }} of {{ total }} · {{ net }} net{% endblocktrans %}{% else %}{% trans "No orders" %}{% endif %}</span>
-        {% if o.page > 1 %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ o.page|add:-1 }}" aria-label="{% trans 'Previous page' %}">{% icon "back" 18 2.4 %}</a>
+        {% if o.page > 1 %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&attribution={{ o.attribution|urlencode }}&page={{ o.page|add:-1 }}" aria-label="{% trans 'Previous page' %}">{% icon "back" 18 2.4 %}</a>
         {% else %}<span class="page-btn off">{% icon "back" 18 2.4 %}</span>{% endif %}
-        {% for n in o.nums %}{% if n == "…" %}<span class="page-gap">…</span>{% else %}<a class="page-num" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ n }}"{% if n == o.page %} aria-current="page"{% endif %}>{{ n }}</a>{% endif %}{% endfor %}
-        {% if o.page < o.pages %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&page={{ o.page|add:1 }}" aria-label="{% trans 'Next page' %}">{% icon "chevron" 18 2.4 %}</a>
+        {% for n in o.nums %}{% if n == "…" %}<span class="page-gap">…</span>{% else %}<a class="page-num" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&attribution={{ o.attribution|urlencode }}&page={{ n }}"{% if n == o.page %} aria-current="page"{% endif %}>{{ n }}</a>{% endif %}{% endfor %}
+        {% if o.page < o.pages %}<a class="page-btn" data-live href="?date={{ o.date }}&status={{ o.status }}&q={{ o.query|urlencode }}&attribution={{ o.attribution|urlencode }}&page={{ o.page|add:1 }}" aria-label="{% trans 'Next page' %}">{% icon "chevron" 18 2.4 %}</a>
         {% else %}<span class="page-btn off">{% icon "chevron" 18 2.4 %}</span>{% endif %}
     </nav>
 </section>

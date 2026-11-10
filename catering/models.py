@@ -90,6 +90,8 @@ class CateringOrder(models.Model):
     fulfilment = models.CharField(max_length=8, choices=FULFILMENT, default=PICKUP)
     address = models.CharField(max_length=240, blank=True, help_text="Delivery: where the event is")
     note = models.TextField(blank=True, help_text="From the customer")
+    attribution = models.CharField(max_length=25, blank=True, db_index=True,
+                                   help_text="The ?attr= code the customer's link to the store carried (online_store/attribution.py)")
     status = models.CharField(max_length=10, choices=STATUSES, default=NEW)
     rush = models.BooleanField(default=False, help_text="Asked for less notice than the minimum")
     placed_at = models.DateTimeField(default=timezone.now)

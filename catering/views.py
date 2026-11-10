@@ -18,7 +18,7 @@ from django.utils.translation import gettext as _
 from admin_portal import catering as drafts
 from admin_portal.models import StoreSettings
 from pos_server import dish_info
-from online_store import storefront
+from online_store import attribution, storefront
 from online_store.views import theme_page
 
 from . import flow, payments, pricing, store
@@ -127,7 +127,7 @@ def _send(request, q):
     if not q["agree"]:
         messages.error(request, _("Agree to the cancellation policy to send it."))
         return None
-    order = store.create(q, card, request.user if request.user.is_authenticated else None)
+    order = store.create(q, card, request.user if request.user.is_authenticated else None, attribution=attribution.current(request))
     flow.place(order, request=request)
     store.clear(request)
     request.session.pop("saved_card", None)

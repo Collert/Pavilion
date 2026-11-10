@@ -89,7 +89,12 @@ def in_status(order, key):
     return key == "all" or (key == "refunds" and st in ("refunded", "partial")) or (key == "voided" and st == "voided") or (key == "paid" and st == "paid")
 
 
-def order_list(date="today", status="all", query="", page=1, per_page=PER_PAGE):
+def attributions(model=Order) -> list[str]:
+    """Every attribution code orders came in with (online_store/attribution.py), for the lists' filter."""
+    return sorted(model.objects.exclude(attribution="").values_list("attribution", flat=True).distinct(), key=str.lower)
+
+
+def order_list(date="today", status="all", query="", page=1, per_page=PER_PAGE, attribution=""):
     date = date if date in dict(DATES) else "today"
     status = status if status in dict(STATUSES) else "all"
     today = timezone.localdate()
@@ -100,9 +105,12 @@ def order_list(date="today", status="all", query="", page=1, per_page=PER_PAGE):
         orders = orders.filter(timestamp__gte=day_start(today - datetime.timedelta(days=1)), timestamp__lt=day_start(today))
     elif date == "week":
         orders = orders.filter(timestamp__gte=day_start(today - datetime.timedelta(days=6)))
+    attribution = (attribution or "").strip()
+    if attribution:
+        orders = orders.filter(attribution=attribution)
     q = (query or "").strip().lstrip("#")
     if q:
-        match = (Q(name__icontains=q) | Q(cashier__first_name__icontains=q) | Q(cashier__username__icontains=q) | Q(payments__card_last4=q)
+        match = (Q(name__icontains=q) | Q(attribution__iexact=q) | Q(cashier__first_name__icontains=q) | Q(cashier__username__icontains=q) | Q(payments__card_last4=q)
                  | Q(email__iexact=q) | Q(customer__email__iexact=q))  # the Customers page links here by email
         if q.isdigit():
             match |= Q(id=int(q))
@@ -138,6 +146,7 @@ def order_list(date="today", status="all", query="", page=1, per_page=PER_PAGE):
     return {"date": date, "status": status, "query": query or "", "rows": rows, "page": page, "pages": pages, "nums": nums,
             "counts": counts, "total": len(shown), "first": (page - 1) * per_page + 1 if shown else 0,
             "last": min(len(shown), page * per_page), "net": net,
+            "attribution": attribution, "attributions": sorted({*attributions(), *([attribution] if attribution else [])}, key=str.lower),
             "dates": DATES, "statuses": [(key, label, counts[key]) for key, label in STATUSES]}
 
 
@@ -257,7 +266,8 @@ def order_page(order):
         "details": [(_("Channel"), CHANNELS.get(order.channel, order.channel)), (_("Service"), _("To go") if order.to_go_order else _("For here")),
                     (_("Register"), order.device.name if order.device else "—"),
                     (_("Cashier"), (order.cashier.get_full_name() or order.cashier.username) if order.cashier else "—"),
-                    (_("Stations"), ", ".join(s.name for s in stations) or "—"), (_("Prep time"), mmss(order.prep_time) if order.prep_time else "—")],
+                    (_("Stations"), ", ".join(s.name for s in stations) or "—"), (_("Prep time"), mmss(order.prep_time) if order.prep_time else "—"),
+                    (_("Attribution"), order.attribution or "—")],
         "receipts": list(order.receipts.all()), "can_refund": can_refund,
         "refund_label": _("Voided") if st == "voided" else _("Refunded") if st == "refunded" else _("Nothing to refund") if nothing else _("Refund"),
         "has_cash": any(p.method == OrderPayment.CASH for p in payments),

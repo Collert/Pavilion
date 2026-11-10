@@ -34,7 +34,7 @@ from pos_server.orders import OrderError, create_order
 from pos_server.pricing import badge_for, badges, price_cart
 from users.models import SavedAddress
 
-from . import cart as store_cart, guest_orders, storefront, themes
+from . import attribution, cart as store_cart, guest_orders, storefront, themes
 
 logger = logging.getLogger(__name__)
 from .views import menu_sections, theme_page
@@ -635,7 +635,7 @@ def _place(request, state):
                 staff_cards=cards, staff_card_amount=staff_amount,
                 special_instructions=state["note"] or None, to_go_order=delivery or state["eat"] != "here", phone=int(phone) if phone else None,
                 start_time=when["start"], name=state["name"].strip()[:140], customer=user,
-                email=(user.email if user else state["email"]).strip(),
+                email=(user.email if user else state["email"]).strip(), attribution=attribution.current(request),
             )
             if payment.get("authorization"):
                 authorization = payment["authorization"]
@@ -785,7 +785,7 @@ def _buy_gift(request, st, design):
         with db_transaction.atomic():
             order = create_order(lines=[], channel="web", initial_status=OrderStation.STATUS_APPROVED, gift_sales=[sale],
                                  verify_payment=verify_payment, name=(st["from"] or st["to"] or "")[:140], customer=user,
-                                 email=(user.email if user else st["email"]).strip())
+                                 email=(user.email if user else st["email"]).strip(), attribution=attribution.current(request))
             authorization = payment.get("authorization")
             if authorization:
                 order.authorization = authorization

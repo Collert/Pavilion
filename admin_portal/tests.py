@@ -233,6 +233,29 @@ class ReportTests(AdminFixture, TestCase):
         self.assertIn("Lunch combo,Combo,1,16.50", csv)
         self.assertIn("Patty,3.0,ea", csv)
 
+    def test_day_report_adds_up_attributions_with_catering(self):
+        from catering.models import CateringLine
+        day = timezone.localdate() - datetime.timedelta(days=1)
+        for code, dish in (("insta", self.burger), ("insta", self.tea), ("flyer", self.tea), ("", self.coffee)):
+            order = self.place([self.dish(dish)], self.at(day, 12), channel="web")
+            Order.objects.filter(pk=order.pk).update(attribution=code)
+        for code, status in (("flyer", CateringOrder.NEW), ("flyer", CateringOrder.CANCELLED), ("", CateringOrder.NEW)):
+            catered = CateringOrder.objects.create(name="Ben", email="ben@example.com", title="Lunch", event_date=day + datetime.timedelta(days=20),
+                                                   event_time=datetime.time(12, 0), placed_at=self.at(day, 15), attribution=code, status=status)
+            CateringLine.objects.create(order=catered, kind=CateringLine.DISH, dish=self.burger, quantity=10, price=Decimal("10.00"))
+        r = reports.day_report(day)
+        rows = {a["code"]: (a["orders"], a["catering"]) for a in r["attributions"]}
+        self.assertEqual(rows, {"insta": (2, 0), "flyer": (2, 1)})  # the cancelled one and the ones without a code aren't counted
+        self.assertEqual([a["code"] for a in r["attributions"]], ["flyer", "insta"])  # biggest sales first
+        insta = next(a for a in r["attributions"] if a["code"] == "insta")
+        self.assertEqual(insta["sales"], sum(o.total for o in Order.objects.filter(attribution="insta")))
+        self.assertGreaterEqual(r["attributions"][0]["sales"], Decimal("100.00"))
+        self.client.force_login(self.owner)
+        page = self.client.get(reverse("admin_report_day", args=[day.isoformat()]))
+        self.assertContains(page, 'id="sec-attributions"')
+        self.assertIn("Attributions\r\nCode,Orders,Sales\r\nflyer,2,", self.client.get(reverse("admin_report_csv", args=[day.isoformat()])).content.decode())
+        self.assertNotContains(self.client.get(reverse("admin_report_day", args=[(day - datetime.timedelta(days=1)).isoformat()])), "sec-attributions")
+
     def test_report_pages_and_csv_download(self):
         day = timezone.localdate() - datetime.timedelta(days=2)
         self.place([self.dish(self.coffee)], self.at(day, 9))
@@ -350,6 +373,20 @@ class OrderPageTests(AdminFixture, TestCase):
         week = self.client.get(reverse("admin_orders") + f"?date=week&q={older.id}").content.decode()
         self.assertIn(f"#{older.id}<", week)
         self.assertNotIn(f"#{self.order.id}<", week)
+
+    def test_list_filters_by_attribution(self):
+        other = self.place([self.dish(self.tea)], timezone.now())
+        Order.objects.filter(pk=other.pk).update(attribution="spring flyer")
+        url = reverse("admin_orders")
+        everything = self.client.get(url)
+        self.assertEqual(everything.context["o"]["attributions"], ["spring flyer"])
+        self.assertContains(everything, f"#{self.order.id}<")
+        for query in ("?attribution=spring+flyer", "?q=Spring+Flyer"):
+            page = self.client.get(url + query).content.decode()
+            self.assertIn(f"#{other.id}<", page, query)
+            self.assertNotIn(f"#{self.order.id}<", page, query)
+        self.assertContains(self.client.get(url + "?attribution=spring+flyer"), "attribution=spring%20flyer")  # the tabs keep it
+        self.assertContains(self.client.get(reverse("admin_order", args=[other.id])), "spring flyer")
 
     def test_order_page_and_its_sheets(self):
         url = reverse("admin_order", args=[self.order.id])
@@ -1715,6 +1752,21 @@ class CateringAdminTests(CateringFixture, TestCase):
         self.assertEqual(orders["badge"], 1)
         d = self.client.get(reverse("admin_catering_order", args=[order.id]) + "?sheet=accept").context["d"]
         self.assertEqual((d["sheet"]["kind"], d["t"]["deposit"], d["bar"]["kind"]), ("accept", Decimal("120"), "new"))
+
+    def test_inbox_filters_by_attribution(self, send):
+        plain = self.make_order()
+        fair = self.make_order(attribution="wedding fair")
+        url = reverse("admin_catering")
+        self.assertEqual(len(self.client.get(url).context["c"]["rows"]), 2)
+        response = self.client.get(url + "?attribution=wedding+fair")
+        c = response.context["c"]
+        self.assertEqual(([r["o"] for r in c["rows"]], [t["count"] for t in c["tabs"]], c["attributions"]), ([fair], [1, 0, 0, 0], ["wedding fair"]))
+        self.assertEqual(c["new_count"], 2)  # the badge still counts every new order
+        self.assertIn("attribution=wedding+fair", c["rows"][0]["url"])
+        self.assertContains(response, "wedding fair")
+        facts = self.client.get(reverse("admin_catering_order", args=[fair.id])).context["d"]["facts"]
+        self.assertEqual(facts[-1]["value"], "wedding fair")
+        self.assertNotIn("Attribution", [str(f["label"]) for f in self.client.get(reverse("admin_catering_order", args=[plain.id])).context["d"]["facts"]])
 
     def test_editing_and_sending_changes(self, send):
         order = self.make_order()

@@ -1,6 +1,8 @@
 /* Retail orders: list and order page (admin_portal/templates/admin_portal/orders.html, order.html). */
 
 .admin-main { gap: 14px; }
+.head-filters { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.attr-filter { height: 48px; max-width: 220px; padding: 0 14px; border: none; border-radius: 24px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; }
 .filters { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex: none; }
 
 /* ---------- list ---------- */

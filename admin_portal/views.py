@@ -151,7 +151,8 @@ def orders(request):
     except ValueError:
         page_number = 1
     data = orders_data.order_list(request.GET.get("date", "today"), request.GET.get("status", "all"),
-                                  request.GET.get("q", ""), page_number)
+                                  request.GET.get("q", ""), page_number,
+                                  attribution=request.GET.get("attribution", ""))
     return page(request, "admin_portal/orders.html", "retail", {"o": data})
 
 
@@ -924,7 +925,7 @@ def _restock_editor(request, restock):
 # ---------- catering ----------
 
 def _catering_page(request, tab, order, draft=None, sheet=""):
-    data = catering_data.inbox(tab, order)
+    data = catering_data.inbox(tab, order, request.GET.get("attribution", ""))
     order = data["selected"]
     return page(request, "admin_portal/catering.html", "catering", {
         "c": data, "d": catering_data.detail(order, request.user, draft, sheet) if order else None, "view": "orders"})
@@ -986,7 +987,8 @@ def catering_order(request, order_id):
             return _catering_page(request, tab, order, catering_data.draft_from_post(post))
         if op in ("accept", "reject"):
             return _catering_page(request, tab, order, None, op)
-    return redirect(reverse("admin_catering_order", args=[order.id]) + f"?tab={tab}")
+    keep = "&" + urlencode({"attribution": request.GET["attribution"]}) if request.GET.get("attribution") else ""
+    return redirect(reverse("admin_catering_order", args=[order.id]) + f"?tab={tab}{keep}")
 
 
 @admin_page("catering", edit={"save"})

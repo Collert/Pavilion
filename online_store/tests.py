@@ -313,6 +313,25 @@ class StoreOrderingTests(MenuFixture, TestCase):
         self.client.post(reverse("store_cart"), {"op": f"remove:{key}"})
         self.assertTrue(self.client.get(reverse("store_cart")).context["empty"])
 
+    def test_attribution_code_follows_the_visitor_to_their_order(self):
+        """?attr= on any store link is kept in the session (the newest wins, 25 characters) and saved on the order."""
+        self.client.get(reverse("store_home") + "?attr=first")
+        self.client.get(reverse("menu") + "?attr=" + "x" * 40)
+        self.assertEqual(self.client.session["attribution"], "x" * 25)
+        self.client.get(reverse("menu") + "?attr=%20spring%20flyer%20")
+        self.client.get(reverse("menu") + "?attr=")  # an empty one changes nothing
+        self.client.get(reverse("login_view") + "?attr=staff")  # only the store's pages
+        self.assertEqual(self.client.session["attribution"], "spring flyer")
+        card = GiftCard.objects.create(available_balance=Decimal("100"))
+        self.add_burger()
+        self.client.post(reverse("store_cart"), {"op": "code", "code": card.number})
+        self.client.post(reverse("store_cart"), {"name": "Iryna", "email": "iryna@example.com", "op": "place"})
+        self.assertEqual(Order.objects.get().attribution, "spring flyer")
+
+    def test_old_addresses_keep_the_attribution_code(self):
+        response = self.client.get("/menu?attr=flyer")
+        self.assertRedirects(response, reverse("menu") + "?attr=flyer", status_code=301, fetch_redirect_response=False)
+
     def test_phone_tab_bar_and_cart_bar(self):
         """Phones get Home, Order, Gift cards and Profile along the bottom, and a bar to the cart above them while it
         has something in it (not on the checkout page, which is the cart)."""

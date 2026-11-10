@@ -59,6 +59,7 @@ a.cal-cell:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -6px rgba
 .donut-center .disp { font-size: 30px; line-height: 1; }
 .donut-center span:last-child { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 4px; }
 .mix-table { flex: 1; min-width: 0; }
+.attr-grid { display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px; gap: 12px; }
 .station-grid { display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px 110px 120px; gap: 12px; }
 .mix-table .mini-head { margin-top: 0; padding-top: 0; }
 .mini-row.tall { min-height: 48px; font-size: 15px; }

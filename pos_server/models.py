@@ -577,6 +577,8 @@ class Order(models.Model):
                                  related_name="orders", help_text="The signed-in customer who placed it")
     email = models.EmailField(blank=True, help_text="Where receipts go, when the customer gave one")
     staff_note = models.TextField(blank=True, help_text="Only staff see this")
+    attribution = models.CharField(max_length=25, blank=True, db_index=True,
+                                   help_text="The ?attr= code the customer's link to the store carried (online_store/attribution.py)")
     voided_at = models.DateTimeField(null=True, blank=True)
     voided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     # Push notifications about it (online_store/order_push.py): the browsers that asked (a guest's, from the order page),
