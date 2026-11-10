@@ -43,7 +43,16 @@ it when you change how something works.
 - Settings switch on `ENVIRONMENT=production` (Postgres from `DATABASE_URL`, a connection string read by dj-database-url, or the `POSTGRES_*`/`DB_*` parts; DEBUG off, Redis + `SECRET_KEY` required, S3 media) vs anything
   else (SQLite `db.sqlite3`, DEBUG on). Secrets live in `pavilion/.env` (template: `pavilion/.env.example`). Never print
   or commit its values.
-- Translations: `make_translations.bat` (makemessages uk, zh_HK) → `manage.py compilemessages`.
+- Translations: `manage.py makemessages -l uk -l zh_HK` and `manage.py makemessages -d djangojs -l uk -l zh_HK` (JS
+  strings; our `makemessages` override in `pos_server/management/commands/` also picks up the `t("…")` wrapper the
+  scripts use) → translate → `manage.py compilemessages` (`.mo` files are gitignored; the Dockerfile compiles them).
+  Install GNU gettext for these. A msgid that means two things needs a context (`{% translate "Register" context
+  "sign up" %}`, `pgettext`), and don't use one msgid both with and without a plural.
+- **Every new or changed UI string must be translated to Ukrainian before pushing.** Wrap it (`_()`, `{% trans %}`,
+  `gettext()` in JS), run both `makemessages` commands, fill in every new and fuzzy entry in
+  `locale/uk/LC_MESSAGES/django.po` and `djangojs.po` (no `msgstr ""` and no `#, fuzzy` left: check with
+  `msgattrib --untranslated` / `--only-fuzzy`), keep the placeholders, give plurals all four Ukrainian forms, and
+  run `compilemessages`. Keep the terms already used in the catalog (каса, станція, заклад, кейтеринг…).
 - `start.bat`/`start.sh` start ngrok and pass its domain via `EXTRA_HOSTS`. Avoid them unless asked: they expose a DEBUG server.
 
 ## Migrations

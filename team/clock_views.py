@@ -18,7 +18,7 @@ from django.http import HttpResponseNotAllowed
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.formats import time_format
-from django.utils.translation import gettext as _, ngettext
+from django.utils.translation import gettext as _
 
 from pavilion.realtime import publish
 from pos_server.devices import DEVICE_COOKIE, device_required
@@ -39,7 +39,7 @@ def _when(dt) -> str:
 
 def _span(seconds) -> str:
     m = int(seconds // 60)
-    return f"{m // 60}h {m % 60:02d}m" if m >= 60 else ngettext("%(n)d min", "%(n)d min", m) % {"n": m}
+    return f"{m // 60}h {m % 60:02d}m" if m >= 60 else _("%(n)d min") % {"n": m}
 
 
 def _people():

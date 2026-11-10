@@ -18,7 +18,7 @@
                     <option value="{{ingredient.title}}">{{ingredient.title}}</option>
                     {% endfor %}
                 </select>
-                <input step="0.001" min="0" type="number" class="no-style" placeholder="Quantity" name="item-0-quantity" id="">
+                <input step="0.001" min="0" type="number" class="no-style" placeholder="{% translate "Quantity" %}" name="item-0-quantity" id="">
                 <span id="ingredient-0-unit_of_measurement"></span>
             </div>
             <button class="icon error" type="button"><span class="material-symbols-outlined">delete</span></button>

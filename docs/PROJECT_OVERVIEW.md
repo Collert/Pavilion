@@ -1242,7 +1242,10 @@ the admin (or Store info, to restart for a new time zone).
 - Fresh database: `manage.py migrate` then `manage.py seed_demo` (admin/admin, cashier/cashier, courier/courier, customer/customer).
 - Tests: `manage.py test` (Square and listmonk are mocked). `pip install -r requirements-dev.txt` adds `fakeredis` for the Redis broker test.
 - `start.bat` / `start.sh` start ngrok and pass its domain to Django via `EXTRA_HOSTS`. This exposes a DEBUG server; don't leave it running.
-- Translations: `make_translations.(bat|sh)` → `makemessages -l uk -l zh_HK`, then `compilemessages` (`.mo` files are gitignored).
+- Translations: `makemessages -l uk -l zh_HK` and `makemessages -d djangojs -l uk -l zh_HK` (the project's
+  `makemessages` override, `pos_server/management/commands/makemessages.py`, adds the JS `t("…")` helper as a keyword),
+  then `compilemessages` (`.mo` files are gitignored). Ukrainian is complete as of 2026-11-10 (`django.po` and
+  `djangojs.po`); every new UI string gets its Ukrainian translation before it's pushed (CLAUDE.md).
 
 ### Migrations
 
@@ -1328,6 +1331,6 @@ URLs; per-process state (cache, couriers, SSE); Docker running `runserver` witho
 1. Rotate keys; test the Square/listmonk/push flows and the Docker stack (§9).
 2. Merge `fix-all-problems-for-real` into `main` and deploy.
 3. Register redesign follow-ups: the customization sheet in the online store; a manager UI for dishes, combos,
-   options and discounts (today: `/advanced-admin/`);  translations for the
-   new strings (`make_translations`); Orders/Inventory screens in the register's look.
+   options and discounts (today: `/advanced-admin/`); Cantonese translations for the
+   new strings (Ukrainian is done); Orders/Inventory screens in the register's look.
 4. Product work: finish the admin portal rebuild (§6.9), make restaurant address configurable, decide on `stash@{0}` (menu fonts/styles), add UI for waste tracking.

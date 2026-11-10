@@ -14,7 +14,7 @@ the store's tax rate (Store info) except for services set to no tax. Deposits ar
 from decimal import ROUND_CEILING, Decimal
 
 from django.conf import settings
-from django.utils.translation import gettext as _, ngettext
+from django.utils.translation import gettext as _
 
 from pos_server.models import Condiment, Dish, Disposable
 from services.models import Service
@@ -218,4 +218,4 @@ def kitchen_text(minutes) -> str:
         return _("%(h)d h %(m)d min") % {"h": hours, "m": rest}
     if hours:
         return _("%(h)d h") % {"h": hours}
-    return ngettext("%(m)d min", "%(m)d min", rest) % {"m": rest}
+    return _("%(m)d min") % {"m": rest}  # an abbreviation: the same for any number
