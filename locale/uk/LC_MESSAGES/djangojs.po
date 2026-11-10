@@ -1,0 +1,1952 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-09 23:23-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
+"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
+"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
+"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+
+#: admin_portal/static/admin_portal/editor.js:26
+msgid "Change photo"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:13
+#, javascript-format
+msgid "%s song"
+msgid_plural "%s songs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: admin_portal/static/admin_portal/library.js:17
+#, javascript-format
+msgid "%s hr %s min"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:17
+#, javascript-format
+msgid "%s min"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:29
+#, javascript-format
+msgid "%s song selected"
+msgid_plural "%s songs selected"
+msgstr[0] ""
+msgstr[1] ""
+
+#: admin_portal/static/admin_portal/library.js:38
+msgid "Already in"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:48
+msgid "Pick songs to add"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:51
+#: admin_portal/static/admin_portal/library.js:377
+#, javascript-format
+msgid "Add %s song"
+msgid_plural "Add %s songs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: admin_portal/static/admin_portal/library.js:51
+#: admin_portal/static/admin_portal/library.js:377
+msgid "Add songs"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:158
+msgid "Replace artwork"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:170
+msgid "Upload artwork"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:211
+msgid "Not an audio file, will be skipped"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:212
+msgid "Over 200 MB, will be skipped"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:225
+msgid "This browser can’t play it, will be skipped"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:250
+msgid "Too big"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:250
+msgid "Not audio"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:251
+msgid "Reading"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:252
+msgid "Uploading"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:253
+msgid "Added"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:254
+msgid "Failed"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:256
+msgid "No tags"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:257
+msgid "Some info"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:258
+msgid "All found"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:278
+msgid "Reading tags…"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:278
+msgid "No title yet"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:288
+#, javascript-format
+msgid "Remove %s"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:301
+msgid "From file"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:301
+msgid "Edited"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:302
+msgid "Added by you"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:302
+msgid "Not in file"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:319
+msgid "Pick a file on the left to check its details."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:319
+msgid ""
+"Add some audio files to get started. We’ll read their tags as they upload."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:322
+#, javascript-format
+msgid "Reading tags from %s"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:336
+msgid "Use file name"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:339
+#, javascript-format
+msgid "Use for all %s"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:346
+msgid "Shows on the Music player widget and Now playing."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:346
+msgid ""
+"This file has no embedded artwork. Add a square image, or leave it blank."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:347
+msgid "Replace"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:347
+msgid "Upload image"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:350
+msgid "Format"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:350
+msgid "Quality"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:350
+msgid "Lossless"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:351
+msgid "Length"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:351
+msgid "Size"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:362
+msgid ""
+"This file has no tags (common for WAV). Fill in what you know; a song "
+"without a title uses its file name."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:363
+msgid ""
+"Fields marked “Not in file” weren’t in the tags. Leave them blank if you "
+"don’t know them."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:364
+msgid ""
+"Everything was found in the file’s tags. Change anything that looks off."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:375
+#, javascript-format
+msgid "Uploading %s of %s…"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:376
+#, javascript-format
+msgid "Reading %s file…"
+msgid_plural "Reading %s files…"
+msgstr[0] ""
+msgstr[1] ""
+
+#: admin_portal/static/admin_portal/library.js:381
+msgid "Drop to add"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:381
+msgid "Add more files"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:381
+msgid "Drop audio files here, or click to browse"
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:385
+msgid ""
+"There isn’t room in the library for all of these. Remove some files, or "
+"delete songs you don’t play."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:423
+msgid "The upload didn’t go through. Try again."
+msgstr ""
+
+#: admin_portal/static/admin_portal/library.js:425
+msgid "The upload didn’t go through. Check the connection and try again."
+msgstr ""
+
+#: admin_portal/static/admin_portal/menu-preview.js:13
+msgid "Pause preview"
+msgstr ""
+
+#: admin_portal/static/admin_portal/menu-preview.js:13
+msgid "Play preview"
+msgstr ""
+
+#: admin_portal/static/admin_portal/menu-preview.js:16
+msgid "5× speed"
+msgstr ""
+
+#: admin_portal/static/admin_portal/menu-preview.js:16
+#, javascript-format
+msgid "Paused · page %s"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:14
+#, javascript-format
+msgid "%sh %sm"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:14
+#, javascript-format
+msgid "%sm"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:24
+#, javascript-format
+msgid "Good morning, %s."
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:24
+#, javascript-format
+msgid "Good afternoon, %s."
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:24
+#, javascript-format
+msgid "Good evening, %s."
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:25
+msgid "Pick up where you left off."
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:29
+msgid "Sales rung up here"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:30
+msgid "Orders rung up"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:31
+msgid "Tickets moved along"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:32
+msgid "Since the first screen today"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:51
+msgid "Online"
+msgstr ""
+
+#: app_switcher/static/app_switcher/apps.js:51
+msgid "Offline"
+msgstr ""
+
+#: audio/static/audio/voice.js:52
+msgid "Channel is clear"
+msgstr ""
+
+#: audio/static/audio/voice.js:52
+msgid "Hold the button to talk."
+msgstr ""
+
+#: audio/static/audio/voice.js:53 audio/static/audio/voice.js:90
+msgid "You’re live"
+msgstr ""
+
+#: audio/static/audio/voice.js:53
+#, javascript-format
+msgid "Everyone on %s can hear you. Let go to stop."
+msgstr ""
+
+#: audio/static/audio/voice.js:54
+#, javascript-format
+msgid "%s is talking"
+msgstr ""
+
+#: audio/static/audio/voice.js:54
+msgid "You can talk once they let go."
+msgstr ""
+
+#: audio/static/audio/voice.js:55
+msgid "Order call playing"
+msgstr ""
+
+#: audio/static/audio/voice.js:56
+#, javascript-format
+msgid "Replaying %s"
+msgstr ""
+
+#: audio/static/audio/voice.js:56
+msgid "the last call"
+msgstr ""
+
+#: audio/static/audio/voice.js:56
+msgid "Only on this device. Nobody else hears it."
+msgstr ""
+
+#: audio/static/audio/voice.js:57
+msgid "Chime playing"
+msgstr ""
+
+#: audio/static/audio/voice.js:57
+msgid "A quick tone so people look up before you talk."
+msgstr ""
+
+#: audio/static/audio/voice.js:58
+msgid "Not connected"
+msgstr ""
+
+#: audio/static/audio/voice.js:58
+msgid "Reconnecting…"
+msgstr ""
+
+#: audio/static/audio/voice.js:88
+msgid "Release to stop"
+msgstr ""
+
+#: audio/static/audio/voice.js:88 audio/static/audio/voice.js:92
+msgid "Channel busy"
+msgstr ""
+
+#: audio/static/audio/voice.js:89
+msgid "Please wait"
+msgstr ""
+
+#: audio/static/audio/voice.js:89 audio/static/audio/voice.js:92
+msgid "Hold to talk"
+msgstr ""
+
+#: audio/static/audio/voice.js:90
+msgid "Someone else is talking"
+msgstr ""
+
+#: audio/static/audio/voice.js:91
+msgid "Something is playing"
+msgstr ""
+
+#: audio/static/audio/voice.js:91
+msgid "Opening the microphone…"
+msgstr ""
+
+#: audio/static/audio/voice.js:91
+msgid "or hold the space bar"
+msgstr ""
+
+#: audio/static/audio/voice.js:92
+msgid "Talking. Release to stop."
+msgstr ""
+
+#: audio/static/audio/voice.js:183
+msgid "Someone"
+msgstr ""
+
+#: audio/static/audio/voice.js:194
+msgid "Sign in as staff to talk."
+msgstr ""
+
+#: audio/static/audio/voice.js:209
+msgid "This browser can’t send voice. Use Chrome."
+msgstr ""
+
+#: audio/static/audio/voice.js:217
+msgid "The microphone isn’t allowed (it needs https)."
+msgstr ""
+
+#: deliveries/static/deliveries/courier.js:81
+msgid "Couldn't turn on notifications"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:15
+msgid "Dishes"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:15
+msgid "Components & add-ons"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:15
+msgid "Condiments"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:23
+#: inventory/static/inventory/availability.js:36
+msgid "Off"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:23
+msgid "Stop selling now, whatever the count says"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:24
+msgid "Auto"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:24
+msgid "Follow inventory: sells until the count hits zero"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:25
+msgid "Always"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:25
+msgid "Keep selling even at zero; inventory goes negative"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:36
+msgid "Hidden on the register"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:38
+msgid "Unavailable"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:38
+#, javascript-format
+msgid "%s is off"
+msgid_plural "%s are off"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inventory/static/inventory/availability.js:40
+#: inventory/static/inventory/availability.js:43
+#: inventory/static/inventory/availability.js:47
+msgid "Selling"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:40
+msgid "Always on · not counted"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:40
+msgid "Not counted"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:42
+msgid "Selling past zero"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:42
+msgid "Inventory is going negative"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:43
+msgid "Keeps selling past zero"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:45
+#: pos_server/static/pos_server/register.js:607
+#: pos_server/static/pos_server/register.js:1011
+#: pos_server/static/pos_server/register.js:1021
+#: pos_server/static/pos_server/register.js:1108
+#: pos_server/static/pos_server/register.js:1135
+#: pos_server/static/pos_server/register.js:1151
+#: pos_server/static/pos_server/register.js:1284
+msgid "Sold out"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:45
+msgid "Back on when restocked"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:46
+msgid "Running low"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:46
+#: inventory/static/inventory/availability.js:47
+msgid "Turns off at zero"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:89
+msgid "That didn't save. Try again."
+msgstr ""
+
+#: inventory/static/inventory/availability.js:98
+#, javascript-format
+msgid "%s dish unavailable"
+msgid_plural "%s dishes unavailable"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inventory/static/inventory/availability.js:116
+#, javascript-format
+msgid "%s item back on Auto"
+msgid_plural "%s items back on Auto"
+msgstr[0] ""
+msgstr[1] ""
+
+#: inventory/static/inventory/availability.js:123
+msgid "Undone"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:137
+msgid "Undo"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:199
+msgid "Everything else follows inventory."
+msgstr ""
+
+#: inventory/static/inventory/availability.js:199
+msgid "Everything here follows inventory."
+msgstr ""
+
+#: inventory/static/inventory/availability.js:217
+msgid "No overrides here"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:217
+msgid "Nothing matches"
+msgstr ""
+
+#: inventory/static/inventory/availability.js:218
+msgid "Everything in this tab is following inventory."
+msgstr ""
+
+#: inventory/static/inventory/availability.js:218
+msgid "Try a different search."
+msgstr ""
+
+#: inventory/static/inventory/availability.js:224
+#: pos_server/static/pos_server/order-marking.js:374
+#: pos_server/static/pos_server/register.js:882
+#: pos_server/static/pos_server/register.js:1644
+#, javascript-format
+msgid "%s item"
+msgid_plural "%s items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: online_store/static/online_store/account-work.js:19
+msgid "The end date is before the start date."
+msgstr ""
+
+#: online_store/static/online_store/account-work.js:21
+msgid "Pick a date after today."
+msgstr ""
+
+#: online_store/static/online_store/account-work.js:23
+msgid "Check the times."
+msgstr ""
+
+#: online_store/static/online_store/account-work.js:28
+#, javascript-format
+msgid "You have %s shift then: %s. If approved, they go to Up for grabs."
+msgid_plural ""
+"You have %s shifts then: %s. If approved, they go to Up for grabs."
+msgstr[0] ""
+msgstr[1] ""
+
+#: online_store/static/online_store/account-work.js:32
+msgid ""
+"No shifts on your schedule then yet. Your manager won’t schedule you if it’s "
+"approved."
+msgstr ""
+
+#: online_store/static/online_store/account-work.js:66
+#, javascript-format
+msgid "Send availability change · %s day"
+msgid_plural "Send availability change · %s days"
+msgstr[0] ""
+msgstr[1] ""
+
+#: online_store/static/online_store/account-work.js:67
+msgid "Change a day to send"
+msgstr ""
+
+#: payments/static/payments/card-form.js:13
+msgid "The card was declined. Try another card."
+msgstr ""
+
+#: payments/static/payments/card-form.js:14
+msgid "The security code (CVV) doesn’t match."
+msgstr ""
+
+#: payments/static/payments/card-form.js:15
+msgid "The postal code doesn’t match the card."
+msgstr ""
+
+#: payments/static/payments/card-form.js:16
+msgid "The expiry date isn’t right."
+msgstr ""
+
+#: payments/static/payments/card-form.js:17
+msgid "The card was declined: not enough funds."
+msgstr ""
+
+#: payments/static/payments/card-form.js:18
+msgid "This card has expired."
+msgstr ""
+
+#: payments/static/payments/card-form.js:52
+msgid "Paying…"
+msgstr ""
+
+#: payments/static/payments/card-form.js:56
+#: payments/static/payments/card-form.js:77
+#: payments/static/payments/card-form.js:92
+#, javascript-format
+msgid "Pay %s"
+msgstr ""
+
+#: payments/static/payments/card-form.js:67
+msgid "The payment didn’t go through. Try again."
+msgstr ""
+
+#: payments/static/payments/card-form.js:69
+msgid "Paid"
+msgstr ""
+
+#: payments/static/payments/card-form.js:84
+msgid "The card form couldn’t load. Check the connection and reload."
+msgstr ""
+
+#: payments/static/payments/card-form.js:96
+msgid "The card form couldn’t load. Reload to try again."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:12
+#, javascript-format
+msgid "Today, %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:13
+#, javascript-format
+msgid "Yesterday, %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:41
+msgid "Drawer closed"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:42
+#, javascript-format
+msgid "Open since %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:43
+msgid "Counting the cash"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:44
+#, javascript-format
+msgid "Closed at %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:50
+msgid "Closing count"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:50
+msgid "Starting cash"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:51
+msgid "How much is in the drawer?"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:51
+#: pos_server/static/pos_server/drawer.js:67
+msgid "Open the drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:67
+msgid "Close the drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:70
+msgid "Before you close"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:70
+msgid "Before you start"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:71
+msgid "Count first, then see how you did."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:71
+msgid "Count the float, then start selling."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:73
+msgid ""
+"The expected amount stays hidden until you close, so the count is honest. "
+"You'll see the difference right after."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:74
+msgid ""
+"Cash payments are blocked until the drawer is open. The starting cash is "
+"what you leave in the drawer to make change."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:76
+msgid "Opened with"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:76
+msgid "Opened at"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:77
+msgid "Last close"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:77
+msgid "Left in the drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:96
+#: pos_server/static/pos_server/drawer.js:127
+msgid "Cash sales"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:96
+#: pos_server/static/pos_server/drawer.js:97
+#, javascript-format
+msgid "%s payment"
+msgid_plural "%s payments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: pos_server/static/pos_server/drawer.js:97
+msgid "Card sales"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:98
+msgid "Paid in and out"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:98
+#, javascript-format
+msgid "%s in · %s out"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:99
+#: pos_server/static/pos_server/staff-page.js:41
+msgid "Orders"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:99
+#, javascript-format
+msgid "Average %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:99
+msgid "None yet"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:107
+#, javascript-format
+msgid ""
+"Opened at %s by %s. When the shift ends, count what is in the drawer and "
+"close it."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:118
+msgid "Balanced. The drawer matches."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:118
+msgid "Over"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:118
+msgid "Short"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:120
+msgid "Every dollar is accounted for."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:121
+msgid ""
+"There is more cash in the drawer than the register expected. Check for a "
+"missed sale or a miscount."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:122
+msgid ""
+"There is less cash in the drawer than the register expected. Recount, and "
+"check for unrecorded change or a payout."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:124
+#, javascript-format
+msgid "%s · closed at %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:126
+msgid "Opening balance"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:129
+msgid "Paid in"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:130
+msgid "Paid out"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:131
+msgid "Expected in drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:131
+msgid "You counted"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:134
+msgid "Difference"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:144
+#: pos_server/static/pos_server/lock.js:55
+#: pos_server/static/pos_server/register.js:346
+#: pos_server/static/pos_server/register.js:1596
+#: pos_server/static/pos_server/register.js:1869
+msgid "The register is offline. Check the connection."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:147
+#: pos_server/static/pos_server/drawer.js:202
+#: pos_server/static/pos_server/order-marking.js:621
+msgid "That didn't work. Try again."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:162
+#, javascript-format
+msgid "Drawer opened with %s"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:199
+msgid "Enter an amount."
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:205
+#, javascript-format
+msgid "Put %s in the drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/drawer.js:205
+#, javascript-format
+msgid "Took %s out of the drawer"
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:37
+#: pos_server/static/pos_server/register.js:1577
+#, javascript-format
+msgid "Enter your 4-digit PIN, %s"
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:40
+#: pos_server/static/pos_server/register.js:1580 team/static/team/clock.js:31
+#, javascript-format
+msgid "%s of 4 digits entered"
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:60
+#, javascript-format
+msgid "Welcome back, %s"
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:62
+#, javascript-format
+msgid "%s is open. The drawer has %s in it."
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:63
+#, javascript-format
+msgid "%s is open. The drawer is closed."
+msgstr ""
+
+#: pos_server/static/pos_server/lock.js:67
+#: pos_server/static/pos_server/register.js:1605
+msgid "That PIN didn't match. Try again."
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:153
+#: pos_server/static/pos_server/order-marking.js:501
+msgid "Not confirmed"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:154
+msgid "Confirmed · waiting"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:155
+#: pos_server/static/pos_server/order-marking.js:503
+msgid "In progress"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:156
+msgid "Ready · waiting"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:157
+msgid "Waiting for courier"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:157
+#: pos_server/static/pos_server/order-marking.js:504
+msgid "Ready for pickup"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:216
+#, javascript-format
+msgid "Auto ready in %s"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:216
+#, javascript-format
+msgid "Auto pickup in %s"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:240
+msgid "Combo"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:277
+msgid "In person"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:280
+msgid "Online pickup"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:282
+msgid "Delivery"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:285
+msgid "Courier"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:286
+msgid "No courier"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:286
+msgid ""
+"Every courier on shift passed, or nobody's on shift. Reject it or call the "
+"customer."
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:288
+#: pos_server/static/pos_server/register.js:1639
+msgid "To go"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:288
+msgid "Customer is waiting"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:288
+msgid "Pack for travel"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:289
+#: pos_server/static/pos_server/register.js:1639
+msgid "For here"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:289
+msgid "Dine in"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:290
+msgid "Phone"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:309
+msgid "Waiting for the courier"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:310
+msgid "Every station is done. The courier marks it picked up in their app."
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:316
+msgid "Cooking starts once every station is in."
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:317
+msgid "It's ready for pickup once every station is done."
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:320
+msgid "Waiting on other stations"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:321
+msgid "You confirmed"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:321
+msgid "You marked it ready"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:330
+msgid "Every station is done"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:336
+msgid "Reject"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:338
+msgid "Confirm"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:341
+msgid "Mark ready"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:344
+msgid "Picked up"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:366
+#: pos_server/static/pos_server/order-marking.js:713
+#: pos_server/static/pos_server/register.js:1348
+#: pos_server/static/pos_server/register.js:1640
+msgid "No name"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:376
+msgid "Allergy"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:389
+msgid "Allergy alert"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:395
+msgid "Stations"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:401
+msgid "Order note"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:472
+#: pos_server/static/pos_server/order-marking.js:766
+msgid "All caught up"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:491
+msgid "All stations"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:502
+msgid "Waiting"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:514
+msgid "No open orders"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:699
+msgid "Pick a reason or write one"
+msgstr ""
+
+#: pos_server/static/pos_server/order-marking.js:766
+#, javascript-format
+msgid "%s open order"
+msgid_plural "%s open orders"
+msgstr[0] ""
+msgstr[1] ""
+
+#: pos_server/static/pos_server/order-marking.js:828
+msgid "Auto: off"
+msgstr ""
+
+#: pos_server/static/pos_server/orders-status.js:86
+msgid "Order #"
+msgstr ""
+
+#: pos_server/static/pos_server/orders-status.js:226
+msgid ""
+"\n"
+"    Don't forget to put your browser in fullscreen mode (default key is F11, "
+"or in ... settings in Chrome)\n"
+"    Controls:\n"
+"    \n"
+"    Press 1 to open the music player controls\n"
+"    "
+msgstr ""
+
+#: pos_server/static/pos_server/pos-output-screen.js:31
+msgid "Discounts"
+msgstr ""
+
+#: pos_server/static/pos_server/pos-output-screen.js:32
+msgid "Tax"
+msgstr ""
+
+#: pos_server/static/pos_server/pos-output-screen.js:43
+#, javascript-format
+msgid "Thank you, %s!"
+msgstr ""
+
+#: pos_server/static/pos_server/pos-output-screen.js:43
+msgid "Thank you!"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:68
+msgid "Unavailable item"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:123
+#: pos_server/static/pos_server/register.js:255
+#: pos_server/static/pos_server/register.js:1265
+#, javascript-format
+msgid "No %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:144
+#, javascript-format
+msgid "Allergy: %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:188
+msgid "%(n)s free per order, then +%(price)s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:357
+msgid "The order can't be priced."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:394
+#, javascript-format
+msgid "%s · %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:482
+#, javascript-format
+msgid "Up to %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:485
+msgid "Remove from order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:485
+msgid "Set quantity"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:624
+#: pos_server/static/pos_server/register.js:1689
+msgid "Other amount"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:654
+msgid "No dishes match your search."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:654
+msgid "Nothing on the menu here yet."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:684
+msgid "Printed or read out"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:691
+#: pos_server/static/pos_server/register.js:1897
+#, javascript-format
+msgid "%s gift card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:695
+msgid "Remove gift card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:721
+#, javascript-format
+msgid "More options for %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:731
+msgid "Remove one"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:733
+#, javascript-format
+msgid "Quantity %s. Type a new one"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:734
+msgid "Add one"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:742
+#: pos_server/static/pos_server/register.js:791
+msgid "Remove"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:743
+#: pos_server/static/pos_server/register.js:792
+msgid "More"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:752
+#: pos_server/static/pos_server/register.js:866
+msgid "Discount"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:753
+msgid "Offers & codes"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:759
+#: pos_server/static/pos_server/register.js:1062
+#: pos_server/static/pos_server/register.js:1270
+msgid "Customize"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:761
+#, javascript-format
+msgid "Edited · %s change"
+msgid_plural "Edited · %s changes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: pos_server/static/pos_server/register.js:762
+msgid "Swap & customize"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:762
+msgid "Parts & add-ons"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:791
+msgid "Release to remove"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:792
+msgid "Release for more"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:836
+msgid "Applied by itself"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:839
+#: pos_server/static/pos_server/register.js:1450
+msgid "Whole order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:843
+#: pos_server/static/pos_server/register.js:870
+msgid "Staff card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:862
+msgid "Add note"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:870
+#, javascript-format
+msgid "Staff · %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:882
+msgid "Tap a dish to start"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:954
+msgid "Not paired"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:956
+#, javascript-format
+msgid "Screen: paired with %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:956
+msgid "Screen: not paired. Pair one"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:993
+#, javascript-format
+msgid "Add up to %s %s?"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:993
+#, javascript-format
+msgid "Add a %s?"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:994
+#, javascript-format
+msgid "Choose %s %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:994
+#, javascript-format
+msgid "Choose a %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1001
+#, javascript-format
+msgid "%s · step %s of %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1029
+#: pos_server/static/pos_server/register.js:1924
+msgid "Add to order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1029
+msgid "Skip"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1029
+msgid "Next"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1064
+msgid "Changes to this part of the combo"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1065
+#, javascript-format
+msgid "Applies to all %s on this line"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1065
+msgid "One item on this line"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1066
+msgid "Done"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1066
+msgid "Save changes"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1083
+#, javascript-format
+msgid "Fewer %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1085
+#, javascript-format
+msgid "More %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1103
+#: pos_server/static/pos_server/register.js:1127
+msgid "Pick one"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1115
+msgid "Components"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1115
+msgid "Set how many of each"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1127
+msgid "Pick any"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1128
+msgid "Required"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1159
+msgid "On the side"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1159
+msgid "Free"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1170
+msgid "Allergies"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1170
+msgid "Tell the kitchen"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1191
+#, javascript-format
+msgid "+%s each"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1191
+#, javascript-format
+msgid "%s each"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1191
+msgid "No extra charge"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1196
+#, javascript-format
+msgid "Pick %s first"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1226
+msgid "Item customized"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1261
+#, javascript-format
+msgid "Pick %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1261
+msgid "Optional"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1312
+msgid "As added"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1312
+#, javascript-format
+msgid "%s from when it was added"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1336
+msgid "Combo updated"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1348
+msgid "Order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1349
+msgid "Edit the note"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1349
+msgid "Add a note"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1383
+msgid "Note saved"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1404
+msgid ""
+"Typed-in discounts need a manager, and nobody who can approve them has a "
+"register PIN yet."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1405
+msgid "A manager approves typed-in discounts with their PIN."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1434
+#: pos_server/static/pos_server/register.js:1437
+msgid "Manual"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1449
+msgid "Discount this item"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1449
+msgid "Discount the order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1466
+msgid "No offers right now."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1472
+#, javascript-format
+msgid "%s applied · %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1491
+msgid "Ask a manager"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1491
+msgid "Apply discount"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1520
+msgid "That code isn't valid."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1556
+#, javascript-format
+msgid "Approve %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1558
+#, javascript-format
+msgid "On %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1558
+msgid "On the whole order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1559
+#, javascript-format
+msgid "rung up by %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1577
+msgid "Who's approving? Pick your name."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1602
+#, javascript-format
+msgid "%s approved by %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1642
+msgid "Left to pay"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1642
+msgid "Amount due"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1645
+#, javascript-format
+msgid "includes %s tax"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1651
+msgid "Remove this payment"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1661
+msgid "Pay the full amount"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1661
+msgid "Split payment"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1679
+#: pos_server/static/pos_server/register.js:1699
+msgid "Complete sale"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1686
+msgid "Exact"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1689
+msgid "Other"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1698
+msgid "Open the drawer to take cash"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1699
+#, javascript-format
+msgid "Take %s cash"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1705
+msgid "Waiting for card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1705
+msgid "Card on their phone"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1705
+msgid "Card on the terminal"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1706
+msgid "The customer is paying on their phone."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1706
+msgid "The terminal is ready. Tap, insert or swipe."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1707
+#, javascript-format
+msgid "Show a QR code: the customer pays %s by card on their own phone."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1708
+#, javascript-format
+msgid "Charge %s on the terminal, then the customer taps, inserts or swipes."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1710
+msgid "Waiting for payment…"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1710
+msgid "Waiting for terminal…"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1711
+#, javascript-format
+msgid "Show QR code · %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1711
+#, javascript-format
+msgid "Charge %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1717
+#, javascript-format
+msgid "%s · %s x%s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1720
+msgid "It can't pay for everything on this order (alcohol isn't covered)."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1721
+#, javascript-format
+msgid "Take %s from %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1721
+msgid "Nothing left on the card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1728
+#: pos_server/static/pos_server/register.js:1770
+#, javascript-format
+msgid "Card x%s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1731
+#, javascript-format
+msgid "Use %s from the gift card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1731
+msgid "Look up the card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1734
+msgid "Sending…"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1749
+msgid "A card payment was taken. Finish this order first."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1770
+#, javascript-format
+msgid "Card x%s · %s left"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1772
+msgid "Take this card off the order"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1782
+msgid "Ring up the order first, then scan the card."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1824
+msgid "Cash"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1825
+#, javascript-format
+msgid "Give %s change"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1832
+#, javascript-format
+msgid "%s x%s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1835
+#, javascript-format
+msgid "Gift card x%s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1852
+#, javascript-format
+msgid "%s left to pay"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1876
+msgid "The order was not sent. Please try again."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1877
+#, javascript-format
+msgid ""
+"%s The card was charged %s: fix the order and try again, or refund it on the "
+"terminal."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1886
+#, javascript-format
+msgid "Order #%s paid"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1904
+#, javascript-format
+msgid "Between %s and %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1924
+#, javascript-format
+msgid "Add %s gift card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1932
+msgid "Check the email address."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1946
+msgid "Gift card ready"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1946
+#, javascript-format
+msgid "%s gift cards ready"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1956
+#, javascript-format
+msgid "Emailed to %s."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1957
+#, javascript-format
+msgid "The email to %s didn't go out. Give them the number."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1958
+#, javascript-format
+msgid "For %s. Print it or read it out."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1958
+msgid "Print it or read it out."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1985
+msgid "The terminal didn't start the payment."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:1999
+msgid "Card"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2000
+msgid "The card payment was canceled."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2006
+#: pos_server/static/pos_server/register.js:2014
+msgid "Square didn't answer. Try again."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2018
+msgid "Canceling on the terminal…"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2025
+#, javascript-format
+msgid "Or open %s · works for %s minutes"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2042
+#, javascript-format
+msgid "Card #%s wasn't found."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2042
+msgid "The card couldn't be looked up."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2050
+msgid "This gift card is frozen."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2098
+#, javascript-format
+msgid "Camera %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2113
+msgid "The camera couldn't be started. Type the number instead."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2151
+msgid "This code expired (they last 5 minutes). Make a new one."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2152
+#, javascript-format
+msgid "Use it by %s."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2156
+msgid "Register this device first: Terminals belong to a register."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2157
+msgid ""
+"No Terminal yet: card payments are paid on the customer's phone (a QR code)."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2184
+msgid "That didn't work."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2196
+msgid "That screen couldn't be paired."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2204
+#, javascript-format
+msgid "Paired with %s"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2213
+msgid "Unpaired"
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2220
+msgid "The announcement wasn't sent."
+msgstr ""
+
+#: pos_server/static/pos_server/register.js:2225
+msgid "Announcement sent to the screens"
+msgstr ""
+
+#: pos_server/static/pos_server/staff-page.js:41
+msgid "Orders: new orders"
+msgstr ""
+
+#: pos_server/static/pos_server/staff-ui.js:89
+msgid "Clear"
+msgstr ""
+
+#: pos_server/static/pos_server/staff-ui.js:91
+msgid "Delete last digit"
+msgstr ""
+
+#: screens/static/screens/widgets/clock.js:26
+msgid "Time"
+msgstr ""
+
+#: team/static/team/clock.js:43
+msgid "Pick your name first."
+msgstr ""
