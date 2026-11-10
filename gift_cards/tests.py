@@ -222,3 +222,50 @@ class StaffCardTests(TestCase):
         card.type.save()
         with self.assertRaisesMessage(OrderError, "doesn’t work on pickup orders"):
             price_cart([self.line(self.coffee)], channel="web", staff_cards=[card])
+
+
+class CardPageTests(TestCase):
+    """A gift card's own page (views.card_display): its barcode, number and balance in Pavilion's look."""
+    def setUp(self):
+        from .models import GiftCardDesign
+        self.design = GiftCardDesign.objects.create(name="Birthday", color="#7A2E5C", ink="dark")
+        self.card = GiftCard.objects.create(available_balance=Decimal("25.00"), design=self.design, recipient="Priya",
+                                            message="Happy birthday!", buyer="Dana")
+
+    def test_shows_the_barcode_number_and_balance(self):
+        from .views import barcode_bars
+        response = self.client.get(reverse("card_display", args=[self.card.number]))
+        self.assertEqual(response.status_code, 200)
+        page = response.content.decode()
+        grouped = " ".join(self.card.number[i:i + 4] for i in range(0, 16, 4))
+        self.assertIn(grouped, page)
+        self.assertIn("$25.00", page)
+        self.assertIn("Happy birthday!", page)
+        self.assertIn("background-color: #7A2E5C", page)
+        bars = barcode_bars(self.card.number)
+        self.assertEqual(page.count('height="40"/>'), len(bars["bars"]))
+        self.assertEqual(bars["viewbox"], f"-10 0 {bars['width'] + 20} 40")
+        self.assertEqual(response["Referrer-Policy"], "no-referrer")
+        self.assertIn("no-cache", response["Cache-Control"])
+
+    def test_barcode_matches_code128(self):
+        import barcode
+        from .views import barcode_bars
+        modules = barcode.get_barcode_class("code128")("1234567812345678").build()[0]
+        bars = barcode_bars("1234567812345678")
+        drawn = ["0"] * bars["width"]
+        for x, w in bars["bars"]:
+            drawn[x:x + w] = ["1"] * w
+        self.assertEqual("".join(drawn), modules)
+
+    def test_frozen_and_empty_cards_say_so(self):
+        self.card.frozen = True
+        self.card.save()
+        self.assertContains(self.client.get(reverse("card_display", args=[self.card.number])), "Frozen")
+        self.card.frozen, self.card.available_balance = False, Decimal("0")
+        self.card.save()
+        self.assertContains(self.client.get(reverse("card_display", args=[self.card.number])), "Used up")
+
+    def test_unknown_number_is_not_found(self):
+        response = self.client.get(reverse("card_display", args=["0000111122223333"]))
+        self.assertContains(response, "Card not found", status_code=404)
