@@ -43,7 +43,7 @@
         <label for="last_name">{% trans "Last name:" %}</label>
         <input required type="text" name="last_name" id="last_name">
     </div>
-    <button type="submit">{% trans "Register" %}</button>
+    <button type="submit">{% translate "Register" context "sign up" %}</button>
 </form>
 <script>
     document.querySelector("form").addEventListener("submit", e => {
