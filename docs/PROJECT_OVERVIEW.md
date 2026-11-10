@@ -551,7 +551,10 @@ public `eta` endpoint (the old store's checkout estimate) is gone. The order det
 - `get-card`: pick a preset or personal design (images listed from storage under `gift-cards/{presets,personal}`),
   pay through the same popup. On POST the card is created **only from a paid, unused transaction, for the amount paid**,
   then emailed via listmonk (an email failure is logged; the confirmation page still shows the card link).
-- `card/<number>` renders a code128 barcode. `card-api/<number>`: GET is public (balance, image; email for staff only),
+- `card/<number>` is the card's own page in Pavilion's look (the account's colours and fonts, `card.css`): the
+  design, the Code 128 barcode (drawn as SVG bars from `views.barcode_bars`, dark on white with a quiet zone), the number
+  in groups of four with a copy button, the balance (ready / frozen / used up), who it's for and the message; no
+  caching, no referrer (the number is in the address), 404 "Card not found" for an unknown number. `card-api/<number>`: GET is public (balance, image; email for staff only),
   POST charges and needs staff + CSRF.
 
 ### 6.8 Device registration
