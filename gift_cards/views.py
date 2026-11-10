@@ -3,10 +3,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.csrf import csrf_exempt
 from .models import *
 from django.template.loader import render_to_string
+import re
 import barcode
-from barcode.writer import ImageWriter
-from io import BytesIO
-import base64
+from django.views.decorators.cache import never_cache
 from payments.models import PaymentError, Transaction
 import logging
 
@@ -24,59 +23,36 @@ from django.utils.translation import gettext_lazy as _
 
 # Create your views here.
 
+def barcode_bars(digits: str) -> dict:
+    """The Code 128 bars of `digits` as runs of dark modules ({"width", "bars": [(x, w)]}), drawn as an SVG in the
+    template so the barcode stays sharp at any size and on any screen. `viewbox` leaves the quiet zone scanners
+    need: ten blank modules on each side."""
+    modules = barcode.get_barcode_class("code128")(digits).build()[0]
+    bars = [(m.start(), len(m.group())) for m in re.finditer("1+", modules)]
+    return {"width": len(modules), "bars": bars, "viewbox": f"-10 0 {len(modules) + 20} 40"}
+
+
+@never_cache
 def card_display(request, card_number):
     """
-    Display the gift card information along with its barcode.
-    Args:
-        request (HttpRequest): The HTTP request object.
-        card_number (str): The number of the gift card to be displayed.
-    Returns:
-        HttpResponse: The rendered HTML page with the gift card information and barcode.
-    Raises:
-        GiftCard.DoesNotExist: If the gift card with the given number does not exist.
-    The function performs the following steps:
-    1. Retrieves the gift card object from the database using the provided card number.
-    2. Creates a barcode for the gift card number using the 'code128' barcode class.
-    3. Configures the barcode writer with specific options such as module width, height, quiet zone, text distance, font size, background, and foreground colors.
-    4. Saves the generated barcode to a BytesIO stream.
-    5. Encodes the barcode image in base64 format to embed it in the HTML template.
-    6. Passes the base64-encoded image data and the gift card object to the template context.
-    7. Renders the 'gift_cards/card.html' template with the provided context.
+    A gift card's own page (the link in its first email and on the store's confirmation): the card's design, its
+    barcode and 16-digit number to show at the counter, and what's left on it. Only the number's hash is stored,
+    so the number comes from the link itself; a link that matches no card shows "Card not found" (404).
     """
+    from admin_portal.models import StoreSettings
+    store = StoreSettings.load()
     card = GiftCard.find(card_number)
-    if card is None:
-        return render(request, 'gift_cards/card.html',)
-    # Create barcode (of the number in the link: only its hash is stored)
-    CODE = barcode.get_barcode_class('code128')
-    barcode_instance = CODE("".join(c for c in card_number if c.isdigit()), writer=ImageWriter())
-
-    # Configure the writer with desired options
-    options = {
-        'module_width': 0.2,  # Controls the width of the bars
-        'module_height': 15.0,  # Height of the bars
-        'quiet_zone': 6.5,  # Margins on the sides
-        'text_distance': 5.0,  # Distance between bars and text
-        'font_size': 10,  # Font size of text
-        'write_text': True,  # Whether to write text
-        'background': '#0662A6',
-        'foreground': '#E4B423'
-    }
-    
-    # Save barcode to a BytesIO stream with specific options
-    buffer = BytesIO()
-    barcode_instance.write(buffer, options=options)
-    buffer.seek(0)
-
-    # Encode the image in base64 to embed in HTML
-    image_data = base64.b64encode(buffer.read()).decode('utf-8')
-    buffer.close()
-
-    # Pass the base64-encoded image data to the template
-    context = {
-        'image_data': image_data,
-        "card":card
-    }
-    return render(request, 'gift_cards/card.html', context)
+    context = {"store": store, "card": card}
+    status = 404
+    if card is not None:
+        digits = "".join(c for c in card_number if c.isdigit())
+        context.update(barcode=barcode_bars(digits), number=" ".join(digits[i:i + 4] for i in range(0, len(digits), 4)),
+                       picture=card.picture_url(), design=card.design)
+        status = 200
+    response = render(request, "gift_cards/card.html", context, status=status)
+    response["Referrer-Policy"] = "no-referrer"  # the card's number is in the address
+    response["X-Robots-Tag"] = "noindex"
+    return response
 
 def balance(request, token):
     """A gift card's balance from the signed link in a resent email (gift_cards/giftcards.py: balance_link)."""

@@ -1,41 +1,110 @@
-{% load static %}
-{% load i18n %}
-
-<!DOCTYPE html>
-<html lang="en">
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+{% comment %}
+A gift card's own page (gift_cards/views.py: card_display), opened from its first email or the store's confirmation
+and shown at the counter. Pavilion's own look (the customer account's colours and fonts): the card's design, then a
+white panel with its barcode and 16-digit number (always dark on white so scanners read it), then what's left on it.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#14261F">
     {% include "online_store/_favicon.html" %}
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <link href="{% static 'gift_cards/layers.css' %}" rel="stylesheet"> -->
-    <link href="{% static 'gift_cards/card.css' %}" rel="stylesheet">
+    <title>{% trans "Gift card" %} · {{ store.name }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <title>UrkVan gift card</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-    <style>
-        .material-symbols-outlined {
-          font-variation-settings:
-          'FILL' 0,
-          'wght' 400,
-          'GRAD' 0,
-          'opsz' 48
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{% static 'gift_cards/card.css' %}" rel="stylesheet">
 </head>
-<body>
-    <h1>{% trans "Gift Card" %}</h1>
-    <div class="barcode-container">
-        {% if image_data %}
-            <img src="data:image/png;base64,{{ image_data|safe }}">
-        {% else %}
-            <p>{% trans "No barcode generated." %}</p>
-        {% endif %}
-    </div>
+<body class="gc">
+    <span class="gc-glow" aria-hidden="true"></span>
+    <main class="gc-page">
+        <header class="gc-head">
+            <a class="gc-brand" href="{% url 'store_home' %}">
+                <span class="gc-logo">{% if store.logo %}<img src="{{ store.logo.url }}" alt="">{% else %}{% include "pos_server/icons/logo.svg" %}{% endif %}</span>
+                <span class="gc-two"><span class="disp gc-store">{{ store.name }}</span><span class="gc-kicker">{% trans "Gift card" %}</span></span>
+            </a>
+        </header>
+
     {% if card %}
-    <h2>{% trans "Balance:" %} ${{card.available_balance}}</h2>
+        <section class="gc-art{% if design.ink == 'dark' %} dark{% endif %}{% if not picture %} plain{% endif %}"
+                 style="{% if picture %}background-image: url('{{ picture }}');{% elif design %}background-color: {{ design.color }};{% endif %}"
+                 aria-label="{% trans 'Gift card' %}">
+            {% if not design or design.show_text %}
+            <span class="gc-art-top"><span class="disp gc-art-store">{{ store.name }}</span><span class="disp gc-art-amount">${{ card.original|floatformat:0 }}</span></span>
+            {% else %}<span></span>{% endif %}
+            <span class="gc-art-foot"><span class="gc-chip" aria-hidden="true"></span><span class="gc-art-last num">•••• {{ card.last4 }}</span></span>
+        </section>
+
+        <section class="gc-panel">
+            <div class="gc-balance">
+                <div class="grow">
+                    <div class="gc-label">{% trans "Balance" %}</div>
+                    <div class="disp gc-amount num">${{ card.available_balance|floatformat:2 }}</div>
+                    {% if card.original != card.available_balance %}<div class="gc-meta num">{% blocktrans with total=card.original|floatformat:2 %}of ${{ total }}{% endblocktrans %}</div>{% endif %}
+                </div>
+                {% if card.frozen %}<span class="gc-pill frozen">{% trans "Frozen" %}</span>
+                {% elif card.available_balance <= 0 %}<span class="gc-pill empty">{% trans "Used up" %}</span>
+                {% else %}<span class="gc-pill ready">{% trans "Ready to use" %}</span>{% endif %}
+            </div>
+
+            <div class="gc-code{% if card.frozen or card.available_balance <= 0 %} off{% endif %}">
+                <svg class="gc-bars" viewBox="{{ barcode.viewbox }}" preserveAspectRatio="none" role="img" aria-label="{% blocktrans with number=number %}Barcode for {{ number }}{% endblocktrans %}">
+                    {% for x, w in barcode.bars %}<rect x="{{ x }}" width="{{ w }}" height="40"/>{% endfor %}
+                </svg>
+                <div class="gc-number num" id="gc-number">{{ number }}</div>
+                <button type="button" class="gc-copy" id="gc-copy" data-number="{{ number|cut:' ' }}" data-done="{% trans 'Copied' %}" hidden>
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+                    <span>{% trans "Copy number" %}</span>
+                </button>
+            </div>
+
+            <p class="gc-hint">
+                {% if card.frozen %}{% trans "This card is frozen for now. Ask the store about it." %}
+                {% elif card.available_balance <= 0 %}{% if card.deletes_on %}{% blocktrans with day=card.deletes_on|date:"F j" %}Nothing’s left on this card. It goes away on {{ day }}.{% endblocktrans %}{% else %}{% trans "Nothing’s left on this card." %}{% endif %}
+                {% else %}{% trans "Show this at the counter to pay, or type the number in at checkout online." %}{% endif %}
+            </p>
+        </section>
+
+        {% if card.recipient or card.message or card.buyer %}
+        <section class="gc-note">
+            {% if card.recipient %}<div class="gc-label">{% blocktrans with name=card.recipient %}For {{ name }}{% endblocktrans %}</div>{% endif %}
+            {% if card.message %}<p class="disp gc-message">“{{ card.message }}”</p>{% endif %}
+            {% if card.buyer and card.buyer != card.recipient %}<div class="gc-meta">{% blocktrans with name=card.buyer %}From {{ name }}{% endblocktrans %}</div>{% endif %}
+        </section>
+        {% endif %}
+
+        <div class="gc-actions">
+            <a class="gc-btn amber" href="{% url 'store_home' %}">{% trans "Order online" %}</a>
+            <a class="gc-btn" href="{% url 'store_gift_cards' %}">{% trans "Give a gift card" %}</a>
+        </div>
+        <p class="gc-small">{% trans "Keep this link to yourself: anyone with the card’s number can spend it." %}</p>
+    {% else %}
+        <section class="gc-panel gc-missing">
+            <span class="gc-missing-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18 M8 15h3"/></svg></span>
+            <h1 class="disp gc-amount">{% trans "Card not found" %}</h1>
+            <p class="gc-hint">{% trans "This link doesn’t match a gift card any more. Empty cards are deleted after 30 days." %}</p>
+            <a class="gc-btn amber" href="{% url 'store_home' %}">{% trans "Back to the restaurant" %}</a>
+        </section>
     {% endif %}
+    </main>
+    <script>
+        // Copying the number (for checking out online); hidden where the clipboard isn't available
+        const copy = document.getElementById("gc-copy");
+        if (copy && navigator.clipboard) {
+            copy.hidden = false;
+            copy.addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(copy.dataset.number);
+                    copy.querySelector("span").textContent = copy.dataset.done;
+                    copy.classList.add("done");
+                } catch (e) { /* the number is on screen to type */ }
+            });
+        }
+    </script>
 </body>
 </html>
