@@ -124,3 +124,17 @@
     .entry-panel > * { width: 100%; max-width: 640px; margin-inline: auto; }
     .side-panel { min-height: 220px; }
 }
+
+/* Phones: tighter panels, and the amber dot up in the corner instead of under the text */
+@media (max-width: 520px) {
+    .side-panel { padding: 24px; min-height: 0; }
+    .blob.amber { right: -24px; top: -24px; bottom: auto; width: 84px; height: 84px; }
+    .side-title { font-size: 26px; }
+    .fact { height: auto; min-height: 48px; padding: 8px 16px; }
+    .fact span:last-child { text-align: right; }
+    .tiles { gap: 10px; }
+    .tile { padding: 16px; border-radius: 20px; }
+    .tile-value { font-size: 26px; }
+    .opened-panel { padding: 24px; }
+    .big-amount, .amount { font-size: 44px; }
+}

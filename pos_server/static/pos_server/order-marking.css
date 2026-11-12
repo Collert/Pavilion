@@ -271,3 +271,51 @@ dialog.sheet.w-reject { width: min(640px, calc(100vw - 32px)); gap: 18px; }
     .kds-side { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
     .kds-summary { flex: 1 1 auto; min-width: 0; justify-content: flex-start; }  /* wraps instead of running off */
 }
+
+/* Phones (after the portrait block): no keyboard hints, tickets whose name has room, one station a row in the filter */
+@media (max-width: 520px) {
+    .kbd, .rail-kbd, .nav-hint { display: none; }
+    .kds-main { gap: 10px; }
+    .kds-header { padding: 6px 4px 0; gap: 8px; }
+    .kds-title { font-size: 28px; line-height: 34px; }
+    .summary-pill { height: 40px; padding: 0 12px 0 10px; gap: 6px; }
+    .kds-list { gap: 10px; padding: 2px 0 14px; }
+
+    .card { border-radius: 22px; }
+    .card-head { min-height: 72px; gap: 8px; padding: 10px 10px 10px 8px; }
+    .order-num { width: 60px; height: 52px; border-radius: 16px; padding-top: 11px; }
+    .order-num .disp { font-size: 21px; line-height: 26px; }
+    .order-name { font-size: 18px; line-height: 24px; }
+    .order-count { white-space: nowrap; }
+    .allergy-flag { height: 28px; padding: 0 8px; }
+    .timer { height: 38px; min-width: 0; padding: 0 10px; gap: 5px; font-size: 16px; }
+    .timer svg { width: 16px; height: 16px; }
+    .chev { width: 32px; height: 32px; }
+    .card-body { padding: 0 14px 14px; gap: 14px; }
+    .fact-chips { width: 100%; }
+    .fact { flex: 1 1 140px; min-width: 0; padding: 6px 12px 6px 8px; }
+    .row { gap: 8px; }
+    .row-qty { width: 40px; font-size: 20px; }
+    .row-name { font-size: 20px; line-height: 28px; overflow-wrap: anywhere; }
+    .row.child { padding-left: 48px; }
+    .note-box, .wait-box, .allergy-alert { padding: 12px 14px; gap: 10px; }
+    .wait-box { flex-wrap: wrap; }
+    .actions { flex-wrap: wrap; }
+    .actions .hint { flex: 1 1 100%; }
+    .actions .act, .actions button { flex: 1 1 auto; justify-content: center; }
+    .kds-toast { max-width: calc(100vw - 24px); height: auto; min-height: 52px; padding: 8px 18px; white-space: normal; }
+
+    .sheet-title { font-size: 24px; line-height: 30px; }
+    .sheet-sub { font-size: 15px; line-height: 21px; }
+    .station-grid { grid-template-columns: minmax(0, 1fr); }
+    .station-toggle { height: auto; min-height: 64px; padding: 8px 14px 8px 10px; text-align: left; }
+    .auto-row { flex-wrap: wrap; gap: 10px 12px; padding: 12px; }
+    .auto-row .grow { flex: 1 1 60%; }
+    .auto-input { width: 100%; padding-left: 56px; }
+    .auto-input .input { flex: 1; width: auto; }
+    .reason { height: auto; min-height: 44px; padding: 6px 10px 6px 16px; text-align: left; }
+    dialog.sheet.w-filter, dialog.sheet.w-reject { width: 100%; gap: 14px; }
+    #auto-sheet .auto-rows { min-height: 0; overflow-y: auto; }
+    #auto-sheet .auto-row { flex: none; }
+    #auto-sheet .sheet-foot > .sub { display: none; }  /* a keyboard tip */
+}

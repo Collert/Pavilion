@@ -163,3 +163,28 @@ dialog.avail-dialog {
     .avail-key { display: none; }  /* the cards say it all; room for the list */
     .avail-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 }
+
+/* Phones (after the portrait block): no keyboard hints, the summary over its button, one card a row */
+@media (max-width: 520px) {
+    .avail { gap: 10px; }
+    .avail-head { gap: 8px; min-height: 0; }
+    .avail-title { font-size: 26px; }
+    .avail-search { min-width: 0; padding: 0 14px; }
+    .avail-overrides { flex: none; padding: 0 8px 0 14px; font-size: 14px; }
+    .avail-tabs { width: 100%; scrollbar-width: none; }
+    .avail-tab { flex: 1 0 auto; justify-content: center; padding: 0 14px; }
+    .avail-sheet { border-radius: 24px; }
+    .avail-summary-row { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px; }
+    .avail-reset { justify-content: center; }
+    .avail-list { padding: 0 12px 16px; }
+    .avail-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .avail-card { min-height: 0; }
+    .avail-hints, .avail .mode-kbd, .avail .kbd { display: none; }
+    .avail-toast { bottom: 12px; white-space: normal; padding-left: 16px; gap: 10px; border-radius: 24px; }
+    dialog.avail-dialog { width: 100%; height: 92dvh; padding: 14px 12px; }
+    .avail.in-dialog .avail-search { flex: 1 1 100%; order: 3; }
+}
+
+@media (max-width: 360px) {
+    .avail-search { flex: 1 1 100%; }
+}
