@@ -64,4 +64,6 @@
     .disp-grid { grid-template-columns: minmax(0, 1fr) 92px 16px; }
     .disp-grid > :nth-child(4), .disp-grid > :nth-child(5) { display: none; }
     .disp-basics, .material-row, .mode-cards, .fee-grid { grid-template-columns: 1fr; }
+    .buy-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .buy-grid > :first-child { grid-column: 1 / 3; }
 }

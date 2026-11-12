@@ -283,3 +283,27 @@ label.top10, label.top14 { display: block; }
     .line { flex-wrap: wrap; }
     .cf-scroll { overflow: visible; }
 }
+
+/* Phones: the action bar's text goes over its buttons, which share the row */
+@media (max-width: 600px) {
+    .cater-head { gap: 8px; }
+    .cater-list { max-height: 360px; }
+    .cater-detail { padding-right: 0; margin-right: 0; }
+    .cater-bar { flex-wrap: wrap; gap: 8px; padding: 10px; border-radius: 20px; }
+    .cater-bar.light { padding-left: 12px; }
+    .cater-bar > .bar-text, .cater-bar.dark > .two-line { flex: 1 1 100%; padding: 2px 6px 0; }
+    .cater-bar.light > .two-line { flex: 1 1 calc(100% - 50px); }
+    .cater-bar .bar-btn { flex: 1 1 auto; padding: 0 12px; }
+    /* a line's name takes the first row; its steppers, total and remove button the second */
+    .line { gap: 8px; }
+    .line > .line-qty { width: auto; }
+    .line > .line-total { width: auto; min-width: 64px; }
+    /* while editing: name and the remove button on the first row, steppers and the total on the second */
+    .line:has(> .line-x) > .two-line { flex: 1 1 calc(100% - 40px); }
+    .line:has(> .line-undo) > .two-line { flex: 1 1 calc(100% - 90px); }
+    .line > .line-x, .line > .line-undo { order: 1; }
+    .line:has(> .line-x) > :is(.stepper, .each-price, .line-qty, .line-total) { order: 2; }
+    .line:has(> .line-x) > .line-total { margin-left: auto; }
+    .add-kinds { grid-template-columns: repeat(2, 1fr); }
+    .add-kind { height: 38px; }
+}

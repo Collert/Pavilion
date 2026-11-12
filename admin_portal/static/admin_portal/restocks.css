@@ -109,7 +109,16 @@
     .po-grid > :nth-child(3), .po-grid > :nth-child(4) { display: none; }
     .steps, .po-fields { grid-template-columns: 1fr; }
     .po-fields > :first-child { grid-column: auto; }
-    .po-line-grid { grid-template-columns: minmax(0, 1fr) 110px 32px; }
-    .po-line-grid > :nth-child(7), .po-line-grid > :nth-child(8) { display: none; }
+    /* a line: its name and the remove button, then cases, price per case and the line's total */
+    .po-head { display: none; }
+    .po-line-grid { grid-template-columns: 108px minmax(0, 1fr) auto 32px; gap: 6px 10px; align-items: start; }
+    .po-line:first-of-type { border-top: none; }
+    .po-line > .two-line { grid-column: 1 / 4; grid-row: 1; }
+    .po-line > :last-child { grid-column: 4; grid-row: 1; }
+    .po-line > .stepper { grid-column: 1; grid-row: 2; }
+    .po-line > .stepper + span { grid-column: 2; grid-row: 2; min-width: 0; }
+    .po-line > .stepper + span + * { grid-column: 3 / 5; grid-row: 2; text-align: right; line-height: 38px; min-width: 64px; }
+    .po-add { flex-wrap: wrap; }
+    .po-add select { flex: 1 1 100%; min-width: 0; max-width: 100%; }
     .suggest { flex-wrap: wrap; }
 }

@@ -402,6 +402,67 @@ button.back-link { border: none; background: none; font-family: inherit; cursor:
     .rail-items::before { top: 10px; bottom: 10px; }
     .rail-blob { display: none; }
 }
+/* Phones: the sections are a row of tiles (icon over name, so no name is cut short), the person and Apps share a
+   row (a phone has its own clock), and the shared pieces get tighter padding and stack. */
+@media (max-width: 600px) {
+    .admin-app { padding: 8px; gap: 12px; }
+    .admin-main { gap: 12px; }
+    .rail { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 14px 12px 12px; border-radius: 24px; }
+    .rail-brand, .rail-nav { grid-column: 1 / -1; }
+    .rail-logo { width: 38px; height: 38px; border-radius: 13px; }
+    .rail-store { font-size: 19px; line-height: 23px; }
+    .rail-sub { font-size: 12px; }
+    .rail-nav { margin: 12px 0 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+    .rail-head { position: relative; height: auto; min-height: 58px; padding: 8px 2px 7px; flex-direction: column; justify-content: center; gap: 4px; border-radius: 14px; font-size: 11px; line-height: 14px; letter-spacing: -.01em; text-align: center; }
+    .rail-head .rail-label { flex: none; max-width: 100%; }
+    .rail-head .rail-chevron { display: none; }
+    .rail-head .rail-badge { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; }
+    .rail-group.open .rail-head { background: rgba(255, 255, 255, .14); }
+    .rail-items { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 4px; margin: 2px 0; padding: 4px 0; }
+    .rail-items::before { display: none; }
+    .rail-item { height: auto; min-height: 40px; padding: 4px 10px; gap: 8px; }
+    .rail-item .rail-label { white-space: normal; line-height: 17px; }  /* a long page name takes two lines instead of being cut */
+    .rail-me { padding: 8px 10px; border-radius: 18px; min-width: 0; gap: 10px; }
+    .rail-avatar { width: 36px; height: 36px; font-size: 15px; }
+    .rail-foot { margin-top: 0; }
+    .rail-apps { flex: none; height: auto; min-height: 48px; padding: 0 18px; }
+    .rail-clock { display: none; }
+
+    .page-head { gap: 10px 12px; padding: 2px 4px 0; }
+    .page-head > div:first-child { flex: 1 0 auto; max-width: 100%; }  /* the title keeps its width; tools that don't fit go under it */
+    .page-title { font-size: 28px; line-height: 34px; overflow-wrap: break-word; }
+    .title-line { flex-wrap: wrap; gap: 6px 10px; }
+    .head-tools { gap: 8px; max-width: 100%; }
+    .card { padding: 16px; border-radius: 20px; }
+    .editor-col .card, .editor-col.side .card { padding: 16px; }
+    .two-col, .editor-grid { grid-template-columns: minmax(0, 1fr); }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .stat, .stat.small { padding: 12px 14px; border-radius: 18px; }
+    .stat-value, .stat.small .stat-value { font-size: 24px; line-height: 30px; }
+    .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .seg-btn { flex: none; padding: 0 13px; white-space: nowrap; }
+    .search { width: 100%; }
+    .page-head:has(> .search) > div:first-child { flex-basis: 100%; }  /* title, then search and the New button side by side */
+    .page-head > .search { flex: 1 1 160px; width: auto; }
+    .pager-label { min-width: 0; padding: 0 6px; }
+    .thead { padding: 12px 16px 8px; }
+    .tbody { padding: 4px 6px 8px; }
+    .trow { padding: 0 10px; }
+    .outline-select { max-width: 100%; }
+    .leave-ask { flex-wrap: wrap; padding: 12px; }
+
+    .overlay { padding: 8px; align-items: flex-end; }
+    .sheet, .sheet.wide { max-height: calc(100dvh - 16px); padding: 18px 16px; border-radius: 24px; gap: 14px; }
+    .sheet-title { font-size: 22px; line-height: 28px; }
+    .sheet-foot { flex-wrap: wrap; }
+    .sheet-head:has(> .seg) { flex-wrap: wrap; }
+    .toasts { left: 12px; right: 12px; bottom: 16px; transform: none; align-items: center; }
+    .ro-tag { position: static; transform: none; align-self: center; }
+}
+@media (max-width: 370px) {
+    .rail-nav { gap: 2px; }
+    .rail-head { font-size: 10.5px; padding-left: 0; padding-right: 0; }  /* the longest section names still fit (uk: Налаштування) */
+}
 
 /* ---------- what someone's groups don't allow (layout.html: perm; admin_portal/access.py refuses it anyway) ---------- */
 
