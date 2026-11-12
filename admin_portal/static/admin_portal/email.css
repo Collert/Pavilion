@@ -57,6 +57,7 @@
 .em-always { height: 22px; padding: 0 9px; border-radius: 11px; background: var(--mint); color: var(--brand); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; display: inline-flex; align-items: center; }
 .em-when { color: var(--ink-2); margin-top: 2px; }
 .em-to { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #7C8A83; margin-top: 6px; }
+.em-to svg { flex: none; }
 .lg-sw { width: 44px; height: 26px; border: none; border-radius: 13px; padding: 3px; box-sizing: border-box; flex: none; display: flex; background: #C9D3CD; }
 .lg-sw span { width: 20px; height: 20px; border-radius: 10px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(20, 38, 31, .3); transition: transform .2s ease; }
 .lg-sw[aria-checked="true"] { background: var(--green); }
@@ -98,4 +99,12 @@ button.em-list:hover { box-shadow: inset 0 0 0 1.5px var(--brand); }
     .em-side { width: auto; }
     .em-lang { flex-wrap: wrap; }
     .em-lang-name { width: 100%; }
+}
+
+/* Phones: less padding around the cards, so their text keeps a readable line */
+@media (max-width: 560px) {
+    .em-main { padding: 16px 14px; }
+    .em-card { padding: 14px; }
+    .em-card-top { gap: 10px; }
+    .em-card-ic { width: 34px; height: 34px; border-radius: 11px; }
 }
