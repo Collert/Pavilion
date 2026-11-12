@@ -16,3 +16,10 @@ nav {
     gap: 1rem;
     align-items: center;
 }
+
+/* Phones: the logo and the links share the row without pushing the page wider than the screen */
+@media (max-width: 560px) {
+    header { gap: 12px; }
+    header img { min-width: 0; max-width: 50%; object-fit: contain; }
+    nav { flex-wrap: wrap; justify-content: flex-end; gap: .5rem; min-width: 0; }
+}
