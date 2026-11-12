@@ -18,7 +18,7 @@ requests~=2.32
 opencv-python~=4.10.0
 scikit-learn~=1.5.2
 numpy~=2.1
-Pillow~=11.0
+Pillow~=13.0
 
 # Recipes, gift card barcodes, email, web push, TTS announcements (joined with the ffmpeg binary)
 Markdown~=3.7
