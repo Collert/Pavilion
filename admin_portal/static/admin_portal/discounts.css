@@ -33,3 +33,10 @@
     .dc-switches, .dc-who { grid-template-columns: 1fr; }
     .dc-hours { flex-wrap: wrap; }
 }
+/* Phones: the seven days share one line, the quick picks sit under them */
+@media (max-width: 560px) {
+    .dc-days { gap: 4px; }
+    .dc-day { width: auto; flex: 1 1 0; min-width: 0; height: 40px; }
+    .dc-gap { width: 100%; height: 0; }
+    .dc-preset { height: 36px; background: var(--softer); }
+}

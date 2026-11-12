@@ -39,3 +39,7 @@
 .scrim { border: none; }
 @media (max-width: 1180px) { .au-grid { grid-template-columns: 1fr; } }
 .st-rows > .st-row { flex: none; }
+@media (max-width: 560px) {
+    .au-types { grid-template-columns: 1fr; }
+    .au-plays { flex-wrap: wrap; }
+}

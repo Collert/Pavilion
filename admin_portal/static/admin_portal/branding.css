@@ -84,3 +84,8 @@
     .brand-preview { height: 640px; flex: none; }
     .theme-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Phones: colour presets big enough to tap */
+@media (max-width: 560px) {
+    .presets { gap: 8px; }
+    .preset { width: 30px; height: 30px; border-radius: 15px; }
+}

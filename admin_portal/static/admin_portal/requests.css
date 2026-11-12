@@ -96,3 +96,14 @@
 .rq-reopen { height: 34px; padding: 0 14px; font-size: 12px; }
 .rq-reply { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--softer); font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .st-link { font-size: 13px; font-weight: 800; color: var(--brand); white-space: nowrap; text-decoration: none; }
+
+@media (max-width: 860px) {
+    .rq-list { width: auto; }
+}
+@media (max-width: 560px) {
+    .rq-card { padding: 18px 16px; }
+    .rq-shift { flex-wrap: wrap; row-gap: 2px; }
+    .rq-shift-date { width: auto; flex: 1; }
+    .rq-shift-what { order: 5; flex: none; width: 100%; padding-left: 18px; box-sizing: border-box; }
+    .rq-handle { grid-template-columns: 1fr; }
+}

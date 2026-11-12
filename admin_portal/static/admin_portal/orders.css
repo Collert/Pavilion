@@ -119,3 +119,39 @@
     .order-body { grid-template-columns: 1fr; }
     .services { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Phones: an order's row is number, when and who, total and status; the order page's tables and sheets stack */
+@media (max-width: 600px) {
+    .head-filters { flex: 1 1 100%; justify-content: flex-start; gap: 8px; }
+    .head-filters .search { flex: 1 1 180px; width: auto; }
+    .attr-filter { flex: 1 1 140px; max-width: none; min-width: 0; }
+    .thead.order-grid { display: none; }
+    .order-grid { grid-template-columns: 52px minmax(0, 1fr) auto 14px; gap: 2px 10px; }
+    .order-grid > :nth-child(5) { display: none; }
+    .order-row { padding: 10px; }
+    .order-row > :nth-child(1) { grid-row: 1 / 3; font-size: 15px; }
+    .order-row > :nth-child(2) { grid-column: 2; grid-row: 2; flex-direction: row; gap: 5px; align-items: baseline; font-size: 12px; color: var(--muted); }
+    .order-row > :nth-child(2) .strong { font-weight: 600; }
+    .order-row > :nth-child(3) { grid-column: 2; grid-row: 1; }
+    .order-row > :nth-child(3) .small { display: none; }
+    .order-row > :nth-child(6) { grid-column: 3; grid-row: 1; font-size: 15px; }
+    .order-row > :nth-child(7) { grid-column: 3; grid-row: 2; justify-self: end; }
+    .order-row > :nth-child(7) .status-chip { height: 22px; padding: 0 8px; font-size: 11px; }
+    .order-row > svg { grid-column: 4; grid-row: 1 / 3; }
+    .pages { flex-wrap: wrap; padding: 10px 12px 12px; }
+    .page-text { flex: 1 1 100%; }
+
+    .order-card, .side-card { padding: 16px; }
+    .item-grid { grid-template-columns: 30px minmax(0, 1fr) auto; gap: 4px 10px; }
+    .item-grid.mini-head > :nth-child(3), .item-grid.mini-head > :nth-child(4) { display: none; }
+    .item-row > :nth-child(3) { grid-column: 2; grid-row: 2; font-size: 12px; }
+    .item-row > :nth-child(4) { display: none; }
+    .item-row > :nth-child(5) { grid-column: 3; grid-row: 1; }
+    .totals { width: auto; margin-left: 0; }
+    .services { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .svc { height: 80px; }
+    .targets { flex-direction: column; }
+    .refund-row { flex-wrap: wrap; gap: 8px 12px; }
+    .refund-row .amount { width: auto; margin-left: auto; }
+    .refund-total { font-size: 28px; line-height: 34px; }
+}

@@ -99,3 +99,17 @@ form#add-ingredients .items{
     width: 100%;
     height: 99%;
 }
+/* Phones: the rows take the whole width and nothing runs off the side */
+@media (max-width: 520px) {
+    form#add-ingredients { padding: 0 12px; }
+    form#add-ingredients div:has(input[type="file"]), .item, form #submit { width: 100%; box-sizing: border-box; }
+    form#add-ingredients div:has(input[type="file"]) { grid-template-columns: 1fr; gap: 6px; }
+    form#add-ingredients input[type="file"] { width: 100%; min-width: 0; box-sizing: border-box; }
+    .item { --_item-height: 56px; grid-template-columns: minmax(0, 1fr) 52px; }
+    .item > div { grid-template-columns: minmax(0, 1fr) 5.5rem auto; grid-auto-flow: row; min-width: 0; }
+    .item > div > select, .item > div > input { min-width: 0; width: 100%; box-sizing: border-box; }
+    .item > div > input[type="number"] { width: 100%; }
+    .item > button.icon { width: 52px; }
+    #shopping_history { margin: 1rem; }
+    #shopping_history .shopping-occasion { height: 8rem; }
+}

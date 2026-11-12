@@ -1,5 +1,5 @@
 {% extends "admin_portal/layout.html" %}
-{% load static i18n admin_tags %}
+{% load static i18n l10n admin_tags %}
 {% comment %}
 Dashboard home (design: AdminDashboard). Numbers from admin_portal/dashboard.py. Range and "Open days only" are
 links (?range=, ?open=1); the chart is SVG drawn on the server with CSS-only hover tips. Refetched on "orders" and
@@ -62,7 +62,7 @@ links (?range=, ?open=1); the chart is SVG drawn on the server with CSS-only hov
             </div>
         </div>
         <div class="chart">
-            <svg role="img" aria-label="{{ c.title }}: {{ c.sub }}" viewBox="0 0 {{ c.w }} {{ c.h }}" preserveAspectRatio="none">
+            {% localize off %}{# numbers in SVG and CSS need a dot, whatever the language #}<svg role="img" aria-label="{{ c.title }}: {{ c.sub }}" viewBox="0 0 {{ c.w }} {{ c.h }}" preserveAspectRatio="none">
                 {% for g in c.grid %}<line x1="{{ c.left }}" x2="{{ c.right }}" y1="{{ g.y }}" y2="{{ g.y }}" stroke="#E6ECE8" stroke-width="1" vector-effect="non-scaling-stroke"/>{% endfor %}
                 {% for b in c.bars %}{% if b.closed %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="4" rx="2" fill="#D4DDD7"/>{% else %}<path d="{{ b.d }}" fill="#1F4A3A"{% if b.partial %} opacity=".45"{% endif %}/>{% endif %}{% endfor %}
                 <path d="{{ c.line }}" fill="none" stroke="#9AA8A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
@@ -70,7 +70,7 @@ links (?range=, ?open=1); the chart is SVG drawn on the server with CSS-only hov
             {% for g in c.grid %}<span class="y-label num" aria-hidden="true" style="top:calc({{ g.y }} / {{ c.h }} * 100% - 8px)">{{ g.label }}</span>{% endfor %}
             {% for p in c.dots %}<span class="dot" aria-hidden="true" style="left:calc({{ p.x }} / {{ c.w }} * 100%);top:calc({{ p.y }} / {{ c.h }} * 100%)"></span>{% endfor %}
             {% for x in c.labels %}<span class="x-label{% if x.strong %} strong{% endif %}" aria-hidden="true" style="left:calc({{ x.x }} / {{ c.w }} * 100%)">{{ x.label }}</span>{% endfor %}
-            <div class="hits" style="left:{{ c.hit_left }}%;right:{{ c.hit_right }}%;bottom:{{ c.hit_bottom }}%;grid-template-columns:repeat({{ c.hits|length }},minmax(0,1fr))">
+            <div class="hits" style="left:{{ c.hit_left }}%;right:{{ c.hit_right }}%;bottom:{{ c.hit_bottom }}%;grid-template-columns:repeat({{ c.hits|length }},minmax(0,1fr))">{% endlocalize %}
                 {% for h in c.hits %}
                 <div class="hit{% if forloop.counter > c.hits|length|add:'-4' %} hit-end{% endif %}" tabindex="0" aria-label="{{ h.title }}: {{ c.cur_label }} {{ h.cur }}, {{ h.prev_label }} {{ h.prev }}">
                     <div class="tip" role="tooltip">

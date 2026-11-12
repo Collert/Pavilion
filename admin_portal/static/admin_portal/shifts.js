@@ -71,3 +71,11 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") document.querySelector("#sh-drawer [data-close]")?.click();
 });
+
+// On a phone the timeline scrolls sideways (shifts.css): start it at the opening hour, not at midnight.
+const board = document.getElementById("sh-board");
+const opens = board?.querySelector(".sh-hour.open");
+if (board && opens && board.scrollWidth > board.clientWidth) {
+    const names = board.querySelector(".sh-label-col")?.offsetWidth || 0;
+    board.scrollLeft = Math.max(0, opens.getBoundingClientRect().left - board.getBoundingClientRect().left - names - 24);
+}

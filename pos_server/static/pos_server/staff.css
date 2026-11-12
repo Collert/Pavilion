@@ -313,7 +313,7 @@ dialog.sheet.w-lg { width: min(820px, calc(100vw - 32px)); }
         padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0;
     }
     .sheet-foot { flex-wrap: wrap; gap: 8px; }
-    .sheet-foot > div.grow { flex-basis: 100%; }
+    .sheet-foot > .grow { flex-basis: 100%; }
     .sheet-foot > .btn, .sheet-foot > .btn-link { flex: 1 1 auto; }
     .toast { top: 16px; max-width: calc(100vw - 32px); height: auto; min-height: 52px; padding: 8px 18px 8px 8px; }
 }

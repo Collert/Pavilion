@@ -244,3 +244,40 @@
 .sh-punch-head .lbl { margin: 0; }
 .sh-punch { display: flex; gap: 8px; font-size: 13px; font-weight: 700; }
 .sh-punch .num { color: var(--muted); }
+
+/* Phones: the timeline keeps a readable width and scrolls sideways under its names; pars stack each role over its strip */
+@media (max-width: 700px) {
+    .sh-board { overflow-x: auto; }
+    .sh-hours, .sh-scroll { min-width: 820px; }
+    .sh-scroll { overflow-y: visible; }
+    .sh-hours, .sh-row { background: var(--surface); }
+    .sh-row.open { background: #FFFBF3; }
+    .sh-label-col { width: 150px; position: sticky; left: 0; z-index: 5; background: inherit; }
+    .sh-cov-row .sh-label-col { background: #FBFCFB; }
+    .sh-who { padding: 6px 8px 6px 12px; gap: 8px; }
+    .sh-cov-name { padding: 0 12px; }
+    .sh-day-title { padding-left: 12px; }
+    .sh-legend { flex-wrap: wrap; gap: 4px 14px; position: sticky; left: 0; max-width: calc(100vw - 24px); box-sizing: border-box; }
+    .sh-head-row { position: sticky; left: 0; max-width: calc(100vw - 24px); box-sizing: border-box; padding-left: 12px; }
+    .sh-foot { position: sticky; left: 0; flex-wrap: wrap; gap: 4px 14px; padding: 10px 14px; }
+    .sh-foot .grow { display: none; }
+    .sh-foot > span:last-child { flex-basis: 100%; }
+    .sh-drawer { top: 8px; right: 8px; bottom: 8px; max-width: calc(100vw - 16px); }
+
+    .sp-scale, .sp-wins { padding-left: 0; }
+    .sp-role-top { flex-wrap: wrap; gap: 6px; }
+    .sp-role-name { width: 100%; padding-right: 0; }
+    .sp-role-name .strong { display: inline; margin-right: 6px; }
+    .sh-day { min-width: 108px; }
+    .sp-strip { flex-basis: 100%; }
+    .sp-day-head { flex-wrap: wrap; }
+    .sp-days { gap: 4px; }
+    .sp-day { padding: 8px 2px; }
+    .sp-day-sub { font-size: 10px; }
+    .sp-season, .sp-modes { grid-template-columns: 1fr; }
+    .sp-win { display: flex; width: 100%; height: 44px; box-sizing: border-box; }
+    .sp-win select { flex: 1; min-width: 0; height: 34px; font-size: 13px; }
+    .sp-step button, .sp-win > button { width: 32px; height: 34px; }
+    .sp-add { height: 40px; }
+    .sp-copy-pop { width: min(300px, calc(100vw - 64px)); }
+}

@@ -307,7 +307,7 @@ a { color: inherit; }
     .acct-detail.wide { width: auto; }
     .acct-shift, .acct-ask, .acct-req, .acct-bar-card { flex-wrap: wrap; }
     .acct-bar-card > .grow, .acct-ask > .grow, .acct-req > .grow { flex-basis: 100%; }
-    .acct-hours { margin-right: 0; }
+    .acct-hours { margin-right: 90px; }  /* the width of .acct-avail-txt, so the ruler lines up with the bars */
     .acct-avail-txt { width: 90px; }
 }
 
@@ -320,3 +320,49 @@ a { color: inherit; }
 .acct-switch.on > span { transform: translateX(18px); }
 .acct-toggle.as-button:focus-visible .acct-switch { outline: 3px solid var(--brand); outline-offset: 2px; }
 .acct-blocked { color: var(--red-ink); }
+
+/* Phones: rows that held four things side by side stack into two lines (placed last so it wins) */
+@media (max-width: 560px) {
+    .acct-title { font-size: 28px; line-height: 34px; }
+    .acct-head { flex-wrap: wrap; }
+    .acct-card { padding: 18px 16px; }
+    .acct-card.list { padding: 8px; }
+    .acct-card-head { flex-wrap: wrap; row-gap: 4px; }
+    .acct-card-head > .grow { flex: 1 1 auto; }
+    /* an order: the date and what it was, then the total and its state under the name */
+    .acct-row { flex-wrap: wrap; gap: 6px 12px; }
+    .acct-row > .grow { flex-basis: calc(100% - 58px); }
+    .acct-row > .acct-amt { width: auto; margin-left: 58px; }
+    /* what's happening now / the next shift */
+    .acct-live { flex-wrap: wrap; gap: 12px 14px; padding: 18px; }
+    .acct-live > .grow { flex-basis: calc(100% - 72px); }
+    .acct-live > .acct-btn { flex: 1; }
+    .acct-live .acct-live-text { font-size: 22px; }
+    .acct-week { flex: 1 1 100%; display: flex; align-items: baseline; gap: 8px; text-align: left; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .12); }
+    /* a shift: its buttons go under the time */
+    .acct-shift > .grow { flex-basis: calc(100% - 75px); }
+    .acct-shift > .grow + * { margin-left: 75px; }
+    /* a saved card: its buttons go under the name */
+    .acct-wallet:has(.acct-brand-mark) { flex-wrap: wrap; row-gap: 8px; }
+    .acct-wallet:has(.acct-brand-mark) > .grow { flex-basis: calc(100% - 58px); }
+    .acct-wallet:has(.acct-brand-mark) > .grow + * { margin-left: 58px; }
+    .acct-sec-head { flex-wrap: wrap; row-gap: 2px; }
+    /* the hours ruler has to end where the bars do: both leave the same room for the times */
+    .acct-avail-txt { width: 110px; }
+    .acct-hours { margin-right: 110px; }
+    /* the photo: its buttons go under the text */
+    .acct-photo > .grow { flex-basis: calc(100% - 76px); }
+    .acct-photo > .grow + * { margin-left: 76px; }
+    .acct-mini { flex: none; white-space: nowrap; }
+    .acct-modal { padding: 20px 18px; border-radius: 24px; }
+    .acct-md-btns { flex-wrap: wrap; }
+    .acct-form-btns { flex-wrap: wrap; }
+    .acct-btn { max-width: 100%; }
+    .acct-toasts { width: max-content; max-width: calc(100vw - 24px); }
+    .acct-toast { border-radius: 22px; padding: 12px 18px; text-align: center; }
+}
+/* The narrowest phones: date fields get a line each, and the hours ruler shows every other mark */
+@media (max-width: 380px) {
+    .acct-two-col:has(input[type="date"]), .acct-two-col:has(input[type="time"]) { grid-template-columns: minmax(0, 1fr); }
+    .acct-hours span:nth-child(even) { display: none; }
+}

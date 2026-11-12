@@ -285,7 +285,7 @@
     .nb-co-grid, .nb-placed { grid-template-columns: 1fr 380px; }
 }
 @media (max-width: 960px) {
-    .nb-menu-body, .nb-co-grid, .nb-placed { grid-template-columns: 1fr; }
+    .nb-menu-body, .nb-co-grid, .nb-placed { grid-template-columns: minmax(0, 1fr); }  /* minmax: a long word can't push the page wider than the screen */
     .nb-notify { flex-wrap: wrap; }
     .nb-notify .nb-btn { width: 100%; }
     .nb-order-box, .nb-summary { position: static; }
@@ -312,6 +312,22 @@
     .nb-sheet-body { padding: 20px 18px 0; }
     .nb-sheet-foot { margin: 16px -18px 0; padding: 12px 18px 18px; }
     .nb-sheet-top h2 { font-size: 28px; }
+    /* a cart line: picture and name on top, then the stepper and the price under the name */
+    .nb-co-row { gap: 10px 16px; }
+    .nb-co-row > .nb-grow { flex-basis: calc(100% - 72px); }
+    .nb-co-row > .nb-stepper { margin-left: 72px; }
+    .nb-co-row > .nb-co-price { width: auto; margin-left: auto; }
+    .nb-card-head h2 { flex: 1 1 auto; }
+    /* an option's hint drops under its name instead of squeezing it to nothing */
+    .nb-option:not(.big) { flex-wrap: wrap; row-gap: 2px; }
+    .nb-option:not(.big) > .nb-grow { flex-basis: 50%; }
+    .nb-time-row > .nb-grow { flex-basis: 100%; }
+    .nb-code-row .nb-input { min-width: 0; }
+    .nb-code-row .nb-btn { padding: 0 16px; }
+    .nb-notify { padding: 16px; gap: 12px; }
+    /* long labels (other languages) wrap inside the button instead of widening the page */
+    .nb-notify .nb-btn, .nb-sheet-foot .nb-btn, .nb-summary .nb-btn, .nb-gift-buy, .nb-quote-foot .nb-btn { white-space: normal; text-align: center; line-height: 1.15; max-width: 100%; }
+    .nb-sheet-foot .nb-btn { min-width: 0; padding: 0 14px; }
 }
 
 
