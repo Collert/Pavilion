@@ -246,13 +246,14 @@ a.nb-hero-bubble:hover { transform: scale(1.05); }
     .nb-bar { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
     .nb-brand-name { font-size: clamp(19px, 5.6vw, 24px); }
     .nb-footer { padding-bottom: calc(28px + var(--dock)); }
-    .nb-toasts { bottom: calc(var(--dock) + 12px); }
+    body.nb .nb-toasts { bottom: calc(var(--dock) + 12px); }  /* body.nb: ordering.css sets the desktop spot and loads later */
 
     .nb-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-        padding: 6px 8px env(safe-area-inset-bottom); background: var(--card); border-top: var(--rule); }
-    .nb-dock a { height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none;
-        font-size: 12px; font-weight: 700; color: var(--soft-ink); -webkit-tap-highlight-color: transparent; }
-    .nb-dock-icon { width: 56px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; transition: background-color .2s ease; }
+        padding: 3px 8px calc(3px + env(safe-area-inset-bottom)); background: var(--card); border-top: var(--rule); }
+    .nb-dock a { height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; text-decoration: none;
+        font-size: 12px; font-weight: 700; color: var(--soft-ink); -webkit-tap-highlight-color: transparent;
+        min-width: 0; padding: 6px 2px 0; text-align: center; line-height: 1.1; overflow-wrap: anywhere; }  /* from the top, so a two-line label (other languages) keeps its icon in line with the rest */
+    .nb-dock-icon { width: 56px; height: 28px; flex: none; border-radius: 15px; display: flex; align-items: center; justify-content: center; transition: background-color .2s ease; }
     .nb-dock-icon .nb-avatar { width: 26px; height: 26px; font-size: 11px; }
     .nb-dock a[aria-current="page"] { color: var(--ink); }
     .nb-dock a[aria-current="page"] .nb-dock-icon { background: var(--ink); color: var(--paper); }
@@ -263,6 +264,7 @@ a.nb-hero-bubble:hover { transform: scale(1.05); }
         animation: nbToast .26s cubic-bezier(.2, .8, .2, 1) both; }
     .nb-cartbar-count { min-width: 36px; height: 36px; padding: 0 8px; border-radius: 18px; background: var(--card); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 15px; }
 }
+@media (max-width: 360px) { .nb-dock { padding-left: 4px; padding-right: 4px; } .nb-dock a { font-size: 11px; } }  /* small phones: long labels still fit their tab */
 @media (prefers-reduced-motion: reduce) { .nb *, .nb *::before, .nb *::after { animation: none !important; transition: none !important; } }
 
 /* The language picker (_language.html): a pill that opens the list of the store's languages */

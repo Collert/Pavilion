@@ -46,6 +46,7 @@
 .hist-row-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px 10px 24px; border-bottom: 1px solid var(--disabled); flex: none; }
 .hist-rows { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 12px; scrollbar-width: thin; }
 .c-num { width: 76px; flex: none; }
+.hist-row-head > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }  /* a long translation never runs into the next column */
 .c-pay { width: 150px; flex: none; }
 .c-total { width: 92px; flex: none; text-align: right; }
 .c-status { width: 128px; flex: none; display: flex; justify-content: flex-end; text-align: right; }
@@ -175,4 +176,52 @@
     .hist-detail { width: auto; flex: none; min-height: 50dvh; }
     .hist-search { width: 200px; }
     .hist-targets { flex-direction: column; }
+}
+
+/* Phones: the search under the title, columns that fit, and sheets that rise from the bottom edge */
+@media (max-width: 520px) {
+    .hist-head { flex-wrap: wrap; gap: 8px 12px; }
+    .hist-search { width: 100%; flex: none; }
+    .hist-seg > a, .hist-seg > button, .hist-seg > span { padding: 0 14px; font-size: 14px; }
+    .hist-list { min-height: 70dvh; }
+    .hist-table, .hist-detail { border-radius: 24px; }
+    .hist-row-head { padding: 12px 20px 8px 24px; gap: 8px; }
+    .hist-row-head > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist-row { gap: 8px; }
+    .c-num { width: 64px; }
+    .c-total { width: 72px; }
+    .c-status { width: 84px; }
+    .hist-chip { padding: 0 9px; font-size: 11px; }
+    .hist-pages { padding: 10px 12px; gap: 4px; flex-wrap: wrap; justify-content: center; }
+    .hist-pg { min-width: 40px; height: 40px; }
+    .hist-d-head { padding: 20px 20px 12px; }
+    .hist-d-body { padding: 0 20px 12px; }
+    .hist-d-foot { padding: 12px 16px 16px; }
+    .hist-d-row { flex-wrap: wrap; }
+    .hist-d-row .btn { flex: 1 1 40%; }
+
+    .hist-overlay { padding: 0; align-items: flex-end; }
+    .hist-sheet, .hist-sheet.narrow { width: 100%; max-height: 92dvh; border-radius: 28px 28px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); gap: 14px; }
+    .hist-sheet-title { font-size: 24px; line-height: 30px; }
+    .hist-sheet .sheet-head { flex-wrap: wrap; gap: 10px; }
+    .hist-sheet .sheet-head > .hist-seg { width: 100%; }
+    .hist-sheet .sheet-head > .hist-seg > * { flex: 1; }
+    .hist-refund-pick { gap: 12px; }
+    .hist-sheet-btns { flex-wrap: wrap; }
+    .hist-sheet-btns .btn { flex: 1 1 auto; }
+    .hist-r-row { gap: 8px; flex-wrap: wrap; }
+    .hist-r-row > .grow { flex-basis: 100%; }
+    .hist-r-row .hist-amt { width: auto; margin-left: auto; }
+    .hist-refund-total { font-size: 26px; }
+}
+
+/* The narrowest phones: every column gives a little so the customer keeps some room */
+@media (max-width: 360px) {
+    .hist-row { padding: 8px 6px 8px 8px; gap: 6px; }
+    .hist-row-head { padding: 12px 16px 8px 18px; gap: 6px; }
+    .c-num { width: 58px; }
+    .c-total { width: 62px; }
+    .c-status { width: 56px; }
+    .hist-total { font-size: 15px; }
+    .hist-chip { padding: 0 7px; }
 }

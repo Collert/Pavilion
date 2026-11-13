@@ -206,6 +206,35 @@
     .nb-banner-btns { width: 100%; }
     .nb-banner-btns .nb-btn { flex: 1; }
     .nb-send-sheet { padding: 22px; }
+    /* a step's heading: the number and the title, with its pill under the title */
+    .nb-step-head { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 6px 12px; }
+    .nb-step-head h2 { font-size: 28px; }
+    .nb-step-head > :nth-child(n+3) { grid-column: 2; justify-self: start; }
+    .nb-cq-when { grid-template-columns: minmax(0, 1fr); }  /* the calendar never wider than its card */
+    .nb-cal-month { width: auto; min-width: 0; padding: 0 4px; }
+    /* a dish: picture and name on top, then Add (or the stepper) and its total */
+    .nb-food { gap: 10px 14px; }
+    .nb-food > .nb-grow { flex-basis: calc(100% - 86px); }
+    .nb-food > .nb-btn, .nb-food > .nb-stepper { margin-left: 86px; }
+    .nb-food > .nb-co-price { width: auto; margin-left: auto; }
+    /* a service: what it is on top, then Add (or the steppers) and its total */
+    .nb-svc { gap: 10px; }
+    .nb-svc > .nb-grow { flex-basis: 100%; }
+    .nb-svc > .nb-co-price { width: auto; margin-left: auto; }
+    /* a request: the status under the title, lines that leave room for their names */
+    .nb-req-title { gap: 12px; }
+    .nb-req-title .nb-page-title { flex-basis: 100%; overflow-wrap: anywhere; }
+    .nb-req-status { margin-bottom: 0; }
+    .nb-req-line { flex-wrap: wrap; gap: 6px 10px; padding: 12px 14px; }
+    .nb-req-line > .nb-grow { flex-basis: 45%; }
+    .nb-req-qty, .nb-req-line .nb-co-price { width: auto; }
+    .nb-req-line .nb-co-price { min-width: 64px; margin-left: auto; }
+    .nb-req-totals .big { flex-wrap: wrap; font-size: 24px; }
+    .nb-req-totals .big s { font-size: 16px; }
+    .nb-banner-box { padding: 18px; gap: 14px; }
+    .nb-banner-head { font-size: 22px; }
+    .nb-req-add-row { flex-wrap: wrap; }
+    .nb-req-add-row > span { flex-basis: 100%; }
 }
 
 /* ---------- events and services (design: StoreServices) ---------- */
@@ -259,4 +288,11 @@
     .nb-venue-art { min-height: 180px; }
     .nb-svc-grid, .nb-svc-grid.cols-4 { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 560px) { .nb-svc-grid, .nb-svc-grid.cols-4 { grid-template-columns: 1fr; } .nb-svc-card { min-height: 0; } }
+@media (max-width: 560px) {
+    .nb-svc-grid, .nb-svc-grid.cols-4 { grid-template-columns: 1fr; }
+    .nb-svc-card { min-height: 0; }
+    .nb-svc-head { row-gap: 4px; }
+    .nb-svc-head .nb-h2 { flex: 1 1 auto; }  /* its note goes under it */
+    .nb-venue-text { padding: 24px 22px; }
+    .nb-venue-foot { flex-wrap: wrap; }
+}

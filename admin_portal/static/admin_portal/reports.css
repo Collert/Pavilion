@@ -89,3 +89,41 @@ a.cal-cell:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -6px rgba
     .days-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 60px 80px 70px 16px; }
     .days-grid > :nth-child(6), .days-grid > :nth-child(7) { display: none; }
 }
+
+/* Phones: the month table keeps date, sales, orders and the average; the day report's tables drop their extra columns */
+@media (max-width: 600px) {
+    .days-grid { grid-template-columns: minmax(0, 1fr) 68px 50px 68px 14px; gap: 8px; }
+    .days-grid > :nth-child(5) { display: none; }
+    .days-grid > :first-child { white-space: nowrap; }
+    .thead.days-grid { font-size: 11px; letter-spacing: .03em; }
+    .thead.days-grid > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sales-track { display: none; }
+    .sales-cell .num { width: auto; }
+    .calendar { min-height: 0; padding: 12px 8px; }
+    .cal-head, .cal-grid { gap: 3px; }
+    .cal-head span { padding: 0 0 6px; text-align: center; font-size: 10px; letter-spacing: 0; }
+    .cal-cell { min-height: 62px; padding: 6px 3px; border-radius: 10px; align-items: center; text-align: center; overflow: hidden; }
+    .cal-top { font-size: 12px; flex-direction: column; gap: 2px; }
+    .best { height: 6px; width: 6px; padding: 0; font-size: 0; }
+    .cal-sales { font-size: 12.5px; line-height: 18px; letter-spacing: -.03em; }
+    .cal-orders, .cal-note { font-size: 10px; line-height: 12px; }
+
+    .day-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .section, .station-mix { padding: 16px; }
+    .dish-grid { grid-template-columns: minmax(0, 1fr) 40px 64px; gap: 10px; }
+    .dish-grid > :nth-child(2), .dish-grid > :nth-child(5) { display: none; }
+    .use-grid, .use-grid.wide { grid-template-columns: minmax(0, 1fr) 76px 64px; gap: 10px; }
+    .station-mix { gap: 16px; }
+    .mix-side { width: auto; }
+    .donut { margin: 16px auto 0; }
+    .station-grid { grid-template-columns: minmax(0, 1fr) 44px 52px 68px; gap: 8px; }
+    .station-grid > :nth-child(5) { display: none; }
+    .attr-grid { grid-template-columns: minmax(0, 1fr) 60px 76px; }
+    .slot-grid { grid-template-columns: 108px minmax(0, 1fr) 56px; gap: 8px; }
+    .prep-grid { grid-template-columns: 108px minmax(0, 1fr) 42px 38px; gap: 8px; }
+    .slot-row { font-size: 12px; padding: 0 4px; }
+    .section .slot-grid.mini-head, .section .prep-grid.mini-head { padding-left: 4px; padding-right: 4px; }
+    .slot-time { white-space: nowrap; }
+    .mini-head { font-size: 11px; letter-spacing: .03em; }
+    .mini-head > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}

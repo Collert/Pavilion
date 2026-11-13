@@ -677,7 +677,8 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   ingredients, and the last 7 days (sold includes combos; sales and profit count it sold on its own).
   `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped; a form with `data-queue`
   (and `data-search`) sends its last submit after one in flight instead of dropping it; `data-keep` regions are left
-  alone by background answers.
+  alone by background answers. Following a `data-live` link takes focus out of the field you were in, so the
+  region it sat in is swapped too (Safari doesn't move focus to a clicked link).
 - **Combos** (`admin_combos`, `combos.py`): 30-day KPIs (sold, average saving against the default picks bought
   separately, upcharge revenue, best seller), All/Active/Hidden(/Archived) filters, search by combo or dish, rows
   with choices, price, saving, sold and % upgraded. The editor is one form like the dish editor: a photo

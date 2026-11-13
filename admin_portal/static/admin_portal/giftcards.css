@@ -139,3 +139,20 @@
     .gc-designs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .cp-two, .gc-sends { grid-template-columns: 1fr; }
 }
+
+/* Phones: the search drops under the tabs, and a row keeps the card, who has it and what's left */
+@media (max-width: 560px) {
+    .gc-top { flex-wrap: wrap; }
+    .gc-tabs { flex: 1; }
+    .gc-tabs button { flex: 1; justify-content: center; }
+    .gc-top .tm-search { flex-basis: 100%; }
+    .gc-cols { display: none; }
+    .gc-rows { padding: 6px 8px 10px; }
+    .gc-row { gap: 10px; padding: 0 10px; }
+    .gc-c-card { width: auto; gap: 8px; }
+    .gc-c-bal { width: 68px; }
+    .gc-bal-top { justify-content: flex-end; }
+    .gc-bal-top .tiny { display: none; }
+    .gc-bar { width: 100%; }
+    .gc-c-src, .gc-c-last { display: none; }
+}

@@ -492,6 +492,13 @@
     .gd-card-num { font-size: 20px; }
 }
 
+/* Short phones: the open order (and paying) scrolls as a whole instead of squeezing its lines away */
+@media (max-width: 640px) and (orientation: portrait) and (max-height: 720px) {
+    .order-panel.open .panel-view { overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+    .order-panel.open .panel-view > * { flex-shrink: 0; }
+    .order-panel.open .lines { flex: none; overflow: visible; }
+}
+
 /* Screens sheet: announce (and pair) */
 .reg-screens-btn { flex: none; max-width: 200px; }
 .card-actions { display: flex; gap: 14px; flex: none; }

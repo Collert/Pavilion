@@ -97,3 +97,12 @@
     .now-card { width: auto; }
     .dash-bottom { grid-template-columns: 1fr; }
 }
+
+/* Phones: tighter number cards; the chart's legend goes under its title */
+@media (max-width: 600px) {
+    .kpis { gap: 8px; }
+    .kpi-value { font-size: 28px; line-height: 34px; margin-top: 8px; }
+    .dash-mid { gap: 12px; }
+    .chart-card > .card-head { flex-wrap: wrap; gap: 4px 12px; }
+    .legend { gap: 12px; }
+}

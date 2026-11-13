@@ -185,3 +185,8 @@ a.button:active:not(.no-style) span {
     gap: 1rem;
     flex-direction: column;
 }
+/* Phones: keep the sign-up form off the screen's edges */
+@media (max-width: 560px) {
+    #register form { width: 100%; box-sizing: border-box; padding: 24px 16px; }
+    #register form input, #register form button { box-sizing: border-box; max-width: 100%; min-height: 44px; }
+}

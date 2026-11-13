@@ -274,6 +274,10 @@ export function livePage({ topics = [] } = {}) {
         const link = event.target.closest("a[data-live]");
         if (link && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
             event.preventDefault();
+            // Following a link leaves the field you were in. Browsers that don't move focus to a clicked link
+            // (Safari) would keep it "being typed in", and its region would stay as it was: on the admin's Devices
+            // page, picking another device changed the address and the list but not the device's card
+            if (document.activeElement?.matches("input, textarea")) document.activeElement.blur();
             act(link.href, {});
             return;
         }

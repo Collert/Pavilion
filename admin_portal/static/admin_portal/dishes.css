@@ -158,3 +158,36 @@ select.add-opt { max-width: 200px; }
     .basics { flex-direction: column; }
     .editor-grid { grid-template-columns: 1fr; }
 }
+
+/* Phones: a dish's row is its picture, name, price and whether it's on */
+@media (max-width: 600px) {
+    .dish-grid { grid-template-columns: 44px minmax(0, 1fr) auto 14px; gap: 2px 10px; }
+    .dish-row { padding: 8px 6px; }
+    .dish-thumb { width: 44px; height: 44px; border-radius: 12px; grid-row: 1 / 3; font-size: 19px; }
+    .dish-main { grid-column: 2; grid-row: 1 / 3; }
+    .dish-name-line { flex-wrap: wrap; gap: 3px 5px; }
+    .dish-name-line .dish-name { flex: 1 1 100%; }
+    .dish-row .dish-price { grid-column: 3; grid-row: 1; text-align: right; align-self: end; }
+    .dish-row .avail-cell { grid-column: 3; grid-row: 2; justify-self: end; align-self: start; }
+    .dish-row > svg { grid-column: 4; grid-row: 1 / 3; }
+
+    /* the editor */
+    .basics { gap: 14px; }
+    .basics-form { grid-template-columns: minmax(0, 1fr) 112px; gap: 10px; }
+    .cater-min, .min-form { flex-wrap: wrap; }
+    /* a quantity break: its two fields and the remove button, then what it saves and its food cost */
+    .mini-thead.tier-grid > :nth-child(n+3), .mini-thead.part-grid { display: none; }
+    .tier-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; gap: 6px 8px; }
+    .mini-line.tier-grid > .saving { grid-column: 1 / 3; grid-row: 2; }
+    .mini-line.tier-grid > .cost { grid-column: 3; grid-row: 2; white-space: nowrap; justify-self: end; }
+    .mini-line.tier-grid > .x-btn { grid-column: 3; grid-row: 1; }
+    /* a recipe part: its name and the remove button, then the amount and what it costs */
+    .part-grid { grid-template-columns: minmax(0, 1fr) auto auto 32px; gap: 6px 10px; }
+    .mini-line.part-grid > .part-name { grid-column: 1 / 4; grid-row: 1; }
+    .mini-line.part-grid > .x-btn { grid-column: 4; grid-row: 1; }
+    .mini-line.part-grid > .unit-field { grid-column: 1; grid-row: 2; max-width: 150px; }
+    .mod-top { flex-wrap: wrap; }
+    .mod-top > .mod-name, .mod-top > .mod-title, .mod-top > .grow { flex: 1 1 100%; }
+    .opt-name { width: 96px; }
+    .card-head > .outline-btn, .card-head > form > .outline-btn { white-space: nowrap; flex: none; }
+}

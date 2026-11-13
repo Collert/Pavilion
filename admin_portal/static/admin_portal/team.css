@@ -421,3 +421,22 @@
     .cu-wide { grid-column: auto; }
     .cu-date, .cu-ch { display: none; }
 }
+
+/* Phones: lists take the page's width, rows that held five things in a line break into two */
+@media (max-width: 860px) {
+    #roles-list { width: auto !important; }
+}
+@media (max-width: 560px) {
+    .gp-data-head { padding: 0 16px; }
+    .gp-data-head > .grow { flex-basis: 100%; }
+    .sc-people .rl-person { flex-wrap: wrap; row-gap: 2px; padding: 8px 6px 6px 8px; }
+    .sc-people .rl-person .two-line { flex-basis: calc(100% - 48px); }
+    .sc-people .sc-bal { margin-left: 48px; margin-right: auto; align-items: flex-start; text-align: left; }
+    .sc-print, .sc-revoke { height: 36px; padding: 0 12px; }
+    .sc-issue select.field { flex-basis: 100%; }
+    .sc-issue .sc-seg { flex: 1; }
+    .cu-photo .tiny { white-space: nowrap; }
+    .cu-order { height: auto; min-height: 44px; flex-wrap: wrap; row-gap: 2px; padding: 8px 10px; }
+    .cu-order .cu-no { flex: 1; }
+    .cu-order .cu-items { order: 5; flex: none; width: 100%; }
+}
