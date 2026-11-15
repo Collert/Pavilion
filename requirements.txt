@@ -27,3 +27,4 @@ segno~=1.6
 pywebpush~=2.0
 gTTS~=2.5
 sentry-sdk~=2.0
+tzdata>=2026.6
