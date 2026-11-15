@@ -3,7 +3,7 @@
 **Self-hosted restaurant software that runs the whole place: the till, the kitchen, the online store, the couriers,
 the TVs on the wall and the music in the dining room.**
 
-![Pavilion](https://github.com/user-attachments/assets/a5b7b5e8-17d0-422f-96b7-feb51789cf3c)
+<img width="200" height="200" alt="pavilion" src="https://github.com/user-attachments/assets/f6e6548c-b612-4ca1-bfd1-cabad69a5813" />
 
 Pavilion is one Django app that replaces the half-dozen subscriptions a small restaurant usually pays for. It's built
 for touch screens and kitchen TVs, it updates live everywhere at once, and you host it yourself: your data, your
