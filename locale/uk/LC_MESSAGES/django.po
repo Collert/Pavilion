@@ -23118,9 +23118,13 @@ msgstr "Повідомити про помилку"
 msgid "Request a feature"
 msgstr "Запропонувати функцію"
 
-#: app_switcher/templates/app_switcher/index.html
+#: app_switcher/views.py
 msgid "Give feedback"
 msgstr "Залишити відгук"
+
+#: app_switcher/views.py
+msgid "Report a bug or request a feature"
+msgstr "Повідомити про помилку або запропонувати функцію"
 
 #: online_store/templates/themes/neighbourhood/_header.html:11
 #, python-format

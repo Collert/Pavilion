@@ -310,6 +310,7 @@ Every rail ends with `rail_foot.html`: Apps, Lock (register screens only), a div
 `docs/mockups/App switcher-html`) is staff-only and almost query-free (session, user, and the device's name): its
 "Today on this device" numbers (sales and orders rung up, KDS tickets moved, time since the first screen) live in the
 tab's `sessionStorage` (`device-stats.js`, reset daily), bumped by the register and the KDS.
+Its last tile, Give feedback (`views.FEEDBACK`), is for everyone and opens Hamlet's feedback page in a new tab.
 In portrait the rail is a row along the bottom (`staff.css`) and each screen stacks its panels: the register's menu
 above the order, the drawer's and lock screen's panels top to bottom, the KDS header above the list. On phones
 (portrait, 640px wide or less) the rail drops its logo and clock and its items share the row, sheets rise from the

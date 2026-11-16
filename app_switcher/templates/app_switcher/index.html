@@ -52,11 +52,6 @@
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"></path><path d="M10 16l-4-4 4-4"></path><path d="M6 12h10"></path></svg>
             {% trans "Sign out" %}
         </a>
-        {# Bugs and feature requests go to Hamlet, the project Pavilion is part of. #}
-        <a class="ov-btn quiet" href="https://hamlet.software/feedback" target="_blank" rel="noopener">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"></path></svg>
-            {% trans "Give feedback" %}
-        </a>
     </div>
 </aside>
 
@@ -70,7 +65,7 @@
     </header>
     <nav class="app-grid" aria-label="{% trans 'Apps' %}">
         {% for app in apps %}
-        <a class="app-card tile-in" href="{{ app.url }}" style="animation-delay: {% widthratio forloop.counter0 1 40 %}ms">
+        <a class="app-card tile-in" href="{{ app.url }}"{% if app.external %} target="_blank" rel="noopener"{% endif %} style="animation-delay: {% widthratio forloop.counter0 1 40 %}ms">
             <span class="app-icon" style="background: {{ app.bg }}; color: {{ app.fg }}">
                 <svg aria-hidden="true" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ app.path }}"></path></svg>
             </span>

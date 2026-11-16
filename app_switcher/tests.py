@@ -26,7 +26,9 @@ class AppSwitcherTests(TestCase):
 
     def test_links_to_feedback(self):
         self.client.force_login(self.staff)
-        self.assertContains(self.client.get(reverse("app_switcher_index")), 'href="https://hamlet.software/feedback"')
+        response = self.client.get(reverse("app_switcher_index"))
+        self.assertEqual(str(response.context["apps"][-1]["title"]), "Give feedback")
+        self.assertContains(response, 'href="https://hamlet.software/feedback" target="_blank"')
 
     def test_apps_by_role(self):
         self.client.force_login(self.staff)
@@ -39,11 +41,12 @@ class AppSwitcherTests(TestCase):
         nobody = User.objects.create_user("new", password="x", is_staff=True)
         self.client.force_login(nobody)
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
-        self.assertEqual(titles, ["Time clock", "My profile"])  # everyone clocks in and has a profile
+        # everyone clocks in, has a profile and can give feedback
+        self.assertEqual(titles, ["Time clock", "My profile", "Give feedback"])
         self.assertContains(self.client.get(reverse("crafting")), "Ask a manager", status_code=403)
         crew(nobody, "app.cookery")
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]
-        self.assertEqual(titles, ["Cookery", "Time clock", "My profile"])
+        self.assertEqual(titles, ["Cookery", "Time clock", "My profile", "Give feedback"])
         self.assertEqual(self.client.get(reverse("crafting")).status_code, 200)
         self.client.force_login(self.boss)
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]

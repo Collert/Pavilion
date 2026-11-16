@@ -37,6 +37,14 @@ APPS = [
      "#F1F4F2", "#14261F", "app.admin"),
 ]
 
+# The last tile, for everyone: bugs and feature requests go to Hamlet, the project Pavilion is part of.
+FEEDBACK = {
+    "url": "https://hamlet.software/feedback", "external": True,
+    "title": _("Give feedback"), "desc": _("Report a bug or request a feature"),
+    "path": "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z M8 10h8 M8 13h5",
+    "bg": "#E3EEF2", "fg": "#1F5566",
+}
+
 
 def device_name(request):
     """This device's name if it's registered (one indexed lookup), else None."""
@@ -57,6 +65,7 @@ def index(request):
     user = request.user
     apps = [{"url": reverse(name), "title": title, "desc": desc, "path": path, "bg": bg, "fg": fg}
             for name, title, desc, path, bg, fg, code in APPS if code is None or can(user, code)]
+    apps.append(FEEDBACK)
     return render(request, "app_switcher/index.html", {
         "apps": apps,
         "device_name": device_name(request),

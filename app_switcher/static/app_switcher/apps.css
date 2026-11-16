@@ -41,15 +41,13 @@
 .stat-label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rail-ink); margin-top: 2px; }
 
 .grow-space { flex: 1; min-height: 16px; }
-.overview-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.overview-actions { display: flex; gap: 8px; }
 .overview-actions form { flex: 1; margin: 0; display: flex; }
 .ov-btn {
     flex: 1; height: 56px; border-radius: 22px; border: none; background: rgba(255, 255, 255, .1); color: #fff;
     font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .ov-btn.lock { background: var(--amber); color: var(--ink); font-weight: 800; }
-/* a second, quieter row under Lock and Sign out */
-.ov-btn.quiet { flex-basis: 100%; height: 44px; background: none; font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .75); }
 .ov-btn:focus-visible { outline-color: var(--amber); }
 
 /* ---------- apps ---------- */
