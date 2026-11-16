@@ -23118,6 +23118,10 @@ msgstr "Повідомити про помилку"
 msgid "Request a feature"
 msgstr "Запропонувати функцію"
 
+#: app_switcher/templates/app_switcher/index.html
+msgid "Give feedback"
+msgstr "Залишити відгук"
+
 #: online_store/templates/themes/neighbourhood/_header.html:11
 #, python-format
 msgid "%(name)s home"

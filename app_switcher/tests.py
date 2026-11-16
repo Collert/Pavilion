@@ -24,6 +24,10 @@ class AppSwitcherTests(TestCase):
         self.client.force_login(self.customer)
         self.assertNotEqual(self.client.get(url).status_code, 200)
 
+    def test_links_to_feedback(self):
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(reverse("app_switcher_index")), 'href="https://hamlet.software/feedback"')
+
     def test_apps_by_role(self):
         self.client.force_login(self.staff)
         titles = [str(app["title"]) for app in self.client.get(reverse("app_switcher_index")).context["apps"]]

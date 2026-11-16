@@ -19785,6 +19785,10 @@ msgstr "報告錯誤"
 msgid "Request a feature"
 msgstr "建議新功能"
 
+#: app_switcher/templates/app_switcher/index.html
+msgid "Give feedback"
+msgstr "提供意見"
+
 #: .\online_store\templates\themes\neighbourhood\_header.html:11
 #, python-format
 msgid "%(name)s home"
