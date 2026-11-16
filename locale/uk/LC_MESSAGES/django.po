@@ -23098,6 +23098,26 @@ msgstr "Події та послуги"
 msgid "Online ordering by Pavilion"
 msgstr "Онлайн-замовлення від Pavilion"
 
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Powered by Hamlet"
+msgstr "Працює на Hamlet"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "About Hamlet"
+msgstr "Про Hamlet"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "About Pavilion"
+msgstr "Про Pavilion"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Report a bug"
+msgstr "Повідомити про помилку"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Request a feature"
+msgstr "Запропонувати функцію"
+
 #: online_store/templates/themes/neighbourhood/_header.html:11
 #, python-format
 msgid "%(name)s home"

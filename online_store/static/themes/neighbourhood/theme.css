@@ -182,7 +182,8 @@ a.nb-hero-bubble:hover { transform: scale(1.05); }
 .nb-foot-hours { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 15px; line-height: 1.5; }
 .nb-foot-hours .muted { color: color-mix(in srgb, var(--paper) 75%, var(--ink)); }
 .nb-foot-links { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
-.nb-foot-base { margin-top: 44px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--paper) 22%, var(--ink)); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-size: 13px; color: color-mix(in srgb, var(--paper) 62%, var(--ink)); }
+.nb-foot-hamlet { margin-top: 44px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; font-size: 15px; }
+.nb-foot-base { margin-top: 18px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--paper) 22%, var(--ink)); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; font-size: 13px; color: color-mix(in srgb, var(--paper) 62%, var(--ink)); }
 
 /* ---------- narrower screens ---------- */
 /* Home: gift cards (between the menus and the catering band) */

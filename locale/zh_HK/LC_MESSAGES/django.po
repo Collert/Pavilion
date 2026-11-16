@@ -19765,6 +19765,26 @@ msgstr ""
 msgid "Online ordering by Pavilion"
 msgstr ""
 
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Powered by Hamlet"
+msgstr "由 Hamlet 提供技術支援"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "About Hamlet"
+msgstr "關於 Hamlet"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "About Pavilion"
+msgstr "關於 Pavilion"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Report a bug"
+msgstr "報告錯誤"
+
+#: online_store/templates/themes/neighbourhood/_footer.html
+msgid "Request a feature"
+msgstr "建議新功能"
+
 #: .\online_store\templates\themes\neighbourhood\_header.html:11
 #, python-format
 msgid "%(name)s home"

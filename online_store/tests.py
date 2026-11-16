@@ -220,6 +220,13 @@ class ThemeTests(MenuFixture, TestCase):
                 self.assertTrue(finders.find(css), css)
             self.assertEqual(theme.clean({}), theme.defaults())
 
+    def test_footer_links_to_hamlet(self):
+        response = self.client.get(reverse("store_home"))
+        for address in ("https://hamlet.software/", "https://hamlet.software/pavilion",
+                        "https://hamlet.software/feedback/report/pavilion",
+                        "https://hamlet.software/feedback/request/pavilion"):
+            self.assertContains(response, f'href="{address}"')
+
     def test_values_are_checked(self):
         from online_store import themes
         theme = themes.get("neighbourhood")
