@@ -19766,8 +19766,8 @@ msgid "Online ordering by Pavilion"
 msgstr ""
 
 #: online_store/templates/themes/neighbourhood/_footer.html
-msgid "Powered by Hamlet"
-msgstr "由 Hamlet 提供技術支援"
+msgid "Pavilion is part of Hamlet"
+msgstr "Pavilion 是 Hamlet 的一部分"
 
 #: online_store/templates/themes/neighbourhood/_footer.html
 msgid "About Hamlet"

@@ -23099,8 +23099,8 @@ msgid "Online ordering by Pavilion"
 msgstr "Онлайн-замовлення від Pavilion"
 
 #: online_store/templates/themes/neighbourhood/_footer.html
-msgid "Powered by Hamlet"
-msgstr "Працює на Hamlet"
+msgid "Pavilion is part of Hamlet"
+msgstr "Pavilion — частина Hamlet"
 
 #: online_store/templates/themes/neighbourhood/_footer.html
 msgid "About Hamlet"
