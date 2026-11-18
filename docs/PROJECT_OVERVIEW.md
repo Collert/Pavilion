@@ -679,7 +679,10 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   `live-page.js`: while you type in a region only its `[data-calc]` parts are swapped; a form with `data-queue`
   (and `data-search`) sends its last submit after one in flight instead of dropping it; `data-keep` regions are left
   alone by background answers. Following a `data-live` link takes focus out of the field you were in, so the
-  region it sat in is swapped too (Safari doesn't move focus to a clicked link).
+  region it sat in is swapped too (Safari doesn't move focus to a clicked link). Only regions are swapped, so anything that
+  changes with the address (a pressed filter, a form's hidden fields) must sit in one. An element with
+  `data-appear="<name>"` (a sheet that animates in) that was already open gets `data-appeared` on the swapped-in copy,
+  so its CSS can skip the entrance (the register History's refund sheet).
 - **Combos** (`admin_combos`, `combos.py`): 30-day KPIs (sold, average saving against the default picks bought
   separately, upcharge revenue, best seller), All/Active/Hidden(/Archived) filters, search by combo or dish, rows
   with choices, price, saving, sold and % upgraded. The editor is one form like the dish editor: a photo

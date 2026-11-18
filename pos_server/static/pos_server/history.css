@@ -127,6 +127,8 @@
     box-shadow: var(--shadow-sheet); padding: 28px; display: flex; flex-direction: column; gap: 16px; margin: 0;
     animation: sheetIn .26s cubic-bezier(.2, .9, .25, 1.1) both;
 }
+/* already open (live-page.js marks it): a tap inside the sheet swaps it without replaying its entrance */
+.hist-overlay[data-appeared] .hist-scrim, .hist-overlay[data-appeared] .hist-sheet { animation: none; }
 .hist-sheet.narrow { width: min(540px, 100%); gap: 18px; }
 .hist-sheet-title { font-size: 30px; line-height: 36px; }
 .overline.red { color: var(--danger); }
