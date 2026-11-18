@@ -14,6 +14,8 @@
 //   you type in a region, only its [data-calc] parts are swapped). A form with data-queue sends its last submit after
 //   one in flight instead of dropping it; a region with data-keep is left alone by background answers. The button
 //   that sent a POST is aria-busy until the answer is in (pages style it, e.g. a spinner while a photo uploads).
+// An element with data-appear="<name>" (a sheet that animates in) that was already in the region it's swapped into
+// gets data-appeared, so its CSS can skip the entrance animation.
 // Regions marked data-transient (toasts) are only taken from responses to your own actions. A form with
 // data-navigate is left to the browser (a full page load), for answers that go to another site.
 // Without JavaScript, everything still works as plain forms and links.
@@ -88,6 +90,10 @@ function findByKey(root, key) {
 function replaceKeepingScroll(live, next) {
     const scrolled = [live, ...live.querySelectorAll("*")].filter((n) => n.scrollTop || n.scrollLeft)
         .map((n) => [scrollKey(n, live), n.scrollTop, n.scrollLeft]);
+    // Something that animates in ([data-appear], e.g. a sheet) and was already on screen stays put: the new copy is
+    // marked data-appeared so its CSS skips the entrance (the History refund sheet replayed it on every tap)
+    const shown = new Set([...live.querySelectorAll("[data-appear]")].map((n) => n.dataset.appear));
+    next.querySelectorAll("[data-appear]").forEach((n) => { if (shown.has(n.dataset.appear)) n.setAttribute("data-appeared", ""); });
     live.replaceWith(next);
     for (const [key, top, left] of scrolled) {
         const node = findByKey(next, key);

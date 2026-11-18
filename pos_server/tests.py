@@ -1415,6 +1415,21 @@ class HistoryTests(MenuFixture, TestCase):
         self.assertEqual(printed.status_code, 200)
         self.assertEqual(list(ReceiptLog.objects.values_list("channel", flat=True).order_by("id")), [ReceiptLog.EMAIL, ReceiptLog.PRINT])
 
+    def test_live_regions_follow_the_day_and_the_sheet(self):
+        """Issue #62: the day buttons and the search form's hidden day are live regions (live-page.js only swaps
+        regions, so they used to stay on the first day), and the refund sheet is marked data-appear so swapping it
+        while it's open doesn't replay its entrance."""
+        import re
+        page = self.client.get(self.url, {"date": "yesterday", "sel": self.order.id, "sheet": "refund"}).content.decode()
+        dates = re.search(r'<div class="hist-seg"[^>]*id="hist-dates"[^>]*>(.*?)</div>', page, re.S)
+        self.assertIsNotNone(dates)
+        self.assertIn("data-region", dates.group(0).split(">", 1)[0])
+        self.assertRegex(dates.group(1), r'date=yesterday"[^>]*aria-pressed="true"')
+        search = re.search(r'<form[^>]*id="hist-search"[^>]*>.*?</form>', page, re.S).group(0)
+        self.assertIn("data-region", search.split(">", 1)[0])
+        self.assertIn('name="date" value="yesterday"', search)
+        self.assertIn('class="hist-overlay" data-appear="refund"', page)
+
     def test_nothing_to_refund_on_a_gift_card_sale(self):
         from gift_cards.models import GiftCardDesign
         from pos_server.orders import create_order

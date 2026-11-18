@@ -15,7 +15,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
                 <h1 class="h1">{% trans "History" %}</h1>
                 <div class="sub hist-head-sub" id="hist-sub" data-region>{{ head_sub }}</div>
             </div>
-            <form method="get" class="hist-search" data-search role="search">
+            <form method="get" class="hist-search" id="hist-search" data-region data-search role="search">
                 {% for k, v in state.items %}{% if k != "q" and k != "page" and k != "sel" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
                 {% icon "M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M20 20l-4-4" 18 %}
                 <input type="search" name="q" value="{{ o.query }}" placeholder="{% trans 'Order #, name or card' %}" aria-label="{% trans 'Search orders' %}" autocomplete="off">
@@ -23,7 +23,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
         </header>
 
         <div class="hist-filters">
-            <div class="hist-seg" role="group" aria-label="{% trans 'Date' %}">
+            <div class="hist-seg" role="group" aria-label="{% trans 'Date' %}" id="hist-dates" data-region>
                 {% for key, label, href in links.dates %}<a href="{{ href }}" data-live aria-pressed="{% if key == date %}true{% else %}false{% endif %}">{{ label }}</a>{% endfor %}
             </div>
             <div class="hist-status" role="group" aria-label="{% trans 'Status' %}" id="hist-status" data-region>
@@ -110,7 +110,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
 
     <div id="hist-sheet" data-region>
     {% if sheet == "send" and d %}
-    <div class="hist-overlay">
+    <div class="hist-overlay" data-appear="send">
         <a class="hist-scrim" href="{{ links.close }}" data-live aria-label="{% trans 'Close' %}"></a>
         <form method="post" class="hist-sheet narrow" role="dialog" aria-modal="true" aria-labelledby="send-title">{% csrf_token %}
             <input type="hidden" name="op" value="send">{% for k, v in state.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
@@ -131,7 +131,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
         </form>
     </div>
     {% elif sheet == "refund" and refund %}
-    <div class="hist-overlay">
+    <div class="hist-overlay" data-appear="refund">
         <a class="hist-scrim" href="{{ links.close }}" data-live aria-label="{% trans 'Close' %}"></a>
         <div class="hist-sheet" role="dialog" aria-modal="true" aria-labelledby="refund-title">
             <form method="get" class="hist-refund-pick">
