@@ -61,6 +61,7 @@ MENU = [
         ("notifications", _("Notifications"), "admin_notifications"),
         ("payments", _("Payments"), "admin_payments"),
         ("devices", _("Devices"), "admin_devices"),
+        ("switchboard", _("Switchboard"), "admin_switchboard"),
     ]),
 ]
 

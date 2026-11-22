@@ -31,7 +31,7 @@ from django.http import Http404, HttpResponseForbidden, StreamingHttpResponse
 
 logger = logging.getLogger(__name__)
 
-TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus", "catering", "popups", "audio", "clock", "schedule", "dongles")
+TOPICS = ("orders", "inventory", "checkout", "cookery", "screens", "menus", "catering", "popups", "audio", "clock", "schedule", "dongles", "switchboard")
 HEARTBEAT_SECONDS = 15
 CHANNEL_PREFIX = "pavilion:"
 

@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 DONE_KEY = "setup:done"
 CODE_KEY = "setup:code"
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I to misread
-EXEMPT = ("/static/", "/media/", "/events/", "/i18n/", "/jsi18n/", "/square/", "/favicon")
+# Switchboard's manifest and API are read by a server, which needs JSON, never a redirect to a page
+EXEMPT = ("/static/", "/media/", "/events/", "/i18n/", "/jsi18n/", "/square/", "/favicon", "/switchboard/v1", "/.well-known/switchboard")
 
 
 def needed() -> bool:

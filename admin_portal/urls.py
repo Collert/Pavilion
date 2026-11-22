@@ -45,6 +45,7 @@ urlpatterns = [
     path("notifications", views.notifications, name="admin_notifications"),
     path("payments", views.payments, name="admin_payments"),
     path("devices", views.devices, name="admin_devices"),
+    path("switchboard", views.switchboard, name="admin_switchboard"),
     path("staff-cards/<int:card_id>/print", views.staff_card_print, name="admin_staff_card_print"),
     path("library/upload", views.library_upload, name="admin_library_upload"),
     path("screens/<int:id>", views.screen_edit, name="admin_screen"),

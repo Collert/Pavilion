@@ -1,0 +1,108 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+Switchboard (Settings; admin_portal/switchboard.py; no mockup, laid out like the Payments page): what Switchboard is
+and this Pavilion's address to type in there, the Switchboards connected (name, host, connected when and by whom, last
+delivery, broken or failing) each with Disconnect, and the recent event deliveries. Live on the "switchboard" topic.
+{% endcomment %}
+{% block title %}{% trans "Switchboard" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block live_topics %}"switchboard"{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/switchboard.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<header class="page-head">
+    <div class="grow">
+        <div class="page-kicker">{% trans "Settings" %}</div>
+        <h1 class="disp page-title">{% trans "Switchboard" %}</h1>
+    </div>
+    <span class="em-status{% if x.live %} on{% endif %}" id="sb-status" data-region><span></span>{% if x.live %}{% blocktrans count n=x.live %}{{ n }} connected{% plural %}{{ n }} connected{% endblocktrans %}{% elif x.broken %}{% trans "Connection broken" %}{% else %}{% trans "Not connected" %}{% endif %}</span>
+</header>
+
+<div class="pm-body sb-body">
+    <div class="sb-col">
+    <section class="card tm-card pm-card" aria-label="{% trans 'About Switchboard' %}">
+        <div class="em-brand"><span class="em-brand-ic" aria-hidden="true">{% icon x.icon 22 2 %}</span>
+            <div class="grow"><h2 class="disp tm-h2">{% trans "Switchboard" %}</h2><div class="small muted strong">{% trans "Workflows between your Hamlet apps" %}</div></div></div>
+        <p class="pm-text">{% trans "Switchboard is Hamlet’s workflow builder: something that happens in one app starts steps in another, such as giving a volunteer who reaches a level a staff meal card here. Connecting starts in Switchboard: add Pavilion there with the address below, then approve it on the page that opens." %}</p>
+        <div class="pm-rows">
+            <div><span class="lbl">{% trans "This Pavilion’s address" %}</span>
+                <div class="sb-copy"><code class="pm-code" id="sb-address">{{ x.address }}</code><button type="button" class="em-soft" data-copy="sb-address">{% trans "Copy" %}</button></div></div>
+            <div><span class="lbl">{% trans "A connected Switchboard can" %}</span>
+                <ul class="pm-list sb-list small muted strong">{% for line in x.allows %}<li>{{ line }}</li>{% endfor %}</ul></div>
+        </div>
+        <div class="em-hint">{% trans "It never sees passwords, payments or card numbers. People are matched between apps by their email." %}</div>
+    </section>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Connections' %}" id="sb-connections" data-region>
+        <h2 class="disp tm-h2">{% trans "Connections" %}</h2>
+        <div class="pm-rows">
+            {% for r in x.rows %}
+            <div class="sb-conn{% if r.c.broken %} broken{% endif %}">
+                <div class="sb-conn-head">
+                    <span class="grow sb-conn-name"><span class="strong block ellipsis">{{ r.c.name }}</span><span class="small muted block ellipsis">{{ r.c.host }}</span></span>
+                    <span class="sb-pill{% if not r.c.broken %} on{% endif %}"><span></span>{% if r.c.broken %}{% trans "Broken" %}{% else %}{% trans "Connected" %}{% endif %}</span>
+                </div>
+                <div class="em-facts">
+                    <div><span>{% trans "Connected" %}</span><span>{{ r.connected }}</span></div>
+                    <div><span>{% trans "Last delivery" %}</span><span>{% if r.last %}{{ r.last }}{% else %}{% trans "Nothing sent yet" %}{% endif %}</span></div>
+                    <div><span>{% trans "Last call" %}</span><span>{% if r.used %}{{ r.used }}{% else %}{% trans "None yet" %}{% endif %}</span></div>
+                </div>
+                {% if r.c.broken %}<div class="em-err">{% blocktrans with when=r.broken_since %}Switchboard said on {{ when }} that it no longer knows this connection, so nothing is sent to it. Disconnect it here, then connect again from Switchboard.{% endblocktrans %}</div>
+                {% elif r.failed %}<div class="em-err">{% blocktrans count n=r.failed %}{{ n }} event didn’t get through in the last 7 days. Check that Switchboard is running.{% plural %}{{ n }} events didn’t get through in the last 7 days. Check that Switchboard is running.{% endblocktrans %}</div>{% endif %}
+                {% if perm.edit %}<form method="post" class="em-btns">{% csrf_token %}<button class="em-soft red" name="op" value="ask:{{ r.c.id }}">{% trans "Disconnect" %}</button></form>{% endif %}
+            </div>
+            {% empty %}
+            <div class="small muted strong">{% trans "No Switchboard is connected. Nothing is sent anywhere until one is." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+    </div>
+
+    <section class="card tm-card pm-card" aria-label="{% trans 'Recent deliveries' %}" id="sb-log" data-region>
+        <h2 class="disp tm-h2">{% trans "Recent deliveries" %}</h2>
+        <div class="small muted strong">{% trans "Events Pavilion sent to Switchboard. An event that doesn’t get through is tried 5 times over about 13 minutes. Kept for two weeks." %}</div>
+        <div class="sb-log">
+            {% for l in x.log %}
+            <div class="sb-row">
+                <span class="grow sb-row-main"><span class="strong block ellipsis">{{ l.d.summary|default:l.d.event_type }}</span>
+                    <span class="small muted block ellipsis">{{ l.when }} · <code>{{ l.d.event_type }}</code> · {{ l.d.connection.name }}{% if l.why %} · {{ l.why }}{% endif %}</span></span>
+                <span class="sb-tone {{ l.tone }}">{{ l.status }}</span>
+            </div>
+            {% empty %}
+            <div class="small muted strong sb-none">{% trans "Nothing sent yet." %}</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<div id="sb-overlays" data-region>
+{% if x.ask and perm.edit %}
+<form method="post" class="overlay">{% csrf_token %}
+    <button class="scrim" name="op" value="keep" aria-label="{% trans 'Close' %}"></button>
+    <div class="sheet sb-confirm" role="alertdialog" aria-modal="true" aria-labelledby="sb-ask-title">
+        <h2 class="disp sheet-title" id="sb-ask-title">{% blocktrans with n=x.ask.name %}Disconnect {{ n }}?{% endblocktrans %}</h2>
+        <p class="muted strong">{% blocktrans with host=x.ask.host %}Pavilion stops sending events to {{ host }} and its key stops working, so workflows that use Pavilion fail until it’s connected again from Switchboard. Staff cards and shifts it already added stay.{% endblocktrans %}</p>
+        <div class="sheet-foot"><button class="btn-soft" name="op" value="keep">{% trans "Keep it" %}</button><button class="btn-red" name="op" value="disconnect:{{ x.ask.id }}">{% trans "Disconnect" %}</button></div>
+    </div>
+</form>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    // Copy the address (what HTML can't do)
+    document.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-copy]");
+        if (!button) return;
+        const text = document.getElementById(button.dataset.copy)?.textContent.trim() || "";
+        try { await navigator.clipboard.writeText(text); button.textContent = gettext("Copied"); }
+        catch { getSelection().selectAllChildren(document.getElementById(button.dataset.copy)); }
+        setTimeout(() => { button.textContent = gettext("Copy"); }, 1600);
+    });
+</script>
+{% endblock %}

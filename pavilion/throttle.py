@@ -28,8 +28,9 @@ from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 
-# the live streams hold one request open; files are cheap; listmonk posts a campaign's messages in bursts (it signs in)
-SKIP = ("/events/", "/static/", "/media/", "/push/listmonk")
+# the live streams hold one request open; files are cheap; listmonk posts a campaign's messages in bursts (it signs in);
+# Switchboard's server calls carry a key and must be answered in its protocol's JSON (their own cap: switchboard/views.py)
+SKIP = ("/events/", "/static/", "/media/", "/push/listmonk", "/switchboard/v1", "/.well-known/switchboard")
 ADDRESS_FACTOR = 10
 
 

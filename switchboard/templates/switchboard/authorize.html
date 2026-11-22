@@ -1,0 +1,39 @@
+{% extends "admin_portal/layout.html" %}
+{% load static i18n admin_tags %}
+{% comment %}
+The consent page Switchboard sends an admin to (switchboard/views.py: authorize; no mockup): which Switchboard is
+asking (the host its callback is on), what a connection allows, and Approve or Cancel. Both send the browser back to
+Switchboard. Needs Switchboard edit (users/access.py).
+{% endcomment %}
+{% block title %}{% trans "Connect Switchboard" %}{% endblock %}
+{% block main_class %}tm-main{% endblock %}
+{% block head %}<link href="{% static 'admin_portal/team.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/email.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/payments.css' %}" rel="stylesheet">
+<link href="{% static 'admin_portal/switchboard.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="sb-consent">
+    <section class="card sb-consent-card">
+        <div class="em-brand"><span class="em-brand-ic" aria-hidden="true">{% icon "M5 4h5v5H5z M14 15h5v5h-5z M7.5 9v4a4 4 0 0 0 4 4H14" 22 2 %}</span>
+            <div class="grow"><div class="page-kicker">{% trans "Switchboard" %}</div></div></div>
+        {% if bad %}
+        <h1 class="disp">{% trans "This link can’t connect Switchboard" %}</h1>
+        <p class="pm-text">{% trans "It’s missing the address to go back to. Start again from Switchboard: add Pavilion there and it sends you here." %}</p>
+        <div class="sb-consent-btns"><a class="em-soft sb-back" href="{% url 'admin_switchboard' %}">{% trans "Open the Switchboard page" %}</a></div>
+        {% else %}
+        <h1 class="disp">{% if name %}{% blocktrans with name=name store=instance %}Connect {{ name }}’s Switchboard to {{ store }}?{% endblocktrans %}{% else %}{% blocktrans with store=instance %}Connect a Switchboard to {{ store }}?{% endblocktrans %}{% endif %}</h1>
+        <div class="sb-host"><span class="lbl">{% trans "The Switchboard asking is at" %}</span><code>{{ host }}</code></div>
+        <div class="em-hint">{% trans "Approve only if this is your organization’s Switchboard and you just started connecting there." %}</div>
+        <p class="pm-text">{% trans "Once connected, it can:" %}</p>
+        <ul class="pm-list small muted strong">{% for line in allows %}<li>{{ line }}</li>{% endfor %}</ul>
+        <div class="em-hint">{% trans "It never sees passwords, payments or card numbers. You can disconnect it any time on the Switchboard page in Settings." %}</div>
+        <form method="post" class="sb-consent-btns" data-navigate>{% csrf_token %}
+            <input type="hidden" name="callback" value="{{ callback }}"><input type="hidden" name="state" value="{{ state }}"><input type="hidden" name="name" value="{{ name }}">
+            <button class="btn-soft" name="op" value="cancel">{% trans "Cancel" %}</button>
+            <button class="btn-amber" name="op" value="approve">{% trans "Approve" %}</button>
+        </form>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

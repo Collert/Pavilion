@@ -1107,6 +1107,27 @@ def _dongle_shows(request, dongle, Screen, pairing) -> bool:
     return True
 
 
+@admin_page("switchboard", edit={"disconnect"})
+def switchboard(request):
+    """Switchboard: the Switchboards connected to this Pavilion and the events sent to them (admin_portal/switchboard.py)."""
+    from switchboard import connections
+    from switchboard.models import SwitchboardConnection
+
+    from . import switchboard as switchboard_data
+    if request.method == "POST":
+        op, _sep, arg = request.POST.get("op", "").partition(":")
+        connection = SwitchboardConnection.objects.filter(pk=arg if arg.isdigit() else 0).first()
+        request.session.pop(switchboard_data.ASK_KEY, None)
+        if op == "ask" and connection:  # opens the "Disconnect?" question
+            request.session[switchboard_data.ASK_KEY] = connection.pk
+        elif op == "disconnect" and connection:
+            name = connection.name
+            connections.disconnect(connection)
+            messages.success(request, _("%(name)s is disconnected. Its workflows no longer reach this Pavilion.") % {"name": name})
+        return redirect("admin_switchboard")
+    return page(request, "admin_portal/switchboard.html", "switchboard", {"x": switchboard_data.page(request)})
+
+
 def _dongle_op(request, op, dongle_id, pairing, Dongle, Screen, devices_data):
     """The visual dongles' buttons on the Devices page."""
     session = request.session

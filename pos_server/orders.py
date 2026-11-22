@@ -223,6 +223,8 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         OrderPayment.objects.create(order=order, method=OrderPayment.CARD, amount=total - gift_total, entry_method="online")
     order.picked_up = not station_ids
     order.save()
+    from switchboard import events as switchboard  # "order.placed" to connected Switchboards: after commit, never raises
+    switchboard.order_placed(order)
     return order
 
 

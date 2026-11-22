@@ -98,6 +98,8 @@ def clock_in(user, now=None, approver=None) -> TimeEntry:
     entry = TimeEntry.objects.create(user=user, shift=shift, clock_in=now, approved_by=approver, added_shift=added)
     from gift_cards import staff_cards  # their "every shift" staff cards refill
     staff_cards.clocked_in(user, now)
+    from switchboard import events as switchboard  # "staff.clocked_in" to connected Switchboards: after commit, never raises
+    switchboard.clocked_in(entry)
     return entry
 
 
@@ -139,6 +141,8 @@ def clock_out(user, now=None) -> TimeEntry:
     profile.minutes_worked = (profile.minutes_worked or 0) + int(entry.worked_seconds(now) // 60)
     profile.last_worked = now
     profile.save(update_fields=["minutes_worked", "last_worked"])
+    from switchboard import events as switchboard
+    switchboard.clocked_out(entry, now)
     return entry
 
 
