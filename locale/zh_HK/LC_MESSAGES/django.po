@@ -19793,6 +19793,235 @@ msgstr "提供意見"
 msgid "Report a bug or request a feature"
 msgstr "報告錯誤或建議新功能"
 
+#: admin_portal/nav.py
+msgid "Switchboard"
+msgstr "Switchboard"
+
+#: admin_portal/switchboard.py
+msgid ""
+"Start workflows when an order is placed or ready, and when staff clock in or"
+" out"
+msgstr "在有訂單落單或備妥，以及員工打卡上班或下班時啟動工作流程"
+
+#: admin_portal/switchboard.py
+msgid "Look up staff by email and add staff accounts"
+msgstr "以電郵查找員工及新增員工帳戶"
+
+#: admin_portal/switchboard.py
+msgid "Issue staff cards and add shifts to the schedule"
+msgstr "發出員工卡及在更表加入更次"
+
+#: admin_portal/switchboard.py
+msgid "Sending"
+msgstr "傳送中"
+
+#: admin_portal/switchboard.py
+#, python-format
+msgid "Trying again (%(n)s of %(of)s)"
+msgstr "再次嘗試（第 %(n)s 次，共 %(of)s 次）"
+
+#: admin_portal/switchboard.py
+msgid "Not sent: connection gone"
+msgstr "未有傳送：連接已不存在"
+
+#: admin_portal/switchboard.py
+#, python-format
+msgid "Switchboard answered %(status)s"
+msgstr "Switchboard 回應 %(status)s"
+
+#: admin_portal/switchboard.py
+msgid "Couldn’t reach Switchboard"
+msgstr "未能連接 Switchboard"
+
+#: admin_portal/views.py
+#, python-format
+msgid "%(name)s is disconnected. Its workflows no longer reach this Pavilion."
+msgstr "已中斷與 %(name)s 的連接。其工作流程不會再連到這個 Pavilion。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Connection broken"
+msgstr "連接已中斷"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "About Switchboard"
+msgstr "關於 Switchboard"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Workflows between your Hamlet apps"
+msgstr "連結你各個 Hamlet 應用程式的工作流程"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid ""
+"Switchboard is Hamlet’s workflow builder: something that happens in one app "
+"starts steps in another, such as giving a volunteer who reaches a level a "
+"staff meal card here. Connecting starts in Switchboard: add Pavilion there "
+"with the address below, then approve it on the page that opens."
+msgstr ""
+"Switchboard 是 Hamlet "
+"的工作流程建立工具：一個應用程式發生的事會啟動另一個應用程式的步驟，例如義工升到某個級別時，在這裡獲發一張員工膳食卡。連接由 Switchboard "
+"開始：在那邊用以下地址加入 Pavilion，然後在開啟的頁面批准。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "This Pavilion’s address"
+msgstr "這個 Pavilion 的地址"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "A connected Switchboard can"
+msgstr "已連接的 Switchboard 可以"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid ""
+"It never sees passwords, payments or card numbers. People are matched "
+"between apps by their email."
+msgstr "它不會看到密碼、付款資料或卡號。不同應用程式之間以電郵配對同一個人。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Connections"
+msgstr "連接"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Broken"
+msgstr "已中斷"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Last delivery"
+msgstr "上次傳送"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Nothing sent yet"
+msgstr "尚未傳送任何事件"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Last call"
+msgstr "上次呼叫"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+#, python-format
+msgid ""
+"Switchboard said on %(when)s that it no longer knows this connection, so "
+"nothing is sent to it. Disconnect it here, then connect again from "
+"Switchboard."
+msgstr ""
+"Switchboard 於 %(when)s 表示已不認得這個連接，因此不會再向它傳送任何事件。請在這裡中斷連接，然後從 Switchboard "
+"重新連接。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "No Switchboard is connected. Nothing is sent anywhere until one is."
+msgstr "未有連接任何 Switchboard。連接之前不會向任何地方傳送資料。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Recent deliveries"
+msgstr "最近的傳送"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid ""
+"Events Pavilion sent to Switchboard. An event that doesn’t get through is "
+"tried 5 times over about 13 minutes. Kept for two weeks."
+msgstr "Pavilion 傳送給 Switchboard 的事件。未能送達的事件會在約 13 分鐘內嘗試 5 次。記錄保留兩星期。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+msgid "Nothing sent yet."
+msgstr "尚未傳送任何事件。"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+#, python-format
+msgid "Disconnect %(n)s?"
+msgstr "中斷與 %(n)s 的連接？"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+#, python-format
+msgid ""
+"Pavilion stops sending events to %(host)s and its key stops working, so "
+"workflows that use Pavilion fail until it’s connected again from "
+"Switchboard. Staff cards and shifts it already added stay."
+msgstr ""
+"Pavilion 會停止向 %(host)s 傳送事件，其金鑰亦會失效，所以用到 Pavilion 的工作流程會失敗，直至從 Switchboard "
+"重新連接為止。它已加入的員工卡和更次會保留。"
+
+#: switchboard/actions.py
+msgid "Added through Switchboard"
+msgstr "經 Switchboard 加入"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "Connect Switchboard"
+msgstr "連接 Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "This link can’t connect Switchboard"
+msgstr "這條連結無法連接 Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid ""
+"It’s missing the address to go back to. Start again from Switchboard: add "
+"Pavilion there and it sends you here."
+msgstr "連結缺少返回的地址。請從 Switchboard 重新開始：在那邊加入 Pavilion，它會帶你來到這裡。"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "Open the Switchboard page"
+msgstr "開啟 Switchboard 頁面"
+
+#: switchboard/templates/switchboard/authorize.html
+#, python-format
+msgid "Connect %(name)s’s Switchboard to %(store)s?"
+msgstr "將 %(name)s 的 Switchboard 連接到 %(store)s？"
+
+#: switchboard/templates/switchboard/authorize.html
+#, python-format
+msgid "Connect a Switchboard to %(store)s?"
+msgstr "將 Switchboard 連接到 %(store)s？"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "The Switchboard asking is at"
+msgstr "提出要求的 Switchboard 位於"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid ""
+"Approve only if this is your organization’s Switchboard and you just started"
+" connecting there."
+msgstr "只有確定這是你機構的 Switchboard，而且你剛剛在那邊開始連接，才好批准。"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "Once connected, it can:"
+msgstr "連接後，它可以："
+
+#: switchboard/templates/switchboard/authorize.html
+msgid ""
+"It never sees passwords, payments or card numbers. You can disconnect it any"
+" time on the Switchboard page in Settings."
+msgstr "它不會看到密碼、付款資料或卡號。你可以隨時在「設定」的 Switchboard 頁面中斷連接。"
+
+#: switchboard/templates/switchboard/authorize.html
+msgid "Approve"
+msgstr "批准"
+
+#: admin_portal/switchboard.py
+msgctxt "an event"
+msgid "Delivered"
+msgstr "已送達"
+
+#: admin_portal/switchboard.py
+msgctxt "an event"
+msgid "Failed"
+msgstr "失敗"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+#, python-format
+msgid "%(n)s connected"
+msgid_plural "%(n)s connected"
+msgstr[0] "已連接 %(n)s 個"
+msgstr[1] "已連接 %(n)s 個"
+
+#: admin_portal/templates/admin_portal/switchboard.html
+#, python-format
+msgid ""
+"%(n)s event didn’t get through in the last 7 days. Check that Switchboard is"
+" running."
+msgid_plural ""
+"%(n)s events didn’t get through in the last 7 days. Check that Switchboard "
+"is running."
+msgstr[0] "過去 7 日有 %(n)s 個事件未能送達。請檢查 Switchboard 是否正常運作。"
+msgstr[1] "過去 7 日有 %(n)s 個事件未能送達。請檢查 Switchboard 是否正常運作。"
+
 #: .\online_store\templates\themes\neighbourhood\_header.html:11
 #, python-format
 msgid "%(name)s home"

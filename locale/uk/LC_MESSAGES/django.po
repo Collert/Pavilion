@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Pavilion\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-09 23:29-0700\n"
+"POT-Creation-Date: 2026-11-21 19:47-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Pavilion\n"
 "Language-Team: Ukrainian\n"
@@ -78,7 +78,7 @@ msgstr "Виклики замовлень, оголошення й «натис�
 msgid "%(name)s archived. Save to keep it."
 msgstr "%(name)s архівовано. Збережіть, щоб залишити так."
 
-#: admin_portal/audio.py:75 admin_portal/orders.py:257
+#: admin_portal/audio.py:75 admin_portal/orders.py:266
 #: admin_portal/templates/admin_portal/screen.html:97
 msgid "Channel"
 msgstr "Канал"
@@ -409,71 +409,71 @@ msgstr "Опублікувати %(name)s"
 msgid "Publish"
 msgstr "Опублікувати"
 
-#: admin_portal/catering.py:24 admin_portal/catering.py:292
+#: admin_portal/catering.py:25 admin_portal/catering.py:300
 #: catering/models.py:73
 msgid "New"
 msgstr "Нові"
 
-#: admin_portal/catering.py:24 catering/models.py:73
+#: admin_portal/catering.py:25 catering/models.py:73
 msgid "Waiting on customer"
 msgstr "Чекає на клієнта"
 
-#: admin_portal/catering.py:25 admin_portal/pars.py:204
+#: admin_portal/catering.py:26 admin_portal/pars.py:204
 #: online_store/templates/online_store/account/shifts.html:22
 msgid "Upcoming"
 msgstr "Майбутні"
 
-#: admin_portal/catering.py:26 catering/views.py:206
+#: admin_portal/catering.py:27 catering/views.py:206
 msgid "Past"
 msgstr "Минулі"
 
-#: admin_portal/catering.py:27
+#: admin_portal/catering.py:28
 msgid "No new catering orders. Nice."
 msgstr "Нових замовлень на кейтеринг немає. Чудово."
 
-#: admin_portal/catering.py:27
+#: admin_portal/catering.py:28
 msgid "Nobody’s deciding on changes right now."
 msgstr "Зараз ніхто не вирішує щодо змін."
 
-#: admin_portal/catering.py:28
+#: admin_portal/catering.py:29
 msgid "No confirmed events coming up."
 msgstr "Найближчим часом підтверджених подій немає."
 
-#: admin_portal/catering.py:28
+#: admin_portal/catering.py:29
 msgid "Nothing here yet."
 msgstr "Тут поки нічого немає."
 
-#: admin_portal/catering.py:30 admin_portal/catering.py:237
+#: admin_portal/catering.py:31 admin_portal/catering.py:245
 #: admin_portal/templates/admin_portal/combo.html:97
-#: admin_portal/templates/admin_portal/report_day.html:55
-#: catering/models.py:144
+#: admin_portal/templates/admin_portal/report_day.html:56
+#: catering/models.py:146
 msgid "Dish"
 msgstr "Страва"
 
-#: admin_portal/catering.py:31 admin_portal/catering.py:237
-#: admin_portal/orders.py:257 catering/models.py:144
+#: admin_portal/catering.py:32 admin_portal/catering.py:245
+#: admin_portal/orders.py:266 catering/models.py:146
 msgid "Service"
 msgstr "Послуга"
 
-#: admin_portal/catering.py:32 admin_portal/catering.py:237
+#: admin_portal/catering.py:33 admin_portal/catering.py:245
 #: admin_portal/restocks.py:60
 #: admin_portal/templates/admin_portal/condiments.html:41
-#: catering/models.py:144
+#: catering/models.py:146
 msgid "Condiment"
 msgstr "Додаток"
 
-#: admin_portal/catering.py:33 admin_portal/restocks.py:61
-#: catering/models.py:144
+#: admin_portal/catering.py:34 admin_portal/restocks.py:61
+#: catering/models.py:146
 msgid "Disposable"
 msgstr "Одноразова упаковка"
 
-#: admin_portal/catering.py:34 admin_portal/catering.py:320
+#: admin_portal/catering.py:35 admin_portal/catering.py:328
 #: catering/views.py:91 inventory/availability.py:70
 #: online_store/templates/themes/neighbourhood/catering.html:72
 msgid "Food"
 msgstr "Їжа"
 
-#: admin_portal/catering.py:34 admin_portal/catering.py:320
+#: admin_portal/catering.py:35 admin_portal/catering.py:328
 #: admin_portal/nav.py:24 admin_portal/templates/admin_portal/service.html:8
 #: admin_portal/templates/admin_portal/service.html:19
 #: admin_portal/templates/admin_portal/services.html:7
@@ -482,7 +482,7 @@ msgstr "Їжа"
 msgid "Services"
 msgstr "Послуги"
 
-#: admin_portal/catering.py:34 admin_portal/condiments.py:324
+#: admin_portal/catering.py:35 admin_portal/condiments.py:324
 #: admin_portal/nav.py:29 admin_portal/templates/admin_portal/condiment.html:9
 #: admin_portal/templates/admin_portal/condiment.html:22
 #: admin_portal/templates/admin_portal/condiments.html:7
@@ -491,7 +491,7 @@ msgstr "Послуги"
 msgid "Condiments"
 msgstr "Додатки"
 
-#: admin_portal/catering.py:35 admin_portal/nav.py:30
+#: admin_portal/catering.py:36 admin_portal/nav.py:30
 #: admin_portal/templates/admin_portal/disposable.html:8
 #: admin_portal/templates/admin_portal/disposable.html:21
 #: admin_portal/templates/admin_portal/disposables.html:7
@@ -500,8 +500,8 @@ msgstr "Додатки"
 msgid "Disposables"
 msgstr "Одноразова упаковка"
 
-#: admin_portal/catering.py:54 admin_portal/catering.py:110
-#: admin_portal/catering.py:402 admin_portal/customers.py:252
+#: admin_portal/catering.py:55 admin_portal/catering.py:116
+#: admin_portal/catering.py:412 admin_portal/customers.py:252
 #: admin_portal/dashboard.py:25 admin_portal/dashboard.py:184
 #: admin_portal/dashboard.py:185 admin_portal/dashboard.py:222
 #: admin_portal/dashboard.py:235 admin_portal/giftcards.py:51
@@ -513,14 +513,14 @@ msgstr "Одноразова упаковка"
 msgid "Today"
 msgstr "Сьогодні"
 
-#: admin_portal/catering.py:54 admin_portal/catering.py:402
+#: admin_portal/catering.py:55 admin_portal/catering.py:412
 #: admin_portal/customers.py:254 admin_portal/giftcards.py:51
 #: admin_portal/orders.py:17 admin_portal/orders.py:48 admin_portal/team.py:56
 #: pos_server/history.py:33
 msgid "Yesterday"
 msgstr "Учора"
 
-#: admin_portal/catering.py:61 admin_portal/catering.py:387
+#: admin_portal/catering.py:62 admin_portal/catering.py:395
 #: admin_portal/events.py:298 admin_portal/requests.py:82
 #: online_store/pages.py:406 online_store/storefront.py:127
 #: online_store/templates/themes/neighbourhood/home.html:152
@@ -529,12 +529,12 @@ msgstr "Учора"
 msgid "today"
 msgstr "сьогодні"
 
-#: admin_portal/catering.py:63 admin_portal/requests.py:84
+#: admin_portal/catering.py:64 admin_portal/requests.py:84
 #: pos_server/history.py:84
 msgid "yesterday"
 msgstr "учора"
 
-#: admin_portal/catering.py:64 admin_portal/customers.py:256
+#: admin_portal/catering.py:65 admin_portal/customers.py:256
 #: admin_portal/giftcards.py:51
 #, python-format
 msgid "%(n)d day ago"
@@ -544,7 +544,7 @@ msgstr[1] "%(n)d дні тому"
 msgstr[2] "%(n)d днів тому"
 msgstr[3] "%(n)d дня тому"
 
-#: admin_portal/catering.py:70 admin_portal/catering.py:272
+#: admin_portal/catering.py:71 admin_portal/catering.py:280
 #: admin_portal/dashboard.py:238 admin_portal/events.py:301
 #: admin_portal/hours.py:178 services/models.py:128
 #, python-format
@@ -555,13 +555,13 @@ msgstr[1] "%(n)d дні"
 msgstr[2] "%(n)d днів"
 msgstr[3] "%(n)d дня"
 
-#: admin_portal/catering.py:71
+#: admin_portal/catering.py:72
 #: admin_portal/templates/admin_portal/component.html:145
 #, python-format
 msgid "%(n)s days"
 msgstr "%(n)s дня"
 
-#: admin_portal/catering.py:106
+#: admin_portal/catering.py:112
 #, python-format
 msgid "Only %(n)d day’s notice"
 msgid_plural "Only %(n)d days’ notice"
@@ -570,13 +570,13 @@ msgstr[1] "Лише за %(n)d дні"
 msgstr[2] "Лише за %(n)d днів"
 msgstr[3] "Лише за %(n)d дня"
 
-#: admin_portal/catering.py:108 admin_portal/requests.py:126
+#: admin_portal/catering.py:114 admin_portal/requests.py:126
 #: admin_portal/requests.py:178
 #, python-format
 msgid "Sent %(when)s"
 msgstr "Надіслано %(when)s"
 
-#: admin_portal/catering.py:110
+#: admin_portal/catering.py:116
 #, python-format
 msgid "In %(n)d day"
 msgid_plural "In %(n)d days"
@@ -585,67 +585,67 @@ msgstr[1] "Через %(n)d дні"
 msgstr[2] "Через %(n)d днів"
 msgstr[3] "Через %(n)d дня"
 
-#: admin_portal/catering.py:112
+#: admin_portal/catering.py:118
 #, python-format
 msgid "Came in %(when)s"
 msgstr "Надійшло %(when)s"
 
-#: admin_portal/catering.py:230
+#: admin_portal/catering.py:238
 #, python-format
 msgid "costs %(c)s"
 msgstr "коштує %(c)s"
 
-#: admin_portal/catering.py:238
+#: admin_portal/catering.py:246
 msgid "Disposable item"
 msgstr "Одноразова упаковка"
 
-#: admin_portal/catering.py:241
+#: admin_portal/catering.py:249
 msgid "Dishes use their catering price."
 msgstr "Страви йдуть за ціною кейтерингу."
 
-#: admin_portal/catering.py:242
-#: admin_portal/templates/admin_portal/catering.html:110
+#: admin_portal/catering.py:250
+#: admin_portal/templates/admin_portal/catering.html:120
 msgid "ea"
 msgstr "шт."
 
-#: admin_portal/catering.py:242
+#: admin_portal/catering.py:250
 msgid "Catering price"
 msgstr "Ціна кейтерингу"
 
-#: admin_portal/catering.py:244
+#: admin_portal/catering.py:252
 msgid "Services use their regular price. Deposits are added automatically."
 msgstr "Послуги йдуть за звичайною ціною. Депозити додаються автоматично."
 
-#: admin_portal/catering.py:245
+#: admin_portal/catering.py:253
 msgid "Regular price"
 msgstr "Звичайна ціна"
 
-#: admin_portal/catering.py:247
+#: admin_portal/catering.py:255
 #, python-format
 msgid "Regular price is %(p)s. Charge what you like, or $0 to include it."
 msgstr ""
 "Звичайна ціна — %(p)s. Встановіть будь-яку або $0, щоб включити безкоштовно."
 
-#: admin_portal/catering.py:247
+#: admin_portal/catering.py:255
 msgid "You set the price for condiments."
 msgstr "Ціну на додатки встановлюєте ви."
 
-#: admin_portal/catering.py:250
+#: admin_portal/catering.py:258
 #, python-format
 msgid "Costs you %(c)s each. Charge what you like, or $0 to include it."
 msgstr ""
 "Вам коштує %(c)s за одиницю. Встановіть будь-яку ціну або $0, щоб включити "
 "безкоштовно."
 
-#: admin_portal/catering.py:250
+#: admin_portal/catering.py:258
 msgid "You set the price for disposables."
 msgstr "Ціну на одноразову упаковку встановлюєте ви."
 
-#: admin_portal/catering.py:252 admin_portal/services.py:286
+#: admin_portal/catering.py:260 admin_portal/services.py:286
 msgid "People"
 msgstr "Люди"
 
-#: admin_portal/catering.py:252
+#: admin_portal/catering.py:260
 #: admin_portal/templates/admin_portal/dish.html:90
 #: inventory/templates/inventory/log-shopping.html:21
 #: inventory/templates/inventory/log-shopping.html:51 pos_server/pricing.py:468
@@ -653,12 +653,12 @@ msgstr "Люди"
 msgid "Quantity"
 msgstr "Кількість"
 
-#: admin_portal/catering.py:256
+#: admin_portal/catering.py:264
 #, python-format
 msgid "Choose a %(what)s…"
 msgstr "Виберіть: %(what)s…"
 
-#: admin_portal/catering.py:263 admin_portal/nav.py:43
+#: admin_portal/catering.py:271 admin_portal/nav.py:43
 #: admin_portal/staffcards.py:372
 #: admin_portal/templates/admin_portal/staff.html:8
 #: admin_portal/templates/admin_portal/staff.html:19
@@ -666,136 +666,136 @@ msgstr "Виберіть: %(what)s…"
 #: admin_portal/templates/admin_portal/staff_card_print.html:45
 #: admin_portal/templates/admin_portal/staffcards.html:162
 #: admin_portal/views.py:86 app_switcher/templates/app_switcher/index.html:32
-#: catering/models.py:185 catering/models.py:211 online_store/pages.py:894
+#: catering/models.py:187 catering/models.py:213 online_store/pages.py:894
 #: pos_server/templates/pos_server/register.html:147
 #: team/templates/team/clock.html:73
 msgid "Staff"
 msgstr "Персонал"
 
-#: admin_portal/catering.py:265
+#: admin_portal/catering.py:273
 #, python-format
 msgid "%(name)s (you)"
 msgstr "%(name)s (ви)"
 
-#: admin_portal/catering.py:271 events/hours.py:176
+#: admin_portal/catering.py:279 events/hours.py:176
 #, python-format
 msgid "%(n)d h"
 msgstr "%(n)d год"
 
-#: admin_portal/catering.py:290 admin_portal/catering.py:310
+#: admin_portal/catering.py:298 admin_portal/catering.py:318
 msgid "Removed"
 msgstr "Видалено"
 
-#: admin_portal/catering.py:295
+#: admin_portal/catering.py:303
 #, python-format
 msgid "Was %(q)s"
 msgstr "Було %(q)s"
 
-#: admin_portal/catering.py:297
+#: admin_portal/catering.py:305
 #, python-format
 msgid "Was %(p)s ea"
 msgstr "Було %(p)s за шт."
 
-#: admin_portal/catering.py:298
+#: admin_portal/catering.py:306
 #: online_store/templates/themes/neighbourhood/catering.html:96
 #, python-format
 msgid "%(d)s deposit"
 msgstr "Депозит %(d)s"
 
-#: admin_portal/catering.py:309
+#: admin_portal/catering.py:317
 msgid "Removed in your changes"
 msgstr "Видалено у ваших змінах"
 
-#: admin_portal/catering.py:322
+#: admin_portal/catering.py:330
 msgid "Condiments and disposables"
 msgstr "Додатки й одноразова упаковка"
 
-#: admin_portal/catering.py:323
+#: admin_portal/catering.py:331
 #, python-format
 msgid "Tax %(rate)s%%"
 msgstr "Податок %(rate)s%%"
 
-#: admin_portal/catering.py:325
+#: admin_portal/catering.py:333
 msgid "Total to charge"
 msgstr "Разом до оплати"
 
-#: admin_portal/catering.py:327
+#: admin_portal/catering.py:335
 msgid "Total, not charged"
 msgstr "Разом, не стягнуто"
 
-#: admin_portal/catering.py:329
+#: admin_portal/catering.py:337
 #: admin_portal/templates/admin_portal/service.html:103
 #: online_store/account.py:223
 msgid "Charged"
 msgstr "Стягнуто"
 
-#: admin_portal/catering.py:340
+#: admin_portal/catering.py:348
 #, python-format
 msgid "%(name)s placed the order"
 msgstr "%(name)s оформлює замовлення"
 
-#: admin_portal/catering.py:341
+#: admin_portal/catering.py:349
 #, python-format
 msgid "%(name)s proposed changes"
 msgstr "%(name)s пропонує зміни"
 
-#: admin_portal/catering.py:342
+#: admin_portal/catering.py:350
 #, python-format
 msgid "%(name)s accepted the order"
 msgstr "%(name)s приймає замовлення"
 
-#: admin_portal/catering.py:343
+#: admin_portal/catering.py:351
 #, python-format
 msgid "%(name)s rejected the order · %(reason)s"
 msgstr "%(name)s відхиляє замовлення · %(reason)s"
 
-#: admin_portal/catering.py:344
+#: admin_portal/catering.py:352
 #, python-format
 msgid "%(name)s cancelled the order"
 msgstr "%(name)s скасовує замовлення"
 
-#: admin_portal/catering.py:344
+#: admin_portal/catering.py:352
 #, python-format
 msgid "%(name)s cancelled the order · %(reason)s"
 msgstr "%(name)s скасовує замовлення · %(reason)s"
 
-#: admin_portal/catering.py:345
+#: admin_portal/catering.py:353
 #, python-format
 msgid "%(name)s accepted the changes"
 msgstr "%(name)s погоджується на зміни"
 
-#: admin_portal/catering.py:346
+#: admin_portal/catering.py:354
 #, python-format
 msgid "%(name)s declined the changes"
 msgstr "%(name)s відхиляє зміни"
 
-#: admin_portal/catering.py:347
+#: admin_portal/catering.py:355
 #, python-format
 msgid "%(name)s suggested changes"
 msgstr "%(name)s пропонує свої зміни"
 
-#: admin_portal/catering.py:355
+#: admin_portal/catering.py:363
 #, python-format
 msgid "Total %(was)s → %(now)s"
 msgstr "Разом %(was)s → %(now)s"
 
-#: admin_portal/catering.py:381
+#: admin_portal/catering.py:389
 msgid "not charged yet"
 msgstr "ще не стягнуто"
 
-#: admin_portal/catering.py:382 admin_portal/catering.py:384
+#: admin_portal/catering.py:390 admin_portal/catering.py:392
 msgid "never charged"
 msgstr "не стягувалося"
 
-#: admin_portal/catering.py:384 catering/views.py:265
+#: admin_portal/catering.py:392 catering/views.py:265
 msgid "refunded"
 msgstr "повернено"
 
-#: admin_portal/catering.py:384 catering/views.py:265
+#: admin_portal/catering.py:392 catering/views.py:265
 msgid "charged"
 msgstr "стягнуто"
 
-#: admin_portal/catering.py:386
+#: admin_portal/catering.py:394
 #: admin_portal/templates/admin_portal/events.html:111
 #: admin_portal/templates/admin_portal/menu.html:146 catering/views.py:206
 #: online_store/templates/themes/neighbourhood/cart.html:137
@@ -803,73 +803,83 @@ msgstr "стягнуто"
 msgid "When"
 msgstr "Коли"
 
-#: admin_portal/catering.py:387
+#: admin_portal/catering.py:395
 #, python-format
 msgid "in %(d)s"
 msgstr "через %(d)s"
 
-#: admin_portal/catering.py:387
+#: admin_portal/catering.py:395
 #, python-format
 msgid "%(d)s ago"
 msgstr "%(d)s тому"
 
-#: admin_portal/catering.py:388 catering/views.py:207
+#: admin_portal/catering.py:396 catering/views.py:207
 msgid "At the store"
 msgstr "У закладі"
 
-#: admin_portal/catering.py:389
+#: admin_portal/catering.py:397
 msgid "ready 15 min before"
 msgstr "готово за 15 хв до того"
 
-#: admin_portal/catering.py:390 catering/views.py:208
+#: admin_portal/catering.py:398 catering/views.py:208
 msgid "Contact"
 msgstr "Контакт"
 
-#: admin_portal/catering.py:391 catering/views.py:264
+#: admin_portal/catering.py:399 catering/views.py:264
 #: online_store/account.py:223
 #: online_store/templates/themes/neighbourhood/catering.html:163
 msgid "Card on file"
 msgstr "Збережена картка"
 
-#: admin_portal/catering.py:396
+#: admin_portal/catering.py:402 admin_portal/orders.py:270
+#: admin_portal/templates/admin_portal/catering.html:28
+#: admin_portal/templates/admin_portal/orders.html:20
+msgid "Attribution"
+msgstr "Джерело"
+
+#: admin_portal/catering.py:402
+msgid "the link they came from"
+msgstr "посилання, з якого вони прийшли"
+
+#: admin_portal/catering.py:406
 msgid "for an order this size"
 msgstr "для замовлення такого розміру"
 
-#: admin_portal/catering.py:398
+#: admin_portal/catering.py:408
 #, python-format
 msgid "Ordered %(a)s ahead. You ask for %(n)s%(size)s."
 msgstr "Замовлено за %(a)s. Ви просите за %(n)s%(size)s."
 
-#: admin_portal/catering.py:400
+#: admin_portal/catering.py:410
 #, python-format
 msgid "Ordered %(a)s ahead. Meets your %(n)s-day minimum%(size)s."
 msgstr "Замовлено за %(a)s. Відповідає вашому мінімуму в %(n)s дн.%(size)s."
 
-#: admin_portal/catering.py:405
+#: admin_portal/catering.py:415
 #, python-format
 msgid "About %(t)s of kitchen time, from each dish’s prep time."
 msgstr "Близько %(t)s роботи кухні, за часом приготування кожної страви."
 
-#: admin_portal/catering.py:406
+#: admin_portal/catering.py:416
 #, python-format
 msgid "ordered %(when)s"
 msgstr "замовлено %(when)s"
 
-#: admin_portal/catering.py:409
+#: admin_portal/catering.py:419
 msgid "Editing the order"
 msgstr "Редагування замовлення"
 
-#: admin_portal/catering.py:409
+#: admin_portal/catering.py:419
 msgid "Their suggested changes"
 msgstr "Їхні запропоновані зміни"
 
-#: admin_portal/catering.py:409
+#: admin_portal/catering.py:419
 msgid "Your proposed changes"
 msgstr "Ваші запропоновані зміни"
 
-#: admin_portal/catering.py:409
-#: admin_portal/templates/admin_portal/catering.html:82
-#: admin_portal/templates/admin_portal/orders.html:39
+#: admin_portal/catering.py:419
+#: admin_portal/templates/admin_portal/catering.html:92
+#: admin_portal/templates/admin_portal/orders.html:47
 #: admin_portal/templates/admin_portal/restocks.html:61
 #: online_store/account.py:157
 #: online_store/templates/themes/neighbourhood/_dock.html:12
@@ -882,7 +892,7 @@ msgstr "Ваші запропоновані зміни"
 msgid "Order"
 msgstr "Замовлення"
 
-#: admin_portal/catering.py:410
+#: admin_portal/catering.py:420
 #, python-format
 msgid "%(n)d portion"
 msgid_plural "%(n)d portions"
@@ -891,28 +901,28 @@ msgstr[1] "%(n)d порції"
 msgstr[2] "%(n)d порцій"
 msgstr[3] "%(n)d порції"
 
-#: admin_portal/catering.py:416
+#: admin_portal/catering.py:426
 msgid "Kept, something didn’t come back."
 msgstr "Утримано: щось не повернули."
 
-#: admin_portal/catering.py:416
+#: admin_portal/catering.py:426
 msgid "Released after everything came back."
 msgstr "Звільнено після повернення всього."
 
-#: admin_portal/catering.py:416 admin_portal/catering.py:418
+#: admin_portal/catering.py:426 admin_portal/catering.py:428
 msgid "Never held."
 msgstr "Не утримувалося."
 
-#: admin_portal/catering.py:420
+#: admin_portal/catering.py:430
 msgid "Held on their card now"
 msgstr "Зараз утримано на їхній картці"
 
-#: admin_portal/catering.py:420
+#: admin_portal/catering.py:430
 #, python-format
 msgid "Held on %(day)s"
 msgstr "Утримано %(day)s"
 
-#: admin_portal/catering.py:421
+#: admin_portal/catering.py:431
 msgid ""
 "not charged. Released when the equipment comes back, or kept if something’s "
 "missing or broken."
@@ -920,133 +930,133 @@ msgstr ""
 "не стягнуто. Звільняється, коли обладнання повернуть, або утримується, якщо "
 "щось бракує чи пошкоджено."
 
-#: admin_portal/catering.py:422
+#: admin_portal/catering.py:432
 #, python-format
 msgid "%(d)s equipment deposit, held separately"
 msgstr "Депозит за обладнання %(d)s, утримується окремо"
 
-#: admin_portal/catering.py:423
+#: admin_portal/catering.py:433
 #, python-format
 msgid "Write to %(name)s…"
 msgstr "Написати %(name)s…"
 
-#: admin_portal/catering.py:424 catering/flow.py:302
+#: admin_portal/catering.py:434 catering/flow.py:302
 msgid "This order is closed."
 msgstr "Це замовлення закрито."
 
-#: admin_portal/catering.py:424
+#: admin_portal/catering.py:434
 #, python-format
 msgid "Messages go to %(email)s and show on their order page."
 msgstr ""
 "Повідомлення надходять на %(email)s і показуються на сторінці їхнього "
 "замовлення."
 
-#: admin_portal/catering.py:427
+#: admin_portal/catering.py:437
 #, python-format
 msgid "%(d)s deposit hold"
 msgstr "Утримання депозиту %(d)s"
 
-#: admin_portal/catering.py:430
+#: admin_portal/catering.py:440
 #, python-format
 msgid "Waiting on %(name)s since %(day)s"
 msgstr "Чекаємо на %(name)s з %(day)s"
 
-#: admin_portal/catering.py:431
+#: admin_portal/catering.py:441
 #, python-format
 msgid "Charged %(t)s when they accept. Cancelled if they decline."
 msgstr ""
 "%(t)s буде стягнуто, коли вони приймуть. Скасовується, якщо відмовлять."
 
-#: admin_portal/catering.py:432 admin_portal/catering.py:483
+#: admin_portal/catering.py:442 admin_portal/catering.py:493
 msgid "Cancel order"
 msgstr "Скасувати замовлення"
 
-#: admin_portal/catering.py:433
+#: admin_portal/catering.py:443
 msgid "Edit changes"
 msgstr "Редагувати зміни"
 
-#: admin_portal/catering.py:434
+#: admin_portal/catering.py:444
 msgid "Send reminder"
 msgstr "Надіслати нагадування"
 
-#: admin_portal/catering.py:438
+#: admin_portal/catering.py:448
 #, python-format
 msgid "%(d)s deposit is held on their card."
 msgstr "Депозит %(d)s утримано на їхній картці."
 
-#: admin_portal/catering.py:440
+#: admin_portal/catering.py:450
 #, python-format
 msgid "%(d)s deposit will be held on %(day)s."
 msgstr "Депозит %(d)s буде утримано %(day)s."
 
-#: admin_portal/catering.py:440
+#: admin_portal/catering.py:450
 #, python-format
 msgid "%(d)s deposit hold is being placed."
 msgstr "Утримання депозиту %(d)s оформлюється."
 
-#: admin_portal/catering.py:442
+#: admin_portal/catering.py:452
 msgid "No deposit on this order."
 msgstr "Депозиту в цьому замовленні немає."
 
-#: admin_portal/catering.py:443 admin_portal/catering.py:483
+#: admin_portal/catering.py:453 admin_portal/catering.py:493
 msgid "Cancel and refund"
 msgstr "Скасувати й повернути кошти"
 
-#: admin_portal/catering.py:446
+#: admin_portal/catering.py:456
 msgid "Keep deposit"
 msgstr "Утримати депозит"
 
-#: admin_portal/catering.py:446
+#: admin_portal/catering.py:456
 msgid "Equipment back"
 msgstr "Обладнання повернуто"
 
-#: admin_portal/catering.py:448
+#: admin_portal/catering.py:458
 msgid "Mark completed"
 msgstr "Позначити виконаним"
 
-#: admin_portal/catering.py:449
+#: admin_portal/catering.py:459
 #, python-format
 msgid "Confirmed · %(t)s charged %(day)s"
 msgstr "Підтверджено · %(t)s стягнуто %(day)s"
 
-#: admin_portal/catering.py:452
+#: admin_portal/catering.py:462
 msgid "Deposit released."
 msgstr "Депозит звільнено."
 
-#: admin_portal/catering.py:452
+#: admin_portal/catering.py:462
 msgid "Deposit kept."
 msgstr "Депозит утримано."
 
-#: admin_portal/catering.py:453
+#: admin_portal/catering.py:463
 #, python-format
 msgid "Completed %(day)s"
 msgstr "Виконано %(day)s"
 
-#: admin_portal/catering.py:454
+#: admin_portal/catering.py:464
 #, python-format
 msgid "%(t)s charged."
 msgstr "Стягнуто %(t)s."
 
-#: admin_portal/catering.py:457
+#: admin_portal/catering.py:467
 #, python-format
 msgid "Cancelled %(day)s"
 msgstr "Скасовано %(day)s"
 
-#: admin_portal/catering.py:457
+#: admin_portal/catering.py:467
 #, python-format
 msgid "Rejected %(day)s"
 msgstr "Відхилено %(day)s"
 
-#: admin_portal/catering.py:459
+#: admin_portal/catering.py:469
 #, python-format
 msgid "%(t)s refunded to %(card)s."
 msgstr "%(t)s повернено на %(card)s."
 
-#: admin_portal/catering.py:459 catering/views.py:226
+#: admin_portal/catering.py:469 catering/views.py:226
 msgid "Nothing was charged."
 msgstr "Нічого не стягнуто."
 
-#: admin_portal/catering.py:468
+#: admin_portal/catering.py:478
 #, python-format
 msgid "%(n)d change"
 msgid_plural "%(n)d changes"
@@ -1055,103 +1065,103 @@ msgstr[1] "%(n)d зміни"
 msgstr[2] "%(n)d змін"
 msgstr[3] "%(n)d зміни"
 
-#: admin_portal/catering.py:468
+#: admin_portal/catering.py:478
 msgid "No changes yet"
 msgstr "Змін ще немає"
 
-#: admin_portal/catering.py:470
+#: admin_portal/catering.py:480
 msgid "Change quantities and prices, remove lines, or add something above."
 msgstr "Змінюйте кількість і ціни, видаляйте рядки або додайте щось вище."
 
-#: admin_portal/catering.py:470
+#: admin_portal/catering.py:480
 msgid "Add a reason above to send."
 msgstr "Щоб надіслати, вкажіть причину вище."
 
-#: admin_portal/catering.py:470
+#: admin_portal/catering.py:480
 #, python-format
 msgid "Nothing is charged until %(name)s accepts."
 msgstr "Нічого не стягується, доки %(name)s не прийме."
 
-#: admin_portal/catering.py:472
+#: admin_portal/catering.py:482
 #, python-format
 msgid "Tell %(name)s what changed and why. They see this with the new total."
 msgstr ""
 "Розкажіть %(name)s, що змінилося й чому. Вони побачать це разом із новою "
 "сумою."
 
-#: admin_portal/catering.py:476
+#: admin_portal/catering.py:486
 msgid "Held now, released when the equipment comes back."
 msgstr "Утримується зараз, звільняється, коли обладнання повернуть."
 
-#: admin_portal/catering.py:476
+#: admin_portal/catering.py:486
 #, python-format
 msgid "Held on %(day)s, %(when)s. Card holds only last about 7 days."
 msgstr ""
 "Утримується %(day)s, %(when)s. Утримання на картці тримається лише близько 7 "
 "днів."
 
-#: admin_portal/catering.py:480
+#: admin_portal/catering.py:490
 msgid "Cancel and refund this order?"
 msgstr "Скасувати це замовлення й повернути кошти?"
 
-#: admin_portal/catering.py:480
+#: admin_portal/catering.py:490
 msgid "Cancel this order?"
 msgstr "Скасувати це замовлення?"
 
-#: admin_portal/catering.py:480
+#: admin_portal/catering.py:490
 #, python-format
 msgid "Reject %(name)s’s order?"
 msgstr "Відхилити замовлення %(name)s?"
 
-#: admin_portal/catering.py:481
+#: admin_portal/catering.py:491
 #, python-format
 msgid "%(t)s goes back to %(card)s and any deposit hold is dropped."
 msgstr "%(t)s повернеться на %(card)s, а утримання депозиту буде знято."
 
-#: admin_portal/catering.py:481
+#: admin_portal/catering.py:491
 #, python-format
 msgid "Nothing has been charged. %(name)s gets an email with your message."
 msgstr "Нічого не стягнуто. %(name)s отримає лист із вашим повідомленням."
 
-#: admin_portal/catering.py:482 catering/flow.py:25
+#: admin_portal/catering.py:492 catering/flow.py:25
 msgid "Not enough notice"
 msgstr "Замало часу на підготовку"
 
-#: admin_portal/catering.py:483
+#: admin_portal/catering.py:493
 #: pos_server/templates/pos_server/order-marking.html:114
 #: pos_server/templates/pos_server/order-marking.html:136
 msgid "Reject order"
 msgstr "Відхилити замовлення"
 
-#: admin_portal/catering.py:546
+#: admin_portal/catering.py:556
 msgid "Minimum notice has to be at least 1."
 msgstr "Мінімальний термін має бути щонайменше 1."
 
-#: admin_portal/catering.py:548
+#: admin_portal/catering.py:558
 msgid "Customers have to be able to book at least a day ahead."
 msgstr "Клієнти мають змогу бронювати щонайменше за день."
 
-#: admin_portal/catering.py:550
+#: admin_portal/catering.py:560
 msgid "Add at least 1 hour of kitchen time per extra day."
 msgstr "Додайте щонайменше 1 годину роботи кухні на кожен додатковий день."
 
-#: admin_portal/catering.py:552
+#: admin_portal/catering.py:562
 msgid "Pick at least one day for events."
 msgstr "Виберіть щонайменше один день для подій."
 
-#: admin_portal/catering.py:555
+#: admin_portal/catering.py:565
 msgid "The latest time has to be after the earliest."
 msgstr "Найпізніший час має бути після найранішого."
 
-#: admin_portal/catering.py:557
+#: admin_portal/catering.py:567
 msgid "Turn on at least one way for customers to get their order."
 msgstr "Увімкніть хоча б один спосіб, яким клієнти отримають замовлення."
 
-#: admin_portal/catering.py:559
+#: admin_portal/catering.py:569
 msgid "The minimum order can’t be negative."
 msgstr "Мінімальне замовлення не може бути від'ємним."
 
-#: admin_portal/catering.py:584
+#: admin_portal/catering.py:594
 #, python-format
 msgid ""
 "Ordering today, the earliest event a customer can pick is %(first)s, and the "
@@ -1160,7 +1170,7 @@ msgstr ""
 "Якщо замовити сьогодні, найраніша подія, яку може вибрати клієнт, — "
 "%(first)s, а найпізніша — %(last)s."
 
-#: admin_portal/catering.py:592
+#: admin_portal/catering.py:602
 #, python-format
 msgid ""
 "Example: %(title)s is about %(t)s of kitchen time, so it needs %(need)s of "
@@ -1169,62 +1179,62 @@ msgstr ""
 "Приклад: %(title)s потребує близько %(t)s роботи кухні, тому треба %(need)s "
 "на підготовку замість %(base)s."
 
-#: admin_portal/catering.py:604 admin_portal/services.py:30
+#: admin_portal/catering.py:614 admin_portal/services.py:30
 #: admin_portal/templates/admin_portal/discounts.html:87 catering/models.py:30
 #: online_store/templates/themes/neighbourhood/_footer.html:15
 msgid "Hours"
 msgstr "Години"
 
-#: admin_portal/catering.py:604 admin_portal/services.py:30
+#: admin_portal/catering.py:614 admin_portal/services.py:30
 #: admin_portal/templates/admin_portal/catering_settings.html:65
 #: admin_portal/templates/admin_portal/discounts.html:80
 #: admin_portal/templates/admin_portal/discounts.html:81 catering/models.py:30
 msgid "Days"
 msgstr "Дні"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Mon"
 msgstr "Пн"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Tue"
 msgstr "Вт"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Wed"
 msgstr "Ср"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Thu"
 msgstr "Чт"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Fri"
 msgstr "Пт"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Sat"
 msgstr "Сб"
 
-#: admin_portal/catering.py:605 admin_portal/events.py:23
+#: admin_portal/catering.py:615 admin_portal/events.py:23
 #: admin_portal/hours.py:17 admin_portal/templates/admin_portal/reports.html:68
 #: online_store/work.py:23 team/requests.py:79
 msgid "Sun"
 msgstr "Нд"
 
-#: admin_portal/catering.py:607 admin_portal/events.py:21
+#: admin_portal/catering.py:617 admin_portal/events.py:21
 #: admin_portal/templates/admin_portal/coupons.html:144
 #: admin_portal/templates/admin_portal/discounts.html:185 catering/models.py:77
 #: catering/views.py:97 catering/views.py:207
@@ -1234,11 +1244,11 @@ msgstr "Нд"
 msgid "Pickup"
 msgstr "Самовивіз"
 
-#: admin_portal/catering.py:607
+#: admin_portal/catering.py:617
 msgid "They collect it from the store."
 msgstr "Вони забирають його із закладу."
 
-#: admin_portal/catering.py:608 admin_portal/dashboard.py:39
+#: admin_portal/catering.py:618 admin_portal/dashboard.py:39
 #: admin_portal/events.py:21 admin_portal/orders.py:23 admin_portal/team.py:13
 #: admin_portal/templates/admin_portal/coupons.html:145
 #: admin_portal/templates/admin_portal/discounts.html:186 catering/models.py:77
@@ -1251,7 +1261,7 @@ msgstr "Вони забирають його із закладу."
 msgid "Delivery"
 msgstr "Доставка"
 
-#: admin_portal/catering.py:608
+#: admin_portal/catering.py:618
 msgid ""
 "You bring it to them. Your delivery service is added to the quote; staff and "
 "setup are booked as services."
@@ -1259,7 +1269,7 @@ msgstr ""
 "Ви привозите його їм. Ваша послуга доставки додається до кошторису; персонал "
 "і облаштування бронюються як послуги."
 
-#: admin_portal/catering.py:610
+#: admin_portal/catering.py:620
 #, python-format
 msgid ""
 "%(n)d dish is on for catering. Turn dishes on or off, and set quantity "
@@ -1280,37 +1290,37 @@ msgstr[3] ""
 "%(n)d страви доступні для кейтерингу. Вмикайте чи вимикайте страви й "
 "задавайте ціни за кількість у розділі «Ціни кейтерингу» кожної страви."
 
-#: admin_portal/catering.py:613
+#: admin_portal/catering.py:623
 #, python-format
 msgid "%(n)d of %(all)d services can be added to catering orders."
 msgstr "%(n)d з %(all)d послуг можна додавати до замовлень на кейтеринг."
 
-#: admin_portal/catering.py:618
+#: admin_portal/catering.py:628
 msgid " an hour"
 msgstr " за годину"
 
-#: admin_portal/catering.py:618
+#: admin_portal/catering.py:628
 msgid " a day"
 msgstr " за день"
 
-#: admin_portal/catering.py:618
+#: admin_portal/catering.py:628
 msgid " flat"
 msgstr " фіксовано"
 
-#: admin_portal/catering.py:618
+#: admin_portal/catering.py:628
 msgid " a guest"
 msgstr " за гостя"
 
-#: admin_portal/catering.py:618
+#: admin_portal/catering.py:628
 msgid " each"
 msgstr " за шт."
 
-#: admin_portal/catering.py:621 online_store/pages.py:874
+#: admin_portal/catering.py:631 online_store/pages.py:874
 #, python-format
 msgid "%(d)s deposit per booking"
 msgstr "Депозит %(d)s за бронювання"
 
-#: admin_portal/catering.py:621 online_store/pages.py:874
+#: admin_portal/catering.py:631 online_store/pages.py:874
 #, python-format
 msgid "%(d)s deposit each"
 msgstr "Депозит %(d)s за шт."
@@ -1784,7 +1794,7 @@ msgid "not offered"
 msgstr "не пропонується"
 
 #: admin_portal/components.py:404 admin_portal/coupons.py:332
-#: admin_portal/discounts.py:385 admin_portal/reports.py:275
+#: admin_portal/discounts.py:385 admin_portal/reports.py:303
 #: admin_portal/stations.py:224
 #, python-format
 msgid "%(n)d dish"
@@ -2236,8 +2246,8 @@ msgid "serving"
 msgstr "порцію"
 
 #: admin_portal/condiments.py:432
-#: admin_portal/templates/admin_portal/catering.html:110
-#: admin_portal/templates/admin_portal/catering.html:141
+#: admin_portal/templates/admin_portal/catering.html:120
+#: admin_portal/templates/admin_portal/catering.html:151
 #: admin_portal/templates/admin_portal/dish.html:90
 msgid "Price each"
 msgstr "Ціна за шт."
@@ -2323,6 +2333,7 @@ msgid "Ended"
 msgstr "Завершено"
 
 #: admin_portal/coupons.py:250 admin_portal/staffcards.py:304
+#: gift_cards/templates/gift_cards/card.html:51
 msgid "Used up"
 msgstr "Вичерпано"
 
@@ -2509,7 +2520,7 @@ msgid "Doesn’t apply: nothing in this cart qualifies."
 msgstr "Не діє: у цьому кошику немає відповідних позицій."
 
 #: admin_portal/coupons.py:404 admin_portal/discounts.py:466
-#: admin_portal/orders.py:170 admin_portal/orders.py:309
+#: admin_portal/orders.py:179 admin_portal/orders.py:319
 #: admin_portal/templates/admin_portal/staffcards.html:171
 #: online_store/pages.py:496 online_store/storefront.py:403
 #: online_store/templates/themes/neighbourhood/catering.html:135
@@ -2531,7 +2542,7 @@ msgid "free delivery"
 msgstr "безкоштовна доставка"
 
 #: admin_portal/coupons.py:411 admin_portal/discounts.py:472
-#: admin_portal/orders.py:175 admin_portal/orders.py:313
+#: admin_portal/orders.py:184 admin_portal/orders.py:323
 #: admin_portal/templates/admin_portal/restock.html:123
 #: admin_portal/templates/admin_portal/service.html:67
 #: admin_portal/templates/admin_portal/store_info.html:53
@@ -2544,10 +2555,10 @@ msgid "Tax"
 msgstr "Податок"
 
 #: admin_portal/coupons.py:412 admin_portal/discounts.py:473
-#: admin_portal/orders.py:182 admin_portal/orders.py:320
+#: admin_portal/orders.py:191 admin_portal/orders.py:330
 #: admin_portal/services.py:297
 #: admin_portal/templates/admin_portal/order.html:40
-#: admin_portal/templates/admin_portal/orders.html:40
+#: admin_portal/templates/admin_portal/orders.html:48
 #: admin_portal/templates/admin_portal/restock.html:117
 #: admin_portal/templates/admin_portal/restock.html:118
 #: admin_portal/templates/admin_portal/restocks.html:62
@@ -2617,8 +2628,8 @@ msgid "Fix %(name)s’s profile to save"
 msgstr "Виправте профіль %(name)s, щоб зберегти"
 
 #: admin_portal/customers.py:300 admin_portal/giftcards.py:251
-#: admin_portal/orders.py:255 admin_portal/reports.py:156
-#: admin_portal/reports.py:333 pos_server/history.py:88
+#: admin_portal/orders.py:264 admin_portal/reports.py:162
+#: admin_portal/reports.py:362 pos_server/history.py:88
 #, python-format
 msgid "%(n)d order"
 msgid_plural "%(n)d orders"
@@ -2628,7 +2639,7 @@ msgstr[2] "%(n)d замовлень"
 msgstr[3] "%(n)d замовлення"
 
 #: admin_portal/customers.py:300 admin_portal/dashboard.py:236
-#: admin_portal/templates/admin_portal/orders.html:60
+#: admin_portal/templates/admin_portal/orders.html:68
 #: admin_portal/templates/admin_portal/reports.html:86
 #: admin_portal/templates/admin_portal/reports.html:96
 #: pos_server/templates/pos_server/history.html:54
@@ -2659,8 +2670,8 @@ msgstr[2] "%(n)d приєдналися за останні 30 днів"
 msgstr[3] "%(n)d приєдналися за останні 30 днів"
 
 #: admin_portal/customers.py:332 admin_portal/orders.py:22
-#: admin_portal/orders.py:167 admin_portal/orders.py:184
-#: admin_portal/orders.py:262 admin_portal/orders.py:323
+#: admin_portal/orders.py:176 admin_portal/orders.py:193
+#: admin_portal/orders.py:272 admin_portal/orders.py:333
 msgid "Refunded"
 msgstr "Повернено"
 
@@ -2669,8 +2680,8 @@ msgid "Part refunded"
 msgstr "Частково повернено"
 
 #: admin_portal/customers.py:332 admin_portal/orders.py:20
-#: admin_portal/orders.py:22 admin_portal/orders.py:217
-#: admin_portal/orders.py:262
+#: admin_portal/orders.py:22 admin_portal/orders.py:226
+#: admin_portal/orders.py:272
 msgid "Voided"
 msgstr "Анульовано"
 
@@ -2717,14 +2728,15 @@ msgid "Waiting for %(email)s to confirm it."
 msgstr "Чекаємо, поки %(email)s це підтвердить."
 
 #: admin_portal/customers.py:358 admin_portal/dashboard.py:346
-#: admin_portal/nav.py:15 admin_portal/reports.py:327
+#: admin_portal/nav.py:15 admin_portal/reports.py:356
 #: admin_portal/staffcards.py:338
 #: admin_portal/templates/admin_portal/catering_head.html:4
 #: admin_portal/templates/admin_portal/catering_head.html:9
 #: admin_portal/templates/admin_portal/orders.html:14
-#: admin_portal/templates/admin_portal/orders.html:37
-#: admin_portal/templates/admin_portal/report_day.html:115
-#: admin_portal/templates/admin_portal/report_day.html:127
+#: admin_portal/templates/admin_portal/orders.html:45
+#: admin_portal/templates/admin_portal/report_day.html:116
+#: admin_portal/templates/admin_portal/report_day.html:128
+#: admin_portal/templates/admin_portal/report_day.html:148
 #: admin_portal/templates/admin_portal/reports.html:44
 #: deliveries/templates/deliveries/base.html:30
 #: deliveries/templates/deliveries/list.html:7 misc_tools/emails.py:56
@@ -2742,6 +2754,7 @@ msgid "Mostly %(how)s"
 msgstr "Здебільшого: %(how)s"
 
 #: admin_portal/customers.py:358
+#: admin_portal/templates/admin_portal/switchboard.html:52
 msgid "None yet"
 msgstr "Ще немає"
 
@@ -2754,7 +2767,7 @@ msgid "After refunds"
 msgstr "Після повернень"
 
 #: admin_portal/customers.py:360 admin_portal/dashboard.py:347
-#: admin_portal/reports.py:328
+#: admin_portal/reports.py:357
 msgid "Average order"
 msgstr "Середнє замовлення"
 
@@ -2891,7 +2904,7 @@ msgid "Closed"
 msgstr "Зачинено"
 
 #: admin_portal/dashboard.py:179
-#: admin_portal/templates/admin_portal/catering.html:244
+#: admin_portal/templates/admin_portal/catering.html:254
 msgid "Not yet"
 msgstr "Ще ні"
 
@@ -3073,8 +3086,8 @@ msgstr "Попередження"
 msgid "To review"
 msgstr "Переглянути"
 
-#: admin_portal/dashboard.py:345 admin_portal/reports.py:141
-#: admin_portal/reports.py:326
+#: admin_portal/dashboard.py:345 admin_portal/reports.py:147
+#: admin_portal/reports.py:355
 #: admin_portal/templates/admin_portal/reports.html:44
 msgid "Net sales"
 msgstr "Чисті продажі"
@@ -3084,10 +3097,10 @@ msgid "Avg ticket time"
 msgstr "Сер. час чека"
 
 #: admin_portal/devices.py:21 admin_portal/giftcards.py:221
-#: admin_portal/orders.py:258 admin_portal/team.py:8
+#: admin_portal/orders.py:267 admin_portal/team.py:8
 #: admin_portal/templates/admin_portal/discounts.html:40
 #: admin_portal/templates/admin_portal/giftdesigns.html:141
-#: admin_portal/templates/admin_portal/orders.html:39 app_switcher/views.py:14
+#: admin_portal/templates/admin_portal/orders.html:47 app_switcher/views.py:14
 #: pos_server/register.py:189 pos_server/register.py:635
 #: pos_server/register.py:641 pos_server/templates/pos_server/pair_pos.html:22
 #: pos_server/templates/pos_server/register.html:4
@@ -3205,7 +3218,7 @@ msgstr ""
 "Під'єднано, але показувати ще нічого. На телевізорі написано «Екран не "
 "призначено»."
 
-#: admin_portal/devices.py:77
+#: admin_portal/devices.py:77 admin_portal/switchboard.py:60
 #, python-format
 msgid "%(when)s by %(who)s"
 msgstr "%(when)s, %(who)s"
@@ -3288,7 +3301,7 @@ msgid "%(name)s deleted. Save to keep it."
 msgstr "%(name)s видалено. Збережіть, щоб залишити так."
 
 #: admin_portal/discounts.py:184 admin_portal/discounts.py:470
-#: admin_portal/orders.py:311
+#: admin_portal/orders.py:321
 #: admin_portal/templates/admin_portal/coupons.html:67
 #: admin_portal/templates/admin_portal/discounts.html:106
 #: admin_portal/templates/admin_portal/staffcards.html:94
@@ -3317,7 +3330,7 @@ msgstr "Мінімум — це сума, наприклад 40."
 #: admin_portal/templates/admin_portal/_upload_music.html:14
 #: admin_portal/templates/admin_portal/audio.html:107
 #: admin_portal/templates/admin_portal/audio.html:112
-#: admin_portal/templates/admin_portal/catering.html:233
+#: admin_portal/templates/admin_portal/catering.html:243
 #: admin_portal/templates/admin_portal/devices.html:163
 #: admin_portal/templates/admin_portal/devices.html:168
 #: admin_portal/templates/admin_portal/devices.html:200
@@ -3336,6 +3349,7 @@ msgstr "Мінімум — це сума, наприклад 40."
 #: admin_portal/templates/admin_portal/shifts.html:125
 #: admin_portal/templates/admin_portal/staff.html:150
 #: admin_portal/templates/admin_portal/staff.html:154
+#: admin_portal/templates/admin_portal/switchboard.html:85
 #: audio/templates/audio/music.html:180
 #: inventory/templates/inventory/availability_panel.html:25
 #: inventory/templates/inventory/availability_panel.html:58
@@ -3978,8 +3992,8 @@ msgstr "%(n)s в наявності · %(cases)s ящ. · вартість %(mon
 #: admin_portal/disposables.py:376 admin_portal/giftcards.py:232
 #: admin_portal/giftcards.py:250 admin_portal/staffcards.py:338
 #: admin_portal/templates/admin_portal/disposables.html:42
-#: admin_portal/templates/admin_portal/report_day.html:71
-#: admin_portal/templates/admin_portal/report_day.html:79
+#: admin_portal/templates/admin_portal/report_day.html:72
+#: admin_portal/templates/admin_portal/report_day.html:80
 msgid "Used"
 msgstr "Використано"
 
@@ -4499,6 +4513,7 @@ msgstr[3] "Видалення через %(n)d дн."
 
 #: admin_portal/giftcards.py:199
 #: admin_portal/templates/admin_portal/giftcards.html:62
+#: gift_cards/templates/gift_cards/card.html:50
 msgid "Frozen"
 msgstr "Заморожено"
 
@@ -4579,8 +4594,11 @@ msgid "Left %(v)s"
 msgstr "Залишок %(v)s"
 
 #: admin_portal/giftcards.py:246 admin_portal/orders.py:60
-#: admin_portal/orders.py:299
+#: admin_portal/orders.py:309
 #: admin_portal/templates/admin_portal/giftdesigns.html:62
+#: gift_cards/templates/gift_cards/card.html:17
+#: gift_cards/templates/gift_cards/card.html:29
+#: gift_cards/templates/gift_cards/card.html:36
 #: pos_server/templates/pos_server/register.html:146
 #: pos_server/templates/pos_server/register.html:329
 #: pos_server/templates/pos_server/register.html:585
@@ -4648,7 +4666,7 @@ msgstr ""
 msgid "%(design)s card"
 msgstr "картка «%(design)s»"
 
-#: admin_portal/giftcards.py:279 admin_portal/orders.py:233
+#: admin_portal/giftcards.py:279 admin_portal/orders.py:242
 msgid "gift card"
 msgstr "подарункова картка"
 
@@ -5927,8 +5945,8 @@ msgid "— Empty —"
 msgstr "— Порожньо —"
 
 #: admin_portal/menus.py:487 admin_portal/menus.py:543
-#: admin_portal/orders.py:125 admin_portal/orders.py:195
-#: admin_portal/reports.py:327 admin_portal/restocks.py:296
+#: admin_portal/orders.py:133 admin_portal/orders.py:204
+#: admin_portal/reports.py:356 admin_portal/restocks.py:296
 #: admin_portal/restocks.py:326 admin_portal/restocks.py:427
 #: services/models.py:129
 #, python-format
@@ -6140,7 +6158,7 @@ msgstr "Звіти"
 msgid "Retail orders"
 msgstr "Роздрібні замовлення"
 
-#: admin_portal/nav.py:17 admin_portal/templates/admin_portal/catering.html:8
+#: admin_portal/nav.py:17 admin_portal/templates/admin_portal/catering.html:9
 #: admin_portal/templates/admin_portal/catering_head.html:5
 #: admin_portal/templates/admin_portal/dishes.html:51 misc_tools/emails.py:56
 #: online_store/templates/online_store/account/base.html:32
@@ -6215,7 +6233,7 @@ msgstr "Поповнення"
 msgid "Store hours"
 msgstr "Години роботи"
 
-#: admin_portal/nav.py:36 admin_portal/orders.py:260
+#: admin_portal/nav.py:36 admin_portal/orders.py:269
 #: admin_portal/templates/admin_portal/stations.html:8
 #: admin_portal/templates/admin_portal/stations.html:19
 #: admin_portal/templates/admin_portal/stations.html:36
@@ -6338,6 +6356,7 @@ msgstr "Дизайни подарункових карток"
 #: admin_portal/templates/admin_portal/notifications.html:20
 #: admin_portal/templates/admin_portal/payments.html:16
 #: admin_portal/templates/admin_portal/store_info.html:22
+#: admin_portal/templates/admin_portal/switchboard.html:19
 msgid "Settings"
 msgstr "Налаштування"
 
@@ -6371,6 +6390,14 @@ msgstr "Платежі"
 #: admin_portal/templates/admin_portal/devices.html:27
 msgid "Devices"
 msgstr "Пристрої"
+
+#: admin_portal/nav.py:64
+#: admin_portal/templates/admin_portal/switchboard.html:8
+#: admin_portal/templates/admin_portal/switchboard.html:20
+#: admin_portal/templates/admin_portal/switchboard.html:29
+#: switchboard/templates/switchboard/authorize.html:19
+msgid "Switchboard"
+msgstr "Switchboard"
 
 #: admin_portal/notifications.py:53
 msgid ""
@@ -6486,7 +6513,7 @@ msgstr "Картка працівника"
 msgid "Online card"
 msgstr "Онлайн-картка"
 
-#: admin_portal/orders.py:66 admin_portal/orders.py:229
+#: admin_portal/orders.py:66 admin_portal/orders.py:238
 #: admin_portal/staffcards.py:126
 #: admin_portal/templates/admin_portal/giftcards.html:39
 #: pos_server/templates/pos_server/register.html:145
@@ -6497,68 +6524,68 @@ msgstr "Картка"
 msgid "Tap"
 msgstr "Безконтактно"
 
-#: admin_portal/orders.py:124 admin_portal/orders.py:253
+#: admin_portal/orders.py:132 admin_portal/orders.py:262
 msgid "Walk-in"
 msgstr "Відвідувач"
 
-#: admin_portal/orders.py:124
+#: admin_portal/orders.py:132
 msgid "Guest"
 msgstr "Гість"
 
-#: admin_portal/orders.py:167
+#: admin_portal/orders.py:176
 #, python-format
 msgid "%(n)d of %(q)d refunded"
 msgstr "Повернено %(n)d з %(q)d"
 
-#: admin_portal/orders.py:173
+#: admin_portal/orders.py:182
 #, python-format
 msgid "%(label)s · approved by %(name)s"
 msgstr "%(label)s · схвалив(-ла) %(name)s"
 
-#: admin_portal/orders.py:179 admin_portal/orders.py:317
+#: admin_portal/orders.py:188 admin_portal/orders.py:327
 #: online_store/pages.py:502 online_store/storefront.py:410
 #: online_store/templates/themes/neighbourhood/cart.html:204
 msgid "Tip"
 msgstr "Чайові"
 
-#: admin_portal/orders.py:181 admin_portal/orders.py:319
+#: admin_portal/orders.py:190 admin_portal/orders.py:329
 #: online_store/pages.py:504 online_store/storefront.py:411
 #: online_store/templates/online_store/account/profile.html:101
 #, python-format
 msgid "Gift card •• %(last4)s"
 msgstr "Подарункова картка •• %(last4)s"
 
-#: admin_portal/orders.py:186
+#: admin_portal/orders.py:195
 msgid "Net"
 msgstr "Чиста сума"
 
-#: admin_portal/orders.py:192
+#: admin_portal/orders.py:201
 msgid "Order rung up"
 msgstr "Замовлення пробито"
 
-#: admin_portal/orders.py:192
+#: admin_portal/orders.py:201
 msgid "Order placed online"
 msgstr "Замовлення зроблено онлайн"
 
-#: admin_portal/orders.py:193
+#: admin_portal/orders.py:202
 #, python-format
 msgid "By %(who)s on %(where)s"
 msgstr "%(who)s, %(where)s"
 
-#: admin_portal/orders.py:194
+#: admin_portal/orders.py:203
 msgid "the register"
 msgstr "каса"
 
-#: admin_portal/orders.py:199
+#: admin_portal/orders.py:208
 msgid "Sent to the kitchen"
 msgstr "Надіслано на кухню"
 
-#: admin_portal/orders.py:200
+#: admin_portal/orders.py:209
 #, python-format
 msgid "%(stations)s confirmed"
 msgstr "Підтверджено: %(stations)s"
 
-#: admin_portal/orders.py:203 deliveries/views.py:258
+#: admin_portal/orders.py:212 deliveries/views.py:258
 #: inventory/templates/inventory/cookery/guided.html:55
 #: inventory/templates/inventory/cookery/transforming.html:23
 #: online_store/account.py:152 online_store/storefront.py:390
@@ -6566,132 +6593,132 @@ msgstr "Підтверджено: %(stations)s"
 msgid "Ready"
 msgstr "Готово"
 
-#: admin_portal/orders.py:204
+#: admin_portal/orders.py:213
 #, python-format
 msgid "Prep time %(t)s"
 msgstr "Час приготування %(t)s"
 
-#: admin_portal/orders.py:207 admin_portal/orders.py:225
+#: admin_portal/orders.py:216 admin_portal/orders.py:234
 #, python-format
 msgid "Tendered %(t)s · change %(c)s"
 msgstr "Отримано %(t)s · решта %(c)s"
 
-#: admin_portal/orders.py:208 payments/templates/payments/phone_pay.html:33
+#: admin_portal/orders.py:217 payments/templates/payments/phone_pay.html:33
 #, python-format
 msgid "Paid %(amount)s"
 msgstr "Оплачено %(amount)s"
 
-#: admin_portal/orders.py:210
+#: admin_portal/orders.py:219
 msgid "Receipt printed"
 msgstr "Чек надруковано"
 
-#: admin_portal/orders.py:210
+#: admin_portal/orders.py:219
 msgid "Receipt sent"
 msgstr "Чек надіслано"
 
-#: admin_portal/orders.py:213
+#: admin_portal/orders.py:222
 #, python-format
 msgid "Refunded %(amount)s"
 msgstr "Повернено %(amount)s"
 
-#: admin_portal/orders.py:214
+#: admin_portal/orders.py:223
 #, python-format
 msgid "%(reason)s · by %(who)s · to %(where)s"
 msgstr "%(reason)s · хто: %(who)s · куди: %(where)s"
 
-#: admin_portal/orders.py:215 admin_portal/orders.py:233
+#: admin_portal/orders.py:224 admin_portal/orders.py:242
 #: pos_server/order_emails.py:46
 msgid "cash"
 msgstr "готівка"
 
-#: admin_portal/orders.py:215
+#: admin_portal/orders.py:224
 msgid "the original payment"
 msgstr "початковий спосіб оплати"
 
-#: admin_portal/orders.py:218
+#: admin_portal/orders.py:227
 #, python-format
 msgid "By %(who)s · nothing was charged"
 msgstr "Хто: %(who)s · нічого не списано"
 
-#: admin_portal/orders.py:229
+#: admin_portal/orders.py:238
 msgid "Tapped"
 msgstr "Безконтактно"
 
-#: admin_portal/orders.py:229
+#: admin_portal/orders.py:238
 msgid "Inserted"
 msgstr "Чипом"
 
-#: admin_portal/orders.py:229
+#: admin_portal/orders.py:238
 msgid "Swiped"
 msgstr "Магнітною смугою"
 
-#: admin_portal/orders.py:229
+#: admin_portal/orders.py:238
 msgid "Keyed in"
 msgstr "Введено вручну"
 
-#: admin_portal/orders.py:229 online_store/account.py:169
+#: admin_portal/orders.py:238 online_store/account.py:169
 msgid "Paid online"
 msgstr "Оплачено онлайн"
 
-#: admin_portal/orders.py:233
+#: admin_portal/orders.py:242
 msgid "the card"
 msgstr "картка"
 
-#: admin_portal/orders.py:233
+#: admin_portal/orders.py:242
 msgid "the staff card"
 msgstr "картка працівника"
 
-#: admin_portal/orders.py:234
+#: admin_portal/orders.py:243
 #, python-format
 msgid "Refund · %(reason)s"
 msgstr "Повернення коштів · %(reason)s"
 
-#: admin_portal/orders.py:235
+#: admin_portal/orders.py:244
 #, python-format
 msgid "to %(where)s"
 msgstr "куди: %(where)s"
 
-#: admin_portal/orders.py:235
+#: admin_portal/orders.py:244
 #, python-format
 msgid "by %(who)s"
 msgstr "хто: %(who)s"
 
-#: admin_portal/orders.py:249 admin_portal/templates/admin_portal/menu.html:136
+#: admin_portal/orders.py:258 admin_portal/templates/admin_portal/menu.html:136
 msgid "at"
 msgstr "о"
 
-#: admin_portal/orders.py:255
+#: admin_portal/orders.py:264
 #, python-format
 msgid "customer since %(when)s"
 msgstr "клієнт з %(when)s"
 
-#: admin_portal/orders.py:256
+#: admin_portal/orders.py:265
 msgid "Not linked to a customer"
 msgstr "Не пов'язано з клієнтом"
 
-#: admin_portal/orders.py:257 pos_server/history.py:71
+#: admin_portal/orders.py:266 pos_server/history.py:71
 #: pos_server/templates/pos_server/register.html:72 screens/popups.py:128
 msgid "To go"
 msgstr "З собою"
 
-#: admin_portal/orders.py:257 pos_server/history.py:71
+#: admin_portal/orders.py:266 pos_server/history.py:71
 #: pos_server/templates/pos_server/register.html:71 screens/popups.py:128
 msgid "For here"
 msgstr "Тут"
 
-#: admin_portal/orders.py:259
+#: admin_portal/orders.py:268
 msgid "Cashier"
 msgstr "Касир"
 
-#: admin_portal/orders.py:260 admin_portal/templates/admin_portal/dish.html:65
+#: admin_portal/orders.py:269 admin_portal/templates/admin_portal/dish.html:65
 msgid "Prep time"
 msgstr "Час приготування"
 
-#: admin_portal/orders.py:262
+#: admin_portal/orders.py:272
 msgid "Nothing to refund"
 msgstr "Нічого повертати"
 
-#: admin_portal/orders.py:262
+#: admin_portal/orders.py:272
 #: admin_portal/templates/admin_portal/order.html:173
 #: admin_portal/templates/admin_portal/order.html:181
 #: pos_server/templates/pos_server/history.html:99
@@ -6700,15 +6727,15 @@ msgstr "Нічого повертати"
 msgid "Refund"
 msgstr "Повернути кошти"
 
-#: admin_portal/orders.py:299 pos_server/templates/pos_server/history.html:173
+#: admin_portal/orders.py:309 pos_server/templates/pos_server/history.html:173
 msgid "Original payment"
 msgstr "Початковий спосіб оплати"
 
-#: admin_portal/orders.py:300
+#: admin_portal/orders.py:310
 msgid "Everything left on this order"
 msgstr "Усе, що залишилося в цьому замовленні"
 
-#: admin_portal/orders.py:300
+#: admin_portal/orders.py:310
 msgid "Items, with their share of discounts and tax"
 msgstr "Позиції з їхньою часткою знижок і податку"
 
@@ -6853,6 +6880,8 @@ msgstr "Пісочниця (тестові платежі)"
 
 #: admin_portal/payment_settings.py:44
 #: admin_portal/templates/admin_portal/email.html:21
+#: admin_portal/templates/admin_portal/switchboard.html:47
+#: admin_portal/templates/admin_portal/switchboard.html:50
 msgid "Connected"
 msgstr "Підключено"
 
@@ -7087,16 +7116,17 @@ msgstr "Крок без назви"
 msgid "Add a description so the cook knows what to do."
 msgstr "Додайте опис, щоб кухар знав, що робити."
 
-#: admin_portal/reports.py:123
+#: admin_portal/reports.py:129
 #, python-format
 msgid "No orders on %(days)s"
 msgstr "Жодного замовлення: %(days)s"
 
-#: admin_portal/reports.py:141
+#: admin_portal/reports.py:147
 msgid "Net sales, month to date"
 msgstr "Чисті продажі з початку місяця"
 
-#: admin_portal/reports.py:142
+#: admin_portal/reports.py:148
+#: admin_portal/templates/admin_portal/report_day.html:145
 #: admin_portal/templates/admin_portal/reports.html:78
 #: deliveries/templates/deliveries/list.html:31
 #, python-format
@@ -7107,24 +7137,24 @@ msgstr[1] "%(n)s замовлення"
 msgstr[2] "%(n)s замовлень"
 msgstr[3] "%(n)s замовлення"
 
-#: admin_portal/reports.py:143
+#: admin_portal/reports.py:149
 #: admin_portal/templates/admin_portal/reports.html:42
 msgid "Business days"
 msgstr "Робочі дні"
 
-#: admin_portal/reports.py:144
+#: admin_portal/reports.py:150
 msgid "Average per day"
 msgstr "У середньому за день"
 
-#: admin_portal/reports.py:145
+#: admin_portal/reports.py:151
 msgid "across days open"
 msgstr "за робочі дні"
 
-#: admin_portal/reports.py:146
+#: admin_portal/reports.py:152
 msgid "Best day"
 msgstr "Найкращий день"
 
-#: admin_portal/reports.py:278
+#: admin_portal/reports.py:306
 #, python-format
 msgid "%(n)d comp."
 msgid_plural "%(n)d comps."
@@ -7133,17 +7163,17 @@ msgstr[1] "%(n)d комп."
 msgstr[2] "%(n)d комп."
 msgstr[3] "%(n)d комп."
 
-#: admin_portal/reports.py:329
+#: admin_portal/reports.py:358
 #, python-format
 msgid "%(n)s items per order"
 msgstr "%(n)s позицій на замовлення"
 
-#: admin_portal/reports.py:330
-#: admin_portal/templates/admin_portal/report_day.html:125
+#: admin_portal/reports.py:359
+#: admin_portal/templates/admin_portal/report_day.html:126
 msgid "Average prep time"
 msgstr "Середній час приготування"
 
-#: admin_portal/reports.py:331
+#: admin_portal/reports.py:360
 #, python-format
 msgid "%(n)d of %(m)d slot over %(t)s"
 msgid_plural "%(n)d of %(m)d slots over %(t)s"
@@ -7152,7 +7182,7 @@ msgstr[1] "%(n)d з %(m)d проміжків понад %(t)s"
 msgstr[2] "%(n)d з %(m)d проміжків понад %(t)s"
 msgstr[3] "%(n)d з %(m)d проміжку понад %(t)s"
 
-#: admin_portal/reports.py:332
+#: admin_portal/reports.py:361
 msgid "Busiest 15 minutes"
 msgstr "Найзавантаженіші 15 хвилин"
 
@@ -7482,7 +7512,7 @@ msgid "Drafts"
 msgstr "Чернетки"
 
 #: admin_portal/restocks.py:298 admin_portal/restocks.py:376
-#: catering/models.py:180
+#: catering/models.py:182
 msgid "Placed"
 msgstr "Оформлені"
 
@@ -7563,7 +7593,7 @@ msgstr[3] "%(n)d позиції нижче норми"
 #: admin_portal/restocks.py:356
 #: admin_portal/templates/admin_portal/ingredients.html:40
 #: admin_portal/templates/admin_portal/recipe.html:70
-#: admin_portal/templates/admin_portal/report_day.html:79
+#: admin_portal/templates/admin_portal/report_day.html:80
 #: inventory/templates/inventory/log-shopping.html:16
 #: inventory/templates/inventory/log-shopping.html:46
 msgid "Ingredient"
@@ -7849,7 +7879,7 @@ msgstr "Папір"
 msgid "Empty slot"
 msgstr "Порожній слот"
 
-#: admin_portal/screens.py:229 admin_portal/views.py:2021
+#: admin_portal/screens.py:229 admin_portal/views.py:2044
 msgid "Use a PNG, JPEG, WebP, GIF or SVG image under 8 MB."
 msgstr "Використайте зображення PNG, JPEG, WebP, GIF або SVG до 8 МБ."
 
@@ -8161,7 +8191,7 @@ msgstr "Гості"
 #: admin_portal/templates/admin_portal/order.html:38
 #: admin_portal/templates/admin_portal/order.html:39
 #: admin_portal/templates/admin_portal/order.html:188
-#: admin_portal/templates/admin_portal/report_day.html:98
+#: admin_portal/templates/admin_portal/report_day.html:99
 #: admin_portal/templates/admin_portal/restock.html:64
 #: admin_portal/templates/admin_portal/restock.html:68
 #: admin_portal/templates/admin_portal/restocks.html:62
@@ -8600,7 +8630,7 @@ msgstr "За працівниками"
 msgid "By role"
 msgstr "За ролями"
 
-#: admin_portal/shifts.py:330 team/clock.py:151
+#: admin_portal/shifts.py:330 team/clock.py:155
 msgid "Clocked in"
 msgstr "Почав(-ла) зміну"
 
@@ -8609,7 +8639,7 @@ msgstr "Почав(-ла) зміну"
 msgid "Unpaid break"
 msgstr "Неоплачувана перерва"
 
-#: admin_portal/shifts.py:333 team/clock.py:155
+#: admin_portal/shifts.py:333 team/clock.py:159
 msgid "Clocked out"
 msgstr "Завершив(-ла) зміну"
 
@@ -8638,7 +8668,7 @@ msgstr "Ніхто не почав цю зміну."
 msgid "Shifts over 5 hours usually need a 30 minute meal break."
 msgstr "Змінам понад 5 годин зазвичай потрібна 30-хвилинна перерва на їжу."
 
-#: admin_portal/shifts.py:365 admin_portal/views.py:1665
+#: admin_portal/shifts.py:365 admin_portal/views.py:1688
 msgid "The shift ends before it starts."
 msgstr "Зміна закінчується раніше, ніж починається."
 
@@ -9489,6 +9519,55 @@ msgstr "Виберіть часовий пояс зі списку."
 msgid "A number of GB, like 10 or 2.5."
 msgstr "Кількість ГБ, наприклад 10 або 2.5."
 
+#: admin_portal/switchboard.py:20
+msgid ""
+"Start workflows when an order is placed or ready, and when staff clock in or "
+"out"
+msgstr ""
+"Запускати сценарії, коли замовлення оформлено чи готове та коли працівники "
+"починають або закінчують зміну"
+
+#: admin_portal/switchboard.py:21
+msgid "Look up staff by email and add staff accounts"
+msgstr ""
+"Шукати працівників за електронною поштою та додавати акаунти працівників"
+
+#: admin_portal/switchboard.py:22
+msgid "Issue staff cards and add shifts to the schedule"
+msgstr "Видавати картки працівників і додавати зміни до розкладу"
+
+#: admin_portal/switchboard.py:30
+msgctxt "an event"
+msgid "Delivered"
+msgstr "Доставлено"
+
+#: admin_portal/switchboard.py:33
+msgid "Sending"
+msgstr "Надсилається"
+
+#: admin_portal/switchboard.py:34
+#, python-format
+msgid "Trying again (%(n)s of %(of)s)"
+msgstr "Повторна спроба (%(n)s з %(of)s)"
+
+#: admin_portal/switchboard.py:36
+msgid "Not sent: connection gone"
+msgstr "Не надіслано: підключення зникло"
+
+#: admin_portal/switchboard.py:37
+msgctxt "an event"
+msgid "Failed"
+msgstr "Не вдалося"
+
+#: admin_portal/switchboard.py:42
+#, python-format
+msgid "Switchboard answered %(status)s"
+msgstr "Switchboard відповів %(status)s"
+
+#: admin_portal/switchboard.py:44
+msgid "Couldn’t reach Switchboard"
+msgstr "Не вдалося з'єднатися зі Switchboard"
+
 #: admin_portal/team.py:7
 msgid "Pan"
 msgstr "Кухня"
@@ -9721,7 +9800,7 @@ msgstr ""
 
 #: admin_portal/templates/admin_portal/_upload_music.html:72
 #: admin_portal/templates/admin_portal/audio.html:125
-#: admin_portal/templates/admin_portal/catering.html:206
+#: admin_portal/templates/admin_portal/catering.html:216
 #: admin_portal/templates/admin_portal/giftcards.html:141
 #: admin_portal/templates/admin_portal/library.html:208
 #: admin_portal/templates/admin_portal/library.html:239
@@ -9748,6 +9827,7 @@ msgstr ""
 #: pos_server/templates/pos_server/register.html:420
 #: pos_server/templates/pos_server/register.html:485
 #: pos_server/templates/pos_server/register.html:505
+#: switchboard/templates/switchboard/authorize.html:33
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -9963,16 +10043,16 @@ msgstr "Перегляд для телефона"
 msgid "Store preview"
 msgstr "Перегляд магазину"
 
-#: admin_portal/templates/admin_portal/catering.html:17
+#: admin_portal/templates/admin_portal/catering.html:18
 msgid "Catering orders"
 msgstr "Замовлення кейтерингу"
 
-#: admin_portal/templates/admin_portal/catering.html:19
+#: admin_portal/templates/admin_portal/catering.html:20
 #: admin_portal/templates/admin_portal/combos.html:31
 #: admin_portal/templates/admin_portal/combos.html:40
 #: admin_portal/templates/admin_portal/menus.html:31
-#: admin_portal/templates/admin_portal/orders.html:28
-#: admin_portal/templates/admin_portal/orders.html:40
+#: admin_portal/templates/admin_portal/orders.html:36
+#: admin_portal/templates/admin_portal/orders.html:48
 #: admin_portal/templates/admin_portal/requests.html:25
 #: admin_portal/templates/admin_portal/restock.html:43
 #: admin_portal/templates/admin_portal/restock.html:45
@@ -9984,7 +10064,12 @@ msgstr "Замовлення кейтерингу"
 msgid "Status"
 msgstr "Статус"
 
-#: admin_portal/templates/admin_portal/catering.html:24
+#: admin_portal/templates/admin_portal/catering.html:29
+#: admin_portal/templates/admin_portal/orders.html:21
+msgid "Any attribution"
+msgstr "Будь-яке джерело"
+
+#: admin_portal/templates/admin_portal/catering.html:34
 msgid ""
 "Catering is off, so customers can’t place new orders. Orders already here "
 "still need you."
@@ -9992,47 +10077,47 @@ msgstr ""
 "Кейтеринг вимкнено, тож клієнти не можуть робити нові замовлення. "
 "Замовлення, які вже тут, усе ще чекають на вас."
 
-#: admin_portal/templates/admin_portal/catering.html:47 catering/store.py:288
+#: admin_portal/templates/admin_portal/catering.html:57 catering/store.py:288
 #: services/models.py:139
 msgid "Catering order"
 msgstr "Замовлення кейтерингу"
 
-#: admin_portal/templates/admin_portal/catering.html:68
+#: admin_portal/templates/admin_portal/catering.html:78
 #, python-format
 msgid "Note from %(name)s"
 msgstr "Примітка від %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:97
+#: admin_portal/templates/admin_portal/catering.html:107
 #, python-format
 msgid "Fewer %(name)s"
 msgstr "Менше: %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:98
+#: admin_portal/templates/admin_portal/catering.html:108
 #, python-format
 msgid "Quantity of %(name)s"
 msgstr "Кількість: %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:99
+#: admin_portal/templates/admin_portal/catering.html:109
 #, python-format
 msgid "More %(name)s"
 msgstr "Більше: %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:104
+#: admin_portal/templates/admin_portal/catering.html:114
 #: online_store/templates/themes/neighbourhood/catering.html:101
 msgid "Less time"
 msgstr "Менше часу"
 
-#: admin_portal/templates/admin_portal/catering.html:106
+#: admin_portal/templates/admin_portal/catering.html:116
 #: online_store/templates/themes/neighbourhood/catering.html:101
 msgid "More time"
 msgstr "Більше часу"
 
-#: admin_portal/templates/admin_portal/catering.html:110
+#: admin_portal/templates/admin_portal/catering.html:120
 #, python-format
 msgid "Price each for %(name)s"
 msgstr "Ціна за одиницю для %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:118
+#: admin_portal/templates/admin_portal/catering.html:128
 #: admin_portal/templates/admin_portal/combo.html:106
 #: admin_portal/templates/admin_portal/component.html:102
 #: admin_portal/templates/admin_portal/component.html:111
@@ -10048,29 +10133,29 @@ msgstr "Ціна за одиницю для %(name)s"
 msgid "Remove %(name)s"
 msgstr "Прибрати %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:119
+#: admin_portal/templates/admin_portal/catering.html:129
 #: admin_portal/templates/admin_portal/screen.html:24
 #: inventory/templates/inventory/availability_panel.html:57
 #: online_store/templates/themes/neighbourhood/catering_order.html:68
 msgid "Undo"
 msgstr "Скасувати дію"
 
-#: admin_portal/templates/admin_portal/catering.html:125
+#: admin_portal/templates/admin_portal/catering.html:135
 msgid "Nothing on this order."
 msgstr "У цьому замовленні нічого немає."
 
-#: admin_portal/templates/admin_portal/catering.html:131
+#: admin_portal/templates/admin_portal/catering.html:141
 #: online_store/templates/themes/neighbourhood/home.html:68
 #: pos_server/templates/pos_server/register.html:228
 #: pos_server/templates/pos_server/register.html:350
 msgid "Add to order"
 msgstr "Додати до замовлення"
 
-#: admin_portal/templates/admin_portal/catering.html:132
+#: admin_portal/templates/admin_portal/catering.html:142
 msgid "What to add"
 msgstr "Що додати"
 
-#: admin_portal/templates/admin_portal/catering.html:144
+#: admin_portal/templates/admin_portal/catering.html:154
 #: admin_portal/templates/admin_portal/combo.html:126
 #: admin_portal/templates/admin_portal/combo.html:127
 #: admin_portal/templates/admin_portal/combos.html:39
@@ -10082,7 +10167,7 @@ msgstr "Що додати"
 msgid "Price"
 msgstr "Ціна"
 
-#: admin_portal/templates/admin_portal/catering.html:146
+#: admin_portal/templates/admin_portal/catering.html:156
 #: admin_portal/templates/admin_portal/giftcards.html:77
 #: admin_portal/templates/admin_portal/giftdesigns.html:92
 #: admin_portal/templates/admin_portal/giftdesigns.html:93
@@ -10093,95 +10178,95 @@ msgstr "Ціна"
 msgid "Add"
 msgstr "Додати"
 
-#: admin_portal/templates/admin_portal/catering.html:158
+#: admin_portal/templates/admin_portal/catering.html:168
 msgid "Why the changes?"
 msgstr "Чому зміни?"
 
-#: admin_portal/templates/admin_portal/catering.html:158
+#: admin_portal/templates/admin_portal/catering.html:168
 #, python-format
 msgid "required, %(name)s sees this with the new total"
 msgstr "обов'язково, %(name)s побачить це разом із новою сумою"
 
-#: admin_portal/templates/admin_portal/catering.html:168
-#: admin_portal/templates/admin_portal/catering.html:169
+#: admin_portal/templates/admin_portal/catering.html:178
+#: admin_portal/templates/admin_portal/catering.html:179
 msgid "Conversation"
 msgstr "Листування"
 
-#: admin_portal/templates/admin_portal/catering.html:170
+#: admin_portal/templates/admin_portal/catering.html:180
 msgid "Their order page"
 msgstr "Сторінка їхнього замовлення"
 
-#: admin_portal/templates/admin_portal/catering.html:185
-#: admin_portal/templates/admin_portal/catering.html:241
-#: admin_portal/templates/admin_portal/catering.html:254
+#: admin_portal/templates/admin_portal/catering.html:195
+#: admin_portal/templates/admin_portal/catering.html:251
+#: admin_portal/templates/admin_portal/catering.html:264
 #: admin_portal/templates/admin_portal/requests.html:149
 #, python-format
 msgid "Message to %(name)s"
 msgstr "Повідомлення для %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:186
+#: admin_portal/templates/admin_portal/catering.html:196
 #: online_store/templates/themes/neighbourhood/catering_order.html:109
 #: pos_server/templates/pos_server/history.html:97
 msgid "Send"
 msgstr "Надіслати"
 
-#: admin_portal/templates/admin_portal/catering.html:196
+#: admin_portal/templates/admin_portal/catering.html:206
 msgid "Reject"
 msgstr "Відхилити"
 
-#: admin_portal/templates/admin_portal/catering.html:197
+#: admin_portal/templates/admin_portal/catering.html:207
 msgid "Propose changes"
 msgstr "Запропонувати зміни"
 
-#: admin_portal/templates/admin_portal/catering.html:198
+#: admin_portal/templates/admin_portal/catering.html:208
 msgid "Accept and charge"
 msgstr "Прийняти й списати оплату"
 
-#: admin_portal/templates/admin_portal/catering.html:207
+#: admin_portal/templates/admin_portal/catering.html:217
 #, python-format
 msgid "Send to %(name)s"
 msgstr "Надіслати %(name)s"
 
-#: admin_portal/templates/admin_portal/catering.html:223
+#: admin_portal/templates/admin_portal/catering.html:233
 msgid "No catering orders yet"
 msgstr "Замовлень кейтерингу поки немає"
 
-#: admin_portal/templates/admin_portal/catering.html:224
+#: admin_portal/templates/admin_portal/catering.html:234
 msgid "When customers order catering, the orders wait here for you."
 msgstr "Коли клієнти замовлять кейтеринг, замовлення чекатимуть на вас тут."
 
-#: admin_portal/templates/admin_portal/catering.html:235
+#: admin_portal/templates/admin_portal/catering.html:245
 msgid "Accept order"
 msgstr "Прийняти замовлення"
 
-#: admin_portal/templates/admin_portal/catering.html:236
+#: admin_portal/templates/admin_portal/catering.html:246
 #, python-format
 msgid "Accept and charge %(name)s?"
 msgstr "Прийняти замовлення й списати оплату з %(name)s?"
 
-#: admin_portal/templates/admin_portal/catering.html:238
+#: admin_portal/templates/admin_portal/catering.html:248
 msgid "Charge now"
 msgstr "Списати зараз"
 
-#: admin_portal/templates/admin_portal/catering.html:239
+#: admin_portal/templates/admin_portal/catering.html:249
 msgid "Deposit hold"
 msgstr "Блокування депозиту"
 
-#: admin_portal/templates/admin_portal/catering.html:241
+#: admin_portal/templates/admin_portal/catering.html:251
 msgid "optional, goes with the confirmation"
 msgstr "необов'язково, додається до підтвердження"
 
-#: admin_portal/templates/admin_portal/catering.html:242
+#: admin_portal/templates/admin_portal/catering.html:252
 msgid "e.g. All set! We’ll arrive 30 minutes early to set up."
 msgstr ""
 "напр. Усе готово! Ми приїдемо на 30 хвилин раніше, щоб усе підготувати."
 
-#: admin_portal/templates/admin_portal/catering.html:245
+#: admin_portal/templates/admin_portal/catering.html:255
 #, python-format
 msgid "Accept and charge %(total)s"
 msgstr "Прийняти й списати %(total)s"
 
-#: admin_portal/templates/admin_portal/catering.html:251
+#: admin_portal/templates/admin_portal/catering.html:261
 #: admin_portal/templates/admin_portal/giftcards.html:82
 #: admin_portal/templates/admin_portal/order.html:203
 #: deliveries/templates/deliveries/declined.html:11
@@ -10192,15 +10277,15 @@ msgstr "Прийняти й списати %(total)s"
 msgid "Reason"
 msgstr "Причина"
 
-#: admin_portal/templates/admin_portal/catering.html:254
+#: admin_portal/templates/admin_portal/catering.html:264
 msgid "required"
 msgstr "обов'язково"
 
-#: admin_portal/templates/admin_portal/catering.html:255
+#: admin_portal/templates/admin_portal/catering.html:265
 msgid "Let them know why, and what might work instead."
 msgstr "Поясніть чому і що могло б підійти натомість."
 
-#: admin_portal/templates/admin_portal/catering.html:257
+#: admin_portal/templates/admin_portal/catering.html:267
 msgid "Keep order"
 msgstr "Залишити замовлення"
 
@@ -10740,7 +10825,7 @@ msgstr "Нове комбо"
 
 #: admin_portal/templates/admin_portal/combos.html:39
 #: admin_portal/templates/admin_portal/order.html:50
-#: admin_portal/templates/admin_portal/report_day.html:59
+#: admin_portal/templates/admin_portal/report_day.html:60
 msgid "Combo"
 msgstr "Комбо"
 
@@ -11102,8 +11187,8 @@ msgstr "Пропонувати до"
 #: admin_portal/templates/admin_portal/ingredient.html:130
 #: admin_portal/templates/admin_portal/ingredient.html:131
 #: admin_portal/templates/admin_portal/ingredients.html:41
-#: admin_portal/templates/admin_portal/report_day.html:71
-#: admin_portal/templates/admin_portal/report_day.html:79
+#: admin_portal/templates/admin_portal/report_day.html:72
+#: admin_portal/templates/admin_portal/report_day.html:80
 msgid "Used in"
 msgstr "Використовується в"
 
@@ -11146,7 +11231,7 @@ msgstr "Фільтр"
 #: admin_portal/templates/admin_portal/components.html:39
 #: admin_portal/templates/admin_portal/dish.html:119
 #: admin_portal/templates/admin_portal/recipe.html:70
-#: admin_portal/templates/admin_portal/report_day.html:71
+#: admin_portal/templates/admin_portal/report_day.html:72
 #: inventory/availability.py:68
 msgid "Component"
 msgstr "Компонент"
@@ -11376,6 +11461,7 @@ msgid "Coupon settings"
 msgstr "Налаштування купона"
 
 #: admin_portal/templates/admin_portal/coupons.html:55
+#: admin_portal/templates/admin_portal/report_day.html:148
 #: pos_server/templates/pos_server/pair_pos.html:22
 msgid "Code"
 msgstr "Код"
@@ -11934,6 +12020,7 @@ msgstr "Код пристрою"
 #: admin_portal/templates/admin_portal/devices.html:152
 #: admin_portal/templates/admin_portal/devices.html:191
 #: admin_portal/templates/admin_portal/pars.html:71
+#: admin_portal/templates/admin_portal/switchboard.html:33
 msgid "Copy"
 msgstr "Копіювати"
 
@@ -12078,6 +12165,7 @@ msgstr ""
 "його з новим кодом."
 
 #: admin_portal/templates/admin_portal/devices.html:204
+#: admin_portal/templates/admin_portal/switchboard.html:89
 #: online_store/templates/themes/neighbourhood/catering_order.html:36
 msgid "Keep it"
 msgstr "Залишити"
@@ -12418,15 +12506,16 @@ msgid "On menus"
 msgstr "У меню"
 
 #: admin_portal/templates/admin_portal/dish.html:285
-#: admin_portal/templates/admin_portal/report_day.html:55
+#: admin_portal/templates/admin_portal/report_day.html:56
 msgid "Sold"
 msgstr "Продано"
 
 #: admin_portal/templates/admin_portal/dish.html:286
 #: admin_portal/templates/admin_portal/giftdesigns.html:163
-#: admin_portal/templates/admin_portal/report_day.html:55
-#: admin_portal/templates/admin_portal/report_day.html:98
-#: admin_portal/templates/admin_portal/report_day.html:115
+#: admin_portal/templates/admin_portal/report_day.html:56
+#: admin_portal/templates/admin_portal/report_day.html:99
+#: admin_portal/templates/admin_portal/report_day.html:116
+#: admin_portal/templates/admin_portal/report_day.html:148
 msgid "Sales"
 msgstr "Продажі"
 
@@ -12482,7 +12571,7 @@ msgstr "Без рецепта"
 msgid "No dishes match"
 msgstr "Немає відповідних страв"
 
-#: admin_portal/templates/admin_portal/dishes.html:67 admin_portal/views.py:363
+#: admin_portal/templates/admin_portal/dishes.html:67 admin_portal/views.py:364
 msgid "Add a station first: every dish is made at one."
 msgstr "Спершу додайте станцію: кожну страву готують на якійсь із них."
 
@@ -12624,6 +12713,7 @@ msgstr "Не вдається з'єднатися з listmonk"
 
 #: admin_portal/templates/admin_portal/email.html:21
 #: admin_portal/templates/admin_portal/payments.html:19
+#: admin_portal/templates/admin_portal/switchboard.html:22
 msgid "Not connected"
 msgstr "Не під'єднано"
 
@@ -12645,6 +12735,8 @@ msgstr "Оновити шаблони"
 
 #: admin_portal/templates/admin_portal/email.html:36
 #: admin_portal/templates/admin_portal/payments.html:41
+#: admin_portal/templates/admin_portal/switchboard.html:56
+#: admin_portal/templates/admin_portal/switchboard.html:89
 msgid "Disconnect"
 msgstr "Від'єднати"
 
@@ -13069,6 +13161,7 @@ msgstr "Пошук подарункових карток"
 
 #: admin_portal/templates/admin_portal/giftcards.html:39
 #: admin_portal/templates/admin_portal/staffcards.html:77
+#: gift_cards/templates/gift_cards/card.html:46
 msgid "Balance"
 msgstr "Баланс"
 
@@ -13170,7 +13263,7 @@ msgid "Recipient email"
 msgstr "Ел. пошта отримувача"
 
 #: admin_portal/templates/admin_portal/giftcards.html:129
-#: catering/models.py:181
+#: catering/models.py:183
 #: online_store/templates/themes/neighbourhood/gift_cards.html:65
 #: pos_server/templates/pos_server/register.html:344
 msgid "Message"
@@ -13222,10 +13315,12 @@ msgid "Gift card ready"
 msgstr "Подарункова картка готова"
 
 #: admin_portal/templates/admin_portal/giftcards.html:157
+#: gift_cards/templates/gift_cards/card.html:60
 msgid "Copied"
 msgstr "Скопійовано"
 
 #: admin_portal/templates/admin_portal/giftcards.html:157
+#: gift_cards/templates/gift_cards/card.html:62
 msgid "Copy number"
 msgstr "Копіювати номер"
 
@@ -13596,7 +13691,7 @@ msgstr "Потребує уваги"
 #: admin_portal/templates/admin_portal/home.html:160
 #: admin_portal/templates/admin_portal/menu.html:85
 #: admin_portal/templates/admin_portal/order.html:39
-#: admin_portal/templates/admin_portal/report_day.html:53
+#: admin_portal/templates/admin_portal/report_day.html:54
 #: deliveries/views.py:127 deliveries/views.py:229 deliveries/views.py:259
 #: online_store/templates/themes/neighbourhood/cart.html:41
 #: online_store/templates/themes/neighbourhood/menu.html:71
@@ -14046,8 +14141,8 @@ msgstr "Вибрати все"
 
 #: admin_portal/templates/admin_portal/library.html:127
 #: admin_portal/templates/admin_portal/menu.html:137
-#: admin_portal/templates/admin_portal/report_day.html:115
-#: admin_portal/templates/admin_portal/report_day.html:127
+#: admin_portal/templates/admin_portal/report_day.html:116
+#: admin_portal/templates/admin_portal/report_day.html:128
 #: inventory/cookery_views.py:323
 #: online_store/templates/themes/neighbourhood/cart.html:161
 #: online_store/templates/themes/neighbourhood/catering.html:47
@@ -14649,8 +14744,8 @@ msgid "Qty"
 msgstr "К-сть"
 
 #: admin_portal/templates/admin_portal/order.html:40
-#: admin_portal/templates/admin_portal/report_day.html:55
-#: admin_portal/templates/admin_portal/report_day.html:98
+#: admin_portal/templates/admin_portal/report_day.html:56
+#: admin_portal/templates/admin_portal/report_day.html:99
 msgid "Station"
 msgstr "Станція"
 
@@ -14665,8 +14760,8 @@ msgstr "Хронологія"
 
 #: admin_portal/templates/admin_portal/order.html:77
 #: admin_portal/templates/admin_portal/order.html:78
-#: admin_portal/templates/admin_portal/orders.html:39 catering/models.py:185
-#: catering/models.py:211 pos_server/templates/pos_server/history.html:36
+#: admin_portal/templates/admin_portal/orders.html:47 catering/models.py:187
+#: catering/models.py:213 pos_server/templates/pos_server/history.html:36
 msgid "Customer"
 msgstr "Клієнт"
 
@@ -14685,7 +14780,7 @@ msgstr ""
 
 #: admin_portal/templates/admin_portal/order.html:93
 #: admin_portal/templates/admin_portal/order.html:94
-#: admin_portal/templates/admin_portal/orders.html:40
+#: admin_portal/templates/admin_portal/orders.html:48
 #: online_store/templates/themes/neighbourhood/cart.html:177
 #: online_store/templates/themes/neighbourhood/catering_order.html:114
 #: pos_server/templates/pos_server/history.html:37
@@ -14845,17 +14940,17 @@ msgstr "Повернути %(amount)s"
 msgid "Pick something"
 msgstr "Виберіть щось"
 
-#: admin_portal/templates/admin_portal/orders.html:20
+#: admin_portal/templates/admin_portal/orders.html:27
 #: pos_server/templates/pos_server/history.html:21
 msgid "Search orders"
 msgstr "Пошук замовлень"
 
-#: admin_portal/templates/admin_portal/orders.html:20
+#: admin_portal/templates/admin_portal/orders.html:27
 msgid "Order #, customer, card or cashier"
 msgstr "№ замовлення, клієнт, картка або касир"
 
-#: admin_portal/templates/admin_portal/orders.html:25
-#: admin_portal/templates/admin_portal/orders.html:39
+#: admin_portal/templates/admin_portal/orders.html:33
+#: admin_portal/templates/admin_portal/orders.html:47
 #: admin_portal/templates/admin_portal/reports.html:44
 #: online_store/templates/themes/neighbourhood/cart.html:152
 #: online_store/templates/themes/neighbourhood/catering.html:36
@@ -14863,37 +14958,37 @@ msgstr "№ замовлення, клієнт, картка або касир"
 msgid "Date"
 msgstr "Дата"
 
-#: admin_portal/templates/admin_portal/orders.html:45
+#: admin_portal/templates/admin_portal/orders.html:53
 #, python-format
 msgid "Open order %(n)s, %(name)s, %(total)s, %(status)s"
 msgstr "Відкрити замовлення %(n)s, %(name)s, %(total)s, %(status)s"
 
-#: admin_portal/templates/admin_portal/orders.html:56
+#: admin_portal/templates/admin_portal/orders.html:64
 #: pos_server/templates/pos_server/history.html:50
 msgid "No orders match"
 msgstr "Немає відповідних замовлень"
 
-#: admin_portal/templates/admin_portal/orders.html:56
+#: admin_portal/templates/admin_portal/orders.html:64
 #: pos_server/templates/pos_server/history.html:50
 msgid "Try another date or clear the search."
 msgstr "Спробуйте іншу дату або очистьте пошук."
 
-#: admin_portal/templates/admin_portal/orders.html:59
+#: admin_portal/templates/admin_portal/orders.html:67
 #: pos_server/templates/pos_server/history.html:53
 msgid "Pages"
 msgstr "Сторінки"
 
-#: admin_portal/templates/admin_portal/orders.html:60
+#: admin_portal/templates/admin_portal/orders.html:68
 #, python-format
 msgid "Showing %(first)s–%(last)s of %(total)s · %(net)s net"
 msgstr "Показано %(first)s–%(last)s з %(total)s · %(net)s чистими"
 
-#: admin_portal/templates/admin_portal/orders.html:61
+#: admin_portal/templates/admin_portal/orders.html:69
 #: pos_server/templates/pos_server/history.html:55
 msgid "Previous page"
 msgstr "Попередня сторінка"
 
-#: admin_portal/templates/admin_portal/orders.html:64
+#: admin_portal/templates/admin_portal/orders.html:72
 #: pos_server/templates/pos_server/history.html:57
 msgid "Next page"
 msgstr "Наступна сторінка"
@@ -15385,15 +15480,15 @@ msgid "Report sections"
 msgstr "Розділи звіту"
 
 #: admin_portal/templates/admin_portal/report_day.html:42
-#: admin_portal/templates/admin_portal/report_day.html:86
-#: admin_portal/templates/admin_portal/report_day.html:88
-#: admin_portal/templates/admin_portal/report_day.html:91
+#: admin_portal/templates/admin_portal/report_day.html:87
+#: admin_portal/templates/admin_portal/report_day.html:89
+#: admin_portal/templates/admin_portal/report_day.html:92
 msgid "Station mix"
 msgstr "Частка станцій"
 
 #: admin_portal/templates/admin_portal/report_day.html:43
-#: admin_portal/templates/admin_portal/report_day.html:112
 #: admin_portal/templates/admin_portal/report_day.html:113
+#: admin_portal/templates/admin_portal/report_day.html:114
 msgid "Customer occasions"
 msgstr "Нагоди клієнтів"
 
@@ -15401,81 +15496,104 @@ msgstr "Нагоди клієнтів"
 msgid "Prep times"
 msgstr "Час приготування"
 
-#: admin_portal/templates/admin_portal/report_day.html:48
+#: admin_portal/templates/admin_portal/report_day.html:45
+#: admin_portal/templates/admin_portal/report_day.html:142
+#: admin_portal/templates/admin_portal/report_day.html:144
+msgid "Attributions"
+msgstr "Джерела"
+
+#: admin_portal/templates/admin_portal/report_day.html:49
 msgid "No orders on this day."
 msgstr "Цього дня замовлень не було."
 
-#: admin_portal/templates/admin_portal/report_day.html:50
-#: admin_portal/templates/admin_portal/report_day.html:52
+#: admin_portal/templates/admin_portal/report_day.html:51
+#: admin_portal/templates/admin_portal/report_day.html:53
 msgid "Dishes sold"
 msgstr "Продані страви"
 
-#: admin_portal/templates/admin_portal/report_day.html:55
+#: admin_portal/templates/admin_portal/report_day.html:56
 msgid "Share of items"
 msgstr "Частка позицій"
 
-#: admin_portal/templates/admin_portal/report_day.html:68
 #: admin_portal/templates/admin_portal/report_day.html:69
+#: admin_portal/templates/admin_portal/report_day.html:70
 msgid "Components used"
 msgstr "Використані компоненти"
 
-#: admin_portal/templates/admin_portal/report_day.html:70
+#: admin_portal/templates/admin_portal/report_day.html:71
 msgid "Worked out from the dishes sold and their recipes"
 msgstr "Обчислено з проданих страв і їхніх рецептів"
 
-#: admin_portal/templates/admin_portal/report_day.html:74
+#: admin_portal/templates/admin_portal/report_day.html:75
 msgid "No recipes on what was sold."
 msgstr "У проданих позицій немає рецептів."
 
-#: admin_portal/templates/admin_portal/report_day.html:76
 #: admin_portal/templates/admin_portal/report_day.html:77
+#: admin_portal/templates/admin_portal/report_day.html:78
 msgid "Ingredients used"
 msgstr "Використані інгредієнти"
 
-#: admin_portal/templates/admin_portal/report_day.html:78
+#: admin_portal/templates/admin_portal/report_day.html:79
 msgid "Worked out from the components used and their recipes"
 msgstr "Обчислено з використаних компонентів і їхніх рецептів"
 
-#: admin_portal/templates/admin_portal/report_day.html:82
+#: admin_portal/templates/admin_portal/report_day.html:83
 msgid "No ingredients on the components used."
 msgstr "У використаних компонентах немає інгредієнтів."
 
-#: admin_portal/templates/admin_portal/report_day.html:89
+#: admin_portal/templates/admin_portal/report_day.html:90
 msgid "Share of items each station made"
 msgstr "Частка позицій, приготованих кожною станцією"
 
-#: admin_portal/templates/admin_portal/report_day.html:94
+#: admin_portal/templates/admin_portal/report_day.html:95
 msgid "items made"
 msgstr "позицій приготовано"
 
-#: admin_portal/templates/admin_portal/report_day.html:98
+#: admin_portal/templates/admin_portal/report_day.html:99
 msgid "Share"
 msgstr "Частка"
 
-#: admin_portal/templates/admin_portal/report_day.html:98
+#: admin_portal/templates/admin_portal/report_day.html:99
 msgid "Busiest hour"
 msgstr "Найзавантаженіша година"
 
-#: admin_portal/templates/admin_portal/report_day.html:114
+#: admin_portal/templates/admin_portal/report_day.html:115
 msgid "Orders and sales in each 15 minutes · busiest highlighted"
 msgstr "Замовлення й продажі за кожні 15 хвилин · найзавантаженіші виділено"
 
-#: admin_portal/templates/admin_portal/report_day.html:124
+#: admin_portal/templates/admin_portal/report_day.html:125
 msgid "Average preparation time"
 msgstr "Середній час приготування"
 
-#: admin_portal/templates/admin_portal/report_day.html:126
+#: admin_portal/templates/admin_portal/report_day.html:127
 #, python-format
 msgid "Order to ready, per 15 minutes · dashed line is the %(target)s target"
 msgstr "Від замовлення до готовності, за 15 хвилин · пунктир — ціль %(target)s"
 
-#: admin_portal/templates/admin_portal/report_day.html:127
+#: admin_portal/templates/admin_portal/report_day.html:128
 msgid "Average"
 msgstr "Середнє"
 
-#: admin_portal/templates/admin_portal/report_day.html:127
+#: admin_portal/templates/admin_portal/report_day.html:128
 msgid "Avg"
 msgstr "Сер."
+
+#: admin_portal/templates/admin_portal/report_day.html:147
+msgid ""
+"Orders that came through a link with a code (?attr=…), retail and catering. "
+"Catering counts on the day it was placed, at its current quote."
+msgstr ""
+"Замовлення, що надійшли за посиланням із кодом (?attr=…): роздрібні та "
+"кейтеринг. Кейтеринг рахується в день оформлення за поточним кошторисом."
+
+#: admin_portal/templates/admin_portal/report_day.html:151
+#, python-format
+msgid "%(n)s catering"
+msgid_plural "%(n)s catering"
+msgstr[0] "%(n)s кейтеринг"
+msgstr[1] "%(n)s кейтеринги"
+msgstr[2] "%(n)s кейтерингів"
+msgstr[3] "%(n)s кейтерингу"
 
 #: admin_portal/templates/admin_portal/reports.html:25
 msgid "Table"
@@ -17021,6 +17139,144 @@ msgstr ""
 msgid "Remove the saved key"
 msgstr "Видалити збережений ключ"
 
+#: admin_portal/templates/admin_portal/switchboard.html:22
+#, python-format
+msgid "%(n)s connected"
+msgid_plural "%(n)s connected"
+msgstr[0] "%(n)s підключено"
+msgstr[1] "%(n)s підключено"
+msgstr[2] "%(n)s підключено"
+msgstr[3] "%(n)s підключено"
+
+#: admin_portal/templates/admin_portal/switchboard.html:22
+msgid "Connection broken"
+msgstr "Підключення розірвано"
+
+#: admin_portal/templates/admin_portal/switchboard.html:27
+msgid "About Switchboard"
+msgstr "Про Switchboard"
+
+#: admin_portal/templates/admin_portal/switchboard.html:29
+msgid "Workflows between your Hamlet apps"
+msgstr "Сценарії між вашими застосунками Hamlet"
+
+#: admin_portal/templates/admin_portal/switchboard.html:30
+msgid ""
+"Switchboard is Hamlet’s workflow builder: something that happens in one app "
+"starts steps in another, such as giving a volunteer who reaches a level a "
+"staff meal card here. Connecting starts in Switchboard: add Pavilion there "
+"with the address below, then approve it on the page that opens."
+msgstr ""
+"Switchboard — це конструктор сценаріїв Hamlet: подія в одному застосунку "
+"запускає кроки в іншому, наприклад волонтер, який досяг рівня, отримує тут "
+"картку працівника на обід. Підключення починається у Switchboard: додайте "
+"там Pavilion за адресою нижче, а потім схваліть його на сторінці, що "
+"відкриється."
+
+#: admin_portal/templates/admin_portal/switchboard.html:32
+msgid "This Pavilion’s address"
+msgstr "Адреса цього Pavilion"
+
+#: admin_portal/templates/admin_portal/switchboard.html:34
+msgid "A connected Switchboard can"
+msgstr "Підключений Switchboard може"
+
+#: admin_portal/templates/admin_portal/switchboard.html:37
+msgid ""
+"It never sees passwords, payments or card numbers. People are matched "
+"between apps by their email."
+msgstr ""
+"Він ніколи не бачить паролів, платежів чи номерів карток. Людей у різних "
+"застосунках зіставляють за електронною поштою."
+
+#: admin_portal/templates/admin_portal/switchboard.html:40
+#: admin_portal/templates/admin_portal/switchboard.html:41
+msgid "Connections"
+msgstr "Підключення"
+
+#: admin_portal/templates/admin_portal/switchboard.html:47
+msgid "Broken"
+msgstr "Розірвано"
+
+#: admin_portal/templates/admin_portal/switchboard.html:51
+msgid "Last delivery"
+msgstr "Останнє надсилання"
+
+#: admin_portal/templates/admin_portal/switchboard.html:51
+msgid "Nothing sent yet"
+msgstr "Ще нічого не надіслано"
+
+#: admin_portal/templates/admin_portal/switchboard.html:52
+msgid "Last call"
+msgstr "Останній запит"
+
+#: admin_portal/templates/admin_portal/switchboard.html:54
+#, python-format
+msgid ""
+"Switchboard said on %(when)s that it no longer knows this connection, so "
+"nothing is sent to it. Disconnect it here, then connect again from "
+"Switchboard."
+msgstr ""
+"%(when)s Switchboard повідомив, що більше не знає цього підключення, тож "
+"йому нічого не надсилається. Від'єднайте його тут, а потім підключіть знову "
+"зі Switchboard."
+
+#: admin_portal/templates/admin_portal/switchboard.html:55
+#, python-format
+msgid ""
+"%(n)s event didn’t get through in the last 7 days. Check that Switchboard is "
+"running."
+msgid_plural ""
+"%(n)s events didn’t get through in the last 7 days. Check that Switchboard "
+"is running."
+msgstr[0] ""
+"%(n)s подія не дійшла за останні 7 днів. Перевірте, чи працює Switchboard."
+msgstr[1] ""
+"%(n)s події не дійшли за останні 7 днів. Перевірте, чи працює Switchboard."
+msgstr[2] ""
+"%(n)s подій не дійшло за останні 7 днів. Перевірте, чи працює Switchboard."
+msgstr[3] ""
+"%(n)s події не дійшло за останні 7 днів. Перевірте, чи працює Switchboard."
+
+#: admin_portal/templates/admin_portal/switchboard.html:59
+msgid "No Switchboard is connected. Nothing is sent anywhere until one is."
+msgstr ""
+"Жоден Switchboard не підключено. Доки його немає, нікуди нічого не "
+"надсилається."
+
+#: admin_portal/templates/admin_portal/switchboard.html:65
+#: admin_portal/templates/admin_portal/switchboard.html:66
+msgid "Recent deliveries"
+msgstr "Останні надсилання"
+
+#: admin_portal/templates/admin_portal/switchboard.html:67
+msgid ""
+"Events Pavilion sent to Switchboard. An event that doesn’t get through is "
+"tried 5 times over about 13 minutes. Kept for two weeks."
+msgstr ""
+"Події, які Pavilion надіслав до Switchboard. Подію, що не дійшла, надсилають "
+"5 разів протягом приблизно 13 хвилин. Зберігаються два тижні."
+
+#: admin_portal/templates/admin_portal/switchboard.html:76
+msgid "Nothing sent yet."
+msgstr "Ще нічого не надіслано."
+
+#: admin_portal/templates/admin_portal/switchboard.html:87
+#, python-format
+msgid "Disconnect %(n)s?"
+msgstr "Від'єднати %(n)s?"
+
+#: admin_portal/templates/admin_portal/switchboard.html:88
+#, python-format
+msgid ""
+"Pavilion stops sending events to %(host)s and its key stops working, so "
+"workflows that use Pavilion fail until it’s connected again from "
+"Switchboard. Staff cards and shifts it already added stay."
+msgstr ""
+"Pavilion перестане надсилати події на %(host)s, а його ключ перестане діяти, "
+"тож сценарії з Pavilion не працюватимуть, доки його знову не підключать зі "
+"Switchboard. Картки працівників і зміни, які він уже додав, залишаться."
+
 #: admin_portal/views.py:86
 msgid "Owner"
 msgstr "Власник"
@@ -17037,21 +17293,21 @@ msgstr "Добрий день"
 msgid "Good evening"
 msgstr "Добрий вечір"
 
-#: admin_portal/views.py:191
+#: admin_portal/views.py:192
 msgid "Note saved."
 msgstr "Примітку збережено."
 
-#: admin_portal/views.py:204 pos_server/history.py:130
+#: admin_portal/views.py:205 pos_server/history.py:130
 msgid "Enter an email address."
 msgstr "Введіть адресу ел. пошти."
 
-#: admin_portal/views.py:213 pos_server/history.py:139
+#: admin_portal/views.py:214 pos_server/history.py:139
 #, python-format
 msgid "The receipt wasn't sent: %(error)s"
 msgstr "Чек не надіслано: %(error)s"
 
-#: admin_portal/views.py:216 admin_portal/views.py:1872
-#: admin_portal/views.py:1877
+#: admin_portal/views.py:217 admin_portal/views.py:1895
+#: admin_portal/views.py:1900
 msgid ""
 "Email isn’t set up yet (connect listmonk on the Email page), so nothing was "
 "sent."
@@ -17059,151 +17315,151 @@ msgstr ""
 "Ел. пошту ще не налаштовано (під'єднайте listmonk на сторінці «Ел. пошта»), "
 "тож нічого не надіслано."
 
-#: admin_portal/views.py:222
+#: admin_portal/views.py:223
 #, python-format
 msgid "Receipt emailed to %(to)s."
 msgstr "Чек надіслано на %(to)s."
 
-#: admin_portal/views.py:239 pos_server/history.py:122
+#: admin_portal/views.py:240 pos_server/history.py:122
 msgid "in cash"
 msgstr "готівкою"
 
-#: admin_portal/views.py:239
+#: admin_portal/views.py:240
 msgid "to the original payment"
 msgstr "на початковий спосіб оплати"
 
-#: admin_portal/views.py:240 pos_server/history.py:123
+#: admin_portal/views.py:241 pos_server/history.py:123
 #, python-format
 msgid "%(amount)s refunded %(where)s."
 msgstr "%(amount)s повернуто %(where)s."
 
-#: admin_portal/views.py:305
+#: admin_portal/views.py:306
 #, python-format
 msgid "%(menu)s deleted."
 msgstr "%(menu)s видалено."
 
-#: admin_portal/views.py:320
+#: admin_portal/views.py:321
 #, python-format
 msgid "%(menu)s saved and published"
 msgstr "%(menu)s збережено й опубліковано"
 
-#: admin_portal/views.py:320
+#: admin_portal/views.py:321
 #, python-format
 msgid "%(menu)s saved"
 msgstr "%(menu)s збережено"
 
-#: admin_portal/views.py:391
+#: admin_portal/views.py:392
 #, python-format
 msgid "%(dish)s archived"
 msgstr "%(dish)s архівовано"
 
-#: admin_portal/views.py:397
+#: admin_portal/views.py:398
 #, python-format
 msgid "%(dish)s is back. Add it to a menu to sell it."
 msgstr "%(dish)s повернуто. Додайте страву до меню, щоб продавати її."
 
-#: admin_portal/views.py:409 admin_portal/views.py:493
-#: admin_portal/views.py:598 admin_portal/views.py:660
-#: admin_portal/views.py:720 admin_portal/views.py:784
-#: admin_portal/views.py:839
+#: admin_portal/views.py:410 admin_portal/views.py:494
+#: admin_portal/views.py:599 admin_portal/views.py:661
+#: admin_portal/views.py:721 admin_portal/views.py:785
+#: admin_portal/views.py:840
 #, python-format
 msgid "%(name)s (copy)"
 msgstr "%(name)s (копія)"
 
-#: admin_portal/views.py:419 admin_portal/views.py:503
-#: admin_portal/views.py:604 admin_portal/views.py:668
-#: admin_portal/views.py:729 admin_portal/views.py:791
-#: admin_portal/views.py:845
+#: admin_portal/views.py:420 admin_portal/views.py:504
+#: admin_portal/views.py:605 admin_portal/views.py:669
+#: admin_portal/views.py:730 admin_portal/views.py:792
+#: admin_portal/views.py:846
 msgid "Duplicated. Editing the copy now"
 msgstr "Скопійовано. Тепер ви редагуєте копію"
 
-#: admin_portal/views.py:420
+#: admin_portal/views.py:421
 #, python-format
 msgid "%(dish)s saved"
 msgstr "%(dish)s збережено"
 
-#: admin_portal/views.py:459
+#: admin_portal/views.py:460
 msgid "That file isn't a picture we can use."
 msgstr "Цей файл не є зображенням, яке ми можемо використати."
 
-#: admin_portal/views.py:475
+#: admin_portal/views.py:476
 #, python-format
 msgid "%(combo)s archived"
 msgstr "%(combo)s архівовано"
 
-#: admin_portal/views.py:481
+#: admin_portal/views.py:482
 #, python-format
 msgid "%(combo)s is back. Add it to a menu to sell it."
 msgstr "%(combo)s повернуто. Додайте комбо до меню, щоб продавати його."
 
-#: admin_portal/views.py:490
+#: admin_portal/views.py:491
 msgid "Fix the marked choices first."
 msgstr "Спершу виправте позначені варіанти."
 
-#: admin_portal/views.py:504
+#: admin_portal/views.py:505
 #, python-format
 msgid "%(combo)s saved"
 msgstr "%(combo)s збережено"
 
-#: admin_portal/views.py:541
+#: admin_portal/views.py:542
 #, python-format
 msgid "%(recipe)s deleted"
 msgstr "%(recipe)s видалено"
 
-#: admin_portal/views.py:550
+#: admin_portal/views.py:551
 #, python-format
 msgid "%(recipe)s saved"
 msgstr "%(recipe)s збережено"
 
-#: admin_portal/views.py:584
+#: admin_portal/views.py:585
 #, python-format
 msgid "%(service)s archived"
 msgstr "%(service)s архівовано"
 
-#: admin_portal/views.py:586
+#: admin_portal/views.py:587
 #, python-format
 msgid "%(service)s is back"
 msgstr "%(service)s повернуто"
 
-#: admin_portal/views.py:605
+#: admin_portal/views.py:606
 #, python-format
 msgid "%(service)s saved"
 msgstr "%(service)s збережено"
 
-#: admin_portal/views.py:640
+#: admin_portal/views.py:641
 msgid "Take it out of its dishes first."
 msgstr "Спершу приберіть його зі страв."
 
-#: admin_portal/views.py:645
+#: admin_portal/views.py:646
 #, python-format
 msgid "%(component)s archived"
 msgstr "%(component)s архівовано"
 
-#: admin_portal/views.py:651
+#: admin_portal/views.py:652
 #, python-format
 msgid "%(component)s is back"
 msgstr "%(component)s повернуто"
 
-#: admin_portal/views.py:669
+#: admin_portal/views.py:670
 #, python-format
 msgid "%(component)s saved"
 msgstr "%(component)s збережено"
 
-#: admin_portal/views.py:702
+#: admin_portal/views.py:703
 msgid "Take it out of its recipes and components first."
 msgstr "Спершу приберіть його з рецептів і компонентів."
 
-#: admin_portal/views.py:706
+#: admin_portal/views.py:707
 #, python-format
 msgid "%(ingredient)s archived"
 msgstr "%(ingredient)s архівовано"
 
-#: admin_portal/views.py:711
+#: admin_portal/views.py:712
 #, python-format
 msgid "%(ingredient)s is back"
 msgstr "%(ingredient)s повернуто"
 
-#: admin_portal/views.py:731
+#: admin_portal/views.py:732
 #, python-format
 msgid "%(ingredient)s saved. %(n)d component updated"
 msgid_plural "%(ingredient)s saved. %(n)d components updated"
@@ -17212,69 +17468,69 @@ msgstr[1] "%(ingredient)s збережено. Оновлено %(n)d компо�
 msgstr[2] "%(ingredient)s збережено. Оновлено %(n)d компонентів"
 msgstr[3] "%(ingredient)s збережено. Оновлено %(n)d компонента"
 
-#: admin_portal/views.py:734
+#: admin_portal/views.py:735
 #, python-format
 msgid "%(ingredient)s saved"
 msgstr "%(ingredient)s збережено"
 
-#: admin_portal/views.py:772
+#: admin_portal/views.py:773
 #, python-format
 msgid "%(condiment)s archived"
 msgstr "%(condiment)s архівовано"
 
-#: admin_portal/views.py:774
+#: admin_portal/views.py:775
 #, python-format
 msgid "%(condiment)s is back. Pick the dishes to suggest it with."
 msgstr "%(condiment)s повернуто. Виберіть страви, до яких його пропонувати."
 
-#: admin_portal/views.py:792
+#: admin_portal/views.py:793
 #, python-format
 msgid "%(condiment)s saved"
 msgstr "%(condiment)s збережено"
 
-#: admin_portal/views.py:828
+#: admin_portal/views.py:829
 #, python-format
 msgid "%(item)s archived"
 msgstr "%(item)s архівовано"
 
-#: admin_portal/views.py:830
+#: admin_portal/views.py:831
 #, python-format
 msgid "%(item)s is back"
 msgstr "%(item)s повернуто"
 
-#: admin_portal/views.py:845
+#: admin_portal/views.py:846
 #, python-format
 msgid "%(item)s saved"
 msgstr "%(item)s збережено"
 
-#: admin_portal/views.py:857
+#: admin_portal/views.py:858
 #, python-format
 msgid "Drafted %(number)s from %(supplier)s"
 msgstr "Створено чернетку %(number)s від %(supplier)s"
 
-#: admin_portal/views.py:868
+#: admin_portal/views.py:869
 msgid "Add a supplier on an ingredient first."
 msgstr "Спершу додайте постачальника до інгредієнта."
 
-#: admin_portal/views.py:887
+#: admin_portal/views.py:888
 msgid "That file is too big (20 MB at most)."
 msgstr "Файл завеликий (щонайбільше 20 МБ)."
 
-#: admin_portal/views.py:895
+#: admin_portal/views.py:896
 msgid "Delivered orders stay on record."
 msgstr "Доставлені замовлення лишаються в записах."
 
-#: admin_portal/views.py:899
+#: admin_portal/views.py:900
 #, python-format
 msgid "%(number)s deleted"
 msgstr "%(number)s видалено"
 
-#: admin_portal/views.py:903
+#: admin_portal/views.py:904
 #, python-format
 msgid "Copied into a new draft, %(number)s"
 msgstr "Скопійовано в нову чернетку, %(number)s"
 
-#: admin_portal/views.py:917
+#: admin_portal/views.py:918
 #, python-format
 msgid "Stock added for %(n)d item"
 msgid_plural "Stock added for %(n)d items"
@@ -17283,72 +17539,72 @@ msgstr[1] "Запаси додано для %(n)d позицій"
 msgstr[2] "Запаси додано для %(n)d позицій"
 msgstr[3] "Запаси додано для %(n)d позиції"
 
-#: admin_portal/views.py:919
+#: admin_portal/views.py:920
 #, python-format
 msgid "%(number)s saved"
 msgstr "%(number)s збережено"
 
-#: admin_portal/views.py:961
+#: admin_portal/views.py:962
 #, python-format
 msgid "Sent to %(name)s."
 msgstr "Надіслано: %(name)s."
 
-#: admin_portal/views.py:964
+#: admin_portal/views.py:965
 #, python-format
 msgid "Accepted. %(total)s charged and %(name)s gets a confirmation."
 msgstr "Прийнято. Списано %(total)s, %(name)s отримає підтвердження."
 
-#: admin_portal/views.py:969
+#: admin_portal/views.py:970
 #, python-format
 msgid "Order rejected. %(name)s gets an email with your reason."
 msgstr "Замовлення відхилено. %(name)s отримає лист із вашою причиною."
 
-#: admin_portal/views.py:969
+#: admin_portal/views.py:970
 #, python-format
 msgid "Order cancelled. %(name)s gets an email with your reason."
 msgstr "Замовлення скасовано. %(name)s отримає лист із вашою причиною."
 
-#: admin_portal/views.py:973
+#: admin_portal/views.py:974
 #, python-format
 msgid "Reminder sent to %(name)s."
 msgstr "Нагадування надіслано: %(name)s."
 
-#: admin_portal/views.py:976
+#: admin_portal/views.py:977
 msgid "Deposit kept and the order is completed."
 msgstr "Депозит утримано, замовлення завершено."
 
-#: admin_portal/views.py:976 catering/flow.py:326 catering/flow.py:355
+#: admin_portal/views.py:977 catering/flow.py:326 catering/flow.py:355
 msgid "Order completed."
 msgstr "Замовлення завершено."
 
-#: admin_portal/views.py:981
+#: admin_portal/views.py:982
 #, python-format
 msgid "Changes sent to %(name)s. Nothing is charged until they accept."
 msgstr "Зміни надіслано: %(name)s. Нічого не списується, доки їх не приймуть."
 
-#: admin_portal/views.py:1004
+#: admin_portal/views.py:1006
 msgid "Catering settings saved."
 msgstr "Налаштування кейтерингу збережено."
 
-#: admin_portal/views.py:1004
+#: admin_portal/views.py:1006
 msgid "Saved. Catering is off for customers."
 msgstr "Збережено. Кейтеринг для клієнтів вимкнено."
 
-#: admin_portal/views.py:1030
+#: admin_portal/views.py:1032
 msgid "Languages saved. Restart Pavilion to use them."
 msgstr "Мови збережено. Перезапустіть Pavilion, щоб їх застосувати."
 
-#: admin_portal/views.py:1037 admin_portal/views.py:1292
+#: admin_portal/views.py:1039 admin_portal/views.py:1315
 msgid "Pavilion can’t restart itself here. Restart it the way you started it."
 msgstr ""
 "Pavilion не може перезапуститися тут сам. Перезапустіть його так само, як "
 "запускали."
 
-#: admin_portal/views.py:1073
+#: admin_portal/views.py:1075
 msgid "New computer"
 msgstr "Новий комп'ютер"
 
-#: admin_portal/views.py:1074
+#: admin_portal/views.py:1076
 #, python-format
 msgid ""
 "%(name)s added. Open its link on the device, or use its code on the setup "
@@ -17357,11 +17613,11 @@ msgstr ""
 "%(name)s додано. Відкрийте його посилання на пристрої або введіть його код "
 "на сторінці налаштування."
 
-#: admin_portal/views.py:1079
+#: admin_portal/views.py:1081
 msgid "Saved."
 msgstr "Збережено."
 
-#: admin_portal/views.py:1083
+#: admin_portal/views.py:1085
 #, python-format
 msgid ""
 "New code for %(name)s. Its old links and code stop working; set the device "
@@ -17370,7 +17626,7 @@ msgstr ""
 "Новий код для %(name)s. Старі посилання й код більше не діють — налаштуйте "
 "пристрій знову."
 
-#: admin_portal/views.py:1087
+#: admin_portal/views.py:1089
 #, python-format
 msgid ""
 "%(name)s removed. That device has to be set up again to open staff screens."
@@ -17378,7 +17634,7 @@ msgstr ""
 "%(name)s видалено. Щоб відкривати екрани персоналу, цей пристрій треба "
 "налаштувати знову."
 
-#: admin_portal/views.py:1100
+#: admin_portal/views.py:1102
 msgid ""
 "Type a web address that starts with https://, or a path on Pavilion such as /"
 "store/."
@@ -17386,45 +17642,50 @@ msgstr ""
 "Введіть вебадресу, що починається з https://, або шлях у Pavilion, як-от /"
 "store/."
 
-#: admin_portal/views.py:1136
+#: admin_portal/views.py:1126
+#, python-format
+msgid "%(name)s is disconnected. Its workflows no longer reach this Pavilion."
+msgstr "%(name)s від'єднано. Його сценарії більше не досягають цього Pavilion."
+
+#: admin_portal/views.py:1159
 #, python-format
 msgid "%(name)s is ready."
 msgstr "%(name)s готовий."
 
-#: admin_portal/views.py:1148
+#: admin_portal/views.py:1171
 msgid "Saved. The TV picks it up in a few seconds."
 msgstr "Збережено. Телевізор підхопить це за кілька секунд."
 
-#: admin_portal/views.py:1148
+#: admin_portal/views.py:1171
 msgid "Saved. The TV picks it up when it’s back online."
 msgstr "Збережено. Телевізор підхопить це, щойно знову буде в мережі."
 
-#: admin_portal/views.py:1153
+#: admin_portal/views.py:1176
 #, python-format
 msgid "%(name)s is offline, so it can’t hear that."
 msgstr "%(name)s не в мережі, тож не отримає цієї команди."
 
-#: admin_portal/views.py:1155
+#: admin_portal/views.py:1178
 #, python-format
 msgid "“%(name)s” is on the TV for 10 seconds."
 msgstr "«%(name)s» показується на телевізорі 10 секунд."
 
-#: admin_portal/views.py:1157
+#: admin_portal/views.py:1180
 #, python-format
 msgid "%(name)s is restarting. Back in about a minute."
 msgstr "%(name)s перезапускається. Повернеться приблизно за хвилину."
 
-#: admin_portal/views.py:1159
+#: admin_portal/views.py:1182
 #, python-format
 msgid "Setup Wi-Fi is on. Scan the code on %(name)s."
 msgstr "Wi-Fi для налаштування ввімкнено. Відскануйте код на %(name)s."
 
-#: admin_portal/views.py:1166
+#: admin_portal/views.py:1189
 #, python-format
 msgid "%(name)s is unpaired."
 msgstr "%(name)s від'єднано."
 
-#: admin_portal/views.py:1183
+#: admin_portal/views.py:1206
 msgid ""
 "Pavilion’s Square app isn’t set up yet (SQUARE_APPLICATION_ID and "
 "SQUARE_APPLICATION_SECRET)."
@@ -17432,76 +17693,76 @@ msgstr ""
 "Застосунок Square для Pavilion ще не налаштовано (SQUARE_APPLICATION_ID і "
 "SQUARE_APPLICATION_SECRET)."
 
-#: admin_portal/views.py:1190
+#: admin_portal/views.py:1213
 msgid "Square is disconnected. Card payments stop until it’s connected again."
 msgstr ""
 "Square від'єднано. Оплата карткою не працюватиме, доки його знову не "
 "під'єднають."
 
-#: admin_portal/views.py:1197
+#: admin_portal/views.py:1220
 #, python-format
 msgid "Payments go to %(name)s."
 msgstr "Платежі надходять на %(name)s."
 
-#: admin_portal/views.py:1201
+#: admin_portal/views.py:1224
 msgid "Square access renewed."
 msgstr "Доступ до Square поновлено."
 
-#: admin_portal/views.py:1220 admin_portal/views.py:1228
+#: admin_portal/views.py:1243 admin_portal/views.py:1251
 #, python-format
 msgid "Square wasn’t connected: %(why)s"
 msgstr "Square не під'єднано: %(why)s"
 
-#: admin_portal/views.py:1222
+#: admin_portal/views.py:1245
 msgid "That Square sign-in link expired. Press Connect with Square again."
 msgstr ""
 "Термін дії посилання для входу в Square минув. Натисніть «Під'єднати Square» "
 "ще раз."
 
-#: admin_portal/views.py:1226
+#: admin_portal/views.py:1249
 #, python-format
 msgid "Connected to %(name)s on Square."
 msgstr "Під'єднано до %(name)s у Square."
 
-#: admin_portal/views.py:1245
+#: admin_portal/views.py:1268
 msgid "Email settings saved."
 msgstr "Налаштування ел. пошти збережено."
 
-#: admin_portal/views.py:1268
+#: admin_portal/views.py:1291
 msgid "Notification settings saved."
 msgstr "Налаштування сповіщень збережено."
 
-#: admin_portal/views.py:1297
+#: admin_portal/views.py:1320
 msgid "Fix the fields marked in red first."
 msgstr "Спершу виправте поля, позначені червоним."
 
-#: admin_portal/views.py:1301
+#: admin_portal/views.py:1324
 msgid "Store info saved. Restart Pavilion to use the new time zone."
 msgstr ""
 "Інформацію про заклад збережено. Перезапустіть Pavilion, щоб застосувати "
 "новий часовий пояс."
 
-#: admin_portal/views.py:1303
+#: admin_portal/views.py:1326
 msgid "Store info saved."
 msgstr "Інформацію про заклад збережено."
 
-#: admin_portal/views.py:1332
+#: admin_portal/views.py:1355
 msgid "Fix the hours marked in red first."
 msgstr "Спершу виправте години, позначені червоним."
 
-#: admin_portal/views.py:1335
+#: admin_portal/views.py:1358
 msgid "Store hours saved. The online store and register are updated."
 msgstr "Години роботи збережено. Онлайн-магазин і касу оновлено."
 
-#: admin_portal/views.py:1339
+#: admin_portal/views.py:1362
 msgid "Online orders paused. The store shows “Back soon”."
 msgstr "Онлайн-замовлення призупинено. Магазин показує «Скоро повернемося»."
 
-#: admin_portal/views.py:1342
+#: admin_portal/views.py:1365
 msgid "Online orders are back on"
 msgstr "Онлайн-замовлення знову працюють"
 
-#: admin_portal/views.py:1369
+#: admin_portal/views.py:1392
 msgid ""
 "Stations saved. Order marking screens pick up the changes on their next "
 "refresh."
@@ -17509,83 +17770,83 @@ msgstr ""
 "Станції збережено. Екрани позначення замовлень підхоплять зміни під час "
 "наступного оновлення."
 
-#: admin_portal/views.py:1389
+#: admin_portal/views.py:1412
 msgid "Fix the events marked in red first."
 msgstr "Спершу виправте події, позначені червоним."
 
-#: admin_portal/views.py:1395
+#: admin_portal/views.py:1418
 msgid ""
 "Events saved. Store hours, the online store and the register are updated."
 msgstr "Події збережено. Години роботи, онлайн-магазин і касу оновлено."
 
-#: admin_portal/views.py:1397
+#: admin_portal/views.py:1420
 #, python-format
 msgid "Emailing customers about %(names)s."
 msgstr "Надсилаємо клієнтам лист про %(names)s."
 
-#: admin_portal/views.py:1440
+#: admin_portal/views.py:1463
 msgid "Left without saving. Changes were discarded."
 msgstr "Вийшли без збереження. Зміни скасовано."
 
-#: admin_portal/views.py:1449
+#: admin_portal/views.py:1472
 #, python-format
 msgid "%(name)s removed. Its display goes back to the session list."
 msgstr "%(name)s видалено. Його дисплей повертається до списку сеансів."
 
-#: admin_portal/views.py:1458
+#: admin_portal/views.py:1481
 msgid "Saved. Open screens update within a few seconds."
 msgstr "Збережено. Відкриті екрани оновляться за кілька секунд."
 
-#: admin_portal/views.py:1500
+#: admin_portal/views.py:1523
 msgid ""
 "Audio channels saved. Screens pick up the changes on their next refresh."
 msgstr ""
 "Аудіоканали збережено. Екрани підхоплять зміни під час наступного оновлення."
 
-#: admin_portal/views.py:1571
+#: admin_portal/views.py:1594
 msgid "Type the 4-digit PIN first."
 msgstr "Спершу введіть 4-значний PIN."
 
-#: admin_portal/views.py:1573
+#: admin_portal/views.py:1596
 #, python-format
 msgid "%(name)s’s register PIN is set."
 msgstr "PIN для каси (%(name)s) задано."
 
-#: admin_portal/views.py:1573
+#: admin_portal/views.py:1596
 #, python-format
 msgid "%(name)s’s register PIN is removed."
 msgstr "PIN для каси (%(name)s) видалено."
 
-#: admin_portal/views.py:1582
+#: admin_portal/views.py:1605
 #, python-format
 msgid "%(name)s’s password is changed."
 msgstr "Пароль (%(name)s) змінено."
 
-#: admin_portal/views.py:1586
+#: admin_portal/views.py:1609
 msgid "They have no email to send a link to. Set a password here instead."
 msgstr "У них немає ел. пошти, щоб надіслати посилання. Задайте пароль тут."
 
-#: admin_portal/views.py:1590
+#: admin_portal/views.py:1613
 #, python-format
 msgid "A link to set a new password was sent to %(email)s."
 msgstr "Посилання для встановлення нового пароля надіслано на %(email)s."
 
-#: admin_portal/views.py:1592
+#: admin_portal/views.py:1615
 msgid ""
 "The email couldn’t be sent. Check listmonk, or set a password here instead."
 msgstr "Не вдалося надіслати лист. Перевірте listmonk або задайте пароль тут."
 
-#: admin_portal/views.py:1603
+#: admin_portal/views.py:1626
 msgid "Staff saved."
 msgstr "Персонал збережено."
 
-#: admin_portal/views.py:1619 admin_portal/views.py:1634
-#: admin_portal/views.py:1894
+#: admin_portal/views.py:1642 admin_portal/views.py:1657
+#: admin_portal/views.py:1917
 #, python-format
 msgid "%(name)s added to staff. Pick their roles and groups."
 msgstr "%(name)s додано до персоналу. Виберіть ролі та групи."
 
-#: admin_portal/views.py:1631
+#: admin_portal/views.py:1654
 msgid ""
 "The invite email couldn’t be sent. Check listmonk, then try again from their "
 "profile."
@@ -17593,7 +17854,7 @@ msgstr ""
 "Не вдалося надіслати запрошення. Перевірте listmonk, а потім спробуйте ще "
 "раз із профілю."
 
-#: admin_portal/views.py:1633
+#: admin_portal/views.py:1656
 #, python-format
 msgid ""
 "%(name)s added to staff, invite sent to %(email)s. Pick their roles and "
@@ -17602,7 +17863,7 @@ msgstr ""
 "%(name)s додано до персоналу, запрошення надіслано на %(email)s. Виберіть "
 "ролі та групи."
 
-#: admin_portal/views.py:1675
+#: admin_portal/views.py:1698
 #, python-format
 msgid "Schedule published. %(n)d staff member told about their changes."
 msgid_plural "Schedule published. %(n)d staff told about their changes."
@@ -17611,20 +17872,20 @@ msgstr[1] "Розклад опубліковано. %(n)d працівників
 msgstr[2] "Розклад опубліковано. %(n)d працівників повідомлено про зміни."
 msgstr[3] "Розклад опубліковано. %(n)d працівника повідомлено про зміни."
 
-#: admin_portal/views.py:1698
+#: admin_portal/views.py:1721
 msgid "Pars saved. The coverage strip on Shifts uses them now."
 msgstr ""
 "Норми збережено. Смуга покриття на сторінці «Зміни» тепер їх використовує."
 
-#: admin_portal/views.py:1722
+#: admin_portal/views.py:1745
 msgid "Approved. The shifts moved and both of them get a notification."
 msgstr "Схвалено. Зміни переміщено, обоє отримають сповіщення."
 
-#: admin_portal/views.py:1723
+#: admin_portal/views.py:1746
 msgid "Declined. Both of them get a notification."
 msgstr "Відхилено. Обоє отримають сповіщення."
 
-#: admin_portal/views.py:1732
+#: admin_portal/views.py:1755
 #, python-format
 msgid ""
 "Approved. %(name)s gets a notification and %(n)d shift moved to open shifts."
@@ -17643,74 +17904,74 @@ msgstr[3] ""
 "Схвалено. %(name)s отримає сповіщення, а %(n)d зміни переміщено до відкритих "
 "змін."
 
-#: admin_portal/views.py:1734
+#: admin_portal/views.py:1757
 #, python-format
 msgid "Approved. %(name)s gets a notification."
 msgstr "Схвалено. %(name)s отримає сповіщення."
 
-#: admin_portal/views.py:1736
+#: admin_portal/views.py:1759
 #, python-format
 msgid "Declined. %(name)s gets a notification with your message."
 msgstr "Відхилено. %(name)s отримає сповіщення з вашим повідомленням."
 
-#: admin_portal/views.py:1737 online_store/work.py:350
+#: admin_portal/views.py:1760 online_store/work.py:350
 #, python-format
 msgid "Declined. %(name)s gets a notification."
 msgstr "Відхилено. %(name)s отримає сповіщення."
 
-#: admin_portal/views.py:1760
+#: admin_portal/views.py:1783
 msgid "Roles saved. Staff profiles show the changes."
 msgstr "Ролі збережено. Профілі персоналу показують зміни."
 
-#: admin_portal/views.py:1785
+#: admin_portal/views.py:1808
 msgid "Groups saved. Everyone in them has the new permissions straight away."
 msgstr "Групи збережено. Усі учасники одразу отримують нові дозволи."
 
-#: admin_portal/views.py:1811
+#: admin_portal/views.py:1834
 msgid "Staff cards saved. Registers use the new rules on the next scan."
 msgstr ""
 "Картки працівників збережено. Каси застосують нові правила під час "
 "наступного сканування."
 
-#: admin_portal/views.py:1866
+#: admin_portal/views.py:1889
 msgid "Customer changes saved."
 msgstr "Зміни клієнта збережено."
 
-#: admin_portal/views.py:1870
+#: admin_portal/views.py:1893
 #, python-format
 msgid "Password reset link sent to %(email)s."
 msgstr "Посилання для скидання пароля надіслано на %(email)s."
 
-#: admin_portal/views.py:1875
+#: admin_portal/views.py:1898
 #, python-format
 msgid "Verification email sent to %(email)s."
 msgstr "Лист для підтвердження надіслано на %(email)s."
 
-#: admin_portal/views.py:1888
+#: admin_portal/views.py:1911
 msgid "Your groups don’t let you change staff."
 msgstr "Ваші групи не дозволяють змінювати персонал."
 
-#: admin_portal/views.py:1899
+#: admin_portal/views.py:1922
 msgid "The email couldn’t be sent. Check listmonk, then try again."
 msgstr "Не вдалося надіслати лист. Перевірте listmonk і спробуйте ще раз."
 
-#: admin_portal/views.py:1922
+#: admin_portal/views.py:1945
 msgid "Coupons saved. Codes work at checkout right away."
 msgstr "Купони збережено. Коди одразу діють під час оформлення замовлення."
 
-#: admin_portal/views.py:1948
+#: admin_portal/views.py:1971
 msgid "Discounts saved. The register and online store pick them up right away."
 msgstr "Знижки збережено. Каса й онлайн-магазин одразу їх підхоплять."
 
-#: admin_portal/views.py:1995
+#: admin_portal/views.py:2018
 msgid "Designs saved. The online store and register show them right away."
 msgstr "Дизайни збережено. Онлайн-магазин і каса одразу їх покажуть."
 
-#: admin_portal/views.py:2030
+#: admin_portal/views.py:2053
 msgid "Give the store a name first."
 msgstr "Спершу дайте закладу назву."
 
-#: admin_portal/views.py:2035
+#: admin_portal/views.py:2058
 #, python-format
 msgid "%(name)s is live on your online store"
 msgstr "%(name)s тепер працює у вашому онлайн-магазині"
@@ -17802,6 +18063,14 @@ msgstr "Ваше ім'я, контакти й мова"
 #: app_switcher/views.py:35
 msgid "Menus, staff, stations and reports"
 msgstr "Меню, персонал, станції та звіти"
+
+#: app_switcher/views.py:43
+msgid "Give feedback"
+msgstr "Залишити відгук"
+
+#: app_switcher/views.py:43
+msgid "Report a bug or request a feature"
+msgstr "Повідомити про помилку або запропонувати функцію"
 
 #: audio/models.py:78
 msgid "Repeat the queue"
@@ -18398,7 +18667,7 @@ msgstr "Підтверджені замовлення скасовує закл�
 msgid "Cancelled by the customer"
 msgstr "Скасовано клієнтом"
 
-#: catering/flow.py:292 catering/models.py:182
+#: catering/flow.py:292 catering/models.py:184
 msgid "Declined the changes"
 msgstr "Зміни відхилено"
 
@@ -18454,11 +18723,11 @@ msgstr "налаштування кейтерингу"
 msgid "Confirmed"
 msgstr "Підтверджено"
 
-#: catering/models.py:74 catering/models.py:180
+#: catering/models.py:74 catering/models.py:182
 msgid "Rejected"
 msgstr "Відхилено"
 
-#: catering/models.py:74 catering/models.py:181 deliveries/signals.py:53
+#: catering/models.py:74 catering/models.py:183 deliveries/signals.py:53
 #: services/models.py:137 team/models.py:73
 msgid "Cancelled"
 msgstr "Скасовано"
@@ -18475,27 +18744,27 @@ msgstr "Заблоковано"
 msgid "Released"
 msgstr "Знято"
 
-#: catering/models.py:130
+#: catering/models.py:132
 msgid "No card on file"
 msgstr "Немає збереженої картки"
 
-#: catering/models.py:180
+#: catering/models.py:182
 msgid "Proposed changes"
 msgstr "Запропоновані зміни"
 
-#: catering/models.py:180 catering/views.py:230 deliveries/views.py:258
+#: catering/models.py:182 catering/views.py:230 deliveries/views.py:258
 msgid "Accepted"
 msgstr "Прийнято"
 
-#: catering/models.py:181
+#: catering/models.py:183
 msgid "Accepted the changes"
 msgstr "Зміни прийнято"
 
-#: catering/models.py:182
+#: catering/models.py:184
 msgid "Suggested changes"
 msgstr "Запропоновані зміни"
 
-#: catering/models.py:185
+#: catering/models.py:187
 msgid "System"
 msgstr "Система"
 
@@ -19823,10 +20092,12 @@ msgstr ""
 "першого листа на касі або введіть його під час оформлення замовлення."
 
 #: gift_cards/templates/gift_cards/balance.html:31
+#: gift_cards/templates/gift_cards/card.html:89
 msgid "Card not found"
 msgstr "Картку не знайдено"
 
 #: gift_cards/templates/gift_cards/balance.html:32
+#: gift_cards/templates/gift_cards/card.html:90
 msgid ""
 "This link doesn’t match a gift card any more. Empty cards are deleted after "
 "30 days."
@@ -19867,17 +20138,71 @@ msgstr "Переглянути картку"
 msgid "No card"
 msgstr "Немає картки"
 
-#: gift_cards/templates/gift_cards/card.html:29
-msgid "Gift Card"
-msgstr "Подарункова картка"
+#: gift_cards/templates/gift_cards/card.html:48
+#, python-format
+msgid "of $%(total)s"
+msgstr "із $%(total)s"
 
-#: gift_cards/templates/gift_cards/card.html:34
-msgid "No barcode generated."
-msgstr "Не вдалося створити штрихкод."
+#: gift_cards/templates/gift_cards/card.html:52
+msgid "Ready to use"
+msgstr "Готова до використання"
 
-#: gift_cards/templates/gift_cards/card.html:38
-msgid "Balance:"
-msgstr "Баланс:"
+#: gift_cards/templates/gift_cards/card.html:56
+#, python-format
+msgid "Barcode for %(number)s"
+msgstr "Штрихкод для %(number)s"
+
+#: gift_cards/templates/gift_cards/card.html:67
+msgid "This card is frozen for now. Ask the store about it."
+msgstr "Цю картку наразі заморожено. Зверніться до закладу."
+
+#: gift_cards/templates/gift_cards/card.html:68
+#, python-format
+msgid "Nothing’s left on this card. It goes away on %(day)s."
+msgstr "На картці нічого не залишилося. Вона зникне %(day)s."
+
+#: gift_cards/templates/gift_cards/card.html:68
+msgid "Nothing’s left on this card."
+msgstr "На картці нічого не залишилося."
+
+#: gift_cards/templates/gift_cards/card.html:69
+msgid ""
+"Show this at the counter to pay, or type the number in at checkout online."
+msgstr ""
+"Покажіть це на касі, щоб заплатити, або введіть номер під час оформлення "
+"замовлення онлайн."
+
+#: gift_cards/templates/gift_cards/card.html:75
+#, python-format
+msgid "For %(name)s"
+msgstr "Для %(name)s"
+
+#: gift_cards/templates/gift_cards/card.html:77
+#, python-format
+msgid "From %(name)s"
+msgstr "Від %(name)s"
+
+#: gift_cards/templates/gift_cards/card.html:82
+#: online_store/templates/themes/neighbourhood/_header.html:35
+#: online_store/templates/themes/neighbourhood/menu.html:11
+msgid "Order online"
+msgstr "Замовити онлайн"
+
+#: gift_cards/templates/gift_cards/card.html:83
+msgid "Give a gift card"
+msgstr "Подарувати подарункову картку"
+
+#: gift_cards/templates/gift_cards/card.html:85
+msgid "Keep this link to yourself: anyone with the card’s number can spend it."
+msgstr ""
+"Нікому не передавайте це посилання: будь-хто з номером картки може її "
+"витратити."
+
+#: gift_cards/templates/gift_cards/card.html:91
+#: online_store/templates/online_store/account/base.html:46
+#: online_store/templates/themes/neighbourhood/login.html:36
+msgid "Back to the restaurant"
+msgstr "Назад до ресторану"
 
 #: gift_cards/templates/gift_cards/emails/card-confirm.html:6
 #, python-format
@@ -20014,7 +20339,7 @@ msgstr "Особливі картки"
 msgid "Cards"
 msgstr "Картки"
 
-#: gift_cards/views.py:126 pos_server/orders.py:239
+#: gift_cards/views.py:102 pos_server/orders.py:241
 msgid "Bought online"
 msgstr "Куплено онлайн"
 
@@ -22620,11 +22945,6 @@ msgstr "Доступність і відгули"
 msgid "Order again"
 msgstr "Замовити знову"
 
-#: online_store/templates/online_store/account/base.html:46
-#: online_store/templates/themes/neighbourhood/login.html:36
-msgid "Back to the restaurant"
-msgstr "Назад до ресторану"
-
 #: online_store/templates/online_store/account/catering.html:5
 #: online_store/templates/online_store/account/catering.html:6
 #: online_store/templates/themes/neighbourhood/catering_order.html:13
@@ -23094,37 +23414,29 @@ msgstr "Завітайте"
 msgid "Events & services"
 msgstr "Події та послуги"
 
-#: online_store/templates/themes/neighbourhood/_footer.html:30
-msgid "Online ordering by Pavilion"
-msgstr "Онлайн-замовлення від Pavilion"
-
-#: online_store/templates/themes/neighbourhood/_footer.html
+#: online_store/templates/themes/neighbourhood/_footer.html:32
 msgid "Pavilion is part of Hamlet"
 msgstr "Pavilion — частина Hamlet"
 
-#: online_store/templates/themes/neighbourhood/_footer.html
+#: online_store/templates/themes/neighbourhood/_footer.html:33
 msgid "About Hamlet"
 msgstr "Про Hamlet"
 
-#: online_store/templates/themes/neighbourhood/_footer.html
+#: online_store/templates/themes/neighbourhood/_footer.html:34
 msgid "About Pavilion"
 msgstr "Про Pavilion"
 
-#: online_store/templates/themes/neighbourhood/_footer.html
+#: online_store/templates/themes/neighbourhood/_footer.html:35
 msgid "Report a bug"
 msgstr "Повідомити про помилку"
 
-#: online_store/templates/themes/neighbourhood/_footer.html
+#: online_store/templates/themes/neighbourhood/_footer.html:36
 msgid "Request a feature"
 msgstr "Запропонувати функцію"
 
-#: app_switcher/views.py
-msgid "Give feedback"
-msgstr "Залишити відгук"
-
-#: app_switcher/views.py
-msgid "Report a bug or request a feature"
-msgstr "Повідомити про помилку або запропонувати функцію"
+#: online_store/templates/themes/neighbourhood/_footer.html:38
+msgid "Online ordering by Pavilion"
+msgstr "Онлайн-замовлення від Pavilion"
 
 #: online_store/templates/themes/neighbourhood/_header.html:11
 #, python-format
@@ -23139,11 +23451,6 @@ msgstr[0] "Кошик, %(n)s позиція"
 msgstr[1] "Кошик, %(n)s позиції"
 msgstr[2] "Кошик, %(n)s позицій"
 msgstr[3] "Кошик, %(n)s позиції"
-
-#: online_store/templates/themes/neighbourhood/_header.html:35
-#: online_store/templates/themes/neighbourhood/menu.html:11
-msgid "Order online"
-msgstr "Замовити онлайн"
 
 #: online_store/templates/themes/neighbourhood/cart.html:9
 #: online_store/templates/themes/neighbourhood/cart.html:36
@@ -24957,19 +25264,19 @@ msgstr "Відкликати можна лише запити, що ще очі�
 msgid "Request withdrawn."
 msgstr "Запит відкликано."
 
-#: pavilion/settings.py:337
+#: pavilion/settings.py:344
 msgid "English"
 msgstr "Англійська"
 
-#: pavilion/settings.py:338
+#: pavilion/settings.py:345
 msgid "Ukrainian"
 msgstr "Українська"
 
-#: pavilion/settings.py:339
+#: pavilion/settings.py:346
 msgid "Cantonese (Hong Kong)"
 msgstr "Кантонська (Гонконг)"
 
-#: pavilion/throttle.py:80
+#: pavilion/throttle.py:81
 msgid "Too many requests. Wait a few seconds and try again."
 msgstr "Забагато запитів. Зачекайте кілька секунд і спробуйте ще раз."
 
@@ -25322,7 +25629,7 @@ msgstr "Передано недостатньо готівки."
 msgid "The payments don't add up to the total of $%(total)s."
 msgstr "Платежі не дорівнюють сумі $%(total)s."
 
-#: pos_server/orders.py:239
+#: pos_server/orders.py:241
 msgid "Sold at the register"
 msgstr "Продано на касі"
 
@@ -27230,6 +27537,68 @@ msgstr[3] "%(n)d гостя"
 msgid "At the counter"
 msgstr "На касі"
 
+#: switchboard/actions.py:272
+msgid "Added through Switchboard"
+msgstr "Додано через Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html:8
+msgid "Connect Switchboard"
+msgstr "Підключити Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html:21
+msgid "This link can’t connect Switchboard"
+msgstr "Це посилання не може підключити Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html:22
+msgid ""
+"It’s missing the address to go back to. Start again from Switchboard: add "
+"Pavilion there and it sends you here."
+msgstr ""
+"У ньому немає адреси для повернення. Почніть знову зі Switchboard: додайте "
+"там Pavilion, і він спрямує вас сюди."
+
+#: switchboard/templates/switchboard/authorize.html:23
+msgid "Open the Switchboard page"
+msgstr "Відкрити сторінку Switchboard"
+
+#: switchboard/templates/switchboard/authorize.html:25
+#, python-format
+msgid "Connect %(name)s’s Switchboard to %(store)s?"
+msgstr "Підключити Switchboard організації «%(name)s» до %(store)s?"
+
+#: switchboard/templates/switchboard/authorize.html:25
+#, python-format
+msgid "Connect a Switchboard to %(store)s?"
+msgstr "Підключити Switchboard до %(store)s?"
+
+#: switchboard/templates/switchboard/authorize.html:26
+msgid "The Switchboard asking is at"
+msgstr "Switchboard, що просить доступ, розміщено на"
+
+#: switchboard/templates/switchboard/authorize.html:27
+msgid ""
+"Approve only if this is your organization’s Switchboard and you just started "
+"connecting there."
+msgstr ""
+"Схвалюйте, лише якщо це Switchboard вашої організації і ви щойно почали "
+"підключення там."
+
+#: switchboard/templates/switchboard/authorize.html:28
+msgid "Once connected, it can:"
+msgstr "Після підключення він зможе:"
+
+#: switchboard/templates/switchboard/authorize.html:30
+msgid ""
+"It never sees passwords, payments or card numbers. You can disconnect it any "
+"time on the Switchboard page in Settings."
+msgstr ""
+"Він ніколи не бачить паролів, платежів чи номерів карток. Від'єднати його "
+"можна будь-коли на сторінці Switchboard у налаштуваннях."
+
+#: switchboard/templates/switchboard/authorize.html:34
+msgid "Approve"
+msgstr "Схвалити"
+
 #: team/clock.py:69
 #, python-format
 msgid ""
@@ -27251,23 +27620,23 @@ msgstr ""
 msgid "You’re already clocked in."
 msgstr "Ви вже на зміні."
 
-#: team/clock.py:108
+#: team/clock.py:110
 msgid "Clock in first."
 msgstr "Спершу почніть зміну."
 
-#: team/clock.py:110
+#: team/clock.py:112
 msgid "You’re already on a break."
 msgstr "Ви вже на перерві."
 
-#: team/clock.py:118
+#: team/clock.py:120
 msgid "You’re not on a break."
 msgstr "Ви не на перерві."
 
-#: team/clock.py:126
+#: team/clock.py:128
 msgid "You’re not clocked in."
 msgstr "Ви не на зміні."
 
-#: team/clock.py:153
+#: team/clock.py:157
 msgid "Break"
 msgstr "Перерва"
 
@@ -28067,6 +28436,15 @@ msgstr "Вкажіть, будь ласка, своє ім'я."
 #: users/views.py:205
 msgid "Choose a password."
 msgstr "Виберіть пароль."
+
+#~ msgid "Gift Card"
+#~ msgstr "Подарункова картка"
+
+#~ msgid "No barcode generated."
+#~ msgstr "Не вдалося створити штрихкод."
+
+#~ msgid "Balance:"
+#~ msgstr "Баланс:"
 
 #~ msgid "Don\\"
 #~ msgstr "Don\\"
