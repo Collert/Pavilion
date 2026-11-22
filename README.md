@@ -74,6 +74,9 @@ domain, your colours.
 - **Square**: Terminal, Web Payments, saved cards, refunds. Connect your own account with OAuth from the admin.
 - **listmonk**: every transactional email (order updates, account emails, gift cards), newsletters and event
   announcements. It also works as a push-notification messenger for campaigns.
+- **Switchboard**: Hamlet's workflow builder. Pavilion sends it events (an order placed or ready, staff clocking in
+  and out) and runs its actions (find or add staff, issue staff cards, add shifts). Connect from Switchboard and
+  approve in the admin.
 - **Web Push** (VAPID keys are generated for you), **Valhalla** and **Nominatim** (OpenStreetMap), **weatherapi.com**,
   **Gotenberg** (screenshots for the store app's install sheet) and **Bugsink** (error reporting).
 

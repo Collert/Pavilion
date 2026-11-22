@@ -92,6 +92,7 @@ last in the URLconf).
 | `/screens/` | `screens` | `""` list of screens + widget catalogue (staff), `<slug>` a screen (public or staff, per screen) |
 | `/audio/` | `audio` | `""` all channels (staff), `music/<id>` and `voice/<id>` (the Audio app), `channels/<id>/now` (a music channel's song, for screens) and `/control` (JSON), `talk/<id>` (old address of `voice/<id>`); `/ws/voice/<id>` is the voice WebSocket |
 | `/devices/` | `devices` | `dongles/pair` (a visual dongle sends its pairing code, JSON), `dongles/open/<signed>` (its browser's launch link: sets the dongle cookie, shows its screen); `/ws/dongle` is the dongles' WebSocket (§6.8.1) |
+| `/.well-known/switchboard`, `/switchboard/` | `switchboard` | the manifest (public JSON); `switchboard/authorize` (the consent page, needs `admin.switchboard.edit`); `switchboard/v1/token`, `switchboard/v1/` (checks a key), `switchboard/v1/actions/<name>`, `switchboard/v1/connection` (DELETE): Switchboard's server-to-server JSON API (§6.15) |
 | `/apps/` | `app_switcher` | staff launcher (see §6.2) |
 | `/utils/` | `misc_tools` | `get-image-colors/` (staff), `tts?text=` (public, 300 chars max) |
 | `/events/<topic>` | `pavilion.realtime` | SSE streams: `orders`, `screens` and `catering` (public), `inventory` and `cookery` (staff), `checkout` (staff + registered device) |
@@ -199,6 +200,9 @@ Component ─ OptionGroup (component-owned, e.g. Patty temperature, Milk) ─ Op
 ### 5.3 Other models
 
 - `EligibleDevice(token, name)`: registered POS/KDS devices (§6.8).
+- `switchboard.SwitchboardConnection` (a connected Switchboard: name, `webhook_url`, `key_hash`, encrypted `secret`,
+  `broken_at`), `AuthorizeCode` (one-time, 10 minutes, hashed), `IdempotencyRecord` ((connection, key) → the answer
+  given), `Delivery` (the event log: type, status, attempts), `IssuedCard` (the staff cards a connection issued). §6.15.
 - `payments.Transaction(uuid, amount, successful, used)`: one online card payment. Only the server marks it `successful`;
   `Transaction.consume()` spends it once. `PaymentAuthorization(payment_id, amount cents, currency, status)`: `""`
   authorized, `cap` captured, `del` voided/refunded. `SquareTerminal`: a Terminal and the register (`EligibleDevice`) it takes
@@ -1176,6 +1180,77 @@ and sends on a small pool (`push.send.pooled`). Guests have no subscriber, so ca
 placed it (a signed cookie, `online_store/guest_orders.py`, a year, the last 20). Everyone else gets "This order isn't
 yours to see" (403).
 
+### 6.15 Switchboard (`switchboard/`, November 2026)
+
+**Switchboard** is Hamlet's workflow builder, a separate app: something that happens in one building (Town Hall,
+Pavilion) starts a workflow that calls actions in others ("a volunteer reached level 3 → find them in Pavilion's
+staff → issue a $15 meal card"). A building only emits events and exposes actions; Switchboard builds its nodes from
+the building's manifest. The contract is Switchboard's `docs/PROTOCOL.md` (version 1), and this app is Pavilion's
+side of it. **The names in `switchboard/manifest.py` (trigger types, action names, every field key) are stored in
+people's workflows: add to them, never rename or remove.** People are matched between buildings by email.
+
+- **Manifest** (`GET /.well-known/switchboard`, public, `no-store`; `manifest.py`): `building` "pavilion", the store's
+  name as `instance`, the three URLs built from the request's host, the triggers and the actions with typed params and
+  outputs and an example for each field. Always English (the protocol's language): its texts and the API's error
+  messages aren't wrapped for translation.
+- **Connecting** (`connections.py`, `views.authorize`, `views.token`): an admin types this Pavilion's address into
+  Switchboard, which sends their browser to `/switchboard/authorize?callback=&state=&name=`. That page needs someone
+  signed in with `admin.switchboard.edit` (signed-out people go through the login page and come back), names the host
+  the callback is on and what a connection allows, and on Approve redirects to the callback with a one-time code
+  (`AuthorizeCode`: only its hash is kept, 10 minutes, claimed once with a conditional update); Cancel sends
+  `error=access_denied`. Switchboard then posts `{code, webhook_url, name}` to `/switchboard/v1/token` and gets
+  `api_key` (`sbk_…`), `webhook_secret` and `connection_id`, shown that once: Pavilion keeps the key as a SHA-256 hash
+  and the secret encrypted (`payments/secrets.py`), since it signs with it. Several Switchboards can be connected.
+- **The API** (`views.py`; bearer key, CSRF-exempt, never a redirect or an HTML page): `GET /switchboard/v1/` checks
+  the key, `POST /switchboard/v1/actions/<name>` runs an action, `DELETE /switchboard/v1/connection` disconnects.
+  Errors are `{"error": {"code", "message"}}`: 400 `invalid_request`, 401 `unauthorized`, 404 `unknown_action`, 422
+  `invalid_params` (says which), 409 `conflict`, 500 `server_error`. These paths skip first-time setup's redirect
+  (`users/setup.py`) and the per-browser throttle (`pavilion/throttle.py`); their own cap (300 calls per address per
+  10 s) answers 503 with `Retry-After`, which Switchboard retries (it never retries a 4xx).
+- **Idempotency**: an action call's `Idempotency-Key` is stored with the answer given (`IdempotencyRecord`, 200 and
+  4xx alike, a month); a repeated key gets that answer back without the work being done again. The record and the
+  action's writes share one transaction, so an unexpected error leaves nothing and a retry runs it. Lookups ignore it.
+- **Actions** (`actions.py`, one function per name; ids are strings, a staff member's is their account's id):
+  - `staff.find` (lookup): `email` → `found`, `staff_id`, `name`, `email`, `roles` (names joined with commas),
+    `active`. Nobody found is `200 {"found": false}`.
+  - `staff.ensure`: `name`, `email`, optional `role`, `invite` → `staff_id`, `name`, `email`, `created`. What the
+    Staff page's Add does (`admin_portal/staff.py`): a customer's account with that email becomes staff, else a new
+    account is made with no password. A role (by name) is added with its starting groups, never Owners. Owners are
+    returned untouched. `invite: true` emails a new person the set-your-password link (`staff_invite`). Without a
+    password or a PIN they can't use the time clock yet: a manager sets a PIN on the Staff page.
+  - `staff_card.issue`: `staff_id`, `amount`, optional `label`, `replace_previous` → `card_id`, `amount`, `label`,
+    `replaced`. The label is a **card type** on the Staff cards page (default "Switchboard"): a balance type with that
+    name is used as it is (its rules and refills apply after the first balance), otherwise a one-time balance type is
+    made (`refill` never, every channel) that a manager can then edit like any other. The card starts with `amount`.
+    One live card per person and type, as on the Staff cards page: a second one is a 409 unless `replace_previous`,
+    which first revokes every live card this connection issued them (`IssuedCard`; matched by host too, so a
+    Switchboard that reconnects still replaces its cards) and returns the newest one's id as `replaced`. Cards a
+    manager issued are never revoked. A discount type's name is a 409.
+  - `shift.add`: `staff_id`, `starts_at`, `ends_at`, optional `role`, `note` → `shift_id`, `status`, `created`. A
+    published `team.Shift` on the store's date and minutes (no offset means the store's time; it can end at midnight
+    but not run past it: 422), with the named role or else the person's first. A shift of theirs at exactly those
+    times is returned (`created` false, `status` published or unpublished); one that overlaps is a 409. The person is
+    emailed their schedule, as Publish does.
+- **Events** (`events.py`): `order.placed` (the end of `create_order`, every channel; `order.type` is dine_in, to_go,
+  pickup or delivery), `order.ready` (the `order_ready` signal: the last station finished it; orders no station makes
+  never send it), `staff.clocked_in` and `staff.clocked_out` (`team/clock.py`; `hours` without unpaid breaks).
+  `emit()` never raises and only registers an on-commit hook; after the commit one query looks for connections that
+  aren't broken (none: nothing happens), then the envelope (`id` `evt_…`, the same for every connection and retry,
+  `source.instance` this Pavilion's address as that Switchboard knows it) is written to `Delivery` and posted from a
+  background thread with `X-Switchboard-Signature: sha256=<HMAC of the raw body>`. Anything but a 2xx within 10 s is
+  retried, 5 tries in all with waits of 5 s, 30 s, 2 min and 10 min; a 410 marks the connection broken
+  (`broken_at`) and nothing more is sent to it. What is due lives in the database (`next_attempt_at`), each try is
+  claimed with a conditional update, and deliveries a restart left behind are taken up with the next event
+  (`sweep`, which also drops log rows older than two weeks). The signed body is cleared once a delivery is over.
+- **The admin's Switchboard page** (`admin_switchboard`, `admin_portal/switchboard.py`, Settings; no mockup, laid out
+  like Payments; `admin.switchboard.view|edit`): what Switchboard is, this Pavilion's address to type there, each
+  connection (name, host, connected when and by whom, last delivery, last call, broken or failing) with Disconnect
+  (asks first; the connection is deleted, so its key stops working and events stop; the cards and shifts it added
+  stay), and the recent deliveries. Live on the `switchboard` topic.
+- **Adding a trigger or an action**: an entry in `manifest.py`, then `events.emit(type, build)` where it happens, or
+  a function in `actions.py: RUN`; a test in `switchboard/tests.py`, which fakes the one outgoing call at
+  `switchboard.events.post`.
+
 ## 7. Real-time: history and current design
 
 **What existed before June 2024:** `pos_server/signals.py` appended orders to module-level Python lists, and views
@@ -1294,6 +1369,9 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
    in-process broker and a fakeredis test were exercised.
 
 ### Known limits (not bugs, but worth knowing)
+- Switchboard (§6.15) has only been tested against its protocol document and a faked sender, not yet against a running
+  Switchboard. A delivery's retries wait on a thread of the worker that sent it; after a restart they continue with the
+  next event, not on their own.
 - Visual dongles (§6.8.1) have been run end to end only with jester-agent's fake network on a laptop and Pavilion's dev
   server; not yet on a Pi with NetworkManager, Cage and Chromium, nor through Redis between workers.
 
