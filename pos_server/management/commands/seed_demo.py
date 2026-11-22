@@ -118,6 +118,7 @@ class Command(BaseCommand):
             self.seed_staff_cards()
             self.seed_gift_card_sales()
             self.seed_account()
+            self.seed_switchboard()
             # Availability overrides, as in the mockup (after the orders, which need these to sell):
             # a component turned off (its dish becomes unavailable) and a sold-out dish kept selling past zero
             for obj, mode in ((Component.objects.get(title="Halloumi"), "off"), (Dish.objects.get(title="Cold brew"), "always")):
@@ -1477,6 +1478,49 @@ class Command(BaseCommand):
         dongle("Front counter TV", "H2RW", None, Dongle.LANDSCAPE, "Juniper-Staff", 91, "192.168.1.42", "1920x1080", 4)
         dongle("Patio TV, weather", "M4TB", None, Dongle.LANDSCAPE, "Juniper-Staff", 73, "192.168.1.45", "1920x1080", 9,
                url="https://weather.gc.ca/en/location/index.html?coords=49.207,-122.911")  # a web page, not a Pavilion screen
+
+    def seed_switchboard(self):
+        """The admin's Switchboard page: one Switchboard that connected three weeks ago and has since forgotten this
+        Pavilion (it answered 410), so the page shows a connection, its delivery log and the broken state, and the demo
+        never posts anywhere: nothing is sent to a broken connection, and its key and secret are random, known to nobody.
+        It issued Dana a one-time "Volunteer meal" card, as a "volunteer reached a level" workflow would."""
+        import secrets as tokens
+        from datetime import timedelta
+
+        from payments import secrets
+        from switchboard.models import AuthorizeCode, Delivery, IdempotencyRecord, IssuedCard, SwitchboardConnection, hash_token
+        owner = User.objects.filter(username="admin").first()
+        now = timezone.now()
+        connected = now - timedelta(days=21)
+        hook = "https://switchboard.example.org/hooks/building/demo"
+        if SwitchboardConnection.objects.filter(webhook_url=hook).exists():
+            return
+        AuthorizeCode.objects.create(code_hash=hash_token(tokens.token_urlsafe(32)), name="Juniper Community", host="switchboard.example.org",
+                                     created_by=owner, created_at=connected, used_at=connected)
+        connection = SwitchboardConnection.objects.create(
+            name="Juniper Community", webhook_url=hook, base_url="https://pavilion.example.org",
+            key_hash=hash_token("sbk_" + tokens.token_urlsafe(32)), secret=secrets.encrypt(tokens.token_urlsafe(32)),
+            connected_at=connected, connected_by=owner, last_used_at=now - timedelta(days=3),
+            last_delivery_at=now - timedelta(days=2, hours=5), broken_at=now - timedelta(days=2))
+        log = [("staff.clocked_in", "Dana Kim clocked in", Delivery.DELIVERED, 1, 200, timedelta(days=4, hours=6)),
+               ("order.placed", "Order 0031 placed", Delivery.DELIVERED, 1, 200, timedelta(days=4, hours=3)),
+               ("order.ready", "Order 0031 is ready", Delivery.DELIVERED, 2, 200, timedelta(days=4, hours=2, minutes=48)),
+               ("staff.clocked_out", "Dana Kim clocked out", Delivery.DELIVERED, 1, 200, timedelta(days=3, hours=22)),
+               ("order.placed", "Order 0036 placed", Delivery.FAILED, 5, 502, timedelta(days=3, hours=2)),
+               ("staff.clocked_in", "Priya Shah clocked in", Delivery.DELIVERED, 1, 200, timedelta(days=2, hours=5)),
+               ("order.placed", "Order 0040 placed", Delivery.GONE, 1, 410, timedelta(days=2))]
+        for n, (kind, summary, status, attempts, answer, ago) in enumerate(log):
+            Delivery.objects.create(connection=connection, event_id=f"evt_demo{n:016d}", event_type=kind, summary=summary, status=status,
+                                    attempts=attempts, response_status=answer, created_at=now - ago, finished_at=now - ago)
+        meal = StaffCardType.objects.create(name="Volunteer meal", color="#B7791F", kind=StaffCardType.BALANCE, amount=Decimal("15.00"),
+                                            refill="never", channels=["store", "pickup", "delivery"],
+                                            position=StaffCardType.objects.count())
+        issued = now - timedelta(days=3)
+        card = StaffCard.objects.create(type=meal, user=self.cashier, number=StaffCard.new_number(), balance=Decimal("15.00"),
+                                        issued_at=issued, refilled_at=issued)
+        IssuedCard.objects.create(connection=connection, host=connection.host, card=card, created_at=issued)
+        IdempotencyRecord.objects.create(connection=connection, key="run-demo-1:issue-card", action="staff_card.issue", status=200, created_at=issued,
+                                         body={"card_id": str(card.pk), "amount": 15.0, "label": meal.name, "replaced": None})
 
     def seed_time_clock(self):
         """Time clock punches for the published shifts so far: a few minutes either side, a half-hour break on long
