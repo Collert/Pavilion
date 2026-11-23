@@ -45,19 +45,26 @@ def from_token(token):
 
 
 @transaction.atomic
-def issue(*, design, amount: Decimal, recipient, email, message, note, by, request=None, send=False):
-    """A gift from the store: (card, its full number). Emails the card when `send`."""
+def issue(*, design, amount: Decimal, recipient, email, message, note, by, request=None, send=False, issuer=""):
+    """A gift from the store: (card, its full number). Emails the card when `send`. `issuer` names who issued it when
+    that isn't a person (`by` is None: a connected Switchboard)."""
+    issuer = (who(by) or issuer)[:80]
     card = GiftCard.objects.create(design=design, available_balance=amount, original=amount, recipient=recipient[:60], email=email[:64],
-                                   message=message[:120], note=note[:120], source=GiftCard.STAFF, buyer=who(by)[:80], issued_by=by)
+                                   message=message[:120], note=note[:120], source=GiftCard.STAFF, buyer=issuer, issued_by=by)
     number = card.number
     GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.ISSUE, amount=amount, balance=amount, by=by,
-                                 note=_("Issued by %(name)s") % {"name": who(by)})
+                                 note=_("Issued by %(name)s") % {"name": issuer})
     if send and email and request is not None:
-        from admin_portal.models import StoreSettings
-        data = {"name": recipient, "amount": f"${amount:,.2f}", "message": message, "last4": card.last4,
-                "store": StoreSettings.load().name, "card_url": request.build_absolute_uri(reverse("card_display", args=[number]))}
-        transaction.on_commit(lambda: _send("gift_card_issued", email, data, fallback=settings.LANGUAGE_CODE))
+        transaction.on_commit(lambda: email_issued(request, card, number))
     return card, number
+
+
+def email_issued(request, card, number) -> bool:
+    """Email a card the store issued to the person it's for, with its number (the only place it goes)."""
+    from admin_portal.models import StoreSettings
+    data = {"name": card.recipient, "amount": f"${card.original:,.2f}", "message": card.message, "last4": card.last4,
+            "store": StoreSettings.load().name, "card_url": request.build_absolute_uri(reverse("card_display", args=[number]))}
+    return _send("gift_card_issued", card.email, data, fallback=settings.LANGUAGE_CODE)
 
 
 def _send(kind, email, data, fallback=None) -> bool:
@@ -104,11 +111,12 @@ def resend(card, request) -> bool:
         "store": StoreSettings.load().name, "balance_url": balance_link(request, card)}, fallback=settings.LANGUAGE_CODE)
 
 
-def set_frozen(card, frozen, by):
+def set_frozen(card, frozen, by, issuer=""):
+    """`issuer` names who did it when that isn't a person (`by` is None: a connected Switchboard)."""
     card.frozen = frozen
     card.save(update_fields=["frozen"])
     GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.NOTE, balance=card.available_balance, by=by,
-                                 note=(_("Frozen by %(name)s") if frozen else _("Unfrozen by %(name)s")) % {"name": who(by).split(" ")[0]})
+                                 note=(_("Frozen by %(name)s") if frozen else _("Unfrozen by %(name)s")) % {"name": who(by).split(" ")[0] or issuer})
 
 
 def adjust_problem(card, delta: Decimal) -> str:
@@ -120,12 +128,12 @@ def adjust_problem(card, delta: Decimal) -> str:
 
 
 @transaction.atomic
-def adjust(card, delta: Decimal, why, by):
+def adjust(card, delta: Decimal, why, by, issuer=""):
     card = GiftCard.objects.select_for_update().get(pk=card.pk)
     card.available_balance += delta
     card.save()
     GiftCardEvent.objects.create(card=card, kind=GiftCardEvent.ADJUST, amount=delta, balance=card.available_balance, by=by,
-                                 note=f"{why[:80]} · {who(by).split(' ')[0]}")
+                                 note=f"{why[:80]} · {who(by).split(' ')[0] or issuer}")
     return card
 
 

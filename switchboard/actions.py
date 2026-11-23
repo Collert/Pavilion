@@ -91,8 +91,23 @@ def clean(action, body) -> dict:
             if spec.get("required"):
                 raise invalid(f"{spec['label']} is missing.")
             continue
-        out[spec["key"]] = _convert(spec, value)
+        out[spec["key"]] = _within(spec, _convert(spec, value))
     return out
+
+
+def _within(spec, value):
+    """The limits the manifest states for a param (protocol §1): Switchboard checks them too, before it sends."""
+    label = spec["label"]
+    if "max_length" in spec and isinstance(value, str) and len(value) > spec["max_length"]:
+        raise invalid(f"{label} can be up to {spec['max_length']} characters.")
+    if "choices" in spec and value not in [choice["value"] for choice in spec["choices"]]:
+        raise invalid(f"{label} must be one of: {', '.join(str(choice['value']) for choice in spec['choices'])}.")
+    if not isinstance(value, (bool, str)) and ("min" in spec or "max" in spec):
+        low, high = spec.get("min"), spec.get("max")
+        if (low is not None and value < Decimal(str(low))) or (high is not None and value > Decimal(str(high))):
+            raise invalid(f"{label} must be " + (f"from {low} to {high}." if low is not None and high is not None
+                                                 else f"at least {low}." if low is not None else f"at most {high}."))
+    return value
 
 
 # ---------- people ----------
@@ -288,4 +303,623 @@ def _tell(user_id):
         logging.getLogger(__name__).warning("Couldn't email user %s their new shift", user_id, exc_info=True)
 
 
-RUN = {"staff.find": staff_find, "staff.ensure": staff_ensure, "staff_card.issue": staff_card_issue, "shift.add": shift_add}
+def staff_invite(call, p):
+    """The Staff page's Invite: the link where they set their own password (admin_portal/staff.py: invite)."""
+    from admin_portal import staff as staff_page
+    from misc_tools.email import EmailError
+    user = staff_by_id(p["staff_id"])
+    if user.is_superuser:
+        raise conflict("That is an owner’s account, which Switchboard can’t change.")
+    if not user.is_active:
+        raise conflict(f"{full_name(user)} can’t sign in to Pavilion any more. Turn their account back on on the Staff page first.")
+    if not user.email:
+        raise conflict(f"{full_name(user)} has no email address in Pavilion.")
+    try:
+        sent = bool(staff_page.invite(call.request, user))
+    except EmailError as e:
+        raise conflict(f"The invitation wasn’t sent: {e}")
+    if not sent:
+        raise conflict(NO_EMAIL)
+    return {**_person(user), "sent": True}
+
+
+def team_on_now(call, p):
+    from team import clock
+    on = clock.on_now()
+    return {"count": len(on), "names": ", ".join(full_name(entry.user) for entry, _resting in on),
+            "on_break": sum(1 for _entry, resting in on if resting)}
+
+
+# ---------- shifts ----------
+
+def _moment(day, minute):
+    return timezone.make_aware(datetime.datetime.combine(day, datetime.time.min) + datetime.timedelta(minutes=minute))
+
+
+def iso(moment) -> str:
+    return timezone.localtime(moment).isoformat(timespec="seconds")
+
+
+def day_of(p, key, label):
+    """A "2026-12-24" param as a date (None when it was left out), or a 422."""
+    if not p.get(key):
+        return None
+    try:
+        return datetime.date.fromisoformat(p[key][:10])
+    except ValueError:
+        raise invalid(f"{label} must be a day like 2026-12-24.")
+
+
+def money(value) -> float:
+    return float(value or 0)
+
+
+def number(value):
+    value = round(float(value or 0), 3)
+    return int(value) if value == int(value) else value
+
+
+def shift_cancel(call, p):
+    """The Shifts page's Delete (admin_portal/shifts.py: delete): a shift staff were told about is marked deleted and
+    waits for Publish, which tells them; one that never was published just goes."""
+    from admin_portal import shifts as shifts_page
+    from pavilion.realtime import publish
+    from team import swaps
+    from team.models import Shift
+    shift = Shift.objects.filter(pk=int(p["shift_id"])).first() if p["shift_id"].isdigit() else None
+    if shift is None:
+        if not p["shift_id"].isdigit():
+            raise invalid("Shift ID must be the number from Add a shift or Next shift.")
+        return {"shift_id": p["shift_id"], "status": "removed", "cancelled": False}
+    if shift.deleted:
+        return {"shift_id": str(shift.pk), "status": "waiting_for_publish", "cancelled": False}
+    if swaps.started(shift):
+        raise conflict("That shift has already started, so it can’t be cancelled.")
+    pk, told = shift.pk, bool(shift.published_as)
+    shifts_page.delete(shift)
+    publish("schedule")
+    return {"shift_id": str(pk), "status": "waiting_for_publish" if told else "removed", "cancelled": True}
+
+
+def shift_next(call, p):
+    from team.models import Shift
+    user = staff_by_id(p["staff_id"])
+    now = timezone.localtime()
+    today = now.date()
+    coming = [s for s in Shift.objects.filter(user=user, published=True, deleted=False, date__gte=today,
+                                              date__lt=today + datetime.timedelta(days=14)).select_related("role").order_by("date", "start")
+              if s.date > today or s.end > now.hour * 60 + now.minute]
+    if not coming:
+        later = (Shift.objects.filter(user=user, published=True, deleted=False, date__gte=today + datetime.timedelta(days=14))
+                 .select_related("role").order_by("date", "start").first())
+        if later is None:
+            return {"found": False}
+        coming, upcoming = [later], 0
+    else:
+        upcoming = len(coming)
+    s = coming[0]
+    return {"found": True, "shift_id": str(s.pk), "starts_at": iso(_moment(s.date, s.start)), "ends_at": iso(_moment(s.date, s.end)),
+            "role": s.role.name if s.role else "", "upcoming": upcoming}
+
+
+def time_off_request(call, p):
+    """What asking for time off in their store account does (team/requests.py: ask_time_off): a pending request a
+    manager answers on the admin's Availability requests page."""
+    from team import requests
+    from team.models import TimeOff
+    user = staff_by_id(p["staff_id"])
+    first = day_of(p, "first_day", "First day off")
+    last = day_of(p, "last_day", "Last day off") or first
+    same = TimeOff.objects.filter(user=user, first_day=first, last_day=last, all_day=True).exclude(status=TimeOff.DECLINED).first()
+    if same is not None:
+        return {"request_id": str(same.pk), "status": same.status, "created": False}
+    try:
+        req = requests.ask_time_off(user, first, last, True, category=p.get("category", ""), reason=p.get("reason", ""))
+    except requests.RequestError as e:
+        raise invalid(str(e))
+    return {"request_id": str(req.pk), "status": req.status, "created": True}
+
+
+# ---------- customers and orders ----------
+
+def customer_by_id(value):
+    user = User.objects.filter(pk=int(value)).first() if str(value).isdigit() else None
+    if user is None:
+        raise invalid(f"There is no customer with the ID {value}. Use the Customer ID from Find customer.")
+    return user
+
+
+def customer_find(call, p):
+    from django.db.models import Count, Max, Sum
+
+    from pos_server.models import Order, Refund
+    from users.models import Customer
+    user = User.objects.filter(email__iexact=p["email"]).order_by("is_staff", "id").first()
+    if user is None:
+        return {"found": False}
+    profile = Customer.objects.get_or_create(user=user)[0]
+    orders = Order.objects.filter(customer=user, voided_at__isnull=True)
+    stats = orders.aggregate(n=Count("id"), total=Sum("total"), last=Max("timestamp"))
+    refunded = Refund.objects.filter(order__in=orders).aggregate(total=Sum("amount"))["total"] or 0
+    out = {"found": True, "customer_id": str(user.pk), "name": full_name(user), "email": user.email, "phone": str(profile.phone or ""),
+           "orders": stats["n"] or 0, "total_spent": money((stats["total"] or 0) - refunded), "newsletter": profile.newsletter,
+           "email_verified": profile.email_verified, "notes": profile.staff_notes}
+    if stats["last"]:
+        out["last_order_at"] = iso(stats["last"])
+    return out
+
+
+def customer_add_note(call, p):
+    """A line added to the staff notes the admin's Customers page edits (users.Customer.staff_notes, 200 characters)."""
+    from users.models import Customer
+    user = customer_by_id(p["customer_id"])
+    profile = Customer.objects.select_for_update().get_or_create(user=user)[0]
+    lines = [l for l in profile.staff_notes.split(" · ") if l]
+    if p["note"] not in lines:
+        notes = " · ".join(lines + [p["note"]])
+        if len(notes) > 200:
+            raise conflict(f"The staff notes about {full_name(user)} are full (200 characters). Shorten them on Pavilion’s Customers page.")
+        profile.staff_notes = notes
+        profile.save(update_fields=["staff_notes"])
+    return {"customer_id": str(user.pk), "notes": profile.staff_notes}
+
+
+def _order_by(value):
+    from pos_server.models import Order
+    digits = str(value).lstrip("#").strip()
+    return Order.objects.filter(pk=int(digits)).first() if digits.isdigit() else None
+
+
+def order_find(call, p):
+    from pos_server import refunds
+    from pos_server.models import OrderStation
+
+    from .events import _order
+    order = _order_by(p["number"])
+    if order is None:
+        return {"found": False}
+    _subject, data, number_ = _order(order)
+    statuses = order.statuses()
+    trip = order.delivery.first() if order.channel == "delivery" else None
+    if trip is not None and trip.delivered_at:
+        status = "delivered"
+    elif order.picked_up:
+        status = "picked_up"
+    elif order.all_stations_done():
+        status = "ready"
+    elif OrderStation.STATUS_PENDING in statuses:
+        status = "waiting"
+    else:
+        status = "in_progress"
+    o, c = data["order"], data["customer"]
+    return {"found": True, "order_id": o["id"], "number": o["number"], "type": o["type"], "channel": o["channel"], "status": status,
+            "payment": refunds.status(order), "total": o["total"], "refunded": money(refunds.refunded_total(order)), "items": o["items"],
+            "summary": o["summary"], "placed_at": o["placed_at"], "customer_name": c["name"], "customer_email": c["email"]}
+
+
+def order_send_receipt(call, p):
+    """The order history's Send (pos_server/history.py): the receipt email, logged on the order."""
+    from django.conf import settings
+    from django.utils import translation
+
+    from admin_portal import orders as orders_data
+    from admin_portal.models import StoreSettings
+    from misc_tools.email import EmailError, language_for, send
+    from pos_server.models import ReceiptLog
+    order = _order_by(p["order_id"])
+    if order is None:
+        raise invalid(f"There is no order with the ID {p['order_id']}.")
+    to = p.get("email") or order.email or (order.customer.email if order.customer else "")
+    if not to:
+        raise invalid("This order has no email address. Give one in Email.")
+    if not EMAIL.match(to):
+        raise invalid("Email doesn’t look like an email address.")
+    try:
+        lang = language_for(to, user=order.customer, fallback=settings.LANGUAGE_CODE)
+        with translation.override(lang):
+            data = orders_data.receipt_data(order, StoreSettings.load().name)
+        sent = send("receipt", to, data, language=lang)
+    except EmailError as e:
+        raise conflict(f"The receipt wasn’t sent: {e}")
+    if not sent:
+        raise conflict(NO_EMAIL)
+    ReceiptLog.objects.create(order=order, channel=ReceiptLog.EMAIL, to=to[:140])
+    return {"order_id": str(order.pk), "email": to, "sent": True}
+
+
+def sales_summary(call, p):
+    """One day's orders, added up the way the admin's reports do (admin_portal/reports.py: summaries)."""
+    from django.db.models import Sum
+
+    from admin_portal import reports
+    from pos_server.models import Order, Refund
+    day = day_of(p, "date", "Day") or timezone.localdate()
+    start, end = reports.day_start(day), reports.day_start(day + datetime.timedelta(days=1))
+    s = reports.summaries(day, day).get(day) or reports.DaySummary(day)
+    orders = Order.objects.filter(timestamp__gte=start, timestamp__lt=end)
+    sums = orders.aggregate(tax=Sum("tax"), tips=Sum("tip"), discounts=Sum("discount"))
+    refunds = Refund.objects.filter(created_at__gte=start, created_at__lt=end).aggregate(total=Sum("amount"))["total"]
+    return {"date": day.isoformat(), "orders": s.orders, "sales": money(s.sales), "average": round(money(s.avg), 2), "tax": money(sums["tax"]),
+            "tips": money(sums["tips"]), "discounts": money(sums["discounts"]), "refunds": money(refunds),
+            "items": int(sum(s.dishes.values())), "top_dish": s.top_dish if s.dishes else "",
+            "online_orders": orders.exclude(channel="store").count()}
+
+
+def _catering_by(value):
+    from catering.models import CateringOrder
+    digits = str(value).upper().replace("C-", "").strip()
+    return CateringOrder.objects.filter(pk=int(digits) - 1000).first() if digits.isdigit() and int(digits) > 1000 else None
+
+
+def catering_find(call, p):
+    from .events import _catering
+    order = _catering_by(p["number"])
+    if order is None:
+        return {"found": False}
+    _subject, data = _catering(order)
+    c = data["catering"]
+    return {"found": True, "catering_id": c["id"], "number": c["number"], "title": c["title"], "status": c["status"], "event_at": c["event_at"],
+            "fulfilment": c["fulfilment"], "total": c["total"], "customer_name": order.name, "customer_email": order.email}
+
+
+def catering_send_message(call, p):
+    """A message from the store in the order's conversation, emailed to the customer (catering/flow.py: write)."""
+    from catering import flow
+    from catering.models import CateringMessage
+    order = _catering_by(p["number"])
+    if order is None:
+        raise invalid(f"There is no catering order with the number {p['number']}. Numbers look like C-1014.")
+    try:
+        flow.write(order, CateringMessage.STAFF, p["message"], request=call.request)
+    except flow.CateringError as e:
+        raise conflict(str(e))
+    return {"catering_id": str(order.pk), "number": order.number, "sent": True}
+
+
+# ---------- menu and stock ----------
+
+def _closest(queryset, name):
+    """(how many match, the closest): an exact name first, then one that starts with it, then the shortest."""
+    found = list(queryset.filter(title__icontains=name))
+    low = name.lower()
+    found.sort(key=lambda x: (x.title.lower() != low, not x.title.lower().startswith(low), len(x.title), x.title.lower(), x.pk))
+    return found
+
+
+def _dish_reason(dish) -> str:
+    if dish.available:
+        return ""
+    if dish.availability == "off":
+        return "turned_off"
+    if dish.blocked:
+        return "part_turned_off"
+    return "station_paused" if not dish.station.taking_tickets else "out_of_stock"
+
+
+def dish_find(call, p):
+    from pos_server.models import Dish
+    found = _closest(Dish.objects.filter(archived=False).select_related("station"), p["name"])
+    if not found:
+        return {"found": False, "count": 0}
+    dish = found[0]
+    return {"found": True, "count": len(found), "dish_id": str(dish.pk), "name": dish.title, "price": money(dish.price),
+            "station": dish.station.name, "available": dish.available, "mode": dish.availability, "reason": _dish_reason(dish),
+            "matches": ", ".join(d.title for d in found[:20])}
+
+
+def dish_set_availability(call, p):
+    """The Availability screen's switch (inventory/availability.py: apply_changes)."""
+    from inventory.availability import apply_changes
+    from pos_server.models import Dish
+    dish = Dish.objects.filter(pk=int(p["dish_id"]), archived=False).first() if p["dish_id"].isdigit() else None
+    if dish is None:
+        raise invalid(f"There is no dish with the ID {p['dish_id']}. Use the Dish ID from Find dish.")
+    if p["mode"] not in ("off", "auto", "always"):
+        raise invalid("Setting must be off, auto or always.")
+    apply_changes([{"kind": "dish", "id": dish.pk, "mode": p["mode"]}])
+    dish = Dish.objects.select_related("station").get(pk=dish.pk)
+    return {"dish_id": str(dish.pk), "name": dish.title, "mode": dish.availability, "available": dish.available}
+
+
+def station_set_taking_tickets(call, p):
+    """A station's switch on the admin's Stations page."""
+    from django.db.models import Q
+
+    from pavilion.realtime import publish
+    from pos_server.models import Station
+
+    from . import events
+    station = Station.objects.filter(Q(name__iexact=p["station"]) | Q(code__iexact=p["station"]), archived=False).first()
+    if station is None:
+        names = ", ".join(Station.objects.filter(archived=False).values_list("name", flat=True)) or "none yet"
+        raise invalid(f"Pavilion has no station called “{p['station']}”. Its stations: {names}.")
+    taking = p["taking_tickets"]
+    changed = bool(Station.objects.filter(pk=station.pk).exclude(taking_tickets=taking).update(taking_tickets=taking))
+    if changed:
+        events.station_switched(station, taking)
+        for topic in ("orders", "inventory"):  # registers, the store and kitchen screens show its dishes differently now
+            publish(topic)
+    return {"station": station.code, "name": station.name, "taking_tickets": taking, "changed": changed}
+
+
+def _stock_models(kind=None):
+    from pos_server.models import Component, Ingredient
+    models = {"ingredient": Ingredient, "component": Component}
+    return [(kind, models[kind])] if kind else list(models.items())
+
+
+def _stock_kind(p):
+    if p.get("kind") and p["kind"] not in ("ingredient", "component"):
+        raise invalid("Kind must be ingredient or component.")
+    return p.get("kind")
+
+
+def _stock_answer(kind, obj) -> dict:
+    out = {"kind": kind, "item_id": str(obj.pk), "name": obj.title, "on_hand": number(obj.inventory), "unit": obj.unit_of_measurement}
+    if obj.par is not None:
+        out.update(par=number(obj.par), below_par=(obj.inventory or 0) < obj.par)
+    return out
+
+
+def stock_find(call, p):
+    found = []
+    for kind, model in _stock_models(_stock_kind(p)):
+        found += [(kind, obj) for obj in _closest(model.objects.filter(archived=False), p["name"])]
+        if found and not p.get("kind"):
+            break  # ingredients first; components only when no ingredient matches
+    if not found:
+        return {"found": False, "count": 0}
+    kind, obj = found[0]
+    return {"found": True, "count": len(found), **_stock_answer(kind, obj), "matches": ", ".join(o.title for _k, o in found[:20])}
+
+
+def stock_adjust(call, p):
+    """Cookery's own way of changing a count (inventory/cookery.py: _adjust): locked, saved, so dishes and screens follow."""
+    from inventory.cookery import _adjust
+    kind = _stock_kind(p)
+    model = _stock_models(kind)[0][1]
+    obj = model.objects.select_for_update().filter(pk=int(p["item_id"]), archived=False).first() if p["item_id"].isdigit() else None
+    if obj is None:
+        raise invalid(f"There is no {kind} with the ID {p['item_id']}. Use the Item ID from Check stock.")
+    if getattr(obj, "unlimited", False):
+        raise conflict(f"{obj.title} isn’t counted in Pavilion, so there is nothing to change.")
+    change = float(p["change"])
+    if change == 0:
+        raise invalid("Change can’t be 0.")
+    if (obj.inventory or 0) + change < 0:
+        raise conflict(f"Only {number(obj.inventory)} {obj.unit_of_measurement} of {obj.title} is on hand, so {number(-change)} can’t be taken away.")
+    return _stock_answer(kind, _adjust(model, obj.pk, change))
+
+
+# ---------- gift cards and coupons ----------
+
+NO_EMAIL = "Email isn’t set up in Pavilion yet, so nothing was sent. Connect it on the admin’s Email page."
+
+
+def _issuer(call) -> str:
+    return f"Switchboard ({call.connection.name})"[:80]
+
+
+def _gift_by_id(value):
+    from gift_cards.models import GiftCard
+    return GiftCard.objects.select_related("design").filter(pk=int(value)).first() if str(value).isdigit() else None
+
+
+def _gift_or_422(value):
+    card = _gift_by_id(value)
+    if card is None:
+        raise invalid(f"There is no gift card with the ID {value}. Empty cards are deleted after 30 days.")
+    return card
+
+
+def _gift_answer(card) -> dict:
+    return {"card_id": str(card.pk), "last4": card.last4, "balance": money(card.available_balance)}
+
+
+def gift_card_issue(call, p):
+    """The Gift cards page's Issue with "Email it" (gift_cards/giftcards.py: issue). The number exists only while the
+    card is made and goes into the email to its recipient: it is never answered, logged or stored. The email is sent
+    before the card is kept, so a card nobody could ever read the number of isn't left behind."""
+    from gift_cards import giftcards as gc
+    from misc_tools import listmonk
+    from misc_tools.email import enabled
+    if not EMAIL.match(p["email"]) or len(p["email"]) > 64:
+        raise invalid("Their email doesn’t look like an email address.")
+    amount = p["amount"]
+    if amount != amount.to_integral_value() or amount <= 0 or amount > 1000:
+        raise invalid("Amount must be whole dollars, from 1 to 1,000.")
+    if not listmonk.is_configured() or not enabled("gift_card_issued"):
+        raise conflict("Pavilion can’t email gift cards yet, and the email is the only way the card’s number reaches its owner. "
+                       "Connect email and turn on “Gift card from the store” on the admin’s Email page.")
+    card, number_ = gc.issue(design=gc.designs_on_sale().first(), amount=amount, recipient=p["name"], email=p["email"],
+                             message=p.get("message", ""), note=p.get("note", ""), by=None, issuer=_issuer(call))
+    if not gc.email_issued(call.request, card, number_):
+        raise conflict("The gift card email couldn’t be sent, so no card was made. Try again in a minute.")  # rolls the card back
+    return {**_gift_answer(card), "amount": money(amount), "emailed": True}
+
+
+def gift_card_get(call, p):
+    card = _gift_by_id(p["card_id"])
+    if card is None:
+        return {"found": False}
+    return {"found": True, **_gift_answer(card), "original": money(card.original), "frozen": card.frozen, "name": card.recipient,
+            "email": card.email, "issued_at": iso(card.issued_at)}
+
+
+def gift_card_load(call, p):
+    """The Gift cards page's Adjust, adding only (gift_cards/giftcards.py: adjust)."""
+    from gift_cards import giftcards as gc
+    card = _gift_or_422(p["card_id"])
+    amount = p["amount"].quantize(Decimal("0.01"))
+    if amount <= 0:
+        raise invalid("Amount to add must be more than 0.")
+    if gc.adjust_problem(card, amount):
+        raise conflict("Cards can hold up to $1,000, and this would put more than that on it.")
+    card = gc.adjust(card, amount, p["reason"], None, issuer="Switchboard")
+    return {**_gift_answer(card), "added": money(amount)}
+
+
+def gift_card_freeze(call, p):
+    from gift_cards import giftcards as gc
+    card = _gift_or_422(p["card_id"])
+    changed = card.frozen != p["frozen"]
+    if changed:
+        if card.available_balance <= 0:
+            raise conflict("That gift card is empty, so there is nothing to freeze.")
+        gc.set_frozen(card, p["frozen"], None, issuer="Switchboard")
+    return {**_gift_answer(card), "frozen": card.frozen, "changed": changed}
+
+
+def gift_card_resend(call, p):
+    from gift_cards import giftcards as gc
+    card = _gift_or_422(p["card_id"])
+    if not card.email:
+        raise conflict("That gift card has no email address.")
+    if card.available_balance <= 0 or card.frozen:
+        raise conflict("That gift card is empty or frozen, so its email isn’t sent.")
+    if not gc.resend(card, call.request):
+        raise conflict(NO_EMAIL)
+    return {**_gift_answer(card), "email": card.email, "sent": True}
+
+
+def coupon_create(call, p):
+    """A coupon as the admin's Coupons page saves one (admin_portal/coupons.py: errors, save), off the whole order."""
+    from admin_portal import coupons
+    from pos_server.models import Discount
+    code = re.sub(r"\s+", "", p.get("code", "")).upper()
+    if code and not re.fullmatch(r"[A-Z0-9_-]{3,40}", code):
+        raise invalid("Code must be 3 to 40 letters, digits, dashes or underscores.")
+    if code and Discount.objects.filter(code=code).exists():
+        raise conflict(f"Another coupon already uses {code}.")
+    while not code or Discount.objects.filter(code=code).exists():
+        code = coupons.new_code()
+    if p["kind"] not in ("pct", "amt"):
+        raise invalid("Kind must be pct (percent off) or amt (amount off).")
+    ends = day_of(p, "ends_on", "Last day it works")
+    if ends and ends < timezone.localdate():
+        raise invalid("Last day it works is in the past.")
+    row = coupons.blank(code)
+    row.update(title=p.get("name", "")[:80], kind=p["kind"], value=str(p["value"]), end=ends.isoformat() if ends else "",
+               limit=str(p["max_uses"]) if p.get("max_uses") else "", per="once" if p.get("once_per_customer") else "any",
+               first=bool(p.get("first_order_only")), min=str(p["min_subtotal"]) if p.get("min_subtotal") else "",
+               chans=["pickup", "delivery"] if p.get("online_only") else ["pickup", "delivery", "store"])
+    problems = coupons.errors(row, [row])
+    if problems:
+        raise invalid(" ".join(str(text) for text in problems.values()))
+    coupons.save({"gone": [], "rows": [row]})
+    coupon = Discount.objects.get(code=code)
+    return {"coupon_id": str(coupon.pk), "code": coupon.code, "name": coupon.name}
+
+
+def coupon_find(call, p):
+    from pos_server.models import Discount
+    coupon = Discount.objects.filter(code=re.sub(r"\s+", "", p["code"]).upper()).first()
+    if coupon is None:
+        return {"found": False}
+    out = {"found": True, "coupon_id": str(coupon.pk), "code": coupon.code, "name": coupon.name, "kind": coupon.kind,
+           "value": number(coupon.value), "active": coupon.active, "times_used": coupon.times_used,
+           "ends_on": coupon.ends_on.isoformat() if coupon.ends_on else ""}
+    if coupon.max_uses is not None:
+        out["max_uses"] = coupon.max_uses
+    return out
+
+
+# ---------- the store ----------
+
+def store_status(call, p):
+    from events import hours as hours_text
+    from events.hours import Hours
+    now = timezone.now()
+    hours = Hours()
+    current, paused = hours.current(now), hours.paused_until(now)
+    out = {"open": current is not None, "ordering_paused": paused is not None,
+           "hours_today": hours_text.ranges_text(hours.ranges(timezone.localdate()))}
+    if paused:
+        out["paused_until"] = iso(paused)
+    if current:
+        out["closes_at"] = iso(current[1])
+    else:
+        opens = hours.next_start(now)
+        if opens:
+            out["opens_at"] = iso(opens)
+    return out
+
+
+def store_pause_ordering(call, p):
+    """The Store hours page's Pause (admin_portal/hours.py: pause)."""
+    from admin_portal import hours as hours_page
+    minutes = p.get("minutes", 0)
+    if minutes < 0 or minutes > 240:
+        raise invalid("Minutes must be from 0 to 240.")
+    return {"paused_until": iso(hours_page.pause(minutes))}
+
+
+def store_resume_ordering(call, p):
+    from admin_portal import hours as hours_page
+    return {"resumed": hours_page.resume()}
+
+
+def _minutes(p, key, label):
+    if not p.get(key):
+        return None
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})", p[key])
+    if not match or int(match[1]) > 24 or int(match[2]) > 59 or (int(match[1]) == 24 and int(match[2])):
+        raise invalid(f"{label} must be a time like 09:00 or 21:30.")
+    return int(match[1]) * 60 + int(match[2])
+
+
+def store_event_create(call, p):
+    """An event as the admin's Events page saves one (admin_portal/events.py: errors, save). Customers aren't emailed:
+    that is the page's own Save."""
+    from admin_portal import events as events_page
+    from events.models import Event
+    if p["kind"] not in (Event.OPEN, Event.CLOSED):
+        raise invalid("Kind must be closed or open.")
+    closed = p["kind"] == Event.CLOSED
+    start = day_of(p, "starts_on", "First day")
+    end = day_of(p, "ends_on", "Last day") or start
+    opens, closes = _minutes(p, "opens_at", "From"), _minutes(p, "closes_at", "To")
+    if (opens is None) != (closes is None):
+        raise invalid("Give both From and To, or neither.")
+    if opens is None and not closed:
+        raise invalid("An event that opens the store needs From and To.")
+    same = Event.objects.filter(title__iexact=p["title"], kind=p["kind"], start_date=start, end_date=end).first()
+    if same is not None:
+        return {"event_id": str(same.pk), "created": False}
+    row = {"id": "", "kind": p["kind"], "name": p["title"][:120], "desc": p.get("description", "")[:500], "start": start.isoformat(),
+           "end": end.isoformat(), "all_day": closed and opens is None, "from": 540 if opens is None else opens,
+           "to": 1260 if closes is None else closes, "dine": p.get("dine_in", True), "pickup": p.get("pickup", True),
+           "delivery": p.get("delivery", closed), "banner": p.get("banner", True), "lead": 7}
+    problems = events_page.errors(row)
+    if problems:
+        raise invalid(" ".join(str(text) for text in problems))
+    added = events_page.save({"gone": [], "events": [row]})
+    return {"event_id": str(added[0].pk), "created": True}
+
+
+def announcement_post(call, p):
+    """The register's Screens sheet's Announce (screens/views.py: announce): the announcement pop-up, read out on the
+    voice channels screens picked for it."""
+    from screens.popups import record
+    text = p["text"][:200]
+    record("announcement", {"text": text, "by": call.connection.name})
+    if p.get("speak", True):
+        from audio.calls import speak
+        speak(text, "announcement")
+    return {"posted": True}
+
+
+RUN = {
+    "staff.find": staff_find, "staff.ensure": staff_ensure, "staff.invite": staff_invite, "team.on_now": team_on_now,
+    "staff_card.issue": staff_card_issue,
+    "shift.add": shift_add, "shift.cancel": shift_cancel, "shift.next": shift_next, "time_off.request": time_off_request,
+    "customer.find": customer_find, "customer.add_note": customer_add_note, "order.find": order_find,
+    "order.send_receipt": order_send_receipt, "sales.summary": sales_summary, "catering.find": catering_find,
+    "catering.send_message": catering_send_message,
+    "dish.find": dish_find, "dish.set_availability": dish_set_availability, "station.set_taking_tickets": station_set_taking_tickets,
+    "stock.find": stock_find, "stock.adjust": stock_adjust,
+    "gift_card.issue": gift_card_issue, "gift_card.get": gift_card_get, "gift_card.load": gift_card_load,
+    "gift_card.freeze": gift_card_freeze, "gift_card.resend": gift_card_resend, "coupon.create": coupon_create, "coupon.find": coupon_find,
+    "store.status": store_status, "store.pause_ordering": store_pause_ordering, "store.resume_ordering": store_resume_ordering,
+    "store_event.create": store_event_create, "announcement.post": announcement_post,
+}

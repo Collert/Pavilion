@@ -614,6 +614,483 @@ class ApiTests(Api, TestCase):
 
 
 
+class MoreActionTests(Api, MenuFixture, TestCase):
+    """The actions added after the first four: lookups first answer `found`, actions refuse with the protocol's codes."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.dana = User.objects.create_user("dana", "Dana@Example.org", "x", is_staff=True, first_name="Dana", last_name="Lee")
+        cls.barista = Role.objects.get_or_create(name="Barista")[0]
+        Staff.objects.create(user=cls.dana).roles.add(cls.barista)
+        cls.maria = User.objects.create_user("maria", "maria@example.org", "x", first_name="Maria", last_name="Kovalenko")
+
+    def setUp(self):
+        self.connection, self.key, self.secret = connect()
+        Sender.broken = []
+        self.addCleanup(lambda: self.assertEqual(Sender.broken, [], "an event broke the manifest"))
+
+    def assertError(self, response, status, code, said=""):
+        self.assertEqual(response.status_code, status, response.content)
+        self.assertEqual(response.json()["error"]["code"], code)
+        self.assertIn(said, response.json()["error"]["message"])
+
+    def ok(self, name, body=None, **more):
+        response = self.call(name, body or {}, **more)
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    # ----- the manifest's limits -----
+
+    def test_limits_and_choices_in_the_manifest_are_held(self):
+        self.assertError(self.call("announcement.post", {"text": "x" * 201}), 422, "invalid_params", "up to 200 characters")
+        self.assertError(self.call("dish.set_availability", {"dish_id": str(self.tea.pk), "mode": "gone"}), 422, "invalid_params", "off, auto, always")
+        self.assertError(self.call("store.pause_ordering", {"minutes": 500}), 422, "invalid_params", "from 0 to 240")
+        self.assertError(self.call("gift_card.load", {"card_id": "1", "amount": 0, "reason": "x"}), 422, "invalid_params", "from 0.01 to 1000")
+
+    def test_every_action_in_the_manifest_can_be_run(self):
+        from . import actions
+        self.assertEqual(set(actions.RUN), set(manifest.BY_NAME))
+        for name, spec in manifest.BY_NAME.items():  # called with nothing: a lookup of nothing, or a 422 that says what is missing
+            response = self.call(name, {})
+            required = [p for p in spec["params"] if p.get("required")]
+            self.assertEqual(response.status_code, 422 if required else 200, (name, response.content))
+            if required:
+                self.assertIn(required[0]["label"], response.json()["error"]["message"])
+
+    # ----- staff and the schedule -----
+
+    def test_invite_goes_to_staff_who_can_use_it(self):
+        with mock.patch("misc_tools.email.send", return_value=True) as send:
+            answer = self.ok("staff.invite", {"staff_id": str(self.dana.pk)}, idempotency="i-1")
+        self.assertEqual(answer, {"staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org", "sent": True})
+        self.assertEqual(send.call_args.args[:2], ("staff_invite", "Dana@example.org"))
+        self.assertIn("/users/welcome/", send.call_args.args[2]["link"])
+        with mock.patch("misc_tools.email.send", return_value=False):
+            self.assertError(self.call("staff.invite", {"staff_id": str(self.dana.pk)}), 409, "conflict", "Email isn’t set up")
+        owner = User.objects.create_superuser("boss", "boss@example.org", "x")
+        self.assertError(self.call("staff.invite", {"staff_id": str(owner.pk)}), 409, "conflict", "owner")
+        self.assertError(self.call("staff.invite", {"staff_id": str(self.maria.pk)}), 422, "invalid_params")  # a customer
+
+    def test_who_is_clocked_in(self):
+        self.assertEqual(self.ok("team.on_now"), {"count": 0, "names": "", "on_break": 0})
+        boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya")
+        clock.clock_in(self.dana, approver=boss)
+        clock.clock_in(boss, approver=boss)
+        clock.start_break(self.dana)
+        self.assertEqual(self.ok("team.on_now"), {"count": 2, "names": "Dana Lee, Priya", "on_break": 1})
+
+    def shift(self, days=3, start=540, end=900, published=True, user=None):
+        from team import schedule
+        shift = Shift(user=user or self.dana, role=self.barista, date=timezone.localdate() + datetime.timedelta(days=days), start=start, end=end,
+                      published=published)
+        shift.published_as = schedule.snapshot(shift) if published else None
+        shift.save()
+        return shift
+
+    def test_next_shift(self):
+        self.assertEqual(self.ok("shift.next", {"staff_id": str(self.dana.pk)}), {"found": False})
+        self.shift(days=5)
+        soon = self.shift(days=2)
+        self.shift(days=1, published=False)  # not told yet: not theirs to know
+        answer = self.ok("shift.next", {"staff_id": str(self.dana.pk)})
+        self.assertEqual((answer["found"], answer["shift_id"], answer["role"], answer["upcoming"]), (True, str(soon.pk), "Barista", 2))
+        self.assertRegex(answer["starts_at"], r"T09:00:00[+-]\d\d:00$")
+        self.assertRegex(answer["ends_at"], r"T15:00:00[+-]\d\d:00$")
+        self.assertError(self.call("shift.next", {"staff_id": "999999"}), 422, "invalid_params")
+
+    def test_cancelling_a_shift_follows_the_shifts_page(self):
+        told, draft = self.shift(days=2), self.shift(days=4, published=False)
+        answer = self.ok("shift.cancel", {"shift_id": str(told.pk)}, idempotency="c-1")
+        self.assertEqual(answer, {"shift_id": str(told.pk), "status": "waiting_for_publish", "cancelled": True})
+        told.refresh_from_db()
+        self.assertEqual((told.deleted, told.published), (True, False))  # gone for good once a manager publishes
+        self.assertEqual(self.ok("shift.cancel", {"shift_id": str(told.pk)})["cancelled"], False)
+        self.assertEqual(self.ok("shift.cancel", {"shift_id": str(draft.pk)}), {"shift_id": str(draft.pk), "status": "removed", "cancelled": True})
+        self.assertFalse(Shift.objects.filter(pk=draft.pk).exists())
+        self.assertEqual(self.ok("shift.cancel", {"shift_id": str(draft.pk)}), {"shift_id": str(draft.pk), "status": "removed", "cancelled": False})
+        started = self.shift(days=0, start=0, end=1440)
+        self.assertError(self.call("shift.cancel", {"shift_id": str(started.pk)}), 409, "conflict", "already started")
+        self.assertError(self.call("shift.cancel", {"shift_id": "abc"}), 422, "invalid_params")
+
+    def test_time_off_is_asked_for_and_waits_for_a_manager(self):
+        from team.models import TimeOff
+        first = timezone.localdate() + datetime.timedelta(days=10)
+        body = {"staff_id": str(self.dana.pk), "first_day": first.isoformat(), "last_day": (first + datetime.timedelta(days=2)).isoformat(),
+                "category": "Vacation", "reason": "Volunteering at the festival"}
+        answer = self.ok("time_off.request", body, idempotency="t-1")
+        request = TimeOff.objects.get()
+        self.assertEqual(answer, {"request_id": str(request.pk), "status": "pending", "created": True})
+        self.assertEqual((request.user, request.first_day, request.last_day, request.category, request.all_day), (self.dana, first, first + datetime.timedelta(days=2), "Vacation", True))
+        self.assertEqual(self.ok("time_off.request", body, idempotency="t-2"), {"request_id": str(request.pk), "status": "pending", "created": False})
+        self.assertEqual(TimeOff.objects.count(), 1)
+        today = timezone.localdate().isoformat()
+        self.assertError(self.call("time_off.request", {**body, "first_day": today, "last_day": today}), 422, "invalid_params", "after today")
+        self.assertError(self.call("time_off.request", {**body, "first_day": "next week"}), 422, "invalid_params", "2026-12-24")
+        self.assertError(self.call("time_off.request", {**body, "last_day": timezone.localdate().isoformat()}), 422, "invalid_params")
+
+    # ----- customers and orders -----
+
+    def tea_order(self, **fields):
+        return create_order(lines=[self.dish(self.tea, 2)], channel="web", initial_status=OrderStation.STATUS_PENDING, **fields)
+
+    def test_find_a_customer_with_what_they_spent(self):
+        self.assertEqual(self.ok("customer.find", {"email": "nobody@example.org"}), {"found": False})
+        order = self.tea_order(customer=self.maria)
+        self.tea_order(customer=self.maria)
+        answer = self.ok("customer.find", {"email": "MARIA@example.org"})
+        self.assertEqual({k: answer[k] for k in ("found", "customer_id", "name", "email", "phone", "orders", "newsletter", "notes")},
+                         {"found": True, "customer_id": str(self.maria.pk), "name": "Maria Kovalenko", "email": "maria@example.org", "phone": "",
+                          "orders": 2, "newsletter": False, "notes": ""})
+        self.assertEqual(answer["total_spent"], float(order.total) * 2)
+        self.assertEqual(answer["last_order_at"][:10], timezone.localdate().isoformat())
+
+    def test_notes_about_a_customer_add_up_to_200_characters(self):
+        from users.models import Customer
+        body = {"customer_id": str(self.maria.pk), "note": "Volunteer since 2026"}
+        self.assertEqual(self.ok("customer.add_note", body, idempotency="n-1")["notes"], "Volunteer since 2026")
+        self.assertEqual(self.ok("customer.add_note", {**body, "note": "Oat milk"}, idempotency="n-2")["notes"], "Volunteer since 2026 · Oat milk")
+        self.assertEqual(self.ok("customer.add_note", body, idempotency="n-3")["notes"], "Volunteer since 2026 · Oat milk")  # said already
+        self.assertEqual(Customer.objects.get(user=self.maria).staff_notes, "Volunteer since 2026 · Oat milk")
+        self.assertError(self.call("customer.add_note", {**body, "note": "x" * 180}), 409, "conflict", "full")
+        self.assertError(self.call("customer.add_note", {**body, "customer_id": "0"}), 422, "invalid_params")
+
+    def test_find_an_order_by_its_number(self):
+        self.assertEqual(self.ok("order.find", {"number": "9999"}), {"found": False})
+        self.assertEqual(self.ok("order.find", {"number": "soon"}), {"found": False})
+        order = self.tea_order(name="Maria Kovalenko", email="maria@example.org")
+        answer = self.ok("order.find", {"number": f"#{order.pk:04d}"})
+        self.assertEqual({k: v for k, v in answer.items() if k != "placed_at"}, {
+            "found": True, "order_id": str(order.pk), "number": f"{order.pk:04d}", "type": "pickup", "channel": "web", "status": "waiting",
+            "payment": "paid", "total": float(order.total), "refunded": 0.0, "items": 2, "summary": "2 × Tea",
+            "customer_name": "Maria Kovalenko", "customer_email": "maria@example.org"})
+        order.set_station_status(["bar"], OrderStation.STATUS_APPROVED)
+        self.assertEqual(self.ok("order.find", {"number": str(order.pk)})["status"], "in_progress")
+        order.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(self.ok("order.find", {"number": str(order.pk)})["status"], "ready")
+        order.picked_up = True
+        order.save()
+        self.assertEqual(self.ok("order.find", {"number": str(order.pk)})["status"], "picked_up")
+
+    def test_a_receipt_is_emailed_and_logged(self):
+        order = self.tea_order(email="maria@example.org")
+        with mock.patch("misc_tools.email.send", return_value=True) as send:
+            answer = self.ok("order.send_receipt", {"order_id": str(order.pk)}, idempotency="r-1")
+            self.ok("order.send_receipt", {"order_id": str(order.pk), "email": "other@example.org"}, idempotency="r-2")
+        self.assertEqual(answer, {"order_id": str(order.pk), "email": "maria@example.org", "sent": True})
+        self.assertEqual([c.args[:2] for c in send.call_args_list], [("receipt", "maria@example.org"), ("receipt", "other@example.org")])
+        self.assertEqual(list(order.receipts.values_list("channel", "to")), [("email", "maria@example.org"), ("email", "other@example.org")])
+        with mock.patch("misc_tools.email.send", return_value=False):
+            self.assertError(self.call("order.send_receipt", {"order_id": str(order.pk)}), 409, "conflict", "Email isn’t set up")
+        nameless = self.tea_order()
+        self.assertError(self.call("order.send_receipt", {"order_id": str(nameless.pk)}), 422, "invalid_params", "no email")
+        self.assertError(self.call("order.send_receipt", {"order_id": "999999"}), 422, "invalid_params")
+
+    def test_a_days_sales_added_up(self):
+        from pos_server.models import Order
+        empty = self.ok("sales.summary", {"date": "2020-01-01"})
+        self.assertEqual(empty, {"date": "2020-01-01", "orders": 0, "sales": 0.0, "average": 0.0, "tax": 0.0, "tips": 0.0, "discounts": 0.0,
+                                 "refunds": 0.0, "items": 0, "top_dish": "", "online_orders": 0})
+        first = self.tea_order()
+        create_order(lines=[self.dish(self.tea), self.dish(self.coffee, cust={"groups": {self.size_key: [self.large.id]}})], channel="store",
+                     initial_status=OrderStation.STATUS_APPROVED)
+        old = self.tea_order()
+        Order.objects.filter(pk=old.pk).update(timestamp=timezone.now() - datetime.timedelta(days=3))
+        today = self.ok("sales.summary")
+        total = sum(o.total for o in Order.objects.exclude(pk=old.pk))
+        self.assertEqual((today["date"], today["orders"], today["items"], today["top_dish"], today["online_orders"]),
+                         (timezone.localdate().isoformat(), 2, 4, "Tea", 1))
+        self.assertEqual((today["sales"], today["average"]), (float(total), round(float(total) / 2, 2)))
+        self.assertEqual(today["tax"], float(first.tax + Order.objects.exclude(pk__in=[first.pk, old.pk]).get().tax))
+        self.assertError(self.call("sales.summary", {"date": "yesterday"}), 422, "invalid_params", "2026-12-24")
+
+    # ----- menu and stock -----
+
+    def test_find_a_dish_and_whether_it_sells(self):
+        from pos_server.models import Dish
+        self.assertEqual(self.ok("dish.find", {"name": "sushi"}), {"found": False, "count": 0})
+        Dish.objects.create(title="Veggie burger", price=Decimal("13"), station=self.kitchen)
+        answer = self.ok("dish.find", {"name": "burger"})
+        self.assertEqual(answer, {"found": True, "count": 2, "dish_id": str(self.burger.pk), "name": "Burger", "price": 14.5,
+                                  "station": self.kitchen.name, "available": True, "mode": "auto", "reason": "",
+                                  "matches": "Burger, Veggie burger"})
+        type(self.bun).objects.filter(pk=self.bun.pk).update(inventory=0)
+        type(self.bun).objects.get(pk=self.bun.pk).save()
+        answer = self.ok("dish.find", {"name": "Burger"})
+        self.assertEqual((answer["available"], answer["reason"]), (False, "out_of_stock"))
+
+    def test_turning_a_dish_off_and_back(self):
+        from pos_server.models import Dish
+        body = {"dish_id": str(self.tea.pk), "mode": "off"}
+        self.assertEqual(self.ok("dish.set_availability", body, idempotency="d-1"), {"dish_id": str(self.tea.pk), "name": "Tea", "mode": "off", "available": False})
+        self.assertFalse(Dish.objects.get(pk=self.tea.pk).available)
+        self.assertEqual(self.ok("dish.find", {"name": "Tea"})["reason"], "turned_off")
+        self.assertEqual(self.ok("dish.set_availability", {**body, "mode": "auto"}, idempotency="d-2")["available"], True)
+        self.assertError(self.call("dish.set_availability", {**body, "dish_id": "999999"}), 422, "invalid_params", "Find dish")
+
+    def test_stopping_a_station_sells_its_dishes_out(self):
+        from pos_server.models import Dish, Station
+        body = {"station": "BAR", "taking_tickets": False}
+        with self.captureOnCommitCallbacks(execute=True):
+            answer = self.ok("station.set_taking_tickets", body, idempotency="s-1")
+        self.assertEqual(answer, {"station": "bar", "name": self.bar.name, "taking_tickets": False, "changed": True})
+        self.assertFalse(Station.objects.get(code="bar").taking_tickets)
+        self.assertFalse(Dish.objects.get(pk=self.tea.pk).available)
+        self.assertEqual(self.ok("dish.find", {"name": "Tea"})["reason"], "station_paused")
+        self.assertEqual(self.ok("station.set_taking_tickets", body, idempotency="s-2")["changed"], False)
+        self.assertEqual(self.ok("station.set_taking_tickets", {"station": self.bar.name, "taking_tickets": True}, idempotency="s-3")["changed"], True)
+        self.assertEqual(list(Delivery.objects.order_by("id").values_list("event_type", flat=True)), ["station.paused"])
+        self.assertError(self.call("station.set_taking_tickets", {**body, "station": "Sushi bar"}), 422, "invalid_params", "Its stations")
+
+    def test_checking_and_changing_stock(self):
+        from pos_server.models import Ingredient
+        beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", inventory=800, par=2000)
+        Ingredient.objects.create(title="Ground pork", unit_of_measurement="g", inventory=10)
+        water = Ingredient.objects.create(title="Tap water", unit_of_measurement="ml", unlimited=True)
+        self.assertEqual(self.ok("stock.find", {"name": "saffron"}), {"found": False, "count": 0})
+        self.assertEqual(self.ok("stock.find", {"name": "ground"}), {
+            "found": True, "count": 2, "kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 800, "unit": "g",
+            "par": 2000, "below_par": True, "matches": "Ground beef, Ground pork"})
+        patty = self.ok("stock.find", {"name": "patty"})  # no ingredient is called that: the component
+        self.assertEqual((patty["kind"], patty["item_id"], patty["on_hand"], patty["unit"]), ("component", str(self.patty.pk), 100, "ea"))
+        self.assertNotIn("par", patty)
+        self.assertEqual(self.ok("stock.find", {"name": "ground", "kind": "component"}), {"found": False, "count": 0})
+        body = {"kind": "ingredient", "item_id": str(beef.pk), "change": 5000}
+        self.assertEqual(self.ok("stock.adjust", body, idempotency="k-1"),
+                         {"kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 5800, "unit": "g", "par": 2000, "below_par": False})
+        self.ok("stock.adjust", body, idempotency="k-1")  # the same call again
+        self.assertEqual(Ingredient.objects.get(pk=beef.pk).inventory, 5800)
+        self.assertEqual(self.ok("stock.adjust", {**body, "change": -300.5}, idempotency="k-2")["on_hand"], 5499.5)
+        self.assertError(self.call("stock.adjust", {**body, "change": -9000}), 409, "conflict", "can’t be taken away")
+        self.assertError(self.call("stock.adjust", {**body, "change": 0}), 422, "invalid_params")
+        self.assertError(self.call("stock.adjust", {**body, "item_id": str(water.pk)}), 409, "conflict", "isn’t counted")
+        self.assertError(self.call("stock.adjust", {**body, "kind": "component", "item_id": "999999"}), 422, "invalid_params", "Check stock")
+        self.assertEqual(self.ok("stock.adjust", {"kind": "component", "item_id": str(self.bun.pk), "change": -100}, idempotency="k-3")["on_hand"], 0)
+        self.assertFalse(type(self.burger).objects.get(pk=self.burger.pk).available)  # dishes follow, as in Cookery
+
+    # ----- gift cards -----
+
+    def issue(self, **more):
+        body = {"name": "Maya", "email": "maya@example.org", "amount": 25, "message": "Thank you!", **more}
+        with mock.patch("misc_tools.listmonk.is_configured", return_value=True), mock.patch("gift_cards.giftcards.send_email", return_value=True) as send, \
+                self.captureOnCommitCallbacks(execute=True):
+            response = self.call("gift_card.issue", body, idempotency=more.pop("key", "g-1"))
+        return response, send
+
+    def test_a_gift_card_is_emailed_and_its_number_never_comes_back(self):
+        from gift_cards.models import GiftCard
+        response, send = self.issue()
+        self.assertEqual(response.status_code, 200, response.content)
+        card = GiftCard.objects.get()
+        self.assertEqual(response.json(), {"card_id": str(card.pk), "last4": card.last4, "balance": 25.0, "amount": 25.0, "emailed": True})
+        self.assertEqual((card.recipient, card.email, card.source, card.buyer, card.issued_by, card.message),
+                         ("Maya", "maya@example.org", GiftCard.STAFF, "Switchboard (Holy Eucharist)", None, "Thank you!"))
+        self.assertEqual(card.events.get().note, "Issued by Switchboard (Holy Eucharist)")
+        kind, to, data = send.call_args.args[:3]
+        number = data["card_url"].rstrip("/").rsplit("/", 1)[-1]
+        self.assertEqual((kind, to, GiftCard.find(number)), ("gift_card_issued", "maya@example.org", card))  # the number: only in their email
+        self.assertNotIn(number, response.content.decode())
+        record = IdempotencyRecord.objects.get(key="g-1")
+        self.assertNotIn(number, json.dumps(record.body))
+        sent = Delivery.objects.get(event_type="gift_card.issued")
+        self.assertEqual((sent.status, sent.body), (Delivery.DELIVERED, ""))
+        again, send = self.issue()  # the same Idempotency-Key
+        self.assertEqual(again.json(), response.json())
+        send.assert_not_called()
+        self.assertEqual(GiftCard.objects.count(), 1)
+
+    def test_no_gift_card_is_made_when_it_cant_be_emailed(self):
+        from gift_cards.models import GiftCard
+        body = {"name": "Maya", "email": "maya@example.org", "amount": 25}
+        self.assertError(self.call("gift_card.issue", body), 409, "conflict", "can’t email gift cards yet")  # email isn't connected
+        with mock.patch("misc_tools.listmonk.is_configured", return_value=True), \
+                mock.patch("gift_cards.giftcards.send_email", side_effect=Exception("listmonk down")), self.assertLogs("gift_cards.giftcards", "ERROR"):
+            self.assertError(self.call("gift_card.issue", body, idempotency="g-2"), 409, "conflict", "no card was made")
+        self.assertFalse(GiftCard.objects.exists())
+        self.assertFalse(Delivery.objects.exists())  # and no "gift card issued" went out
+        with mock.patch("misc_tools.listmonk.is_configured", return_value=True):
+            self.assertError(self.call("gift_card.issue", {**body, "amount": 12.5}), 422, "invalid_params", "whole dollars")
+            self.assertError(self.call("gift_card.issue", {**body, "amount": 5000}), 422, "invalid_params")
+            self.assertError(self.call("gift_card.issue", {**body, "email": "maya"}), 422, "invalid_params", "email")
+
+    def test_looking_up_loading_freezing_and_resending_a_gift_card(self):
+        from gift_cards.models import GiftCard
+        card = GiftCard.objects.create(available_balance=Decimal("25"), recipient="Maya", email="maya@example.org")
+        number = card.number
+        cid = str(card.pk)
+        self.assertEqual(self.ok("gift_card.get", {"card_id": "999999"}), {"found": False})
+        found = self.ok("gift_card.get", {"card_id": cid})
+        self.assertEqual({k: v for k, v in found.items() if k != "issued_at"}, {
+            "found": True, "card_id": cid, "last4": number[-4:], "balance": 25.0, "original": 25.0, "frozen": False, "name": "Maya",
+            "email": "maya@example.org"})
+        loaded = self.ok("gift_card.load", {"card_id": cid, "amount": 10, "reason": "Thanks for volunteering"}, idempotency="l-1")
+        self.assertEqual(loaded, {"card_id": cid, "last4": number[-4:], "balance": 35.0, "added": 10.0})
+        self.ok("gift_card.load", {"card_id": cid, "amount": 10, "reason": "Thanks for volunteering"}, idempotency="l-1")
+        card.refresh_from_db()
+        self.assertEqual((card.available_balance, card.events.get().note), (Decimal("35"), "Thanks for volunteering · Switchboard"))
+        self.assertError(self.call("gift_card.load", {"card_id": cid, "amount": 990, "reason": "Too much"}), 409, "conflict", "up to $1,000")
+        self.assertError(self.call("gift_card.load", {"card_id": cid, "amount": -5, "reason": "Take it back"}), 422, "invalid_params")
+        self.assertError(self.call("gift_card.load", {"card_id": "999999", "amount": 5, "reason": "x"}), 422, "invalid_params", "no gift card")
+        frozen = self.ok("gift_card.freeze", {"card_id": cid, "frozen": True}, idempotency="f-1")
+        self.assertEqual((frozen["frozen"], frozen["changed"], GiftCard.objects.get(pk=card.pk).frozen), (True, True, True))
+        self.assertEqual(self.ok("gift_card.freeze", {"card_id": cid, "frozen": True}, idempotency="f-2")["changed"], False)
+        with mock.patch("gift_cards.giftcards.send_email", return_value=True) as send:
+            self.assertError(self.call("gift_card.resend", {"card_id": cid}), 409, "conflict", "frozen")
+            self.ok("gift_card.freeze", {"card_id": cid, "frozen": False}, idempotency="f-3")
+            sent = self.ok("gift_card.resend", {"card_id": cid}, idempotency="e-1")
+        self.assertEqual((sent["email"], sent["sent"]), ("maya@example.org", True))
+        kind, to, data = send.call_args.args[:3]
+        self.assertEqual((kind, to, data["last4"]), ("gift_card_balance", "maya@example.org", number[-4:]))
+        self.assertNotIn(number, json.dumps(data))
+        with mock.patch("gift_cards.giftcards.send_email", return_value=False):
+            self.assertError(self.call("gift_card.resend", {"card_id": cid}), 409, "conflict", "Email isn’t set up")
+        for record in IdempotencyRecord.objects.all():
+            self.assertNotIn(number, json.dumps(record.body))
+
+    # ----- coupons -----
+
+    def test_a_coupon_is_made_with_the_coupons_pages_rules(self):
+        from pos_server.models import Discount
+        ends = timezone.localdate() + datetime.timedelta(days=30)
+        answer = self.ok("coupon.create", {"name": "Volunteer thanks", "code": " thanks10 ", "kind": "pct", "value": 10, "ends_on": ends.isoformat(),
+                                           "max_uses": 50, "once_per_customer": True, "min_subtotal": 15, "online_only": True}, idempotency="c-1")
+        coupon = Discount.objects.get(code="THANKS10")
+        self.assertEqual(answer, {"coupon_id": str(coupon.pk), "code": "THANKS10", "name": "Volunteer thanks"})
+        self.assertEqual((coupon.kind, coupon.value, coupon.ends_on, coupon.max_uses, coupon.per_customer, coupon.min_subtotal, coupon.channels,
+                          coupon.target, coupon.active, coupon.on_register, coupon.online),
+                         ("pct", Decimal("10"), ends, 50, 1, Decimal("15"), ["pickup", "delivery"], "order", True, False, True))
+        cart = price_cart([self.dish(self.burger, 2, cust={"groups": {self.temp_key: [self.medium.id], self.bun_key: []}})],
+                          order_discount={"code": "thanks10"}, channel="web", customer=self.maria)
+        self.assertEqual(cart.order_discount.amount, Decimal("2.90"))  # it works at checkout
+        made_up = self.ok("coupon.create", {"kind": "amt", "value": 5}, idempotency="c-2")
+        self.assertRegex(made_up["code"], r"^[A-Z0-9]{8}$")
+        self.assertEqual(made_up["name"], made_up["code"])
+        self.assertError(self.call("coupon.create", {"code": "THANKS10", "kind": "amt", "value": 5}), 409, "conflict", "already uses THANKS10")
+        self.assertError(self.call("coupon.create", {"code": "no spaces!", "kind": "amt", "value": 5}), 422, "invalid_params")
+        self.assertError(self.call("coupon.create", {"kind": "pct", "value": 150}), 422, "invalid_params", "more than 100")
+        self.assertError(self.call("coupon.create", {"kind": "pct", "value": 10, "ends_on": "2020-01-01"}), 422, "invalid_params", "in the past")
+        self.assertEqual(Discount.objects.count(), 2)
+
+    def test_find_a_coupon_and_how_often_it_was_used(self):
+        from pos_server.models import Discount
+        self.assertEqual(self.ok("coupon.find", {"code": "nope"}), {"found": False})
+        coupon = Discount.objects.create(name="Welcome", kind="amt", value=Decimal("5"), scope="order", code="welcome", online=True, times_used=14)
+        self.assertEqual(self.ok("coupon.find", {"code": "welcome"}), {
+            "found": True, "coupon_id": str(coupon.pk), "code": "WELCOME", "name": "Welcome", "kind": "amt", "value": 5, "active": True,
+            "times_used": 14, "ends_on": ""})
+
+    # ----- the store -----
+
+    def test_is_the_store_open(self):
+        from admin_portal import hours as hours_page
+        from events.models import StoreHours
+        cfg = StoreHours.load()
+        cfg.week = [{"open": True, "r": [[0, 1440]]} for _day in range(7)]
+        cfg.save()
+        answer = self.ok("store.status")
+        self.assertEqual((answer["open"], answer["ordering_paused"], answer["hours_today"]), (True, False, "12 AM – 12 AM"))
+        self.assertIn("closes_at", answer)
+        self.assertNotIn("opens_at", answer)
+        hours_page.pause(30)
+        self.assertEqual((self.ok("store.status")["ordering_paused"], "paused_until" in self.ok("store.status")), (True, True))
+        cfg.week = [{"open": False, "r": []} for _day in range(7)]
+        cfg.save()
+        closed = self.ok("store.status")
+        self.assertEqual((closed["open"], closed["hours_today"], "closes_at" in closed, "opens_at" in closed), (False, "", False, False))
+
+    def test_pausing_and_resuming_online_orders(self):
+        from events.hours import Hours
+        with self.captureOnCommitCallbacks(execute=True):
+            paused = self.ok("store.pause_ordering", {"minutes": 45}, idempotency="p-1")
+        until = Hours().paused_until()
+        self.assertEqual(paused, {"paused_until": timezone.localtime(until).isoformat(timespec="seconds")})
+        self.assertAlmostEqual((until - timezone.now()).total_seconds(), 45 * 60, delta=30)
+        self.assertEqual(self.ok("store.pause_ordering", {"minutes": 45}, idempotency="p-1"), paused)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.ok("store.resume_ordering", idempotency="p-2"), {"resumed": True})
+        self.assertIsNone(Hours().paused_until())
+        self.assertEqual(self.ok("store.resume_ordering", idempotency="p-3"), {"resumed": False})
+        self.assertEqual(list(Delivery.objects.order_by("id").values_list("event_type", flat=True)), ["store.paused", "store.resumed"])
+        self.assertIn("paused_until", self.ok("store.pause_ordering"))  # no minutes: until closing
+
+    def test_a_closure_and_extra_hours_go_on_the_calendar(self):
+        from events.models import Event
+        day = timezone.localdate() + datetime.timedelta(days=30)
+        body = {"title": "Christmas Day", "kind": "closed", "starts_on": day.isoformat(), "description": "Back on the 26th."}
+        with mock.patch("events.announce.announce_later") as announce:
+            answer = self.ok("store_event.create", body, idempotency="e-1")
+        announce.assert_not_called()  # customers are only emailed from the Events page
+        closure = Event.objects.get()
+        self.assertEqual(answer, {"event_id": str(closure.pk), "created": True})
+        self.assertEqual((closure.kind, closure.start_date, closure.end_date, closure.all_day, closure.dine_in, closure.pickup, closure.delivery,
+                          closure.banner, closure.description), ("closed", day, day, True, True, True, True, True, "Back on the 26th."))
+        self.assertEqual(self.ok("store_event.create", body, idempotency="e-2"), {"event_id": str(closure.pk), "created": False})
+        party = self.ok("store_event.create", {"title": "Parish dinner", "kind": "open", "starts_on": day.isoformat(),
+                                               "ends_on": (day + datetime.timedelta(days=1)).isoformat(), "opens_at": "17:00", "closes_at": "22:30",
+                                               "pickup": False, "banner": False}, idempotency="e-3")
+        dinner = Event.objects.get(pk=party["event_id"])
+        self.assertEqual((dinner.kind, dinner.opens, dinner.closes, dinner.all_day, dinner.dine_in, dinner.pickup, dinner.delivery, dinner.banner,
+                          dinner.end_date), ("open", 1020, 1350, False, True, False, False, False, day + datetime.timedelta(days=1)))
+        self.assertError(self.call("store_event.create", {**body, "kind": "open", "title": "No hours"}), 422, "invalid_params", "From and To")
+        self.assertError(self.call("store_event.create", {**body, "title": "Half", "opens_at": "09:00"}), 422, "invalid_params", "both")
+        self.assertError(self.call("store_event.create", {**body, "title": "Backwards", "opens_at": "21:00", "closes_at": "09:00"}), 422, "invalid_params")
+        self.assertError(self.call("store_event.create", {**body, "title": "Odd", "opens_at": "9am", "closes_at": "10:00"}), 422, "invalid_params", "09:00")
+        self.assertError(self.call("store_event.create", {**body, "title": "Nothing", "dine_in": False, "pickup": False, "delivery": False}),
+                         422, "invalid_params", "at least one")
+        self.assertError(self.call("store_event.create", {**body, "title": "Backwards days", "ends_on": "2020-01-01"}), 422, "invalid_params")
+        self.assertEqual(Event.objects.count(), 2)
+
+    def test_an_announcement_shows_on_the_screens_and_is_read_out(self):
+        from django.core.cache import cache
+
+        from screens import popups
+        cache.delete(popups.EVENTS_KEY)
+        with mock.patch("audio.calls.speak") as speak:
+            self.assertEqual(self.ok("announcement.post", {"text": "Volunteer lunch is ready"}, idempotency="a-1"), {"posted": True})
+            self.ok("announcement.post", {"text": "Volunteer lunch is ready"}, idempotency="a-1")  # not announced twice
+            self.ok("announcement.post", {"text": "Quiet one", "speak": False}, idempotency="a-2")
+        said = [e["data"] for e in cache.get(popups.EVENTS_KEY) if e["trigger"] == "announcement"]
+        self.assertEqual(said, [{"text": "Volunteer lunch is ready", "by": "Holy Eucharist"}, {"text": "Quiet one", "by": "Holy Eucharist"}])
+        speak.assert_called_once_with("Volunteer lunch is ready", "announcement")
+
+
+@mock.patch("catering.flow.send_email")
+class CateringActionTests(Api, CateringFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+
+    def setUp(self):
+        self.connection, self.key, self.secret = connect()
+
+    def test_find_a_catering_order(self, _send):
+        order = self.make_order()
+        self.assertEqual(self.call("catering.find", {"number": "C-9999"}).json(), {"found": False})
+        self.assertEqual(self.call("catering.find", {"number": "lunch"}).json(), {"found": False})
+        for typed in (order.number, order.number.lower(), order.number[2:]):
+            answer = self.call("catering.find", {"number": typed}).json()
+            self.assertEqual({k: v for k, v in answer.items() if k != "event_at"}, {
+                "found": True, "catering_id": str(order.pk), "number": order.number, "title": "Office lunch", "status": "new",
+                "fulfilment": "pickup", "total": 688.0, "customer_name": "Ben Carter", "customer_email": "ben@example.com"})
+
+    def test_a_message_from_the_store_is_emailed_to_the_customer(self, send):
+        from catering.models import CateringMessage, CateringOrder
+        order = self.make_order()
+        body = {"number": order.number, "message": "Your volunteers eat free that day."}
+        response = self.call("catering.send_message", body, idempotency="m-1")
+        self.assertEqual(response.json(), {"catering_id": str(order.pk), "number": order.number, "sent": True})
+        self.call("catering.send_message", body, idempotency="m-1")
+        message = order.messages.get()
+        self.assertEqual((message.who, message.text), (CateringMessage.STAFF, "Your volunteers eat free that day."))
+        self.assertEqual(send.call_count, 1)
+        self.assertEqual(send.call_args.args[:2], ("catering_message", "ben@example.com"))
+        CateringOrder.objects.filter(pk=order.pk).update(status=CateringOrder.DONE)
+        closed = self.call("catering.send_message", body, idempotency="m-2")
+        self.assertEqual((closed.status_code, closed.json()["error"]["code"]), (409, "conflict"))
+        missing = self.call("catering.send_message", {**body, "number": "C-9999"}, idempotency="m-3")
+        self.assertEqual((missing.status_code, missing.json()["error"]["code"]), (422, "invalid_params"))
+
+
 @mock.patch("switchboard.events.background", lambda job: job())
 class EventTests(MenuFixture, TestCase):
     @classmethod

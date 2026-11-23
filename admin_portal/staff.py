@@ -272,8 +272,8 @@ def invite(request, user):
     from .models import StoreSettings
     link = request.build_absolute_uri(reverse("staff_welcome", args=[urlsafe_base64_encode(force_bytes(user.pk)), default_token_generator.make_token(user)]))
     from django.conf import settings
-    send("staff_invite", user.email, {"name": user.first_name, "store": StoreSettings.load().name, "link": link}, user=user,
-         fallback=settings.LANGUAGE_CODE)
+    return send("staff_invite", user.email, {"name": user.first_name, "store": StoreSettings.load().name, "link": link}, user=user,
+                fallback=settings.LANGUAGE_CODE)
 
 
 # ---------- sign-in (straight away) ----------
