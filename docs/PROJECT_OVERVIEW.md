@@ -1214,8 +1214,16 @@ people's workflows: add to them, never rename or remove.** People are matched be
   Each calls the function the admin page or screen for it calls, so its rules are the page's rules. `clean()` turns
   the body into typed params and holds them to the limits the manifest states (`max_length`, `min`/`max`, `choices`:
   422, saying which). Lookups answer `200 {"found": false}` when there is nothing; "find by name" lookups (`dish.find`,
-  `stock.find`) answer the closest match's fields plus `count` and `matches` (names joined with commas), because
-  Switchboard has flat outputs and no loops. **Left out on purpose**: anything that charges, captures or refunds a
+  `stock.find`) answer the closest match's fields plus `count`, `matches` (names joined with commas, from before
+  Switchboard had loops) and the matches as a list. **Lists** (the protocol's `list` type, which Switchboard's "For
+  each" step loops over; `manifest.listing(key, label, items)`): an array of flat objects, each with what a later step
+  needs to act on it (its id, a name, an email for a person) under the keys single answers use (`dish_id`, `item_id`,
+  `staff_id`, `shift_id`...); `[]` when there is nothing, even when a lookup answers `found: false`; at most 200 items
+  (`contract.LIST_LIMIT`) in an order the label states, always beside an int that counts everything (`count`, or
+  `line_count`, `upcoming`, `dish_count`); no list inside a list (a list of orders has no `lines`: `order.find` does).
+  Lists of orders and catering orders are built without a query per row (`_orders` prefetches lines, stations, the
+  delivery and the customer; `catering.upcoming` prices every order from one `pricing.Catalog`). A list shows only
+  what the one-at-a-time lookups and events already show. **Left out on purpose**: anything that charges, captures or refunds a
   payment; creating, editing, rejecting or marking orders (orders only come from `create_order`; station statuses only
   from the kitchen screen); accepting, rejecting or changing catering orders (they charge the card on file); taking
   money off a gift card; anything that deletes; menu switching and publishing the schedule (both are a manager's
@@ -1225,7 +1233,10 @@ people's workflows: add to them, never rename or remove.** People are matched be
     page's Add does, `admin_portal/staff.py`; a customer's account with that email becomes staff, else a new account
     with no password; a role by name comes with its starting groups, never Owners; owners are returned untouched),
     `staff.invite` (`staff_id` → `sent`: the set-your-password email again; not for owners or deactivated accounts;
-    409 when email isn't connected), `team.on_now` (lookup: `count`, `names`, `on_break`), `staff_card.issue`
+    409 when email isn't connected), `team.on_now` (lookup: `count`, `names`, `on_break`, and `staff`: each person
+    with `role`, `clocked_in_at`, `on_break`, first in first), `staff.list` (lookup, optional `role`: the staff who can
+    sign in, by name, with `roles`), `staff_card.list` (lookup, optional `include_retired`: the cards this connection
+    issued, `IssuedCard`, newest first, with holder, `label`, `balance`, `active`), `staff_card.issue`
     (`staff_id`, `amount`, optional `label`, `replace_previous` → `card_id`, `amount`, `label`, `replaced`: the label
     is a **card type** on the Staff cards page, default "Switchboard"; a balance type with that name is used as it is,
     otherwise a one-time balance type is made; one live card per person and type, a second is a 409 unless
@@ -1235,19 +1246,34 @@ people's workflows: add to them, never rename or remove.** People are matched be
     overlap is a 409; the person is emailed), `shift.cancel` (`shift_id` → `status`, `cancelled`: the Shifts page's
     Delete, so a shift staff were told about is marked deleted and **waits for a manager's Publish**
     (`waiting_for_publish`), one never published is removed; a started shift is a 409), `shift.next` (lookup:
-    `staff_id` → `shift_id`, `starts_at`, `ends_at`, `role`, `upcoming`), `time_off.request` (`staff_id`, `first_day`,
+    `staff_id` → `shift_id`, `starts_at`, `ends_at`, `role`, `upcoming`, and `shifts`: the next 14 days, soonest
+    first), `shift.on_day` (lookup, optional `date`: the day's published shifts that someone is on, with who, by start
+    then name), `shift.not_clocked_in` (lookup, optional `grace` minutes, default 5: today's shifts that have started
+    and not ended, have no `TimeEntry` and whose person isn't clocked in on another shift, with `minutes_late`),
+    `time_off.upcoming` (lookup, optional `days`, default 30, and `status`: approved and pending time off going on or
+    starting within that, by first day), `time_off.request` (`staff_id`, `first_day`,
     optional `last_day`, `category`, `reason` → `request_id`, `status`, `created`: `requests.ask_time_off`, a pending
     request a manager still decides; the same days again return the request there is).
   - **Customers and orders**: `customer.find` (lookup by `email`: `customer_id`, name, phone, `orders`,
     `total_spent`, `last_order_at`, `newsletter`, `email_verified`, `notes`), `customer.add_note` (a line added to
     `Customer.staff_notes`, 200 characters in all: full is a 409; a line already there isn't added twice),
     `order.find` (lookup by `number`: type, channel, `status` waiting / in_progress / ready / picked_up / delivered,
-    `payment` paid / partial / refunded, totals, `summary`), `order.send_receipt` (`order_id`, optional `email`: the
+    `payment` paid / partial / refunded, totals, `summary`, and `lines` with `line_count`: what was sold as a
+    receipt lists it, `dish_id`, `name`, `quantity`, `unit_price`, `total`, `station`; a combo is one line),
+    `order.open` (lookup, optional `older_than` minutes: orders not picked up yet, the one waiting longest first, each
+    with its `status` and `minutes` since it was placed), `order.list` (lookup, optional `date`, `channel`: a day's
+    orders without voided ones, newest first, with `count` and `sales`), `order.send_receipt` (`order_id`, optional `email`: the
     order history's Send, logged in `ReceiptLog`), `sales.summary` (lookup, optional `date`: orders, sales, average,
-    tax, tips, discounts, refunds, items, top dish, online orders; `admin_portal/reports.py: summaries`),
-    `catering.find` (lookup by `number`), `catering.send_message` (`number`, `message`: `flow.write` as staff, emailed
+    tax, tips, discounts, refunds, items, top dish, online orders, and `top_dishes`: name and quantity, best seller
+    first, with `dish_count`; `admin_portal/reports.py: summaries`), `catering.find` (lookup by `number`; `lines`
+    with `line_count`: `kind`, `name`, `quantity`, `amount` hours or days, `total` before tax), `catering.upcoming`
+    (lookup, optional `days`, default 14: open catering orders with an event from today on, soonest first),
+    `catering.send_message` (`number`, `message`: `flow.write` as staff, emailed
     to the customer; a closed order is a 409).
-  - **Menu and stock**: `dish.find` (lookup by `name`: price, station, `available`, `mode`, `reason`),
+  - **Menu and stock**: `dish.find` (lookup by `name`: price, station, `available`, `mode`, `reason`; `dishes`:
+    every match, closest first), `dish.sold_out` (lookup: the dishes that can't be sold now and why, by station then
+    name), `stock.below_par` (lookup, optional `kind`: counted ingredients and components under their par, the
+    emptiest compared with its par first; `stock.find` answers its matches as `items` too),
     `dish.set_availability` (`dish_id`, `mode` off / auto / always: `inventory/availability.py: apply_changes`),
     `station.set_taking_tickets` (`station` by name or code, `taking_tickets`), `stock.find` (lookup by `name`,
     optional `kind`: ingredients first, then components; `on_hand`, `unit`, `par`, `below_par`), `stock.adjust`
@@ -1285,7 +1311,8 @@ people's workflows: add to them, never rename or remove.** People are matched be
   restart left behind are taken up with the next event (`sweep`, which also drops log rows older than two weeks).
   The signed body is cleared once a delivery is over. **No event is time-based**, so there is no command to run.
   - **Orders** (fields `order.id|number|type|channel|total|items|subtotal|discount|tax|tip|summary|placed_at`,
-    `customer.name|email|phone`): `order.placed` (the end of `create_order`, every channel), `order.approved` (the last
+    `customer.name|email|phone`, and the list `order.lines` with `order.line_count`: one query, lines with their
+    stations, `events.order_lines`): `order.placed` (the end of `create_order`, every channel), `order.approved` (the last
     pending station confirmed an online or delivery order; register orders start approved), `order.station_done`
     (each station finishing its part, with `station.code|name`), `order.ready` (the `order_ready` signal), all three
     from `Order.set_station_status`; `order.rejected` (the kitchen screen's Reject, with `reason`, built before the
@@ -1295,7 +1322,8 @@ people's workflows: add to them, never rename or remove.** People are matched be
   - **Deliveries** (`deliveries/views.py`; the order's fields plus the courier as `staff.*` and `delivery.id|address`):
     `delivery.assigned`, `delivery.picked_up`, `delivery.delivered` (`handoff`, `minutes`).
   - **Catering** (`catering/flow.py`; `catering.id|number|title|status|event_at|fulfilment|total|rush`,
-    `customer.name|email|phone|organization`): `catering.requested`, `catering.confirmed` (`confirmed_by` store or
+    `customer.name|email|phone|organization`, and the list `catering.lines` with `catering.line_count`, figured from
+    the catalog its total already loads): `catering.requested`, `catering.confirmed` (`confirmed_by` store or
     customer), `catering.changes_proposed` and `catering.counter_proposed` (`previous_total`, `message`),
     `catering.message_received` (the customer wrote), `catering.rejected`, `catering.cancelled` (`cancelled_by`,
     `reason`, `refunded`), `catering.deposit_held` (`payments.place_hold`: at confirmation or from the daily
@@ -1312,13 +1340,15 @@ people's workflows: add to them, never rename or remove.** People are matched be
     page and the action); `stock.low` (a count crossed its par going down, once per crossing) and `stock.ran_out`
     (reached zero) from `CountWatch` on `Component` and `Ingredient` (the same from_db trick; uncounted ingredients
     and self-crafting components never send them; packaging taken with a queryset `update()` reports through
-    `events.stock_drawn`); `restock.placed` / `restock.delivered` (the Restocks page's `save_draft`),
-    `stock.received` (the shopping log), `batch.cooked` (Cookery's `finish`).
+    `events.stock_drawn`); `restock.placed` / `restock.delivered` (the Restocks page's `save_draft`;
+    the list `restock.ingredients`: `item_id`, `name`, `quantity`, `unit`, `cases`, `case_price`, `total`),
+    `stock.received` (the shopping log; the list `ingredients`), `batch.cooked` (Cookery's `finish`).
   - **Cash**: `drawer.opened`, `drawer.closed` (`expected`, `counted`, `difference`, `cash_sales`, `orders`),
     `drawer.cash_moved` (every `CashMovement`: paid in, paid out, cash refunds).
   - **People and the schedule**: `customer.registered` (store sign-up), `staff.added` (`staff.create` / `promote`),
     `staff.clocked_in`, `staff.clocked_out` (`hours` without unpaid breaks), `staff.break_started`,
-    `staff.break_ended` (`minutes`), `schedule.published` (one per person told, with their upcoming `shifts`),
+    `staff.break_ended` (`minutes`), `schedule.published` (one per person told, with their upcoming `shifts` and, as a
+    list, `upcoming_shifts`),
     `shift.offered`, `shift.taken`, `shift.swapped` (a manager approved a hand-off or swap), `time_off.requested`,
     `time_off.decided`, `availability.requested`, `availability.decided`.
   - **The store**: `store.paused` (`until`), `store.resumed` (only when staff end a pause early: a pause running out
