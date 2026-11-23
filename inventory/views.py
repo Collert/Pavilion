@@ -55,6 +55,8 @@ def log_shopping(request):
             ingredient.save()
             ui = UpdateIngredient(update_obj=new_update, ingredient=ingredient, quantity=quantity)
             ui.save()
+        from switchboard import events as switchboard  # "stock.received": never raises
+        switchboard.shopping_logged(new_update)
         return HttpResponseRedirect(reverse("log_shopping"))
         
 @login_required

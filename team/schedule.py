@@ -140,6 +140,8 @@ def publish(request=None) -> int:
         shift.save(update_fields=["published", "published_as"])
     if told:
         transaction.on_commit(lambda: _notify(told))
+        from switchboard import events as switchboard  # "schedule.published", one per person: after commit, never raises
+        switchboard.schedule_published(told)
     return len(told)
 
 

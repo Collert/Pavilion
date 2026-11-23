@@ -7,10 +7,5 @@ class SwitchboardConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):
-        from pos_server.signals import order_ready
-
-        def ready_order(order, **kwargs):
-            from . import events
-            events.order_ready(order)
-
-        order_ready.connect(ready_order, dispatch_uid="switchboard-order-ready", weak=False)  # a local function: keep it alive
+        from . import hooks
+        hooks.connect()

@@ -60,6 +60,8 @@ def register(request):
                 "route":"register",
                 "error":True
             })
+        from switchboard import events as switchboard  # "customer.registered": never raises
+        switchboard.customer_registered(user)
         login(request, user)
         return redirect(reverse("profile"))
     

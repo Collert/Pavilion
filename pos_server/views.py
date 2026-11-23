@@ -133,8 +133,12 @@ def order_marking(request):
             return JsonResponse({"error": _("The order isn't ready at every station yet.")}, status=409)
         if order.channel == "delivery":
             return JsonResponse({"error": _("The courier picks up delivery orders.")}, status=409)
+        was_picked_up = order.picked_up
         order.picked_up = True
         order.save()
+        if not was_picked_up:
+            from switchboard import events as switchboard  # "order.picked_up": after commit, never raises
+            switchboard.order_picked_up(order)
         return JsonResponse({"picked_up": True})
 
     if action == "reject":
@@ -158,6 +162,8 @@ def order_marking(request):
         with transaction.atomic():
             RejectedOrder.objects.create(order_id=order.id, reason=reason, timestamp=order.timestamp, customer=order.customer)
             refund_gift_cards(order)
+            from switchboard import events as switchboard  # "order.rejected", read now: the order is about to be gone
+            switchboard.order_rejected(order, reason)
             order.delete()
         return JsonResponse({"rejected": True, "reason": reason})
 

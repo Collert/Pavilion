@@ -3,6 +3,7 @@ Switchboard's protocol, from Pavilion's side: the manifest, connecting, the bear
 and events with their signature, retries and log. Outgoing HTTP is faked at one seam, `switchboard.events.post`;
 `background` runs straight away and `wait` only records, so deliveries play out inside the test.
 """
+import contextlib
 import datetime
 import hashlib
 import hmac
@@ -16,9 +17,12 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from catering import flow, pricing
+from catering.tests import CateringFixture
 from gift_cards.models import StaffCard, StaffCardType
 from pos_server.models import OrderStation
 from pos_server.orders import create_order
+from pos_server.pricing import price_cart
 from pos_server.tests import MenuFixture
 from team import clock
 from team.models import Shift
@@ -73,6 +77,24 @@ class Sender:
         return status
 
 
+_seams = []
+REAL_POST = events.post  # the real sender, for the one test of it
+
+
+def setUpModule():
+    """Nothing in these tests reaches the network or starts a thread: events an action or a page sets off are "posted" to
+    a sender that only holds them to the manifest (tests that look at what was sent bring their own)."""
+    for target, stand_in in (("switchboard.events.post", Sender(200)), ("switchboard.events.background", lambda job: job()),
+                             ("switchboard.events.wait", lambda seconds: None)):
+        _seams.append(mock.patch(target, stand_in))
+        _seams[-1].start()
+
+
+def tearDownModule():
+    while _seams:
+        _seams.pop().stop()
+
+
 class Api:
     """Calls with a connection's key."""
 
@@ -109,13 +131,13 @@ class ManifestTests(TestCase):
     def test_everything_the_protocol_lists_for_pavilion_is_there(self):
         m = self.client.get("/.well-known/switchboard").json()
         triggers = {t["type"]: {f["key"] for f in t["fields"]} for t in m["triggers"]}
-        self.assertEqual(set(triggers), {"order.placed", "order.ready", "staff.clocked_in", "staff.clocked_out"})
+        self.assertLessEqual({"order.placed", "order.ready", "staff.clocked_in", "staff.clocked_out"}, set(triggers))
         self.assertLessEqual({"order.id", "order.number", "order.type", "order.total", "order.items", "customer.name", "customer.email"},
                              triggers["order.placed"])
         self.assertLessEqual({"staff.id", "staff.name", "staff.email", "at"}, triggers["staff.clocked_in"])
         self.assertIn("hours", triggers["staff.clocked_out"])
         actions = {a["name"]: a for a in m["actions"]}
-        self.assertEqual(set(actions), {"staff.find", "staff.ensure", "staff_card.issue", "shift.add"})
+        self.assertLessEqual({"staff.find", "staff.ensure", "staff_card.issue", "shift.add"}, set(actions))
         self.assertEqual(actions["staff.find"]["kind"], "lookup")
         expected = {"staff.find": ({"email"}, {"found", "staff_id", "name", "email", "roles"}),
                     "staff.ensure": ({"name", "email", "role"}, {"staff_id", "created"}),
@@ -277,6 +299,8 @@ class HandshakeTests(TestCase):
 class ApiTests(Api, TestCase):
     def setUp(self):
         self.connection, self.key, self.secret = connect()
+        Sender.broken = []
+        self.addCleanup(lambda: self.assertEqual(Sender.broken, [], "an event broke the manifest"))
         self.dana = User.objects.create_user("dana", "Dana@Example.org", "x", is_staff=True, first_name="Dana", last_name="Lee")
         self.barista = Role.objects.get_or_create(name="Barista")[0]
         Staff.objects.create(user=self.dana).roles.add(self.barista)
@@ -589,6 +613,7 @@ class ApiTests(Api, TestCase):
         self.assertEqual(Shift.objects.count(), 2)
 
 
+
 @mock.patch("switchboard.events.background", lambda job: job())
 class EventTests(MenuFixture, TestCase):
     @classmethod
@@ -611,6 +636,16 @@ class EventTests(MenuFixture, TestCase):
     def sent(self, sender, n=0):
         call = sender.calls[n]
         return call, json.loads(call["body"])
+
+    @staticmethod
+    def types(sender):
+        return [c["headers"]["X-Switchboard-Event"] for c in sender.calls]
+
+    def one(self, sender, kind):
+        """The one event of this type that was sent."""
+        found = [json.loads(c["body"]) for c in sender.calls if c["headers"]["X-Switchboard-Event"] == kind]
+        self.assertEqual(len(found), 1, f"{kind}: {self.types(sender)}")
+        return found[0]
 
     def place(self, **fields):
         fields = {"name": "Maria Kovalenko", "email": "maria@example.org", **fields}
@@ -645,8 +680,10 @@ class EventTests(MenuFixture, TestCase):
         self.assertIsNotNone(datetime.datetime.fromisoformat(event["occurred_at"]).utcoffset())
         self.assertEqual(event["subject"], {"type": "order", "id": str(order.pk), "email": "maria@example.org", "name": "Maria Kovalenko"})
         self.assertEqual(event["data"], {
-            "order": {"id": str(order.pk), "number": f"{order.pk:04d}", "type": "pickup", "channel": "web", "total": float(order.total), "items": 2},
-            "customer": {"name": "Maria Kovalenko", "email": "maria@example.org"}})
+            "order": {"id": str(order.pk), "number": f"{order.pk:04d}", "type": "pickup", "channel": "web", "total": float(order.total), "items": 2,
+                      "subtotal": 4.0, "discount": 0.0, "tax": float(order.tax), "tip": 0.0, "summary": "2 × Tea",
+                      "placed_at": timezone.localtime(order.timestamp).isoformat(timespec="seconds")},
+            "customer": {"name": "Maria Kovalenko", "email": "maria@example.org", "phone": ""}})
         delivery = Delivery.objects.get()
         self.assertEqual((delivery.status, delivery.attempts, delivery.response_status, delivery.event_type, delivery.body),
                          (Delivery.DELIVERED, 1, 200, "order.placed", ""))
@@ -663,7 +700,7 @@ class EventTests(MenuFixture, TestCase):
         kinds = [json.loads(c["body"])["data"]["order"]["type"] for c in sender.calls]
         self.assertEqual(kinds, ["delivery", "to_go", "dine_in"])
         first = json.loads(sender.calls[0]["body"])
-        self.assertEqual(first["data"]["customer"], {"name": "Ana B", "email": "ana@example.org"})  # from their account
+        self.assertEqual(first["data"]["customer"], {"name": "Ana B", "email": "ana@example.org", "phone": ""})  # from their account
         manifest = self.client.get("/.well-known/switchboard").json()
         for trigger in manifest["triggers"]:
             if trigger["type"] == "order.placed":
@@ -680,11 +717,11 @@ class EventTests(MenuFixture, TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_APPROVED)
                 order.set_station_status(["bar"], OrderStation.STATUS_DONE)
-            self.assertEqual([c["headers"]["X-Switchboard-Event"] for c in sender.calls], ["order.placed"])  # the kitchen is still on it
+            self.assertNotIn("order.ready", self.types(sender))  # the kitchen is still on it
             with self.captureOnCommitCallbacks(execute=True):
                 order.set_station_status(["kitchen"], OrderStation.STATUS_DONE)
-        self.assertEqual([c["headers"]["X-Switchboard-Event"] for c in sender.calls], ["order.placed", "order.ready"])
-        _call, event = self.sent(sender, 1)
+        self.assertEqual(self.types(sender).count("order.ready"), 1)
+        event = self.one(sender, "order.ready")
         self.assertEqual(event["data"]["order"]["id"], str(order.pk))
         self.assertEqual(event["data"]["order"]["items"], 3)
         self.assertEqual(event["data"]["customer"]["email"], "maria@example.org")
@@ -698,15 +735,18 @@ class EventTests(MenuFixture, TestCase):
             clock.start_break(self.dana, start + datetime.timedelta(hours=2))
             clock.end_break(self.dana, start + datetime.timedelta(hours=2, minutes=30))
             clock.clock_out(self.dana, start + datetime.timedelta(hours=5, minutes=45))
-        self.assertEqual([c["headers"]["X-Switchboard-Event"] for c in sender.calls], ["staff.clocked_in", "staff.clocked_out"])
+        self.assertEqual(self.types(sender), ["staff.clocked_in", "staff.break_started", "staff.break_ended", "staff.clocked_out"])
         _call, came = self.sent(sender, 0)
         staff = {"id": str(self.dana.pk), "name": "Dana Lee", "email": "dana@example.org"}
         self.assertEqual(came["subject"], {"type": "person", **staff})
         self.assertEqual(came["data"], {"staff": staff, "at": start.isoformat(), "role": "Barista"})
         self.assertEqual(came["occurred_at"], start.isoformat())
         self.assertRegex(came["data"]["at"], r"^2026-12-05T09:00:00[+-]\d\d:00$")  # the store's time, with its offset
-        _call, left = self.sent(sender, 1)
+        left = self.one(sender, "staff.clocked_out")
         self.assertEqual(left["data"], {"staff": staff, "at": (start + datetime.timedelta(hours=5, minutes=45)).isoformat(), "role": "Barista", "hours": 5.25})
+        self.assertEqual(self.one(sender, "staff.break_started")["data"]["at"], (start + datetime.timedelta(hours=2)).isoformat())
+        back = self.one(sender, "staff.break_ended")
+        self.assertEqual((back["data"]["minutes"], back["subject"]["email"]), (30, "dana@example.org"))
 
     def test_nothing_is_sent_or_logged_without_a_connection(self):
         SwitchboardConnection.objects.all().delete()
@@ -811,10 +851,646 @@ class EventTests(MenuFixture, TestCase):
     def test_the_real_sender_posts_the_body_as_it_was_signed(self):
         with mock.patch("requests.post") as http:
             http.return_value.status_code = 204
-            self.assertEqual(events.post(HOOK, b'{"a": 1}', {"X-Switchboard-Event": "order.placed"}, 10), 204)
+            self.assertEqual(REAL_POST(HOOK, b'{"a": 1}', {"X-Switchboard-Event": "order.placed"}, 10), 204)
         self.assertEqual(http.call_args.args, (HOOK,))
         self.assertEqual(http.call_args.kwargs, {"data": b'{"a": 1}', "headers": {"X-Switchboard-Event": "order.placed"},
                                                  "timeout": 10, "allow_redirects": False})
+
+
+class Events:
+    """For tests of what Pavilion sends: a connected Switchboard, a sender that holds every event to the manifest, and
+    `sending()` to run something and look at what went out."""
+
+    def setUp(self):
+        super().setUp()
+        self.connection, self.key, self.secret = connect()
+        Sender.broken = []
+        self.addCleanup(lambda: self.assertEqual(Sender.broken, [], "an event broke the manifest"))
+        quiet = self.assertNoLogs("switchboard.events", "ERROR")  # an event that couldn't be built is only logged: fail on it
+        quiet.__enter__()
+        self.addCleanup(quiet.__exit__, None, None, None)
+
+    @contextlib.contextmanager
+    def sending(self):
+        sender = Sender(200)
+        with mock.patch("switchboard.events.post", sender), self.captureOnCommitCallbacks(execute=True):
+            yield sender
+
+    @staticmethod
+    def types(sender):
+        return [c["headers"]["X-Switchboard-Event"] for c in sender.calls]
+
+    def every(self, sender, kind):
+        return [json.loads(c["body"]) for c in sender.calls if c["headers"]["X-Switchboard-Event"] == kind]
+
+    def one(self, sender, kind):
+        found = self.every(sender, kind)
+        self.assertEqual(len(found), 1, f"{kind}: {self.types(sender)}")
+        return found[0]
+
+
+class OrderEventTests(Events, MenuFixture, TestCase):
+    """Orders after they're placed: the kitchen's steps, rejecting, picking up, refunds, discounts, deliveries."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya", last_name="Shah")
+
+    def online(self, channel="web", **fields):
+        fields = {"name": "Maria Kovalenko", "email": "maria@example.org", **fields}
+        return create_order(lines=[self.dish(self.tea, 2), self.dish(self.burger, cust={"groups": {self.temp_key: [self.medium.id], self.bun_key: []}})],
+                            channel=channel, initial_status=OrderStation.STATUS_PENDING, **fields)
+
+    def kds(self, order, action, stations=("kitchen", "bar"), **extra):
+        self.client.force_login(self.boss)
+        return self.client.post(reverse("order_marking"), json.dumps({"orderId": order.id, "action": action, "filters": list(stations), **extra}),
+                                content_type="application/json")
+
+    def test_the_kitchen_approves_once_and_each_station_says_when_it_is_done(self):
+        with self.sending() as sender:
+            order = self.online()
+        with self.sending() as sender:
+            order.set_station_status(["kitchen"], OrderStation.STATUS_APPROVED)
+        self.assertEqual(self.types(sender), [])  # the bar hasn't confirmed yet
+        with self.sending() as sender:
+            order.set_station_status(["bar"], OrderStation.STATUS_APPROVED)
+            order.set_station_status(["bar", "kitchen"], OrderStation.STATUS_APPROVED)  # a repeat changes nothing
+        approved = self.one(sender, "order.approved")
+        self.assertEqual((approved["data"]["order"]["number"], approved["subject"]["email"]), (f"{order.pk:04d}", "maria@example.org"))
+        with self.sending() as sender:
+            order.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(self.types(sender), ["order.station_done"])
+        self.assertEqual(self.one(sender, "order.station_done")["data"]["station"], {"code": "bar", "name": self.bar.name})
+        with self.sending() as sender:
+            order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_DONE, only_from=[OrderStation.STATUS_APPROVED])
+        self.assertEqual(sorted(self.types(sender)), ["order.ready", "order.station_done"])
+        self.assertEqual(self.one(sender, "order.station_done")["data"]["station"]["code"], "kitchen")
+
+    def test_a_register_order_is_never_approved_because_it_starts_that_way(self):
+        with self.sending() as sender:
+            order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED)
+            order.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        self.assertEqual(sorted(self.types(sender)), ["order.placed", "order.ready", "order.station_done"])
+
+    def test_rejecting_tells_why_before_the_order_is_gone(self):
+        order = self.online()
+        with self.sending() as sender:
+            response = self.kds(order, "reject", reasons=[], text="No brioche buns left")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(type(order).objects.filter(pk=order.pk).exists())
+        event = self.one(sender, "order.rejected")
+        self.assertEqual(event["data"]["reason"], "No brioche buns left")
+        self.assertEqual((event["data"]["order"]["id"], event["data"]["order"]["items"], event["data"]["customer"]["email"]),
+                         (str(order.pk), 3, "maria@example.org"))
+
+    def test_a_rejection_that_fails_sends_nothing(self):
+        order = self.online()
+        with self.sending() as sender:
+            self.assertEqual(self.kds(order, "reject", reasons=[], text="").status_code, 400)
+        self.assertEqual(self.types(sender), [])
+
+    def test_picked_up_once(self):
+        order = self.online()
+        order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_DONE)
+        with self.sending() as sender:
+            self.assertEqual(self.kds(order, "pickup").status_code, 200)
+            self.kds(order, "pickup")  # a second tap
+        self.assertEqual(self.types(sender), ["order.picked_up"])
+        self.assertEqual(self.one(sender, "order.picked_up")["data"]["order"]["id"], str(order.pk))
+
+    def test_a_refund_says_how_much_why_and_who(self):
+        from pos_server.models import CashDrawerSession, Refund
+        from pos_server.refunds import refund_order
+        drawer = CashDrawerSession.objects.create(opening_amount=Decimal("100"), opened_by=self.boss)
+        total = price_cart([self.dish(self.tea, 2)], channel="store").total
+        order = create_order(lines=[self.dish(self.tea, 2)], channel="store", initial_status=OrderStation.STATUS_APPROVED, drawer=drawer,
+                             payments=[{"method": "cash", "amount": str(total)}], email="maria@example.org")
+        with self.sending() as sender, mock.patch("pos_server.order_emails.refunded"), mock.patch("online_store.order_push.refunded"):
+            refund = refund_order(order, whole=True, reason="Wrong order", to=Refund.CASH, user=self.boss)
+        event = self.one(sender, "order.refunded")
+        self.assertEqual(event["data"]["refund"], {"id": str(refund.pk), "amount": float(total), "reason": "Wrong order", "to": "cash",
+                                                   "whole": True, "by": "Priya Shah"})
+        moved = self.one(sender, "drawer.cash_moved")  # the cash came out of the drawer
+        self.assertEqual((moved["data"]["amount"], moved["data"]["staff"]["email"]), (-float(total), "boss@example.org"))
+
+    def test_every_discount_on_a_new_order_is_told(self):
+        from pos_server.models import Discount
+        coupon = Discount.objects.create(name="Welcome", kind="amt", value=Decimal("1"), scope="order", code="welcome", online=True)
+        offer = Discount.objects.create(name="Student", kind="pct", value=Decimal("10"))
+        with self.sending() as sender:
+            order = create_order(lines=[self.dish(self.tea, 2, discount={"offer": offer.id})], channel="store",
+                                 initial_status=OrderStation.STATUS_APPROVED, order_discount={"code": "WELCOME"})
+            create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED,
+                         order_discount={"manual": {"kind": "amt", "value": "0.50"}}, can_manual_discount=True)
+            create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED)  # none: nothing sent
+        used = {e["data"]["discount"]["kind"]: e["data"] for e in self.every(sender, "discount.used")}
+        self.assertEqual(set(used), {"coupon", "offer", "manual"})
+        self.assertEqual(used["coupon"]["discount"], {"id": str(coupon.pk), "name": "Welcome", "code": "WELCOME", "kind": "coupon", "amount": 1.0})
+        self.assertEqual((used["offer"]["discount"]["amount"], used["offer"]["order"]["id"]), (0.4, str(order.pk)))
+        self.assertEqual((used["manual"]["discount"]["id"], used["manual"]["discount"]["amount"]), ("", 0.5))
+
+    @mock.patch("deliveries.signals.trigger_push_notifications")
+    def test_a_delivery_from_the_courier_taking_it_to_the_door(self, _push):
+        from deliveries.models import CourierShift, Delivery as Trip
+        order = self.online("delivery", to_go_order=True)
+        trip = Trip.objects.create(order=order, destination="2145 W 4th Ave, Vancouver, BC V6K 1N7", address_2="Unit 204", phone=6045550147)
+        CourierShift.objects.create(user=self.boss)
+        self.client.force_login(self.boss)
+        with self.sending() as sender:
+            self.client.post(reverse("delivery_order", args=[trip.pk]), {"action": "accept"})
+            self.client.post(reverse("delivery_order", args=[trip.pk]), {"action": "accept"})  # already theirs
+        taken = self.one(sender, "delivery.assigned")
+        self.assertEqual(taken["data"]["staff"], {"id": str(self.boss.pk), "name": "Priya Shah", "email": "boss@example.org"})
+        self.assertEqual(taken["data"]["delivery"], {"id": str(trip.pk), "address": "2145 W 4th Ave, Unit 204, Vancouver, BC V6K 1N7"})
+        self.assertEqual((taken["data"]["order"]["type"], taken["subject"]["email"]), ("delivery", "maria@example.org"))
+        order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_APPROVED)
+        order.set_station_status(["kitchen", "bar"], OrderStation.STATUS_DONE)
+        with self.sending() as sender:
+            self.client.post(reverse("delivery_current"), {"action": "pickup"})
+        self.assertEqual(sorted(self.types(sender)), ["delivery.picked_up", "order.picked_up"])
+        with self.sending() as sender:
+            self.client.post(reverse("delivery_current"), {"action": "arrive"})
+            self.client.post(reverse("delivery_current"), {"action": "complete", "handoff": "hand"})
+        done = self.one(sender, "delivery.delivered")
+        self.assertEqual((done["data"]["delivery"]["handoff"], done["data"]["delivery"]["minutes"], done["data"]["order"]["id"]),
+                         ("hand", 0, str(order.pk)))
+
+
+@mock.patch("catering.flow.send_email")
+class CateringEventTests(Events, CateringFixture, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.build()
+
+    def test_a_request_accepted_then_completed(self, _send):
+        from catering.models import CateringOrder
+        order = self.make_order(days=10, organization="Juniper Community", phone="604 555 0181")
+        with self.sending() as sender:
+            flow.place(order)
+        asked = self.one(sender, "catering.requested")
+        self.assertEqual(asked["subject"], {"type": "catering_order", "id": str(order.pk), "email": "ben@example.com", "name": "Ben Carter"})
+        self.assertEqual(asked["data"]["catering"], {
+            "id": str(order.pk), "number": order.number, "title": "Office lunch", "status": "new", "fulfilment": "pickup", "total": 688.0,
+            "rush": False, "event_at": timezone.make_aware(datetime.datetime.combine(order.event_date, datetime.time(12, 0))).isoformat()})
+        self.assertEqual(asked["data"]["customer"], {"name": "Ben Carter", "email": "ben@example.com", "phone": "604 555 0181",
+                                                     "organization": "Juniper Community"})
+        with self.sending() as sender:
+            flow.accept(order, self.owner, "See you there")
+        confirmed = self.one(sender, "catering.confirmed")
+        self.assertEqual((confirmed["data"]["confirmed_by"], confirmed["data"]["catering"]["status"]), ("store", "confirmed"))
+        booked = self.every(sender, "service.booked")  # one per service line
+        self.assertEqual(sorted(b["data"]["booking"]["service"] for b in booked), ["Chafer", "Delivery", "Server"])
+        self.assertEqual({(b["data"]["booking"]["catering_number"], b["data"]["customer"]["email"]) for b in booked}, {(order.number, "ben@example.com")})
+        self.assertNotIn("catering.deposit_held", self.types(sender))  # the event is 10 days off
+        with self.sending() as sender:
+            flow.accept(self.make_order(days=1), self.owner)  # tomorrow: the deposit is held right away
+        self.assertEqual(self.one(sender, "catering.deposit_held")["data"]["deposit"], 120.0)
+        with self.sending() as sender:
+            flow.finish(CateringOrder.objects.get(pk=order.pk), self.owner)
+        done = self.one(sender, "catering.completed")
+        self.assertEqual((done["data"]["deposit_kept"], done["data"]["catering"]["status"]), (False, "done"))
+
+    def test_changes_go_back_and_forth(self, _send):
+        from catering.models import CateringMessage
+        order = self.make_order()
+        draft = pricing.lines_of(order)
+        draft[0]["quantity"], draft[0]["price"] = 45, "11.00"
+        with self.sending() as sender:
+            flow.propose(order, self.owner, draft, "Bigger lunch")
+        proposed = self.one(sender, "catering.changes_proposed")
+        self.assertEqual((proposed["data"]["previous_total"], proposed["data"]["message"], proposed["data"]["catering"]["status"]),
+                         (688.0, "Bigger lunch", "waiting"))
+        self.assertGreater(proposed["data"]["catering"]["total"], 688.0)
+        draft = pricing.lines_of(order)
+        draft[0]["quantity"] = 30
+        with self.sending() as sender:
+            flow.counter(order, draft, "Thirty is enough")
+            flow.write(order, CateringMessage.CUSTOMER, "Can we move pickup to 11:30?")
+            flow.write(order, CateringMessage.STAFF, "Sure")  # the store's own messages aren't events
+        self.assertEqual(self.one(sender, "catering.counter_proposed")["data"]["message"], "Thirty is enough")
+        self.assertEqual(self.one(sender, "catering.message_received")["data"]["message"], "Can we move pickup to 11:30?")
+        draft = pricing.lines_of(order)
+        draft[0]["quantity"] = 35
+        flow.propose(order, self.owner, draft, "Meet in the middle")
+        with self.sending() as sender:
+            flow.agree(order)
+        self.assertEqual(self.one(sender, "catering.confirmed")["data"]["confirmed_by"], "customer")
+
+    def test_rejected_and_cancelled(self, _send):
+        with self.sending() as sender:
+            flow.reject(self.make_order(), self.owner, "Fully booked", "Sorry, we can't that day")
+        self.assertEqual(self.one(sender, "catering.rejected")["data"]["reason"], "Fully booked")
+        with self.sending() as sender:
+            flow.customer_cancel(self.make_order())
+        gone = self.one(sender, "catering.cancelled")
+        self.assertEqual((gone["data"]["cancelled_by"], gone["data"]["refunded"], gone["data"]["catering"]["status"]), ("customer", 0.0, "cancelled"))
+        confirmed = self.make_order()
+        flow.accept(confirmed, self.owner)
+        with self.sending() as sender:
+            flow.reject(confirmed, self.owner, "Other", "Kitchen flooded, so sorry")
+        gone = self.one(sender, "catering.cancelled")
+        self.assertEqual((gone["data"]["cancelled_by"], gone["data"]["refunded"], gone["data"]["reason"]), ("store", 688.0, "Other"))
+
+    def test_a_card_that_declines_sends_nothing(self, _send):
+        from payments import square
+        order = self.make_order(card="ccof:real")
+        with self.sending() as sender, mock.patch("payments.square.charge_card", side_effect=square.SquareError([{"detail": "Card declined"}])):
+            with self.assertRaises(Exception):
+                flow.accept(order, self.owner)
+        self.assertEqual(self.types(sender), [])
+
+
+class StoreEventTests(Events, MenuFixture, TestCase):
+    """Gift and staff cards, the menu and stock, cash, people, the schedule and the store itself."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.build_menu()
+        cls.boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya", last_name="Shah")
+        cls.dana = User.objects.create_user("dana", "dana@example.org", "x", is_staff=True, first_name="Dana", last_name="Lee")
+        cls.alex = User.objects.create_user("alex", "alex@example.org", "x", is_staff=True, first_name="Alex", last_name="P")
+        cls.barista = Role.objects.get_or_create(name="Barista")[0]
+        for user in (cls.dana, cls.alex):
+            Staff.objects.create(user=user).roles.add(cls.barista)
+
+    # ----- gift cards -----
+
+    def test_a_gift_card_from_sale_to_empty_without_its_number(self):
+        from gift_cards import giftcards as gc
+        from gift_cards.models import GiftCard, GiftCardDesign
+        design = GiftCardDesign.objects.create(name="Birthday", amounts=[25, 50])
+        with self.sending() as sender:
+            order = create_order(lines=[], channel="web", initial_status=OrderStation.STATUS_PENDING, name="Alex P",
+                                 gift_sales=[{"design": design.id, "amount": "25", "to": "Maya", "email": "maya@example.org"}])
+        card, number = order.new_gift_cards[0]
+        sold = self.one(sender, "gift_card.sold")
+        self.assertEqual(sold["data"], {"card": {"id": str(card.pk), "last4": number[-4:], "balance": 25.0, "design": "Birthday"},
+                                        "customer": {"name": "Maya", "email": "maya@example.org"},
+                                        "amount": 25.0, "source": "online", "buyer": "Alex P", "order_id": str(order.pk)})
+        self.assertEqual(sold["subject"], {"type": "gift_card", "id": str(card.pk), "email": "maya@example.org", "name": "Maya"})
+        with self.sending() as sender:
+            card.charge_card(Decimal("10"), order=order)
+        used = self.one(sender, "gift_card.used")
+        self.assertEqual((used["data"]["amount"], used["data"]["card"]["balance"], used["data"]["order_id"]), (10.0, 15.0, str(order.pk)))
+        self.assertEqual(self.types(sender), ["gift_card.used"])
+        with self.sending() as sender:
+            card.load_card(Decimal("5"), order=order)
+            gc.adjust(card, Decimal("2.50"), "Sorry about the wait", self.boss)
+        loaded = self.every(sender, "gift_card.loaded")
+        self.assertEqual([(e["data"]["amount"], e["data"]["reason"], e["data"]["card"]["balance"]) for e in loaded],
+                         [(5.0, "refund", 20.0), (2.5, "adjustment", 22.5)])
+        card = GiftCard.objects.get(pk=card.pk)
+        with self.sending() as sender:
+            card.charge_card(Decimal("22.50"))
+            gc.set_frozen(card, True, self.boss)  # a note in its history, not an event
+        self.assertEqual(self.types(sender), ["gift_card.used", "gift_card.emptied"])
+        self.assertEqual(self.one(sender, "gift_card.emptied")["data"]["card"]["balance"], 0.0)
+        for call in sender.calls:
+            self.assertNotIn(number, call["body"].decode())
+
+    def test_a_gift_card_the_store_gives_away(self):
+        from gift_cards import giftcards as gc
+        with self.sending() as sender:
+            card, number = gc.issue(design=None, amount=Decimal("40"), recipient="Maya", email="maya@example.org", message="", note="", by=self.boss)
+        issued = self.one(sender, "gift_card.issued")
+        self.assertEqual((issued["data"]["amount"], issued["data"]["issued_by"], issued["data"]["card"]["last4"]), (40.0, "Priya Shah", card.last4))
+        self.assertNotIn(number, sender.calls[0]["body"].decode())
+
+    # ----- staff cards -----
+
+    def test_staff_cards_issued_and_refilled(self):
+        meal = StaffCardType.objects.create(name="Shift meal", kind=StaffCardType.BALANCE, amount=Decimal("12"), refill="shift", leftover="reset",
+                                            cap=Decimal("12"), channels=["store"])
+        with self.sending() as sender:
+            card = StaffCard.objects.create(type=meal, user=self.dana, number=StaffCard.new_number(), balance=Decimal("3"))
+        issued = self.one(sender, "staff_card.issued")
+        self.assertEqual(issued["data"], {"staff": {"id": str(self.dana.pk), "name": "Dana Lee", "email": "dana@example.org"},
+                                          "card": {"id": str(card.pk), "label": "Shift meal", "kind": "balance", "balance": 3.0}})
+        with self.sending() as sender:
+            clock.clock_in(self.dana, approver=self.boss)
+        refilled = self.one(sender, "staff_card.refilled")
+        self.assertEqual((refilled["data"]["card"]["balance"], refilled["subject"]["email"]), (12.0, "dana@example.org"))
+
+    # ----- menu and stock -----
+
+    def test_a_dish_sells_out_and_comes_back(self):
+        from inventory.availability import apply_changes
+        from pos_server.models import Component, Dish
+        with self.sending() as sender:
+            bun = Component.objects.get(pk=self.bun.pk)
+            bun.inventory = 0
+            bun.save()
+        out = self.one(sender, "dish.sold_out")
+        self.assertEqual(out["data"], {"dish": {"id": str(self.burger.pk), "name": "Burger", "station": self.kitchen.name, "price": 14.5},
+                                       "reason": "out_of_stock"})
+        self.assertEqual(self.one(sender, "stock.ran_out")["data"]["item"]["name"], "Bun")
+        with self.sending() as sender:
+            bun = Component.objects.get(pk=self.bun.pk)
+            bun.inventory = 40
+            bun.save()
+            bun.save()  # saved again without a change: nothing more
+        self.assertEqual(self.types(sender), ["dish.back_in_stock"])
+        self.assertNotIn("reason", self.one(sender, "dish.back_in_stock")["data"])
+        with self.sending() as sender:
+            apply_changes([{"kind": "dish", "id": self.tea.pk, "mode": "off"}])
+        self.assertEqual(self.one(sender, "dish.sold_out")["data"]["reason"], "turned_off")
+        with self.sending() as sender:
+            apply_changes([{"kind": "component", "id": self.patty.pk, "mode": "off"}])
+        self.assertEqual(self.one(sender, "dish.sold_out")["data"]["reason"], "part_turned_off")
+        with self.sending() as sender:  # archiving and new dishes are not "sold out"
+            tea = Dish.objects.get(pk=self.tea.pk)
+            tea.archived = True
+            tea.save()
+            Dish.objects.create(title="Soup", price=Decimal("6"), station=self.kitchen, availability="off")
+        self.assertEqual(self.types(sender), [])
+
+    def test_selling_the_last_one_says_so(self):
+        from pos_server.models import Component
+        Component.objects.filter(pk=self.bun.pk).update(inventory=1)
+        with self.sending() as sender:
+            create_order(lines=[self.dish(self.burger, cust={"groups": {self.temp_key: [self.medium.id], self.bun_key: []}})],
+                         channel="store", initial_status=OrderStation.STATUS_APPROVED)
+            create_order(lines=[self.dish(self.coffee, cust={"groups": {self.size_key: [self.large.id]}})], channel="store",
+                         initial_status=OrderStation.STATUS_APPROVED)  # its espresso is made to order: never "ran out"
+        self.assertEqual(self.one(sender, "stock.ran_out")["data"]["item"], {"kind": "component", "id": str(self.bun.pk), "name": "Bun",
+                                                                            "on_hand": 0, "unit": "ea"})
+        self.assertEqual(self.one(sender, "dish.sold_out")["data"]["dish"]["name"], "Burger")
+
+    def test_stock_crossing_its_par_is_told_once(self):
+        from pos_server.models import Ingredient
+        beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", inventory=2500, par=2000)
+        water = Ingredient.objects.create(title="Tap water", unit_of_measurement="ml", inventory=5, par=10, unlimited=True)
+
+        def take(ingredient, amount):
+            row = Ingredient.objects.get(pk=ingredient.pk)
+            row.inventory -= amount
+            row.save()
+
+        with self.sending() as sender:
+            take(beef, 200)   # 2300: still above
+            take(beef, 500)   # 1800: below par
+            take(beef, 300)   # 1500: already below, nothing more
+            take(water, 5)
+        low = self.one(sender, "stock.low")
+        self.assertEqual(low["data"]["item"], {"kind": "ingredient", "id": str(beef.pk), "name": "Ground beef", "on_hand": 1800, "par": 2000, "unit": "g"})
+        self.assertEqual(self.types(sender), ["stock.low"])
+        with self.sending() as sender:
+            take(beef, -1000)  # a delivery: going up is no event
+            take(beef, 2500)
+        self.assertEqual(self.types(sender), ["stock.ran_out"])  # through the par and out in one go: the stronger one
+        with self.sending() as sender:  # packaging counted off an order with an update()
+            Ingredient.objects.filter(pk=beef.pk).update(inventory=2100)
+            Ingredient.objects.filter(pk=beef.pk).update(inventory=1900)
+            events.stock_drawn(Ingredient, beef.pk, 200)
+        self.assertEqual(self.one(sender, "stock.low")["data"]["item"]["on_hand"], 1900)
+        self.assertEqual(self.types(sender), ["stock.low"])
+
+    def test_a_batch_cooked_and_shopping_logged(self):
+        from inventory import cookery
+        from inventory.models import CookingSession, YieldEntry
+        from pos_server.models import Ingredient
+        session = CookingSession.objects.create(kind=CookingSession.COOK, component=self.patty, started_by=self.dana, holder=self.dana,
+                                                started_at=timezone.now() - datetime.timedelta(minutes=25))
+        YieldEntry.objects.create(session=session, amount=24)
+        with self.sending() as sender:
+            cookery.act(self.dana, {"action": "finish", "session": session.pk})
+        cooked = self.one(sender, "batch.cooked")
+        self.assertEqual(cooked["data"], {"staff": {"id": str(self.dana.pk), "name": "Dana Lee", "email": "dana@example.org"},
+                                          "item": {"id": str(self.patty.pk), "name": "Patty", "unit": "ea", "on_hand": 124}, "made": 24, "minutes": 25})
+        Ingredient.objects.create(title="Milk", unit_of_measurement="ml", inventory=0)
+        self.client.force_login(self.boss)
+        with self.sending() as sender:
+            self.client.post(reverse("log_shopping"), {"items-total": "1", "item-0-title": "Milk", "item-0-quantity": "4000"})
+        logged = self.one(sender, "stock.received")
+        self.assertEqual((logged["data"]["items"], logged["data"]["summary"]), (1, "Milk (4000 ml)"))
+
+    def test_a_restock_placed_then_delivered(self):
+        from admin_portal import restocks
+        from inventory.models import Restock, RestockLine
+        from pos_server.models import Ingredient, Supplier
+        milk = Ingredient.objects.create(title="Milk", unit_of_measurement="ml", inventory=0, pack_size=1000)
+        order = Restock.objects.create(supplier=Supplier.objects.create(name="Fraser Valley Dairy"))
+        RestockLine.objects.create(restock=order, ingredient=milk, cases=4, case_price=Decimal("5.00"), pack_size=1000)
+        with self.sending() as sender:
+            restocks.save_draft({**restocks.draft_from_restock(order), "status": Restock.PLACED, "placed_on": timezone.localdate().isoformat()}, order)
+            restocks.save_draft(restocks.draft_from_restock(order), order)  # saved again as placed: not placed twice
+        placed = self.one(sender, "restock.placed")
+        self.assertEqual({k: placed["data"]["restock"][k] for k in ("number", "supplier", "total", "lines", "summary")},
+                         {"number": order.number, "supplier": "Fraser Valley Dairy", "total": 20.0, "lines": 1, "summary": "4 × Milk"})
+        with self.sending() as sender:
+            restocks.save_draft({**restocks.draft_from_restock(order), "status": Restock.DELIVERED, "delivered_on": timezone.localdate().isoformat()}, order)
+            restocks.save_draft(restocks.draft_from_restock(order), order)
+        self.assertEqual(self.types(sender), ["restock.delivered"])
+        self.assertEqual(Ingredient.objects.get(pk=milk.pk).inventory, 4000)
+
+    def test_a_station_switched_off_and_on_from_the_stations_page(self):
+        from admin_portal import stations
+        draft = stations.draft_of()
+        row = next(r for r in draft["rows"] if r["id"] == self.bar.pk)
+        with self.sending() as sender:
+            row["active"] = False
+            stations.save(draft)
+            stations.save(draft)  # no change the second time
+        self.assertEqual(self.types(sender), ["station.paused"])
+        self.assertEqual(self.one(sender, "station.paused")["data"], {"station": {"code": "bar", "name": self.bar.name}})
+        with self.sending() as sender:
+            row["active"] = True
+            stations.save(draft)
+        self.assertEqual(self.types(sender), ["station.resumed"])
+
+    # ----- cash -----
+
+    def test_a_cash_drawer_opened_moved_and_closed_with_its_difference(self):
+        self.client.force_login(self.boss)
+
+        def post(**body):
+            return self.client.post(reverse("cash_drawer"), json.dumps(body), content_type="application/json")
+
+        with self.sending() as sender:
+            self.assertEqual(post(action="open", amount="200.00").status_code, 200)
+            post(action="open", amount="1")  # already open
+        opened = self.one(sender, "drawer.opened")
+        self.assertEqual((opened["data"]["drawer"]["opening"], opened["data"]["staff"]["name"], opened["subject"]["email"]),
+                         (200.0, "Priya Shah", "boss@example.org"))
+        with self.sending() as sender:
+            post(action="move", amount="-20.00", reason="Milk run")
+        moved = self.one(sender, "drawer.cash_moved")
+        self.assertEqual((moved["data"]["amount"], moved["data"]["reason"]), (-20.0, "Milk run"))
+        with self.sending() as sender:
+            self.assertEqual(post(action="close", counted="178.00").status_code, 200)
+        closed = self.one(sender, "drawer.closed")
+        self.assertEqual({k: closed["data"]["drawer"][k] for k in ("expected", "counted", "difference", "cash_sales", "orders")},
+                         {"expected": 180.0, "counted": 178.0, "difference": -2.0, "cash_sales": 0.0, "orders": 0})
+
+    # ----- people -----
+
+    def test_a_customer_makes_an_account(self):
+        with self.sending() as sender, mock.patch("users.accounts.send", return_value=True):
+            self.client.post(reverse("store_join"), {"first": "Ada", "last": "Ng", "email": "ada@example.com", "phone": "604 555 0181",
+                                                     "password": "long-enough-1", "news": "1"})
+            self.client.post(reverse("store_join"), {"first": "Ada", "last": "Ng", "email": "ada@example.com", "password": "long-enough-1"})
+        joined = self.one(sender, "customer.registered")
+        ada = User.objects.get(email="ada@example.com")
+        self.assertEqual(joined["data"], {"customer": {"id": str(ada.pk), "name": "Ada Ng", "email": "ada@example.com", "phone": "6045550181",
+                                                       "newsletter": True}})
+        self.assertEqual(joined["subject"], {"type": "person", "id": str(ada.pk), "name": "Ada Ng", "email": "ada@example.com"})
+
+    def test_staff_added_by_making_an_account_or_promoting_a_customer(self):
+        from admin_portal import staff as staff_page
+        customer = User.objects.create_user("ana", "ana@example.org", "x", first_name="Ana")
+        with self.sending() as sender:
+            new, _problem = staff_page.create({"first": "Sam", "last": "Lee", "email": "sam@example.org"})
+            staff_page.promote(customer)
+            staff_page.promote(self.dana)  # already staff
+        added = self.every(sender, "staff.added")
+        self.assertEqual([e["data"]["staff"]["email"] for e in added], ["sam@example.org", "ana@example.org"])
+        self.assertEqual(added[0]["data"], {"staff": {"id": str(new.pk), "name": "Sam Lee", "email": "sam@example.org"}, "roles": ""})
+
+    # ----- the schedule -----
+
+    def shift(self, user, days=3, start=540, end=900, published=True):
+        shift = Shift(user=user, role=self.barista, date=timezone.localdate() + datetime.timedelta(days=days), start=start, end=end, published=published)
+        if published:
+            from team import schedule
+            shift.published_as = schedule.snapshot(shift)
+        shift.save()
+        return shift
+
+    def test_publishing_tells_each_person_once(self):
+        from team import schedule
+        self.shift(self.dana, days=2, published=False)
+        self.shift(self.dana, days=4, published=False)
+        self.shift(self.alex, days=20, published=False)
+        with self.sending() as sender, mock.patch("team.schedule._notify"):
+            schedule.publish()
+            schedule.publish()  # nothing left to publish
+        told = {e["data"]["staff"]["email"]: e["data"] for e in self.every(sender, "schedule.published")}
+        self.assertEqual(set(told), {"dana@example.org", "alex@example.org"})
+        self.assertEqual((told["dana@example.org"]["shifts"], told["dana@example.org"]["next_shift_role"]), (2, "Barista"))
+        self.assertRegex(told["dana@example.org"]["next_shift_at"], r"T09:00:00[+-]\d\d:00$")
+        self.assertEqual(told["alex@example.org"], {"staff": {"id": str(self.alex.pk), "name": "Alex P", "email": "alex@example.org"}, "shifts": 0})
+
+    def test_a_shift_given_away_and_taken(self):
+        from team import swaps
+        shift = self.shift(self.dana)
+        with self.sending() as sender:
+            swaps.give(shift, self.dana, "Dentist appointment")
+        offered = self.one(sender, "shift.offered")
+        self.assertEqual((offered["data"]["staff"]["email"], offered["data"]["note"], offered["data"]["shift"]["role"]),
+                         ("dana@example.org", "Dentist appointment", "Barista"))
+        self.assertEqual(offered["data"]["shift"]["id"], str(shift.pk))
+        with self.sending() as sender, mock.patch("team.swaps._tell"):
+            swaps.grab(self.alex, shift)
+        taken = self.one(sender, "shift.taken")
+        self.assertEqual((taken["data"]["staff"]["email"], taken["data"]["from"]), ("alex@example.org", {"name": "Dana Lee", "email": "dana@example.org"}))
+
+    def test_a_swap_a_manager_approves(self):
+        from team import swaps
+        mine, theirs = self.shift(self.dana, days=3), self.shift(self.alex, days=5)
+        with self.sending() as sender, mock.patch("team.swaps._tell"):
+            offer = swaps.ask(mine, self.dana, self.alex, theirs)
+            swaps.answer(offer, self.alex, True)
+        self.assertEqual(self.types(sender), [])  # nothing has moved yet
+        with self.sending() as sender, mock.patch("team.swaps._tell"):
+            swaps.decide(offer, True, self.boss)
+        swapped = self.one(sender, "shift.swapped")
+        self.assertEqual((swapped["data"]["kind"], swapped["data"]["staff"]["email"], swapped["data"]["to"]),
+                         ("swap", "dana@example.org", {"name": "Alex P", "email": "alex@example.org"}))
+        declined = swaps.ask(self.shift(self.dana, days=7), self.dana, self.alex)
+        swaps.answer(declined, self.alex, True)
+        with self.sending() as sender, mock.patch("team.swaps._tell"):
+            swaps.decide(declined, False, self.boss)
+        self.assertEqual(self.types(sender), [])
+
+    def test_time_off_and_availability_asked_and_decided(self):
+        from team import requests
+        first = timezone.localdate() + datetime.timedelta(days=10)
+        with self.sending() as sender:
+            off = requests.ask_time_off(self.dana, first, first + datetime.timedelta(days=2), category="Vacation", reason="Family trip")
+            windows = {str(d): [[540, 900]] for d in range(7)}
+            change = requests.ask_availability(self.dana, windows, first, reason="School")
+        asked = self.one(sender, "time_off.requested")
+        self.assertEqual(asked["data"], {"staff": {"id": str(self.dana.pk), "name": "Dana Lee", "email": "dana@example.org"},
+                                         "request": {"id": str(off.pk), "reason": "Family trip", "first_day": first.isoformat(),
+                                                     "last_day": (first + datetime.timedelta(days=2)).isoformat(), "all_day": True,
+                                                     "category": "Vacation"}})
+        self.assertEqual(self.one(sender, "availability.requested")["data"]["request"],
+                         {"id": str(change.pk), "reason": "School", "effective": first.isoformat(), "until": ""})
+        with self.sending() as sender, mock.patch("team.requests._tell"):
+            requests.decide(off, True, self.boss, "Enjoy the trip.")
+            requests.decide(change, False, self.boss)
+        decided = self.one(sender, "time_off.decided")
+        self.assertEqual((decided["data"]["decision"], decided["data"]["message"], decided["data"]["decided_by"]), ("approved", "Enjoy the trip.", "Priya Shah"))
+        self.assertEqual(self.one(sender, "availability.decided")["data"]["decision"], "declined")
+
+    # ----- the store -----
+
+    def test_pausing_and_resuming_online_orders(self):
+        from admin_portal import hours
+        with self.sending() as sender:
+            until = hours.pause(30)
+        self.assertEqual(self.one(sender, "store.paused")["data"], {"until": timezone.localtime(until).isoformat(timespec="seconds")})
+        with self.sending() as sender:
+            self.assertTrue(hours.resume())
+            self.assertFalse(hours.resume())  # wasn't paused any more
+        self.assertEqual(self.types(sender), ["store.resumed"])
+
+    def test_an_event_added_to_the_calendar(self):
+        from events.models import Event
+        day = timezone.localdate() + datetime.timedelta(days=30)
+        with self.sending() as sender:
+            closure = Event.objects.create(kind=Event.CLOSED, title="Christmas Day", start_date=day, end_date=day, all_day=True, delivery=True)
+            party = Event.objects.create(kind=Event.OPEN, title="Late night", start_date=day, end_date=day, opens=1260, closes=1500)
+        added = self.every(sender, "store_event.created")
+        self.assertEqual(added[0]["data"], {"event": {"id": str(closure.pk), "title": "Christmas Day", "kind": "closed", "starts_on": day.isoformat(),
+                                                      "ends_on": day.isoformat(), "all_day": True, "hours": "", "channels": "dine-in, pickup, delivery",
+                                                      "description": ""}})
+        self.assertEqual((added[1]["data"]["event"]["id"], added[1]["data"]["event"]["hours"], added[1]["data"]["event"]["channels"]),
+                         (str(party.pk), "9 PM – 1 AM", "dine-in, pickup"))
+        self.assertEqual(len(added), 2)
+        with self.sending() as sender:
+            closure.title = "Christmas"
+            closure.save()  # edits aren't new events
+        self.assertEqual(self.types(sender), [])
+
+    def test_a_dongle_going_offline_and_coming_back(self):
+        from asgiref.sync import async_to_sync
+        from django.core.cache import cache
+
+        from devices import pairing, socket
+        from devices.models import Dongle
+        from screens.models import Screen
+        dongle = Dongle.objects.create(name="Menu board left", hardware_id="7F3K", token_hash="x" * 64, screen=Screen.objects.create(name="Menu board", slug="menu"))
+        cache.delete(pairing.online_key(dongle.pk))
+        with self.sending() as sender:
+            async_to_sync(socket._online)(dongle.pk, "conn-1", save=True)
+            async_to_sync(socket._online)(dongle.pk, "conn-1", status={"uptime": 5})  # its status every 30 s: still online
+        self.assertEqual(self.types(sender), ["dongle.online"])
+        self.assertEqual(self.one(sender, "dongle.online")["data"], {"dongle": {"id": str(dongle.pk), "name": "Menu board left", "screen": "Menu board"}})
+        with self.sending() as sender:
+            async_to_sync(socket._offline)(dongle.pk, "an-older-connection")  # a newer one took over: not offline
+            async_to_sync(socket._offline)(dongle.pk, "conn-1")
+        self.assertEqual(self.types(sender), ["dongle.offline"])
+
+    # ----- the promise -----
+
+    def test_no_event_can_break_what_caused_it(self):
+        with mock.patch("switchboard.events.emit", side_effect=RuntimeError("boom")), self.assertLogs("switchboard.events", "ERROR"):
+            order = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED)
+            order.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        self.assertTrue(order.all_stations_done())
+
+    def test_without_a_connection_nothing_is_built_or_asked(self):
+        SwitchboardConnection.objects.all().delete()
+        with self.sending() as sender, mock.patch("switchboard.events._order") as built:
+            order = create_order(lines=[self.dish(self.tea)], channel="web", initial_status=OrderStation.STATUS_PENDING)
+            order.set_station_status(["bar"], OrderStation.STATUS_APPROVED)
+            events.order_rejected(order, "No tea")
+        built.assert_not_called()
+        self.assertEqual(sender.calls, [])
+        self.assertFalse(Delivery.objects.exists())
 
 
 class AdminPageTests(TestCase):

@@ -70,6 +70,9 @@ def _online(dongle_id, conn, status=None, save=False):
         Dongle.objects.filter(pk=dongle_id).update(**fields)  # .update(): no post_save, so no config echo
     if was != conn or changed:
         publish("dongles")
+    if was is None:  # it was offline until now
+        from switchboard import events as switchboard  # "dongle.online": never raises
+        switchboard.dongle(dongle_id, True)
 
 
 @sync_to_async
@@ -81,6 +84,8 @@ def _offline(dongle_id, conn):
         cache.delete(pairing.online_key(dongle_id))
         Dongle.objects.filter(pk=dongle_id).update(last_seen=timezone.now())
         publish("dongles")
+        from switchboard import events as switchboard  # "dongle.offline"
+        switchboard.dongle(dongle_id, False)
 
 
 async def dongle_socket(scope, receive, send):

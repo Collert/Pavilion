@@ -176,6 +176,10 @@ def save(draft):
             station = Station.objects.create(code=_code_for(r["name"]), **values)
         else:
             Station.objects.filter(pk=station.pk).update(**values)
+            if station.taking_tickets != bool(values["taking_tickets"]):
+                from switchboard import events as switchboard  # "station.paused" / "station.resumed": after commit, never raises
+                station.name = values["name"]
+                switchboard.station_switched(station, bool(values["taking_tickets"]))
         saved[_key(r, position)] = station
     for g in draft["gone"]:
         to = saved.get(g["to"])

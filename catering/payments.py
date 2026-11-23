@@ -83,6 +83,8 @@ def place_hold(order, amount: Decimal):
                              key=f"cat-{order.id}-hold-{_cents(amount)}", note=f"Deposit, catering {order.number}",
                              autocomplete=False)
     order.hold_payment_id, order.hold_amount, order.hold_state = payment_id, amount, CateringOrder.HELD
+    from switchboard import events as switchboard  # "catering.deposit_held": once the caller's save commits, never raises
+    switchboard.catering("catering.deposit_held", order, "Deposit held for catering order", deposit=float(amount))
 
 
 def release_hold(order):

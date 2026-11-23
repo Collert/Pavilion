@@ -102,6 +102,8 @@ def decide(req, approve, by, message="", handle="open") -> int:
             s.save(update_fields=["user", "published"])
             opened += 1
     transaction.on_commit(lambda: _tell(req))
+    from switchboard import events as switchboard  # "time_off.decided" / "availability.decided": after commit, never raises
+    switchboard.request_decided(req)
     return opened
 
 
@@ -165,9 +167,12 @@ def ask_time_off(user, first_day, last_day, all_day=True, start=None, end=None, 
         raise RequestError(_("The end date is before the start date."))
     if not all_day and (start is None or end is None or end <= start):
         raise RequestError(_("Check the times."))
-    return TimeOff.objects.create(user=user, first_day=first_day, last_day=last_day, all_day=all_day,
-                                  start=None if all_day else start, end=None if all_day else end,
-                                  category=category[:20], reason=reason.strip()[:300])
+    req = TimeOff.objects.create(user=user, first_day=first_day, last_day=last_day, all_day=all_day,
+                                 start=None if all_day else start, end=None if all_day else end,
+                                 category=category[:20], reason=reason.strip()[:300])
+    from switchboard import events as switchboard  # "time_off.requested"
+    switchboard.request_made(req)
+    return req
 
 
 def ask_availability(user, windows, effective, until=None, reason="") -> Availability:
@@ -182,7 +187,10 @@ def ask_availability(user, windows, effective, until=None, reason="") -> Availab
         clean[str(d)] = day
     if clean == windows_now(user, effective):
         raise RequestError(_("Change a day to send it."))
-    return Availability.objects.create(user=user, windows=clean, effective=effective, until=until, reason=reason.strip()[:300])
+    req = Availability.objects.create(user=user, windows=clean, effective=effective, until=until, reason=reason.strip()[:300])
+    from switchboard import events as switchboard  # "availability.requested"
+    switchboard.request_made(req)
+    return req
 
 
 def withdraw(req, user):

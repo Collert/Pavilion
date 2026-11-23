@@ -162,6 +162,25 @@ class Dish(models.Model):
                 price = tier.price
         return price
 
+    def _sellable(self):
+        """(archived, sellable but for its station's switch): what save() compares to tell Switchboard it sold out."""
+        return self.archived, self.availability != "off" and not self.blocked and (self.availability == "always" or self.in_stock)
+
+    @classmethod
+    def from_db(cls, db, field_names, values, **kwargs):
+        dish = super().from_db(db, field_names, values, **kwargs)
+        if len(values) == len(cls._meta.concrete_fields):  # not with deferred fields: reading one would query
+            dish._sellable_was = dish._sellable()
+        return dish
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        was, now = getattr(self, "_sellable_was", None), self._sellable()
+        self._sellable_was = now
+        if was is not None and was != now and not was[0] and not now[0]:
+            from switchboard import events as switchboard  # "dish.sold_out" / "dish.back_in_stock": after commit, never raises
+            switchboard.dish_availability(self, now[1])
+
     def update_stock(self):
         """Recompute `in_stock` (every component can supply one) and `blocked` (a component is turned off)."""
         parts = list(self.dishcomponent_set.select_related("component"))
@@ -629,7 +648,8 @@ class Order(models.Model):
         """
         from .signals import order_ready
         self.refresh_station_statuses()
-        was_done = self.all_stations_done()
+        held = list(self.station_statuses.values_list("station_id", "station__code", "status"))
+        was_done = all(s in (OrderStation.STATUS_DONE, OrderStation.STATUS_REJECTED) for _id, _code, s in held)
         rows = self.station_statuses.filter(station__code__in=station_codes)
         if only_from is not None:
             rows = rows.filter(status__in=only_from)
@@ -638,6 +658,14 @@ class Order(models.Model):
         if changed:
             self.refresh_station_statuses()
             self.save()
+            # To connected Switchboards (after commit, never raises): the kitchen took the order, a station finished its part
+            from switchboard import events as switchboard
+            moving = [pk for pk, code, s in held if code in station_codes and s != status and (only_from is None or s in only_from)]
+            waiting = [pk for pk, _code, s in held if s == OrderStation.STATUS_PENDING]
+            if status == OrderStation.STATUS_APPROVED and waiting and set(waiting) <= set(moving):
+                switchboard.order_approved(self)
+            if status == OrderStation.STATUS_DONE and moving:
+                switchboard.order_station_done(self, moving)
             if not was_done and self.all_stations_done():
                 order_ready.send(sender=Order, order=self)
         return changed
@@ -979,7 +1007,31 @@ class CashMovement(models.Model):
         return f"{self.amount} ({self.reason})"
 
 
-class Component(models.Model):
+class CountWatch:
+    """For what is counted (Component, Ingredient): remembers the count it was loaded with, so save() can tell
+    Switchboard when it dropped below par or ran out (switchboard/events.py: stock_level). Kept on the instance,
+    costs no query."""
+
+    @classmethod
+    def from_db(cls, db, field_names, values, **kwargs):
+        obj = super().from_db(db, field_names, values, **kwargs)
+        if "inventory" in field_names:
+            obj._count_was = obj.inventory
+        return obj
+
+    def refresh_from_db(self, using=None, fields=None, **kwargs):
+        super().refresh_from_db(using=using, fields=fields, **kwargs)
+        if fields is None or "inventory" in fields:
+            self._count_was = self.inventory
+
+    def _count_saved(self):
+        was, self._count_was = getattr(self, "_count_was", None), self.inventory
+        if was is not None and self.inventory is not None and self.inventory < was:
+            from switchboard import events as switchboard  # "stock.low" / "stock.ran_out": after commit, never raises
+            switchboard.stock_level(self, was, self.inventory)
+
+
+class Component(CountWatch, models.Model):
     """
     Something made or bought that dishes are built from (a beef patty, burger sauce, a brioche bun), counted in
     `unit_of_measurement` (g, ml or ea). Each storage state is its own component (frozen and thawed patties), and
@@ -1043,6 +1095,7 @@ class Component(models.Model):
         if kwargs.get("update_fields") is not None:
             kwargs["update_fields"] = {*kwargs["update_fields"], "in_stock"}
         super().save(*args, **kwargs)
+        self._count_saved()
         for dc in self.dishcomponent_set.select_related("dish"):
             dc.dish.update_stock()
 
@@ -1144,7 +1197,7 @@ class Supplier(models.Model):
         return self.name
 
 
-class Ingredient(models.Model):
+class Ingredient(CountWatch, models.Model):
     """
     Something the restaurant buys (flour, milk, ground beef), counted in `unit_of_measurement` (g, ml or ea). It's
     bought in packs: `cost`, the price of one unit, is `pack_price / pack_size` (set on save), and every component and
@@ -1192,6 +1245,7 @@ class Ingredient(models.Model):
         if self.pack_price is not None and self.pack_size and self.pack_size > 0:
             self.cost = (self.pack_price / Decimal(str(self.pack_size))).quantize(Decimal("0.000001"))
         super().save(*args, **kwargs)
+        self._count_saved()
 
     @property
     def flags(self) -> dict:

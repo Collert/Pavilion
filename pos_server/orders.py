@@ -39,6 +39,8 @@ def use_disposables(order, cart):
         DisposableUse.objects.create(order=order, disposable=disposable, quantity=count, cost=ingredient.cost or 0)
         if not ingredient.unlimited:
             Ingredient.objects.filter(pk=ingredient.pk).update(inventory=F("inventory") - count)
+            from switchboard import events as switchboard  # an update() skips save(): "stock.low" / "stock.ran_out" from here
+            switchboard.stock_drawn(Ingredient, ingredient.pk, count)
     for fee in cart.fees:
         OrderFee.objects.create(order=order, disposable=fee.disposable, label=fee.label, quantity=fee.quantity, amount=fee.amount)
 
@@ -223,7 +225,7 @@ def create_order(*, lines, channel, initial_status, order_discount=None, payment
         OrderPayment.objects.create(order=order, method=OrderPayment.CARD, amount=total - gift_total, entry_method="online")
     order.picked_up = not station_ids
     order.save()
-    from switchboard import events as switchboard  # "order.placed" to connected Switchboards: after commit, never raises
+    from switchboard import events as switchboard  # "order.placed" (and "discount.used") to connected Switchboards: after commit, never raises
     switchboard.order_placed(order)
     return order
 

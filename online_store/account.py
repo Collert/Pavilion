@@ -92,6 +92,8 @@ def join(request):
                 profile.phone = int(digits) if digits else None
                 profile.newsletter = form["news"]
                 profile.save()
+                from switchboard import events as switchboard  # "customer.registered": never raises
+                switchboard.customer_registered(user)
                 login(request, user, backend="django.contrib.auth.backends.ModelBackend")
                 from users.accounts import send_verification
                 try:

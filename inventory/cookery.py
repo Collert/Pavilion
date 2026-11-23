@@ -207,6 +207,8 @@ def finish(user, body):
                 waste.append({"ingredient": reservation.ingredient_id, "qty": amount})
     waste.sort(key=lambda w: -w["qty"])
     minutes = max(1, round((session.finished_at - session.started_at).total_seconds() / 60))
+    from switchboard import events as switchboard  # "batch.cooked": after commit, never raises
+    switchboard.batch_cooked(session, user, component, made)
     return {"done": {"component": component.id, "made": made, "expected": session.expected, "minutes": minutes,
                      "batch": session.batch, "recipe": session.recipe_id, "have": component.inventory, "waste": waste}}
 

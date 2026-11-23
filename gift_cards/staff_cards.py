@@ -82,6 +82,8 @@ def refill(card, now=None):
         card.balance = t.amount if t.leftover == "reset" else min(card.balance + t.amount * n, max(t.cap, t.amount))
         card.refilled_at = now
         card.save(update_fields=["balance", "refilled_at"])
+        from switchboard import events as switchboard  # "staff_card.refilled": after commit, never raises
+        switchboard.staff_card_refilled(card)
     return card
 
 
@@ -94,6 +96,8 @@ def clocked_in(user, now=None):
         card.balance = t.amount if t.leftover == "reset" else min(card.balance + t.amount, max(t.cap, t.amount))
         card.refilled_at = now
         card.save(update_fields=["balance", "refilled_at"])
+        from switchboard import events as switchboard
+        switchboard.staff_card_refilled(card)
 
 
 def on_the_clock(user) -> bool:

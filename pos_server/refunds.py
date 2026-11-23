@@ -185,4 +185,6 @@ def refund_order(order, *, picks=None, whole=False, reason, to, user) -> Refund:
     from online_store import order_push
     order_emails.refunded(order, refund)
     order_push.refunded(order, refund)
+    from switchboard import events as switchboard  # "order.refunded": after commit, never raises
+    switchboard.order_refunded(order, refund)
     return refund

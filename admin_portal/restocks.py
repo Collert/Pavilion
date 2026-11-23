@@ -195,6 +195,7 @@ def _take_price(ingredient, line):
 def save_draft(draft, restock, user=None):
     """Write the draft. Returns the number of lines whose stock was taken in (the first save as delivered)."""
     restock.supplier_id = _int(draft["supplier"])
+    status_was = restock.status if restock.pk else Restock.DRAFT
     if not restock.received_at:
         restock.status = draft["status"]
     restock.created_on = _date(draft["created_on"]) or restock.created_on or timezone.localdate()
@@ -227,12 +228,17 @@ def save_draft(draft, restock, user=None):
             taken += 1
         restock.received_at = timezone.now()
         restock.save(update_fields=["received_at"])
+        from switchboard import events as switchboard  # "restock.delivered": after commit, never raises
+        switchboard.restock("restock.delivered", restock)
     elif restock.received_at:
         # A price fixed after delivery: the ingredient follows when this is its latest delivery
         for line, changed in saved:
             latest = RestockLine.objects.filter(ingredient_id=line.ingredient_id, restock__received_at__isnull=False).order_by("-restock__received_at").first()
             if changed and latest and latest.pk == line.pk:
                 _take_price(Ingredient.objects.get(pk=line.ingredient_id), line)
+    if restock.status == Restock.PLACED and status_was == Restock.DRAFT:
+        from switchboard import events as switchboard  # "restock.placed"
+        switchboard.restock("restock.placed", restock)
     return taken
 
 

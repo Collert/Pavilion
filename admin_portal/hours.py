@@ -152,11 +152,19 @@ def pause(minutes, now=None) -> datetime.datetime:
         until = current[1] if current else now + datetime.timedelta(hours=1)
     cfg.paused_until = until
     cfg.save(update_fields=["paused_until"])
+    from switchboard import events as switchboard  # "store.paused": after commit, never raises
+    switchboard.store_paused(until)
     return until
 
 
-def resume():
+def resume() -> bool:
+    """End the pause now. True when online orders really were paused."""
+    was = bool(StoreHours.objects.filter(pk=1, paused_until__gt=timezone.now()).update(paused_until=None))
     StoreHours.objects.filter(pk=1).update(paused_until=None)
+    if was:
+        from switchboard import events as switchboard  # "store.resumed"
+        switchboard.store_resumed()
+    return was
 
 
 # ---------- the page ----------

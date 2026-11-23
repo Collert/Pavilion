@@ -93,6 +93,12 @@ def _say(order, who, kind=CateringMessage.MESSAGE, user=None, **fields):
     return CateringMessage.objects.create(order=order, who=who, kind=kind, user=user, **fields)
 
 
+def _switchboard(event, order, summary, **more):
+    """Tell connected Switchboards (switchboard/events.py: after commit, never raises)."""
+    from switchboard import events
+    events.catering(f"catering.{event}", order, summary, **more)
+
+
 def place(order, request=None, quiet=False):
     """A new order came in (its lines are saved): note it, and send the auto-reply."""
     cfg = CateringSettings.load()
@@ -110,6 +116,7 @@ def place(order, request=None, quiet=False):
                  "n": order.days_ahead, "m": pricing_days(cfg.notice_days(totals["minutes"]))})
     if cfg.auto_reply:
         _say(order, CateringMessage.SYSTEM, at=order.placed_at, text=_("Auto-reply sent: “%(text)s”") % {"text": cfg.auto_reply})
+    _switchboard("requested", order, "Catering request")
     if not quiet:
         _email("catering_received", order, request, message=cfg.auto_reply)
         _tell_staff(order, request)
@@ -160,8 +167,8 @@ def hold_due(order, cfg=None) -> bool:
     return order.hold_on(cfg.hold_days) <= timezone.localdate()
 
 
-def _confirm(order, request=None):
-    """Charge the card and confirm: shared by staff accepting and the customer agreeing to changes."""
+def _confirm(order, request=None, by="store"):
+    """Charge the card and confirm: shared by staff accepting and the customer agreeing to changes (`by`)."""
     cfg = CateringSettings.load()
     totals = pricing.order_totals(order)
     payments.charge(order, totals["total"])
@@ -180,6 +187,7 @@ def _confirm(order, request=None):
     order.save()
     _sync_bookings(order)
     _say(order, CateringMessage.SYSTEM, text=note)
+    _switchboard("confirmed", order, "Confirmed catering order", confirmed_by=by)
 
 
 @transaction.atomic
@@ -209,6 +217,10 @@ def reject(order, user, reason, message, request=None, quiet=False):
     _say(order, CateringMessage.STAFF, kind, user=user, reason=reason[:60], text=message.strip())
     if refunded:
         _say(order, CateringMessage.SYSTEM, text=_("Refunded %(amount)s to %(card)s.") % {"amount": pricing.money(refunded), "card": order.card})
+    if kind == CateringMessage.REJECTED:
+        _switchboard("rejected", order, "Rejected catering request", reason=order.reason)
+    else:
+        _switchboard("cancelled", order, "Cancelled catering order", cancelled_by="store", reason=order.reason, refunded=float(refunded or 0))
     if quiet:
         return
     _email("catering_closed", order, request, message=message.strip(), reason=reason,
@@ -237,6 +249,7 @@ def propose(order, user, draft_lines, message, request=None, quiet=False):
     snapshot(order, CateringVersion.STAFF)
     _say(order, CateringMessage.STAFF, CateringMessage.CHANGES, user=user, text=message.strip(), changes=diff,
          was_total=was, now_total=now)
+    _switchboard("changes_proposed", order, "Changes proposed for", previous_total=float(was), message=message.strip())
     if quiet:
         return
     _email("catering_changes", order, request, message=message.strip(), was=pricing.money(was), now=pricing.money(now),
@@ -249,7 +262,7 @@ def agree(order, request=None):
     if order.status != CateringOrder.WAITING:
         raise CateringError(_("There are no changes waiting for you."))
     _say(order, CateringMessage.CUSTOMER, CateringMessage.AGREED)
-    _confirm(order, request)
+    _confirm(order, request, by="customer")
     _email("catering_accepted", order, request, message="")
 
 
@@ -273,6 +286,7 @@ def counter(order, draft_lines, message="", request=None):
     version = snapshot(order, CateringVersion.CUSTOMER)
     _say(order, CateringMessage.CUSTOMER, CateringMessage.COUNTER, text=message.strip()[:600], changes=diff,
          was_total=was, now_total=now, reason=str(version.number))
+    _switchboard("counter_proposed", order, "The customer changed", previous_total=float(was), message=message.strip()[:600])
 
 
 @transaction.atomic
@@ -283,6 +297,7 @@ def customer_cancel(order, request=None):
     order.status, order.closed_at, order.reason, order.previous = CateringOrder.CANCELLED, timezone.now(), _("Cancelled by the customer"), None
     order.save()
     _say(order, CateringMessage.CUSTOMER, CateringMessage.CANCELLED, reason=_("Cancelled by the customer"))
+    _switchboard("cancelled", order, "The customer cancelled", cancelled_by="customer", reason=str(order.reason), refunded=0.0)
 
 
 @transaction.atomic
@@ -292,6 +307,7 @@ def decline(order, message="", request=None):
     order.status, order.closed_at, order.reason = CateringOrder.CANCELLED, timezone.now(), _("Declined the changes")
     order.save()
     _say(order, CateringMessage.CUSTOMER, CateringMessage.DECLINED, text=message.strip())
+    _switchboard("cancelled", order, "The customer declined the changes to", cancelled_by="customer", reason=str(order.reason), refunded=0.0)
 
 
 def write(order, who, text, user=None, request=None):
@@ -303,6 +319,8 @@ def write(order, who, text, user=None, request=None):
     _say(order, who, user=user, text=text.strip()[:600])
     if who == CateringMessage.STAFF:
         _email("catering_message", order, request, message=text.strip())
+    elif who == CateringMessage.CUSTOMER:
+        _switchboard("message_received", order, "Message about", message=text.strip()[:600])
 
 
 def remind(order, request=None):
@@ -327,6 +345,7 @@ def finish(order, user, keep_deposit=False):
     order.status, order.closed_at = CateringOrder.DONE, timezone.now()
     order.save()
     _say(order, CateringMessage.SYSTEM, user=user, text=text)
+    _switchboard("completed", order, "Completed catering order", deposit_kept=bool(keep_deposit and held))
 
 
 def daily(today=None) -> dict:
@@ -353,5 +372,6 @@ def daily(today=None) -> dict:
             order.status, order.closed_at = CateringOrder.DONE, timezone.now()
             order.save(update_fields=["status", "closed_at"])
             _say(order, CateringMessage.SYSTEM, text=_("Order completed."))
+            _switchboard("completed", order, "Completed catering order", deposit_kept=False)
             out["completed"] += 1
     return out

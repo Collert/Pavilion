@@ -110,7 +110,10 @@ def start_break(user, now=None) -> TimeBreak:
         raise ClockError(_("Clock in first."))
     if any(b.end is None for b in entry.breaks.all()):
         raise ClockError(_("You’re already on a break."))
-    return TimeBreak.objects.create(entry=entry, start=now)
+    started = TimeBreak.objects.create(entry=entry, start=now)
+    from switchboard import events as switchboard  # "staff.break_started": after commit, never raises
+    switchboard.break_started(entry, now)
+    return started
 
 
 def end_break(user, now=None):
@@ -118,6 +121,8 @@ def end_break(user, now=None):
     entry = open_entry(user)
     if entry is None or not entry.breaks.filter(end__isnull=True).update(end=now):
         raise ClockError(_("You’re not on a break."))
+    from switchboard import events as switchboard
+    switchboard.break_ended(entry, now)
 
 
 @transaction.atomic

@@ -231,9 +231,13 @@ def candidates(aq) -> list:
 
 
 def promote(user) -> User:
+    was_staff = user.is_staff
     user.is_staff = True
     user.save(update_fields=["is_staff"])
     profile(user)
+    if not was_staff:
+        from switchboard import events as switchboard  # "staff.added": after commit, never raises
+        switchboard.staff_added(user)
     return user
 
 
@@ -252,6 +256,8 @@ def create(add) -> tuple[User | None, str]:
     p = profile(user)
     p.phone = add.get("phone", "")[:20]
     p.save(update_fields=["phone"])
+    from switchboard import events as switchboard  # "staff.added"
+    switchboard.staff_added(user)
     return user, ""
 
 

@@ -88,7 +88,10 @@ def _move(shift, user):
 @transaction.atomic
 def give(shift, user, note="") -> ShiftOffer:
     _mine(shift, user)
-    return ShiftOffer.objects.create(shift=shift, kind=ShiftOffer.GIVE, by=user, note=note.strip()[:200])
+    offer = ShiftOffer.objects.create(shift=shift, kind=ShiftOffer.GIVE, by=user, note=note.strip()[:200])
+    from switchboard import events as switchboard  # "shift.offered": after commit, never raises
+    switchboard.shift_offered(offer)
+    return offer
 
 
 @transaction.atomic
@@ -109,6 +112,8 @@ def grab(user, shift) -> Shift:
         offer.status, offer.taken_by, offer.decided_at = ShiftOffer.DONE, user, timezone.now()
         offer.save(update_fields=["status", "taken_by", "decided_at"])
         _tell(offer, "shift_taken", giver)
+    from switchboard import events as switchboard  # "shift.taken"
+    switchboard.shift_taken(shift, user, giver)
     return shift
 
 
@@ -173,6 +178,9 @@ def decide(offer, approve, by, message="") -> ShiftOffer:
     offer.save(update_fields=["status", "decided_at", "decided_by", "message"])
     for person in (offer.by, offer.to):
         _tell(offer, "shift_swap_decided", person)
+    if approve:
+        from switchboard import events as switchboard  # "shift.swapped"
+        switchboard.shift_swapped(offer)
     return offer
 
 

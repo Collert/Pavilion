@@ -656,6 +656,8 @@ def cash_drawer(request):
                     return JsonResponse({"message": _("The drawer is already open.")}, status=409)
                 drawer = CashDrawerSession.objects.create(device=device, opened_by=request.user,
                                                           opening_amount=to_money(body.get("amount")))
+                from switchboard import events as switchboard  # "drawer.opened": after commit, never raises
+                switchboard.drawer_opened(drawer)
                 return JsonResponse({"drawer": drawer_summary(drawer)})
             if drawer is None:
                 return JsonResponse({"message": _("The drawer isn't open.")}, status=409)
@@ -676,6 +678,8 @@ def cash_drawer(request):
                 drawer.closed_at = timezone.now()
                 drawer.closed_by = request.user
                 drawer.save()
+                from switchboard import events as switchboard  # "drawer.closed", with its variance
+                switchboard.drawer_closed(drawer, Decimal(summary["cashSales"]) / 100, summary["orders"])
                 summary.update(counted=to_cents(counted), closedAt=timezone.localtime(drawer.closed_at).isoformat())
                 return JsonResponse({"closed": summary})
         except (OrderError, ArithmeticError, ValueError, TypeError):

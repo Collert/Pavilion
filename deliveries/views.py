@@ -218,6 +218,8 @@ def order(request, id):
             messages.info(request, _("Someone else just took order #%(n)s.") % {"n": delivery.order_number})
             return redirect("delivery_orders")
         couriers_changed(Delivery)  # update() sends no signals: the KDS shows the order now
+        from switchboard import events as switchboard  # "delivery.assigned": after commit, never raises
+        switchboard.delivery_assigned(delivery.pk, request.user)
         return redirect("delivery_current")
 
     routes.fill_travel_times([delivery])
@@ -286,6 +288,9 @@ def _current_post(request, delivery, phase):
             delivery.save(update_fields=["picked_up_at"])
             delivery.order.picked_up = True  # it leaves the kitchen display
             delivery.order.save()
+            from switchboard import events as switchboard  # "delivery.picked_up" and "order.picked_up"
+            switchboard.delivery_picked_up(delivery)
+            switchboard.order_picked_up(delivery.order)
         return redirect("delivery_current")
     if action == "arrive" and phase == "enroute":
         delivery.arrived_at = now
@@ -310,6 +315,8 @@ def _current_post(request, delivery, phase):
         delivery.handoff = handoff
         delivery.delivered_at = now
         delivery.save()
+        from switchboard import events as switchboard  # "delivery.delivered"
+        switchboard.delivery_delivered(delivery)
         return redirect("delivery_done", id=delivery.id)
     if action in ("dismiss", "pickup", "arrive", "complete"):
         messages.info(request, _("That step is already done."))
