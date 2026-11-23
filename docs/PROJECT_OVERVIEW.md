@@ -1278,7 +1278,9 @@ Committed. The DB was reset on 2026-10-13; every app starts at `0001_initial` (t
 - Errors go to Bugsink: the server's through `sentry_sdk` (`BUGSINK_DSN`), and outside DEBUG every page's JavaScript
   errors and `console.error`s too (the Sentry browser bundle in `static/vendor/sentry/`, started by
   `static/js/browser-errors.js` from `pos_server/_browser_errors.html`, which every page's `<head>` includes;
-  `BUGSINK_BROWSER=false` turns it off). Kiosk screens have no console anyone reads.
+  `BUGSINK_BROWSER=false` turns it off). Kiosk screens have no console anyone reads. Fetches that never
+  reached the server ("Failed to fetch" and the other browsers' wordings) aren't reported: that's the network, and
+  screens catch up when the live stream reconnects.
 
 ---
 
