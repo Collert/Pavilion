@@ -1210,46 +1210,133 @@ people's workflows: add to them, never rename or remove.** People are matched be
 - **Idempotency**: an action call's `Idempotency-Key` is stored with the answer given (`IdempotencyRecord`, 200 and
   4xx alike, a month); a repeated key gets that answer back without the work being done again. The record and the
   action's writes share one transaction, so an unexpected error leaves nothing and a retry runs it. Lookups ignore it.
-- **Actions** (`actions.py`, one function per name; ids are strings, a staff member's is their account's id):
-  - `staff.find` (lookup): `email` → `found`, `staff_id`, `name`, `email`, `roles` (names joined with commas),
-    `active`. Nobody found is `200 {"found": false}`.
-  - `staff.ensure`: `name`, `email`, optional `role`, `invite` → `staff_id`, `name`, `email`, `created`. What the
-    Staff page's Add does (`admin_portal/staff.py`): a customer's account with that email becomes staff, else a new
-    account is made with no password. A role (by name) is added with its starting groups, never Owners. Owners are
-    returned untouched. `invite: true` emails a new person the set-your-password link (`staff_invite`). Without a
-    password or a PIN they can't use the time clock yet: a manager sets a PIN on the Staff page.
-  - `staff_card.issue`: `staff_id`, `amount`, optional `label`, `replace_previous` → `card_id`, `amount`, `label`,
-    `replaced`. The label is a **card type** on the Staff cards page (default "Switchboard"): a balance type with that
-    name is used as it is (its rules and refills apply after the first balance), otherwise a one-time balance type is
-    made (`refill` never, every channel) that a manager can then edit like any other. The card starts with `amount`.
-    One live card per person and type, as on the Staff cards page: a second one is a 409 unless `replace_previous`,
-    which first revokes every live card this connection issued them (`IssuedCard`; matched by host too, so a
-    Switchboard that reconnects still replaces its cards) and returns the newest one's id as `replaced`. Cards a
-    manager issued are never revoked. A discount type's name is a 409.
-  - `shift.add`: `staff_id`, `starts_at`, `ends_at`, optional `role`, `note` → `shift_id`, `status`, `created`. A
-    published `team.Shift` on the store's date and minutes (no offset means the store's time; it can end at midnight
-    but not run past it: 422), with the named role or else the person's first. A shift of theirs at exactly those
-    times is returned (`created` false, `status` published or unpublished); one that overlaps is a 409. The person is
-    emailed their schedule, as Publish does.
-- **Events** (`events.py`): `order.placed` (the end of `create_order`, every channel; `order.type` is dine_in, to_go,
-  pickup or delivery), `order.ready` (the `order_ready` signal: the last station finished it; orders no station makes
-  never send it), `staff.clocked_in` and `staff.clocked_out` (`team/clock.py`; `hours` without unpaid breaks).
-  `emit()` never raises and only registers an on-commit hook; after the commit one query looks for connections that
-  aren't broken (none: nothing happens), then the envelope (`id` `evt_…`, the same for every connection and retry,
-  `source.instance` this Pavilion's address as that Switchboard knows it) is written to `Delivery` and posted from a
-  background thread with `X-Switchboard-Signature: sha256=<HMAC of the raw body>`. Anything but a 2xx within 10 s is
-  retried, 5 tries in all with waits of 5 s, 30 s, 2 min and 10 min; a 410 marks the connection broken
-  (`broken_at`) and nothing more is sent to it. What is due lives in the database (`next_attempt_at`), each try is
-  claimed with a conditional update, and deliveries a restart left behind are taken up with the next event
-  (`sweep`, which also drops log rows older than two weeks). The signed body is cleared once a delivery is over.
+- **Actions** (`actions.py`, one function per name in `RUN`; ids are strings, a staff member's is their account's id).
+  Each calls the function the admin page or screen for it calls, so its rules are the page's rules. `clean()` turns
+  the body into typed params and holds them to the limits the manifest states (`max_length`, `min`/`max`, `choices`:
+  422, saying which). Lookups answer `200 {"found": false}` when there is nothing; "find by name" lookups (`dish.find`,
+  `stock.find`) answer the closest match's fields plus `count` and `matches` (names joined with commas), because
+  Switchboard has flat outputs and no loops. **Left out on purpose**: anything that charges, captures or refunds a
+  payment; creating, editing, rejecting or marking orders (orders only come from `create_order`; station statuses only
+  from the kitchen screen); accepting, rejecting or changing catering orders (they charge the card on file); taking
+  money off a gift card; anything that deletes; menu switching and publishing the schedule (both are a manager's
+  review step); groups, PINs and passwords.
+  - **Staff**: `staff.find` (lookup: `email` → `found`, `staff_id`, `name`, `email`, `roles`, `active`),
+    `staff.ensure` (`name`, `email`, optional `role`, `invite` → `staff_id`, `name`, `email`, `created`: what the Staff
+    page's Add does, `admin_portal/staff.py`; a customer's account with that email becomes staff, else a new account
+    with no password; a role by name comes with its starting groups, never Owners; owners are returned untouched),
+    `staff.invite` (`staff_id` → `sent`: the set-your-password email again; not for owners or deactivated accounts;
+    409 when email isn't connected), `team.on_now` (lookup: `count`, `names`, `on_break`), `staff_card.issue`
+    (`staff_id`, `amount`, optional `label`, `replace_previous` → `card_id`, `amount`, `label`, `replaced`: the label
+    is a **card type** on the Staff cards page, default "Switchboard"; a balance type with that name is used as it is,
+    otherwise a one-time balance type is made; one live card per person and type, a second is a 409 unless
+    `replace_previous`, which revokes the cards this connection issued them, `IssuedCard`, matched by host too).
+  - **The schedule**: `shift.add` (`staff_id`, `starts_at`, `ends_at`, optional `role`, `note` → `shift_id`, `status`,
+    `created`: a published `team.Shift` in the store's time, not past midnight; the same shift again is returned, an
+    overlap is a 409; the person is emailed), `shift.cancel` (`shift_id` → `status`, `cancelled`: the Shifts page's
+    Delete, so a shift staff were told about is marked deleted and **waits for a manager's Publish**
+    (`waiting_for_publish`), one never published is removed; a started shift is a 409), `shift.next` (lookup:
+    `staff_id` → `shift_id`, `starts_at`, `ends_at`, `role`, `upcoming`), `time_off.request` (`staff_id`, `first_day`,
+    optional `last_day`, `category`, `reason` → `request_id`, `status`, `created`: `requests.ask_time_off`, a pending
+    request a manager still decides; the same days again return the request there is).
+  - **Customers and orders**: `customer.find` (lookup by `email`: `customer_id`, name, phone, `orders`,
+    `total_spent`, `last_order_at`, `newsletter`, `email_verified`, `notes`), `customer.add_note` (a line added to
+    `Customer.staff_notes`, 200 characters in all: full is a 409; a line already there isn't added twice),
+    `order.find` (lookup by `number`: type, channel, `status` waiting / in_progress / ready / picked_up / delivered,
+    `payment` paid / partial / refunded, totals, `summary`), `order.send_receipt` (`order_id`, optional `email`: the
+    order history's Send, logged in `ReceiptLog`), `sales.summary` (lookup, optional `date`: orders, sales, average,
+    tax, tips, discounts, refunds, items, top dish, online orders; `admin_portal/reports.py: summaries`),
+    `catering.find` (lookup by `number`), `catering.send_message` (`number`, `message`: `flow.write` as staff, emailed
+    to the customer; a closed order is a 409).
+  - **Menu and stock**: `dish.find` (lookup by `name`: price, station, `available`, `mode`, `reason`),
+    `dish.set_availability` (`dish_id`, `mode` off / auto / always: `inventory/availability.py: apply_changes`),
+    `station.set_taking_tickets` (`station` by name or code, `taking_tickets`), `stock.find` (lookup by `name`,
+    optional `kind`: ingredients first, then components; `on_hand`, `unit`, `par`, `below_par`), `stock.adjust`
+    (`kind`, `item_id`, `change`: Cookery's `_adjust`, locked and saved so dishes follow; never below zero, never for
+    uncounted ingredients).
+  - **Gift cards and coupons**: `gift_card.issue` (`name`, `email`, `amount` in whole dollars up to 1,000, optional
+    `message`, `note` → `card_id`, `last4`, `balance`, `amount`, `emailed`). **The number is never answered, logged or
+    stored**: `giftcards.issue` makes the card, `giftcards.email_issued` sends it to the recipient inside the same
+    transaction, and if email isn't connected (409 before anything is made) or the send fails (409, the card is rolled
+    back) no card exists, so there is never a card whose number nobody can read. `gift_card.get` (lookup by
+    `card_id`: balance, original, frozen, who it's for), `gift_card.load` (adds only, `giftcards.adjust`, up to the
+    $1,000 cap), `gift_card.freeze`, `gift_card.resend` (the balance email: last 4 and a balance link, no number).
+    `coupon.create` (optional `name`, `code`, `kind` pct / amt, `value`, optional `ends_on`, `max_uses`,
+    `once_per_customer`, `first_order_only`, `min_subtotal`, `online_only` → `coupon_id`, `code`, `name`: a whole-order
+    coupon checked by the Coupons page's `errors` and saved by its `save`; without a code one is made up; a code in
+    use is a 409), `coupon.find` (lookup by `code`: value, `active`, `times_used`, `max_uses`, `ends_on`).
+  - **The store**: `store.status` (lookup: `open`, `ordering_paused`, `paused_until`, `closes_at` or `opens_at`,
+    `hours_today`), `store.pause_ordering` (optional `minutes` up to 240, as the Store hours page) and
+    `store.resume_ordering`, `store_event.create` (a closure or extra hours through the Events page's `errors` and
+    `save`; the same title, kind and days is returned, not added twice; customers are **not** emailed, that is the
+    page's own Save), `announcement.post` (`text`, optional `speak`: the register's Announce, `popups.record` plus
+    `audio.calls.speak`).
+  - Dates without a time are text like `2026-12-24` (the protocol has no date type); times of day are `09:00`.
+- **Events** (`events.py`, one function per trigger; each is called from the one place the thing happens, after
+  which nothing more is needed there). `emit(type, build)` never raises and only registers an on-commit hook; after
+  the commit one query looks for connections that aren't broken (none: `build` is never called), then the envelope
+  (`id` `evt_…`, the same for every connection and retry, `source.instance` this Pavilion's address as that
+  Switchboard knows it) is written to `Delivery` and posted from a background thread with
+  `X-Switchboard-Signature: sha256=<HMAC of the raw body>`. `build` may return a list (one event each) or None;
+  `emit_all` sends several types from one occurrence with one lookup; `emit_now` builds straight away for something
+  about to be deleted (a rejected order), after one query for a connection. Because `build` runs after the commit,
+  an event describes the row as it is then. Anything but a 2xx within 10 s is retried, 5 tries in all with waits of
+  5 s, 30 s, 2 min and 10 min; a 410 marks the connection broken (`broken_at`) and nothing more is sent to it. What
+  is due lives in the database (`next_attempt_at`), each try is claimed with a conditional update, and deliveries a
+  restart left behind are taken up with the next event (`sweep`, which also drops log rows older than two weeks).
+  The signed body is cleared once a delivery is over. **No event is time-based**, so there is no command to run.
+  - **Orders** (fields `order.id|number|type|channel|total|items|subtotal|discount|tax|tip|summary|placed_at`,
+    `customer.name|email|phone`): `order.placed` (the end of `create_order`, every channel), `order.approved` (the last
+    pending station confirmed an online or delivery order; register orders start approved), `order.station_done`
+    (each station finishing its part, with `station.code|name`), `order.ready` (the `order_ready` signal), all three
+    from `Order.set_station_status`; `order.rejected` (the kitchen screen's Reject, with `reason`, built before the
+    order is deleted), `order.picked_up` (the kitchen screen, or the courier collecting), `order.refunded`
+    (`refund_order`: `refund.amount|reason|to|whole|by`), `discount.used` (one per `OrderDiscount` of a new order:
+    `discount.id|name|code|kind|amount`, kind coupon / offer / automatic / manual / staff_card).
+  - **Deliveries** (`deliveries/views.py`; the order's fields plus the courier as `staff.*` and `delivery.id|address`):
+    `delivery.assigned`, `delivery.picked_up`, `delivery.delivered` (`handoff`, `minutes`).
+  - **Catering** (`catering/flow.py`; `catering.id|number|title|status|event_at|fulfilment|total|rush`,
+    `customer.name|email|phone|organization`): `catering.requested`, `catering.confirmed` (`confirmed_by` store or
+    customer), `catering.changes_proposed` and `catering.counter_proposed` (`previous_total`, `message`),
+    `catering.message_received` (the customer wrote), `catering.rejected`, `catering.cancelled` (`cancelled_by`,
+    `reason`, `refunded`), `catering.deposit_held` (`payments.place_hold`: at confirmation or from the daily
+    `catering_deposits` job), `catering.completed` (`deposit_kept`); `service.booked` (a `services.Booking` made by
+    a confirmed order).
+  - **Gift and staff cards**: every `GiftCardEvent` written (`hooks.py`) becomes `gift_card.sold` (online or
+    register), `gift_card.issued` (by staff or Switchboard), `gift_card.used`, `gift_card.loaded` (a refund or an
+    adjustment up) or `gift_card.emptied`, with `card.id|last4|balance|design` and the recipient as `customer.*`,
+    **never the number**; `staff_card.issued` (a `StaffCard` made) and `staff_card.refilled` (`staff_cards.refill`,
+    `clocked_in`).
+  - **Menu and stock**: `dish.sold_out` (`reason` out_of_stock / turned_off / part_turned_off) and
+    `dish.back_in_stock` come from `Dish.save`, which compares what the row was loaded as (`from_db`) with what it is
+    saved as (no query; archiving and new dishes send nothing); `station.paused` / `station.resumed` (the Stations
+    page and the action); `stock.low` (a count crossed its par going down, once per crossing) and `stock.ran_out`
+    (reached zero) from `CountWatch` on `Component` and `Ingredient` (the same from_db trick; uncounted ingredients
+    and self-crafting components never send them; packaging taken with a queryset `update()` reports through
+    `events.stock_drawn`); `restock.placed` / `restock.delivered` (the Restocks page's `save_draft`),
+    `stock.received` (the shopping log), `batch.cooked` (Cookery's `finish`).
+  - **Cash**: `drawer.opened`, `drawer.closed` (`expected`, `counted`, `difference`, `cash_sales`, `orders`),
+    `drawer.cash_moved` (every `CashMovement`: paid in, paid out, cash refunds).
+  - **People and the schedule**: `customer.registered` (store sign-up), `staff.added` (`staff.create` / `promote`),
+    `staff.clocked_in`, `staff.clocked_out` (`hours` without unpaid breaks), `staff.break_started`,
+    `staff.break_ended` (`minutes`), `schedule.published` (one per person told, with their upcoming `shifts`),
+    `shift.offered`, `shift.taken`, `shift.swapped` (a manager approved a hand-off or swap), `time_off.requested`,
+    `time_off.decided`, `availability.requested`, `availability.decided`.
+  - **The store**: `store.paused` (`until`), `store.resumed` (only when staff end a pause early: a pause running out
+    is nothing happening, so nothing is sent), `store_event.created` (an `events.Event` made), `dongle.offline` and
+    `dongle.online` (`devices/socket.py`: the WebSocket closing, and opening when it was offline; a dongle that dies
+    without closing its socket is only noticed when the connection times out).
+  - **Not offered**: `order.voided` (nothing sets `voided_at`), "shift starts soon" and other reminders (they would
+    need a scheduler Pavilion doesn't have), cleanup of empty gift cards, menu changes.
 - **The admin's Switchboard page** (`admin_switchboard`, `admin_portal/switchboard.py`, Settings; no mockup, laid out
   like Payments; `admin.switchboard.view|edit`): what Switchboard is, this Pavilion's address to type there, each
   connection (name, host, connected when and by whom, last delivery, last call, broken or failing) with Disconnect
-  (asks first; the connection is deleted, so its key stops working and events stop; the cards and shifts it added
+  (asks first; the connection is deleted, so its key stops working and events stop; the cards, shifts and the rest it added
   stay), and the recent deliveries. Live on the `switchboard` topic.
-- **Adding a trigger or an action**: an entry in `manifest.py`, then `events.emit(type, build)` where it happens, or
-  a function in `actions.py: RUN`; a test in `switchboard/tests.py`, which fakes the one outgoing call at
-  `switchboard.events.post`.
+- **Adding a trigger or an action**: an entry in `manifest.py`; a function in `events.py` that calls `emit`, called
+  where the thing happens (or connected in `hooks.py`), or a function in `actions.py: RUN`; a line in
+  `admin_portal/switchboard.py: allows` if it is a new kind of thing; and a test in `switchboard/tests.py`, whose
+  `setUpModule` replaces the three seams (`events.post`, `background`, `wait`) so nothing leaves the test, and whose
+  `Events.sending()` and `Api.call` hold whatever is sent or answered to the manifest.
 
 ## 7. Real-time: history and current design
 
