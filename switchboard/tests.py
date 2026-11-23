@@ -80,6 +80,7 @@ class ManifestTests(TestCase):
         self.assertEqual((m["protocol"], m["building"], m["name"]), ("1", "pavilion", "Pavilion"))
         self.assertEqual(m["instance"], "My restaurant")
         self.assertEqual(m["authorize_url"], "https://testserver/switchboard/authorize")
+        self.assertEqual(m["icon"], "https://testserver/static/pavilion/pavilion.svg")
         self.assertEqual(m["token_url"], "https://testserver/switchboard/v1/token")
         self.assertEqual(m["api_base"], "https://testserver/switchboard/v1")
 

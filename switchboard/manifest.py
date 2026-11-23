@@ -6,6 +6,7 @@ to these lists freely; never rename or remove. Titles and descriptions are for p
 protocol's language), so they aren't wrapped for translation. The actions themselves are in actions.py (one function
 per name) and the events in events.py.
 """
+from django.templatetags.static import static
 from django.urls import reverse
 
 from .connections import BUILDING, instance_name
@@ -107,6 +108,8 @@ def build(request) -> dict:
     api_base = request.build_absolute_uri(reverse("switchboard_api")).rstrip("/")
     return {
         "protocol": "1", "building": BUILDING, "name": "Pavilion", "instance": instance_name(),
+        # Pavilion's mark, so Switchboard draws this building's steps with it.
+        "icon": request.build_absolute_uri(static("pavilion/pavilion.svg")),
         "authorize_url": request.build_absolute_uri(reverse("switchboard_authorize")),
         "token_url": request.build_absolute_uri(reverse("switchboard_token")),
         "api_base": api_base,
