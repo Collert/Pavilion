@@ -1506,7 +1506,11 @@ class Command(BaseCommand):
                ("order.placed", "Order 0031 placed", Delivery.DELIVERED, 1, 200, timedelta(days=4, hours=3)),
                ("order.ready", "Order 0031 is ready", Delivery.DELIVERED, 2, 200, timedelta(days=4, hours=2, minutes=48)),
                ("staff.clocked_out", "Dana Kim clocked out", Delivery.DELIVERED, 1, 200, timedelta(days=3, hours=22)),
+               ("stock.low", "Oat milk is below par", Delivery.DELIVERED, 1, 200, timedelta(days=3, hours=20)),
+               ("drawer.closed", "Register 1 closed", Delivery.DELIVERED, 1, 200, timedelta(days=3, hours=19)),
+               ("catering.requested", "Catering request C-1003", Delivery.DELIVERED, 1, 200, timedelta(days=3, hours=6)),
                ("order.placed", "Order 0036 placed", Delivery.FAILED, 5, 502, timedelta(days=3, hours=2)),
+               ("dish.sold_out", "Cold brew is sold out", Delivery.DELIVERED, 1, 200, timedelta(days=2, hours=9)),
                ("staff.clocked_in", "Priya Shah clocked in", Delivery.DELIVERED, 1, 200, timedelta(days=2, hours=5)),
                ("order.placed", "Order 0040 placed", Delivery.GONE, 1, 410, timedelta(days=2))]
         for n, (kind, summary, status, attempts, answer, ago) in enumerate(log):
