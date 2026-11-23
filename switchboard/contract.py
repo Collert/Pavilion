@@ -5,11 +5,13 @@ Switchboard notes every answer and event that breaks it. The tests use this to h
 actions and events to that promise, so a field can't quietly change type.
 
 The rules are the protocol's: a declared field that is present must be of its declared type;
-one that is missing or null is fine (a lookup that finds nothing answers only `found`).
+one that is missing or null is fine (a lookup that finds nothing answers only `found`). A `list`
+field is an array of objects, each held to the field's `items`.
 """
 import datetime
 
-TYPES = ('string', 'int', 'number', 'bool', 'datetime', 'money')
+TYPES = ('string', 'int', 'number', 'bool', 'datetime', 'money', 'list')
+LIST_LIMIT = 200
 
 
 def type_error(value, type_):
@@ -30,6 +32,8 @@ def type_error(value, type_):
             except ValueError:
                 pass
         return 'should be a date and time with an offset, like 2026-11-19T16:20:04-08:00'
+    if type_ == 'list':
+        return '' if isinstance(value, list) and all(isinstance(item, dict) for item in value) else 'should be a list of objects'
     return f'has a type the protocol does not know: {type_}'
 
 
@@ -39,6 +43,12 @@ def dig(data, path):
             return None
         data = data[part]
     return data
+
+
+def _nest(path, value):
+    for part in reversed(path.split('.')):
+        value = {part: value}
+    return value
 
 
 def mismatches(fields, data):
@@ -53,6 +63,13 @@ def mismatches(fields, data):
         wrong = type_error(value, field['type'])
         if wrong:
             found.append(f'"{field["key"]}" {wrong}, but was {value!r}')
+        elif field['type'] == 'list':
+            if len(value) > LIST_LIMIT:
+                found.append(f'"{field["key"]}" has {len(value)} items; a list carries at most {LIST_LIMIT}')
+            for index, item in enumerate(value):
+                found += [f'"{field["key"]}" item {index + 1}: {wrong}' for wrong in mismatches(field.get('items', []), item)]
+                found += [f'"{field["key"]}" item {index + 1}: "{key}" is not in the manifest'
+                          for key in undeclared(field.get('items', []), item)]
     return found
 
 
@@ -78,6 +95,20 @@ def manifest_problems(triggers, actions):
         for field in fields:
             if field.get('type') not in TYPES:
                 found.append(f'{where}: "{field.get("key")}" has no known type')
+                continue
+            if field['type'] == 'list':
+                if 'params' in where:
+                    found.append(f'{where}: "{field["key"]}" is a list; params stay single values')
+                if not field.get('items'):
+                    found.append(f'{where}: the list "{field["key"]}" does not say what its items hold')
+                elif any(item.get('type') == 'list' for item in field['items']):
+                    found.append(f'{where}: the list "{field["key"]}" has a list inside it')
+                else:
+                    found += manifest_problems([{'type': f'{where[6:] if where.startswith("event ") else where} {field["key"]}', 'fields': field['items']}], [])
+                if not isinstance(field.get('example'), list) or not field['example']:
+                    found.append(f'{where}: the list "{field["key"]}" needs an example with at least one item')
+                elif mismatches([field], {field['key'].split('.')[-1]: field['example']} if '.' not in field['key'] else _nest(field['key'], field['example'])):
+                    found.append(f'{where}: the example for "{field["key"]}" does not match its items')
                 continue
             for name in ('example', 'default'):
                 if field.get(name) is not None and type_error(field[name], field['type']):
