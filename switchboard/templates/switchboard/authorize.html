@@ -27,7 +27,7 @@ Switchboard. Needs Switchboard edit (users/access.py).
         <div class="em-hint">{% trans "Approve only if this is your organization’s Switchboard and you just started connecting there." %}</div>
         <p class="pm-text">{% trans "Once connected, it can:" %}</p>
         <ul class="pm-list small muted strong">{% for line in allows %}<li>{{ line }}</li>{% endfor %}</ul>
-        <div class="em-hint">{% trans "It never sees passwords, payments or card numbers. You can disconnect it any time on the Switchboard page in Settings." %}</div>
+        <div class="em-hint">{% trans "It never sees passwords, card details or gift card numbers, and it can’t charge or refund anyone or change an order. You can disconnect it any time on the Switchboard page in Settings." %}</div>
         <form method="post" class="sb-consent-btns" data-navigate>{% csrf_token %}
             <input type="hidden" name="callback" value="{{ callback }}"><input type="hidden" name="state" value="{{ state }}"><input type="hidden" name="name" value="{{ name }}">
             <button class="btn-soft" name="op" value="cancel">{% trans "Cancel" %}</button>

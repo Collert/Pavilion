@@ -203,7 +203,8 @@ class HandshakeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "switchboard.example.org")
         self.assertContains(response, "Holy Eucharist")
-        self.assertContains(response, "Issue staff cards")
+        self.assertContains(response, "issue staff cards")
+        self.assertContains(response, "can’t charge or refund anyone")
         self.assertContains(response, 'value="st-123"')
 
     def test_approve_gives_a_code_that_becomes_a_connection(self):

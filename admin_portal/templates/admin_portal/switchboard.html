@@ -34,7 +34,7 @@ delivery, broken or failing) each with Disconnect, and the recent event deliveri
             <div><span class="lbl">{% trans "A connected Switchboard can" %}</span>
                 <ul class="pm-list sb-list small muted strong">{% for line in x.allows %}<li>{{ line }}</li>{% endfor %}</ul></div>
         </div>
-        <div class="em-hint">{% trans "It never sees passwords, payments or card numbers. People are matched between apps by their email." %}</div>
+        <div class="em-hint">{% trans "It never sees passwords, card details or gift card numbers, and it can’t charge or refund anyone or change an order. People are matched between apps by their email." %}</div>
     </section>
 
     <section class="card tm-card pm-card" aria-label="{% trans 'Connections' %}" id="sb-connections" data-region>
@@ -85,7 +85,7 @@ delivery, broken or failing) each with Disconnect, and the recent event deliveri
     <button class="scrim" name="op" value="keep" aria-label="{% trans 'Close' %}"></button>
     <div class="sheet sb-confirm" role="alertdialog" aria-modal="true" aria-labelledby="sb-ask-title">
         <h2 class="disp sheet-title" id="sb-ask-title">{% blocktrans with n=x.ask.name %}Disconnect {{ n }}?{% endblocktrans %}</h2>
-        <p class="muted strong">{% blocktrans with host=x.ask.host %}Pavilion stops sending events to {{ host }} and its key stops working, so workflows that use Pavilion fail until it’s connected again from Switchboard. Staff cards and shifts it already added stay.{% endblocktrans %}</p>
+        <p class="muted strong">{% blocktrans with host=x.ask.host %}Pavilion stops sending events to {{ host }} and its key stops working, so workflows that use Pavilion fail until it’s connected again from Switchboard. What it already added (staff cards, shifts, gift cards, coupons) stays.{% endblocktrans %}</p>
         <div class="sheet-foot"><button class="btn-soft" name="op" value="keep">{% trans "Keep it" %}</button><button class="btn-red" name="op" value="disconnect:{{ x.ask.id }}">{% trans "Disconnect" %}</button></div>
     </div>
 </form>

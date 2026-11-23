@@ -19799,17 +19799,39 @@ msgstr "Switchboard"
 
 #: admin_portal/switchboard.py
 msgid ""
-"Start workflows when an order is placed or ready, and when staff clock in or"
-" out"
-msgstr "在有訂單落單或備妥，以及員工打卡上班或下班時啟動工作流程"
+"Start workflows from what happens here: orders, deliveries, catering, gift "
+"cards, stock, the cash drawer, staff and the schedule"
+msgstr "由這裏發生的事啟動工作流程：訂單、外送、到會、禮品卡、存貨、收銀櫃、員工及更表"
 
 #: admin_portal/switchboard.py
-msgid "Look up staff by email and add staff accounts"
-msgstr "以電郵查找員工及新增員工帳戶"
+msgid ""
+"Look up staff, customers, orders, dishes, stock, gift cards, coupons and a "
+"day’s sales"
+msgstr "查找員工、顧客、訂單、菜式、存貨、禮品卡、優惠券及某一日的營業額"
 
 #: admin_portal/switchboard.py
-msgid "Issue staff cards and add shifts to the schedule"
-msgstr "發出員工卡及在更表加入更次"
+msgid ""
+"Add staff accounts, issue staff cards, add and cancel shifts, and ask for "
+"time off"
+msgstr "新增員工帳戶、發出員工卡、加入及取消更次，以及代員工申請放假"
+
+#: admin_portal/switchboard.py
+msgid ""
+"Issue gift cards by email, add money to them or freeze them, and create "
+"coupon codes"
+msgstr "以電郵發出禮品卡、為禮品卡增值或凍結禮品卡，以及建立優惠碼"
+
+#: admin_portal/switchboard.py
+msgid ""
+"Turn dishes and stations off or on, change stock counts, pause online orders"
+" and add closures"
+msgstr "關閉或開啟菜式及工作站、更改存貨數量、暫停網上落單，以及加入休息日"
+
+#: admin_portal/switchboard.py
+msgid ""
+"Announce on the screens, and email receipts, invitations and catering "
+"messages"
+msgstr "在螢幕上發佈公告，以及以電郵傳送收據、邀請及到會訊息"
 
 #: admin_portal/switchboard.py
 msgid "Sending"
@@ -19871,9 +19893,10 @@ msgstr "已連接的 Switchboard 可以"
 
 #: admin_portal/templates/admin_portal/switchboard.html
 msgid ""
-"It never sees passwords, payments or card numbers. People are matched "
-"between apps by their email."
-msgstr "它不會看到密碼、付款資料或卡號。不同應用程式之間以電郵配對同一個人。"
+"It never sees passwords, card details or gift card numbers, and it can’t "
+"charge or refund anyone or change an order. People are matched between apps "
+"by their email."
+msgstr "它不會看到密碼、付款卡資料或禮品卡號碼，亦不能向任何人收款、退款或更改訂單。不同應用程式之間以電郵配對同一個人。"
 
 #: admin_portal/templates/admin_portal/switchboard.html
 msgid "Connections"
@@ -19933,10 +19956,11 @@ msgstr "中斷與 %(n)s 的連接？"
 msgid ""
 "Pavilion stops sending events to %(host)s and its key stops working, so "
 "workflows that use Pavilion fail until it’s connected again from "
-"Switchboard. Staff cards and shifts it already added stay."
+"Switchboard. What it already added (staff cards, shifts, gift cards, "
+"coupons) stays."
 msgstr ""
 "Pavilion 會停止向 %(host)s 傳送事件，其金鑰亦會失效，所以用到 Pavilion 的工作流程會失敗，直至從 Switchboard "
-"重新連接為止。它已加入的員工卡和更次會保留。"
+"重新連接為止。它已加入的項目（員工卡、更次、禮品卡、優惠券）會保留。"
 
 #: switchboard/actions.py
 msgid "Added through Switchboard"
@@ -19986,9 +20010,10 @@ msgstr "連接後，它可以："
 
 #: switchboard/templates/switchboard/authorize.html
 msgid ""
-"It never sees passwords, payments or card numbers. You can disconnect it any"
-" time on the Switchboard page in Settings."
-msgstr "它不會看到密碼、付款資料或卡號。你可以隨時在「設定」的 Switchboard 頁面中斷連接。"
+"It never sees passwords, card details or gift card numbers, and it can’t "
+"charge or refund anyone or change an order. You can disconnect it any time "
+"on the Switchboard page in Settings."
+msgstr "它不會看到密碼、付款卡資料或禮品卡號碼，亦不能向任何人收款、退款或更改訂單。你可以隨時在「設定」的 Switchboard 頁面中斷連接。"
 
 #: switchboard/templates/switchboard/authorize.html
 msgid "Approve"
