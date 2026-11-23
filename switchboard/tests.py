@@ -24,7 +24,7 @@ from team import clock
 from team.models import Shift
 from users.models import GroupInfo, Role, Staff
 
-from . import connections, events
+from . import connections, contract, events, manifest
 from .models import AuthorizeCode, Delivery, IdempotencyRecord, IssuedCard, SwitchboardConnection, hash_token
 
 CALLBACK = "https://switchboard.example.org/connect/callback"
@@ -46,14 +46,27 @@ def member(username, perms, **fields):
     return user
 
 
+def broken_promises(envelope):
+    """Where an event Pavilion sent differs from what its manifest says it sends."""
+    trigger = next((t for t in manifest.TRIGGERS if t["type"] == envelope.get("type")), None)
+    if trigger is None:
+        return [f"{envelope.get('type')} is not in the manifest"]
+    return ([f"{envelope['type']}: {wrong}" for wrong in contract.mismatches(trigger["fields"], envelope["data"])]
+            + [f"{envelope['type']}: {key} is not in the manifest" for key in contract.undeclared(trigger["fields"], envelope["data"])])
+
+
 class Sender:
-    """Stands in for events.post: answers each call with the next status (the last one from then on)."""
+    """Stands in for events.post: answers each call with the next status (the last one from then on).
+    Every event that passes through is held to the manifest; EventTests fails on any that broke it."""
+
+    broken = []
 
     def __init__(self, *statuses):
         self.statuses, self.calls = list(statuses) or [200], []
 
     def __call__(self, url, body, headers, timeout=None):
         self.calls.append({"url": url, "body": body, "headers": headers, "timeout": timeout})
+        Sender.broken += broken_promises(json.loads(body))
         status = self.statuses[min(len(self.calls), len(self.statuses)) - 1]
         if isinstance(status, Exception):
             raise status
@@ -67,11 +80,20 @@ class Api:
         headers = {"Authorization": f"Bearer {key or self.key}"}
         if idempotency:
             headers["Idempotency-Key"] = idempotency
-        return self.client.post(f"/switchboard/v1/actions/{name}", raw if raw is not None else json.dumps(body),
-                                content_type="application/json", headers=headers)
+        response = self.client.post(f"/switchboard/v1/actions/{name}", raw if raw is not None else json.dumps(body),
+                                    content_type="application/json", headers=headers)
+        # Every answer is held to the manifest, whatever the test was about.
+        if response.status_code == 200 and name in manifest.BY_NAME:
+            output = manifest.BY_NAME[name]["output"]
+            self.assertEqual(contract.mismatches(output, response.json()), [], f"{name} broke its manifest")
+            self.assertEqual(contract.undeclared(output, response.json()), [], f"{name} answered fields its manifest leaves out")
+        return response
 
 
 class ManifestTests(TestCase):
+    def test_the_manifest_keeps_its_own_rules(self):
+        self.assertEqual(contract.manifest_problems(manifest.TRIGGERS, manifest.ACTIONS), [])
+
     def test_manifest_is_public_json_built_from_the_host(self):
         response = self.client.get("/.well-known/switchboard", secure=True)
         self.assertEqual(response.status_code, 200)
@@ -579,6 +601,8 @@ class EventTests(MenuFixture, TestCase):
 
     def setUp(self):
         self.connection, self.key, self.secret = connect()
+        Sender.broken = []
+        self.addCleanup(lambda: self.assertEqual(Sender.broken, [], "an event broke the manifest"))
         self.waits = []
         patcher = mock.patch("switchboard.events.wait", self.waits.append)
         patcher.start()
@@ -763,7 +787,7 @@ class EventTests(MenuFixture, TestCase):
         old = Delivery.objects.create(connection=self.connection, event_id="evt_old", event_type="order.placed", status=Delivery.DELIVERED,
                                       created_at=now - datetime.timedelta(days=15))
         lost = Delivery.objects.create(connection=self.connection, event_id="evt_lost", event_type="order.ready", attempts=2,
-                                       body='{"id": "evt_lost"}', next_attempt_at=now - datetime.timedelta(minutes=10))
+                                       body='{"id": "evt_lost", "type": "order.ready", "data": {}}', next_attempt_at=now - datetime.timedelta(minutes=10))
         sender = Sender(200)
         with mock.patch("switchboard.events.post", sender), self.captureOnCommitCallbacks(execute=True):
             self.tea_order()
