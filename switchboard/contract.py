@@ -110,6 +110,10 @@ def manifest_problems(triggers, actions):
                 elif mismatches([field], {field['key'].split('.')[-1]: field['example']} if '.' not in field['key'] else _nest(field['key'], field['example'])):
                     found.append(f'{where}: the example for "{field["key"]}" does not match its items')
                 continue
+            if 'options' in field:
+                from .options import SOURCES  # a param's dropdown must be a list the options endpoint serves
+                if 'params' not in where or field['options'] not in SOURCES:
+                    found.append(f'{where}: "{field["key"]}" names options "{field["options"]}", which Pavilion doesn\'t serve')
             for name in ('example', 'default'):
                 if field.get(name) is not None and type_error(field[name], field['type']):
                     found.append(f'{where}: the {name} for "{field["key"]}" {type_error(field[name], field["type"])}')

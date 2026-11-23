@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from pavilion import throttle
 
-from . import actions, connections, manifest as manifest_data
+from . import actions, connections, manifest as manifest_data, options as options_data
 from .models import IDEMPOTENCY_DAYS, IdempotencyRecord
 
 logger = logging.getLogger(__name__)
@@ -140,6 +140,15 @@ def token(request):
 def ping(request, connection):
     return JsonResponse({"ok": True, "building": connections.BUILDING, "instance": connections.instance_name(),
                          "connection_id": str(connection.pk)})
+
+
+@api("GET")
+def options(request, connection, name):
+    """A list a param's `options` names (options.py), for Switchboard's builder to offer as a dropdown."""
+    found = options_data.get(name)
+    if found is None:
+        return error(404, "unknown_options", f"Pavilion has no list called “{name}”.")
+    return JsonResponse({"options": found})
 
 
 @api("DELETE")

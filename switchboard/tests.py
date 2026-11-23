@@ -349,6 +349,59 @@ class ApiTests(Api, TestCase):
                              401, "unauthorized")
         self.assertEqual(self.client.get("/switchboard/v1", headers={"Authorization": f"Bearer {self.key}"}).status_code, 200)
 
+    # ----- options for the builder's dropdowns -----
+
+    def options(self, name, key=None):
+        return self.client.get(f"/switchboard/v1/options/{name}", headers={"Authorization": f"Bearer {key or self.key}"})
+
+    def test_option_lists_are_whats_there_now(self):
+        from gift_cards.models import StaffCardType
+        from pos_server.models import Station
+        from team.models import TimeOff
+        Role.objects.create(name="Retired role", archived=True)
+        Role.objects.get_or_create(name="Cook", defaults={"position": 0})
+        names = [o["value"] for o in self.options("roles").json()["options"]]
+        self.assertIn("Barista", names)
+        self.assertIn("Cook", names)
+        self.assertNotIn("Retired role", names)
+        self.assertEqual(names, list(Role.objects.filter(archived=False).values_list("name", flat=True)))  # the Roles page's order
+        # staff: the id the params take, with a readable label; customers and people who can't sign in are left out
+        User.objects.create_user("cust", "cust@example.org", "x", first_name="Cust")
+        User.objects.create_user("gone", "gone@example.org", "x", is_staff=True, is_active=False)
+        self.assertEqual(self.options("staff").json(), {"options": [{"value": str(self.dana.pk), "label": "Dana Lee · Dana@example.org"}]})
+        # stations and dishes skip archived ones; dishes are ids labelled with their station
+        bar = Station.objects.update_or_create(code="sb-bar", defaults={"name": "Bar", "position": 2})[0]
+        Station.objects.create(code="sb-old", name="Old", archived=True)
+        self.assertIn("Bar", [o["value"] for o in self.options("stations").json()["options"]])
+        self.assertNotIn("Old", [o["value"] for o in self.options("stations").json()["options"]])
+        from pos_server.models import Dish
+        latte = Dish.objects.create(title="Latte", price="4.50", station=bar)
+        Dish.objects.create(title="Gone soup", price="5", station=bar, archived=True)
+        dishes = self.options("dishes").json()["options"]
+        self.assertIn({"value": str(latte.pk), "label": "Latte · Bar"}, dishes)
+        self.assertNotIn("Gone soup", " ".join(o["label"] for o in dishes))
+        # card labels: balance types only; time off: the usual kinds, then ones people used
+        StaffCardType.objects.create(name="Shift meal", kind=StaffCardType.BALANCE, amount=10)
+        StaffCardType.objects.create(name="Staff 20%", kind=StaffCardType.DISCOUNT, amount=20)
+        self.assertEqual([o["value"] for o in self.options("staff_card_types").json()["options"]], ["Shift meal"])
+        TimeOff.objects.create(user=self.dana, first_day=timezone.localdate(), last_day=timezone.localdate(), category="Wedding")
+        TimeOff.objects.create(user=self.dana, first_day=timezone.localdate(), last_day=timezone.localdate(), category="vacation")
+        self.assertEqual([o["value"] for o in self.options("time_off.kinds").json()["options"]],
+                         ["Vacation", "Appointment", "Personal", "Leave", "Sick", "Wedding"])
+
+    def test_option_lists_need_the_key_and_a_name_pavilion_has(self):
+        self.assertError(self.options("roles", key="sbk_wrong"), 401, "unauthorized")
+        self.assertError(self.options("recipes"), 404, "unknown_options")
+        self.assertEqual(self.client.post("/switchboard/v1/options/roles", headers={"Authorization": f"Bearer {self.key}"}).status_code, 405)
+
+    def test_every_list_the_manifest_names_is_served(self):
+        named = {p["options"] for a in manifest.ACTIONS for p in a["params"] if "options" in p}
+        self.assertEqual(named, {"roles", "stations", "staff", "dishes", "staff_card_types", "time_off.kinds"})
+        for name in named:
+            self.assertEqual(self.options(name).status_code, 200, name)
+        broken = [{**a, "params": [{"key": "role", "type": "string", "label": "Role", "options": "nope"}]} for a in manifest.ACTIONS[:1]]
+        self.assertEqual(contract.manifest_problems([], broken), [f'action {broken[0]["name"]} params: "role" names options "nope", which Pavilion doesn\'t serve'])
+
     def test_api_calls_need_no_csrf_token_or_session(self):
         from django.test import Client
         client = Client(enforce_csrf_checks=True)

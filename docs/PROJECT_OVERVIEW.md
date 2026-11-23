@@ -1232,6 +1232,12 @@ people's workflows: add to them, never rename or remove.** People are matched be
   from the kitchen screen); accepting, rejecting or changing catering orders (they charge the card on file); taking
   money off a gift card; anything that deletes; menu switching and publishing the schedule (both are a manager's
   review step); groups, PINs and passwords.
+  - **Dropdowns** (`options.py`, `GET /switchboard/v1/options/<name>`, the protocol's "Options from the building"):
+    params that name something here say which list Switchboard offers for them, read live when a step is opened:
+    `roles` (by the Roles page's order; role params), `stations` (`station.set_taking_tickets`), `staff` (the id,
+    labelled "name · email"; every `staff_id` param), `dishes` (the id, "dish · station"; `dish.set_availability`),
+    `staff_card_types` (balance types only; `staff_card.issue`'s label) and `time_off.kinds` (the usual kinds, then
+    ones used before). Only what the lookups already answer; an unknown name is 404 `unknown_options`.
   - **Staff**: `staff.find` (lookup: `email` → `found`, `staff_id`, `name`, `email`, `roles`, `active`),
     `staff.ensure` (`name`, `email`, optional `role`, `invite` → `staff_id`, `name`, `email`, `created`: what the Staff
     page's Add does, `admin_portal/staff.py`; a customer's account with that email becomes staff, else a new account
