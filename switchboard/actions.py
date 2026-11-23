@@ -5,6 +5,10 @@ turned into str / bool / int / Decimal / aware datetime). An ActionError becomes
 message is shown to a non-technical admin in Switchboard's run log, in English like the manifest.
 
 People are matched by email. A staff member's id here is their account's id (auth User), as a string.
+
+Lookups that answer several things answer them as a list (protocol §1, Lists) for Switchboard's "For each" step: flat
+objects with the keys a single answer uses, [] when there are none, at most LIST_LIMIT in the order the manifest's
+label states, next to a count of them all. They are read-only and show what the single lookups already show.
 """
 import datetime
 import re
@@ -17,6 +21,8 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from .contract import LIST_LIMIT
+from .events import shift_item
 from .models import IssuedCard, SwitchboardConnection
 
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -327,7 +333,39 @@ def team_on_now(call, p):
     from team import clock
     on = clock.on_now()
     return {"count": len(on), "names": ", ".join(full_name(entry.user) for entry, _resting in on),
-            "on_break": sum(1 for _entry, resting in on if resting)}
+            "on_break": sum(1 for _entry, resting in on if resting),
+            "staff": [{**_person(entry.user), "role": entry.shift.role.name if entry.shift and entry.shift.role else "",
+                       "clocked_in_at": iso(entry.clock_in), "on_break": resting} for entry, resting in on[:LIST_LIMIT]]}
+
+
+def by_name(user):
+    return full_name(user).lower(), user.pk
+
+
+def staff_list(call, p):
+    """Everyone who is staff and can sign in, by name; with `role`, the people who have it."""
+    from users.models import Staff
+    people = User.objects.filter(is_staff=True, is_active=True)
+    if p.get("role"):
+        people = people.filter(staff_profile__roles=_role_named(p["role"]))
+    people = sorted(people.distinct(), key=by_name)
+    listed = people[:LIST_LIMIT]
+    roles = {profile.user_id: ", ".join(role.name for role in profile.roles.all() if not role.archived)
+             for profile in Staff.objects.filter(user__in=listed).prefetch_related("roles")}
+    return {"count": len(people), "names": ", ".join(full_name(user) for user in listed),
+            "staff": [{**_person(user), "roles": roles.get(user.pk, "")} for user in listed]}
+
+
+def staff_card_list(call, p):
+    """The staff cards this connection issued (IssuedCard; a Switchboard that reconnected finds its cards by host)."""
+    connection = call.connection
+    mine = IssuedCard.objects.filter(Q(connection=connection) | Q(connection__isnull=True, host=connection.host))
+    if not p.get("include_retired"):
+        mine = mine.filter(card__revoked_at__isnull=True)
+    mine = mine.select_related("card__user", "card__type").order_by("-card__issued_at", "-card_id")
+    return {"count": mine.count(),
+            "cards": [{"card_id": str(i.card.pk), **_person(i.card.user), "label": i.card.type.name, "balance": money(i.card.balance),
+                       "issued_at": iso(i.card.issued_at), "active": i.card.revoked_at is None} for i in mine[:LIST_LIMIT]]}
 
 
 # ---------- shifts ----------
@@ -393,13 +431,53 @@ def shift_next(call, p):
         later = (Shift.objects.filter(user=user, published=True, deleted=False, date__gte=today + datetime.timedelta(days=14))
                  .select_related("role").order_by("date", "start").first())
         if later is None:
-            return {"found": False}
-        coming, upcoming = [later], 0
+            return {"found": False, "shifts": []}
+        s, coming = later, []
     else:
-        upcoming = len(coming)
-    s = coming[0]
-    return {"found": True, "shift_id": str(s.pk), "starts_at": iso(_moment(s.date, s.start)), "ends_at": iso(_moment(s.date, s.end)),
-            "role": s.role.name if s.role else "", "upcoming": upcoming}
+        s = coming[0]
+    return {"found": True, **shift_item(s), "upcoming": len(coming), "shifts": [shift_item(shift) for shift in coming[:LIST_LIMIT]]}
+
+
+def _staffed(shift, **more) -> dict:
+    """A shift with who works it, as one item of a list."""
+    item = shift_item(shift)
+    return {"shift_id": item.pop("shift_id"), **_person(shift.user), **item, **more}
+
+
+def shift_on_day(call, p):
+    """The published shifts of a day that someone is on, as the Shifts page shows the day."""
+    from team.models import Shift
+    day = day_of(p, "date", "Day") or timezone.localdate()
+    shifts = sorted(Shift.objects.filter(date=day, published=True, deleted=False, user__isnull=False).select_related("user", "role"),
+                    key=lambda s: (s.start, *by_name(s.user), s.pk))
+    return {"date": day.isoformat(), "count": len(shifts), "names": ", ".join(dict.fromkeys(full_name(s.user) for s in shifts[:LIST_LIMIT])),
+            "shifts": [_staffed(s) for s in shifts[:LIST_LIMIT]]}
+
+
+def shift_not_clocked_in(call, p):
+    """Shifts going on now that nobody clocked in for: the time clock ties a punch to its shift (TimeEntry.shift), so a
+    started shift without one, whose person isn't clocked in on another shift either, is someone missing."""
+    from team.models import Shift, TimeEntry
+    now = timezone.localtime()
+    minute = now.hour * 60 + now.minute
+    started = Shift.objects.filter(date=now.date(), published=True, deleted=False, user__isnull=False, start__lte=minute - p.get("grace", 5),
+                                   end__gt=minute, time_entries__isnull=True)
+    here = TimeEntry.objects.filter(clock_out__isnull=True).values("user_id")
+    missing = sorted(started.exclude(user__in=here).select_related("user", "role"), key=lambda s: (s.start, *by_name(s.user), s.pk))
+    return {"count": len(missing), "names": ", ".join(dict.fromkeys(full_name(s.user) for s in missing[:LIST_LIMIT])),
+            "shifts": [_staffed(s, minutes_late=minute - s.start) for s in missing[:LIST_LIMIT]]}
+
+
+def time_off_upcoming(call, p):
+    """Time off that is going on or starts within `days`: approved, or still waiting for a manager."""
+    from team.models import TimeOff
+    today = timezone.localdate()
+    found = TimeOff.objects.filter(last_day__gte=today, first_day__lte=today + datetime.timedelta(days=p.get("days", 30)))
+    found = found.filter(status=p["status"]) if p.get("status") else found.exclude(status=TimeOff.DECLINED)
+    found = sorted(found.select_related("user"), key=lambda r: (r.first_day, *by_name(r.user), r.pk))
+    return {"count": len(found),
+            "requests": [{"request_id": str(r.pk), **_person(r.user), "first_day": r.first_day.isoformat(), "last_day": r.last_day.isoformat(),
+                          "all_day": bool(r.all_day), "category": r.category, "status": r.status} for r in found[:LIST_LIMIT]]}
 
 
 def time_off_request(call, p):
@@ -470,31 +548,78 @@ def _order_by(value):
     return Order.objects.filter(pk=int(digits)).first() if digits.isdigit() else None
 
 
+def _order_status(order) -> str:
+    """Where an order is. Reads its station rows and its delivery, which lists of orders prefetch."""
+    from pos_server.models import OrderStation
+    statuses = {row.status for row in order.station_statuses.all()}
+    trip = next(iter(order.delivery.all()), None) if order.channel == "delivery" else None
+    if trip is not None and trip.delivered_at:
+        return "delivered"
+    if order.picked_up:
+        return "picked_up"
+    if all(status in (OrderStation.STATUS_DONE, OrderStation.STATUS_REJECTED) for status in statuses):
+        return "ready"
+    return "waiting" if OrderStation.STATUS_PENDING in statuses else "in_progress"
+
+
+def _order_answer(order) -> dict:
+    """What every order lookup says about an order."""
+    from .events import _order
+    _subject, data, _number = _order(order)
+    o, c = data["order"], data["customer"]
+    return {"order_id": o["id"], "number": o["number"], "type": o["type"], "channel": o["channel"], "status": _order_status(order),
+            "total": o["total"], "items": o["items"], "summary": o["summary"], "placed_at": o["placed_at"], "customer_name": c["name"],
+            "customer_email": c["email"], "line_count": o["line_count"], "lines": o["lines"]}
+
+
 def order_find(call, p):
     from pos_server import refunds
-    from pos_server.models import OrderStation
-
-    from .events import _order
     order = _order_by(p["number"])
     if order is None:
-        return {"found": False}
-    _subject, data, number_ = _order(order)
-    statuses = order.statuses()
-    trip = order.delivery.first() if order.channel == "delivery" else None
-    if trip is not None and trip.delivered_at:
-        status = "delivered"
-    elif order.picked_up:
-        status = "picked_up"
-    elif order.all_stations_done():
-        status = "ready"
-    elif OrderStation.STATUS_PENDING in statuses:
-        status = "waiting"
-    else:
-        status = "in_progress"
-    o, c = data["order"], data["customer"]
-    return {"found": True, "order_id": o["id"], "number": o["number"], "type": o["type"], "channel": o["channel"], "status": status,
-            "payment": refunds.status(order), "total": o["total"], "refunded": money(refunds.refunded_total(order)), "items": o["items"],
-            "summary": o["summary"], "placed_at": o["placed_at"], "customer_name": c["name"], "customer_email": c["email"]}
+        return {"found": False, "lines": []}
+    return {"found": True, **_order_answer(order), "payment": refunds.status(order), "refunded": money(refunds.refunded_total(order))}
+
+
+def _orders(queryset, now):
+    """Orders as the items of a list: no query per order (their lines, stations, delivery and customer come along)."""
+    from django.db.models import Prefetch
+
+    from pos_server.models import OrderItem
+    rows = queryset.select_related("customer").prefetch_related(
+        Prefetch("items", queryset=OrderItem.objects.filter(parent__isnull=True).select_related("station")), "station_statuses", "delivery")
+    out = []
+    for order in rows[:LIST_LIMIT]:
+        item = _order_answer(order)
+        del item["line_count"], item["lines"]  # no lists inside lists: Find order has an order's lines
+        out.append({**item, "minutes": max(0, int((now - order.timestamp).total_seconds() // 60))})
+    return out
+
+
+def order_open(call, p):
+    """Orders nobody has picked up yet: what the kitchen screens and the pickup board are working through."""
+    from pos_server.models import Order
+    now = timezone.now()
+    waiting = Order.objects.filter(picked_up=False, voided_at__isnull=True).order_by("timestamp", "id")
+    if p.get("older_than"):
+        waiting = waiting.filter(timestamp__lte=now - datetime.timedelta(minutes=p["older_than"]))
+    return {"count": waiting.count(), "numbers": ", ".join(f"{pk:04d}" for pk in waiting.values_list("pk", flat=True)[:LIST_LIMIT]),
+            "orders": _orders(waiting, now)}
+
+
+def order_list(call, p):
+    """One day's orders, newest first, over the same day the sales summary adds up."""
+    from django.db.models import Count, Sum
+
+    from admin_portal import reports
+    from pos_server.models import Order
+    day = day_of(p, "date", "Day") or timezone.localdate()
+    placed = Order.objects.filter(timestamp__gte=reports.day_start(day), timestamp__lt=reports.day_start(day + datetime.timedelta(days=1)),
+                                  voided_at__isnull=True)
+    if p.get("channel"):
+        placed = placed.filter(channel=p["channel"])
+    sums = placed.aggregate(n=Count("id"), sales=Sum("total"))
+    return {"date": day.isoformat(), "count": sums["n"] or 0, "sales": money(sums["sales"]),
+            "orders": _orders(placed.order_by("-timestamp", "-id"), timezone.now())}
 
 
 def order_send_receipt(call, p):
@@ -542,7 +667,9 @@ def sales_summary(call, p):
     return {"date": day.isoformat(), "orders": s.orders, "sales": money(s.sales), "average": round(money(s.avg), 2), "tax": money(sums["tax"]),
             "tips": money(sums["tips"]), "discounts": money(sums["discounts"]), "refunds": money(refunds),
             "items": int(sum(s.dishes.values())), "top_dish": s.top_dish if s.dishes else "",
-            "online_orders": orders.exclude(channel="store").count()}
+            "online_orders": orders.exclude(channel="store").count(), "dish_count": len(s.dishes),
+            "top_dishes": [{"name": name, "quantity": int(sold)}
+                           for name, sold in sorted(s.dishes.items(), key=lambda pair: (-pair[1], pair[0].lower()))[:LIST_LIMIT]]}
 
 
 def _catering_by(value):
@@ -555,11 +682,31 @@ def catering_find(call, p):
     from .events import _catering
     order = _catering_by(p["number"])
     if order is None:
-        return {"found": False}
+        return {"found": False, "lines": []}
     _subject, data = _catering(order)
     c = data["catering"]
-    return {"found": True, "catering_id": c["id"], "number": c["number"], "title": c["title"], "status": c["status"], "event_at": c["event_at"],
+    return {"found": True, **_catering_answer(order, c), "line_count": c["line_count"], "lines": c["lines"]}
+
+
+def _catering_answer(order, c) -> dict:
+    return {"catering_id": c["id"], "number": c["number"], "title": c["title"], "status": c["status"], "event_at": c["event_at"],
             "fulfilment": c["fulfilment"], "total": c["total"], "customer_name": order.name, "customer_email": order.email}
+
+
+def catering_upcoming(call, p):
+    """Open catering orders whose event is from today to `days` ahead, soonest first. Their lines are priced from one
+    catalog loaded for all of them."""
+    from catering import pricing
+    from catering.models import CateringOrder
+
+    from .events import _catering
+    today = timezone.localdate()
+    coming = CateringOrder.objects.filter(status__in=CateringOrder.OPEN, event_date__gte=today,
+                                          event_date__lte=today + datetime.timedelta(days=p.get("days", 14))).order_by("event_date", "event_time", "id")
+    listed = list(coming.prefetch_related("lines")[:LIST_LIMIT])
+    catalog = pricing.Catalog(*[pricing.lines_of(order) for order in listed])
+    return {"count": coming.count(), "numbers": ", ".join(order.number for order in listed),
+            "orders": [_catering_answer(order, _catering(order, catalog)[1]["catering"]) for order in listed]}
 
 
 def catering_send_message(call, p):
@@ -600,11 +747,22 @@ def dish_find(call, p):
     from pos_server.models import Dish
     found = _closest(Dish.objects.filter(archived=False).select_related("station"), p["name"])
     if not found:
-        return {"found": False, "count": 0}
-    dish = found[0]
-    return {"found": True, "count": len(found), "dish_id": str(dish.pk), "name": dish.title, "price": money(dish.price),
-            "station": dish.station.name, "available": dish.available, "mode": dish.availability, "reason": _dish_reason(dish),
-            "matches": ", ".join(d.title for d in found[:20])}
+        return {"found": False, "count": 0, "dishes": []}
+    return {"found": True, "count": len(found), **_dish_answer(found[0]), "matches": ", ".join(d.title for d in found[:20]),
+            "dishes": [_dish_answer(dish) for dish in found[:LIST_LIMIT]]}
+
+
+def _dish_answer(dish) -> dict:
+    return {"dish_id": str(dish.pk), "name": dish.title, "price": money(dish.price), "station": dish.station.name,
+            "available": dish.available, "mode": dish.availability, "reason": _dish_reason(dish)}
+
+
+def dish_sold_out(call, p):
+    """The dishes that can't be sold now (Dish.available: the same answer the registers and the store go by)."""
+    from pos_server.models import Dish
+    out = sorted((dish for dish in Dish.objects.filter(archived=False).select_related("station") if not dish.available),
+                 key=lambda d: (d.station.name.lower(), d.title.lower(), d.pk))
+    return {"count": len(out), "names": ", ".join(d.title for d in out[:LIST_LIMIT]), "dishes": [_dish_answer(d) for d in out[:LIST_LIMIT]]}
 
 
 def dish_set_availability(call, p):
@@ -668,9 +826,24 @@ def stock_find(call, p):
         if found and not p.get("kind"):
             break  # ingredients first; components only when no ingredient matches
     if not found:
-        return {"found": False, "count": 0}
+        return {"found": False, "count": 0, "items": []}
     kind, obj = found[0]
-    return {"found": True, "count": len(found), **_stock_answer(kind, obj), "matches": ", ".join(o.title for _k, o in found[:20])}
+    return {"found": True, "count": len(found), **_stock_answer(kind, obj), "matches": ", ".join(o.title for _k, o in found[:20]),
+            "items": [_stock_answer(k, o) for k, o in found[:LIST_LIMIT]]}
+
+
+def stock_below_par(call, p):
+    """What is counted, has a par and is under it (the Availability screen's and Cookery's "below par"): the emptiest
+    compared with its par first. Uncounted ingredients and components made on demand have nothing to run low."""
+    from django.db.models import F
+    low = []
+    for kind, model in _stock_models(_stock_kind(p)):
+        rows = model.objects.filter(archived=False, par__gt=0).filter(Q(inventory__isnull=True) | Q(inventory__lt=F("par")))
+        rows = rows.exclude(unlimited=True) if kind == "ingredient" else rows.exclude(crafting_option="auto")
+        low += [(kind, obj) for obj in rows]
+    low.sort(key=lambda pair: ((pair[1].inventory or 0) / pair[1].par, pair[1].title.lower(), pair[0], pair[1].pk))
+    return {"count": len(low), "names": ", ".join(obj.title for _kind, obj in low[:LIST_LIMIT]),
+            "items": [_stock_answer(kind, obj) for kind, obj in low[:LIST_LIMIT]]}
 
 
 def stock_adjust(call, p):
@@ -911,13 +1084,15 @@ def announcement_post(call, p):
 
 RUN = {
     "staff.find": staff_find, "staff.ensure": staff_ensure, "staff.invite": staff_invite, "team.on_now": team_on_now,
-    "staff_card.issue": staff_card_issue,
-    "shift.add": shift_add, "shift.cancel": shift_cancel, "shift.next": shift_next, "time_off.request": time_off_request,
-    "customer.find": customer_find, "customer.add_note": customer_add_note, "order.find": order_find,
-    "order.send_receipt": order_send_receipt, "sales.summary": sales_summary, "catering.find": catering_find,
-    "catering.send_message": catering_send_message,
-    "dish.find": dish_find, "dish.set_availability": dish_set_availability, "station.set_taking_tickets": station_set_taking_tickets,
-    "stock.find": stock_find, "stock.adjust": stock_adjust,
+    "staff.list": staff_list, "staff_card.list": staff_card_list, "staff_card.issue": staff_card_issue,
+    "shift.add": shift_add, "shift.cancel": shift_cancel, "shift.next": shift_next, "shift.on_day": shift_on_day,
+    "shift.not_clocked_in": shift_not_clocked_in, "time_off.upcoming": time_off_upcoming, "time_off.request": time_off_request,
+    "customer.find": customer_find, "customer.add_note": customer_add_note, "order.find": order_find, "order.open": order_open,
+    "order.list": order_list, "order.send_receipt": order_send_receipt, "sales.summary": sales_summary, "catering.find": catering_find,
+    "catering.upcoming": catering_upcoming, "catering.send_message": catering_send_message,
+    "dish.find": dish_find, "dish.sold_out": dish_sold_out, "dish.set_availability": dish_set_availability,
+    "station.set_taking_tickets": station_set_taking_tickets,
+    "stock.find": stock_find, "stock.below_par": stock_below_par, "stock.adjust": stock_adjust,
     "gift_card.issue": gift_card_issue, "gift_card.get": gift_card_get, "gift_card.load": gift_card_load,
     "gift_card.freeze": gift_card_freeze, "gift_card.resend": gift_card_resend, "coupon.create": coupon_create, "coupon.find": coupon_find,
     "store.status": store_status, "store.pause_ordering": store_pause_ordering, "store.resume_ordering": store_resume_ordering,

@@ -36,6 +36,7 @@ from django.utils import timezone
 from payments import secrets
 
 from .connections import BUILDING
+from .contract import LIST_LIMIT
 from .models import LOG_DAYS, Delivery, SwitchboardConnection
 
 logger = logging.getLogger(__name__)
@@ -265,18 +266,32 @@ def _subject(kind, pk, name="", email="") -> dict:
 
 # ----- orders -----
 
+def order_lines(order) -> list:
+    """The lines of an order (what was sold, as a receipt lists it: a combo is one line), in the order they were rung
+    up. One query, or none when the order's items were prefetched (with their stations)."""
+    prefetched = "items" in getattr(order, "_prefetched_objects_cache", {})
+    rows = order.items.all() if prefetched else order.items.filter(parent__isnull=True).select_related("station")
+    return [row for row in rows if row.parent_id is None]
+
+
+def _line(row) -> dict:
+    return {"dish_id": str(row.dish_id or ""), "name": row.title, "quantity": row.quantity, "unit_price": money(row.unit_price),
+            "total": money(row.line_total), "station": row.station.name if row.station_id else ""}
+
+
 def _order(order):
     customer = order.customer
     email = order.email or (customer.email if customer else "")
     name = order.name or (customer.get_full_name() if customer else "") or ""
     kind = {"web": "pickup", "delivery": "delivery"}.get(order.channel) or ("to_go" if order.to_go_order else "dine_in")
     number = f"{order.pk:04d}"
-    lines = list(order.items.filter(parent__isnull=True).values_list("title", "quantity"))
+    lines = order_lines(order)
     subject = {"type": "order", "id": str(order.pk), "email": email, "name": name}
     data = {"order": {"id": str(order.pk), "number": number, "type": kind, "channel": order.channel, "total": float(order.total),
-                      "items": int(sum(q for _title, q in lines)), "subtotal": money(order.subtotal), "discount": money(order.discount),
-                      "tax": money(order.tax), "tip": money(order.tip), "summary": ", ".join(f"{q} × {title}" for title, q in lines)[:500],
-                      "placed_at": iso(order.timestamp)},
+                      "items": int(sum(row.quantity for row in lines)), "subtotal": money(order.subtotal), "discount": money(order.discount),
+                      "tax": money(order.tax), "tip": money(order.tip),
+                      "summary": ", ".join(f"{row.quantity} × {row.title}" for row in lines)[:500], "placed_at": iso(order.timestamp),
+                      "line_count": len(lines), "lines": [_line(row) for row in lines[:LIST_LIMIT]]},
             "customer": {"name": name, "email": email, "phone": str(order.phone or "")}}
     return subject, data, number
 
@@ -405,12 +420,22 @@ def delivery_delivered(delivery):
 
 # ----- catering (catering/flow.py; the deposit hold in catering/payments.py) -----
 
-def _catering(order):
+def _catering(order, catalog=None):
+    """`catalog`: the catering.pricing.Catalog of several orders' lines, when a list of them is built (else it is loaded
+    for this order, as its total always needed)."""
     from catering import pricing
     when = timezone.make_aware(datetime.datetime.combine(order.event_date, order.event_time))
     subject = _subject("catering_order", order.pk, order.name, order.email)
+    lines = pricing.lines_of(order)
+    catalog = catalog or pricing.Catalog(lines)
+    listed = []
+    for line in lines[:LIST_LIMIT]:
+        figure = pricing.figure(line, catalog)
+        listed.append({"kind": line["kind"], "name": str(figure["name"]), "quantity": int(line["quantity"]), "amount": int(line["amount"] or 0),
+                       "total": money(figure["total"])})
     data = {"catering": {"id": str(order.pk), "number": order.number, "title": order.title, "status": order.status, "event_at": iso(when),
-                         "fulfilment": order.fulfilment, "total": money(pricing.order_totals(order)["total"]), "rush": bool(order.rush)},
+                         "fulfilment": order.fulfilment, "total": money(pricing.totals(lines, catalog)["total"]), "rush": bool(order.rush),
+                         "line_count": len(lines), "lines": listed},
             "customer": {"name": order.name, "email": order.email, "phone": order.phone, "organization": order.organization}}
     return subject, data
 
@@ -575,9 +600,11 @@ def stock_drawn(model, pk, amount):
 def shopping_logged(update):
     """inventory.views.log_shopping."""
     def build():
-        rows = list(update.updateingredient_set.select_related("ingredient"))
+        rows = list(update.updateingredient_set.select_related("ingredient").order_by("id"))
         text = ", ".join(f"{r.ingredient.title} ({number(r.quantity)} {r.ingredient.unit_of_measurement})" for r in rows)[:500]
-        return (_subject("shopping", update.pk), {"update_id": str(update.pk), "items": len(rows), "summary": text},
+        bought = [{"item_id": str(r.ingredient_id), "name": r.ingredient.title, "quantity": number(r.quantity),
+                   "unit": r.ingredient.unit_of_measurement} for r in rows[:LIST_LIMIT]]
+        return (_subject("shopping", update.pk), {"update_id": str(update.pk), "items": len(rows), "summary": text, "ingredients": bought},
                 f"Shopping logged: {len(rows)} ingredients")
     emit("stock.received", build)
 
@@ -589,7 +616,10 @@ def restock(event_type, order):
         lines = list(order.lines.select_related("ingredient"))
         data = {"restock": {"id": str(order.pk), "number": order.number, "supplier": order.supplier.name, "total": money(order.total),
                             "lines": len(lines), "summary": ", ".join(f"{l.cases} × {l.ingredient.title}" for l in lines)[:500],
-                            "expected_on": order.expected_on.isoformat() if order.expected_on else ""}}
+                            "expected_on": order.expected_on.isoformat() if order.expected_on else "",
+                            "ingredients": [{"item_id": str(l.ingredient_id), "name": l.ingredient.title, "quantity": number(l.cases * l.pack_size),
+                                             "unit": l.ingredient.unit_of_measurement, "cases": l.cases, "case_price": money(l.case_price),
+                                             "total": money(l.total)} for l in lines[:LIST_LIMIT]]}}
         return _subject("restock", order.pk, order.number), data, f"{order.number} {event_type.split('.')[1]}"
     emit(event_type, build)
 
@@ -726,6 +756,12 @@ def _shift(shift) -> dict:
             "role": shift.role.name if shift.role else ""}
 
 
+def shift_item(shift) -> dict:
+    """A shift as one item of a list: flat, with the keys the actions answer a shift with."""
+    return {"shift_id": str(shift.pk), "starts_at": iso(_moment(shift.date, shift.start)), "ends_at": iso(_moment(shift.date, shift.end)),
+            "role": shift.role.name if shift.role else ""}
+
+
 @safe
 def schedule_published(user_ids):
     """schedule.publish: everyone whose shifts changed."""
@@ -741,7 +777,7 @@ def schedule_published(user_ids):
             coming = list(Shift.objects.filter(user=user, date__gte=today, date__lt=today + timedelta(days=14), published=True, deleted=False)
                           .select_related("role").order_by("date", "start"))
             staff = _person(user)
-            data = {"staff": staff, "shifts": len(coming)}
+            data = {"staff": staff, "shifts": len(coming), "upcoming_shifts": [shift_item(s) for s in coming[:LIST_LIMIT]]}
             if coming:
                 data.update(next_shift_at=iso(_moment(coming[0].date, coming[0].start)), next_shift_role=coming[0].role.name if coming[0].role else "")
             out.append(({"type": "person", **staff}, data, f"{staff['name']}'s schedule changed"))

@@ -23,6 +23,79 @@ def param(key, type_, label, required=False, help="", **more):
     return {**out, **more}
 
 
+def listing(key, label, items):
+    """A `list` field (protocol §1, Lists): an array of objects, each with `items`' fields. Its example is one item made of
+    their examples. Lists carry at most 200 items (contract.LIST_LIMIT), so each sits next to a count of everything."""
+    return field(key, "list", label, [{item["key"]: item["example"] for item in items}], items=items)
+
+
+# What the items of each list hold. Keys are the ones the single-item outputs use (dish_id, item_id, staff_id...).
+LINE_ITEMS = [
+    field("dish_id", "string", "Dish ID (empty for a combo)", "31"),
+    field("name", "string", "What was sold", "Classic burger"),
+    field("quantity", "int", "Quantity", 2),
+    field("unit_price", "money", "Price each (with its options)", 14.5),
+    field("total", "money", "Line total (after its own discount, before tax)", 29.0),
+    field("station", "string", "Station that makes it (empty for a combo)", "Kitchen"),
+]
+CATERING_LINE_ITEMS = [
+    field("kind", "string", "Kind (dish, service, condiment or disposable)", "dish"),
+    field("name", "string", "What it is", "Sandwich platter"),
+    field("quantity", "int", "Portions, people, units or items", 20),
+    field("amount", "int", "Hours or days (hourly and daily services; otherwise 0)", 0),
+    field("total", "money", "Line total (before tax)", 240.0),
+]
+SHIFT_ITEMS = [
+    field("shift_id", "string", "Shift ID", "903"),
+    field("starts_at", "datetime", "Starts", "2026-12-05T09:00:00-08:00"),
+    field("ends_at", "datetime", "Ends", "2026-12-05T15:00:00-08:00"),
+    field("role", "string", "Role", "Barista"),
+]
+STAFF_ITEMS = [
+    field("staff_id", "string", "Staff ID", "12"),
+    field("name", "string", "Name", "Dana Lee"),
+    field("email", "string", "Email", "dana@example.org"),
+]
+STAFF_SHIFT_ITEMS = [SHIFT_ITEMS[0]] + STAFF_ITEMS + SHIFT_ITEMS[1:]
+DISH_ITEMS = [
+    field("dish_id", "string", "Dish ID", "31"),
+    field("name", "string", "Dish", "Classic burger"),
+    field("price", "money", "Price", 14.5),
+    field("station", "string", "Station that makes it", "Kitchen"),
+    field("available", "bool", "Can be sold now", False),
+    field("mode", "string", "Availability setting (off, auto or always)", "auto"),
+    field("reason", "string", "Why it can't be sold (empty when it can)", "out_of_stock"),
+]
+STOCK_ITEMS = [
+    field("kind", "string", "Kind (ingredient or component)", "ingredient"),
+    field("item_id", "string", "Item ID", "9"),
+    field("name", "string", "Item", "Ground beef"),
+    field("on_hand", "number", "On hand", 800),
+    field("unit", "string", "Unit (g, ml or ea)", "g"),
+    field("par", "number", "How much to keep on hand (left out when no par is set)", 2000),
+    field("below_par", "bool", "Below par", True),
+]
+BOUGHT_ITEMS = [
+    field("item_id", "string", "Ingredient ID", "9"),
+    field("name", "string", "Ingredient", "Milk"),
+    field("quantity", "number", "How much, in its unit", 4000),
+    field("unit", "string", "Unit (g, ml or ea)", "ml"),
+]
+ORDER_ITEMS = [
+    field("order_id", "string", "Order ID", "1842"),
+    field("number", "string", "Order number", "1842"),
+    field("type", "string", "Order type (dine_in, to_go, pickup or delivery)", "pickup"),
+    field("channel", "string", "Where it was placed (store, web or delivery)", "web"),
+    field("status", "string", "Where it is (waiting, in_progress, ready, picked_up or delivered)", "in_progress"),
+    field("total", "money", "Total", 24.5),
+    field("items", "int", "Number of items", 3),
+    field("summary", "string", "What was ordered", "2 × Earl Grey, 1 × Classic burger"),
+    field("placed_at", "datetime", "Placed at", "2026-11-19T16:20:04-08:00"),
+    field("minutes", "int", "Minutes since it was placed", 12),
+    field("customer_name", "string", "Customer name", "Maria K."),
+    field("customer_email", "string", "Customer email", "maria@example.org"),
+]
+
 ORDER_FIELDS = [
     field("order.id", "string", "Order ID", "1842"),
     field("order.number", "string", "Order number", "1842"),
@@ -39,6 +112,8 @@ ORDER_FIELDS = [
     field("order.summary", "string", "What was ordered", "2 × Earl Grey, 1 × Classic burger"),
     field("order.placed_at", "datetime", "Placed at", "2026-11-19T16:20:04-08:00"),
     field("customer.phone", "string", "Customer phone", "6045550181"),
+    field("order.line_count", "int", "Number of lines", 2),
+    listing("order.lines", "What was sold, line by line (as rung up; the first 200)", LINE_ITEMS),
 ]
 PERSON_FIELDS = [
     field("staff.id", "string", "Staff ID", "12"),
@@ -69,6 +144,8 @@ CATERING_FIELDS = [
     field("customer.email", "string", "Customer email", "maria@example.org"),
     field("customer.phone", "string", "Customer phone", "604 555 0181"),
     field("customer.organization", "string", "Organization", "Juniper Community"),
+    field("catering.line_count", "int", "Number of lines", 4),
+    listing("catering.lines", "What is on the order, line by line (as on its page; the first 200)", CATERING_LINE_ITEMS),
 ]
 GIFT_FIELDS = [
     field("card.id", "string", "Gift card ID", "57"),
@@ -110,6 +187,10 @@ RESTOCK_FIELDS = [
     field("restock.lines", "int", "Number of ingredients", 3),
     field("restock.summary", "string", "What is on it", "4 × Milk, 2 × Butter, 1 × Eggs"),
     field("restock.expected_on", "string", "Expected (YYYY-MM-DD)", "2026-11-22"),
+    listing("restock.ingredients", "What is on it, ingredient by ingredient (as on the order; the first 200)", BOUGHT_ITEMS + [
+        field("cases", "int", "Cases", 4),
+        field("case_price", "money", "Price of a case", 18.5),
+        field("total", "money", "Line total (before fee and tax)", 74.0)]),
 ]
 DRAWER_FIELDS = PERSON_FIELDS + [
     field("drawer.id", "string", "Drawer session ID", "88"),
@@ -332,7 +413,8 @@ TRIGGERS = [
             "Shopping logged: {summary}",
             [field("update_id", "string", "Shopping log ID", "44"),
              field("items", "int", "Number of ingredients", 3),
-             field("summary", "string", "What was bought", "Milk (4000 ml), Butter (1000 g), Eggs (24 ea)")]),
+             field("summary", "string", "What was bought", "Milk (4000 ml), Butter (1000 g), Eggs (24 ea)"),
+             listing("ingredients", "What was bought, ingredient by ingredient (as logged; the first 200)", BOUGHT_ITEMS)]),
     trigger("restock.placed", "Restock order placed",
             "Starts when a purchase order on the admin's Restocks page is marked as placed with its supplier.",
             "{restock.number} placed with {restock.supplier}", RESTOCK_FIELDS),
@@ -400,7 +482,9 @@ TRIGGERS = [
             "{staff.name}'s schedule changed ({shifts} upcoming shifts)",
             PERSON_FIELDS + [field("shifts", "int", "Their shifts in the next 14 days", 4),
                              field("next_shift_at", "datetime", "When their next shift starts", "2026-12-05T09:00:00-08:00"),
-                             field("next_shift_role", "string", "Role on their next shift", "Barista")]),
+                             field("next_shift_role", "string", "Role on their next shift", "Barista"),
+                             listing("upcoming_shifts", "Their shifts in the next 14 days (soonest first; the first 200)",
+                                     SHIFT_ITEMS)]),
     trigger("shift.offered", "Shift put up for grabs",
             "Starts when a staff member gives one of their shifts away for a coworker to take.",
             "{staff.name} put their {shift.role} shift up for grabs",
@@ -501,7 +585,29 @@ ACTIONS = [
      "params": [],
      "output": [field("count", "int", "People clocked in", 3),
                 field("names", "string", "Their names (separated by commas)", "Dana Lee, Priya Shah, Alex P."),
-                field("on_break", "int", "How many of them are on a break", 1)]},
+                field("on_break", "int", "How many of them are on a break", 1),
+                listing("staff", "Everyone clocked in (who clocked in first comes first; the first 200)", STAFF_ITEMS + [
+                    field("role", "string", "Role on the shift", "Barista"),
+                    field("clocked_in_at", "datetime", "Clocked in at", "2026-11-19T08:58:00-08:00"),
+                    field("on_break", "bool", "On a break", False)])]},
+    {"name": "staff.list", "kind": "lookup", "title": "List staff",
+     "description": "Lists the staff members who can sign in, by name.",
+     "params": [param("role", "string", "Role", False, "The name of a role on Pavilion's Roles page. Left out: everyone.")],
+     "output": [field("count", "int", "Staff members", 9),
+                field("names", "string", "Their names (separated by commas)", "Alex P., Dana Lee, Priya Shah"),
+                listing("staff", "The staff members (by name; the first 200)", STAFF_ITEMS + [
+                    field("roles", "string", "Roles (separated by commas)", "Barista, Cashier")])]},
+    {"name": "staff_card.list", "kind": "lookup", "title": "Staff cards issued by this Switchboard",
+     "description": "Lists the staff cards this Switchboard issued with Issue a staff card.",
+     "params": [param("include_retired", "bool", "Include retired cards", False,
+                      "Also lists cards that were replaced or revoked.", default=False)],
+     "output": [field("count", "int", "Cards", 5),
+                listing("cards", "The cards (the newest first; the first 200)", [
+                    field("card_id", "string", "Card ID", "57")] + STAFF_ITEMS + [
+                    field("label", "string", "Card type", "Volunteer meal"),
+                    field("balance", "money", "Balance now", 12.0),
+                    field("issued_at", "datetime", "Issued", "2026-11-19T16:20:04-08:00"),
+                    field("active", "bool", "Still works (not replaced or revoked)", True)])]},
     {"name": "staff_card.issue", "kind": "action", "title": "Issue a staff card",
      "description": "Gives a staff member a balance card worth an amount, which they spend like a gift card. The label is "
                     "the card type on Pavilion's Staff cards page: an existing balance type with that name is used with its "
@@ -541,7 +647,39 @@ ACTIONS = [
                 field("starts_at", "datetime", "Starts", "2026-12-05T09:00:00-08:00"),
                 field("ends_at", "datetime", "Ends", "2026-12-05T15:00:00-08:00"),
                 field("role", "string", "Role", "Barista"),
-                field("upcoming", "int", "Their shifts in the next 14 days", 4)]},
+                field("upcoming", "int", "Their shifts in the next 14 days", 4),
+                listing("shifts", "Their shifts in the next 14 days (soonest first; the first 200)", SHIFT_ITEMS)]},
+    {"name": "shift.on_day", "kind": "lookup", "title": "Who is scheduled on a day",
+     "description": "Lists the published shifts of one day with who works them. Open shifts (nobody on them yet) are "
+                    "left out.",
+     "params": [param("date", "string", "Day", False, DAY_HELP + " Left out: today.")],
+     "output": [field("date", "string", "Day (YYYY-MM-DD)", "2026-12-05"),
+                field("count", "int", "Shifts", 6),
+                field("names", "string", "Who works (separated by commas)", "Dana Lee, Priya Shah"),
+                listing("shifts", "The shifts (the earliest start first, then by name; the first 200)", STAFF_SHIFT_ITEMS)]},
+    {"name": "shift.not_clocked_in", "kind": "lookup", "title": "Who hasn't clocked in",
+     "description": "Lists the people whose shift has started today and who haven't clocked in for it. Shifts that "
+                    "already ended are left out.",
+     "params": [param("grace", "int", "Minutes late", False, "How long after the start before someone is listed. Left out: 5.",
+                      default=5, min=0, max=240)],
+     "output": [field("count", "int", "People who haven't clocked in", 1),
+                field("names", "string", "Their names (separated by commas)", "Dana Lee"),
+                listing("shifts", "Their shifts (the latest person first; the first 200)", STAFF_SHIFT_ITEMS + [
+                    field("minutes_late", "int", "Minutes since the shift started", 12)])]},
+    {"name": "time_off.upcoming", "kind": "lookup", "title": "Upcoming time off",
+     "description": "Lists the time off that is going on or starts in the coming days: approved, and still waiting for "
+                    "a manager. Declined requests are left out.",
+     "params": [param("days", "int", "Days ahead", False, "How far to look. Left out: 30.", default=30, min=1, max=365),
+                param("status", "string", "Status", False, "Left out: approved and pending.",
+                      choices=[{"value": "approved", "label": "Approved"}, {"value": "pending", "label": "Waiting for a manager"}])],
+     "output": [field("count", "int", "Requests", 2),
+                listing("requests", "The requests (the earliest first day first; the first 200)", [
+                    field("request_id", "string", "Request ID", "21")] + STAFF_ITEMS + [
+                    field("first_day", "string", "First day off (YYYY-MM-DD)", "2026-12-24"),
+                    field("last_day", "string", "Last day off (YYYY-MM-DD)", "2026-12-26"),
+                    field("all_day", "bool", "Whole days", True),
+                    field("category", "string", "Kind of time off", "Vacation"),
+                    field("status", "string", "Status (pending or approved)", "approved")])]},
     {"name": "time_off.request", "kind": "action", "title": "Ask for time off",
      "description": "Puts a time off request for a staff member on the admin's Availability requests page, as if they had "
                     "asked themselves. A manager still approves or declines it.",
@@ -589,7 +727,27 @@ ACTIONS = [
                 field("summary", "string", "What was ordered", "2 × Earl Grey, 1 × Classic burger"),
                 field("placed_at", "datetime", "Placed at", "2026-11-19T16:20:04-08:00"),
                 field("customer_name", "string", "Customer name", "Maria K."),
-                field("customer_email", "string", "Customer email", "maria@example.org")]},
+                field("customer_email", "string", "Customer email", "maria@example.org"),
+                field("line_count", "int", "Number of lines", 2),
+                listing("lines", "What was sold, line by line (as rung up; the first 200)", LINE_ITEMS)]},
+    {"name": "order.open", "kind": "lookup", "title": "Open orders",
+     "description": "Lists the orders that haven't been picked up yet (waiting for the kitchen, being made or ready), "
+                    "the one waiting longest first.",
+     "params": [param("older_than", "int", "Older than (minutes)", False,
+                      "Only orders placed at least this many minutes ago. Left out: all of them.", min=0, max=1440)],
+     "output": [field("count", "int", "Open orders", 4),
+                field("numbers", "string", "Their numbers (separated by commas)", "1840, 1842"),
+                listing("orders", "The open orders (oldest first; the first 200)", ORDER_ITEMS)]},
+    {"name": "order.list", "kind": "lookup", "title": "A day's orders",
+     "description": "Lists the orders placed on one day, the newest first. Voided orders are left out.",
+     "params": [param("date", "string", "Day", False, DAY_HELP + " Left out: today."),
+                param("channel", "string", "Placed", False, "Left out: everywhere.",
+                      choices=[{"value": "store", "label": "On a register"}, {"value": "web", "label": "Online, for pickup"},
+                               {"value": "delivery", "label": "Online, for delivery"}])],
+     "output": [field("date", "string", "Day (YYYY-MM-DD)", "2026-11-19"),
+                field("count", "int", "Orders", 86),
+                field("sales", "money", "Their totals added up", 1482.35),
+                listing("orders", "The orders (newest first; the first 200)", ORDER_ITEMS)]},
     {"name": "order.send_receipt", "kind": "action", "title": "Email an order's receipt",
      "description": "Emails the receipt of an order, as Send does in the register's order history.",
      "params": [param("order_id", "string", "Order ID", True),
@@ -610,11 +768,24 @@ ACTIONS = [
                 field("refunds", "money", "Refunded that day", 12.5),
                 field("items", "int", "Items sold", 203),
                 field("top_dish", "string", "Best seller", "Classic burger"),
-                field("online_orders", "int", "Orders placed online (pickup and delivery)", 22)]},
+                field("online_orders", "int", "Orders placed online (pickup and delivery)", 22),
+                field("dish_count", "int", "Different dishes and combos sold", 18),
+                listing("top_dishes", "What sold, the best seller first (the first 200)", [
+                    field("name", "string", "Dish or combo", "Classic burger"),
+                    field("quantity", "int", "How many were sold", 31)])]},
     {"name": "catering.find", "kind": "lookup", "title": "Find catering order",
      "description": "Looks a catering order up by its number.",
      "params": [param("number", "string", "Catering order number", True, "Like C-1014.")],
-     "output": [FOUND] + CATERING_OUTPUT},
+     "output": [FOUND] + CATERING_OUTPUT + [
+         field("line_count", "int", "Number of lines", 4),
+         listing("lines", "What is on the order, line by line (as on its page; the first 200)", CATERING_LINE_ITEMS)]},
+    {"name": "catering.upcoming", "kind": "lookup", "title": "Upcoming catering orders",
+     "description": "Lists the open catering orders (new, waiting on the customer or confirmed) whose event is today or "
+                    "in the coming days, the soonest first.",
+     "params": [param("days", "int", "Days ahead", False, "How far to look. Left out: 14.", default=14, min=1, max=365)],
+     "output": [field("count", "int", "Catering orders", 3),
+                field("numbers", "string", "Their numbers (separated by commas)", "C-1014, C-1016"),
+                listing("orders", "The catering orders (soonest event first; the first 200)", CATERING_OUTPUT)]},
     {"name": "catering.send_message", "kind": "action", "title": "Write to a catering customer",
      "description": "Adds a message from the store to a catering order's conversation and emails it to the customer, as "
                     "writing on the admin's Catering page does. Only while the order is open.",
@@ -636,7 +807,15 @@ ACTIONS = [
                 field("available", "bool", "Can be sold now", True),
                 field("mode", "string", "Availability setting (off, auto or always)", "auto"),
                 field("reason", "string", "Why it can't be sold (empty when it can)", "out_of_stock"),
-                field("matches", "string", "Every dish that matches (separated by commas)", "Classic burger, Veggie burger")]},
+                field("matches", "string", "Every dish that matches (separated by commas)", "Classic burger, Veggie burger"),
+                listing("dishes", "Every dish that matches (the closest first; the first 200)", DISH_ITEMS)]},
+    {"name": "dish.sold_out", "kind": "lookup", "title": "Dishes that are sold out",
+     "description": "Lists the dishes that can't be sold right now: out of stock, turned off, a part turned off, or their "
+                    "station stopped.",
+     "params": [],
+     "output": [field("count", "int", "Dishes that can't be sold", 2),
+                field("names", "string", "Their names (separated by commas)", "Classic burger, Fries"),
+                listing("dishes", "The dishes (by station, then by name; the first 200)", DISH_ITEMS)]},
     {"name": "dish.set_availability", "kind": "action", "title": "Turn a dish off or on",
      "description": "Changes a dish's switch on the Availability screen: off (sold out until someone turns it back), auto "
                     "(sold while its parts are in stock) or always (sold even past zero).",
@@ -669,7 +848,16 @@ ACTIONS = [
                 field("unit", "string", "Unit (g, ml or ea)", "g"),
                 field("par", "number", "How much to keep on hand", 2000),
                 field("below_par", "bool", "Below par", True),
-                field("matches", "string", "Everything that matches (separated by commas)", "Ground beef, Ground pork")]},
+                field("matches", "string", "Everything that matches (separated by commas)", "Ground beef, Ground pork"),
+                listing("items", "Everything that matches (the closest first; the first 200)", STOCK_ITEMS)]},
+    {"name": "stock.below_par", "kind": "lookup", "title": "Stock below par",
+     "description": "Lists the ingredients (bought) and components (made) that are below their par, the amount to keep "
+                    "on hand. Things without a par, and things that aren't counted, are left out.",
+     "params": [param("kind", "string", "Kind", False, "Left out: both.",
+                      choices=[{"value": "ingredient", "label": "Ingredients (bought)"}, {"value": "component", "label": "Components (made)"}])],
+     "output": [field("count", "int", "Items below par", 3),
+                field("names", "string", "Their names (separated by commas)", "Ground beef, Milk, Burger sauce"),
+                listing("items", "The items (the emptiest compared with its par first; the first 200)", STOCK_ITEMS)]},
     {"name": "stock.adjust", "kind": "action", "title": "Add to or take from stock",
      "description": "Changes how much of an ingredient or a component is on hand by an amount, in its own unit (grams, "
                     "millilitres or pieces): a delivery that arrived, or something written off.",

@@ -152,20 +152,47 @@ class ManifestTests(TestCase):
     def test_every_field_is_well_formed(self):
         m = self.client.get("/.well-known/switchboard").json()
         types = {"string", "int", "number", "bool", "datetime", "money"}
+
+        def well_formed(f, where):
+            self.assertTrue(f["label"], where)
+            self.assertIn("example", f, where)
+            if f["type"] != "list":
+                return self.assertIn(f["type"], types, where)
+            self.assertTrue(f["items"] and f["example"], where)  # a list says what its items hold, and shows one
+            for item in f["items"]:
+                self.assertIn(item["type"], types, where)  # no lists inside lists
+                self.assertTrue(item["label"], where)
+                self.assertIn(item["key"], f["example"][0], where)
+
         for t in m["triggers"]:
             self.assertTrue(t["title"] and t["description"] and t["summary"], t["type"])
             for f in t["fields"]:
-                self.assertIn(f["type"], types)
-                self.assertIn("example", f)
-                self.assertTrue(f["label"])
+                well_formed(f, t["type"])
         for a in m["actions"]:
             self.assertIn(a["kind"], ("lookup", "action"))
             for p in a["params"]:
-                self.assertIn(p["type"], types)
+                self.assertIn(p["type"], types)  # params stay single values
                 self.assertIsInstance(p["required"], bool)
             for f in a["output"]:
-                self.assertIn(f["type"], types)
-                self.assertIn("example", f)
+                well_formed(f, a["name"])
+
+    def test_lists_sit_next_to_a_count_and_only_lookups_were_added_for_them(self):
+        """A list carries at most 200 items, so the true number is always in a field next to it."""
+        elsewhere = {"order.lines": "order.line_count", "catering.lines": "catering.line_count", "restock.ingredients": "restock.lines",
+                     "ingredients": "items", "upcoming_shifts": "shifts", "lines": "line_count", "top_dishes": "dish_count",
+                     ("shift.next", "shifts"): "upcoming"}  # every other list has `count` beside it
+        lists = 0
+        for where, fields in ([(t["type"], t["fields"]) for t in manifest.TRIGGERS] + [(a["name"], a["output"]) for a in manifest.ACTIONS]):
+            types = {f["key"]: f["type"] for f in fields}
+            for f in fields:
+                if f["type"] == "list":
+                    lists += 1
+                    counted = elsewhere.get((where, f["key"])) or elsewhere.get(f["key"], "count")
+                    self.assertEqual(types.get(counted), "int", f"{where}: {f['key']} has no count next to it")
+        self.assertGreaterEqual(lists, 41)
+        for name in ("staff.list", "staff_card.list", "shift.on_day", "shift.not_clocked_in", "time_off.upcoming", "order.open", "order.list",
+                     "catering.upcoming", "dish.sold_out", "stock.below_par"):
+            self.assertEqual(manifest.BY_NAME[name]["kind"], "lookup", name)
 
     @override_settings(SETUP_REDIRECT=True, THROTTLE=True)
     def test_manifest_and_api_answer_json_before_first_time_setup(self):
@@ -674,12 +701,58 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         self.assertError(self.call("staff.invite", {"staff_id": str(self.maria.pk)}), 422, "invalid_params")  # a customer
 
     def test_who_is_clocked_in(self):
-        self.assertEqual(self.ok("team.on_now"), {"count": 0, "names": "", "on_break": 0})
+        self.assertEqual(self.ok("team.on_now"), {"count": 0, "names": "", "on_break": 0, "staff": []})
         boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya")
-        clock.clock_in(self.dana, approver=boss)
+        first = clock.clock_in(self.dana, approver=boss)
         clock.clock_in(boss, approver=boss)
         clock.start_break(self.dana)
-        self.assertEqual(self.ok("team.on_now"), {"count": 2, "names": "Dana Lee, Priya", "on_break": 1})
+        answer = self.ok("team.on_now")
+        self.assertEqual({k: v for k, v in answer.items() if k != "staff"}, {"count": 2, "names": "Dana Lee, Priya", "on_break": 1})
+        self.assertEqual(answer["staff"], [  # who clocked in first comes first
+            {"staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org", "role": "Barista",
+             "clocked_in_at": timezone.localtime(first.clock_in).isoformat(timespec="seconds"), "on_break": True},
+            {"staff_id": str(boss.pk), "name": "Priya", "email": "boss@example.org", "role": "", "clocked_in_at": answer["staff"][1]["clocked_in_at"],
+             "on_break": False}])
+
+    def test_the_staff_listed_by_name_and_by_role(self):
+        boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya")
+        gone = User.objects.create_user("gone", "gone@example.org", "x", is_staff=True, is_active=False, first_name="Aaron")
+        Staff.objects.create(user=gone).roles.add(self.barista)
+        Staff.objects.get(user=self.dana).roles.add(Role.objects.get_or_create(name="Cashier")[0])
+        answer = self.ok("staff.list")  # not Maria (a customer), not Aaron (can't sign in)
+        self.assertEqual(set(answer["staff"][0]["roles"].split(", ")), {"Barista", "Cashier"})
+        self.assertEqual(answer, {"count": 2, "names": "Dana Lee, Priya", "staff": [
+            {"staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org",
+             "roles": self.ok("staff.find", {"email": "dana@example.org"})["roles"]},
+            {"staff_id": str(boss.pk), "name": "Priya", "email": "boss@example.org", "roles": ""}]})
+        self.assertEqual([person["name"] for person in self.ok("staff.list", {"role": "barista"})["staff"]], ["Dana Lee"])
+        Role.objects.get_or_create(name="Dishwasher")
+        self.assertEqual(self.ok("staff.list", {"role": "Dishwasher"}), {"count": 0, "names": "", "staff": []})
+        self.assertError(self.call("staff.list", {"role": "Sommelier"}), 422, "invalid_params", "Its roles")
+
+    def test_a_list_stops_at_200_and_says_how_many_there_are(self):
+        User.objects.bulk_create([User(username=f"s{n:03d}", first_name=f"Staff {n:03d}", email=f"s{n}@example.org", is_staff=True)
+                                  for n in range(205)])
+        answer = self.ok("staff.list")
+        self.assertEqual((answer["count"], len(answer["staff"])), (206, 200))
+        self.assertEqual((answer["staff"][0]["name"], answer["staff"][1]["name"], answer["staff"][-1]["name"]), ("Dana Lee", "Staff 000", "Staff 198"))
+
+    def test_the_staff_cards_this_switchboard_issued(self):
+        self.assertEqual(self.ok("staff_card.list"), {"count": 0, "cards": []})
+        body = {"staff_id": str(self.dana.pk), "amount": 15, "label": "Volunteer meal"}
+        first = self.ok("staff_card.issue", body, idempotency="l-1")
+        second = self.ok("staff_card.issue", {**body, "amount": 20, "replace_previous": True}, idempotency="l-2")
+        theirs = StaffCard.objects.create(type=StaffCardType.objects.get(name="Volunteer meal"), user=self.maria, number="1" * 16)  # made on the Staff cards page
+        _other, other_key, _secret = connect("Another parish", "https://other.example.org/hooks/building/x")
+        answer = self.ok("staff_card.list")
+        self.assertEqual(answer["count"], 1)
+        self.assertEqual({k: v for k, v in answer["cards"][0].items() if k != "issued_at"}, {
+            "card_id": second["card_id"], "staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org",
+            "label": "Volunteer meal", "balance": 20.0, "active": True})
+        everything = self.ok("staff_card.list", {"include_retired": True})
+        self.assertEqual([(card["card_id"], card["active"]) for card in everything["cards"]], [(second["card_id"], True), (first["card_id"], False)])
+        self.assertNotIn(str(theirs.pk), [card["card_id"] for card in everything["cards"]])
+        self.assertEqual(self.ok("staff_card.list", {"include_retired": True}, key=other_key), {"count": 0, "cards": []})
 
     def shift(self, days=3, start=540, end=900, published=True, user=None):
         from team import schedule
@@ -690,15 +763,100 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         return shift
 
     def test_next_shift(self):
-        self.assertEqual(self.ok("shift.next", {"staff_id": str(self.dana.pk)}), {"found": False})
-        self.shift(days=5)
+        self.assertEqual(self.ok("shift.next", {"staff_id": str(self.dana.pk)}), {"found": False, "shifts": []})
+        later = self.shift(days=5)
         soon = self.shift(days=2)
         self.shift(days=1, published=False)  # not told yet: not theirs to know
         answer = self.ok("shift.next", {"staff_id": str(self.dana.pk)})
         self.assertEqual((answer["found"], answer["shift_id"], answer["role"], answer["upcoming"]), (True, str(soon.pk), "Barista", 2))
         self.assertRegex(answer["starts_at"], r"T09:00:00[+-]\d\d:00$")
         self.assertRegex(answer["ends_at"], r"T15:00:00[+-]\d\d:00$")
+        self.assertEqual(answer["shifts"], [  # soonest first
+            {"shift_id": str(soon.pk), "starts_at": answer["starts_at"], "ends_at": answer["ends_at"], "role": "Barista"},
+            {"shift_id": str(later.pk), "starts_at": answer["shifts"][1]["starts_at"], "ends_at": answer["shifts"][1]["ends_at"], "role": "Barista"}])
+        self.assertLess(answer["shifts"][0]["starts_at"], answer["shifts"][1]["starts_at"])
         self.assertError(self.call("shift.next", {"staff_id": "999999"}), 422, "invalid_params")
+        Shift.objects.filter(pk__in=[soon.pk, later.pk]).delete()
+        far = self.shift(days=30)  # past the 14 days: still their next shift, with nothing in the list
+        answer = self.ok("shift.next", {"staff_id": str(self.dana.pk)})
+        self.assertEqual((answer["shift_id"], answer["upcoming"], answer["shifts"]), (str(far.pk), 0, []))
+
+    def test_who_is_scheduled_on_a_day(self):
+        day = timezone.localdate() + datetime.timedelta(days=3)
+        self.assertEqual(self.ok("shift.on_day", {"date": day.isoformat()}), {"date": day.isoformat(), "count": 0, "names": "", "shifts": []})
+        alex = User.objects.create_user("alex", "alex@example.org", "x", is_staff=True, first_name="Alex", last_name="P")
+        late = self.shift(start=840, end=1200)
+        early = self.shift(user=alex)
+        same = self.shift(start=540, end=600)  # Dana, at the same time as Alex: by name
+        self.shift(published=False)
+        self.shift(days=4)
+        Shift.objects.create(role=self.barista, date=day, start=600, end=700, published=True)  # an open shift: nobody on it
+        gone = self.shift(start=100, end=200)
+        Shift.objects.filter(pk=gone.pk).update(deleted=True)
+        answer = self.ok("shift.on_day", {"date": day.isoformat()})
+        self.assertEqual((answer["date"], answer["count"], answer["names"]), (day.isoformat(), 3, "Alex P, Dana Lee"))
+        self.assertEqual([s["shift_id"] for s in answer["shifts"]], [str(early.pk), str(same.pk), str(late.pk)])
+        self.assertEqual({k: v for k, v in answer["shifts"][0].items() if k not in ("starts_at", "ends_at")},
+                         {"shift_id": str(early.pk), "staff_id": str(alex.pk), "name": "Alex P", "email": "alex@example.org", "role": "Barista"})
+        self.assertRegex(answer["shifts"][0]["starts_at"], rf"^{day.isoformat()}T09:00:00[+-]\d\d:00$")
+        self.assertEqual(self.ok("shift.on_day")["date"], timezone.localdate().isoformat())
+        self.assertError(self.call("shift.on_day", {"date": "tomorrow"}), 422, "invalid_params", "2026-12-24")
+
+    def test_who_hasnt_clocked_in_for_a_shift_that_started(self):
+        now = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(10, 0)))
+        boss = User.objects.create_superuser("boss", "boss@example.org", "x", first_name="Priya")
+        alex = User.objects.create_user("alex", "alex@example.org", "x", is_staff=True, first_name="Alex", last_name="P")
+        sam = User.objects.create_user("sam", "sam@example.org", "x", is_staff=True, first_name="Sam")
+        with mock.patch("django.utils.timezone.now", return_value=now):
+            self.assertEqual(self.ok("shift.not_clocked_in"), {"count": 0, "names": "", "shifts": []})
+            missing = self.shift(days=0, start=540, end=900)          # Dana: started at 9, not here
+            there = self.shift(days=0, start=480, end=900, user=boss)  # Priya: clocked in
+            clock.clock_in(boss, now=now - datetime.timedelta(hours=2))
+            later = self.shift(days=0, start=598, end=900, user=alex)  # Alex: started 2 minutes ago
+            self.shift(days=0, start=660, end=900, user=sam)           # Sam: not started yet
+            self.shift(days=0, start=300, end=540, user=sam)           # and one that is over
+            self.shift(days=1, start=540, end=900, user=sam)
+            answer = self.ok("shift.not_clocked_in")
+            self.assertEqual((answer["count"], answer["names"]), (1, "Dana Lee"))
+            self.assertEqual({k: v for k, v in answer["shifts"][0].items() if k not in ("starts_at", "ends_at")},
+                             {"shift_id": str(missing.pk), "staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org",
+                              "role": "Barista", "minutes_late": 60})
+            both = self.ok("shift.not_clocked_in", {"grace": 0})  # the latest person first
+            self.assertEqual([(s["shift_id"], s["minutes_late"]) for s in both["shifts"]], [(str(missing.pk), 60), (str(later.pk), 2)])
+            self.assertEqual(self.ok("shift.not_clocked_in", {"grace": 61})["count"], 0)
+            clock.clock_in(self.dana, now=now)
+            self.assertEqual(self.ok("shift.not_clocked_in")["count"], 0)
+            clock.clock_out(boss, now=now)  # went home early: she did clock in for it
+            self.assertEqual(self.ok("shift.not_clocked_in")["count"], 0)
+        self.assertEqual(there.time_entries.count(), 1)
+        self.assertError(self.call("shift.not_clocked_in", {"grace": 500}), 422, "invalid_params", "from 0 to 240")
+
+    def test_upcoming_time_off(self):
+        from team.models import TimeOff
+        today = timezone.localdate()
+        self.assertEqual(self.ok("time_off.upcoming"), {"count": 0, "requests": []})
+        alex = User.objects.create_user("alex", "alex@example.org", "x", is_staff=True, first_name="Alex", last_name="P")
+
+        def off(user, first, last, status=TimeOff.APPROVED, **more):
+            return TimeOff.objects.create(user=user, first_day=today + datetime.timedelta(days=first), last_day=today + datetime.timedelta(days=last),
+                                          status=status, **more)
+        trip = off(self.dana, 10, 12, category="Vacation")
+        now = off(alex, -1, 1)                       # going on
+        asked = off(alex, 10, 10, TimeOff.PENDING)   # the same first day as Dana's: by name
+        off(self.dana, 5, 6, TimeOff.DECLINED)
+        off(self.dana, -9, -7)                       # over
+        far = off(self.dana, 40, 41)
+        answer = self.ok("time_off.upcoming")
+        self.assertEqual((answer["count"], [r["request_id"] for r in answer["requests"]]), (3, [str(now.pk), str(asked.pk), str(trip.pk)]))
+        self.assertEqual(answer["requests"][2], {
+            "request_id": str(trip.pk), "staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org",
+            "first_day": (today + datetime.timedelta(days=10)).isoformat(), "last_day": (today + datetime.timedelta(days=12)).isoformat(),
+            "all_day": True, "category": "Vacation", "status": "approved"})
+        self.assertEqual([r["request_id"] for r in self.ok("time_off.upcoming", {"status": "pending"})["requests"]], [str(asked.pk)])
+        self.assertEqual(self.ok("time_off.upcoming", {"days": 1})["count"], 1)
+        self.assertEqual(self.ok("time_off.upcoming", {"days": 60})["requests"][-1]["request_id"], str(far.pk))
+        self.assertError(self.call("time_off.upcoming", {"days": 0}), 422, "invalid_params", "from 1 to 365")
+        self.assertError(self.call("time_off.upcoming", {"status": "declined"}), 422, "invalid_params", "approved, pending")
 
     def test_cancelling_a_shift_follows_the_shifts_page(self):
         told, draft = self.shift(days=2), self.shift(days=4, published=False)
@@ -757,14 +915,15 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         self.assertError(self.call("customer.add_note", {**body, "customer_id": "0"}), 422, "invalid_params")
 
     def test_find_an_order_by_its_number(self):
-        self.assertEqual(self.ok("order.find", {"number": "9999"}), {"found": False})
-        self.assertEqual(self.ok("order.find", {"number": "soon"}), {"found": False})
+        self.assertEqual(self.ok("order.find", {"number": "9999"}), {"found": False, "lines": []})
+        self.assertEqual(self.ok("order.find", {"number": "soon"}), {"found": False, "lines": []})
         order = self.tea_order(name="Maria Kovalenko", email="maria@example.org")
         answer = self.ok("order.find", {"number": f"#{order.pk:04d}"})
         self.assertEqual({k: v for k, v in answer.items() if k != "placed_at"}, {
             "found": True, "order_id": str(order.pk), "number": f"{order.pk:04d}", "type": "pickup", "channel": "web", "status": "waiting",
             "payment": "paid", "total": float(order.total), "refunded": 0.0, "items": 2, "summary": "2 × Tea",
-            "customer_name": "Maria Kovalenko", "customer_email": "maria@example.org"})
+            "customer_name": "Maria Kovalenko", "customer_email": "maria@example.org", "line_count": 1,
+            "lines": [{"dish_id": str(self.tea.pk), "name": "Tea", "quantity": 2, "unit_price": 2.0, "total": 4.0, "station": self.bar.name}]})
         order.set_station_status(["bar"], OrderStation.STATUS_APPROVED)
         self.assertEqual(self.ok("order.find", {"number": str(order.pk)})["status"], "in_progress")
         order.set_station_status(["bar"], OrderStation.STATUS_DONE)
@@ -772,6 +931,73 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         order.picked_up = True
         order.save()
         self.assertEqual(self.ok("order.find", {"number": str(order.pk)})["status"], "picked_up")
+
+    def test_open_orders_the_one_waiting_longest_first(self):
+        from pos_server.models import Order
+        self.assertEqual(self.ok("order.open"), {"count": 0, "numbers": "", "orders": []})
+        new = self.tea_order(name="Maria Kovalenko", email="maria@example.org")
+        old = create_order(lines=[self.dish(self.tea), self.dish(self.burger, cust={"groups": {self.temp_key: [self.medium.id], self.bun_key: []}})],
+                           channel="store", initial_status=OrderStation.STATUS_APPROVED, customer=self.maria)
+        ready = self.tea_order()
+        ready.set_station_status(["bar"], OrderStation.STATUS_APPROVED)
+        ready.set_station_status(["bar"], OrderStation.STATUS_DONE)
+        gone = self.tea_order()
+        Order.objects.filter(pk=gone.pk).update(picked_up=True)
+        now = timezone.now()
+        Order.objects.filter(pk=old.pk).update(timestamp=now - datetime.timedelta(minutes=42))
+        Order.objects.filter(pk=ready.pk).update(timestamp=now - datetime.timedelta(minutes=7, seconds=30))
+        answer = self.ok("order.open")
+        self.assertEqual((answer["count"], answer["numbers"]), (3, f"{old.pk:04d}, {ready.pk:04d}, {new.pk:04d}"))
+        self.assertEqual([(o["order_id"], o["status"], o["minutes"]) for o in answer["orders"]],
+                         [(str(old.pk), "in_progress", 42), (str(ready.pk), "ready", 7), (str(new.pk), "waiting", 0)])
+        self.assertEqual({k: v for k, v in answer["orders"][0].items() if k != "placed_at"}, {
+            "order_id": str(old.pk), "number": f"{old.pk:04d}", "type": "dine_in", "channel": "store", "status": "in_progress",
+            "total": float(old.total), "items": 2, "summary": "1 × Tea, 1 × Burger", "minutes": 42,
+            "customer_name": "Maria Kovalenko", "customer_email": "maria@example.org"})
+        late = self.ok("order.open", {"older_than": 5})
+        self.assertEqual((late["count"], late["numbers"]), (2, f"{old.pk:04d}, {ready.pk:04d}"))
+        self.assertError(self.call("order.open", {"older_than": -1}), 422, "invalid_params", "from 0 to 1440")
+
+    def test_a_list_of_orders_costs_the_same_however_long_it_is(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def queries():
+            with CaptureQueriesContext(connection) as seen:
+                self.ok("order.open")
+                self.ok("order.list")
+            return len(seen)
+        for _n in range(2):
+            self.tea_order(customer=self.maria)
+        queries()  # the first call also notes that the connection was used
+        few = queries()
+        for _n in range(4):
+            self.tea_order(customer=self.maria)
+        self.assertEqual(queries(), few)  # lines, stations, deliveries and customers come along with the orders
+
+    def test_a_days_orders_newest_first(self):
+        from pos_server.models import Order
+        day = timezone.localdate()
+        self.assertEqual(self.ok("order.list", {"date": "2020-01-01"}), {"date": "2020-01-01", "count": 0, "sales": 0.0, "orders": []})
+        first = self.tea_order(name="Maria Kovalenko", email="maria@example.org")
+        Order.objects.filter(pk=first.pk).update(picked_up=True)
+        second = create_order(lines=[self.dish(self.tea)], channel="store", initial_status=OrderStation.STATUS_APPROVED, to_go_order=True)
+        old = self.tea_order()
+        Order.objects.filter(pk=old.pk).update(timestamp=timezone.now() - datetime.timedelta(days=3))
+        voided = self.tea_order()
+        Order.objects.filter(pk=voided.pk).update(voided_at=timezone.now())
+        answer = self.ok("order.list")
+        self.assertEqual((answer["date"], answer["count"], answer["sales"]), (day.isoformat(), 2, float(first.total + second.total)))
+        self.assertEqual([(o["order_id"], o["type"], o["status"], o["minutes"]) for o in answer["orders"]],
+                         [(str(second.pk), "to_go", "in_progress", 0), (str(first.pk), "pickup", "picked_up", 0)])
+        self.assertEqual((answer["orders"][1]["customer_email"], answer["orders"][1]["summary"]), ("maria@example.org", "2 × Tea"))
+        self.assertNotIn("lines", answer["orders"][0])  # no lists inside lists
+        online = self.ok("order.list", {"channel": "web"})
+        self.assertEqual((online["count"], [o["order_id"] for o in online["orders"]]), (1, [str(first.pk)]))
+        earlier = self.ok("order.list", {"date": (day - datetime.timedelta(days=3)).isoformat()})
+        self.assertEqual([o["order_id"] for o in earlier["orders"]], [str(old.pk)])
+        self.assertError(self.call("order.list", {"channel": "phone"}), 422, "invalid_params", "store, web, delivery")
+        self.assertError(self.call("order.list", {"date": "yesterday"}), 422, "invalid_params", "2026-12-24")
 
     def test_a_receipt_is_emailed_and_logged(self):
         order = self.tea_order(email="maria@example.org")
@@ -791,7 +1017,7 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         from pos_server.models import Order
         empty = self.ok("sales.summary", {"date": "2020-01-01"})
         self.assertEqual(empty, {"date": "2020-01-01", "orders": 0, "sales": 0.0, "average": 0.0, "tax": 0.0, "tips": 0.0, "discounts": 0.0,
-                                 "refunds": 0.0, "items": 0, "top_dish": "", "online_orders": 0})
+                                 "refunds": 0.0, "items": 0, "top_dish": "", "online_orders": 0, "dish_count": 0, "top_dishes": []})
         first = self.tea_order()
         create_order(lines=[self.dish(self.tea), self.dish(self.coffee, cust={"groups": {self.size_key: [self.large.id]}})], channel="store",
                      initial_status=OrderStation.STATUS_APPROVED)
@@ -803,22 +1029,44 @@ class MoreActionTests(Api, MenuFixture, TestCase):
                          (timezone.localdate().isoformat(), 2, 4, "Tea", 1))
         self.assertEqual((today["sales"], today["average"]), (float(total), round(float(total) / 2, 2)))
         self.assertEqual(today["tax"], float(first.tax + Order.objects.exclude(pk__in=[first.pk, old.pk]).get().tax))
+        self.assertEqual((today["dish_count"], today["top_dishes"]), (2, [{"name": "Tea", "quantity": 3}, {"name": "Coffee", "quantity": 1}]))
         self.assertError(self.call("sales.summary", {"date": "yesterday"}), 422, "invalid_params", "2026-12-24")
 
     # ----- menu and stock -----
 
     def test_find_a_dish_and_whether_it_sells(self):
         from pos_server.models import Dish
-        self.assertEqual(self.ok("dish.find", {"name": "sushi"}), {"found": False, "count": 0})
-        Dish.objects.create(title="Veggie burger", price=Decimal("13"), station=self.kitchen)
+        self.assertEqual(self.ok("dish.find", {"name": "sushi"}), {"found": False, "count": 0, "dishes": []})
+        veggie = Dish.objects.create(title="Veggie burger", price=Decimal("13"), station=self.kitchen)
         answer = self.ok("dish.find", {"name": "burger"})
-        self.assertEqual(answer, {"found": True, "count": 2, "dish_id": str(self.burger.pk), "name": "Burger", "price": 14.5,
-                                  "station": self.kitchen.name, "available": True, "mode": "auto", "reason": "",
-                                  "matches": "Burger, Veggie burger"})
+        closest = {"dish_id": str(self.burger.pk), "name": "Burger", "price": 14.5, "station": self.kitchen.name, "available": True,
+                   "mode": "auto", "reason": ""}
+        self.assertEqual(answer, {"found": True, "count": 2, **closest, "matches": "Burger, Veggie burger", "dishes": [
+            closest, {"dish_id": str(veggie.pk), "name": "Veggie burger", "price": 13.0, "station": self.kitchen.name, "available": True,
+                      "mode": "auto", "reason": ""}]})
         type(self.bun).objects.filter(pk=self.bun.pk).update(inventory=0)
         type(self.bun).objects.get(pk=self.bun.pk).save()
         answer = self.ok("dish.find", {"name": "Burger"})
         self.assertEqual((answer["available"], answer["reason"]), (False, "out_of_stock"))
+        self.assertEqual([(d["name"], d["available"], d["reason"]) for d in answer["dishes"]],
+                         [("Burger", False, "out_of_stock"), ("Veggie burger", True, "")])
+
+    def test_the_dishes_that_are_sold_out(self):
+        from pos_server.models import Dish, Station
+        self.assertEqual(self.ok("dish.sold_out"), {"count": 0, "names": "", "dishes": []})
+        type(self.bun).objects.filter(pk=self.bun.pk).update(inventory=0)
+        type(self.bun).objects.get(pk=self.bun.pk).save()
+        Dish.objects.filter(pk=self.tea.pk).update(availability="off")
+        Dish.objects.create(title="Old special", price=Decimal("9"), station=self.kitchen, availability="off", archived=True)
+        answer = self.ok("dish.sold_out")
+        by_station = sorted([(self.bar.name, "Tea", "turned_off"), (self.kitchen.name, "Burger", "out_of_stock")], key=lambda row: row[0].lower())
+        self.assertEqual((answer["count"], answer["names"]), (2, ", ".join(name for _station, name, _why in by_station)))
+        self.assertEqual([(d["station"], d["name"], d["reason"]) for d in answer["dishes"]], by_station)
+        self.assertEqual(next(d for d in answer["dishes"] if d["name"] == "Tea"), {
+            "dish_id": str(self.tea.pk), "name": "Tea", "price": 2.0, "station": self.bar.name, "available": False, "mode": "off", "reason": "turned_off"})
+        Station.objects.filter(pk=self.bar.pk).update(taking_tickets=False)
+        stopped = {d["name"]: d["reason"] for d in self.ok("dish.sold_out")["dishes"]}
+        self.assertEqual(stopped, {"Burger": "out_of_stock", "Coffee": "station_paused", "Tea": "turned_off"})
 
     def test_turning_a_dish_off_and_back(self):
         from pos_server.models import Dish
@@ -848,14 +1096,17 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", inventory=800, par=2000)
         Ingredient.objects.create(title="Ground pork", unit_of_measurement="g", inventory=10)
         water = Ingredient.objects.create(title="Tap water", unit_of_measurement="ml", unlimited=True)
-        self.assertEqual(self.ok("stock.find", {"name": "saffron"}), {"found": False, "count": 0})
+        pork = Ingredient.objects.get(title="Ground pork")
+        self.assertEqual(self.ok("stock.find", {"name": "saffron"}), {"found": False, "count": 0, "items": []})
+        closest = {"kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 800, "unit": "g", "par": 2000, "below_par": True}
         self.assertEqual(self.ok("stock.find", {"name": "ground"}), {
-            "found": True, "count": 2, "kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 800, "unit": "g",
-            "par": 2000, "below_par": True, "matches": "Ground beef, Ground pork"})
+            "found": True, "count": 2, **closest, "matches": "Ground beef, Ground pork", "items": [
+                closest, {"kind": "ingredient", "item_id": str(pork.pk), "name": "Ground pork", "on_hand": 10, "unit": "g"}]})
         patty = self.ok("stock.find", {"name": "patty"})  # no ingredient is called that: the component
         self.assertEqual((patty["kind"], patty["item_id"], patty["on_hand"], patty["unit"]), ("component", str(self.patty.pk), 100, "ea"))
         self.assertNotIn("par", patty)
-        self.assertEqual(self.ok("stock.find", {"name": "ground", "kind": "component"}), {"found": False, "count": 0})
+        self.assertEqual(patty["items"], [{"kind": "component", "item_id": str(self.patty.pk), "name": "Patty", "on_hand": 100, "unit": "ea"}])
+        self.assertEqual(self.ok("stock.find", {"name": "ground", "kind": "component"}), {"found": False, "count": 0, "items": []})
         body = {"kind": "ingredient", "item_id": str(beef.pk), "change": 5000}
         self.assertEqual(self.ok("stock.adjust", body, idempotency="k-1"),
                          {"kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 5800, "unit": "g", "par": 2000, "below_par": False})
@@ -868,6 +1119,27 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         self.assertError(self.call("stock.adjust", {**body, "kind": "component", "item_id": "999999"}), 422, "invalid_params", "Check stock")
         self.assertEqual(self.ok("stock.adjust", {"kind": "component", "item_id": str(self.bun.pk), "change": -100}, idempotency="k-3")["on_hand"], 0)
         self.assertFalse(type(self.burger).objects.get(pk=self.burger.pk).available)  # dishes follow, as in Cookery
+
+    def test_stock_below_par_the_emptiest_first(self):
+        from pos_server.models import Component, Ingredient
+        self.assertEqual(self.ok("stock.below_par"), {"count": 0, "names": "", "items": []})
+        beef = Ingredient.objects.create(title="Ground beef", unit_of_measurement="g", inventory=800, par=2000)   # 40% of its par
+        milk = Ingredient.objects.create(title="Milk", unit_of_measurement="ml", inventory=0, par=4000)           # nothing left
+        Ingredient.objects.create(title="Butter", unit_of_measurement="g", inventory=900, par=500)                # enough
+        Ingredient.objects.create(title="Salt", unit_of_measurement="g", inventory=0)                             # no par
+        Ingredient.objects.create(title="Tap water", unit_of_measurement="ml", inventory=0, par=10, unlimited=True)
+        Ingredient.objects.create(title="Old flour", unit_of_measurement="g", inventory=0, par=10, archived=True)
+        Component.objects.filter(pk=self.bun.pk).update(par=400)                                                 # 100 of 400
+        Component.objects.filter(pk=self.shot.pk).update(par=10)                                                 # made on demand: never counted
+        answer = self.ok("stock.below_par")
+        self.assertEqual((answer["count"], answer["names"]), (3, "Milk, Bun, Ground beef"))
+        self.assertEqual(answer["items"], [
+            {"kind": "ingredient", "item_id": str(milk.pk), "name": "Milk", "on_hand": 0, "unit": "ml", "par": 4000, "below_par": True},
+            {"kind": "component", "item_id": str(self.bun.pk), "name": "Bun", "on_hand": 100, "unit": "ea", "par": 400, "below_par": True},
+            {"kind": "ingredient", "item_id": str(beef.pk), "name": "Ground beef", "on_hand": 800, "unit": "g", "par": 2000, "below_par": True}])
+        self.assertEqual(self.ok("stock.below_par", {"kind": "component"})["names"], "Bun")
+        self.assertEqual(self.ok("stock.below_par", {"kind": "ingredient"})["count"], 2)
+        self.assertError(self.call("stock.below_par", {"kind": "dish"}), 422, "invalid_params", "ingredient, component")
 
     # ----- gift cards -----
 
@@ -1055,6 +1327,15 @@ class MoreActionTests(Api, MenuFixture, TestCase):
         speak.assert_called_once_with("Volunteer lunch is ready", "announcement")
 
 
+# CateringFixture's order, line by line: 20 burgers, 2 servers for 4 hours, 3 chafers
+# for a day, delivery and 60 clamshells.
+LUNCH_LINES = [{"kind": "dish", "name": "Burger", "quantity": 20, "amount": 0, "total": 250.0},
+               {"kind": "service", "name": "Server", "quantity": 2, "amount": 4, "total": 304.0},
+               {"kind": "service", "name": "Chafer", "quantity": 3, "amount": 1, "total": 54.0},
+               {"kind": "service", "name": "Delivery", "quantity": 1, "amount": 0, "total": 35.0},
+               {"kind": "disposable", "name": "Clamshell", "quantity": 60, "amount": 0, "total": 45.0}]
+
+
 @mock.patch("catering.flow.send_email")
 class CateringActionTests(Api, CateringFixture, TestCase):
     @classmethod
@@ -1066,13 +1347,40 @@ class CateringActionTests(Api, CateringFixture, TestCase):
 
     def test_find_a_catering_order(self, _send):
         order = self.make_order()
-        self.assertEqual(self.call("catering.find", {"number": "C-9999"}).json(), {"found": False})
-        self.assertEqual(self.call("catering.find", {"number": "lunch"}).json(), {"found": False})
+        self.assertEqual(self.call("catering.find", {"number": "C-9999"}).json(), {"found": False, "lines": []})
+        self.assertEqual(self.call("catering.find", {"number": "lunch"}).json(), {"found": False, "lines": []})
         for typed in (order.number, order.number.lower(), order.number[2:]):
             answer = self.call("catering.find", {"number": typed}).json()
             self.assertEqual({k: v for k, v in answer.items() if k != "event_at"}, {
                 "found": True, "catering_id": str(order.pk), "number": order.number, "title": "Office lunch", "status": "new",
-                "fulfilment": "pickup", "total": 688.0, "customer_name": "Ben Carter", "customer_email": "ben@example.com"})
+                "fulfilment": "pickup", "total": 688.0, "customer_name": "Ben Carter", "customer_email": "ben@example.com",
+                "line_count": 5, "lines": LUNCH_LINES})
+
+    def test_upcoming_catering_orders_the_soonest_first(self, _send):
+        from catering.models import CateringOrder
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        self.assertEqual(self.call("catering.upcoming", {}).json(), {"count": 0, "numbers": "", "orders": []})
+        later = self.make_order(days=9)
+        soon = self.make_order(days=2, status=CateringOrder.CONFIRMED)
+        today = self.make_order(days=0, status=CateringOrder.WAITING)
+        self.make_order(days=3, status=CateringOrder.CANCELLED)
+        self.make_order(days=4, status=CateringOrder.DONE)
+        self.make_order(days=-2)
+        far = self.make_order(days=20)
+        with CaptureQueriesContext(connection) as three:
+            answer = self.call("catering.upcoming", {}).json()
+        self.assertEqual((answer["count"], answer["numbers"]), (3, f"{today.number}, {soon.number}, {later.number}"))
+        self.assertEqual([(o["catering_id"], o["status"]) for o in answer["orders"]],
+                         [(str(today.pk), "waiting"), (str(soon.pk), "confirmed"), (str(later.pk), "new")])
+        self.assertEqual({k: v for k, v in answer["orders"][1].items() if k != "event_at"}, {
+            "catering_id": str(soon.pk), "number": soon.number, "title": "Office lunch", "status": "confirmed", "fulfilment": "pickup",
+            "total": 688.0, "customer_name": "Ben Carter", "customer_email": "ben@example.com"})
+        self.assertEqual(self.call("catering.upcoming", {"days": 1}).json()["numbers"], today.number)
+        with CaptureQueriesContext(connection) as four:  # one more order costs no more queries: one catalog prices them all
+            self.assertEqual(self.call("catering.upcoming", {"days": 30}).json()["orders"][-1]["catering_id"], str(far.pk))
+        self.assertEqual(len(four), len(three))
+        self.assertEqual(self.call("catering.upcoming", {"days": 400}).status_code, 422)
 
     def test_a_message_from_the_store_is_emailed_to_the_customer(self, send):
         from catering.models import CateringMessage, CateringOrder
@@ -1160,7 +1468,9 @@ class EventTests(MenuFixture, TestCase):
         self.assertEqual(event["data"], {
             "order": {"id": str(order.pk), "number": f"{order.pk:04d}", "type": "pickup", "channel": "web", "total": float(order.total), "items": 2,
                       "subtotal": 4.0, "discount": 0.0, "tax": float(order.tax), "tip": 0.0, "summary": "2 × Tea",
-                      "placed_at": timezone.localtime(order.timestamp).isoformat(timespec="seconds")},
+                      "placed_at": timezone.localtime(order.timestamp).isoformat(timespec="seconds"), "line_count": 1,
+                      "lines": [{"dish_id": str(self.tea.pk), "name": "Tea", "quantity": 2, "unit_price": 2.0, "total": 4.0,
+                                 "station": self.bar.name}]},
             "customer": {"name": "Maria Kovalenko", "email": "maria@example.org", "phone": ""}})
         delivery = Delivery.objects.get()
         self.assertEqual((delivery.status, delivery.attempts, delivery.response_status, delivery.event_type, delivery.body),
@@ -1186,6 +1496,29 @@ class EventTests(MenuFixture, TestCase):
                     node = first["data"]
                     for part in f["key"].split("."):
                         node = node[part]
+
+    def test_an_orders_lines_are_what_a_receipt_lists(self):
+        from pos_server.models import OrderItem
+        sender = Sender(200)
+        with mock.patch("switchboard.events.post", sender), self.captureOnCommitCallbacks(execute=True):
+            order = create_order(lines=[self.lunch(drink=self.tea), self.dish(self.tea, 2),
+                                        self.dish(self.burger, cust={"groups": {self.temp_key: [self.medium.id], self.bun_key: []}})],
+                                 channel="store", initial_status=OrderStation.STATUS_APPROVED)
+        placed = self.one(sender, "order.placed")["data"]["order"]
+        combo = order.items.get(combo=self.combo)
+        self.assertEqual((placed["line_count"], placed["items"], placed["summary"]), (3, 4, "1 × Lunch combo, 2 × Tea, 1 × Burger"))
+        self.assertEqual(placed["lines"], [  # as rung up; a combo is one line, whatever was picked for it
+            {"dish_id": "", "name": "Lunch combo", "quantity": 1, "unit_price": float(combo.unit_price), "total": float(combo.line_total), "station": ""},
+            {"dish_id": str(self.tea.pk), "name": "Tea", "quantity": 2, "unit_price": 2.0, "total": 4.0, "station": self.bar.name},
+            {"dish_id": str(self.burger.pk), "name": "Burger", "quantity": 1, "unit_price": 14.5, "total": 14.5, "station": self.kitchen.name}])
+        self.assertEqual(sum(line["total"] for line in placed["lines"]), float(order.subtotal))
+        fresh = type(order).objects.get(pk=order.pk)
+        with self.assertNumQueries(1):  # the lines with their stations: an order is told about for the price of one query
+            events._order(fresh)
+        OrderItem.objects.bulk_create([OrderItem(order=order, dish=self.tea, station=self.bar, title=f"Tea {n}", unit_price=2) for n in range(230)])
+        _subject, data, _number = events._order(order)
+        self.assertEqual((data["order"]["line_count"], len(data["order"]["lines"]), data["order"]["lines"][-1]["name"]), (233, 200, "Tea 196"))
+        self.assertEqual(contract.mismatches(manifest.ORDER_FIELDS, data), [])
 
     def test_order_ready_when_the_last_station_finishes(self):
         sender = Sender(200)
@@ -1511,7 +1844,8 @@ class CateringEventTests(Events, CateringFixture, TestCase):
         self.assertEqual(asked["subject"], {"type": "catering_order", "id": str(order.pk), "email": "ben@example.com", "name": "Ben Carter"})
         self.assertEqual(asked["data"]["catering"], {
             "id": str(order.pk), "number": order.number, "title": "Office lunch", "status": "new", "fulfilment": "pickup", "total": 688.0,
-            "rush": False, "event_at": timezone.make_aware(datetime.datetime.combine(order.event_date, datetime.time(12, 0))).isoformat()})
+            "rush": False, "event_at": timezone.make_aware(datetime.datetime.combine(order.event_date, datetime.time(12, 0))).isoformat(),
+            "line_count": 5, "lines": LUNCH_LINES})
         self.assertEqual(asked["data"]["customer"], {"name": "Ben Carter", "email": "ben@example.com", "phone": "604 555 0181",
                                                      "organization": "Juniper Community"})
         with self.sending() as sender:
@@ -1743,6 +2077,8 @@ class StoreEventTests(Events, MenuFixture, TestCase):
             self.client.post(reverse("log_shopping"), {"items-total": "1", "item-0-title": "Milk", "item-0-quantity": "4000"})
         logged = self.one(sender, "stock.received")
         self.assertEqual((logged["data"]["items"], logged["data"]["summary"]), (1, "Milk (4000 ml)"))
+        milk = Ingredient.objects.get(title="Milk")
+        self.assertEqual(logged["data"]["ingredients"], [{"item_id": str(milk.pk), "name": "Milk", "quantity": 4000, "unit": "ml"}])
 
     def test_a_restock_placed_then_delivered(self):
         from admin_portal import restocks
@@ -1757,6 +2093,8 @@ class StoreEventTests(Events, MenuFixture, TestCase):
         placed = self.one(sender, "restock.placed")
         self.assertEqual({k: placed["data"]["restock"][k] for k in ("number", "supplier", "total", "lines", "summary")},
                          {"number": order.number, "supplier": "Fraser Valley Dairy", "total": 20.0, "lines": 1, "summary": "4 × Milk"})
+        self.assertEqual(placed["data"]["restock"]["ingredients"], [
+            {"item_id": str(milk.pk), "name": "Milk", "quantity": 4000, "unit": "ml", "cases": 4, "case_price": 5.0, "total": 20.0}])
         with self.sending() as sender:
             restocks.save_draft({**restocks.draft_from_restock(order), "status": Restock.DELIVERED, "delivered_on": timezone.localdate().isoformat()}, order)
             restocks.save_draft(restocks.draft_from_restock(order), order)
@@ -1838,8 +2176,8 @@ class StoreEventTests(Events, MenuFixture, TestCase):
 
     def test_publishing_tells_each_person_once(self):
         from team import schedule
-        self.shift(self.dana, days=2, published=False)
-        self.shift(self.dana, days=4, published=False)
+        later = self.shift(self.dana, days=4, published=False)
+        soon = self.shift(self.dana, days=2, published=False)
         self.shift(self.alex, days=20, published=False)
         with self.sending() as sender, mock.patch("team.schedule._notify"):
             schedule.publish()
@@ -1848,7 +2186,12 @@ class StoreEventTests(Events, MenuFixture, TestCase):
         self.assertEqual(set(told), {"dana@example.org", "alex@example.org"})
         self.assertEqual((told["dana@example.org"]["shifts"], told["dana@example.org"]["next_shift_role"]), (2, "Barista"))
         self.assertRegex(told["dana@example.org"]["next_shift_at"], r"T09:00:00[+-]\d\d:00$")
-        self.assertEqual(told["alex@example.org"], {"staff": {"id": str(self.alex.pk), "name": "Alex P", "email": "alex@example.org"}, "shifts": 0})
+        self.assertEqual(told["alex@example.org"], {"staff": {"id": str(self.alex.pk), "name": "Alex P", "email": "alex@example.org"}, "shifts": 0,
+                                                    "upcoming_shifts": []})  # 20 days out: past the two weeks
+        listed = told["dana@example.org"]["upcoming_shifts"]  # soonest first
+        self.assertEqual([(s["shift_id"], s["role"]) for s in listed], [(str(soon.pk), "Barista"), (str(later.pk), "Barista")])
+        self.assertEqual(listed[0]["starts_at"], told["dana@example.org"]["next_shift_at"])
+        self.assertRegex(listed[1]["ends_at"], r"T15:00:00[+-]\d\d:00$")
 
     def test_a_shift_given_away_and_taken(self):
         from team import swaps
