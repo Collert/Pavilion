@@ -111,6 +111,10 @@
 .tm-link { border: none; background: transparent; padding: 0; font: inherit; font-weight: 800; color: var(--brand); text-decoration: underline; }
 .tm-new { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .tm-two-in { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tm-signin { width: 560px; gap: 16px; }
+.tm-signin .close-btn { width: 36px; height: 36px; border: none; }
+.tm-signin-row { display: flex; gap: 10px; align-items: center; }
+.tm-signin-url { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; background: var(--soft); font-size: 13px; overflow-wrap: anywhere; user-select: all; }
 .tm-add-foot { margin: 0 -26px; padding: 16px 26px; border-top: 1px solid var(--line); }
 .faint { color: var(--faint); }
 

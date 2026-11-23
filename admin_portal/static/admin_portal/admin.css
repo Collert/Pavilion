@@ -281,6 +281,7 @@ button:disabled { cursor: not-allowed; }
 /* Sheets: a dialog over the page, closed by its scrim (a link back) */
 .overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .scrim { position: absolute; inset: 0; background: rgba(20, 38, 31, .5); backdrop-filter: blur(6px); }
+.overlay[data-appeared] .sheet { animation: none; }  /* already open: a background answer swapped it in again (live-page.js) */
 .sheet {
     position: relative; width: 640px; max-width: 100%; max-height: calc(100dvh - 48px); border-radius: 32px; background: var(--surface);
     box-shadow: 0 24px 64px rgba(20, 38, 31, .28); padding: 28px; display: flex; flex-direction: column; gap: 18px; animation: fadeUp .3s cubic-bezier(.2, .8, .2, 1) both;

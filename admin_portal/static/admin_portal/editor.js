@@ -37,6 +37,9 @@ document.addEventListener("input", (event) => {
     const form = event.target.closest("form[data-editor]");
     if (!form || event.target.matches('[type="search"], [data-no-preview]')) return;
     form.querySelectorAll('button[name="op"][value="save"]:disabled').forEach((button) => { button.disabled = false; });
+    // The same for a dialog's own button that waits on what you type (the Staff page's Create account)
+    event.target.closest("[data-region]")?.querySelectorAll("button[data-enable-on-input]:disabled")
+        .forEach((button) => { button.disabled = false; });
 });
 
 // Search-like fields ([data-type-preview]) show results as you type

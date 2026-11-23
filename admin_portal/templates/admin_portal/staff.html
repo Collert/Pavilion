@@ -125,6 +125,7 @@ and the photo take effect straight away.
                     <div class="tm-cred-row"><input class="field" type="password" name="new_password" data-no-preview autocomplete="new-password" placeholder="{% trans 'New password' %}" aria-label="{% trans 'New password' %}">
                         <button class="tm-keep" name="op" value="pwset" formnovalidate>{% trans "Set" %}</button></div>
                     <button class="tm-keep tm-cred-link" name="op" value="pwreset" formnovalidate{% if not p.r.email %} disabled{% endif %}>{% trans "Email a reset link" %}</button>
+                    {% if not p.has_password %}<button class="tm-keep tm-cred-link" name="op" value="pwlink" formnovalidate>{% trans "Show a sign-in link" %}</button>{% endif %}
                 </div>
                 <div class="tm-facts">
                     <div><div class="tm-fact-k">{% trans "Staff since" %}</div><div class="num tm-fact-v">{{ p.since }}</div></div>
@@ -146,7 +147,7 @@ and the photo take effect straight away.
 </div>
 
 <div id="staff-add" data-region>{% with a=s.add %}{% if a %}
-    <div class="overlay">
+    <div class="overlay" data-appear="add">
         <button class="scrim" name="op" value="closeadd" aria-label="{% trans 'Close' %}"></button>
         <div class="sheet tm-add" role="dialog" aria-modal="true" aria-labelledby="add-title">
             <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="add-title">{% trans "Add staff" %}</h2>
@@ -178,19 +179,46 @@ and the photo take effect straight away.
                     <label><span class="lbl">{% trans "Last name" %}</span><input class="field" name="new_last" value="{{ a.last }}" maxlength="40" autocomplete="off"></label>
                 </div>
                 <label><span class="lbl">{% trans "Email" %}</span><input class="field" type="email" name="new_email" value="{{ a.email }}" maxlength="80" placeholder="{% trans 'They’ll sign in with this' %}" autocomplete="off"></label>
-                {% if a.email_err %}<div class="tm-err tight">{{ a.email_err }}</div>{% endif %}
+                <div data-calc>{% if a.email_err %}<div class="tm-err tight">{{ a.email_err }}</div>{% endif %}</div>
                 <label><span class="lbl">{% trans "Phone" %} <span class="faint">· {% trans "optional" %}</span></span><input class="field" type="tel" name="new_phone" value="{{ a.phone }}" maxlength="20" placeholder="(604) 555-0100" autocomplete="off"></label>
-                <label class="tm-switch-row"><span class="grow two-line"><span class="strong">{% trans "Email them an invite" %}</span><span class="small muted">{% trans "They set their own password from the link" %}</span></span>
+                <label class="tm-switch-row"><span class="grow two-line"><span class="strong">{% trans "Email them an invite" %}</span><span class="small muted">{% trans "They set their own password from the link. Off: you get the link to send them yourself." %}</span></span>
                     <input type="checkbox" name="new_invite" value="1" class="tm-switch"{% if a.invite %} checked{% endif %}></label>
             </div>
             {% endif %}
             <div class="sheet-foot tm-add-foot">
                 <span class="grow small muted">{% trans "You can add roles and groups on their profile next." %}</span>
                 <button class="btn-soft" name="op" value="closeadd">{% trans "Cancel" %}</button>
-                <button class="btn-amber" name="op" value="{% if a.tab == 'find' %}promote{% else %}create{% endif %}"{% if a.off %} disabled{% endif %}>{{ a.go }}</button>
+                <button class="btn-amber" name="op" value="{% if a.tab == 'find' %}promote{% else %}create{% endif %}"{% if a.off %} disabled{% endif %} data-calc{% if a.tab == 'new' %} data-enable-on-input{% endif %}>{{ a.go }}</button>
             </div>
         </div>
     </div>
-{% endif %}{% endwith %}</div>
+{% elif s.link %}{% with k=s.link %}
+    <div class="overlay" data-appear="link">
+        <button class="scrim" name="op" value="closelink" aria-label="{% trans 'Close' %}"></button>
+        <div class="sheet tm-signin" role="dialog" aria-modal="true" aria-labelledby="link-title">
+            <div class="sheet-head"><div class="grow"><h2 class="disp sheet-title" id="link-title">{% blocktrans with name=k.name %}{{ name }}’s sign-in link{% endblocktrans %}</h2>
+                <div class="small muted">{% trans "Send it to them yourself, by text or chat. They open it to choose their password, then they’re signed in." %}</div></div>
+                <button class="close-btn" name="op" value="closelink" aria-label="{% trans 'Close' %}">{% icon "close" 18 2.4 %}</button></div>
+            <div class="tm-signin-row"><code class="tm-signin-url" id="tm-signin-url">{{ k.url }}</code>
+                <button type="button" class="btn-soft" data-copy="tm-signin-url">{% trans "Copy" %}</button></div>
+            <div class="small muted">{% blocktrans with until=k.until %}It works once, until {{ until }}. Anyone with it can set this password, so send it only to them.{% endblocktrans %}</div>
+            <div class="sheet-foot"><button class="btn-amber" name="op" value="closelink">{% trans "Done" %}</button></div>
+        </div>
+    </div>
+{% endwith %}{% endif %}{% endwith %}</div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    // Copy the sign-in link (what HTML can't do); if the browser won't, select it to copy by hand
+    document.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-copy]");
+        if (!button) return;
+        const box = document.getElementById(button.dataset.copy);
+        try { await navigator.clipboard.writeText(box?.textContent.trim() || ""); button.textContent = gettext("Copied"); }
+        catch { getSelection().selectAllChildren(box); }
+        setTimeout(() => { button.textContent = gettext("Copy"); }, 1600);
+    });
+</script>
 {% endblock %}

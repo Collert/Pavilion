@@ -9,7 +9,8 @@ Groups are django.contrib.auth Groups (users.GroupInfo: description, colour); me
 superusers. The store always keeps one active owner, and nobody can turn off or remove themselves.
 
     request.session["admin_staff"] = {"rows": {user id: row}, "removed": [ids], "sel": id, "q", "role", "confirm": id,
-                                      "add": None or {"tab": "find"|"new", "aq", "pick", "first", "last", "email", "phone", "invite"}}
+                                      "add": None or {"tab": "find"|"new", "aq", "pick", "first", "last", "email", "phone", "invite"},
+                                      "link": None or {"uid", "name", "url", "until"} (the sign-in link sheet)}
     row = {"first", "last", "email", "phone", "roles": [ids], "groups": [ids], "em_name", "em_rel", "em_phone", "active"}
 """
 import re
@@ -64,7 +65,8 @@ def owners_group():
 def state(session) -> dict:
     st = session.get(KEY) or {}
     return {"rows": dict(st.get("rows") or {}), "removed": list(st.get("removed") or []), "sel": st.get("sel"),
-            "q": st.get("q", ""), "role": st.get("role", "all"), "confirm": st.get("confirm"), "add": st.get("add")}
+            "q": st.get("q", ""), "role": st.get("role", "all"), "confirm": st.get("confirm"), "add": st.get("add"),
+            "link": st.get("link")}
 
 
 def store(session, st):
@@ -261,19 +263,41 @@ def create(add) -> tuple[User | None, str]:
     return user, ""
 
 
-def invite(request, user):
-    """Email a link where they set their own password (users.views.welcome)."""
+def welcome_link(request, user) -> str:
+    """The link where they set their own password (users.views.welcome). It works until a password is set (setting one
+    changes what the token is made from) or `PASSWORD_RESET_TIMEOUT` runs out."""
     from django.contrib.auth.tokens import default_token_generator
     from django.urls import reverse
     from django.utils.encoding import force_bytes
     from django.utils.http import urlsafe_base64_encode
+    return request.build_absolute_uri(reverse("staff_welcome", args=[urlsafe_base64_encode(force_bytes(user.pk)),
+                                                                     default_token_generator.make_token(user)]))
+
+
+def link_expires():
+    from datetime import timedelta
+
+    from django.conf import settings
+    from django.utils import timezone
+    return timezone.now() + timedelta(seconds=settings.PASSWORD_RESET_TIMEOUT)
+
+
+def invite(request, user):
+    """Email a link where they set their own password (users.views.welcome)."""
+    from django.conf import settings
 
     from misc_tools.email import send
     from .models import StoreSettings
-    link = request.build_absolute_uri(reverse("staff_welcome", args=[urlsafe_base64_encode(force_bytes(user.pk)), default_token_generator.make_token(user)]))
-    from django.conf import settings
-    return send("staff_invite", user.email, {"name": user.first_name, "store": StoreSettings.load().name, "link": link}, user=user,
-                fallback=settings.LANGUAGE_CODE)
+    return send("staff_invite", user.email, {"name": user.first_name, "store": StoreSettings.load().name,
+                                             "link": welcome_link(request, user)}, user=user, fallback=settings.LANGUAGE_CODE)
+
+
+def link_sheet(request, user) -> dict:
+    """What the "Their sign-in link" sheet shows (kept in the page's state until it's closed)."""
+    from django.utils import formats
+    from django.utils import timezone
+    return {"uid": user.id, "name": user.first_name or user.username, "url": welcome_link(request, user),
+            "until": formats.date_format(timezone.localtime(link_expires()), "M j, g:i A")}
 
 
 # ---------- sign-in (straight away) ----------
@@ -412,4 +436,5 @@ def page(st, users, me) -> dict:
 
     return {"st": st, "status": status, "status_kind": kind, "can_save": dirty and not errs, "filters": filters, "items": items,
             "foot": foot, "foot_warn": ngettext("%(n)d without an emergency contact", "%(n)d without an emergency contact", no_em) % {"n": no_em}
-            if no_em else _("Everyone has an emergency contact"), "no_em": no_em, "p": p, "add": add, "none": not current}
+            if no_em else _("Everyone has an emergency contact"), "no_em": no_em, "p": p, "add": add, "link": st.get("link"),
+            "none": not current}

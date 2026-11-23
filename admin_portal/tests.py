@@ -2575,6 +2575,44 @@ class StaffPageTests(AdminFixture, TestCase):
         self.assertTrue(lena.check_password("plum-ladder-91"))
         self.assertEqual(self.client.get(link).status_code, 400)
 
+    def test_without_the_invite_the_sign_in_link_is_shown(self):
+        from django.contrib.auth.models import User
+        from unittest import mock
+        self.client.post(self.url, {"op": "add"})
+        self.client.post(self.url, {"op": "addtab:new"})
+        with mock.patch("misc_tools.email.send") as sent:
+            response = self.client.post(self.url, {"op": "create", "new_present": "1", "new_first": "Omar", "new_last": "Haddad",
+                                                   "new_email": "omar@example.com"}, follow=True)
+        sent.assert_not_called()
+        omar = User.objects.get(email="omar@example.com")
+        link = response.context["s"]["link"]
+        self.assertEqual((link["uid"], link["name"]), (omar.id, "Omar"))
+        self.assertContains(response, "Omar’s sign-in link")
+        self.assertContains(response, link["url"])
+        self.assertIsNone(response.context["s"]["add"])
+        # the sheet closes, and a fresh visit never shows it again
+        self.assertIsNone(self.client.post(self.url, {"op": "closelink"}).context["s"]["link"])
+        # their profile offers the link again while they have no password; it's the welcome page's
+        response = self.client.post(self.url, {"op": "pwlink", "profile": "1", "sel": str(omar.id), "first": "Omar", "last": "Haddad",
+                                               "email": "omar@example.com", "active": "1"})
+        url = response.context["s"]["link"]["url"]
+        self.client.logout()
+        self.assertContains(self.client.get(url.split("testserver", 1)[1]), "Hi Omar")
+
+    def test_add_dialog_marks_what_follows_typing(self):
+        """The sheet is swapped in again on every change: it says so (no replayed entrance) and its button and email
+        warning update while a field still has focus; Create account turns on as you type."""
+        self.client.post(self.url, {"op": "add"})
+        html = self.client.post(self.url, {"op": "addtab:new"}).content.decode()
+        self.assertIn('class="overlay" data-appear="add"', html)
+        self.assertRegex(html, r'value="create" disabled data-calc data-enable-on-input')
+        html = self.client.post(self.url, {"op": "preview", "new_present": "1", "new_first": "Omar",
+                                           "new_email": "omar@example.com", "new_invite": "1"}).content.decode()
+        self.assertRegex(html, r'value="create" data-calc data-enable-on-input>Create and send invite')
+        html = self.client.post(self.url, {"op": "preview", "new_present": "1", "new_first": "Omar",
+                                           "new_email": "omar@example.com"}).content.decode()
+        self.assertIn(">Create account</button>", html)
+
 
 
 class ShiftPagesTests(AdminFixture, TestCase):

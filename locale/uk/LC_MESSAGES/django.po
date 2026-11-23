@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Pavilion\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-23 10:29-0700\n"
+"POT-Creation-Date: 2026-11-23 13:59-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Pavilion\n"
 "Language-Team: Ukrainian\n"
@@ -118,7 +118,7 @@ msgstr "Фонове аудіо"
 #: admin_portal/menus.py:596 admin_portal/pars.py:197
 #: admin_portal/recipes.py:327 admin_portal/restocks.py:425
 #: admin_portal/roles.py:151 admin_portal/screens.py:665
-#: admin_portal/services.py:338 admin_portal/staff.py:322
+#: admin_portal/services.py:338 admin_portal/staff.py:346
 #: admin_portal/staffcards.py:264 admin_portal/stations.py:221
 #: admin_portal/templates/admin_portal/combo.html:33
 #: admin_portal/templates/admin_portal/component.html:33
@@ -143,7 +143,7 @@ msgstr "Незбережені зміни"
 #: admin_portal/menus.py:596 admin_portal/pars.py:199
 #: admin_portal/recipes.py:327 admin_portal/restocks.py:425
 #: admin_portal/roles.py:153 admin_portal/screens.py:665
-#: admin_portal/services.py:338 admin_portal/staff.py:324
+#: admin_portal/services.py:338 admin_portal/staff.py:348
 #: admin_portal/staffcards.py:266 admin_portal/stations.py:223
 msgid "All changes saved"
 msgstr "Усі зміни збережено"
@@ -287,7 +287,7 @@ msgstr "канал"
 #: admin_portal/menus.py:359 admin_portal/orders.py:18
 #: admin_portal/orders.py:19 admin_portal/requests.py:23
 #: admin_portal/restocks.py:304 admin_portal/services.py:253
-#: admin_portal/staff.py:334
+#: admin_portal/staff.py:358
 #: admin_portal/templates/admin_portal/languages.html:37 audio/pages.py:129
 msgid "All"
 msgstr "Усі"
@@ -335,7 +335,7 @@ msgstr "Місто й поштовий індекс"
 #: admin_portal/branding.py:26
 #: admin_portal/templates/admin_portal/customers.html:68
 #: admin_portal/templates/admin_portal/staff.html:69
-#: admin_portal/templates/admin_portal/staff.html:182
+#: admin_portal/templates/admin_portal/staff.html:183
 #: admin_portal/templates/admin_portal/store_info.html:36
 #: online_store/templates/online_store/account/profile.html:27
 #: online_store/templates/online_store/account/profile.html:45
@@ -2580,11 +2580,11 @@ msgstr "Економія %(amount)s на цьому прикладі замов�
 msgid "Capped at %(cap)s."
 msgstr "Не більше %(cap)s."
 
-#: admin_portal/customers.py:147 admin_portal/staff.py:149
+#: admin_portal/customers.py:147 admin_portal/staff.py:151
 msgid "Enter a valid email. It’s what they sign in with."
 msgstr "Введіть правильну адресу ел. пошти. Саме з нею клієнт входить."
 
-#: admin_portal/customers.py:153 admin_portal/staff.py:152
+#: admin_portal/customers.py:153 admin_portal/staff.py:154
 #, python-format
 msgid "%(name)s already uses this email."
 msgstr "%(name)s уже використовує цю адресу ел. пошти."
@@ -2622,7 +2622,7 @@ msgstr "Square не вдалося видалити цю картку. Спро�
 msgid "%(card)s removed. It can’t be charged any more."
 msgstr "%(card)s видалено. З неї більше не можна стягувати кошти."
 
-#: admin_portal/customers.py:271 admin_portal/staff.py:320
+#: admin_portal/customers.py:271 admin_portal/staff.py:344
 #, python-format
 msgid "Fix %(name)s’s profile to save"
 msgstr "Виправте профіль %(name)s, щоб зберегти"
@@ -2845,7 +2845,7 @@ msgid "Joined"
 msgstr "Приєднався(-лася)"
 
 #: admin_portal/customers.py:369
-#: admin_portal/templates/admin_portal/staff.html:131
+#: admin_portal/templates/admin_portal/staff.html:132
 msgid "Last signed in"
 msgstr "Останній вхід"
 
@@ -2855,7 +2855,7 @@ msgstr "Останній вхід"
 #: admin_portal/templates/admin_portal/email.html:19
 #: admin_portal/templates/admin_portal/notifications.html:41
 #: admin_portal/templates/admin_portal/staff.html:68
-#: admin_portal/templates/admin_portal/staff.html:180
+#: admin_portal/templates/admin_portal/staff.html:181
 #: admin_portal/templates/admin_portal/store_info.html:38
 #: online_store/templates/online_store/account/profile.html:26
 #: online_store/templates/themes/neighbourhood/catering.html:115
@@ -3347,8 +3347,10 @@ msgstr "Мінімум — це сума, наприклад 40."
 #: admin_portal/templates/admin_portal/screens.html:48
 #: admin_portal/templates/admin_portal/shifts.html:118
 #: admin_portal/templates/admin_portal/shifts.html:125
-#: admin_portal/templates/admin_portal/staff.html:150
-#: admin_portal/templates/admin_portal/staff.html:154
+#: admin_portal/templates/admin_portal/staff.html:151
+#: admin_portal/templates/admin_portal/staff.html:155
+#: admin_portal/templates/admin_portal/staff.html:197
+#: admin_portal/templates/admin_portal/staff.html:201
 #: admin_portal/templates/admin_portal/switchboard.html:85
 #: audio/templates/audio/music.html:180
 #: inventory/templates/inventory/availability_panel.html:25
@@ -4397,8 +4399,8 @@ msgstr "Виберіть суму (цілі долари, до $1,000)"
 msgid "Who is it for?"
 msgstr "Для кого вона?"
 
-#: admin_portal/giftcards.py:95 admin_portal/staff.py:250
-#: admin_portal/staff.py:403
+#: admin_portal/giftcards.py:95 admin_portal/staff.py:252
+#: admin_portal/staff.py:427
 msgid "That doesn’t look like an email."
 msgstr "Це не схоже на адресу ел. пошти."
 
@@ -7879,7 +7881,7 @@ msgstr "Папір"
 msgid "Empty slot"
 msgstr "Порожній слот"
 
-#: admin_portal/screens.py:229 admin_portal/views.py:2044
+#: admin_portal/screens.py:229 admin_portal/views.py:2054
 msgid "Use a PNG, JPEG, WebP, GIF or SVG image under 8 MB."
 msgstr "Використайте зображення PNG, JPEG, WebP, GIF або SVG до 8 МБ."
 
@@ -8668,7 +8670,7 @@ msgstr "Ніхто не почав цю зміну."
 msgid "Shifts over 5 hours usually need a 30 minute meal break."
 msgstr "Змінам понад 5 годин зазвичай потрібна 30-хвилинна перерва на їжу."
 
-#: admin_portal/shifts.py:365 admin_portal/views.py:1688
+#: admin_portal/shifts.py:365 admin_portal/views.py:1698
 msgid "The shift ends before it starts."
 msgstr "Зміна закінчується раніше, ніж починається."
 
@@ -8766,52 +8768,52 @@ msgstr "%(who)s · %(from)s–%(to)s. Опублікуйте, щоб їм пов
 msgid "Open shifts"
 msgstr "Відкриті зміни"
 
-#: admin_portal/staff.py:108
+#: admin_portal/staff.py:110
 msgid "Give someone else Owners first. A store always needs one owner."
 msgstr ""
 "Спершу додайте когось іще до групи «Власники». У закладі завжди має бути "
 "власник."
 
-#: admin_portal/staff.py:113
+#: admin_portal/staff.py:115
 msgid "You can’t turn off your own sign-in."
 msgstr "Не можна вимкнути власний вхід."
 
-#: admin_portal/staff.py:147 admin_portal/staff.py:248
+#: admin_portal/staff.py:149 admin_portal/staff.py:250
 msgid "Add a first name."
 msgstr "Додайте ім'я."
 
-#: admin_portal/staff.py:154
+#: admin_portal/staff.py:156
 msgid "Another account already uses this email."
 msgstr "Ця адреса ел. пошти вже використовується іншим обліковим записом."
 
-#: admin_portal/staff.py:216
+#: admin_portal/staff.py:218
 #, python-format
 msgid "%(name)s removed from staff. Save to keep it."
 msgstr "%(name)s видалено з персоналу. Збережіть, щоб підтвердити."
 
-#: admin_portal/staff.py:252 admin_portal/staff.py:401
+#: admin_portal/staff.py:254 admin_portal/staff.py:425
 msgid "An account with this email exists. Use Existing account instead."
 msgstr ""
 "Обліковий запис із цією адресою вже існує. Виберіть «Наявний обліковий "
 "запис»."
 
-#: admin_portal/staff.py:285 users/views.py:216
+#: admin_portal/staff.py:309 users/views.py:216
 msgid "A PIN is 4 digits."
 msgstr "PIN складається з 4 цифр."
 
-#: admin_portal/staff.py:297
+#: admin_portal/staff.py:321
 msgid "Type the new password first."
 msgstr "Спершу введіть новий пароль."
 
-#: admin_portal/staff.py:354
+#: admin_portal/staff.py:378
 msgid "(you)"
 msgstr "(ви)"
 
-#: admin_portal/staff.py:356
+#: admin_portal/staff.py:380
 msgid "No roles yet"
 msgstr "Ролей ще немає"
 
-#: admin_portal/staff.py:361
+#: admin_portal/staff.py:385
 #, python-format
 msgid "%(n)d active staff member"
 msgid_plural "%(n)d active staff members"
@@ -8820,62 +8822,62 @@ msgstr[1] "%(n)d активні працівники"
 msgstr[2] "%(n)d активних працівників"
 msgstr[3] "%(n)d активного працівника"
 
-#: admin_portal/staff.py:363
+#: admin_portal/staff.py:387
 #, python-format
 msgid "%(n)d off"
 msgstr "вимкнено: %(n)d"
 
-#: admin_portal/staff.py:373
+#: admin_portal/staff.py:397
 msgid "No emergency contact on file yet."
 msgstr "Контакту для екстрених випадків ще немає."
 
-#: admin_portal/staff.py:374
+#: admin_portal/staff.py:398
 msgid "Add both a name and a phone number."
 msgstr "Додайте і ім'я, і номер телефону."
 
-#: admin_portal/staff.py:381
+#: admin_portal/staff.py:405
 msgid "No groups yet, so they can’t open any part of Pavilion."
 msgstr "Груп ще немає, тож вони не можуть відкрити жодну частину Pavilion."
 
-#: admin_portal/staff.py:382
+#: admin_portal/staff.py:406
 msgid "Only owner. Someone else needs Owners before this can be removed."
 msgstr ""
 "Єдиний власник. Щоб це прибрати, хтось інший має бути в групі «Власники»."
 
-#: admin_portal/staff.py:384
+#: admin_portal/staff.py:408
 msgid "This is you."
 msgstr "Це ви."
 
-#: admin_portal/staff.py:384
+#: admin_portal/staff.py:408
 msgid "Off for seasonal staff or leave. Their profile stays."
 msgstr ""
 "Вимкніть для сезонних працівників чи на час відпустки. Профіль залишиться."
 
-#: admin_portal/staff.py:385
+#: admin_portal/staff.py:409
 msgid "Off. They can’t sign in to the register or admin."
 msgstr "Вимкнено. Не можуть увійти ні в касу, ні в адмінпанель."
 
-#: admin_portal/staff.py:388
+#: admin_portal/staff.py:412
 msgid "You can’t remove yourself"
 msgstr "Не можна видалити себе"
 
-#: admin_portal/staff.py:388
+#: admin_portal/staff.py:412
 msgid "Only owner, can’t remove"
 msgstr "Єдиний власник, не можна видалити"
 
-#: admin_portal/staff.py:389
+#: admin_portal/staff.py:413
 msgid "Yes, remove from staff"
 msgstr "Так, видалити з персоналу"
 
-#: admin_portal/staff.py:389
+#: admin_portal/staff.py:413
 msgid "Remove from staff"
 msgstr "Видалити з персоналу"
 
-#: admin_portal/staff.py:401
+#: admin_portal/staff.py:425
 msgid "Already on staff."
 msgstr "Уже в персоналі."
 
-#: admin_portal/staff.py:406
+#: admin_portal/staff.py:430
 #, python-format
 msgid "Customer · %(n)d order"
 msgid_plural "Customer · %(n)d orders"
@@ -8884,30 +8886,30 @@ msgstr[1] "Клієнт · %(n)d замовлення"
 msgstr[2] "Клієнт · %(n)d замовлень"
 msgstr[3] "Клієнт · %(n)d замовлення"
 
-#: admin_portal/staff.py:407
+#: admin_portal/staff.py:431
 msgid "Account · no orders"
 msgstr "Обліковий запис · без замовлень"
 
-#: admin_portal/staff.py:410
+#: admin_portal/staff.py:434
 #, python-format
 msgid "Make %(name)s staff"
 msgstr "Додати %(name)s до персоналу"
 
-#: admin_portal/staff.py:410
+#: admin_portal/staff.py:434
 #: admin_portal/templates/admin_portal/customers.html:159
 msgid "Make staff"
 msgstr "Додати до персоналу"
 
-#: admin_portal/staff.py:411
+#: admin_portal/staff.py:435
 msgid "Create and send invite"
 msgstr "Створити й надіслати запрошення"
 
-#: admin_portal/staff.py:411
+#: admin_portal/staff.py:435
 #: online_store/templates/themes/neighbourhood/login.html:51
 msgid "Create account"
 msgstr "Створити обліковий запис"
 
-#: admin_portal/staff.py:414
+#: admin_portal/staff.py:438
 #, python-format
 msgid "%(n)d without an emergency contact"
 msgid_plural "%(n)d without an emergency contact"
@@ -8916,7 +8918,7 @@ msgstr[1] "%(n)d без контакту для екстрених випадк�
 msgstr[2] "%(n)d без контакту для екстрених випадків"
 msgstr[3] "%(n)d без контакту для екстрених випадків"
 
-#: admin_portal/staff.py:415
+#: admin_portal/staff.py:439
 msgid "Everyone has an emergency contact"
 msgstr "У всіх є контакт для екстрених випадків"
 
@@ -9537,11 +9539,9 @@ msgstr ""
 
 #: admin_portal/switchboard.py:22
 msgid ""
-"Add staff accounts, issue staff cards, add and cancel shifts, and ask for "
-"time off"
-msgstr ""
-"Додавати акаунти працівників, видавати картки працівників, додавати й "
-"скасовувати зміни та просити про відгули"
+"Add staff accounts and make their sign-in links, issue staff cards, add and "
+"cancel shifts, and ask for time off"
+msgstr "Додавати акаунти працівників і створювати посилання для входу, видавати картки працівників, додавати й скасовувати зміни та просити про відгули"
 
 #: admin_portal/switchboard.py:23
 msgid ""
@@ -9839,7 +9839,7 @@ msgstr ""
 #: admin_portal/templates/admin_portal/order.html:226
 #: admin_portal/templates/admin_portal/screens.html:58
 #: admin_portal/templates/admin_portal/shifts.html:161
-#: admin_portal/templates/admin_portal/staff.html:189
+#: admin_portal/templates/admin_portal/staff.html:190
 #: audio/templates/audio/music.html:193
 #: online_store/templates/online_store/account/_address_form.html:17
 #: online_store/templates/online_store/account/shifts.html:93
@@ -9948,7 +9948,7 @@ msgstr "Нотатки"
 #: admin_portal/templates/admin_portal/discounts.html:114
 #: admin_portal/templates/admin_portal/email.html:47
 #: admin_portal/templates/admin_portal/giftcards.html:124
-#: admin_portal/templates/admin_portal/staff.html:182
+#: admin_portal/templates/admin_portal/staff.html:183
 #: admin_portal/templates/admin_portal/store_info.html:48
 #: online_store/templates/online_store/account/shifts.html:90
 #: online_store/templates/online_store/account/time.html:60
@@ -11737,7 +11737,7 @@ msgstr "Профіль клієнта"
 
 #: admin_portal/templates/admin_portal/customers.html:65
 #: admin_portal/templates/admin_portal/staff.html:66
-#: admin_portal/templates/admin_portal/staff.html:177
+#: admin_portal/templates/admin_portal/staff.html:178
 #: online_store/templates/online_store/account/profile.html:23
 #: online_store/templates/themes/neighbourhood/login.html:43
 #: users/templates/users/setup.html:84
@@ -11746,7 +11746,7 @@ msgstr "Ім'я"
 
 #: admin_portal/templates/admin_portal/customers.html:66
 #: admin_portal/templates/admin_portal/staff.html:67
-#: admin_portal/templates/admin_portal/staff.html:178
+#: admin_portal/templates/admin_portal/staff.html:179
 #: online_store/templates/online_store/account/profile.html:24
 #: online_store/templates/themes/neighbourhood/login.html:44
 #: users/templates/users/setup.html:89
@@ -11784,7 +11784,7 @@ msgid "Refresh from Square"
 msgstr "Оновити зі Square"
 
 #: admin_portal/templates/admin_portal/customers.html:113
-#: admin_portal/templates/admin_portal/staff.html:136
+#: admin_portal/templates/admin_portal/staff.html:137
 msgid "Keep"
 msgstr "Залишити"
 
@@ -12051,6 +12051,7 @@ msgstr "Код пристрою"
 #: admin_portal/templates/admin_portal/devices.html:152
 #: admin_portal/templates/admin_portal/devices.html:191
 #: admin_portal/templates/admin_portal/pars.html:71
+#: admin_portal/templates/admin_portal/staff.html:203
 #: admin_portal/templates/admin_portal/switchboard.html:33
 msgid "Copy"
 msgstr "Копіювати"
@@ -12119,6 +12120,7 @@ msgid "No screen for now"
 msgstr "Поки без екрана"
 
 #: admin_portal/templates/admin_portal/devices.html:178
+#: admin_portal/templates/admin_portal/staff.html:205
 #: online_store/storefront.py:398
 #: online_store/templates/themes/neighbourhood/catering.html:32
 #: pos_server/templates/pos_server/drawer.html:90
@@ -16573,7 +16575,7 @@ msgid "Same shift on other days this week"
 msgstr "Така сама зміна в інші дні цього тижня"
 
 #: admin_portal/templates/admin_portal/staff.html:22
-#: admin_portal/templates/admin_portal/staff.html:152
+#: admin_portal/templates/admin_portal/staff.html:153
 msgid "Add staff"
 msgstr "Додати працівника"
 
@@ -16703,11 +16705,15 @@ msgstr "Задати"
 msgid "Email a reset link"
 msgstr "Надіслати посилання для скидання"
 
-#: admin_portal/templates/admin_portal/staff.html:130
+#: admin_portal/templates/admin_portal/staff.html:128
+msgid "Show a sign-in link"
+msgstr "Показати посилання для входу"
+
+#: admin_portal/templates/admin_portal/staff.html:131
 msgid "Staff since"
 msgstr "У персоналі з"
 
-#: admin_portal/templates/admin_portal/staff.html:134
+#: admin_portal/templates/admin_portal/staff.html:135
 msgid ""
 "Their account stays, along with their order history. They lose access to the "
 "register and admin, and drop off this list."
@@ -16715,11 +16721,11 @@ msgstr ""
 "Обліковий запис лишається разом з історією замовлень. Вони втратять доступ "
 "до каси й адмінпанелі та зникнуть із цього списку."
 
-#: admin_portal/templates/admin_portal/staff.html:143
+#: admin_portal/templates/admin_portal/staff.html:144
 msgid "Pick someone on the left, or add staff."
 msgstr "Виберіть когось ліворуч або додайте працівника."
 
-#: admin_portal/templates/admin_portal/staff.html:153
+#: admin_portal/templates/admin_portal/staff.html:154
 msgid ""
 "Staff are accounts marked as staff. Promote someone who already has an "
 "account, or make a new one."
@@ -16727,35 +16733,35 @@ msgstr ""
 "Персонал — це облікові записи з позначкою працівника. Підвищте того, хто вже "
 "має обліковий запис, або створіть новий."
 
-#: admin_portal/templates/admin_portal/staff.html:156
+#: admin_portal/templates/admin_portal/staff.html:157
 msgid "Existing account"
 msgstr "Наявний обліковий запис"
 
-#: admin_portal/templates/admin_portal/staff.html:157
+#: admin_portal/templates/admin_portal/staff.html:158
 msgid "New account"
 msgstr "Новий обліковий запис"
 
-#: admin_portal/templates/admin_portal/staff.html:160
+#: admin_portal/templates/admin_portal/staff.html:161
 msgid "Search accounts by name or email"
 msgstr "Шукати облікові записи за іменем або ел. поштою"
 
-#: admin_portal/templates/admin_portal/staff.html:160
+#: admin_portal/templates/admin_portal/staff.html:161
 msgid "Search accounts"
 msgstr "Пошук облікових записів"
 
-#: admin_portal/templates/admin_portal/staff.html:161 misc_tools/emails.py:56
+#: admin_portal/templates/admin_portal/staff.html:162 misc_tools/emails.py:56
 msgid "Accounts"
 msgstr "Облікові записи"
 
-#: admin_portal/templates/admin_portal/staff.html:169
+#: admin_portal/templates/admin_portal/staff.html:170
 msgid "No account matches."
 msgstr "Жоден обліковий запис не підходить."
 
-#: admin_portal/templates/admin_portal/staff.html:169
+#: admin_portal/templates/admin_portal/staff.html:170
 msgid "Make a new one"
 msgstr "Створити новий"
 
-#: admin_portal/templates/admin_portal/staff.html:172
+#: admin_portal/templates/admin_portal/staff.html:173
 msgid ""
 "Only accounts that aren’t staff yet are shown. Their order history stays "
 "with them."
@@ -16763,21 +16769,41 @@ msgstr ""
 "Показано лише облікові записи, які ще не належать персоналу. Їхня історія "
 "замовлень лишається з ними."
 
-#: admin_portal/templates/admin_portal/staff.html:180
+#: admin_portal/templates/admin_portal/staff.html:181
 msgid "They’ll sign in with this"
 msgstr "Вони входитимуть із цим"
 
-#: admin_portal/templates/admin_portal/staff.html:183
+#: admin_portal/templates/admin_portal/staff.html:184
 msgid "Email them an invite"
 msgstr "Надіслати запрошення"
 
-#: admin_portal/templates/admin_portal/staff.html:183
-msgid "They set their own password from the link"
-msgstr "Вони самі задають пароль за посиланням"
+#: admin_portal/templates/admin_portal/staff.html:184
+msgid ""
+"They set their own password from the link. Off: you get the link to send "
+"them yourself."
+msgstr "Вони самі задають пароль за посиланням. Якщо вимкнено, ви отримаєте посилання, щоб надіслати його самостійно."
 
-#: admin_portal/templates/admin_portal/staff.html:188
+#: admin_portal/templates/admin_portal/staff.html:189
 msgid "You can add roles and groups on their profile next."
 msgstr "Далі ви зможете додати ролі й групи в їхньому профілі."
+
+#: admin_portal/templates/admin_portal/staff.html:199
+#, python-format
+msgid "%(name)s’s sign-in link"
+msgstr "Посилання для входу: %(name)s"
+
+#: admin_portal/templates/admin_portal/staff.html:200
+msgid ""
+"Send it to them yourself, by text or chat. They open it to choose their "
+"password, then they’re signed in."
+msgstr "Надішліть його самі, повідомленням або в чаті. Відкривши його, вони оберуть пароль і одразу ввійдуть."
+
+#: admin_portal/templates/admin_portal/staff.html:204
+#, python-format
+msgid ""
+"It works once, until %(until)s. Anyone with it can set this password, so "
+"send it only to them."
+msgstr "Посилання спрацює один раз, до %(until)s. Будь-хто з ним може задати цей пароль, тож надсилайте його лише цій людині."
 
 #: admin_portal/templates/admin_portal/staff_card_print.html:53
 #: admin_portal/templates/admin_portal/staffcards.html:131
@@ -17341,8 +17367,8 @@ msgstr "Введіть адресу ел. пошти."
 msgid "The receipt wasn't sent: %(error)s"
 msgstr "Чек не надіслано: %(error)s"
 
-#: admin_portal/views.py:217 admin_portal/views.py:1895
-#: admin_portal/views.py:1900
+#: admin_portal/views.py:217 admin_portal/views.py:1905
+#: admin_portal/views.py:1910
 msgid ""
 "Email isn’t set up yet (connect listmonk on the Email page), so nothing was "
 "sent."
@@ -17857,31 +17883,34 @@ msgstr "PIN для каси (%(name)s) видалено."
 msgid "%(name)s’s password is changed."
 msgstr "Пароль (%(name)s) змінено."
 
-#: admin_portal/views.py:1609
+#: admin_portal/views.py:1608
+msgid "They already have a password. Email them a reset link instead."
+msgstr "У них уже є пароль. Натомість надішліть їм посилання для скидання на пошту."
+
+#: admin_portal/views.py:1614
 msgid "They have no email to send a link to. Set a password here instead."
 msgstr "У них немає ел. пошти, щоб надіслати посилання. Задайте пароль тут."
 
-#: admin_portal/views.py:1613
+#: admin_portal/views.py:1618
 #, python-format
 msgid "A link to set a new password was sent to %(email)s."
 msgstr "Посилання для встановлення нового пароля надіслано на %(email)s."
 
-#: admin_portal/views.py:1615
+#: admin_portal/views.py:1620
 msgid ""
 "The email couldn’t be sent. Check listmonk, or set a password here instead."
 msgstr "Не вдалося надіслати лист. Перевірте listmonk або задайте пароль тут."
 
-#: admin_portal/views.py:1626
+#: admin_portal/views.py:1631
 msgid "Staff saved."
 msgstr "Персонал збережено."
 
-#: admin_portal/views.py:1642 admin_portal/views.py:1657
-#: admin_portal/views.py:1917
+#: admin_portal/views.py:1649 admin_portal/views.py:1927
 #, python-format
 msgid "%(name)s added to staff. Pick their roles and groups."
 msgstr "%(name)s додано до персоналу. Виберіть ролі та групи."
 
-#: admin_portal/views.py:1654
+#: admin_portal/views.py:1661
 msgid ""
 "The invite email couldn’t be sent. Check listmonk, then try again from their "
 "profile."
@@ -17889,7 +17918,7 @@ msgstr ""
 "Не вдалося надіслати запрошення. Перевірте listmonk, а потім спробуйте ще "
 "раз із профілю."
 
-#: admin_portal/views.py:1656
+#: admin_portal/views.py:1664
 #, python-format
 msgid ""
 "%(name)s added to staff, invite sent to %(email)s. Pick their roles and "
@@ -17898,7 +17927,7 @@ msgstr ""
 "%(name)s додано до персоналу, запрошення надіслано на %(email)s. Виберіть "
 "ролі та групи."
 
-#: admin_portal/views.py:1698
+#: admin_portal/views.py:1708
 #, python-format
 msgid "Schedule published. %(n)d staff member told about their changes."
 msgid_plural "Schedule published. %(n)d staff told about their changes."
@@ -17907,20 +17936,20 @@ msgstr[1] "Розклад опубліковано. %(n)d працівників
 msgstr[2] "Розклад опубліковано. %(n)d працівників повідомлено про зміни."
 msgstr[3] "Розклад опубліковано. %(n)d працівника повідомлено про зміни."
 
-#: admin_portal/views.py:1721
+#: admin_portal/views.py:1731
 msgid "Pars saved. The coverage strip on Shifts uses them now."
 msgstr ""
 "Норми збережено. Смуга покриття на сторінці «Зміни» тепер їх використовує."
 
-#: admin_portal/views.py:1745
+#: admin_portal/views.py:1755
 msgid "Approved. The shifts moved and both of them get a notification."
 msgstr "Схвалено. Зміни переміщено, обоє отримають сповіщення."
 
-#: admin_portal/views.py:1746
+#: admin_portal/views.py:1756
 msgid "Declined. Both of them get a notification."
 msgstr "Відхилено. Обоє отримають сповіщення."
 
-#: admin_portal/views.py:1755
+#: admin_portal/views.py:1765
 #, python-format
 msgid ""
 "Approved. %(name)s gets a notification and %(n)d shift moved to open shifts."
@@ -17939,74 +17968,74 @@ msgstr[3] ""
 "Схвалено. %(name)s отримає сповіщення, а %(n)d зміни переміщено до відкритих "
 "змін."
 
-#: admin_portal/views.py:1757
+#: admin_portal/views.py:1767
 #, python-format
 msgid "Approved. %(name)s gets a notification."
 msgstr "Схвалено. %(name)s отримає сповіщення."
 
-#: admin_portal/views.py:1759
+#: admin_portal/views.py:1769
 #, python-format
 msgid "Declined. %(name)s gets a notification with your message."
 msgstr "Відхилено. %(name)s отримає сповіщення з вашим повідомленням."
 
-#: admin_portal/views.py:1760 online_store/work.py:350
+#: admin_portal/views.py:1770 online_store/work.py:350
 #, python-format
 msgid "Declined. %(name)s gets a notification."
 msgstr "Відхилено. %(name)s отримає сповіщення."
 
-#: admin_portal/views.py:1783
+#: admin_portal/views.py:1793
 msgid "Roles saved. Staff profiles show the changes."
 msgstr "Ролі збережено. Профілі персоналу показують зміни."
 
-#: admin_portal/views.py:1808
+#: admin_portal/views.py:1818
 msgid "Groups saved. Everyone in them has the new permissions straight away."
 msgstr "Групи збережено. Усі учасники одразу отримують нові дозволи."
 
-#: admin_portal/views.py:1834
+#: admin_portal/views.py:1844
 msgid "Staff cards saved. Registers use the new rules on the next scan."
 msgstr ""
 "Картки працівників збережено. Каси застосують нові правила під час "
 "наступного сканування."
 
-#: admin_portal/views.py:1889
+#: admin_portal/views.py:1899
 msgid "Customer changes saved."
 msgstr "Зміни клієнта збережено."
 
-#: admin_portal/views.py:1893
+#: admin_portal/views.py:1903
 #, python-format
 msgid "Password reset link sent to %(email)s."
 msgstr "Посилання для скидання пароля надіслано на %(email)s."
 
-#: admin_portal/views.py:1898
+#: admin_portal/views.py:1908
 #, python-format
 msgid "Verification email sent to %(email)s."
 msgstr "Лист для підтвердження надіслано на %(email)s."
 
-#: admin_portal/views.py:1911
+#: admin_portal/views.py:1921
 msgid "Your groups don’t let you change staff."
 msgstr "Ваші групи не дозволяють змінювати персонал."
 
-#: admin_portal/views.py:1922
+#: admin_portal/views.py:1932
 msgid "The email couldn’t be sent. Check listmonk, then try again."
 msgstr "Не вдалося надіслати лист. Перевірте listmonk і спробуйте ще раз."
 
-#: admin_portal/views.py:1945
+#: admin_portal/views.py:1955
 msgid "Coupons saved. Codes work at checkout right away."
 msgstr "Купони збережено. Коди одразу діють під час оформлення замовлення."
 
-#: admin_portal/views.py:1971
+#: admin_portal/views.py:1981
 msgid "Discounts saved. The register and online store pick them up right away."
 msgstr "Знижки збережено. Каса й онлайн-магазин одразу їх підхоплять."
 
-#: admin_portal/views.py:2018
+#: admin_portal/views.py:2028
 msgid "Designs saved. The online store and register show them right away."
 msgstr "Дизайни збережено. Онлайн-магазин і каса одразу їх покажуть."
 
-#: admin_portal/views.py:2053
+#: admin_portal/views.py:2063
 msgid "Give the store a name first."
 msgstr "Спершу дайте закладу назву."
 
-#: admin_portal/views.py:2058
+#: admin_portal/views.py:2068
 #, python-format
 msgid "%(name)s is live on your online store"
 msgstr "%(name)s тепер працює у вашому онлайн-магазині"
@@ -27572,7 +27601,7 @@ msgstr[3] "%(n)d гостя"
 msgid "At the counter"
 msgstr "На касі"
 
-#: switchboard/actions.py:287
+#: switchboard/actions.py:305
 msgid "Added through Switchboard"
 msgstr "Додано через Switchboard"
 

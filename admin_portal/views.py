@@ -1559,7 +1559,7 @@ def library_upload(request):
 
 # ---------- team ----------
 
-@admin_page("staff", edit={"create", "photoclear", "pin", "pinclear", "promote", "pwreset", "pwset", "save"}, delete={"remove"})
+@admin_page("staff", edit={"create", "photoclear", "pin", "pinclear", "promote", "pwlink", "pwreset", "pwset", "save"}, delete={"remove"})
 def staff(request):
     """Staff: the list and the selected profile, one form with Save (admin_portal/staff.py). Adding someone and their
     photo take effect straight away."""
@@ -1603,6 +1603,11 @@ def staff(request):
                     if person == request.user:
                         update_session_auth_hash(request, person)  # changing your own password keeps you signed in
                     messages.success(request, _("%(name)s’s password is changed.") % {"name": person.first_name or person.username})
+            elif person and op == "pwlink":
+                if person.has_usable_password():
+                    messages.error(request, _("They already have a password. Email them a reset link instead."))
+                else:
+                    st["link"] = staff_data.link_sheet(request, person)
             elif person and op == "pwreset":
                 from users.accounts import send_password_reset
                 if not person.email:
@@ -1634,6 +1639,8 @@ def staff(request):
             st["add"]["pick"] = None if st["add"].get("pick") == uid else uid
         elif op == "closeadd":
             st["add"] = None
+        elif op == "closelink":
+            st["link"] = None
         elif op == "promote" and st.get("add"):
             person = User.objects.filter(pk=st["add"].get("pick"), is_staff=False).first()
             if person:
@@ -1653,8 +1660,11 @@ def staff(request):
                         sent = False
                         messages.error(request, _("The invite email couldn’t be sent. Check listmonk, then try again from their profile."))
                 st.update(add=None, sel=person.id, q="", role="all")
-                messages.success(request, (_("%(name)s added to staff, invite sent to %(email)s. Pick their roles and groups.") if sent
-                                           else _("%(name)s added to staff. Pick their roles and groups.")) % {"name": person.first_name, "email": person.email})
+                if sent:
+                    messages.success(request, _("%(name)s added to staff, invite sent to %(email)s. Pick their roles and groups.")
+                                     % {"name": person.first_name, "email": person.email})
+                else:  # no email: the link they set their password with, to send some other way
+                    st["link"] = staff_data.link_sheet(request, person)
         else:
             toast = staff_data.apply_op(st, op, users, request.user)
             msg = msg or toast
@@ -1663,7 +1673,7 @@ def staff(request):
         staff_data.store(request.session, st)
         users = staff_data.staff_users()
     else:
-        st["add"] = st["confirm"] = None  # a fresh visit: the draft stays, the dialog and the "are you sure" don't
+        st["add"] = st["confirm"] = st["link"] = None  # a fresh visit: the draft stays, the dialogs and the "are you sure" don't
         staff_data.store(request.session, st)
     return page(request, "admin_portal/staff.html", "staff", {"s": staff_data.page(st, users, request.user)})
 
