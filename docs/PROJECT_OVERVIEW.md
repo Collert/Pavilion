@@ -829,8 +829,12 @@ shared styles in `admin_portal/static/admin_portal/admin.css`, one CSS file per 
   profiles are checked (first name, a valid email no other account uses). Owners: members are superusers, the last
   active owner can't leave the group or be removed, and nobody can turn off or remove themselves. **Add staff**
   promotes an existing account or makes a new one (username = email, no password) and can email an invite
-  (`staff_invite`) to `users/welcome/<uid>/<token>`, where they set a password (Django's reset token: one use, a few
-  days).
+  (`staff_invite`) to `users/welcome/<uid>/<token>`, where they set a password (Django's reset token: one use,
+  `PASSWORD_RESET_TIMEOUT`, 3 days). With the invite switched off, the link itself is shown in a sheet to send another
+  way (`staff.link_sheet`, kept in the page's state until closed); a profile without a password offers it again
+  ("Show a sign-in link", op `pwlink`). The add sheet is swapped in again on every change, so it carries
+  `data-appear` (no replayed entrance) and its button and email warning are `data-calc` (they follow the draft while
+  a field has focus); editor.js turns a `data-enable-on-input` button on as you type.
 - **Shifts** (`admin_shifts`, `shifts.py`, 2026-10-22): a week strip (shifts, hours and conflicts or open shifts
   per day) and one day's timeline, by staff or by role: open shifts on top, each person's shifts as blocks (dashed:
   open; ringed amber: unpublished; striped red: a conflict), their unavailability and time off hatched, hours this
@@ -1232,8 +1236,12 @@ people's workflows: add to them, never rename or remove.** People are matched be
     `staff.ensure` (`name`, `email`, optional `role`, `invite` → `staff_id`, `name`, `email`, `created`: what the Staff
     page's Add does, `admin_portal/staff.py`; a customer's account with that email becomes staff, else a new account
     with no password; a role by name comes with its starting groups, never Owners; owners are returned untouched),
-    `staff.invite` (`staff_id` → `sent`: the set-your-password email again; not for owners or deactivated accounts;
-    409 when email isn't connected), `team.on_now` (lookup: `count`, `names`, `on_break`, and `staff`: each person
+    `staff.invite` (`email`, optional `name`, `role` → `staff_id`, `name`, `email`, `created`, `sent`: the
+    set-your-password email, sent straight away; someone without a staff account gets one first, as `staff.ensure`
+    makes it, so `name` is needed then; not for owners or deactivated accounts; 409 when email isn't connected, and the
+    new account is rolled back), `staff.invite_link` (the same params → `created`, `link`, `expires_at`: the
+    set-your-password link answered instead of emailed; only for accounts without a password, so it can never take
+    over someone's sign-in; a customer account with a password is refused before it's promoted), `team.on_now` (lookup: `count`, `names`, `on_break`, and `staff`: each person
     with `role`, `clocked_in_at`, `on_break`, first in first), `staff.list` (lookup, optional `role`: the staff who can
     sign in, by name, with `roles`), `staff_card.list` (lookup, optional `include_retired`: the cards this connection
     issued, `IssuedCard`, newest first, with holder, `label`, `balance`, `active`), `staff_card.issue`

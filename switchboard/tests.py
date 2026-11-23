@@ -690,15 +690,55 @@ class MoreActionTests(Api, MenuFixture, TestCase):
 
     def test_invite_goes_to_staff_who_can_use_it(self):
         with mock.patch("misc_tools.email.send", return_value=True) as send:
-            answer = self.ok("staff.invite", {"staff_id": str(self.dana.pk)}, idempotency="i-1")
-        self.assertEqual(answer, {"staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org", "sent": True})
+            answer = self.ok("staff.invite", {"email": "dana@EXAMPLE.org"}, idempotency="i-1")
+        self.assertEqual(answer, {"staff_id": str(self.dana.pk), "name": "Dana Lee", "email": "Dana@example.org",
+                                  "created": False, "sent": True})
         self.assertEqual(send.call_args.args[:2], ("staff_invite", "Dana@example.org"))
         self.assertIn("/users/welcome/", send.call_args.args[2]["link"])
         with mock.patch("misc_tools.email.send", return_value=False):
-            self.assertError(self.call("staff.invite", {"staff_id": str(self.dana.pk)}), 409, "conflict", "Email isn’t set up")
-        owner = User.objects.create_superuser("boss", "boss@example.org", "x")
-        self.assertError(self.call("staff.invite", {"staff_id": str(owner.pk)}), 409, "conflict", "owner")
-        self.assertError(self.call("staff.invite", {"staff_id": str(self.maria.pk)}), 422, "invalid_params")  # a customer
+            self.assertError(self.call("staff.invite", {"email": "dana@example.org"}), 409, "conflict", "Email isn’t set up")
+        User.objects.create_superuser("boss", "boss@example.org", "x")
+        self.assertError(self.call("staff.invite", {"email": "boss@example.org"}), 409, "conflict", "owner")
+        self.dana.is_active = False
+        self.dana.save()
+        self.assertError(self.call("staff.invite", {"email": "dana@example.org"}), 409, "conflict", "Turn their account back on")
+
+    def test_invite_makes_the_account_first_when_there_is_none(self):
+        with mock.patch("misc_tools.email.send", return_value=True) as send:
+            answer = self.ok("staff.invite", {"email": "omar@example.org", "name": "Omar Haddad", "role": "barista"}, idempotency="i-2")
+        omar = User.objects.get(email="omar@example.org")
+        self.assertEqual(answer, {"staff_id": str(omar.pk), "name": "Omar Haddad", "email": "omar@example.org", "created": True, "sent": True})
+        self.assertTrue(omar.is_staff and not omar.has_usable_password())
+        self.assertEqual(list(Staff.objects.get(user=omar).roles.all()), [self.barista])
+        self.assertEqual(send.call_args.args[:2], ("staff_invite", "omar@example.org"))
+        # without a name there's nothing to make the account with; an email that fails leaves no account behind
+        self.assertError(self.call("staff.invite", {"email": "ivy@example.org"}), 422, "invalid_params", "Name is missing")
+        with mock.patch("misc_tools.email.send", return_value=False):
+            self.assertError(self.call("staff.invite", {"email": "ivy@example.org", "name": "Ivy"}), 409, "conflict")
+        self.assertFalse(User.objects.filter(email="ivy@example.org").exists())
+
+    def test_sign_in_link_for_someone_without_a_password(self):
+        with mock.patch("misc_tools.email.send") as send:
+            answer = self.ok("staff.invite_link", {"email": "omar@example.org", "name": "Omar Haddad"}, idempotency="l-1")
+        send.assert_not_called()
+        omar = User.objects.get(email="omar@example.org")
+        self.assertEqual((answer["staff_id"], answer["created"]), (str(omar.pk), True))
+        self.assertIn("/users/welcome/", answer["link"])
+        self.assertGreater(datetime.datetime.fromisoformat(answer["expires_at"]), timezone.now() + datetime.timedelta(days=2))
+        # asking again for the same person (still no password) gives a link to the same account
+        again = self.ok("staff.invite_link", {"email": "OMAR@example.org"}, idempotency="l-2")
+        self.assertEqual((again["staff_id"], again["created"]), (str(omar.pk), False))
+        # the link works once, on the welcome page
+        path = answer["link"].split("testserver", 1)[1]
+        self.assertEqual(self.client.post(path, {"password1": "plum-ladder-91", "password2": "plum-ladder-91"}).status_code, 302)
+        self.client.logout()
+        self.assertEqual(self.client.get(path).status_code, 400)
+        # someone with a password only ever gets a link in their own inbox; customers with one aren't promoted
+        self.assertError(self.call("staff.invite_link", {"email": "omar@example.org"}), 409, "conflict", "already has a password")
+        self.assertError(self.call("staff.invite_link", {"email": "dana@example.org"}), 409, "conflict", "already has a password")
+        self.assertError(self.call("staff.invite_link", {"email": self.maria.email}), 409, "conflict", "already has a password")
+        self.maria.refresh_from_db()
+        self.assertFalse(self.maria.is_staff)
 
     def test_who_is_clocked_in(self):
         self.assertEqual(self.ok("team.on_now"), {"count": 0, "names": "", "on_break": 0, "staff": []})

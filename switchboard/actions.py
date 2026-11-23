@@ -160,9 +160,10 @@ def staff_find(call, p):
     return {"found": True, **_person(user), "roles": ", ".join(r.name for r in _roles(user)), "active": user.is_active}
 
 
-def staff_ensure(call, p):
-    """What the admin's Staff page does when someone is added (admin_portal/staff.py): an existing account becomes
-    staff, else a new one is made without a password. Owners are never changed."""
+def _staff_account(p, check=None):
+    """What the admin's Staff page does when someone is added (admin_portal/staff.py): (user, created). An existing
+    account becomes staff, else a new one is made without a password (that needs `name`). Owners are never changed.
+    `check(account)` may refuse an account that exists before anything is changed."""
     from admin_portal import staff as staff_page
     email = p["email"]
     if not EMAIL.match(email) or len(email) > 150:
@@ -173,21 +174,32 @@ def staff_ensure(call, p):
     if user is None:
         created = True
         account = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).order_by("id").first()
+        if account is not None and account.is_superuser:
+            raise conflict("That email belongs to an owner’s account, which Switchboard can’t change.")
+        if account is not None and check:
+            check(account)
         if account is not None:  # a customer's account: it becomes staff, as "Existing account" does on the Staff page
-            if account.is_superuser:
-                raise conflict("That email belongs to an owner’s account, which Switchboard can’t change.")
             user = staff_page.promote(account)
         else:
+            if not p.get("name"):
+                raise invalid("Name is missing. It’s needed to make an account for someone who has none.")
             first, _sep, last = p["name"].partition(" ")
             user, problem = staff_page.create({"first": first, "last": last.strip(), "email": email})
             if user is None:
                 raise invalid(str(problem))
+    elif check:
+        check(user)
     if role is not None and not user.is_superuser:
         profile = staff_page.profile(user)
         if not profile.roles.filter(pk=role.pk).exists():
             profile.roles.add(role)
             owners = staff_page.owners_group()  # a role never makes an owner here
             user.groups.add(*[g for g in role.groups.all() if owners is None or g.pk != owners.pk])
+    return user, created
+
+
+def staff_ensure(call, p):
+    user, created = _staff_account(p)
     if created and p.get("invite"):
         request = call.request
         transaction.on_commit(lambda: _invite(request, user))
@@ -309,24 +321,42 @@ def _tell(user_id):
         logging.getLogger(__name__).warning("Couldn't email user %s their new shift", user_id, exc_info=True)
 
 
-def staff_invite(call, p):
-    """The Staff page's Invite: the link where they set their own password (admin_portal/staff.py: invite)."""
-    from admin_portal import staff as staff_page
-    from misc_tools.email import EmailError
-    user = staff_by_id(p["staff_id"])
+def _can_invite(user):
     if user.is_superuser:
         raise conflict("That is an owner’s account, which Switchboard can’t change.")
     if not user.is_active:
         raise conflict(f"{full_name(user)} can’t sign in to Pavilion any more. Turn their account back on on the Staff page first.")
-    if not user.email:
-        raise conflict(f"{full_name(user)} has no email address in Pavilion.")
+
+
+def staff_invite(call, p):
+    """The Staff page's invite (admin_portal/staff.py: invite), by email: someone without a staff account gets one first.
+    Sent straight away, so a failed email is an error and the new account is rolled back with it."""
+    from admin_portal import staff as staff_page
+    from misc_tools.email import EmailError
+    user, created = _staff_account(p, check=_can_invite)
     try:
         sent = bool(staff_page.invite(call.request, user))
     except EmailError as e:
         raise conflict(f"The invitation wasn’t sent: {e}")
     if not sent:
         raise conflict(NO_EMAIL)
-    return {**_person(user), "sent": True}
+    return {**_person(user), "created": created, "sent": True}
+
+
+def _no_password_yet(user):
+    _can_invite(user)
+    if user.has_usable_password():
+        raise conflict(f"{full_name(user)} already has a password, so a sign-in link would replace it. "
+                       "Use Email a staff invitation instead: it goes to their own address.")
+
+
+def staff_invite_link(call, p):
+    """The link from the Staff page's "Show a sign-in link" (admin_portal/staff.py: welcome_link), answered instead of
+    emailed. Only for accounts without a password: a link that resets someone's password must go to their own inbox."""
+    from admin_portal import staff as staff_page
+    user, created = _staff_account(p, check=_no_password_yet)
+    return {**_person(user), "created": created, "link": staff_page.welcome_link(call.request, user),
+            "expires_at": iso(staff_page.link_expires())}
 
 
 def team_on_now(call, p):
@@ -1083,7 +1113,7 @@ def announcement_post(call, p):
 
 
 RUN = {
-    "staff.find": staff_find, "staff.ensure": staff_ensure, "staff.invite": staff_invite, "team.on_now": team_on_now,
+    "staff.find": staff_find, "staff.ensure": staff_ensure, "staff.invite": staff_invite, "staff.invite_link": staff_invite_link, "team.on_now": team_on_now,
     "staff.list": staff_list, "staff_card.list": staff_card_list, "staff_card.issue": staff_card_issue,
     "shift.add": shift_add, "shift.cancel": shift_cancel, "shift.next": shift_next, "shift.on_day": shift_on_day,
     "shift.not_clocked_in": shift_not_clocked_in, "time_off.upcoming": time_off_upcoming, "time_off.request": time_off_request,

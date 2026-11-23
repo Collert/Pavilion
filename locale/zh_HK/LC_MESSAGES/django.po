@@ -19811,9 +19811,9 @@ msgstr "查找員工、顧客、訂單、菜式、存貨、禮品卡、優惠券
 
 #: admin_portal/switchboard.py
 msgid ""
-"Add staff accounts, issue staff cards, add and cancel shifts, and ask for "
-"time off"
-msgstr "新增員工帳戶、發出員工卡、加入及取消更次，以及代員工申請放假"
+"Add staff accounts and make their sign-in links, issue staff cards, add and "
+"cancel shifts, and ask for time off"
+msgstr "新增員工帳戶並產生登入連結、發出員工卡、加入及取消更次，以及代員工申請放假"
 
 #: admin_portal/switchboard.py
 msgid ""

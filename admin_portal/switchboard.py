@@ -19,7 +19,7 @@ def allows() -> list:
     """What a connection lets Switchboard do, for this page and the consent page."""
     return [_("Start workflows from what happens here: orders, deliveries, catering, gift cards, stock, the cash drawer, staff and the schedule"),
             _("Look up staff, customers, orders, dishes, stock, gift cards, coupons and a day’s sales"),
-            _("Add staff accounts, issue staff cards, add and cancel shifts, and ask for time off"),
+            _("Add staff accounts and make their sign-in links, issue staff cards, add and cancel shifts, and ask for time off"),
             _("Issue gift cards by email, add money to them or freeze them, and create coupon codes"),
             _("Turn dishes and stations off or on, change stock counts, pause online orders and add closures"),
             _("Announce on the screens, and email receipts, invitations and catering messages")]
