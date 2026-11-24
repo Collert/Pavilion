@@ -152,6 +152,16 @@ class BrowserErrorsTests(TestCase):
     def test_can_be_turned_off(self):
         self.assertNotContains(self.client.get("/users/login", HTTP_HOST="localhost"), "pv-browser-errors")
 
+    def test_network_failures_are_not_reported(self):
+        """A fetch that never reached the server is the network, not a bug: every browser's wording is ignored."""
+        from django.contrib.staticfiles import finders
+
+        with open(finders.find("js/browser-errors.js"), encoding="utf-8") as script:
+            source = script.read()
+        for wording in ("Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource"):
+            self.assertIn(f'"{wording}"', source)
+        self.assertIn("...NETWORK_FAILURES", source.split("ignoreErrors:")[1].split("\n")[0])
+
 
 
 @override_settings(THROTTLE=True, THROTTLE_REQUESTS=5, THROTTLE_WINDOW=10)
