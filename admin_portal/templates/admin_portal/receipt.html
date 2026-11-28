@@ -1,21 +1,33 @@
 {% load static i18n admin_tags %}<!DOCTYPE html>
-{% comment %}A printable receipt for one order (admin_portal/views.py: order_receipt). print.js opens the print dialog.{% endcomment %}
-<html lang="en">
+{% comment %}A printable receipt for one order (admin_portal/views.py: order_receipt, pos_server/history.py:
+history_print). It loads in the page's hidden print frame (pos_server/_print_frame.html) and print.js prints it.{% endcomment %}
+{% get_current_language as LANGUAGE_CODE %}<html lang="{{ LANGUAGE_CODE }}">
 <head>
     {% include "pos_server/_browser_errors.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% blocktrans with n=d.order.id %}Receipt · order #{{ n }}{% endblocktrans %}</title>
     <style>
-        body { margin: 0; background: #FFFFFF; color: #000000; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
-        .receipt { width: 300px; margin: 24px auto; }
-        h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
+        /* Sized for receipt printers. The page takes the printer's paper (80 or 58 mm rolls; the driver's paper size
+           decides) with no margins, and the receipt fills its printable width up to 80 mm, so it's centred and fits
+           without changing the scale. On screen it shows at roll width. */
+        @page { margin: 0; }
+        html, body { margin: 0; padding: 0; background: #FFFFFF; color: #000000; }
+        body { font: 10pt/1.35 ui-monospace, Menlo, Consolas, "Courier New", monospace;
+               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .receipt { box-sizing: border-box; width: 72mm; max-width: 100%; margin: 24px auto; padding: 0 2mm; }
+        h1 { font-size: 12pt; text-align: center; margin: 0 0 1mm; overflow-wrap: anywhere; }
         .center { text-align: center; }
-        .row { display: flex; justify-content: space-between; gap: 12px; }
-        .mods { padding-left: 2ch; color: #444444; }
-        hr { border: none; border-top: 1px dashed #000000; margin: 10px 0; }
-        .big { font-weight: 700; font-size: 15px; }
-        @media print { .receipt { margin: 0; } }
+        .row { display: flex; justify-content: space-between; align-items: baseline; gap: 2mm; }
+        .row > :first-child { min-width: 0; overflow-wrap: anywhere; }
+        .row > :last-child { flex: none; white-space: nowrap; }
+        .mods { padding-left: 2ch; overflow-wrap: anywhere; }
+        hr { border: none; border-top: 1px dashed #000000; margin: 2.5mm 0; }
+        .big { font-weight: 700; font-size: 11pt; }
+        .end { padding-bottom: 6mm; }  /* room above the cutter */
+        @media print {
+            .receipt { width: 100%; max-width: 80mm; margin: 0 auto; padding: 2mm 3mm 0; }
+        }
     </style>
     <script type="module" src="{% static 'admin_portal/print.js' %}"></script>
     {% include "pos_server/_favicon.html" %}
@@ -34,7 +46,7 @@
     <hr>
     {% for p in d.payments %}<div class="row"><span>{{ p.label }}</span><span>{{ p.amount|money }}</span></div>{% endfor %}
     <hr>
-    <div class="center">{% trans "Thank you!" %}</div>
+    <div class="center end">{% trans "Thank you!" %}</div>
 </div>
 </body>
 </html>

@@ -90,7 +90,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
             </div>
         </div>
         <div class="hist-d-foot">
-            <form method="post" action="{% url 'register_history_print' sel.id %}" target="_blank">{% csrf_token %}
+            <form method="post" action="{% url 'register_history_print' sel.id %}" target="receipt-print">{% csrf_token %}
                 <button class="btn btn-primary hist-print">{% icon "M7 9V4h10v5 M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2 M7 14h10v6H7z" 22 %}{% trans "Print receipt" %}</button>
             </form>
             <div class="hist-d-row">
@@ -201,6 +201,7 @@ live-page.js: filters and rows are links, the sheets open from the address (?she
 {% endblock %}
 
 {% block scripts %}
+{% include "pos_server/_print_frame.html" %}
 <script type="module">
     import { livePage } from "{% static 'js/live-page.js' %}";
     livePage({ topics: ["orders"] });

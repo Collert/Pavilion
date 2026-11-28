@@ -1,0 +1,7 @@
+{% comment %}
+Where "Print receipt" forms post (target="receipt-print"), so the receipt prints from this page without a new tab:
+the receipt loads here and its print.js prints this frame. Keep it outside every data-region so a live swap can't
+remove it mid-print. Kept off-screen rather than display:none, which some browsers won't print from.
+{% endcomment %}
+<iframe name="receipt-print" title="" aria-hidden="true" tabindex="-1"
+        style="position: fixed; left: -10000px; top: 0; width: 80mm; height: 10px; border: 0;"></iframe>

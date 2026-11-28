@@ -402,6 +402,9 @@ class OrderPageTests(AdminFixture, TestCase):
         response = self.client.post(reverse("admin_order_print", args=[self.order.id]))
         self.assertRedirects(response, reverse("admin_order_receipt", args=[self.order.id]))
         self.assertEqual(ReceiptLog.objects.get().channel, ReceiptLog.PRINT)
+        page = self.client.get(reverse("admin_order", args=[self.order.id])).content.decode()
+        self.assertIn('target="receipt-print"', page)  # prints from a hidden frame, not a new tab
+        self.assertIn('<iframe name="receipt-print"', page)
 
     def test_sending_a_receipt(self):
         url = reverse("admin_order_send", args=[self.order.id])

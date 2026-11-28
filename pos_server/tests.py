@@ -1415,6 +1415,16 @@ class HistoryTests(MenuFixture, TestCase):
         self.assertEqual(printed.status_code, 200)
         self.assertEqual(list(ReceiptLog.objects.values_list("channel", flat=True).order_by("id")), [ReceiptLog.EMAIL, ReceiptLog.PRINT])
 
+    def test_print_stays_on_the_page(self):
+        """Printing a receipt loads it in the page's hidden frame (no new tab), and the receipt can be framed."""
+        page = self.client.get(self.url, {"sel": self.order.id}).content.decode()
+        self.assertIn('target="receipt-print"', page)
+        self.assertIn('<iframe name="receipt-print"', page)
+        self.assertNotIn('target="_blank"', page)
+        printed = self.client.post(reverse("register_history_print", args=[self.order.id]))
+        self.assertNotEqual(printed.headers.get("X-Frame-Options"), "DENY")
+        self.assertContains(printed, "@page { margin: 0; }")
+
     def test_live_regions_follow_the_day_and_the_sheet(self):
         """Issue #62: the day buttons and the search form's hidden day are live regions (live-page.js only swaps
         regions, so they used to stay on the first day), and the refund sheet is marked data-appear so swapping it

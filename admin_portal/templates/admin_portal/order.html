@@ -3,7 +3,8 @@
 {% comment %}
 One retail order (design: AdminOrders, order state; admin_portal/orders.py: order_page). The send-receipt and refund
 sheets are this page with ?sheet=send / ?sheet=refund: every choice in them is a GET link or submit, so the server
-works out the refund total; the final button POSTs. Print opens the printable receipt in a new tab.
+works out the refund total; the final button POSTs. Print loads the printable receipt in a hidden frame
+(pos_server/_print_frame.html), which prints it.
 {% endcomment %}
 {% block title %}{% blocktrans with n=d.order.id %}Order #{{ n }}{% endblocktrans %}{% endblock %}
 {% block head %}<link href="{% static 'admin_portal/orders.css' %}" rel="stylesheet">{% endblock %}
@@ -25,7 +26,7 @@ works out the refund total; the final button POSTs. Print opens the printable re
         <span class="pager-label small">{% blocktrans with p=d.position n=d.count %}{{ p }} of {{ n }}{% endblocktrans %}</span>
         {% if d.older %}<a class="pager-btn" href="{% url 'admin_order' d.older.id %}" aria-label="{% trans 'Older order' %}">{% icon "chevron" 18 2.4 %}</a>{% else %}<span class="pager-btn off">{% icon "chevron" 18 2.4 %}</span>{% endif %}
     </div>
-    <form method="post" action="{% url 'admin_order_print' o.id %}" target="_blank">{% csrf_token %}
+    <form method="post" action="{% url 'admin_order_print' o.id %}" target="receipt-print">{% csrf_token %}
         <button class="btn-light">{% icon "print" 18 %}{% trans "Print receipt" %}</button>
     </form>
     <a class="btn-dark" href="?sheet=send" data-live>{% icon "M4 12 20 4l-6 16-3-7z M11 13l9-9" 18 %}{% trans "Send receipt" %}</a>
@@ -232,3 +233,5 @@ works out the refund total; the final button POSTs. Print opens the printable re
 </div>
 {% endwith %}
 {% endblock %}
+
+{% block scripts %}{% include "pos_server/_print_frame.html" %}{% endblock %}

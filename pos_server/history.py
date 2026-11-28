@@ -5,7 +5,7 @@ and from there print, email or refund it. The same data and refund rules as the 
 
 GET ?date=today|yesterday|week&status=all|paid|refunds|voided&q=&page=&sel=<order id>
     &sheet=send|refund (+ the refund sheet's mode, q_<item id>, reason, to)
-POST op=refund|send on the same address; print posts to register_history_print (a new tab with the receipt).
+POST op=refund|send on the same address; print posts to register_history_print (into the page's hidden print frame, which prints the receipt).
 """
 from urllib.parse import urlencode
 
